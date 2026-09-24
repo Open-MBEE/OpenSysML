@@ -1,0 +1,15 @@
+{
+  "rpc": "RunDocumentQuery",
+  "instantiate": ["Lamps::lamp"],
+  "query_id": "Lamps::CurrentStates",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "Lamps::lamp"}}]}
+  ],
+  "expected_columns": ["machine", "statePath", "region"],
+  "expected_rows": [
+    {
+      "element": {"kind": "state", "value": "Lamps::lamp.lp in off ()"},
+      "cells": [[{"kind": "string_value", "value": "lp"}], [{"kind": "string_value", "value": "off"}], [{"kind": "string_value", "value": ""}]]
+    }
+  ]
+}

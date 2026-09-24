@@ -3,7 +3,7 @@
 Status: **implemented, read and write** — the `DiagramLayout` library, the semantic
 side table that resolves a position per view, the geometry the rendering tree carries,
 what the Mermaid, text and Graphviz DOT writers make of it, the LSP fields, the
-validation pass, and the write-back: `internal/core/edit` sets, updates and clears the
+validation pass, and the write-back: `internal/check/edit` sets, updates and clears the
 annotations source-preservingly, `opensysml/applyModelEdit` exposes that as `setLayout`,
 `setRoute` and `setCanvas`, and the VS Code diagram panel writes a `Layout` when a node
 is dragged and a `Route` when an edge is. Open: the OMG proposal. This note records the
@@ -45,7 +45,7 @@ model changes: its renderings are byte-identical to what they were.
 ## The metadata library
 
 Three metadata definitions, shipped as a non-normative OpenSysML library extension in the
-same tier as `IdentityMetadata` (`internal/core/libs/stdlib/OpenSysML
+same tier as `IdentityMetadata` (`internal/workspace/libs/stdlib/OpenSysML
 Libraries/DiagramLayout.sysml`, counted by the stdlib conformance gate with the other
 extensions):
 
@@ -167,7 +167,7 @@ With no view — the `#tree`, `#interconnection:X` pseudo-views and the LSP's re
 document — only the element-level fallback applies, since there is no view body to look
 in.
 
-The resolution is a lazy, memoized side-table query in `internal/core/semantics/layout.go`
+The resolution is a lazy, memoized side-table query in `internal/semantic/semantics/layout.go`
 (`Model.LayoutOf`, `Model.RouteOf`, `Model.CanvasOf`, over `Model.LayoutSitesOf`) built
 on the metadata side table the element filters and identity annotations already use
 (`Model.ElementMetadataOf`, `AnnotationSite.Scope`, `AnnotationSite.About`). A view's body
@@ -205,12 +205,12 @@ flow.
 
 ### Validation (a constraint-tier pass)
 
-`internal/core/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
+`internal/check/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
 
 | Code | Severity | When |
 |---|---|---|
 | `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
-| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), or a binding that is not a constant of the attribute's kind. |
+| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
 | `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. |
 | `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. |
 
@@ -243,9 +243,19 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   ([the LSP reference](../reference/lsp.md)): `metadata Layout about … { x = …; y = …;
   }` into the view body when the operation names a view, inline into the element's own
   body when it does not, updated in place when one is already stated and removed with
-  its line when cleared. The VS Code panel draws its own SVG from the geometry, lays out
-  what the model does not place, and writes one edit per drag, so the editor's undo
-  puts a node back. A model nobody has dragged in keeps exactly its bytes.
+  its line when cleared. Each annotation goes into the workspace document that declares
+  what holds it, whichever document the request came from: a view-local `Layout` or
+  `Route` and a `Canvas` into the view's document, an inline `Layout` or `Route` into
+  the element's, so a view that exposes another file's parts is placed without touching
+  that file, and a document drawn directly places what it draws from another file in
+  that file. The answer is one `WorkspaceEdit` with a versioned `TextDocumentEdit` per
+  document changed, validated together, and one with no edits per document read and left
+  as it was, so the client applies nothing once any has moved; a bundled library file,
+  or a document the index holds without its source, is never written — the operation
+  refuses, naming the file. The VS Code panel draws its own SVG from the geometry, lays
+  out what the model does not place, and writes one edit per drag, so the editor's undo
+  puts a node back, in every file at once. A model nobody has dragged in keeps exactly
+  its bytes.
 - **RDF / Flexo.** Metadata already maps; `Layout`, `Route` and `Canvas` ride along as
   ordinary metadata usages with no change to the mapping.
 - **Other tools.** Any conforming implementation parses and preserves the annotations,

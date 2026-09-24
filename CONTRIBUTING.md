@@ -21,13 +21,22 @@ make build  # builds bin/sysml, bin/sysml-lsp, and bin/sysml-grpc with version i
 make test   # runs all tests
 make lint   # runs staticcheck and gosec, as CI does
 
-./scripts/download-training-examples.sh   # fetch the OMG corpus the gate needs
+./scripts/download-training-examples.sh   # fetch the OMG training corpus
+./scripts/download-pilot-corpora.sh       # fetch the three OMG pilot corpora
+./scripts/download-pilot-library-xmi.sh   # fetch the pilot's XMI of the standard library
+./scripts/download-pssm-suite.sh          # fetch the OMG PSSM test suite
 ```
 
-The OMG training-corpus gate (`internal/core/model/training_examples_test.go`) skips while
-`examples/sysml-v2-training/` is absent, so run the download script once before trusting a
-local `make test`. CI runs the script itself and sets `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`,
-which makes a missing corpus a failure there instead of a skip.
+The gates over those downloads (`tests/corpus/training_examples_test.go`,
+`tests/corpus/pilot_corpora_test.go`, `tests/identity/pilot_library_xmi_test.go`,
+`tests/corpus/pssm_migration_test.go`)
+skip while their corpus is absent, so run the four scripts once before trusting a local
+`make test`; a corpus already at the pin is left alone. CI runs the scripts itself and sets
+`OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1`,
+`OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1` and `OPENSYSML_REQUIRE_PSSM_SUITE=1`, which make a
+missing corpus a failure there instead of a skip; an environment that sets any of them must run
+the matching script first. See [docs/project/pilot-corpora.md](docs/project/pilot-corpora.md)
+and [docs/project/pssm-migration.md](docs/project/pssm-migration.md).
 
 ## Development Workflow
 
@@ -85,15 +94,15 @@ go test -race ./...
 make test-short
 
 # Specific package
-go test ./internal/core/parser
+go test ./internal/syntax/parser
 ```
 
 **Parser-specific tests:** When modifying the parser, ensure the four-layer test contract passes:
 
-1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/core/libs`
-2. **Golden ASTs:** `go test -run TestGolden ./internal/core/parser`
-3. **Negative tests:** `go test -run TestNegative ./internal/core/parser`
-4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./internal/core/parser`
+1. **Conformance gate:** `go test -run TestStdlibConformance ./internal/workspace/libs`
+2. **Golden ASTs:** `go test -run TestGolden ./tests/parser`
+3. **Negative tests:** `go test -run TestNegative ./tests/parser ./internal/syntax/parser`
+4. **Update goldens** (after intentional changes): `go test -run TestGolden -update ./tests/parser`
 
 See [docs/internals/architecture.md](docs/internals/architecture.md#parser-test-contract) for full details on the parser testing contract.
 
@@ -297,30 +306,24 @@ PRs must pass the GitHub Actions `Build and test` check, which requires:
 ```
 github.com/Open-MBEE/OpenSysML
 ├── cmd/                    # Binaries (sysml, sysml-lsp, sysml-grpc)
-├── internal/core/          # Core implementation
-│   ├── source/            # Source file handling
-│   ├── lexer/             # Tokenization
-│   ├── parser/            # Parsing
-│   ├── ast/               # AST nodes
-│   ├── symbols/           # Symbol tables
-│   ├── resolve/           # Name resolution
-│   ├── semantics/         # Type system
-│   ├── passes/            # Validation
-│   ├── lower/             # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/           # Execution
-│   ├── model/             # Workspace
-│   └── libs/              # Standard library bundling
-├── internal/lsp/          # LSP implementation
-├── internal/grpc/         # gRPC service implementation
-├── internal/repl/         # REPL implementation
-├── clients/python/        # Python client bindings (opensysml)
-├── clients/rust/          # Rust client (opensysml) and its conformance runner
+├── internal/              # One directory per layer; a package imports only the layers below it
+│   ├── syntax/            # source, diag, lexer, parser, ast, pack, format
+│   ├── semantic/          # symbols, resolve, suggest, semantics, identity, highlight, query
+│   ├── ir/                # lower, queryplan, docplan, view
+│   ├── check/             # passes, edit
+│   ├── exec/              # runtime, solve, smt, analysis, engines, objref
+│   ├── translate/         # rdf, export, xmi, migrate, convert, codegen, interop
+│   ├── doc/               # queryexec, docir, docrender, docpdf
+│   ├── workspace/         # model, libs, project, envvar
+│   └── frontend/          # protoconv, grpc, lsp, repl, stdiorpc, usage
+├── client/python/         # Python client bindings (opensysml)
+├── client/rust/           # Rust client (opensysml) and its conformance runner
 ├── docs/                  # Documentation
 │   ├── guide/             # The handbook, in reading order
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping
 │   ├── internals/         # Architecture, testing, performance, design notes
 │   └── project/           # Compliance, roadmap, releasing, measurements
-├── testdata/              # Test fixtures
+├── tests/                 # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/testdata, …)
 └── .circleci/             # CI configuration
 ```
 
@@ -345,20 +348,37 @@ When a change needs documenting:
 - **Explain in the guide, enumerate in the reference.** Do not repeat a flag table in both; link to it.
 - **Measured numbers have one home** (fixture, corpus and conversion counts live in
   [docs/project/](docs/project/)); elsewhere, link to it instead of restating a number that
-  will drift. Three release-gate surfaces are the deliberate exception, because
-  [docs/project/releasing.md](docs/project/releasing.md) checks the numbers they print:
-  `README.md`'s coverage line and status table, and the gate tables in
-  [docs/project/roadmap.md](docs/project/roadmap.md) and
-  [docs/project/training-examples.md](docs/project/training-examples.md). Recount all four
-  together, in one commit.
+  will drift. Two release-gate surfaces are the deliberate exception, because
+  [docs/project/releasing.md](docs/project/releasing.md) checks the numbers they print: the gate
+  tables in [docs/project/roadmap.md](docs/project/roadmap.md) and
+  [docs/project/training-examples.md](docs/project/training-examples.md). Recount both together,
+  in one commit.
+- **The test-suite figures are counted at build time, never committed.** The conformance-case,
+  golden-AST, golden-trace, negative-parser, robustness, gRPC and `Test`-function counts in the
+  compliance map's test inventory are `<!-- doc-counts:begin inventory-… -->` blocks whose
+  committed text names what is counted and states no figure; the site build
+  (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
+  `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
+  `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
+  test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
+  names the gates without their counts; the one suite figure still committed there is whether
+  every conformance case passes, which moves with `known_failures.txt` alone.
+- **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in
+  `internal/exec/runtime/robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>`
+  function (gRPC: `internal/frontend/grpc/robustness_<feature>_test.go`, `TestGRPCRobustness<Feature>`),
+  a new file for a new feature; `robustness_test.go` holds the shared cases and is not where new
+  ones go. `go test` discovers them like any test, and the build-time counters sum every
+  `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases never
+  edit one registry.
 - **The compliance-row census is counted at build time, never committed.** Adding or changing a
   `✅`/`⚠️`/`❌`/`⛔` row in [docs/project/spec-compliance.md](docs/project/spec-compliance.md) is the
   whole change: no header, `README.md` line or `docs/internals/architecture.md` line restates the
   count, so two branches that both add rows cannot conflict on one. The site build
   (`scripts/mkdocs_census.py`, run by `make docs`) counts the rows into the
   `<!-- doc-counts:begin census -->` block and refuses a `🚧` row, as do `make docs-counts` and
-  `go test ./cmd/pilot-diff`. `make docs-counts` still restates the externally refereed oracle
-  numbers from the baseline JSONs; run it only when a baseline moved.
+  `go test -C tools ./referee/diff`. `make docs-counts` still restates the externally refereed oracle
+  numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
+  when a baseline or `known_failures.txt` moved.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches
@@ -399,7 +419,7 @@ See [ARCHITECTURE.md](docs/internals/architecture.md) for detailed design.
 
 - **Unit tests:** Per-package (`*_test.go`)
 - **Integration tests:** Cross-package scenarios
-- **Fixtures:** Real SysML v2 models in `testdata/`
+- **Fixtures:** Real SysML v2 models in `tests/testdata/`
 - **Golden files:** Expected outputs (where applicable)
 
 ## Getting Help

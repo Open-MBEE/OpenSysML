@@ -117,6 +117,13 @@ it again at the prompt *replaces* it (`note: replaced package …`) rather than 
 loaded file, edit it and load it again. Tab completion completes paths after `%load` and `%save`,
 and meta-commands and symbol names everywhere else.
 
+A loaded file's imports are followed to its neighbors: when a file imports a root namespace that
+neither the loaded files nor the standard library declare, the `.sysml` and `.kerml` files beside
+and below it are searched for one declaring that name, and each is loaded too, its own imports
+followed the same way. `%load main.sysml` therefore brings in `parts/lib.sysml` when `main.sysml`
+imports `Lib::*` and only `parts/lib.sysml` declares `package Lib`, and leaves unrelated siblings
+alone; the same holds for a file named on the command line. Hidden directories are not searched.
+
 A file the parser cannot read is reported the same way as a typed declaration, with the
 diagnostic pointing at the offending line of the file. None of its contents enter the
 session, so the next submission is parsed against the model as it stood before the load. In
@@ -361,6 +368,7 @@ completes them: `#` offers the ids there are, `car.` the objects `car` holds.
 | what an expression is worth | `%eval`, `%eval in … : …` | [5](05-checking.md) |
 | what an object holds for each feature | `%instantiate`, `%features`, `%instances` | [5](05-checking.md) |
 | whether a check holds | `%constraint`, `%requirement`, `%satisfy`, `%calc` | [5](05-checking.md) |
+| whether every assertion about an object and the objects it holds is met | `%validate` | [5](05-checking.md#calculations-constraints-and-requirements) |
 | what an analysis case computes and whether its objective holds | `%analysis` | [6](06-behavior.md#running-an-analysis-case) |
 | what it computes across a range of one parameter | `%sweep`, `%samples` | [6](06-behavior.md#running-an-analysis-case) |
 | whether a check *can* hold at all (experimental, needs [z3 or cvc5](01-install.md#installing-a-solver-optional)) | `%check` | [reference](../reference/repl-commands.md) |

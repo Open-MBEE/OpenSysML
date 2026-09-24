@@ -1,0 +1,8 @@
+{
+  "rpc": "RunDocumentQuery",
+  "query_id": "Garage::Parts",
+  "bindings": [
+    {"parameter": "root", "values": [{"kind": "object", "value": {"path": "car"}}]}
+  ],
+  "expected_error": "binding root: the model holds no objects (Instantiate creates one)"
+}

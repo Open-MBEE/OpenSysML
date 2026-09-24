@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // linkedModel declares two documents referencing each other's content, so the
@@ -98,8 +98,8 @@ func TestRenderDocumentsFlag(t *testing.T) {
 // document of a set, in Markdown and in HTML.
 func TestRenderDocumentsDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
-	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.dot.golden.md"))
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.dot.golden.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,15 +430,15 @@ func TestRestoreBackupRevivesRemovedDestination(t *testing.T) {
 // an existing committed file.
 func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	dir := t.TempDir()
-	source := filepath.Join(dir, "backup")
+	backup := filepath.Join(dir, "backup")
 	target := filepath.Join(dir, "Reports-Appendix.md")
-	if err := os.WriteFile(source, []byte("previous\n"), 0o644); err != nil {
+	if err := os.WriteFile(backup, []byte("previous\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("committed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := fsutil.Replace(source, target); err != nil {
+	if err := source.ReplaceFile(backup, target); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(target)
@@ -448,7 +448,7 @@ func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	if string(restored) != "previous\n" {
 		t.Errorf("target = %q", restored)
 	}
-	if _, err := os.Stat(source); !os.IsNotExist(err) {
+	if _, err := os.Stat(backup); !os.IsNotExist(err) {
 		t.Errorf("the backup remains after its restore: %v", err)
 	}
 }

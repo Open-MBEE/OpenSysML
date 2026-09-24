@@ -1,0 +1,14 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"T1.1(effect) T1.2(effect) work(entry) \"",
+			"\"T1.1(effect) work(entry) T1.2(effect) \"",
+			"\"T1.2(effect) T1.1(effect) work(entry) \"",
+			"\"T1.2(effect) work(entry) T1.1(effect) \""
+		]
+	},
+	"agreed": {
+		"finalState": "a+b"
+	}
+}

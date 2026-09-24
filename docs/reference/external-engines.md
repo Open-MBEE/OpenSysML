@@ -157,11 +157,19 @@ the stand-in engine exchanges against it.
 The question, in the model's own names, and the model in the forms the entry declared:
 
 - **`question`**: `kind`; `subject`, the qualified name as the surface spelled it, and
-  `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `free`, what the
+  `subjectKind`, its declaration kind; `schedule` as `-schedule` spells it; `modelSeed`, the
+  seed the runs' modeled draws come from when one is set apart from the schedule (`-seed`,
+  `%seed`), absent otherwise; `draws`, the policy the runs' RandomFunctions draws resolve
+  under (`-draws`, `%draws`) — `min`, `max` or `average` — absent when they draw at random;
+  `clockStep`, the step in seconds the runs' clock ticks by (`-clock-step`, `%clock-step`),
+  on which their waits come due, absent for the continuous clock; `free`, what the
   question leaves open (`schedule`, `inputs`); `condition` (`name`, `text`) for `holds`;
   `conditions` for `satisfiable`, one set per query with its `features`, `assertions` and
   `pinned` values; `bindings` as `{name, value, unit}`; `inputs` as `{name, type, unit,
-  domain}`; `sweep` with its `ranges`.
+  domain}`; `sweep` with its `ranges` (and `sampled`, `samples`, `seed` for a sampled
+  sweep; `runs` and `seed` for a Monte Carlo, which states no range and seeds each run's
+  modeled draws from `seed` and the run's number, so it carries no `modelSeed`). A `seed`
+  is present, zero included, whenever rows are drawn from it.
 - **`model.sources`**, always: `library`, the version of the standard library the host embeds,
   and `documents`, every document of the model as `{path, text}` in path order.
 - **`model.graphs`**: the `graphs:1` form, when the entry names it.
@@ -194,12 +202,15 @@ graph carries, the form carries.
   `initial`, `finals`, `edges`, `flows`, `bindings`, `connections`, or `error` when the lowering
   refused it. A `NodeForm` is `id` (its index), `kind`, `name`, `span`, `features`, `body`
   (lowered statements, each with its `kind`, expressions as `{text, span}`), `block`, `accept`
-  (`param`, `signalType`, `viaPort`, `trigger`), `subflow` (the nested graph or its refusal),
+  (`param`, `signalType`, `viaPort`, `viaSelf` for a port path written from `this`, `trigger`), `subflow` (the nested graph or its refusal),
   `performs`, and `footprint` — the places the move reads and writes, the channels it sends on
   and accepts from, the control nodes it joins, `dynamic` when the lowering could not project it
   — present on every node the lowering computed one for. An `EdgeForm` is `source`, `target`,
-  `guard` as `{text, span}`, `else` for the branch taken when no guard holds, and `decl`, the
-  span of the succession that declares it.
+  `guard` as `{text, span}`, `else` for the branch taken when no guard holds, `probability` as
+  `{text, span}` for the weight a `Stochastic::Probability` annotation puts on a succession
+  leaving a decision, and `decl`, the span of the succession that declares it. An
+  `ObjectFlowForm` is `name`, `kind` — `streaming` for a plain `flow`, `succession` for a
+  `succession flow` — `source`, `sourcePin`, `target`, `targetPin` and `decl`.
 - `states[]`, one `StateForm` per lowered state machine: `vertices` (the machine, its states
   and pseudostates with `kind`, `parent`, `region`, `regions`, `entry`, `do`, `exit`,
   `deferred`), `regions`, `transitions` (`source`, `target`, `trigger`, `guard`, `effect`,
@@ -208,8 +219,8 @@ graph carries, the form carries.
 Every element the lowering names carries its `span` (`document`, `offset`, `len`) into the
 model's text, so an engine's answer can name what the model says. A subject that is neither an
 action nor a state machine, or one the model does not declare once, is refused with
-`ErrGraphsSubject` before the process is asked. The form is written by `export.GraphsOf` and
-`export.MarshalGraphs` in the export layer beside the RDF and DOT exports.
+`ErrGraphsSubject` before the process is asked. The form is written by `modelform.GraphsOf` and
+`modelform.MarshalGraphs` in the execution layer beside the analysis framework.
 
 ### What a result carries
 
@@ -242,7 +253,13 @@ under `inputs`: the features the action leaves unbound and those `-check-input` 
 the value as JSON or as SysML notation (`"2 * 4"`, `"Mode::Fast"`); the replay fixes them on the
 action as it starts, before its defaults and ahead of the first move, as an `smt` witness's are,
 and the result lists them. An input the question does not leave free, one given twice or one
-the run cannot read is *not covered* naming it.
+the run cannot read is *not covered* naming it. A schedule carries choices, never the run's
+RandomFunctions draws: under a `draws` policy the question names, the host's replay resolves
+each call to the policy's point — `uniform(1, 10)` is `10` under `max` — as the engine's run
+did, and the witness the result reports records those draws under that policy; a drawing run
+under no policy has no replay, and its schedule is *not covered* (`its witness does not replay
+(… the witness records no draw left for it)`), so a question about a behavior that draws is
+put to an engine under a fixed policy.
 
 ## The standing of an answer
 

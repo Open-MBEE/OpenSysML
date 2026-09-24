@@ -1,0 +1,21 @@
+step 1: token 1@fork
+step 2: token 2@listen, token 3@quit
+stmt assign steps
+    eval feature steps -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+step 3: token 2@listen, token 3@pause
+  eval literal 2 -> 2
+eval index -> 2 [s]
+step 4: token 2@listen, token 3@pause
+step 5: token 2@listen, token 3@kill
+stmt terminate
+terminate action node listen: ended waiting
+step 6: token 2@later, token 3@meet
+stmt assign steps
+    eval feature steps -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+step 7: token 2@meet, token 3@meet
+step 8: token 4@done
+step 9: no active tokens

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/codegen"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/codegen"
 )
 
 // runCompile compiles the calc -compile names into the executable, or with

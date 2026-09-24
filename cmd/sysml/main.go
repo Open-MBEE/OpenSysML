@@ -12,14 +12,14 @@ import (
 
 	"github.com/chzyer/readline"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
 // errPrefix names the tool in the messages it writes to stderr.
@@ -105,46 +105,51 @@ func writableFile(dir, name string) (string, bool) {
 
 // CLI flags
 var (
-	evalExprs       stringSlice
-	showHelp        bool
-	showMan         bool
-	showVersion     bool
-	debugMode       bool
-	quietMode       bool
-	traceMode       bool
-	schedule        schedulePolicy
-	listEngines     bool
-	probeEngines    bool
-	engine          engineSelection
-	jobsFlag        jobsSetting
-	convertFormat   string
-	queryText       string
-	outputPath      string
-	fromFormat      string
-	migrationReport string
-	renderView      string
-	renderAllDir    string
-	renderForm      string
-	renderPalette   string
-	renderDoc       string
-	renderDocsDir   string
-	docForm         string
-	diagramForm     string
-	pdfEngine       string
-	pdfTitlePage    bool
-	pdfTOC          bool
-	pdfNumbering    bool
-	htmlCSS         stringSlice
-	htmlNoCSS       bool
-	htmlShowCSS     bool
-	htmlFragment    bool
-	htmlMermaid     string
-	htmlTheme       string
-	strictMode      bool
-	modelChecks     checks
-	compileCalc     string
-	compileTarget   string
-	compileSource   bool
+	evalExprs        stringSlice
+	showHelp         bool
+	showMan          bool
+	showVersion      bool
+	debugMode        bool
+	quietMode        bool
+	traceMode        bool
+	schedule         schedulePolicy
+	listEngines      bool
+	probeEngines     bool
+	engine           engineSelection
+	jobsFlag         jobsSetting
+	convertFormat    string
+	queryText        string
+	outputPath       string
+	fromFormat       string
+	idForm           string
+	migrationReport  string
+	migrationResults string
+	layoutPath       string
+	renderView       string
+	renderAllDir     string
+	renderForm       string
+	renderPalette    string
+	renderUnplaced   string
+	renderDoc        string
+	renderDocsDir    string
+	docForm          string
+	diagramForm      string
+	pdfEngine        string
+	pdfTitlePage     bool
+	pdfTOC           bool
+	pdfNumbering     bool
+	htmlCSS          stringSlice
+	htmlNoCSS        bool
+	htmlShowCSS      bool
+	htmlFragment     bool
+	htmlMermaid      string
+	htmlMath         string
+	htmlTheme        string
+	strictMode       bool
+	modelChecks      checks
+	compileCalc      string
+	compileTarget    string
+	compileSource    bool
 
 	syncDiffWith       string
 	syncApplyTo        string
@@ -273,10 +278,10 @@ func flagGiven(name string) bool {
 	return given
 }
 
-// printUsage writes the help to w: the caller chooses the stream, since help
-// asked for is a result and help shown over a misuse belongs with the error.
-func printUsage(w io.Writer) {
-	doc().WriteText(w, flag.CommandLine)
+// printUsage writes the help for the flags of fs to w: help asked for is a
+// result, so it goes on stdout.
+func printUsage(w io.Writer, fs *flag.FlagSet) {
+	doc().WriteText(w, fs)
 }
 
 // printMan writes the command's manual page, rendered from the same description
@@ -288,8 +293,9 @@ func printMan(w io.Writer) {
 // runCLI carries out what the command line asked for and returns the exit
 // status, so a profile started for the run is written before the process exits.
 func runCLI() int {
-	// Usage shown over a misuse goes on the stream the error naming it goes on.
-	flag.Usage = func() { printUsage(flag.CommandLine.Output()) }
+	// A misuse is answered on the error's stream with the synopsis and where the
+	// help is, not the help itself, which would bury the error.
+	flag.Usage = func() { doc().WriteHint(flag.CommandLine.Output()) }
 
 	// The tool manifest is read before the flags, since -engine is checked against its engines.
 	if err := resolveEngines(); err != nil {
@@ -305,7 +311,7 @@ func runCLI() int {
 	// Help that was asked for is the result of the run: it belongs on stdout, where
 	// it can be piped, and the run did what was asked.
 	if showHelp {
-		printUsage(os.Stdout)
+		printUsage(os.Stdout, flag.CommandLine)
 		return exitHolds
 	}
 
@@ -365,6 +371,10 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -html-mermaid is empty; give it cdn or the URL of a Mermaid script")
 		return 2
 	}
+	if flagGiven("html-math") && htmlMath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -html-math is empty; give it cdn or the URL of a MathJax script")
+		return 2
+	}
 
 	// Get positional arguments (files to load)
 	args := flag.Args()
@@ -375,6 +385,10 @@ func runCLI() int {
 	}
 	if renderPalette != "" && renderView == "" && renderAllDir == "" {
 		fmt.Fprintln(os.Stderr, "sysml: -render-palette is the palette -render or -render-all fills DOT or PlantUML with; name the view to render with -render or a directory with -render-all")
+		return 2
+	}
+	if renderUnplaced != "" && renderView == "" && renderAllDir == "" && renderDoc == "" && renderDocsDir == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -render-unplaced places the unplaced nodes of a positioned DOT drawing; name what to render with -render, -render-all, -render-document or -render-documents")
 		return 2
 	}
 
@@ -430,6 +444,42 @@ func runCLI() int {
 		fmt.Fprintln(os.Stderr, "sysml: -migration-report accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-report report.txt`")
 		return 2
 	}
+	if migrationResults != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-results accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -migration-results results.json`")
+		return 2
+	}
+	if flagGiven("migration-results") && migrationResults == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -migration-results is empty; name the JSON file to write the run configurations and result snapshots to")
+		return 2
+	}
+	if idForm != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -id accompanies -convert to an RDF form; write `sysml model.sysml -convert api-json -id uuid`")
+		return 2
+	}
+	if layoutPath != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout accompanies -convert of a SysML v1 model; write `sysml model.xmi -convert sysml -layout model_mtip.xml`")
+		return 2
+	}
+	if flagGiven("record-into") && len(modelChecks.records) == 0 {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into accompanies -record-run; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
+	if flagGiven("record-into") && modelChecks.recordInto == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -record-into needs a package name; write `sysml model.sysml -record-run \"Pkg::Case\" -record-into Pkg::Log`")
+		return 2
+	}
+	if flagGiven("layout") && layoutPath == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -layout is empty; name the MTIP export to lay the migrated views out from")
+		return 2
+	}
+	if flagGiven("compare-results") && modelChecks.compare == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results is empty; name the JSON file -migration-results wrote")
+		return 2
+	}
+	if modelChecks.compare != "" && (convertFormat != "" || renderView != "" || renderAllDir != "" || renderDoc != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0 || compileCalc != "" || syncDiffWith != "" || syncApplyTo != "") {
+		fmt.Fprintln(os.Stderr, "sysml: -compare-results runs the migrated model against the tool's results; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query, -eval, -compile, -sync-diff or -sync-apply")
+		return 2
+	}
 
 	if compileCalc != "" {
 		switch {
@@ -465,7 +515,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -477,8 +527,12 @@ func runCLI() int {
 		}
 		return runSyncDiff(args)
 	}
-	if syncBase != "" || syncState != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
-		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-state, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+	if syncBase != "" || syncConfirmDeletes || syncMintIDs || syncAnnotate != "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-base, -sync-confirm-deletes, -sync-mint-ids and -sync-annotate apply to -sync-diff or -sync-apply; name the repository to sync against")
+		return 2
+	}
+	if syncState != "" && convertFormat == "" {
+		fmt.Fprintln(os.Stderr, "sysml: -sync-state applies to -sync-diff, -sync-apply, or a -convert that reads or pushes a repository branch")
 		return 2
 	}
 
@@ -499,9 +553,12 @@ func runCLI() int {
 		case queryText != "" || len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-documents cannot be combined with -query, -eval or -from")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly():
 			return refuse(modelChecks,
 				"-render-documents writes documents out and decides nothing about the model; check it in its own run")
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRenderDocuments(args); err != nil {
 			return fail(err)
@@ -538,7 +595,7 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert and -query are mutually exclusive")
 			return 2
 		}
-		if modelChecks.requested() {
+		if modelChecks.requested() && !modelChecks.recordsOnly() {
 			return refuse(modelChecks,
 				"-convert writes the model out and decides nothing about it; check it in its own run")
 		}
@@ -546,14 +603,20 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert, -render and -render-document each write a document out; ask for one per run")
 			return 2
 		}
-		if err := runConvert(args); err != nil {
-			return fail(err)
+		if modelChecks.recordsOnly() {
+			if message := modelChecks.boundsMisuse(); message != "" {
+				fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+				return 2
+			}
+			if status := resolveRunBounds(); status != 0 {
+				return status
+			}
 		}
-		return exitHolds
+		return runConvertExit(args)
 	}
 
 	for _, path := range args {
-		if f, err := export.FormatOfPath(path); err == nil && f == export.FormatXMI {
+		if f, err := convert.FormatOfPath(path); err == nil && f == convert.FormatXMI {
 			fmt.Fprintf(os.Stderr, "sysml: %s is a SysML v1 model; migrate it first with `sysml %s -convert sysml -output model.sysml`, then load model.sysml\n", path, path)
 			return 2
 		}
@@ -587,12 +650,18 @@ func runCLI() int {
 		case modelChecks.jsonOut && !modelChecks.checksOnly():
 			fmt.Fprintln(os.Stderr, "sysml: -render-document writes a document, not JSON; -json reports checks")
 			return 2
-		case modelChecks.requested():
+		case modelChecks.requested() && !modelChecks.instantiatesOnly() && !modelChecks.recordsOnly():
 			return refuse(modelChecks,
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-document cannot be combined with -eval or -from")
 			return 2
+		case modelChecks.recordsOnly() && modelChecks.boundsMisuse() != "":
+			fmt.Fprintf(os.Stderr, "sysml: %s\n", modelChecks.boundsMisuse())
+			return 2
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRenderDocument(args); err != nil {
 			return fail(err)
@@ -600,18 +669,8 @@ func runCLI() int {
 		return exitHolds
 	}
 
-	// Resolve the run bounds before any model runs, so a bad value is reported at
-	// startup rather than mistaken for the default at execution time. Reporting the
-	// version and converting a model evaluate nothing, so they are handled above.
-	budgets, err = runtime.BudgetsFromEnv()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, errPrefix, err)
-		return 2
-	}
-	jobs, err = resolveJobs()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, errPrefix, err)
-		return 2
+	if status := resolveRunBounds(); status != 0 {
+		return status
 	}
 
 	// Checking mode: load, check what was named, and exit on the verdict.
@@ -628,10 +687,26 @@ func runCLI() int {
 	return runInteractiveWithFiles(args)
 }
 
+// resolveRunBounds reads the run bounds before any model runs, so a bad value is
+// reported at startup (status 2) rather than mistaken for the default; 0 when read.
+func resolveRunBounds() int {
+	var err error
+	if budgets, err = runtime.BudgetsFromEnv(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
+	if jobs, err = resolveJobs(); err != nil {
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		return 2
+	}
+	return 0
+}
+
 // newSession returns a session in the output modes the flags asked for, under
 // the run bounds resolved at startup.
 func newSession() *repl.Session {
 	sess := repl.NewSession()
+	sess.SetToolVersion("sysml " + Version)
 	if err := sess.SetBudgets(budgets); err != nil {
 		// Unreachable: budgets are validated in main before any session exists.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
@@ -656,6 +731,15 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
+	if modelChecks.seed.given {
+		sess.SetModelSeed(modelChecks.seed.value)
+	}
+	sess.SetDraws(modelChecks.draws.value)
+	if err := sess.SetClockStep(modelChecks.clockStep.value); err != nil {
+		// Unreachable: -clock-step was validated when parsed.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	if err := sess.SetEngine(engine.text); err != nil {
 		// Unreachable: the selection was validated against the same engines when parsed.
 		fmt.Fprintln(os.Stderr, errPrefix, err)
@@ -666,7 +750,7 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
-	sess.SetConformanceMode(conformance.ModeOf(strictMode))
+	sess.SetConformanceMode(diag.ConformanceModeOf(strictMode))
 	sess.SetRenderWidth(terminalWidth())
 	return sess
 }

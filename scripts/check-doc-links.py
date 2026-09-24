@@ -74,7 +74,8 @@ def anchors_of(path: Path) -> set[str]:
             # GitHub disambiguates a repeated heading with -1, -2, … in document order.
             found.add(slug if slug not in seen else f"{slug}-{seen[slug]}")
             seen[slug] = seen.get(slug, 0) + 1
-    found.update(ANCHOR.findall(text))
+    # Fragments are compared lowercased, so an explicit anchor's case must not matter either.
+    found.update(anchor.lower() for anchor in ANCHOR.findall(text))
     return found
 
 

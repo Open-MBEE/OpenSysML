@@ -14,7 +14,7 @@ PILOT_ARTIFACT_VERSION="${PILOT_ARTIFACT_VERSION:-0.62.0}"
 
 # The pilot publishes each release's standard library, in notation and as XMI,
 # in a second repository under the same tag. The bundled library under
-# internal/core/libs/stdlib is its sysml.library tree; sysml.library.xmi carries
+# internal/workspace/libs/stdlib is its sysml.library tree; sysml.library.xmi carries
 # the normative element ids the identity gate compares against. Pinned by commit
 # like the pilot itself; the two move together at a release.
 PILOT_RELEASE_REPO="${PILOT_RELEASE_REPO:-https://github.com/Systems-Modeling/SysML-v2-Release.git}"
@@ -32,7 +32,7 @@ pilot_from_release() {
 	return 0
 }
 
-# File names pilot_fetch_subtrees counts when reporting a download; a caller may reassign it.
+# File names pilot_fetch_subtrees counts: a subtree with none is refused. A caller may reassign it.
 PILOT_FETCH_GLOBS=('*.sysml' '*.kerml')
 
 # pilot_pin is the stamp a fetched destination records.
@@ -106,9 +106,11 @@ pilot_install_dir() {
 }
 
 # pilot_fetch_subtrees copies "<path in the pilot repository>:<destination>" subtrees
-# out of one sparse clone; a destination whose .pilot-pin stamp is not the current pin is re-fetched.
+# out of one sparse clone; a destination whose .pilot-pin stamp is not the current pin, or
+# that holds no PILOT_FETCH_GLOBS file, is re-fetched. A subtree that holds none fails the
+# fetch and installs nothing, so a destination is never stamped complete while empty.
 pilot_fetch_subtrees() {
-	local paths=() targets=() entry source_path target work index pin stamp
+	local paths=() targets=() counts=() entry source_path target work index pin stamp
 	pin="$(pilot_pin)"
 	for entry in "$@"; do
 		source_path="${entry%%:*}"
@@ -116,11 +118,13 @@ pilot_fetch_subtrees() {
 		if [[ -d "$target" ]]; then
 			stamp="$target/.pilot-pin"
 			if [[ -f "$stamp" ]] && [[ "$(cat "$stamp")" == "$pin" ]]; then
-				echo "Already present at $target (pin $PILOT_TAG $PILOT_SOURCE_COMMIT)"
-				echo "Remove that directory to re-download."
-				continue
-			fi
-			if [[ -f "$stamp" ]]; then
+				if [[ "$(pilot_count_files "$target")" -gt 0 ]]; then
+					echo "Already present at $target (pin $PILOT_TAG $PILOT_SOURCE_COMMIT)"
+					echo "Remove that directory to re-download."
+					continue
+				fi
+				echo "Empty copy at $target: stamped $PILOT_TAG but holding no ${PILOT_FETCH_GLOBS[*]} file; re-downloading."
+			elif [[ -f "$stamp" ]]; then
 				echo "Stale pin at $target: fetched from $(cat "$stamp"), pin is now $pin; re-downloading."
 			else
 				echo "No pin recorded at $target: it predates the stamp or was fetched by hand; re-downloading at $PILOT_TAG."
@@ -139,15 +143,25 @@ pilot_fetch_subtrees() {
 
 	pilot_clone "$work/pilot" "${paths[@]}" || return 1
 
+	# Every subtree is checked before any is installed, so a bad one leaves them all as they were.
 	for index in "${!paths[@]}"; do
 		source_path="${paths[$index]}"
-		target="${targets[$index]}"
 		if [[ ! -d "$work/pilot/$source_path" ]]; then
 			echo "error: $source_path is missing from $PILOT_SOURCE_REPO at $PILOT_TAG" >&2
 			return 1
 		fi
+		counts[index]="$(pilot_count_files "$work/pilot/$source_path")"
+		if [[ "${counts[$index]}" -eq 0 ]]; then
+			echo "error: $source_path at $PILOT_SOURCE_REPO $PILOT_TAG holds no ${PILOT_FETCH_GLOBS[*]} file; ${targets[$index]} is left as it was" >&2
+			return 1
+		fi
+	done
+
+	for index in "${!paths[@]}"; do
+		source_path="${paths[$index]}"
+		target="${targets[$index]}"
 		printf '%s\n' "$pin" >"$work/pilot/$source_path/.pilot-pin"
-		pilot_install_dir "$work/pilot/$source_path" "$target"
-		echo "Downloaded $(pilot_count_files "$target") file(s) from $source_path to $target"
+		pilot_install_dir "$work/pilot/$source_path" "$target" || return 1
+		echo "Downloaded ${counts[$index]} file(s) from $source_path to $target"
 	done
 }

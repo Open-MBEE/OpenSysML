@@ -2,15 +2,18 @@ package Cookbook {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
 	private import ScalarValues::*;
+	private import SI::*;
 
 	// ---- The model the recipes query ----
 
 	part def Subsystem {
 		attribute mass : Real;
+		assert constraint massKnown { mass > 0.0 }
 	}
 	part def OpticalSubsystem :> Subsystem;
 	part def MirrorAssembly :> OpticalSubsystem {
 		attribute :>> mass = 10.0;
+		assert constraint lightweight { mass < 5.0 }
 	}
 
 	metadata def Critical;
@@ -52,6 +55,37 @@ package Cookbook {
 		}
 	}
 
+	// ---- The run the state and event recipes query ----
+
+	attribute def Open;
+	attribute def Close;
+	attribute def Slew { attribute azimuth : Real; }
+
+	state def DomeControl {
+		attribute azimuth : Real = 0.0;
+		entry; then closed;
+		state closed;
+		transition closed_open first closed accept Open then open;
+		state open parallel {
+			state pointing {
+				entry; then parked;
+				state parked;
+				transition parked_slewing first parked accept s : Slew do assign azimuth := s.azimuth then slewing;
+				state slewing;
+			}
+			state shutter {
+				entry; then opening;
+				state opening;
+				transition opening_opened first opening accept after 1 [s] then opened;
+				state opened;
+			}
+		}
+		transition open_close first open accept Close then closed;
+	}
+	part def Dome { exhibit state control : DomeControl; }
+	part dome : Dome;
+	part spareDome : Dome;
+
 	// ---- Recipe queries ----
 
 	calc def Children :> Query {
@@ -70,6 +104,13 @@ package Cookbook {
 	calc def Enclosing :> Query {
 		in leaf : Element;
 		Ancestors(source = leaf, maxDepth = 2)
+	}
+
+	calc def NamedParts :> Query {
+		WhereType(
+			source = Descendants(source = Named(qualifiedName = ("Cookbook::telescope", "Cookbook::Traceability"))),
+			type = "PartUsage"
+		)
 	}
 
 	calc def Connections :> Query {
@@ -186,6 +227,234 @@ package Cookbook {
 			relationshipKind = "specialization",
 			direction = "incoming",
 			maxDepth = 2
+		)
+	}
+
+	calc def HeldParts :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 2), type = "Subsystem"),
+			properties = ("qualifiedName", "mass")
+		)
+	}
+
+	calc def HeldSubsystems :> Query {
+		OrderBy(
+			source = Project(source = Objects(type = "Subsystem"), properties = ("qualifiedName", "mass")),
+			property = "mass",
+			direction = "descending",
+			missing = "last",
+			multiple = "first"
+		)
+	}
+
+	calc def Checks :> Query {
+		in root : Element;
+		Project(source = Verdicts(source = root), properties = ("path", "name", "verdict", "reason"))
+	}
+
+	calc def Violated :> Query {
+		in root : Element;
+		WhereFeature(source = Verdicts(source = root), 'feature' = "verdict", operator = "=", value = "violated")
+	}
+
+	// ---- A requirement nothing satisfies, and the coverage recipes ----
+
+	requirement def PointingRequirement {
+		doc /* The telescope holds a target within the stated accuracy. */
+	}
+	requirement <'REQ-2'> pointingRequirement : PointingRequirement {
+		doc /* The telescope points at a target to within 2 arcseconds. */
+		requirement <'REQ-2.1'> slewRequirement {
+			doc /* The mount reaches a new target within 60 seconds. */
+		}
+		requirement <'REQ-2.2'> trackingRequirement {
+			doc /* The mount tracks a target for 30 minutes without drift. */
+		}
+	}
+	verification def PointingTest;
+	verification pointingVerification : PointingTest {
+		objective {
+			verify pointingRequirement;
+		}
+	}
+
+	calc def Requirements :> Query {
+		in root : Element;
+		Except(
+			source = Union(
+				source = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementDefinition"),
+				other = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementUsage")
+			),
+			exclude = WhereType(source = Descendants(source = root, maxDepth = 10), type = "SatisfyRequirementUsage")
+		)
+	}
+
+	calc def UnsatisfiedRequirements :> Query {
+		in root : Element;
+		WhereRelated(
+			source = Requirements(root = root),
+			relationshipKind = "satisfaction",
+			direction = "incoming",
+			maxDepth = 1,
+			exists = false
+		)
+	}
+
+	calc def UnverifiedRequirements :> Query {
+		in root : Element;
+		WhereRelated(
+			source = Requirements(root = root),
+			relationshipKind = "verification",
+			direction = "incoming",
+			maxDepth = 1,
+			exists = false
+		)
+	}
+
+	calc def UncoveredRequirements :> Query {
+		in root : Element;
+		Union(
+			source = UnsatisfiedRequirements(root = root),
+			other = UnverifiedRequirements(root = root)
+		)
+	}
+
+	calc def VerifiedButUnsatisfied :> Query {
+		in root : Element;
+		Except(
+			source = UnsatisfiedRequirements(root = root),
+			exclude = UnverifiedRequirements(root = root)
+		)
+	}
+
+	calc def RequirementTree :> Query {
+		in root : Element;
+		Project(
+			source = OrderBy(
+				source = Requirements(root = root),
+				property = "qualifiedName",
+				direction = "ascending",
+				missing = "last",
+				multiple = "error"
+			),
+			properties = ("shortName", "name", "documentation")
+		)
+	}
+
+	// ---- Requirement derivation and refinement ----
+
+	requirement mirrorMassRequirement;
+	requirement segmentMassRequirement;
+	requirement instrumentMassRequirement;
+	connection deriveMirrorMass : RequirementDerivation::Derivation
+		connect massRequirement to mirrorMassRequirement;
+	#RequirementDerivation::derivation connection deriveInstrumentMass
+		connect massRequirement to instrumentMassRequirement;
+	#RequirementDerivation::derivation connection deriveSegmentMass
+		connect mirrorMassRequirement to segmentMassRequirement;
+	#ModelingMetadata::refinement dependency mirrorRefinesMass
+		from MirrorAssembly to mirrorMassRequirement;
+
+	calc def DerivedFrom :> Query {
+		in req : Element;
+		RelatedElements(
+			source = req,
+			relationshipKind = "derivation",
+			direction = "outgoing",
+			maxDepth = 2
+		)
+	}
+
+	calc def RefinedBy :> Query {
+		in req : Element;
+		RelatedElements(
+			source = req,
+			relationshipKind = "refinement",
+			direction = "incoming",
+			maxDepth = 1
+		)
+	}
+
+	calc def DomeStates :> Query {
+		in root : Element;
+		Project(source = States(source = root), properties = ("machine", "statePath", "region", "enclosing"))
+	}
+
+	calc def Opened :> Query {
+		Project(source = InState(name = "open"), properties = ("qualifiedName"))
+	}
+
+	calc def Accepted :> Query {
+		in root : Element;
+		Project(
+			source = Events(source = root, kind = "accept", since = 1 [s], before = 2.5 [s]),
+			properties = ("time", "event", "payload")
+		)
+	}
+
+	// ---- Traceability: requirements, what satisfies them, what verifies them ----
+
+	package Traceability {
+		requirement <'TR-1'> pointingRequirement;
+		requirement <'TR-2'> thermalRequirement;
+		requirement <'TR-3'> downlinkRequirement;
+
+		part gimbal;
+		part radiator;
+		part transmitter;
+		part spacecraft {
+			satisfy pointingRequirement by gimbal;
+			satisfy thermalRequirement by radiator;
+			satisfy downlinkRequirement by transmitter;
+		}
+
+		verification pointingTest : MassTest {
+			objective {
+				verify pointingRequirement;
+			}
+		}
+		verification pointingAnalysis : MassTest {
+			objective {
+				verify pointingRequirement;
+			}
+		}
+		verification thermalTest : MassTest {
+			objective {
+				verify thermalRequirement;
+			}
+		}
+	}
+
+	calc def TraceMatrix :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(
+				source = Descendants(source = root, maxDepth = 1),
+				type = "RequirementUsage"
+			),
+			properties = ("shortName", "name"),
+			columns = (
+				RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1),
+				RelatedColumn(name = "verifiedBy", relationshipKind = "verification", direction = "incoming", maxDepth = 1),
+				RelatedColumn(
+					name = "verifications",
+					relationshipKind = "verification",
+					direction = "incoming",
+					maxDepth = 1,
+					aggregate = "count"
+				)
+			)
+		)
+	}
+
+	calc def Unverified :> Query {
+		in root : Element;
+		WhereFeature(
+			source = TraceMatrix(root = root),
+			'feature' = "verifications",
+			operator = "=",
+			value = "0"
 		)
 	}
 }

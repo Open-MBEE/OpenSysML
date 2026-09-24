@@ -1,0 +1,493 @@
+# The fUML reference implementation as an advisory action referee
+
+The action and activity executor has, until now, had no external referee: the
+[PSSM referee](pssm-referee.md) covers state machines, the
+[pilot execution referee](pilot-execution-referee.md) covers expressions, and actions were
+checked only by this repository's own conformance fixtures. This record describes the referee
+that closes that gap: the activity tests of ModelDriven's **fUML Reference Implementation**,
+translated by rule into SysML v2 textual notation and executed by this runtime, with the
+reference implementation's own outputs as the oracle. Like the PSSM referee it is advisory and
+opt-in: CI compares committed **bucket counts**, never a pass/fail verdict, and a movement in
+any count is adjudicated in the change that moves it.
+
+**What a pass means.** The reference implementation executes UML activities under the fUML
+semantics; SysML v2 actions are a different language with a different (though closely related)
+semantics, and where the two disagree this runtime follows SysML v2 and the Kernel Semantic
+Library. A pass therefore says that, for an activity with a defensible SysML v2 mapping, this
+runtime computes the output values the reference implementation computes. It is a second
+opinion on the action rows of the
+[precise-semantics alignment note](../internals/design/precise-semantics-alignment.md) and a
+regression oracle for the constructs both languages define alike; it is never a conformance
+statement about SysML v2, and it is not a fUML conformance statement about this runtime either.
+
+## The suite, pinned
+
+| | |
+|---|---|
+| Source | ModelDriven's fUML Reference Implementation, <https://github.com/ModelDriven/fUML-Reference-Implementation>, release `v1.5.0a` at commit `45e506336d4cd56965d4ad3b684149245f899f3a` |
+| Test model | `fUML-Tests.uml`, the Eclipse UML2 XMI model behind the implementation's JUnit activity tests: 43 activities, 42 of them packaged directly in the model and run one by one, one (`ActiveClassBehavior`) the classifier behavior of an active class that runs only when that class is instantiated |
+| Exception model | `fUML-Exception-Tests.uml`, 12 activities exercising the `RaiseExceptionAction` and exception handlers that fUML 1.4 added: eight tests, a called behavior, and three behaviors owned by a class. SysML v2 has no exception handler; these are fetched for completeness and classified `not-expressible`, never translated |
+| Library | `fUML_Library.xmi`, the foundational model library the tests call into (`WriteLine`, the primitive functions); the implementation itself loads the copy inside its jar, whose digest the record carries as `libraryDigest` |
+| Executable | `fuml-1.5.0a.jar`, the implementation, and its fifteen runtime dependencies from Maven Central |
+| SHA-256 | `c7d54bf2…e0f0` (test model), `4e831580…2d74b` (exception model), `7e8bae51…e2da8b7` (library), `4e78a194…de1f06e` (jar); in full in `scripts/fuml-pin.sh` |
+| Pin | `scripts/fuml-pin.sh` (`FUML_RI_TAG`, `FUML_RI_COMMIT`, the four `*_SHA256` variables, `FUML_DEPS`) |
+| Download | `./scripts/download-fuml-suite.sh`, into the git-ignored `build/fuml/`, idempotently; a file already there with its pinned digest is kept (so a suite placed by hand, without a stamp, is verified and stamped rather than fetched), one whose digest is not the pinned one is discarded, and the referee refuses to read a suite whose digest is not the pinned one |
+
+The tag names the release; the commit is what every fetch reads from, because a tag is a
+mutable ref; the checksums are what the fetch verifies, because the file behind a URL can
+change. The three are changed together.
+
+**Runtime dependencies.** The jar does not bundle its dependencies. They are the runtime scope
+of the implementation's `pom.xml` at the pinned commit, as `mvn dependency:build-classpath
+-DincludeScope=runtime` resolves it — log4j 1.2, commons-logging, commons-collections,
+commons-lang, Xerces, Xalan and its serializer, xml-apis, the StAX API with SJSXP and
+stax-utils, and JAXB 3 with its API, core and activation — pinned by Maven Central path and
+SHA-256 in `FUML_DEPS`, so a fetch needs neither Maven nor the pom and always builds the same
+classpath. `FUML_MAVEN_REPO` names the repository (Maven Central by default; a mirror serves
+the same bytes, and the checksums say so). Any file already installed with its pinned digest,
+dependency or model or jar, is kept rather than fetched again; `--force` fetches everything.
+
+**Licence and attribution.** The reference implementation, its test models and its library are
+copyright Lockheed Martin Corporation and Model Driven Solutions (formerly Data Access
+Technologies, Inc.) and are licensed under the **Academic Free License version 3.0**
+(<https://opensource.org/licenses/AFL-3.0>), as the repository's `Licensing-Information.txt`
+states; the bundled third-party programs it lists carry their own licences (CDDL 1.0 for SJSXP
+and JAXB, Apache 2.0 for log4j, commons-logging and Xerces). This repository proceeds as it does
+for the PSSM suite: nothing is vendored. The models, jar and dependencies are downloaded at a
+pinned commit and checksum into an ignored directory at build time, the models are translated
+**in memory**, and only the implementation's computed outputs and event trace (the
+expected-record below), bucket counts and per-activity verdicts are committed. No XMI, no
+excerpt and no derived `.sysml` model of a fUML test is in the repository; `-keep <dir>` writes
+the translated models for debugging only, into a directory the caller names.
+
+## The expected-record
+
+The referee never runs Java. What the reference implementation computes is recorded once, in
+**`docs/project/fuml-referee-expected.json`**, and committed; the Go tests and
+`tools/cmd/fuml-referee -check` read that record and nothing else. It is regenerated by
+
+```bash
+make fuml-expected          # needs a JDK (javac and java on PATH, or JAVA_HOME)
+```
+
+which fetches the suite if it is absent, compiles the driver in `scripts/fuml-driver/`
+against the pinned jar and dependencies, and runs it over both models. The committed record
+is replaced only when every executed activity completes: if one throws or exceeds the
+per-activity timeout, the target exits nonzero, leaves the record as it was, and writes the
+partial output beside it as `fuml-referee-expected.json.failed` (git-ignored) for diagnosis,
+with the failing activities' `error` fields filled in. The record is
+byte-stable across runs on one pin: the only nondeterministic content the implementation
+emits — object identifiers, which are Java hash codes — is aliased per activity in order of
+first appearance (`obj1`, `obj2`, …).
+
+**The driver** (`scripts/fuml-driver/io/opensysml/fuml/FumlExpected.java`) uses the implementation as a library:
+it loads each model with `Fuml.load`, enumerates the `uml:Activity` elements the model file
+declares, and for each one packaged directly in the model (the ones the JUnit suite runs)
+selects it with `Environment.findElementById` and executes it with
+`ExecutionEnvironment.execute`. Selection is **by XMI id, never by name**: the implementation's
+name lookup ranges over every named element, and `ForkMerge` resolves to a parameter of
+`TestSimpleActivities` before it resolves to the activity. Activities owned by a class or an
+action (`ActiveClassBehavior`, the exception model's `C$Impl`, `C_Factory`,
+`raiseException$Impl`) run only as part of their owner and are recorded as skipped with that
+reason, as are cross-references into the library, which are not declarations. The
+implementation reports what it does through `fuml.Debug` as `[event]` lines; the driver
+attaches a log4j appender to that logger and captures the lines as structured events instead of
+scraping console output. The locus's extent is cleared between activities, as the JUnit suite's
+set-up does, so an object created by one test is not read by the next.
+
+**Its shape.** `provenance` names the release tag, the commit, the jar's digest, the
+foundational library the jar carries and its digest, and each model with its namespace URI and
+digest; `tools/referee/fuml` refuses a record whose provenance is not the current pin's, so a moved
+pin cannot be compared against old truth. Each entry of `activities` is one declared activity:
+
+```json
+{
+  "model": "fUML-Tests.uml",
+  "id": "_15_5_1_1a900482_1225499009421_139168_1510",
+  "name": "DecisionJoin",
+  "executed": true,
+  "parameters": [{"name": "output", "direction": "out", "type": "Integer",
+                  "lower": 1, "upper": "*", "isOrdered": true, "isUnique": true}],
+  "outputs":    [{"parameter": "output",
+                  "values": [{"kind": "Integer", "value": 0}, {"kind": "Integer", "value": 1}]}],
+  "events":     [{"kind": "Execute", "activity": "DecisionJoin", "id": "_15_5_1_1a900482_1225499009421_139168_1510"},
+                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Value(0)", "id": "_15_5_1_…_1531"},
+                 {"kind": "Fire", "activity": "DecisionJoin", "action": "Action_A", "id": "_15_5_1_…_1611"},
+                 {"kind": "Execute", "activity": "Copier", "id": "_15_5_1_…_826"},
+                 {"kind": "Output", "activity": "Copier", "parameter": "output", "value": "0"},
+                 {"kind": "Complete", "activity": "Copier", "id": "_15_5_1_…_826"},
+                 "…",
+                 {"kind": "Complete", "activity": "DecisionJoin", "id": "_15_5_1_1a900482_1225499009421_139168_1510"}]
+}
+```
+
+`parameters` are the activity's parameters as the implementation loaded them (`upper` is a
+natural number or `*`). `outputs` hold, per `out` and `inout` parameter, the values the
+execution left in it, in the implementation's order — primitives as JSON numbers, booleans or
+strings (`Real` and `UnlimitedNatural` as strings, so `*` and the implementation's own
+spelling of a real survive), references as the object they point at with its types and feature
+values to a bounded depth. `events` are the implementation's trace in order: `Execute` when
+an activity (the one under test or one it calls) starts and `Complete` when that execution
+ends, `Fire` when an action runs, `Output` when an output parameter receives a value (and
+`Post` where the implementation reports one posted to a parameter node; none of the pinned
+activities does). `Execute` and `Complete` nest, so the trace shows which execution each
+`Fire` belongs to even when an activity calls itself. The implementation reports elements by
+name only; the driver adds the XMI `id` of the activity (`Execute`, `Complete`) or the action
+node (`Fire`) where the name identifies exactly one element of the loaded models, and omits it
+where it does not — a node name an activity uses twice (the exception model's `Test001` reads `this` at two nodes), or an
+action of a library activity such as `WriteLine`. The `Fire` sequence is one legal schedule —
+the implementation's, which is sequential — and is compared **advisorily** only; the outputs
+are the oracle.
+
+The record also carries the one construct the classifier reads from the trace rather than
+from the model. `ExpectedActivity.Refired` names every action the implementation fired more
+than once within one execution of its activity — the activity under test or one it calls —
+with the activity it belongs to, both XMI ids and the number of fires (`DecisionJoin`'s
+`Action_A` twice, `ForkMergeData`'s `Action_B` twice, `ForkMerge`'s `Value(0)` twice,
+`TestBooleanFunctions`' `Call(And)` four times). The count is per node `id` and per
+`Execute`…`Complete` span: two nodes sharing a name are never mistaken for one node firing
+twice (a `Fire` without an `id` counts as nothing), an activity a test calls twice re-fires
+nothing by being called twice, and a callee execution — a recursive one included — neither
+inherits nor resets its caller's counts. Whether such a re-firing is a design difference is
+then the classifier's decision, below.
+
+## Reading the models
+
+`tools/referee/fuml` reads the two test models and the library with the XMI element walker shared
+with the PSSM referee (`internal/translate/xmi`). The walker accepts every OMG XMI namespace version:
+the models are `20131001`, the library `20110701`, and the two are cross-referenced. The
+reader (`ReadModelFile`, `ReadLibraryFile`) accepts a `uml:Model` root or one wrapped in
+`xmi:XMI`, and builds an immutable `Model`:
+
+| fUML | `Model` |
+|---|---|
+| `Activity`, its parameters (direction, type, multiplicity, ordering, uniqueness) and its owner when a class or an action owns it | `Activity`, `Parameter`, `Multiplicity`; `Activity.Owner`, `Class.ClassifierBehavior` |
+| Every `ActivityNode` kind fUML defines — control nodes, parameter nodes, buffers, actions, structured nodes — with their `InputPin`s and `OutputPin`s and the nodes a structured node owns | `Node` (`NodeKind`), `Node.Pins`, `Node.Nodes`; `Activity.AllNodes` walks the structured nodes too |
+| `ControlFlow` and `ObjectFlow` with `guard` (a literal or an instance value naming the enumeration literal) and `weight` | `Edge` (`EdgeKind`), `Edge.Guard`, `Edge.Weight`; `Node.Incoming`/`Outgoing` index them on the node or pin they touch |
+| The behavior a `CallBehaviorAction` calls, the operation a `CallOperationAction` calls or a `CallEvent` names, the signal a `SendSignalAction`/`SignalEvent` names, the feature a structural-feature action reads or writes, the classifier a create/read-extent/reclassify action names | resolved `TypeRef`s: a local element by id, or an **external** reference into the library by `href`, kept with its qualified name (`PrimitiveBehaviors::IntegerFunctions::+`) |
+| `Class` with properties, generalizations, operations (and their methods), `Signal`, `Association` and its member ends | `Class`, `Property`, `Operation`, `Signal`, `Association` |
+| `ExceptionHandler`, `Trigger` | `Node.Handlers`, `Node.Triggers` |
+
+Every reference the model makes to something it does not declare is a diagnostic on the
+`Model`, never a silent gap; the pinned models produce none. The reader is exercised against
+the pinned corpus (43 activities with 95 control and 345 object flows, seven classes, three
+signals and two associations in the test model; 12 activities in the exception model) and
+against a synthetic wrapped model that covers the `20110701` namespace, an external library
+reference, guards, weights, an association, an operation call and its accepter.
+
+**Forty-three, not forty-four.** The test model contains 44 `uml:Activity` elements, but one
+is the library's `WriteLine` referenced by `href` from `HelloWorld`, not a declaration; the
+JUnit suite runs 42 activities directly and `ActiveClassBehavior` through its class. The
+reader, the expected-record and the checklist below all count 43.
+
+## Classifying before translating
+
+`Classify(activity, expected)` files each activity into one of three classes from the
+constructs it uses and the implementation's trace, before any translation exists, with a
+reason that names the construct, why SysML v2 has no spelling for it, and where in the
+activity it occurs (`ReadExtentAction (SysML v2 has no classifier extent): ReadExtent(TestClass)`).
+The classes decide two of the referee's four buckets outright; the third leaves the verdict to
+a run.
+
+| Class | Bucket | Decided by |
+|---|---|---|
+| **not-expressible** | `not-expressible` | any construct in the construct map's not-expressible rows — `CallOperationAction`, `AcceptCallAction`, `ReplyAction`, `ReadExtentAction`, `ReadIsClassifiedObjectAction`, `TestIdentityAction`, `ReclassifyObjectAction`, `UnmarshallAction`, `ReadLinkAction` and the structural-feature actions on an association end, `CentralBufferNode`, `DataStoreNode`, `DestroyObjectAction`, `RaiseExceptionAction` and `ExceptionHandler`; a library function without a Kernel Function Library counterpart (`BasicInputOutput::WriteLine`, the `UnlimitedNaturalFunctions`) or a parameter or pin typed `UnlimitedNatural`, which `ScalarValues` lacks; the exception model as a whole; and, transitively, a call of or a classifier behavior starting a not-expressible activity, reported as the dependency and its decisive constructs |
+| **differs-by-design** | `differs-by-design` | an action the trace fired more than once within one execution of its activity **and** that an object flow feeds — fUML fires it once per token offered to a multiplicity-1 pin; SysML v2 performs the node once with every delivery (`action_node_concurrent_performances`). A merge that delivers two control tokens re-fires its successor in SysML v2 too, so `ForkMerge`'s `Value(0)` stays expressible |
+| **expressible** | `pass` or `fail`, by the run | everything else: control and object flow, fork, join, merge and decision with guards, value specifications, calls of activities and of library functions with a counterpart, multi-valued outputs, object creation and feature reads and writes on a class, signals, active classes, `ReadSelfAction`, `StructuredActivityNode` |
+
+A `differs-by-design` classification is the one an alignment row documents; the classifier
+finds four such activities in the corpus and lists each re-fired action with its count.
+`LibraryCounterpart` maps each of the 46 library functions the test model calls either to its
+Kernel Function Library spelling or to a reason; the test pins the seven without one
+(`WriteLine` and the six `UnlimitedNaturalFunctions`).
+
+**The checklist.** `TestSuiteClassification` in `tools/referee/fuml/classify_test.go` is the
+per-activity checklist: every activity of both models with the class it must receive, the
+counts pinned, every non-expressible reason required to name a construct and a location, and
+every exception-model activity required to be filed as such. Over the test model:
+
+| Class | Count | Activities |
+|---|---|---|
+| expressible | 24 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover`, `ActiveClassBehavior`, `ActiveClassBehaviorSender`, `TestSignalReceiver`, `TestSpecializedSignalSend` |
+| differs-by-design | 4 | `DecisionJoin` (`Action_A` ×2), `ForkMergeData` (`Action_B` ×2), `TestSimpleActivities` (through both), `TestBooleanFunctions` (`Call(Not)` ×2, `Call(And)`, `Call(Or)`, `Call(Implies)`, `Call(Xor)` ×4) |
+| not-expressible | 15 | `HelloWorld` (`WriteLine`), `TestUnlimitedNaturalFunctions`, `TestClassIdentityTester`, `TestClassExtentReader`, `TestClassObjectDestroyer`, `TestCompositeObjectDestroyer`, `TestClassReclassifier`, `TestClassUnmarshaller`, `SelfReader` (`ReadIsClassifiedObjectAction`), `TestAssociationEndWriterReader`, `TestCentralBuffer`, `TestDataStore`, `TestCallAccepter`, `TestCallSender`, `TestCallSend` |
+
+and all 12 activities of the exception model are `not-expressible`. `TestBooleanFunctions`
+is in the second class, not the first, because `GenerateBooleanTestData` hands each function
+a four-token truth table through multiplicity-1 pins, and `Not` reads `Value(true)` and
+`Value(false)` through one pin.
+
+The reader and classifier tests (`TestSuite*`) run only when the suite is present in
+`build/fuml/` (`./scripts/download-fuml-suite.sh`). CI downloads and caches it as it does
+the PSSM suite, sets `OPENSYSML_REQUIRE_FUML_SUITE=1` so an absent suite fails rather than
+skips, and re-runs the suite gates on their own so a skip cannot hide behind a green run. The
+expected-record tests need no suite.
+
+## Translating and refereeing
+
+`Emit(activity)` translates an expressible activity, with every activity it transitively
+calls, into one model in SysML v2 textual notation: a `package fuml` importing `ScalarValues`,
+`SequenceFunctions` and `ControlFunctions`, holding one `part def` per class the activities
+touch and one `action def` per activity. The translation is by rule and in memory; nothing
+of it is committed, and `-keep <dir>` writes it out for reading. The rules, found by hand
+translation of the pilot activities and then generalized:
+
+| fUML | SysML v2 |
+|---|---|
+| `Parameter` | `in`/`out`/`inout` parameter of the definition, with its type from `ScalarValues` and its multiplicity; a multi-valued one `[0..*] nonunique` whatever its fUML bounds, `ordered` where the parameter is — a SysML v2 multiplicity holds in every state of the feature, where a fUML parameter's holds only once the activity completes (`GenerateBooleanTestData`'s `[4..4]` outputs fill one token at a time and would not validate), so the record's value count checks the bound instead; an `out` with lower bound 0 is initialized `= ()` so an activity that leaves it empty leaves it empty here. A called activity's parameter that shares its name with another definition's is spelled `<Activity>_<name>` (`Copier_output`), because a SysML v2 nested action returns its outputs to same-named features of the actions around it and reads an unbound input from them, where a fUML activity's parameters are its own; the translated activity's parameters keep their names, which the record compares by |
+| `ActivityParameterNode` | of an input, an action whose one output pin reads the parameter; of an output, a **collector** action whose one input pin is assigned to the parameter (`assign output := v` for a scalar, `assign output := (output, v)` for a list). A collector performs once per succession into it, so each delivery is appended as it arrives |
+| `ValueSpecificationAction` | an action whose result pin is the literal; the literal's kind types the pin, as the implementation puts the evaluated literal on the pin whatever the pin says |
+| `CallBehaviorAction` of an activity | `action <name> : fuml::<Activity>;` — a nested action typed by the callee's definition, its pins the callee's parameters by position |
+| `CallBehaviorAction` of a library function | an action whose result pin is the Kernel Function Library counterpart applied to the argument pins, as `LibraryCounterpart` maps it; `Div` is `ToInteger(x / y)`, `Inv` is `1.0 / x`, `Implies` is `ControlFunctions::'implies'`, `ListConcat` is `SequenceFunctions::union`. An untyped pin (the list functions') takes its type from the flow into it |
+| `ObjectFlow` | `flow <src>.<pin> to <tgt>.<pin>`, traced end to end: from each pin or parameter node that produces a value, through the control nodes routing its token, to each pin it can reach, one `flow` per route. Beside every flow between two actions an enabling `succession` is added, because a SysML v2 flow delivers a value but does not enable its target as fUML's object-flow does |
+| `ControlFlow` | `succession first <src> then <tgt>` |
+| `InitialNode`, `ForkNode` | `fork`; the initial node is a fork so several first nodes can follow it. Nodes with nothing coming in are enabled from `start`, through a fork when there are several |
+| `JoinNode`, `MergeNode`, `DecisionNode` | `join`, `merge`, `decide`; a decision's guards are tests of the pin it decides on (`succession first D if A.result == 0 then …`), found back through its decision-input flow or its one incoming object flow; a join has one outgoing succession, so a decision after it is spelled after it |
+| An action with several outgoing control flows, several edges into a collector or into the final node | an implicit `fork` before, an implicit `merge` after, since a plain action node has one successor |
+| `StructuredActivityNode` without pins | a nested action owning its contents' flow; an object flow across its boundary becomes a parameter of it, with a reader or collector inside. A control flow across the boundary, a guarded or weighted crossing, or a crossing of more than one boundary is refused |
+| `ActivityFinalNode` | `done`; a `FlowFinalNode` ends the edge into it |
+| `Class` with `ownedAttribute`s and `generalization`s | `part def <Class> :> <General> { attribute <p> : <T> [l..u] ordered nonunique; … }` — a part definition, not an item definition, because a fUML object is an occurrence that may perform behaviors (an active class's classifier behavior, alignment row SM43) and a SysML v2 part is the item that performs actions; the attributes keep their declared multiplicity exactly, UML's default `[1..1]` unwritten, since a class's feature is a store the actions write within its bounds, where a parameter's fills one token at a time. An attribute typed by a class is a `part` (composite) or `ref part`. Every class the activity's closure names — as a parameter's, pin's or attribute's type, as the classifier created, as the owner of a feature touched — is declared once, generals first; a class is found by its XMI id and then by its name, since a type reference may carry either |
+| `CreateObjectAction` | `action <name> { out result : <Class> = new <Class>(); }` — a new occurrence on the result pin. Creation starts no behavior; that is `StartObjectBehaviorAction`'s (SM43) |
+| `ReadSelfAction` | `action <name> { out result : <Owner> = this; }` inside a class's owned behavior, `this` being the object performing it — the behavior's definition is nested in the owner's `part def`, so the name resolves lexically to the enclosing object; in an activity performed on its own, self is the performance and not an object, and the action is refused |
+| `Class` with `ownedBehavior`s and a `classifierBehavior` | inside the `part def`, `action def <Behavior> { … }` per owned behavior the closure spells, the activity's body translated by the same rules as a top-level one, and `action classifierBehavior : <Behavior>;` for the classifier behavior — an action usage the part's objects may perform, declared without `perform`, so an object is created performing nothing (SM43); the class's members share one namespace, so an attribute named as a behavior, as a parameter of one or as `classifierBehavior` is refused, as is a `CallBehaviorAction` of an owned behavior (fUML calls it in the caller's context, which no SysML v2 nested action does) |
+| `Activity` used as a class — instantiated by `CreateObjectAction` or owning attributes | `part def <Activity> { attribute …; action def 'behavior' { … } action classifierBehavior : 'behavior'; }` — a UML behavior is a class, and the suite creates objects of one and starts them; the body is its own classifier behavior under the name `behavior`, since the part definition took the activity's. An activity both instantiated and called as an action would be two things and is refused |
+| `StartObjectBehaviorAction` | `action <name> { in object : <Class>; perform object.classifierBehavior.start; }` — the start of the object's classifier behavior, own or inherited, performed: the runtime lowers a `perform` of a behavior member's `start` to an explicit start effect that runs the behavior as the object's own execution, asynchronously, the starter completing at once as fUML's start does (SM43); a second start of a running or completed behavior starts nothing. A start with a result pin, without an object pin, passing arguments, or of an object whose class has no classifier behavior is refused |
+| `ReadStructuralFeatureAction` | `action <name> { in object : <Class>; out result : <T> [m] = object.<f>; }` at the feature's multiplicity; the object arrives at the `object` pin as fUML's does |
+| `Signal` with `ownedAttribute`s and `generalization`s | `attribute def <Signal> :> <General> { attribute <p> : <T> [l..u]; … }` — an attribute definition, since a fUML signal instance is a value carried by a message and read by attribute, never an occurrence that performs anything; a signal with nothing to declare is `attribute def <Signal>;`. Every signal the closure names — sent, accepted, typing a parameter, a pin or an attribute of a class or of another signal — is declared once, generals first, before the classes and the activities, and a signal is found by id and then by name as a class is |
+| `SendSignalAction` | `action <name> { in target : <Class>; in <arg> : <T>; … send new <Signal>(<attr> = <arg>, …) to target; }` — the target object and one argument pin per attribute of the signal, inherited ones included, in the signal's attribute order; the body sends a new instance to the target and completes without waiting, as fUML's send does. A send with a result pin, without a target pin or with an argument count other than the signal's attribute count is refused |
+| `AcceptEventAction` of one `SignalEvent` | `action <name> accept <pin> : <Signal>;` — an accept node whose result pin is the instance accepted; without a result pin, `action <name> accept <Signal>;`. The runtime matches by conformance, so an instance of a specialized signal satisfies an accept of its general as fUML's `SignalEvent` matching does. An accept with several triggers, of a `CallEvent`, with an input pin or `isUnmarshall` (one pin per attribute) is refused |
+| `AddStructuralFeatureValueAction`, `RemoveStructuralFeatureValueAction`, `ClearStructuralFeatureAction` | `action <name> { in object : <Class>; in value : <T>; in insertAt : Integer; out result : <Class> = object; assign object.<f> := <held after>; }` — the result pin hands the original object on, as fUML §8.10.2's structural feature actions do, and the feature is assigned what the reference implementation computes it to hold afterwards: an add with `isReplaceAll`, or to a single-valued feature, the value; otherwise a unique feature dropping its old copy first, the value inserted at `insertAt` (`includingAt`, one-based, so the runtime rejects a position of 0, which the reference implementation hands to its choice strategy; `*`, spelled `-1` since no position is negative, appending) or, with no position, first — the reference's `FirstChoiceStrategy` chooses position 1; a remove dropping every copy (`isRemoveDuplicates`, `excluding`), the copy at `removeAt` when there is one (`excludingAt`), or the first copy (`select` over the positions), a single-valued feature emptied when it holds the value; a clear emptying. The `insertAt`/`removeAt` pins are fed by `LiteralUnlimitedNatural` value specifications, which the emitter spells as `Integer` positions — the one place an unlimited natural has a spelling |
+
+The runtime executes a class as its object model executes any part: `new` materializes an
+instance whose features hold their declared multiplicity, `assign object.f := …` writes a
+feature through the same statement a user's action body writes with, and a violation of the
+feature's bounds is the runtime's typed error, so a translated write the bounds refuse is a
+`fail` naming it. A translated send posts its message through the runtime's signal routing,
+and an accept parks its node until a matching message arrives; the value accepted is bound
+to the node's result pin, from where the object flows carry it on
+(`accept_payload_flows_from_pin` in the execution-conformance fixtures pins that a
+`Calibrated` accepted as a `Reading` reaches the consumer with its attribute readable). An
+accept that nothing can ever satisfy is the runtime's typed `accept deadlock`, so an activity
+that waits for a signal no node of it sends is a `fail` naming the wait — where the reference
+implementation's `execute()` returns with the accepter registered and the outputs empty.
+
+A started classifier behavior is the object's own execution: `this` in it is the object, its
+writes land on the object's features, and an accept in it parks the behavior — not the
+starter — until a message for the object arrives, which the runtime delivers once the
+enclosing run has posted it (the object's behaviors are drained after the top-level
+performance ends as well as at the start). The behavior completing leaves the object, which
+the activity may still hand out through a parameter (SM44); a start that fails is undone
+whole, so the object performs nothing and keeps no write of the failed behavior. A behavior's
+body nested in the `part def` is refereed through the activities that start an object of its
+owner (below), since the record runs it only that way: the activity holding the start and every
+activity calling it, transitively, of which those the record executes carry the row — `fail` when
+one fails, else `pass` when one passes — each reason naming the starter and, when the start is
+reached through a call, the activity holding it.
+
+Everything else the classifier calls expressible — `ReadSelfAction` in an activity performed
+on its own (its self is the performance, which the suite's `TestSignalReceiver` writes an
+attribute of as fUML treats an execution as an object), a start passing arguments, an edge
+weight other than 1, an object-flow cycle through control nodes — is a **`TranslateError`**
+naming the activity, the node or edge, and the construct: `TestSignalReceiver: ReadSelf:
+reads self in an activity performed on its own, where self is the performance and not an
+object`. The classifier decides expressibility; the emitter
+decides what it can translate; a `TranslateError` on an expressible activity files the row
+`not-expressible` by the emitter, its reason `not yet translated:` and the construct, the
+row's `class` still `expressible` so the two judgments stay apart. The two edge rules are
+refusals no row of the pinned suite reaches: every `weight` in both models is the literal
+`1`, and no expressible activity routes an object flow back through a control node, so a
+weighted edge (SysML v2 has no per-firing token count on a `flow`) and such a cycle stay
+`TranslateError`s proven only by `TestEmitRefusesWeightsAndCycles`, and a model of the
+suite that grew one would file `not-expressible` by the emitter, never `pass` by accident.
+Every translated model is
+checked (`Validate`) through the parser's diagnostics and the lowering to an action graph
+before it is run, so a translation the runtime would reject fails as a translation, with the
+diagnostic.
+
+**Running.** `Execute` parses the model, resolves the definition, and performs it with the
+runtime's `ExploreWith`: every linearization of the concurrent nodes within the exploration
+budget (1024 runs of depth 64 by default), the runs of one activity spread over `-jobs`
+workers, the report the same for any job count because the outcomes are collected as a set.
+Every `in` parameter is given the value the implementation's `ExecutionEnvironment.execute`
+gives it — 0, `""`, `false`, 0.0; for a class, a signal or an activity objects are created of,
+one instance with every attribute, inherited ones included, defaulted the same way
+(`Environment.makeValue`); for an untyped parameter a `String`, as the implementation defaults
+it — since the JUnit suite passes none. The **oracle is the output parameters**: each run's
+`out` and `inout` values are rendered and compared with the record's, a scalar by value, an
+ordered multi-valued parameter in order, an unordered one as a multiset (both sides sorted), an
+absent optional output as `-` against a present one, and an object by its classifier and
+features — `TestClass#1{x = 7; y = 5, 3}`, every attribute of the definition the emitted model
+declares under that name in name order, an unset one `-`, an object mentioned again `#n` — the
+objects numbered canonically on each side, since the record's identifiers are aliases and the
+runtime's are its own: each side's objects are refined by their type, their features' values
+and every parameter or feature holding them until the classes settle, then numbered in class
+order, so equal object graphs number alike whichever order either side met them (two objects
+alike in every feature, one of which a second parameter also holds, are told apart by that
+holder), and objects the refinement cannot tell apart number in order of first mention. A row
+passes when every run within the budget agrees with the record and none ends in a runtime
+error; the runs need not exhaust the schedules, and `status` says whether they did
+(`complete (972 runs)`, `incomplete: runs budget 1024 hit after 1024 runs`), so an agreement
+over a sample is reported as one. A run that ends in a typed runtime error — a deadlock, a
+multiplicity violation, a budget — is a `fail` with the error as its reason. The
+implementation's `Fire` sequence is compared **advisorily**: the actions the runs' outputs
+show fired here against the record's `Fire` events, the difference reported as `fired` and
+never a bucket.
+
+**The buckets.** A `not-expressible` or `differs-by-design` classification files the activity
+there before any translation, and a `differs-by-design` row is still translated and run, so
+the difference is recorded rather than presumed. An expressible activity the emitter
+translates is `pass` or `fail` by its run, a run error being a failure; one it refuses is
+`not-expressible` with the construct named, so the count says what is not yet checked.
+
+```bash
+./scripts/download-fuml-suite.sh            # once
+go run -C tools ./cmd/fuml-referee                   # the summary: counts, then every non-pass row with its reasons
+go run -C tools ./cmd/fuml-referee -json             # the full report, byte-stable
+go run -C tools ./cmd/fuml-referee -filter Decision -keep /tmp/fuml   # a few activities, their models written out
+go run -C tools ./cmd/fuml-referee -jobs 8 -check    # reproduce the committed counts
+go run -C tools ./cmd/fuml-referee -update           # after adjudicating a movement
+```
+
+`-check` and `-update` refuse `-filter`, since the counts are the whole suite's; `-jobs`
+below 1 is refused; an absent suite is reported and exits 0 unless
+`OPENSYSML_REQUIRE_FUML_SUITE` is set, as CI sets it. The baseline
+`docs/project/fuml-referee-baseline.json` carries the provenance (tag, commit, the four
+digests of the suite files — the two models, the downloaded library the reader resolves
+against, and the jar — the activity count, the date and develop commit `-update` recorded), the bucket
+counts and every row with its bucket, reasons, expected and reached outputs, run count and
+status. `-check` compares the provenance first — a moved pin is a different question, never a
+moved count — then the four counts, and names the rows that moved between buckets when a
+count differs. CI runs it in the fUML suite gate after the reader and classifier tests; the
+jar never runs there.
+
+### The pilot, adjudicated
+
+The committed baseline over the 55 activities of both models:
+
+| Bucket | Count | Activities |
+|---|---|---|
+| `pass` | 23 | `Copier`, `CopierCaller`, `SimpleDecision`, `ForkJoin`, `ForkMerge`, `NodeEnabler`, `TestNodeEnabler`, `TestIntegerFunctions`, `TestIntegerComparisonFunctions`, `TestRealFunctions`, `TestRealComparisonFunctions`, `TestStringFunctions`, `GenerateBooleanTestData`, `GenerateListTestData`, `TestListFunctions`, `TestGeneralizationAssembly`, `TestClassObjectCreator`, `TestClassWriterReader`, `TestClassAttributeWriter`, `TestClassAttributeValueRemover`, `TestSpecializedSignalSend`, `ActiveClassBehaviorSender`, `ActiveClassBehavior` |
+| `fail` | 0 | |
+| `differs-by-design` | 4 | `DecisionJoin`, `ForkMergeData`, `TestSimpleActivities`, `TestBooleanFunctions` |
+| `not-expressible` | 28 | the 15 of the test model and the 12 of the exception model listed above, by the classifier; and by the emitter, `TestSignalReceiver` (`ReadSelfAction` in an activity performed on its own) |
+
+Every pilot activity the scope named runs: the eight control- and object-flow activities and
+the primitive-function tests pass with every linearization agreeing, seven of them with the
+schedules exhausted (`ForkMerge` 20 runs, `TestIntegerComparisonFunctions` 972) and the
+function tests, whose nodes are all concurrent, over the 1024-run sample; `DecisionJoin`,
+`ForkMergeData` and `TestSimpleActivities` are `differs-by-design` as the scope expected.
+
+**The five object activities pass.** `TestClassObjectCreator` creates a `TestClass` and
+returns it, its `x` unset and `y` empty; `TestClassAttributeWriter` and
+`TestClassAttributeValueRemover` take a defaulted `TestClass` and add to and remove from its
+`y`; `TestClassWriterReader` creates, writes `x` and reads it back;
+`TestGeneralizationAssembly` creates a `Specific` whose `General`'s attribute is reachable
+through `:>` and returns it through an `inout` parameter. Each agrees with the record over
+every linearization, the schedules exhausted (the remover in 18 runs, the writer in 6, the
+others in 1 or 2), and the object comparison is by class and feature values, never by identity.
+
+**The three active-object activities pass.** `ActiveClassBehaviorSender` creates an
+`ActiveClass`, starts it and sends it a `TestSignal` and an `OtherSignal`; its classifier
+behavior `ActiveClassBehavior` — nested in the `part def`, refereed through its starter since
+the record runs it only as part of its owner — accepts both, reads self and writes each signal
+into the object's attribute, and the run ends with the starter complete and the object's
+behavior done, over all 6 linearizations; the record has no output parameter to hold
+against, so the pass is the run's completion, as the reference's own is.
+`TestSpecializedSignalSend` creates an object of the activity `TestSignalReceiver`, starts it
+and sends it a `SpecializedSignal`; the behavior accepts it as a `TestSignal`, writes it
+through `ReadSelf` into the object's `signal` and into its own `testSignalOut`, and the
+starter, which has no output, agrees with the record over all 5 linearizations. Both sides
+hold the created object alive after its behavior completes, and neither runs a behavior at
+creation.
+
+**No row fails, and one is `not-expressible` by the emitter rather than the classifier**,
+adjudicated as such: a `TranslateError` on a construct the emitter does not spell, where the
+classifier holds the activity expressible, so the row keeps `class: expressible` and names
+the construct after `not yet translated:`, told apart from the classifier's 27 in the report.
+`TestSignalReceiver` is the same body the pass above runs as an object's behavior, executed
+here on its own as the JUnit suite also does: its `ReadSelf` then yields the activity
+execution, which fUML treats as an object with the activity's attribute `signal`, and the
+emitter has no spelling for a performance written to as an object. The record of that run
+is empty — the reference registers the accept on an execution that is no active object, so
+nothing ever fires and `testSignalOut` stays empty — where a SysML v2 performance parked at
+the accept would be the runtime's typed accept deadlock, so translating the row would move
+it to `fail` on a difference of the accept model rather than a finding about the executor.
+It stays untranslated, its reason naming the construct, and moves only if the emitter grows
+a rule for self as a performance or the row is reclassified with that argument.
+
+### Movements since the previous baseline
+
+Eight rows moved since the previous baseline (15 `pass`, 36 `not-expressible`), in three
+steps of the emitter, each with a re-run of the suite: the rules for classes, object
+creation and the structural feature actions moved five (20 `pass`, 31 `not-expressible`);
+the rules for signals, `SendSignalAction` and `AcceptEventAction` moved none on their own,
+since the two signal activities of the suite are also the two that use an activity as a
+class, so their reasons sharpened and their bucket did not; the rules for a class's owned
+behaviors, an activity as a class, `ReadSelfAction` in an owned behavior and
+`StartObjectBehaviorAction` moved three (23 `pass`, 28 `not-expressible`). The referee
+gained class-typed default inputs, the object rendering and the refereeing of an owned
+behavior through its starter. No other row's bucket changed; the classifier's 27 rows and
+the four `differs-by-design` rows are byte-identical to the previous baseline's, and the one
+emitter row that stays `not-expressible` names the construct it still meets. The signal
+rules are proven over synthetic models as well (`TestEmitSignals`, `TestEmitSendSignal`,
+`TestEmitAcceptEvent`, `TestExecuteSignals`), where a `Pong :> Ping` sent with its inherited
+attribute reaches an accept of `Ping`, and an accept nothing sends to is the runtime's typed
+accept deadlock, a `fail` and never a `not-expressible`.
+
+| Activity | Movement | Adjudication |
+|---|---|---|
+| `TestClassObjectCreator` | `not-expressible` (emitter) → `pass` | Expected. `Create(TestClass)` is `new TestClass()`, and the record's object is a `TestClass` with `x` unset and `y` empty, which is what an occurrence whose features nobody wrote holds; the runtime's unset scalar renders `-` as the record's absent value does |
+| `TestClassAttributeWriter` | `not-expressible` (emitter) → `pass` | Expected. The activity is given a defaulted `TestClass` — `x = 0` and `y` holding one `0`, since the implementation gives every attribute one default value whatever its multiplicity — and the input `value = 0`, and adds the value to `y` at position `*`, which appends (`including`); the record's `y = 0, 0` is what the runtime leaves. Exhaustive over 6 runs |
+| `TestClassAttributeValueRemover` | `not-expressible` (emitter) → `pass` | Expected. Four adds without a position put their values first, as the reference's `FirstChoiceStrategy` inserts them; a remove without a position drops the first copy of its value and a remove with `isRemoveDuplicates` drops every copy (`excluding`); the record's `y = 2, 0` is what the runtime leaves. Exhaustive over 18 runs |
+| `TestClassWriterReader` | `not-expressible` (emitter) → `pass` | Expected. Creates a `TestClass`, writes `999` to `x` (single-valued: the value replaces), reads `x` back onto the result pin and returns it; the read is `object.x` at the feature's multiplicity. Exhaustive over 2 runs |
+| `TestGeneralizationAssembly` | `not-expressible` (emitter) → `pass` | Expected. `Specific :> General`; the created `Specific` reaches the `inout result` parameter through its output node — the node with an incoming edge, told apart from the same parameter's input node — and renders with `General`'s attribute among its own, as the record's does |
+| `ActiveClassBehaviorSender` | `not-expressible` (emitter) → `pass` | Expected. Creates an `ActiveClass`, starts it (`perform object.classifierBehavior.start`, the behavior running asynchronously as the object's own execution) and sends it a `TestSignal` then an `OtherSignal`; the record has no parameter, so the verdict is the run completing with nothing to compare, as the reference's is. The started behavior is not what the record holds against, but it runs: after the run the `ActiveClass` performs one completed `classifierBehavior` with `signal1` and `signal2` holding the two instances sent, the accepts having fired in whichever order the schedule delivered the signals. Exhaustive over 6 runs |
+| `ActiveClassBehavior` | `not-expressible` (emitter) → `pass` | Expected, by its starter. The record does not execute the owned behavior on its own (`skipped: ownedBehavior of ActiveClass: runs only as part of its owner`), so the row's bucket is the bucket of the activity that starts an object of `ActiveClass` — `ActiveClassBehaviorSender`, `pass` — and its reason names that starter. Its body is the `action def ActiveClassBehavior` nested in `part def ActiveClass`, translated by the same rules as a top-level one; were the starter to `fail`, this row would `fail` with it |
+| `TestSpecializedSignalSend` | `not-expressible` (emitter) → `pass` | Expected. Creates an object of the activity `TestSignalReceiver` (a `part def` whose classifier behavior `'behavior'` is the activity's body), starts it and sends it a `SpecializedSignal`; the behavior's `accept` of `TestSignal` takes the specialized instance, and `ReadSelf` yields the object, so `Write(signal)` lands on the object's attribute and `testSignalOut` on the behavior's own parameter. The record has no parameter; the verdict is the run completing with nothing to compare, as the reference's is. Exhaustive over 5 runs |
+| `TestSignalReceiver` | stays `not-expressible` (emitter) | The same body, executed on its own; its `ReadSelf` is the performance, not an object, and the emitter refuses it (`ReadSelf: reads self in an activity performed on its own, where self is the performance and not an object`). Adjudicated above: the record's `testSignalOut` is empty because the reference's accept on a non-object execution never fires, where the runtime would report a typed accept deadlock — a difference of the accept model, not an executor finding |
+
+**The four design differences run as the alignment row predicts.** `DecisionJoin` offers
+`Action_A` two tokens through a multiplicity-1 pin; the implementation fires it twice and the
+decision routes one result each way, so both branches reach the join. Here `Action_A`
+performs once, one guard holds, and the join waits for the other branch: `action deadlock: 1
+token(s) stuck`. `TestBooleanFunctions` delivers a four-row truth table to each function's
+multiplicity-1 pin: four firings there, `multiplicity violation: 4 value(s) bound to a feature
+with multiplicity upper bound 1` here. `TestSimpleActivities` calls `DecisionJoin` and
+`ForkMergeData` and inherits the deadlock. Each row carries its runtime error as a reason so
+the difference is visible, but the bucket is the classifier's, not the run's.
+
+**One translation rule the pilot forced, no runtime finding.** With the nested `Copier`'s
+output parameter and `ForkMergeData`'s both spelled `output`, the model reached two outcomes
+over its 20 linearizations, `output = 0, 0` (the record's) and `output = 0, 0, 0`: when
+`Action_B`'s second performance ended after the collector had appended the first value, the
+runtime returned the nested `output` to the enclosing `output` — the same-named enclosing
+feature — as SysML v2 has it do (`action_invoked_node_body_writes_output` pins that), and the
+collector then appended to a list that already held it. fUML gives each activity its own
+parameters, so the emitter spells a called activity's shared parameter names apart
+(`Copier_output`), and `ForkMergeData` now reaches one outcome, exhaustively, agreeing with
+the record. The runtime behaved as specified; the referee row is `differs-by-design` for the
+re-firing regardless, so no count depends on it.
+
+`TestEmit*`, `TestValidate`, `TestExecute*` and `TestReferee*` in `tools/referee/fuml` are the
+translation's permanent tests over synthetic models: parameter directions and
+multiplicities, the enabling succession beside a flow, fork, join, merge and guarded
+decision, a nested call and its qualified name, the typed refusal, the parser-and-lowerer
+check, the four comparison rules and the advisory firing difference, the budget sample and the
+run error, the buckets' precedence, determinism across job counts, and the baseline's
+provenance-then-counts comparison with its moved-row diagnostic; and over an object model, the
+part definitions with their generalization and every multiplicity shape, creation, the
+replacing, first-position and indexed adds, the indexed remove, the unique feature's one copy,
+the read and the clear, the object handed on through result pins, the top-level `ReadSelf`
+refused, and the executed object compared against the record's shape, in order and out of it;
+and over an active-object model, the owned behavior nested in its owner's `part def` with the
+`classifierBehavior` usage, `ReadSelf` bound to the owner, an activity as a `part def` whose
+body is its `'behavior'`, the mixed activity refused, the created object handed out unchanged
+after its started behavior ran (`TestExecuteStartedObject`), and the owned behavior's row
+taking its starter's bucket (`TestRefereeOwnedBehavior`). The runtime side — creation performing
+nothing, the start running the behavior as the object with `this` bound, a later message waking
+it, a second start running nothing more, an inherited behavior started on the specialized
+object, the typed refusals of a start on no object or of no behavior, a failing start undone
+whole, and the trace — is `TestRuntimeRobustnessClassifierBehaviorStart` in
+`internal/exec/runtime/robustness_classifier_behavior_test.go`, with
+`TestStartedActionAwaitingAMessageIsWokenByASibling` beside the materialization tests in
+`classifier_behavior_test.go`.

@@ -3,14 +3,14 @@
 This directory is the language-independent contract between `sysml-grpc` and its clients. A
 scenario states one call and what the service must answer; nothing here names a transport, a
 programming language, or a client's object model. The reference runner is
-[`cmd/conformance`](../cmd/conformance), which builds and starts the service itself:
+[`tools/cmd/conformance`](../tools/cmd/conformance), which builds and starts the service itself:
 
 ```bash
 make conformance                       # the CI gate; writes bin/conformance-report.json and .xml
-go run ./cmd/conformance -v             # print each scenario's normalized response
-go run ./cmd/conformance -run evaluate  # only the scenarios whose id matches
-go run ./cmd/conformance -binary ./bin/sysml-grpc   # test a binary already built
-go run ./cmd/conformance -protocols grpc,connect,connect-json
+go run -C tools ./cmd/conformance -v             # print each scenario's normalized response
+go run -C tools ./cmd/conformance -run evaluate  # only the scenarios whose id matches
+go run -C tools ./cmd/conformance -binary bin/sysml-grpc  # test a binary already built
+go run -C tools ./cmd/conformance -protocols grpc,connect,connect-json
 ```
 
 `-report <file>` writes the machine-readable summary (`-` writes it to stdout). `-junit <file>`
@@ -48,7 +48,7 @@ to `/sysml.SysMLService/<Method>` with `application/proto` or `application/json`
 | `rpc` | Method name, bare (`Evaluate`) or qualified (`sysml.SysMLService/Evaluate`). |
 | `requires_capabilities` | Names `GetServerInfo` must report for `expect` to apply. |
 | `expect_without_capability` | What a service **not** reporting them must answer instead. |
-| `model` | A fixture parsed once per run before the call; its hash fills `${model_hash}`. |
+| `model` | The model parsed once per run before the call; its hash fills `${model_hash}`. `{ "fixture": "x.sysml" }` parses one fixture with `ParseFile`; `{ "fixtures": ["a.sysml", "b.sysml"] }` parses several as one model with `ParseSources`, each document named by its fixture. |
 | `request` | The request as protobuf-JSON. |
 | `expect` | What the answer must be, by the rules below. |
 
@@ -108,7 +108,7 @@ These cannot be compared literally, so the runner replaces them before comparing
 | `ServerInfoResponse.version` | `${version}` | A build string; the contract is capabilities, not versions. |
 | Any string equal to the model hash of the scenario's model | `${model_hash}` | Content-addressed and free to change with the parser. |
 | Any absolute path (`Span.file`, echoed request paths) | `${path}` | Names the machine the service ran on. A relative name is kept. |
-| Runtime instance ids (`Instance.id`, `Value.instance_id`, `Verdict.instance_id`, `Function.self_id`) | `@1`, `@2`, … | Assigned per call. Labelled in order of first appearance, so a scenario can still state that a feature value names the same object as an entry of `instances`. |
+| Runtime instance ids (`Instance.id`, `Value.instance_id`, `Verdict.instance_id`, `Function.self_id`, `DocumentObject.instance_id`) | `@1`, `@2`, … | Assigned per call. Labelled in order of first appearance, so a scenario can still state that a feature value names the same object as an entry of `instances`. |
 
 ### Ignored values
 
@@ -134,7 +134,7 @@ What a request asks for is fixed per capability:
 | Capability | Request-side contract when unavailable |
 | --- | --- |
 | `convert` | Refuse `Convert`. |
-| `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and `EvaluateCalc`. |
+| `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |
@@ -161,7 +161,7 @@ is exactly the default list minus those names, and requires both fallback expect
 under gRPC, Connect and Connect-JSON. The exact default `GetServerInfo` scenario is replaced in that
 configuration by this stronger set comparison.
 
-Withholding is test-only. `cmd/conformance` passes
+Withholding is test-only. `tools/cmd/conformance` passes
 `OPENSYSML_TEST_WITHHOLD_CAPABILITIES` to the child process it starts; normal startup strips no
 capability, and the variable is not a supported service configuration interface.
 
@@ -170,7 +170,7 @@ capability, and the variable is not a supported service configuration interface.
 A suite that passes against a broken service is worse than none, so what the scenarios catch is
 verified rather than assumed:
 
-- `cmd/conformance`'s own tests pin the comparison rules — tolerance, list length, default
+- `tools/cmd/conformance`'s own tests pin the comparison rules — tolerance, list length, default
   handling, path lookup, id labelling, status naming — with cases that must fail as well as
   cases that must pass.
 - `TestEveryRPCIsCovered` fails if an RPC of the service is reached by no scenario, and
@@ -181,7 +181,7 @@ verified rather than assumed:
 
 ## Porting a runner to another language
 
-The scenarios are the specification and `cmd/conformance` is one reading of it. A runner in
+The scenarios are the specification and `tools/cmd/conformance` is one reading of it. A runner in
 another language needs: protobuf-JSON decoding of `request` into the RPC's request message,
 the normalization table above, the comparison rules above, capability gating from
 `GetServerInfo`, and the same report shape. Nothing else in this directory is gRPC-specific:

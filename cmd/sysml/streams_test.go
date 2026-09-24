@@ -129,7 +129,7 @@ func TestStreamsAndStatus(t *testing.T) {
 		args:   []string{"-convert", "ttl"},
 		status: exitHolds,
 		stdout: []string{"@prefix sysml:"},
-		stderr: []string{"note: RDF conversion is experimental"},
+		stderr: []string{"note: RDF conversion — Turtle and the API's JSON element form alike — is experimental"},
 	}, {
 		name:      "a notation conversion writes only the model out",
 		model:     sampleModel,
@@ -156,14 +156,14 @@ func TestStreamsAndStatus(t *testing.T) {
 		model:     checkModel,
 		args:      []string{"-h"},
 		status:    exitHolds,
-		stdout:    []string{"Usage: sysml [options] [file...]", "-convert string"},
+		stdout:    []string{"Usage: sysml [options] [file...]", "-convert <format>"},
 		emptyErrs: true,
 	}, {
-		name:     "a flag that is not defined is reported with the usage on stderr",
+		name:     "a flag that is not defined is reported with a pointer to the help on stderr",
 		model:    checkModel,
 		args:     []string{"--nosuchflag"},
 		status:   exitUnevaluable,
-		stderr:   []string{"flag provided but not defined: -nosuchflag", "Usage: sysml [options] [file...]"},
+		stderr:   []string{"flag provided but not defined: -nosuchflag", "Usage: sysml [options] [file...]", "Run 'sysml -help' for the options."},
 		emptyOut: true,
 	}}
 

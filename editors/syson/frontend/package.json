@@ -1,0 +1,62 @@
+{
+  "name": "@openmbee/opensysml-syson",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "main": "dist/opensysml-syson.cjs.js",
+  "module": "dist/opensysml-syson.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@apollo/client": "3.10.4",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "@eclipse-sirius/sirius-components-core": "2026.9.0",
+    "@eclipse-sirius/sirius-components-trees": "2026.9.0",
+    "@mui/icons-material": "7.3.10",
+    "@mui/material": "7.3.10",
+    "graphql": "16.8.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@eclipse-sirius/sirius-components-core": {
+      "optional": true
+    },
+    "@eclipse-sirius/sirius-components-trees": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@apollo/client": "3.10.4",
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.0",
+    "@mui/icons-material": "7.3.10",
+    "@mui/material": "7.3.10",
+    "@testing-library/jest-dom": "5.14.1",
+    "@testing-library/react": "12.1.2",
+    "@testing-library/user-event": "13.2.1",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "6.0.2",
+    "graphql": "16.8.1",
+    "jsdom": "16.7.0",
+    "prettier": "2.7.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "typescript": "5.4.5",
+    "vite": "8.1.5",
+    "vitest": "3.2.4"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "install:syson": "npm install --no-save --ignore-scripts @eclipse-sirius/sirius-components-core@2026.9.0 @eclipse-sirius/sirius-components-trees@2026.9.0",
+    "build:syson": "OPENSYSML_SYSON_REAL=1 vite build && tsc -p tsconfig.syson.json"
+  }
+}

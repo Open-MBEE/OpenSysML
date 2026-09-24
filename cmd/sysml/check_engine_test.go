@@ -54,6 +54,7 @@ type checkedReport struct {
 			} `json:"bounds"`
 			Witness *struct {
 				Schedule string   `json:"schedule"`
+				Draws    []string `json:"draws"`
 				Choices  []string `json:"choices"`
 			} `json:"witness"`
 			Check *struct {
@@ -68,6 +69,7 @@ type checkedReport struct {
 					Error   string   `json:"error"`
 					Depth   int      `json:"depth"`
 					Witness []string `json:"witness"`
+					Draws   []string `json:"draws"`
 					Path    string   `json:"path"`
 				} `json:"violations"`
 				Divergent []struct {
@@ -182,7 +184,7 @@ func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
 		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
 	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
 	wantReport(t, got, 1, "✗ Action Plant::Tank::overfill: violation",
-		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")",
+		"violation: Plant::Tank::low is false after 2 moves (probability 1) (witness "+witness+")",
 		"standing: violated (witnessed:")
 	content, err := os.ReadFile(witness)
 	if err != nil {
@@ -196,6 +198,59 @@ func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
 	wantReport(t, replayed, 0, "stmt assign level", "Action completed",
 		"standing: value (observed: 1 run under replay:"+witness+")")
 	rejectReport(t, replayed, "replay refused", "names no move to follow")
+}
+
+// drawingTankModel breaks a property after a random draw and before any choice point.
+const drawingTankModel = `package Plant {
+    private import ScalarValues::*;
+    private import RandomFunctions::*;
+    part def Tank {
+        attribute level : Integer = 0;
+        constraint low { level < 2 }
+        action overfill {
+            first start;
+            action a { assign level := 2 + uniformInteger(0, 1); }
+            done;
+            succession first start then a;
+            succession first a then done;
+        }
+    }
+    part tank : Tank;
+}
+`
+
+// A violation reached through a draw and no choice is witnessed by the draw: -json
+// carries it on the result's witness and the violation, and the witness file replays it.
+func TestEngineCheckWitnessCarriesTheDraws(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+
+	got := check(t, binary, drawingTankModel, "-json", "-engine", "check", "-seed", "7", "-instantiate", "Plant::tank",
+		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
+	var report checkedReport
+	if err := json.Unmarshal([]byte(got.stdout), &report); err != nil {
+		t.Fatalf("stdout is not the reported JSON: %v\n%s", err, got.output())
+	}
+	r := report.Checks[len(report.Checks)-1].Results[0]
+	if got.status != 1 || r.Claim != "violated" || r.Witness == nil || len(r.Witness.Choices) != 0 || len(r.Witness.Draws) != 1 ||
+		!strings.HasPrefix(r.Witness.Draws[0], "draw uniformInteger(0, 1) = ") {
+		t.Fatalf("the drawn witness is misreported:\n%s", got.stdout)
+	}
+	if len(r.Check.Violations) != 1 || !slices.Equal(r.Check.Violations[0].Draws, r.Witness.Draws) || len(r.Check.Violations[0].Witness) != 0 {
+		t.Errorf("the violation's draws are misreported:\n%s", got.stdout)
+	}
+	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
+	content, err := os.ReadFile(witness)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(content), r.Witness.Draws[0]+"\n") {
+		t.Errorf("witness file does not open with the draw:\n%s", content)
+	}
+	replayed := check(t, binary, drawingTankModel, "-schedule", "replay:"+witness, "-instantiate", "Plant::tank",
+		"-action", "Plant::Tank::overfill Plant::tank")
+	wantReport(t, replayed, 0, "standing: value (observed: 1 run under replay:"+witness+")")
+	rejectReport(t, replayed, "replay refused", "unseeded")
 }
 
 // One action checked on two objects writes two sets of witnesses, each named for
@@ -278,7 +333,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 // replay:<file>: the token order is drawn at the retry, where both branches are due.
 func TestEngineReplaysAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)
@@ -401,7 +456,7 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 // sibling accept falls due with it — is a state the search holds and resumes.
 func TestEngineCheckSearchesAPausedBody(t *testing.T) {
 	binary := buildCLI(t)
-	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)

@@ -4,7 +4,7 @@ This page covers what the `opensysml` crate exposes, why it is blocking, and whe
 stops. To choose between the clients, see [client libraries](clients.md); for a
 task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
 binary provisioning and its trust model are in
-[clients/rust/README.md](../../clients/rust/README.md).
+[client/rust/README.md](../../client/rust/README.md).
 
 Nothing is published to crates.io yet, so a consumer takes it from a path or from
 git:
@@ -177,17 +177,20 @@ objects above, the edit API, RDF conversion and the verification helpers. The
 service still serves them, and `Connection::call` is the escape hatch: it sends one
 method's request message from `opensysml::wire` and decodes the response without
 the ergonomic layer, so an RPC the typed API does not wrap — `RunAnalysis`,
-`RunSweep` — can still be made. In-band `error` fields are the caller's to read,
+`RunSweep`, `ApplyEdits` (whose `documents` lists every document an edit rewrote,
+by parse name, beside the sole-document `content`; a model of several documents is
+edited only for a request setting `accept_documents`) — can still be made. In-band `error` fields are the caller's to read,
 and `Capabilities::has` gates the response fields the same way.
 
 ## Conformance
 
 `make conformance-rust` runs the language-neutral scenarios through the typed API —
 public surface only, responses read through the domain accessors — and writes the
-report shape `cmd/conformance` writes. The runner takes `-binary`, `-run`,
-`-report FILE` (or `-report -`), `-allow-skips` and `-v`. The two expected v1
-boundary skips are an RPC the typed API does not cover and a `ParseFile` naming no
-source; any other skip names the capability it lacked and fails the run unless
+report shape `tools/cmd/conformance` writes. The runner takes `-binary`, `-run`,
+`-report FILE` (or `-report -`), `-allow-skips` and `-v`. The three expected v1
+boundary skips are an RPC the typed API does not cover, a `ParseFile` naming no
+source, and a model of several documents, which the single-document parse cannot
+make; any other skip names the capability it lacked and fails the run unless
 skips are allowed. Where a covered RPC answers successfully with a top-level error,
 the typed API keeps only `Error::Model(message)`, so the runner compares
 `{"error": message}` — an expectation naming another field alongside that error

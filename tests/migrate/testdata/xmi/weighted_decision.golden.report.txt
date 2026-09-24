@@ -1,0 +1,22 @@
+# SysML v1 to v2 migration report: weighted_decision.xmi
+# migrated 16 element(s): 11 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+Activity	Sorter::Route	_act	-> Sorter::Route	(the classifier behavior is run by every object of Sorter as its usage route)
+«Probability» ControlFlow	Sorter::Route::<ControlFlow>	_eReject	(«Probability» from http://example.com/routing/profile is not the SysML profile's; its probability is not read; the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3), its share of what the marked branches leave of 1, read when the decision is reached)
+OpaqueAction	Sorter::Route::left	_left	-> left	(the body is kept as a comment: the body is empty)
+OpaqueAction	Sorter::Route::reject	_reject	-> reject	(the body is kept as a comment: the body is empty)
+OpaqueAction	Sorter::Route::right	_right	-> right	(the body is kept as a comment: the body is empty)
+
+## mapped (11)
+Model	Sorter	_m	(the root model's members are written at the top level)
+«Block» Class	Sorter	_sorter	-> Sorter
+ActivityFinalNode	Sorter::Route::<ActivityFinalNode>	_final	-> final
+«Probability» ControlFlow	Sorter::Route::<ControlFlow>	_eLeft	(the probability reads the property bias of the object performing the action, so a run checks it lies in [0, 1] and the branches sum to 1 when the decision is reached)
+«Probability» ControlFlow	Sorter::Route::<ControlFlow>	_eRight
+ControlFlow	Sorter::Route::<ControlFlow>	_fLeft
+ControlFlow	Sorter::Route::<ControlFlow>	_fRight
+ControlFlow	Sorter::Route::<ControlFlow>	_fReject
+DecisionNode	Sorter::Route::<DecisionNode>	_decide	-> 'decide'
+InitialNode	Sorter::Route::<InitialNode>	_init	-> start
+Property	Sorter::bias	_bias	-> Sorter::bias

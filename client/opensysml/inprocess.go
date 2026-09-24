@@ -8,7 +8,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 // defaultCacheSize matches the sysml-grpc default, so the two implementations
@@ -156,6 +156,13 @@ func (p *inprocess) verifySatisfaction(
 	req *pb.VerifySatisfactionRequest,
 ) (*pb.VerifySatisfactionResponse, error) {
 	return answer(ctx, req, p.svc.VerifySatisfaction)
+}
+
+func (p *inprocess) validateInstance(
+	ctx context.Context,
+	req *pb.ValidateInstanceRequest,
+) (*pb.ValidateInstanceResponse, error) {
+	return answer(ctx, req, p.svc.ValidateInstance)
 }
 
 func (p *inprocess) evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error) {

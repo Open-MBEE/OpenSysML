@@ -1,0 +1,104 @@
+# SysML v1 to v2 migration report: diagram_edges.xmi
+# exported by Example UML Tool
+# migrated 77 element(s): 69 mapped, 8 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 7 diagrams from diagram_edges.layout.xml: 19 elements positioned, 10 connectors routed
+
+## layout
+# source: diagram_edges.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
+# 6 diagram records: 6 joined, 0 matching no diagram; 1 views without layout
+# placements: 19 of 22 written (3 not exposed, 0 resolving to no element); routes: 10 of 22 written (11 not pinned, 1 resolving to no element); malformed: 0
+# routes of BindingConnector: 1 written
+# routes of Connector: 1 unnamed
+# routes of Connector: 3 written
+# routes of ControlFlow: 1 unnamed
+# routes of ControlFlow: 2 written
+# routes of Dependency: 2 not drawn
+# routes of Generalization: 1 no v2 member
+# routes of Include: 1 not drawn
+# routes of ObjectFlow: 1 not drawn
+# routes of ObjectFlow: 1 written
+# routes of Satisfy: 2 not drawn
+# routes of Transition: 1 dangling
+# routes of Transition: 1 no v2 member
+# routes of Transition: 3 written
+# routes of Verify: 1 not drawn
+
+## approximated (8)
+Transition	Behavior::Modes::<Region>::<Transition>	_t_restart	-> Behavior::Modes::'Halted accept Go then Running'	(written as 2 transitions, one per trigger)
+OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavior::Modes::Running::spin	(the body is kept as a comment: the statement "keep turning" is not an assignment of a v2 expression (language English))
+«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_pairs	(written as 2 relationships, one per client–supplier pair)
+«TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
+Dependency	Structure::<Dependency>	_dep_pairs	(written as 2 relationships, one per client–supplier pair)
+Diagram	Structure::Structure	_diag_bdd	-> Structure::Structure	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 7 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 0 of 3 connectors routed (2 not drawn, 1 no v2 member))
+Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; 1 of 9 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 3 of 4 shown elements positioned (1 not exposed), 3 of 5 connectors routed (1 not drawn, 1 unnamed))
+Diagram	Structure::Vehicle::Drive::Driving Sketch	_diag_act_empty	-> Structure::Vehicle::Drive::'Driving Sketch'	(a SysML Activity Diagram written as a view rendered asTextualNotation; the diagram shows nothing; the view exposes nothing)
+
+## mapped (69)
+Package	Behavior	_pkg_behavior	-> Behavior
+SignalEvent	Behavior::<SignalEvent>	_ev_go	(written where a trigger refers to it, as accept Go)
+SignalEvent	Behavior::<SignalEvent>	_ev_stop	(written where a trigger refers to it, as accept Stop)
+SignalEvent	Behavior::<SignalEvent>	_ev_resume	(written where a trigger refers to it, as accept Resume)
+Signal	Behavior::Go	_sig_go	-> Behavior::Go
+StateMachine	Behavior::Modes	_sm_modes	-> Behavior::Modes
+Region	Behavior::Modes::<Region>	_sm_region	(the one region is written as the body of its owner)
+Pseudostate	Behavior::Modes::<Region>::<Pseudostate>	_sm_init	(written as the entry of the region)
+Transition	Behavior::Modes::<Region>::<Transition>	_t_init
+Transition	Behavior::Modes::<Region>::<Transition>	_t_go	-> Behavior::Modes::'Idle accept Go then Running'
+Transition	Behavior::Modes::<Region>::<Transition>	_t_reset
+Trigger	Behavior::Modes::<Region>::<Transition>::<Trigger>	_tr_go
+Trigger	Behavior::Modes::<Region>::<Transition>::<Trigger>	_tr_restart_go
+Trigger	Behavior::Modes::<Region>::<Transition>::<Trigger>	_tr_restart_resume
+State	Behavior::Modes::<Region>::Halted	_st_halted	-> Halted
+State	Behavior::Modes::<Region>::Idle	_st_idle	-> Idle
+State	Behavior::Modes::<Region>::Running	_st_running	-> Running
+Transition	Behavior::Modes::<Region>::halt	_t_stop	-> Behavior::Modes::halt
+Trigger	Behavior::Modes::<Region>::halt::<Trigger>	_tr_stop
+Diagram	Behavior::Modes::Modes	_diag_stm	-> Behavior::Modes::Modes	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Behavior::Modes, whose graph the rendering draws with the 7 shown nodes and edges of it; laid out from diagram_edges.layout.xml: 3 of 5 shown elements positioned (2 not exposed), 3 of 5 connectors routed (1 no v2 member, 1 resolving to no element))
+Signal	Behavior::Resume	_sig_resume	-> Behavior::Resume
+Signal	Behavior::Stop	_sig_stop	-> Behavior::Stop
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Requirements	_pkg_reqs	-> Requirements
+«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> Structure::Vehicle::'satisfy Mass Limit'
+«Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_hidden	-> Structure::Vehicle
+«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Requirements::'Mass Test'::'objective'::'verify Mass Limit'
+«Requirement» Class	Requirements::Mass Limit	_req_mass	-> Requirements::'Mass Limit'
+«Requirement» Class	Requirements::Speed Limit	_req_speed	-> Requirements::'Speed Limit'
+Diagram	Requirements::Traceability	_diag_req	-> Requirements::Traceability	(a SysML Requirement Diagram written as a view rendered asTreeDiagram; laid out from diagram_edges.layout.xml: 3 of 3 shown elements positioned, 0 of 3 connectors routed (3 not drawn))
+Package	Structure	_pkg_structure	-> Structure
+Dependency	Structure::<Dependency>	_dep_shown	-> Structure::'Vehicle to Engine'
+Dependency	Structure::<Dependency>	_dep_hidden
+«Block» Class	Structure::Component	_blk_component	-> Structure::Component
+«Block» Class	Structure::Engine	_blk_engine	-> Structure::Engine
+«Block» Class	Structure::Vehicle	_blk_vehicle	-> Structure::Vehicle
+Connector	Structure::Vehicle::<Connector>	_conn_shown	-> Structure::Vehicle::'engine to wheel'
+Connector	Structure::Vehicle::<Connector>	_conn_twin	-> Structure::Vehicle::'engine to wheel 2'
+Connector	Structure::Vehicle::<Connector>	_conn_hidden
+«BindingConnector» Connector	Structure::Vehicle::<Connector>	_conn_bind	-> Structure::Vehicle::'mass = limit'
+Activity	Structure::Vehicle::Drive	_act_drive	-> Structure::Vehicle::Drive
+ActivityFinalNode	Structure::Vehicle::Drive::<ActivityFinalNode>	_final	-> final
+ControlFlow	Structure::Vehicle::Drive::<ControlFlow>	_cf_hidden
+InitialNode	Structure::Vehicle::Drive::<InitialNode>	_init	-> start
+ObjectFlow	Structure::Vehicle::Drive::<ObjectFlow>	_of_twin	-> Structure::Vehicle::Drive::'gain.result to set speed.value'	(the action waits for the value as well as for the control flow into it, as its pin did)
+ObjectFlow	Structure::Vehicle::Drive::<ObjectFlow>	_of_shown	-> Structure::Vehicle::Drive::'gain.result to set speed.value'	(the action waits for the value as well as for the control flow into it, as its pin did; the flow from gain.result to 'set speed'.value is written once, though several edges carry it)
+ObjectFlow	Structure::Vehicle::Drive::<ObjectFlow>	_of_param	-> Structure::Vehicle::Drive::'set speed.value = target'
+ControlFlow	Structure::Vehicle::Drive::finish	_cf_named	-> Structure::Vehicle::Drive::finish
+ValueSpecificationAction	Structure::Vehicle::Drive::gain	_gain	-> gain
+OutputPin	Structure::Vehicle::Drive::gain::result	_gainOut	-> Structure::Vehicle::Drive::gain.result
+AddStructuralFeatureValueAction	Structure::Vehicle::Drive::set speed	_set	-> 'set speed'
+InputPin	Structure::Vehicle::Drive::set speed::value	_setVal	-> Structure::Vehicle::Drive::'set speed'.value
+Parameter	Structure::Vehicle::Drive::target	_drive_target	-> Structure::Vehicle::Drive::target
+ActivityParameterNode	Structure::Vehicle::Drive::target	_pn_target	-> Structure::Vehicle::Drive::target	(the flows to and from the node name the parameter target)
+Diagram	Structure::Vehicle::Vehicle Internals	_diag_ibd	-> Structure::Vehicle::'Vehicle Internals'	(a SysML Internal Block Diagram written as a view rendered asInterconnectionDiagram; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 4 of 5 connectors routed (1 unnamed))
+Connector	Structure::Vehicle::drive	_conn_named	-> Structure::Vehicle::drive
+Property	Structure::Vehicle::engine	_prop_engine	-> Structure::Vehicle::engine
+Property	Structure::Vehicle::limit	_prop_limit	-> Structure::Vehicle::limit
+Property	Structure::Vehicle::mass	_prop_mass	-> Structure::Vehicle::mass
+Property	Structure::Vehicle::speed	_prop_speed	-> Structure::Vehicle::speed
+Property	Structure::Vehicle::wheel	_prop_wheel	-> Structure::Vehicle::wheel
+«Block» Class	Structure::Wheel	_blk_wheel	-> Structure::Wheel
+Package	Usage	_pkg_usage	-> Usage
+UseCase	Usage::Drive Vehicle	_uc_drive	-> Usage::'Drive Vehicle'
+Include	Usage::Drive Vehicle::<Include>	_inc_shown	-> Usage::'Drive Vehicle'::'start Engine'
+Include	Usage::Drive Vehicle::<Include>	_inc_hidden	-> Usage::'Drive Vehicle'::'stop Engine'
+Diagram	Usage::Driving Cases	_diag_uc	-> Usage::'Driving Cases'	(a SysML Use Case Diagram written as a view rendered asTextualNotation; laid out from diagram_edges.layout.xml: 2 of 2 shown elements positioned, 0 of 1 connectors routed (1 not drawn))
+UseCase	Usage::Start Engine	_uc_start	-> Usage::'Start Engine'
+UseCase	Usage::Stop Engine	_uc_stop	-> Usage::'Stop Engine'

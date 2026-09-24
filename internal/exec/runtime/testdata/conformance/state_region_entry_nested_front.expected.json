@@ -1,0 +1,66 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "p(entry) q(entry) right(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "p(entry) right(entry) q(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "q(entry) p(entry) right(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "q(entry) right(entry) p(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "right(entry) p(entry) q(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "inner+p1+q1+r",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "right(entry) q(entry) p(entry) "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open"
+}

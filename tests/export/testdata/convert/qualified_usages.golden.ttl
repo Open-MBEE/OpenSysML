@@ -1,0 +1,1347 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Q
+    a sysml:Package ;
+    sysml:qualifiedName "Q" ;
+    sysml:elementId "Q" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Q" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Q__A, elmt:Q__S, elmt:Q__U, elmt:Q__R, elmt:Q__C, elmt:Q__Ctx, elmt:Q__Sub, elmt:Q__ctx ;
+    sysml:ownedMembership elmt:Q__A_om, elmt:Q__S_om, elmt:Q__U_om, elmt:Q__R_om, elmt:Q__C_om, elmt:Q__Ctx_om, elmt:Q__Sub_om, elmt:Q__ctx_om ;
+    sysml:ownedRelationship elmt:Q__A_om, elmt:Q__S_om, elmt:Q__U_om, elmt:Q__R_om, elmt:Q__C_om, elmt:Q__Ctx_om, elmt:Q__Sub_om, elmt:Q__ctx_om ;
+    sysx:sourceText "package Q {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Q__A\"},{\"@id\":\"Q__S\"},{\"@id\":\"Q__U\"},{\"@id\":\"Q__R\"},{\"@id\":\"Q__C\"},{\"@id\":\"Q__Ctx\"},{\"@id\":\"Q__Sub\"},{\"@id\":\"Q__ctx\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Q__A_om\"},{\"@id\":\"Q__S_om\"},{\"@id\":\"Q__U_om\"},{\"@id\":\"Q__R_om\"},{\"@id\":\"Q__C_om\"},{\"@id\":\"Q__Ctx_om\"},{\"@id\":\"Q__Sub_om\"},{\"@id\":\"Q__ctx_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__A_om\"},{\"@id\":\"Q__S_om\"},{\"@id\":\"Q__U_om\"},{\"@id\":\"Q__R_om\"},{\"@id\":\"Q__C_om\"},{\"@id\":\"Q__Ctx_om\"},{\"@id\":\"Q__Sub_om\"},{\"@id\":\"Q__ctx_om\"}]" .
+
+elmt:Q__A
+    a sysml:ActionDefinition ;
+    sysml:qualifiedName "Q::A" ;
+    sysml:elementId "Q__A" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__A_om ;
+    sysml:owningMembership elmt:Q__A_om ;
+    sysml:declaredName "A" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    action def A;\n" .
+
+elmt:Q__A_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__A_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__A ;
+    sysml:ownedMemberElement elmt:Q__A ;
+    sysml:ownedRelatedElement elmt:Q__A ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__S
+    a sysml:StateDefinition ;
+    sysml:qualifiedName "Q::S" ;
+    sysml:elementId "Q__S" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__S_om ;
+    sysml:owningMembership elmt:Q__S_om ;
+    sysml:declaredName "S" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    state def S;\n" .
+
+elmt:Q__S_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__S_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__S ;
+    sysml:ownedMemberElement elmt:Q__S ;
+    sysml:ownedRelatedElement elmt:Q__S ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__U
+    a sysml:UseCaseDefinition ;
+    sysml:qualifiedName "Q::U" ;
+    sysml:elementId "Q__U" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__U_om ;
+    sysml:owningMembership elmt:Q__U_om ;
+    sysml:declaredName "U" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    use case def U;\n" .
+
+elmt:Q__U_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__U_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__U ;
+    sysml:ownedMemberElement elmt:Q__U ;
+    sysml:ownedRelatedElement elmt:Q__U ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__R
+    a sysml:RequirementDefinition ;
+    sysml:qualifiedName "Q::R" ;
+    sysml:elementId "Q__R" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__R_om ;
+    sysml:owningMembership elmt:Q__R_om ;
+    sysml:declaredName "R" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    requirement def R;\n" .
+
+elmt:Q__R_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__R_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__R ;
+    sysml:ownedMemberElement elmt:Q__R ;
+    sysml:ownedRelatedElement elmt:Q__R ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__C
+    a sysml:ConstraintDefinition ;
+    sysml:qualifiedName "Q::C" ;
+    sysml:elementId "Q__C" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__C_om ;
+    sysml:owningMembership elmt:Q__C_om ;
+    sysml:declaredName "C" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    constraint def C;\n" .
+
+elmt:Q__C_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__C_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__C ;
+    sysml:ownedMemberElement elmt:Q__C ;
+    sysml:ownedRelatedElement elmt:Q__C ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__Ctx
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Q::Ctx" ;
+    sysml:elementId "Q__Ctx" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__Ctx_om ;
+    sysml:owningMembership elmt:Q__Ctx_om ;
+    sysml:declaredName "Ctx" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Q__Ctx__a1, elmt:Q__Ctx__a2, elmt:Q__Ctx__s1, elmt:Q__Ctx__s2, elmt:Q__Ctx__u1, elmt:Q__Ctx__r1, elmt:Q__Ctx__c1 ;
+    sysml:ownedMembership elmt:Q__Ctx__a1_om, elmt:Q__Ctx__a2_om, elmt:Q__Ctx__s1_om, elmt:Q__Ctx__s2_om, elmt:Q__Ctx__u1_om, elmt:Q__Ctx__r1_om, elmt:Q__Ctx__c1_om ;
+    sysml:ownedRelationship elmt:Q__Ctx__a1_om, elmt:Q__Ctx__a2_om, elmt:Q__Ctx__s1_om, elmt:Q__Ctx__s2_om, elmt:Q__Ctx__u1_om, elmt:Q__Ctx__r1_om, elmt:Q__Ctx__c1_om ;
+    sysml:ownedFeature elmt:Q__Ctx__a1, elmt:Q__Ctx__a2, elmt:Q__Ctx__s1, elmt:Q__Ctx__s2, elmt:Q__Ctx__u1, elmt:Q__Ctx__r1, elmt:Q__Ctx__c1 ;
+    sysml:ownedFeatureMembership elmt:Q__Ctx__a1_om, elmt:Q__Ctx__a2_om, elmt:Q__Ctx__s1_om, elmt:Q__Ctx__s2_om, elmt:Q__Ctx__u1_om, elmt:Q__Ctx__r1_om, elmt:Q__Ctx__c1_om ;
+    sysx:sourceText "    part def Ctx {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Q__Ctx__a1\"},{\"@id\":\"Q__Ctx__a2\"},{\"@id\":\"Q__Ctx__s1\"},{\"@id\":\"Q__Ctx__s2\"},{\"@id\":\"Q__Ctx__u1\"},{\"@id\":\"Q__Ctx__r1\"},{\"@id\":\"Q__Ctx__c1\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Q__Ctx__a1_om\"},{\"@id\":\"Q__Ctx__a2_om\"},{\"@id\":\"Q__Ctx__s1_om\"},{\"@id\":\"Q__Ctx__s2_om\"},{\"@id\":\"Q__Ctx__u1_om\"},{\"@id\":\"Q__Ctx__r1_om\"},{\"@id\":\"Q__Ctx__c1_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__Ctx__a1_om\"},{\"@id\":\"Q__Ctx__a2_om\"},{\"@id\":\"Q__Ctx__s1_om\"},{\"@id\":\"Q__Ctx__s2_om\"},{\"@id\":\"Q__Ctx__u1_om\"},{\"@id\":\"Q__Ctx__r1_om\"},{\"@id\":\"Q__Ctx__c1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Q__Ctx__a1\"},{\"@id\":\"Q__Ctx__a2\"},{\"@id\":\"Q__Ctx__s1\"},{\"@id\":\"Q__Ctx__s2\"},{\"@id\":\"Q__Ctx__u1\"},{\"@id\":\"Q__Ctx__r1\"},{\"@id\":\"Q__Ctx__c1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Q__Ctx__a1_om\"},{\"@id\":\"Q__Ctx__a2_om\"},{\"@id\":\"Q__Ctx__s1_om\"},{\"@id\":\"Q__Ctx__s2_om\"},{\"@id\":\"Q__Ctx__u1_om\"},{\"@id\":\"Q__Ctx__r1_om\"},{\"@id\":\"Q__Ctx__c1_om\"}]" .
+
+elmt:Q__Ctx_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__Ctx_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__Ctx ;
+    sysml:ownedMemberElement elmt:Q__Ctx ;
+    sysml:ownedRelatedElement elmt:Q__Ctx ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__Ctx__a1
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Q::Ctx::a1" ;
+    sysml:elementId "Q__Ctx__a1" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__a1_om ;
+    sysml:owningMembership elmt:Q__Ctx__a1_om ;
+    sysml:declaredName "a1" ;
+    sysml:type elmt:Q__A ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__a1_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__a1_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__a1_ft0 ;
+    sysx:sourceText "        action a1 : A;\n" .
+
+elmt:Q__Ctx__a1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__a1_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__a1 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__a1 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__a1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__a1 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__a2
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Q::Ctx::a2" ;
+    sysml:elementId "Q__Ctx__a2" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__a2_om ;
+    sysml:owningMembership elmt:Q__Ctx__a2_om ;
+    sysml:declaredName "a2" ;
+    sysml:type elmt:Q__A ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__a2_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__a2_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__a2_ft0 ;
+    sysx:sourceText "        action a2 : A;\n" .
+
+elmt:Q__Ctx__a2_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__a2_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__a2 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__a2 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__a2 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__a2 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__s1
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Q::Ctx::s1" ;
+    sysml:elementId "Q__Ctx__s1" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__s1_om ;
+    sysml:owningMembership elmt:Q__Ctx__s1_om ;
+    sysml:declaredName "s1" ;
+    sysml:type elmt:Q__S ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__s1_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__s1_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__s1_ft0 ;
+    sysx:sourceText "        state s1 : S;\n" .
+
+elmt:Q__Ctx__s1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__s1_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__s1 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__s1 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__s1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__s1 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__s2
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Q::Ctx::s2" ;
+    sysml:elementId "Q__Ctx__s2" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__s2_om ;
+    sysml:owningMembership elmt:Q__Ctx__s2_om ;
+    sysml:declaredName "s2" ;
+    sysml:type elmt:Q__S ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__s2_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__s2_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__s2_ft0 ;
+    sysx:sourceText "        state s2 : S;\n" .
+
+elmt:Q__Ctx__s2_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__s2_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__s2 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__s2 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__s2 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__s2 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__u1
+    a sysml:UseCaseUsage ;
+    sysml:qualifiedName "Q::Ctx::u1" ;
+    sysml:elementId "Q__Ctx__u1" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__u1_om ;
+    sysml:owningMembership elmt:Q__Ctx__u1_om ;
+    sysml:declaredName "u1" ;
+    sysml:type elmt:Q__U ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__u1_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__u1_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__u1_ft0 ;
+    sysx:sourceText "        use case u1 : U;\n" .
+
+elmt:Q__Ctx__u1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__u1_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__u1 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__u1 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__u1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__u1 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__r1
+    a sysml:RequirementUsage ;
+    sysml:qualifiedName "Q::Ctx::r1" ;
+    sysml:elementId "Q__Ctx__r1" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__r1_om ;
+    sysml:owningMembership elmt:Q__Ctx__r1_om ;
+    sysml:declaredName "r1" ;
+    sysml:type elmt:Q__R ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__r1_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__r1_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__r1_ft0 ;
+    sysx:sourceText "        requirement r1 : R;\n" .
+
+elmt:Q__Ctx__r1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__r1_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__r1 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__r1 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__r1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__r1 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Ctx__c1
+    a sysml:ConstraintUsage ;
+    sysml:qualifiedName "Q::Ctx::c1" ;
+    sysml:elementId "Q__Ctx__c1" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Ctx ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:owningRelationship elmt:Q__Ctx__c1_om ;
+    sysml:owningMembership elmt:Q__Ctx__c1_om ;
+    sysml:declaredName "c1" ;
+    sysml:type elmt:Q__C ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Ctx__c1_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Ctx__c1_ft0 ;
+    sysml:ownedRelationship elmt:Q__Ctx__c1_ft0 ;
+    sysx:sourceText "        constraint c1 : C;\n" .
+
+elmt:Q__Ctx__c1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Ctx__c1_om" ;
+    sysml:owner elmt:Q__Ctx ;
+    sysml:memberElement elmt:Q__Ctx__c1 ;
+    sysml:ownedMemberElement elmt:Q__Ctx__c1 ;
+    sysml:ownedRelatedElement elmt:Q__Ctx__c1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx ;
+    sysml:membershipOwningNamespace elmt:Q__Ctx ;
+    sysml:ownedMemberFeature elmt:Q__Ctx__c1 ;
+    sysml:owningType elmt:Q__Ctx .
+
+elmt:Q__Sub
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Q::Sub" ;
+    sysml:elementId "Q__Sub" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__Sub_om ;
+    sysml:owningMembership elmt:Q__Sub_om ;
+    sysml:declaredName "Sub" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Q__Sub__sa, elmt:Q__Sub__ss ;
+    sysml:ownedMembership elmt:Q__Sub__sa_om, elmt:Q__Sub__ss_om ;
+    sysml:ownedRelationship elmt:Q__Sub__sa_om, elmt:Q__Sub__ss_om ;
+    sysml:ownedFeature elmt:Q__Sub__sa, elmt:Q__Sub__ss ;
+    sysml:ownedFeatureMembership elmt:Q__Sub__sa_om, elmt:Q__Sub__ss_om ;
+    sysx:sourceText "    part def Sub {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Q__Sub__sa\"},{\"@id\":\"Q__Sub__ss\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Q__Sub__sa_om\"},{\"@id\":\"Q__Sub__ss_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__Sub__sa_om\"},{\"@id\":\"Q__Sub__ss_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Q__Sub__sa\"},{\"@id\":\"Q__Sub__ss\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Q__Sub__sa_om\"},{\"@id\":\"Q__Sub__ss_om\"}]" .
+
+elmt:Q__Sub_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__Sub_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__Sub ;
+    sysml:ownedMemberElement elmt:Q__Sub ;
+    sysml:ownedRelatedElement elmt:Q__Sub ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__Sub__sa
+    a sysml:ActionUsage ;
+    sysml:qualifiedName "Q::Sub::sa" ;
+    sysml:elementId "Q__Sub__sa" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Sub ;
+    sysml:owner elmt:Q__Sub ;
+    sysml:owningRelationship elmt:Q__Sub__sa_om ;
+    sysml:owningMembership elmt:Q__Sub__sa_om ;
+    sysml:declaredName "sa" ;
+    sysml:type elmt:Q__A ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Sub__sa_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Sub__sa_ft0 ;
+    sysml:ownedRelationship elmt:Q__Sub__sa_ft0 ;
+    sysx:sourceText "        action sa : A;\n" .
+
+elmt:Q__Sub__sa_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Sub__sa_om" ;
+    sysml:owner elmt:Q__Sub ;
+    sysml:memberElement elmt:Q__Sub__sa ;
+    sysml:ownedMemberElement elmt:Q__Sub__sa ;
+    sysml:ownedRelatedElement elmt:Q__Sub__sa ;
+    sysml:owningRelatedElement elmt:Q__Sub ;
+    sysml:membershipOwningNamespace elmt:Q__Sub ;
+    sysml:ownedMemberFeature elmt:Q__Sub__sa ;
+    sysml:owningType elmt:Q__Sub .
+
+elmt:Q__Sub__ss
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Q::Sub::ss" ;
+    sysml:elementId "Q__Sub__ss" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__Sub ;
+    sysml:owner elmt:Q__Sub ;
+    sysml:owningRelationship elmt:Q__Sub__ss_om ;
+    sysml:owningMembership elmt:Q__Sub__ss_om ;
+    sysml:declaredName "ss" ;
+    sysml:type elmt:Q__S ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__Sub__ss_ft0 ;
+    sysml:ownedSpecialization elmt:Q__Sub__ss_ft0 ;
+    sysml:ownedRelationship elmt:Q__Sub__ss_ft0 ;
+    sysx:sourceText "        state ss : S;\n" .
+
+elmt:Q__Sub__ss_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__Sub__ss_om" ;
+    sysml:owner elmt:Q__Sub ;
+    sysml:memberElement elmt:Q__Sub__ss ;
+    sysml:ownedMemberElement elmt:Q__Sub__ss ;
+    sysml:ownedRelatedElement elmt:Q__Sub__ss ;
+    sysml:owningRelatedElement elmt:Q__Sub ;
+    sysml:membershipOwningNamespace elmt:Q__Sub ;
+    sysml:ownedMemberFeature elmt:Q__Sub__ss ;
+    sysml:owningType elmt:Q__Sub .
+
+elmt:Q__ctx
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Q::ctx" ;
+    sysml:elementId "Q__ctx" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q ;
+    sysml:owner elmt:Q ;
+    sysml:owningRelationship elmt:Q__ctx_om ;
+    sysml:owningMembership elmt:Q__ctx_om ;
+    sysml:declaredName "ctx" ;
+    sysml:type elmt:Q__Ctx ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Q__ctx__sub, elmt:Q__ctx__pa, elmt:Q__ctx___402, elmt:Q__ctx___403, elmt:Q__ctx__es, elmt:Q__ctx___405, elmt:Q__ctx___406, elmt:Q__ctx__iu, elmt:Q__ctx___408, elmt:Q__ctx__sr, elmt:Q__ctx___4010, elmt:Q__ctx__ac, elmt:Q__ctx___4012 ;
+    sysml:ownedMembership elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx___402_om, elmt:Q__ctx___403_om, elmt:Q__ctx__es_om, elmt:Q__ctx___405_om, elmt:Q__ctx___406_om, elmt:Q__ctx__iu_om, elmt:Q__ctx___408_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om ;
+    sysml:ownedRelationship elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx___402_om, elmt:Q__ctx___403_om, elmt:Q__ctx__es_om, elmt:Q__ctx___405_om, elmt:Q__ctx___406_om, elmt:Q__ctx__iu_om, elmt:Q__ctx___408_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om, elmt:Q__ctx_ft0 ;
+    sysml:ownedFeature elmt:Q__ctx__sub, elmt:Q__ctx__pa, elmt:Q__ctx___402, elmt:Q__ctx___403, elmt:Q__ctx__es, elmt:Q__ctx___405, elmt:Q__ctx___406, elmt:Q__ctx__iu, elmt:Q__ctx___408, elmt:Q__ctx__sr, elmt:Q__ctx___4010, elmt:Q__ctx__ac, elmt:Q__ctx___4012 ;
+    sysml:ownedFeatureMembership elmt:Q__ctx__sub_om, elmt:Q__ctx__pa_om, elmt:Q__ctx___402_om, elmt:Q__ctx___403_om, elmt:Q__ctx__es_om, elmt:Q__ctx___405_om, elmt:Q__ctx___406_om, elmt:Q__ctx__iu_om, elmt:Q__ctx___408_om, elmt:Q__ctx__sr_om, elmt:Q__ctx___4010_om, elmt:Q__ctx__ac_om, elmt:Q__ctx___4012_om ;
+    sysml:ownedTyping elmt:Q__ctx_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx_ft0 ;
+    sysx:sourceText "    part ctx : Ctx {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__ctx__pa\"},{\"@id\":\"Q__ctx___402\"},{\"@id\":\"Q__ctx___403\"},{\"@id\":\"Q__ctx__es\"},{\"@id\":\"Q__ctx___405\"},{\"@id\":\"Q__ctx___406\"},{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__ctx___408\"},{\"@id\":\"Q__ctx__sr\"},{\"@id\":\"Q__ctx___4010\"},{\"@id\":\"Q__ctx__ac\"},{\"@id\":\"Q__ctx___4012\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx___402_om\"},{\"@id\":\"Q__ctx___403_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx___405_om\"},{\"@id\":\"Q__ctx___406_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx___408_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx___402_om\"},{\"@id\":\"Q__ctx___403_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx___405_om\"},{\"@id\":\"Q__ctx___406_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx___408_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"},{\"@id\":\"Q__ctx_ft0\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__ctx__pa\"},{\"@id\":\"Q__ctx___402\"},{\"@id\":\"Q__ctx___403\"},{\"@id\":\"Q__ctx__es\"},{\"@id\":\"Q__ctx___405\"},{\"@id\":\"Q__ctx___406\"},{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__ctx___408\"},{\"@id\":\"Q__ctx__sr\"},{\"@id\":\"Q__ctx___4010\"},{\"@id\":\"Q__ctx__ac\"},{\"@id\":\"Q__ctx___4012\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Q__ctx__sub_om\"},{\"@id\":\"Q__ctx__pa_om\"},{\"@id\":\"Q__ctx___402_om\"},{\"@id\":\"Q__ctx___403_om\"},{\"@id\":\"Q__ctx__es_om\"},{\"@id\":\"Q__ctx___405_om\"},{\"@id\":\"Q__ctx___406_om\"},{\"@id\":\"Q__ctx__iu_om\"},{\"@id\":\"Q__ctx___408_om\"},{\"@id\":\"Q__ctx__sr_om\"},{\"@id\":\"Q__ctx___4010_om\"},{\"@id\":\"Q__ctx__ac_om\"},{\"@id\":\"Q__ctx___4012_om\"}]" .
+
+elmt:Q__ctx_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Q__ctx_om" ;
+    sysml:owner elmt:Q ;
+    sysml:memberElement elmt:Q__ctx ;
+    sysml:ownedMemberElement elmt:Q__ctx ;
+    sysml:ownedRelatedElement elmt:Q__ctx ;
+    sysml:owningRelatedElement elmt:Q ;
+    sysml:membershipOwningNamespace elmt:Q .
+
+elmt:Q__ctx__sub
+    a sysml:PartUsage ;
+    sysml:qualifiedName "Q::ctx::sub" ;
+    sysml:elementId "Q__ctx__sub" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__sub_om ;
+    sysml:owningMembership elmt:Q__ctx__sub_om ;
+    sysml:declaredName "sub" ;
+    sysml:type elmt:Q__Sub ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__sub_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__sub_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__sub_ft0 ;
+    sysx:sourceText "        part sub : Sub;\n" .
+
+elmt:Q__ctx__sub_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__sub_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__sub ;
+    sysml:ownedMemberElement elmt:Q__ctx__sub ;
+    sysml:ownedRelatedElement elmt:Q__ctx__sub ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__sub ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx__pa
+    a sysml:PerformActionUsage ;
+    sysml:qualifiedName "Q::ctx::pa" ;
+    sysml:elementId "Q__ctx__pa" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__pa_om ;
+    sysml:owningMembership elmt:Q__ctx__pa_om ;
+    sysml:declaredName "pa" ;
+    sysx:declaredPrefix "perform" ;
+    sysml:type elmt:Q__A ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__pa_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__pa_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__pa_ft0 ;
+    sysx:sourceText "        perform action pa : A;\n" .
+
+elmt:Q__ctx__pa_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__pa_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__pa ;
+    sysml:ownedMemberElement elmt:Q__ctx__pa ;
+    sysml:ownedRelatedElement elmt:Q__ctx__pa ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__pa ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___402
+    a sysml:PerformActionUsage ;
+    sysml:qualifiedName "Q::ctx::@2" ;
+    sysml:elementId "Q__ctx___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___402_om ;
+    sysml:owningMembership elmt:Q__ctx___402_om ;
+    sysx:declaredKeyword "perform" ;
+    sysml:references elmt:Q__Ctx__a1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___402_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx___402_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___402_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___402_rs ;
+    sysx:sourceText "        perform a1;\n" .
+
+elmt:Q__ctx___402_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___402_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___402 ;
+    sysml:ownedMemberElement elmt:Q__ctx___402 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___402 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___402 ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___403
+    a sysml:PerformActionUsage ;
+    sysml:qualifiedName "Q::ctx::@3" ;
+    sysml:elementId "Q__ctx___403" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___403_om ;
+    sysml:owningMembership elmt:Q__ctx___403_om ;
+    sysx:declaredKeyword "perform" ;
+    sysml:redefines elmt:Q__Ctx__a2 ;
+    sysml:references <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:Q__ctx___403_rd0 ;
+    sysml:ownedSubsetting elmt:Q__ctx___403_rd0, elmt:Q__ctx___403_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___403_rd0, elmt:Q__ctx___403_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___403_rd0, elmt:Q__ctx___403_rs ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___403_rs ;
+    sysx:sourceText "        perform sub.sa :>> a2;\n" ;
+    json:ownedSubsetting "[{\"@id\":\"Q__ctx___403_rd0\"},{\"@id\":\"Q__ctx___403_rs\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"Q__ctx___403_rd0\"},{\"@id\":\"Q__ctx___403_rs\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx___403_rd0\"},{\"@id\":\"Q__ctx___403_rs\"}]" .
+
+elmt:Q__ctx___403_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___403_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___403 ;
+    sysml:ownedMemberElement elmt:Q__ctx___403 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___403 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___403 ;
+    sysml:owningType elmt:Q__ctx .
+
+<urn:opensysml:expr:Q__ctx___403_pchain0>
+    a sysml:Feature ;
+    sysml:elementId "Q__ctx___403_pchain0" ;
+    sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
+    sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___403_pchain0_pfc1> ;
+    sysml:chainingFeature elmt:Q__ctx__sub, elmt:Q__Sub__sa ;
+    sysml:owningRelationship elmt:Q__ctx___403_rs ;
+    sysml:owner elmt:Q__ctx___403 ;
+    json:ownedFeatureChaining "[{\"@id\":\"Q__ctx___403_pchain0_pfc0\"},{\"@id\":\"Q__ctx___403_pchain0_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx___403_pchain0_pfc0\"},{\"@id\":\"Q__ctx___403_pchain0_pfc1\"}]" ;
+    json:chainingFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__Sub__sa\"}]" .
+
+<urn:opensysml:expr:Q__ctx___403_pchain0_pfc0>
+    a sysml:FeatureChaining ;
+    sysml:elementId "Q__ctx___403_pchain0_pfc0" ;
+    sysml:featureChained <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:source <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:chainingFeature elmt:Q__ctx__sub ;
+    sysml:target elmt:Q__ctx__sub ;
+    sysml:owner <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:Q__ctx___403_pchain0>, elmt:Q__ctx__sub ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___403_pchain0\"},{\"@id\":\"Q__ctx__sub\"}]" .
+
+<urn:opensysml:expr:Q__ctx___403_pchain0_pfc1>
+    a sysml:FeatureChaining ;
+    sysml:elementId "Q__ctx___403_pchain0_pfc1" ;
+    sysml:featureChained <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:source <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:chainingFeature elmt:Q__Sub__sa ;
+    sysml:target elmt:Q__Sub__sa ;
+    sysml:owner <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:Q__ctx___403_pchain0>, elmt:Q__Sub__sa ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___403_pchain0\"},{\"@id\":\"Q__Sub__sa\"}]" .
+
+elmt:Q__ctx__es
+    a sysml:ExhibitStateUsage ;
+    sysml:qualifiedName "Q::ctx::es" ;
+    sysml:elementId "Q__ctx__es" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__es_om ;
+    sysml:owningMembership elmt:Q__ctx__es_om ;
+    sysml:declaredName "es" ;
+    sysx:declaredKeyword "exhibit state" ;
+    sysml:type elmt:Q__S ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__es_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__es_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__es_ft0 ;
+    sysx:sourceText "        exhibit state es : S;\n" .
+
+elmt:Q__ctx__es_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__es_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__es ;
+    sysml:ownedMemberElement elmt:Q__ctx__es ;
+    sysml:ownedRelatedElement elmt:Q__ctx__es ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__es ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___405
+    a sysml:ExhibitStateUsage ;
+    sysml:qualifiedName "Q::ctx::@5" ;
+    sysml:elementId "Q__ctx___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___405_om ;
+    sysml:owningMembership elmt:Q__ctx___405_om ;
+    sysx:declaredKeyword "exhibit" ;
+    sysml:references elmt:Q__Ctx__s1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___405_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx___405_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___405_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___405_rs ;
+    sysx:sourceText "        exhibit s1;\n" .
+
+elmt:Q__ctx___405_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___405_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___405 ;
+    sysml:ownedMemberElement elmt:Q__ctx___405 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___405 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___405 ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___406
+    a sysml:ExhibitStateUsage ;
+    sysml:qualifiedName "Q::ctx::@6" ;
+    sysml:elementId "Q__ctx___406" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___406_om ;
+    sysml:owningMembership elmt:Q__ctx___406_om ;
+    sysx:declaredKeyword "exhibit" ;
+    sysml:redefines elmt:Q__Ctx__s2 ;
+    sysml:references <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedRedefinition elmt:Q__ctx___406_rd0 ;
+    sysml:ownedSubsetting elmt:Q__ctx___406_rd0, elmt:Q__ctx___406_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___406_rd0, elmt:Q__ctx___406_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___406_rd0, elmt:Q__ctx___406_rs ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___406_rs ;
+    sysx:sourceText "        exhibit sub.ss :>> s2;\n" ;
+    json:ownedSubsetting "[{\"@id\":\"Q__ctx___406_rd0\"},{\"@id\":\"Q__ctx___406_rs\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"Q__ctx___406_rd0\"},{\"@id\":\"Q__ctx___406_rs\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx___406_rd0\"},{\"@id\":\"Q__ctx___406_rs\"}]" .
+
+elmt:Q__ctx___406_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___406_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___406 ;
+    sysml:ownedMemberElement elmt:Q__ctx___406 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___406 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___406 ;
+    sysml:owningType elmt:Q__ctx .
+
+<urn:opensysml:expr:Q__ctx___406_pchain0>
+    a sysml:Feature ;
+    sysml:elementId "Q__ctx___406_pchain0" ;
+    sysml:ownedFeatureChaining <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;
+    sysml:ownedRelationship <urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>, <urn:opensysml:expr:Q__ctx___406_pchain0_pfc1> ;
+    sysml:chainingFeature elmt:Q__ctx__sub, elmt:Q__Sub__ss ;
+    sysml:owningRelationship elmt:Q__ctx___406_rs ;
+    sysml:owner elmt:Q__ctx___406 ;
+    json:ownedFeatureChaining "[{\"@id\":\"Q__ctx___406_pchain0_pfc0\"},{\"@id\":\"Q__ctx___406_pchain0_pfc1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Q__ctx___406_pchain0_pfc0\"},{\"@id\":\"Q__ctx___406_pchain0_pfc1\"}]" ;
+    json:chainingFeature "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__Sub__ss\"}]" .
+
+<urn:opensysml:expr:Q__ctx___406_pchain0_pfc0>
+    a sysml:FeatureChaining ;
+    sysml:elementId "Q__ctx___406_pchain0_pfc0" ;
+    sysml:featureChained <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:source <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:chainingFeature elmt:Q__ctx__sub ;
+    sysml:target elmt:Q__ctx__sub ;
+    sysml:owner <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:Q__ctx___406_pchain0>, elmt:Q__ctx__sub ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___406_pchain0\"},{\"@id\":\"Q__ctx__sub\"}]" .
+
+<urn:opensysml:expr:Q__ctx___406_pchain0_pfc1>
+    a sysml:FeatureChaining ;
+    sysml:elementId "Q__ctx___406_pchain0_pfc1" ;
+    sysml:featureChained <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:source <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:owningRelatedElement <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:chainingFeature elmt:Q__Sub__ss ;
+    sysml:target elmt:Q__Sub__ss ;
+    sysml:owner <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:relatedElement <urn:opensysml:expr:Q__ctx___406_pchain0>, elmt:Q__Sub__ss ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___406_pchain0\"},{\"@id\":\"Q__Sub__ss\"}]" .
+
+elmt:Q__ctx__iu
+    a sysml:IncludeUseCaseUsage ;
+    sysml:qualifiedName "Q::ctx::iu" ;
+    sysml:elementId "Q__ctx__iu" ;
+    sysx:memberIndex "7"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__iu_om ;
+    sysml:owningMembership elmt:Q__ctx__iu_om ;
+    sysml:declaredName "iu" ;
+    sysml:type elmt:Q__U ;
+    sysml:includes elmt:Q__U ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__iu_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__iu_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__iu_ft0 ;
+    sysx:sourceText "        include use case iu : U;\n" .
+
+elmt:Q__ctx__iu_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__iu_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__iu ;
+    sysml:ownedMemberElement elmt:Q__ctx__iu ;
+    sysml:ownedRelatedElement elmt:Q__ctx__iu ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__iu ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___408
+    a sysml:IncludeUseCaseUsage ;
+    sysml:qualifiedName "Q::ctx::@8" ;
+    sysml:elementId "Q__ctx___408" ;
+    sysx:memberIndex "8"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___408_om ;
+    sysml:owningMembership elmt:Q__ctx___408_om ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:includes elmt:Q__Ctx__u1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        include u1;\n" .
+
+elmt:Q__ctx___408_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___408_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___408 ;
+    sysml:ownedMemberElement elmt:Q__ctx___408 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___408 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___408 ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx__sr
+    a sysml:SatisfyRequirementUsage ;
+    sysml:qualifiedName "Q::ctx::sr" ;
+    sysml:elementId "Q__ctx__sr" ;
+    sysx:memberIndex "9"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__sr_om ;
+    sysml:owningMembership elmt:Q__ctx__sr_om ;
+    sysml:declaredName "sr" ;
+    sysml:type elmt:Q__R ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__sr_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__sr_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__sr_ft0 ;
+    sysx:sourceText "        satisfy requirement sr : R;\n" .
+
+elmt:Q__ctx__sr_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__sr_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__sr ;
+    sysml:ownedMemberElement elmt:Q__ctx__sr ;
+    sysml:ownedRelatedElement elmt:Q__ctx__sr ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__sr ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___4010
+    a sysml:SatisfyRequirementUsage ;
+    sysml:qualifiedName "Q::ctx::@10" ;
+    sysml:elementId "Q__ctx___4010" ;
+    sysx:memberIndex "10"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___4010_om ;
+    sysml:owningMembership elmt:Q__ctx___4010_om ;
+    sysml:subsets elmt:Q__Ctx__r1 ;
+    sysx:endForm "satisfy" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___4010_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx___4010_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___4010_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___4010_rs ;
+    sysx:sourceText "        satisfy r1;\n" .
+
+elmt:Q__ctx___4010_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___4010_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___4010 ;
+    sysml:ownedMemberElement elmt:Q__ctx___4010 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___4010 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___4010 ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx__ac
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "Q::ctx::ac" ;
+    sysml:elementId "Q__ctx__ac" ;
+    sysx:memberIndex "11"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx__ac_om ;
+    sysml:owningMembership elmt:Q__ctx__ac_om ;
+    sysml:declaredName "ac" ;
+    sysml:type elmt:Q__C ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Q__ctx__ac_ft0 ;
+    sysml:ownedSpecialization elmt:Q__ctx__ac_ft0 ;
+    sysml:ownedRelationship elmt:Q__ctx__ac_ft0 ;
+    sysx:sourceText "        assert constraint ac : C;\n" .
+
+elmt:Q__ctx__ac_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx__ac_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx__ac ;
+    sysml:ownedMemberElement elmt:Q__ctx__ac ;
+    sysml:ownedRelatedElement elmt:Q__ctx__ac ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx__ac ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__ctx___4012
+    a sysml:AssertConstraintUsage ;
+    sysml:qualifiedName "Q::ctx::@12" ;
+    sysml:elementId "Q__ctx___4012" ;
+    sysx:memberIndex "12"^^xsd:integer ;
+    sysml:owningNamespace elmt:Q__ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:owningRelationship elmt:Q__ctx___4012_om ;
+    sysml:owningMembership elmt:Q__ctx___4012_om ;
+    sysx:declaredKeyword "assert" ;
+    sysml:references elmt:Q__Ctx__c1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting elmt:Q__ctx___4012_rs ;
+    sysml:ownedSubsetting elmt:Q__ctx___4012_rs ;
+    sysml:ownedSpecialization elmt:Q__ctx___4012_rs ;
+    sysml:ownedRelationship elmt:Q__ctx___4012_rs ;
+    sysx:sourceText "        assert c1;\n" .
+
+elmt:Q__ctx___4012_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Q__ctx___4012_om" ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:memberElement elmt:Q__ctx___4012 ;
+    sysml:ownedMemberElement elmt:Q__ctx___4012 ;
+    sysml:ownedRelatedElement elmt:Q__ctx___4012 ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:membershipOwningNamespace elmt:Q__ctx ;
+    sysml:ownedMemberFeature elmt:Q__ctx___4012 ;
+    sysml:owningType elmt:Q__ctx .
+
+elmt:Q__Ctx__a1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__a1_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__a1 ;
+    sysml:owningFeature elmt:Q__Ctx__a1 ;
+    sysml:specific elmt:Q__Ctx__a1 ;
+    sysml:source elmt:Q__Ctx__a1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__a1 ;
+    sysml:type elmt:Q__A ;
+    sysml:general elmt:Q__A ;
+    sysml:target elmt:Q__A ;
+    sysml:owner elmt:Q__Ctx__a1 ;
+    sysml:relatedElement elmt:Q__Ctx__a1, elmt:Q__A ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__a1\"},{\"@id\":\"Q__A\"}]" .
+
+elmt:Q__Ctx__a2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__a2_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__a2 ;
+    sysml:owningFeature elmt:Q__Ctx__a2 ;
+    sysml:specific elmt:Q__Ctx__a2 ;
+    sysml:source elmt:Q__Ctx__a2 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__a2 ;
+    sysml:type elmt:Q__A ;
+    sysml:general elmt:Q__A ;
+    sysml:target elmt:Q__A ;
+    sysml:owner elmt:Q__Ctx__a2 ;
+    sysml:relatedElement elmt:Q__Ctx__a2, elmt:Q__A ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__a2\"},{\"@id\":\"Q__A\"}]" .
+
+elmt:Q__Ctx__s1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__s1_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__s1 ;
+    sysml:owningFeature elmt:Q__Ctx__s1 ;
+    sysml:specific elmt:Q__Ctx__s1 ;
+    sysml:source elmt:Q__Ctx__s1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__s1 ;
+    sysml:type elmt:Q__S ;
+    sysml:general elmt:Q__S ;
+    sysml:target elmt:Q__S ;
+    sysml:owner elmt:Q__Ctx__s1 ;
+    sysml:relatedElement elmt:Q__Ctx__s1, elmt:Q__S ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__s1\"},{\"@id\":\"Q__S\"}]" .
+
+elmt:Q__Ctx__s2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__s2_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__s2 ;
+    sysml:owningFeature elmt:Q__Ctx__s2 ;
+    sysml:specific elmt:Q__Ctx__s2 ;
+    sysml:source elmt:Q__Ctx__s2 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__s2 ;
+    sysml:type elmt:Q__S ;
+    sysml:general elmt:Q__S ;
+    sysml:target elmt:Q__S ;
+    sysml:owner elmt:Q__Ctx__s2 ;
+    sysml:relatedElement elmt:Q__Ctx__s2, elmt:Q__S ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__s2\"},{\"@id\":\"Q__S\"}]" .
+
+elmt:Q__Ctx__u1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__u1_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__u1 ;
+    sysml:owningFeature elmt:Q__Ctx__u1 ;
+    sysml:specific elmt:Q__Ctx__u1 ;
+    sysml:source elmt:Q__Ctx__u1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__u1 ;
+    sysml:type elmt:Q__U ;
+    sysml:general elmt:Q__U ;
+    sysml:target elmt:Q__U ;
+    sysml:owner elmt:Q__Ctx__u1 ;
+    sysml:relatedElement elmt:Q__Ctx__u1, elmt:Q__U ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__u1\"},{\"@id\":\"Q__U\"}]" .
+
+elmt:Q__Ctx__r1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__r1_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__r1 ;
+    sysml:owningFeature elmt:Q__Ctx__r1 ;
+    sysml:specific elmt:Q__Ctx__r1 ;
+    sysml:source elmt:Q__Ctx__r1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__r1 ;
+    sysml:type elmt:Q__R ;
+    sysml:general elmt:Q__R ;
+    sysml:target elmt:Q__R ;
+    sysml:owner elmt:Q__Ctx__r1 ;
+    sysml:relatedElement elmt:Q__Ctx__r1, elmt:Q__R ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__r1\"},{\"@id\":\"Q__R\"}]" .
+
+elmt:Q__Ctx__c1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Ctx__c1_ft0" ;
+    sysml:typedFeature elmt:Q__Ctx__c1 ;
+    sysml:owningFeature elmt:Q__Ctx__c1 ;
+    sysml:specific elmt:Q__Ctx__c1 ;
+    sysml:source elmt:Q__Ctx__c1 ;
+    sysml:owningRelatedElement elmt:Q__Ctx__c1 ;
+    sysml:type elmt:Q__C ;
+    sysml:general elmt:Q__C ;
+    sysml:target elmt:Q__C ;
+    sysml:owner elmt:Q__Ctx__c1 ;
+    sysml:relatedElement elmt:Q__Ctx__c1, elmt:Q__C ;
+    json:relatedElement "[{\"@id\":\"Q__Ctx__c1\"},{\"@id\":\"Q__C\"}]" .
+
+elmt:Q__Sub__sa_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Sub__sa_ft0" ;
+    sysml:typedFeature elmt:Q__Sub__sa ;
+    sysml:owningFeature elmt:Q__Sub__sa ;
+    sysml:specific elmt:Q__Sub__sa ;
+    sysml:source elmt:Q__Sub__sa ;
+    sysml:owningRelatedElement elmt:Q__Sub__sa ;
+    sysml:type elmt:Q__A ;
+    sysml:general elmt:Q__A ;
+    sysml:target elmt:Q__A ;
+    sysml:owner elmt:Q__Sub__sa ;
+    sysml:relatedElement elmt:Q__Sub__sa, elmt:Q__A ;
+    json:relatedElement "[{\"@id\":\"Q__Sub__sa\"},{\"@id\":\"Q__A\"}]" .
+
+elmt:Q__Sub__ss_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__Sub__ss_ft0" ;
+    sysml:typedFeature elmt:Q__Sub__ss ;
+    sysml:owningFeature elmt:Q__Sub__ss ;
+    sysml:specific elmt:Q__Sub__ss ;
+    sysml:source elmt:Q__Sub__ss ;
+    sysml:owningRelatedElement elmt:Q__Sub__ss ;
+    sysml:type elmt:Q__S ;
+    sysml:general elmt:Q__S ;
+    sysml:target elmt:Q__S ;
+    sysml:owner elmt:Q__Sub__ss ;
+    sysml:relatedElement elmt:Q__Sub__ss, elmt:Q__S ;
+    json:relatedElement "[{\"@id\":\"Q__Sub__ss\"},{\"@id\":\"Q__S\"}]" .
+
+elmt:Q__ctx_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx_ft0" ;
+    sysml:typedFeature elmt:Q__ctx ;
+    sysml:owningFeature elmt:Q__ctx ;
+    sysml:specific elmt:Q__ctx ;
+    sysml:source elmt:Q__ctx ;
+    sysml:owningRelatedElement elmt:Q__ctx ;
+    sysml:type elmt:Q__Ctx ;
+    sysml:general elmt:Q__Ctx ;
+    sysml:target elmt:Q__Ctx ;
+    sysml:owner elmt:Q__ctx ;
+    sysml:relatedElement elmt:Q__ctx, elmt:Q__Ctx ;
+    json:relatedElement "[{\"@id\":\"Q__ctx\"},{\"@id\":\"Q__Ctx\"}]" .
+
+elmt:Q__ctx__sub_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__sub_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__sub ;
+    sysml:owningFeature elmt:Q__ctx__sub ;
+    sysml:specific elmt:Q__ctx__sub ;
+    sysml:source elmt:Q__ctx__sub ;
+    sysml:owningRelatedElement elmt:Q__ctx__sub ;
+    sysml:type elmt:Q__Sub ;
+    sysml:general elmt:Q__Sub ;
+    sysml:target elmt:Q__Sub ;
+    sysml:owner elmt:Q__ctx__sub ;
+    sysml:relatedElement elmt:Q__ctx__sub, elmt:Q__Sub ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__sub\"},{\"@id\":\"Q__Sub\"}]" .
+
+elmt:Q__ctx__pa_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__pa_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__pa ;
+    sysml:owningFeature elmt:Q__ctx__pa ;
+    sysml:specific elmt:Q__ctx__pa ;
+    sysml:source elmt:Q__ctx__pa ;
+    sysml:owningRelatedElement elmt:Q__ctx__pa ;
+    sysml:type elmt:Q__A ;
+    sysml:general elmt:Q__A ;
+    sysml:target elmt:Q__A ;
+    sysml:owner elmt:Q__ctx__pa ;
+    sysml:relatedElement elmt:Q__ctx__pa, elmt:Q__A ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__pa\"},{\"@id\":\"Q__A\"}]" .
+
+elmt:Q__ctx___402_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___402_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___402 ;
+    sysml:subsettingFeature elmt:Q__ctx___402 ;
+    sysml:owningFeature elmt:Q__ctx___402 ;
+    sysml:specific elmt:Q__ctx___402 ;
+    sysml:source elmt:Q__ctx___402 ;
+    sysml:owningRelatedElement elmt:Q__ctx___402 ;
+    sysml:referencedFeature elmt:Q__Ctx__a1 ;
+    sysml:subsettedFeature elmt:Q__Ctx__a1 ;
+    sysml:general elmt:Q__Ctx__a1 ;
+    sysml:target elmt:Q__Ctx__a1 ;
+    sysml:owner elmt:Q__ctx___402 ;
+    sysml:relatedElement elmt:Q__ctx___402, elmt:Q__Ctx__a1 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___402\"},{\"@id\":\"Q__Ctx__a1\"}]" .
+
+elmt:Q__ctx___403_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Q__ctx___403_rd0" ;
+    sysml:redefiningFeature elmt:Q__ctx___403 ;
+    sysml:subsettingFeature elmt:Q__ctx___403 ;
+    sysml:owningFeature elmt:Q__ctx___403 ;
+    sysml:specific elmt:Q__ctx___403 ;
+    sysml:source elmt:Q__ctx___403 ;
+    sysml:owningRelatedElement elmt:Q__ctx___403 ;
+    sysml:redefinedFeature elmt:Q__Ctx__a2 ;
+    sysml:subsettedFeature elmt:Q__Ctx__a2 ;
+    sysml:general elmt:Q__Ctx__a2 ;
+    sysml:target elmt:Q__Ctx__a2 ;
+    sysml:owner elmt:Q__ctx___403 ;
+    sysml:relatedElement elmt:Q__ctx___403, elmt:Q__Ctx__a2 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___403\"},{\"@id\":\"Q__Ctx__a2\"}]" .
+
+elmt:Q__ctx___403_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___403_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___403 ;
+    sysml:subsettingFeature elmt:Q__ctx___403 ;
+    sysml:owningFeature elmt:Q__ctx___403 ;
+    sysml:specific elmt:Q__ctx___403 ;
+    sysml:source elmt:Q__ctx___403 ;
+    sysml:owningRelatedElement elmt:Q__ctx___403 ;
+    sysml:referencedFeature <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:subsettedFeature <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:general <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:target <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:owner elmt:Q__ctx___403 ;
+    sysml:relatedElement elmt:Q__ctx___403, <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx___403_pchain0> ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___403\"},{\"@id\":\"Q__ctx___403_pchain0\"}]" .
+
+elmt:Q__ctx__es_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__es_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__es ;
+    sysml:owningFeature elmt:Q__ctx__es ;
+    sysml:specific elmt:Q__ctx__es ;
+    sysml:source elmt:Q__ctx__es ;
+    sysml:owningRelatedElement elmt:Q__ctx__es ;
+    sysml:type elmt:Q__S ;
+    sysml:general elmt:Q__S ;
+    sysml:target elmt:Q__S ;
+    sysml:owner elmt:Q__ctx__es ;
+    sysml:relatedElement elmt:Q__ctx__es, elmt:Q__S ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__es\"},{\"@id\":\"Q__S\"}]" .
+
+elmt:Q__ctx___405_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___405_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___405 ;
+    sysml:subsettingFeature elmt:Q__ctx___405 ;
+    sysml:owningFeature elmt:Q__ctx___405 ;
+    sysml:specific elmt:Q__ctx___405 ;
+    sysml:source elmt:Q__ctx___405 ;
+    sysml:owningRelatedElement elmt:Q__ctx___405 ;
+    sysml:referencedFeature elmt:Q__Ctx__s1 ;
+    sysml:subsettedFeature elmt:Q__Ctx__s1 ;
+    sysml:general elmt:Q__Ctx__s1 ;
+    sysml:target elmt:Q__Ctx__s1 ;
+    sysml:owner elmt:Q__ctx___405 ;
+    sysml:relatedElement elmt:Q__ctx___405, elmt:Q__Ctx__s1 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___405\"},{\"@id\":\"Q__Ctx__s1\"}]" .
+
+elmt:Q__ctx___406_rd0
+    a sysml:Redefinition ;
+    sysml:elementId "Q__ctx___406_rd0" ;
+    sysml:redefiningFeature elmt:Q__ctx___406 ;
+    sysml:subsettingFeature elmt:Q__ctx___406 ;
+    sysml:owningFeature elmt:Q__ctx___406 ;
+    sysml:specific elmt:Q__ctx___406 ;
+    sysml:source elmt:Q__ctx___406 ;
+    sysml:owningRelatedElement elmt:Q__ctx___406 ;
+    sysml:redefinedFeature elmt:Q__Ctx__s2 ;
+    sysml:subsettedFeature elmt:Q__Ctx__s2 ;
+    sysml:general elmt:Q__Ctx__s2 ;
+    sysml:target elmt:Q__Ctx__s2 ;
+    sysml:owner elmt:Q__ctx___406 ;
+    sysml:relatedElement elmt:Q__ctx___406, elmt:Q__Ctx__s2 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___406\"},{\"@id\":\"Q__Ctx__s2\"}]" .
+
+elmt:Q__ctx___406_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___406_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___406 ;
+    sysml:subsettingFeature elmt:Q__ctx___406 ;
+    sysml:owningFeature elmt:Q__ctx___406 ;
+    sysml:specific elmt:Q__ctx___406 ;
+    sysml:source elmt:Q__ctx___406 ;
+    sysml:owningRelatedElement elmt:Q__ctx___406 ;
+    sysml:referencedFeature <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:subsettedFeature <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:general <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:target <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:owner elmt:Q__ctx___406 ;
+    sysml:relatedElement elmt:Q__ctx___406, <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    sysml:ownedRelatedElement <urn:opensysml:expr:Q__ctx___406_pchain0> ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___406\"},{\"@id\":\"Q__ctx___406_pchain0\"}]" .
+
+elmt:Q__ctx__iu_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__iu_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__iu ;
+    sysml:owningFeature elmt:Q__ctx__iu ;
+    sysml:specific elmt:Q__ctx__iu ;
+    sysml:source elmt:Q__ctx__iu ;
+    sysml:owningRelatedElement elmt:Q__ctx__iu ;
+    sysml:type elmt:Q__U ;
+    sysml:general elmt:Q__U ;
+    sysml:target elmt:Q__U ;
+    sysml:owner elmt:Q__ctx__iu ;
+    sysml:relatedElement elmt:Q__ctx__iu, elmt:Q__U ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__iu\"},{\"@id\":\"Q__U\"}]" .
+
+elmt:Q__ctx__sr_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__sr_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__sr ;
+    sysml:owningFeature elmt:Q__ctx__sr ;
+    sysml:specific elmt:Q__ctx__sr ;
+    sysml:source elmt:Q__ctx__sr ;
+    sysml:owningRelatedElement elmt:Q__ctx__sr ;
+    sysml:type elmt:Q__R ;
+    sysml:general elmt:Q__R ;
+    sysml:target elmt:Q__R ;
+    sysml:owner elmt:Q__ctx__sr ;
+    sysml:relatedElement elmt:Q__ctx__sr, elmt:Q__R ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__sr\"},{\"@id\":\"Q__R\"}]" .
+
+elmt:Q__ctx___4010_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___4010_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___4010 ;
+    sysml:subsettingFeature elmt:Q__ctx___4010 ;
+    sysml:owningFeature elmt:Q__ctx___4010 ;
+    sysml:specific elmt:Q__ctx___4010 ;
+    sysml:source elmt:Q__ctx___4010 ;
+    sysml:owningRelatedElement elmt:Q__ctx___4010 ;
+    sysml:referencedFeature elmt:Q__Ctx__r1 ;
+    sysml:subsettedFeature elmt:Q__Ctx__r1 ;
+    sysml:general elmt:Q__Ctx__r1 ;
+    sysml:target elmt:Q__Ctx__r1 ;
+    sysml:owner elmt:Q__ctx___4010 ;
+    sysml:relatedElement elmt:Q__ctx___4010, elmt:Q__Ctx__r1 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___4010\"},{\"@id\":\"Q__Ctx__r1\"}]" .
+
+elmt:Q__ctx__ac_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Q__ctx__ac_ft0" ;
+    sysml:typedFeature elmt:Q__ctx__ac ;
+    sysml:owningFeature elmt:Q__ctx__ac ;
+    sysml:specific elmt:Q__ctx__ac ;
+    sysml:source elmt:Q__ctx__ac ;
+    sysml:owningRelatedElement elmt:Q__ctx__ac ;
+    sysml:type elmt:Q__C ;
+    sysml:general elmt:Q__C ;
+    sysml:target elmt:Q__C ;
+    sysml:owner elmt:Q__ctx__ac ;
+    sysml:relatedElement elmt:Q__ctx__ac, elmt:Q__C ;
+    json:relatedElement "[{\"@id\":\"Q__ctx__ac\"},{\"@id\":\"Q__C\"}]" .
+
+elmt:Q__ctx___4012_rs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "Q__ctx___4012_rs" ;
+    sysml:referencingFeature elmt:Q__ctx___4012 ;
+    sysml:subsettingFeature elmt:Q__ctx___4012 ;
+    sysml:owningFeature elmt:Q__ctx___4012 ;
+    sysml:specific elmt:Q__ctx___4012 ;
+    sysml:source elmt:Q__ctx___4012 ;
+    sysml:owningRelatedElement elmt:Q__ctx___4012 ;
+    sysml:referencedFeature elmt:Q__Ctx__c1 ;
+    sysml:subsettedFeature elmt:Q__Ctx__c1 ;
+    sysml:general elmt:Q__Ctx__c1 ;
+    sysml:target elmt:Q__Ctx__c1 ;
+    sysml:owner elmt:Q__ctx___4012 ;
+    sysml:relatedElement elmt:Q__ctx___4012, elmt:Q__Ctx__c1 ;
+    json:relatedElement "[{\"@id\":\"Q__ctx___4012\"},{\"@id\":\"Q__Ctx__c1\"}]" .

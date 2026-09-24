@@ -1,0 +1,5 @@
+{
+  "type": "instance",
+  "instantiate": "test::ctl",
+  "stateVisits": ["left", "l1", "right", "r1"]
+}

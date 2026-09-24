@@ -21,7 +21,7 @@ $ curl -s -X POST http://localhost:50099/sysml.SysMLService/<Method> \
     -H 'Content-Type: application/json' -d '<request>'
 ```
 
-The Python client's decoding (`clients/python/opensysml/values.py`, `errors.py`) is the
+The Python client's decoding (`client/python/opensysml/values.py`, `errors.py`) is the
 reference for what follows; where this page says a client *must* do something, that is what
 the Python client does, stated so that it can be reproduced in a language that has no
 client.
@@ -135,7 +135,7 @@ HTTP/1.1 400 Bad Request
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
 conformance mode (`default` or `strict`), the number of documents, and each document's name,
-language and content, length-delimited (`internal/grpc/service.go`, `parseSources`). It is
+language and content, length-delimited (`internal/frontend/grpc/service.go`, `parseSources`). It is
 **deterministic**: the same documents in the same order with the same flag give the same hash
 from any service of the same version, so a client may compute nothing and simply compare
 hashes to know whether two models are the same text. It is also *only* a hash of the
@@ -154,7 +154,7 @@ in the guide.
 ### How long a hash is valid
 
 The service keeps parsed models in an in-memory **LRU cache of fixed capacity**
-(`internal/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
+(`internal/frontend/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
 time-to-live: a model stays until it is one of the least recently *used* when the cache is full
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
@@ -776,8 +776,8 @@ actually produces and for what:
 
 | `code` | HTTP | This service answers it for | Client class (Python name) |
 |---|---|---|---|
-| `invalid_argument` | 400 | Body is not valid JSON for the request type; `documents` empty or with duplicate names; `query` and `oslcQuery` both present; unknown query property; a document query given no binding for a required parameter, or a `queryId` that is not a document query | `InvalidRequestError` — fix the request |
-| `failed_precondition` | 400 | The request is well-formed but the model is not in the state the operation needs: an edit on a multi-document model that must name its document; a document query whose own definition is faulty when planned or run; a document whose own definition is faulty when planned | `InvalidRequestError` |
+| `invalid_argument` | 400 | Body is not valid JSON for the request type; `documents` empty or with duplicate names; an `ApplyEdits` `document` that is not one of the model's; `query` and `oslcQuery` both present; unknown query property; a document query given no binding for a required parameter, or a `queryId` that is not a document query | `InvalidRequestError` — fix the request |
+| `failed_precondition` | 400 | The request is well-formed but the model is not in the state the operation needs: a `Convert` of a multi-document model, which writes one document back out; an `ApplyEdits` of a multi-document model without `acceptDocuments`, which reads one document's `content`; a document query whose own definition is faulty when planned or run; a document whose own definition is faulty when planned | `InvalidRequestError` |
 | `out_of_range` | 400 | Not currently produced; reserved by the protocol for a value outside its valid range | `InvalidRequestError` |
 | `not_found` | 404 | `model not found: <hash>` (or `model <hash> is no longer cached: …` on `ApplyEdits`/`Convert`) — stale or unknown model hash, on every method that takes one; `symbol not found: <id>` on `RunDocumentQuery` and `RenderDocument`; `file not found: …` for a `filePath` the service could not read | `ModelNotFoundError` / `SymbolNotFoundError` / `ModelFileNotFoundError`, by message prefix — re-parse, fix the name, fix the path |
 | `unimplemented` | 501 | A capability the running service was started without (`capability "query" is unavailable`) or a method it does not have | `UnsupportedOperationError` — do not retry |
@@ -802,9 +802,17 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
 
-$ … /ApplyEdits -d '{"modelHash":"b4e0…ded9","operations":[{"setValue":{"target":"Demo::sedan::mass","value":"1300.0"}}]}'
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"document \"nope.sysml\" is not one of the model's: it has engine_library.sysml, engine_user.sysml"}
+
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"rename":{"target":"EngineLibrary::Engine","newName":"Motor"}}]}'
+HTTP/1.1 400 Bad Request
+{"code":"failed_precondition","message":"the model has 2 documents, and the request reads only content: set accept_documents to have each edited document answered in documents"}
+
+$ … /Convert -d '{"modelHash":"997e…6134","format":"CONVERT_FORMAT_TURTLE"}'
 HTTP/1.1 400 Bad Request
 {"code":"failed_precondition","message":"this operation is defined on one document, and the model has 2: name the document to operate on by parsing it on its own"}
 
@@ -1001,9 +1009,14 @@ carry the same field with the same spellings and the same refusals.
 `outputs` the response carries `outcomes`, every distinct outcome any linearization reaches, and
 `exploration`, how the search ended. The service replays the run from the start, each replay a
 fresh executor over the same lowered model, following the recorded choices of an earlier run up
-to a frontier and taking the next untried alternative there, depth-first, until no alternative
-is untried or a budget is hit. Two runs that agree on the observables — an action's outputs — are
-one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
+to a frontier and taking the next untried alternative there — the first run's choice points each
+varied once, earliest first, before any is varied twice — until no alternative is untried or a
+budget is hit. Two runs that agree on the observables — an action's outputs — are
+one outcome, with `linearizations` counting how many reached it, `probability` the share of the
+schedule space its linearizations cover (a weighted pick's stated weight's share, an unweighted
+choice's uniform `1/n`, multiplied along a run and summed over the runs reaching the outcome —
+the model's own probability where every choice point is weighted, a uniform assumption over the
+scheduling choices the library leaves open otherwise), and `witness` the choice sequence
 of one that did, one entry per choice point spelling the alternatives and the one taken;
 `diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
@@ -1012,10 +1025,10 @@ three branches `a`, `b`, `c` each assigning `winner`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
-{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"probability":1.0,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1023,17 +1036,18 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race
 with no choice point explores in exactly one run.
 
 `exploration.complete` is true when every linearization within the budget was run, so
-`outcomes` is the whole set. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+`outcomes` is the whole set and their `probability` values sum to `1`. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
 in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
 `depth` how many choice points one run may resolve before the rest take their first alternative
 (default 64). Hitting either ends the search with `complete` false and the budget named in
-`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed;
+`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
+`probabilitiesLowerBound` true, since the unexplored runs can only add mass;
 `runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
 error and never silent:
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64,"probabilitiesLowerBound":true}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
 HTTP/1.1 400 Bad Request
@@ -1067,6 +1081,27 @@ The field is advertised as the `final_time` capability; a service withholding it
 without the field whatever the run waited on. The response has no field to bound the clock: a
 run goes as far as its waits require, and a machine that re-arms a timer forever ends at the
 event budget, as it does on the CLI without `-advance`.
+
+`performerSymbolId` names the object the action is performed by, as the CLI's
+`sysml -action "<action> <object>"` does: empty, the action runs outside any object, as every
+call above; the FQN of a part definition or usage creates an object of it for the run; and a
+path from such a declaration through its parts — `Mission::mission.vehicle`,
+`Fleet::convoy.escorts[2]` for a multi-valued part — creates the declaration and reaches the
+object at the end of the path, so the action's `this` is a part *inside* its assembly and the
+assembly's connectors reach it. Each explored run creates the declaration anew, and each
+outcome's `outputs` carry the object's attributes as the run left them under `this.`
+(`this.pinged`), beside the action's own, so runs that differ only in what they left the
+object holding are distinct outcomes. A path that reaches no object is the call's `error` —
+the feature the root has none of
+(`Mission::mission has no feature "pilot"`), a multi-valued part named without an index
+(`escorts of Fleet::convoy holds 2 objects: pick one by index`), an
+index past the end (`escorts[3] names none`), an object named by id (`performer #1 names an
+object by id, which a call creates none of`), or an unknown root (`symbol not found`) — or,
+under `"explore"`, the one failed outcome of every run. Objects the service's own session holds
+are never named this way: a request creates what it runs on. The field is advertised as the
+`performer` capability: a service withholding it refuses a non-empty `performerSymbolId` with
+`UNIMPLEMENTED`, since a service that predates the field would drop it and run the behavior
+outside any object.
 
 To report a decision's choice the engine reads the guards after the first holding one in a
 preview it undoes, so reading them costs and changes nothing. One it cannot evaluate there is
@@ -1155,6 +1190,17 @@ do assign fired := fired + 1; }`):
 $ … /ExecuteState -d '{"modelHash":"70ee…0c59","stateMachineSymbolId":"Test::Timer"}'
 {"statesVisited":["armed","done"],"finalContext":{"fired":{"intValue":"1"}},"finalTime":3}
 ```
+
+`performerSymbolId` names the object the machine runs on, spelled as `ExecuteAction`'s is —
+empty, a declaration's FQN, or a path from one such as `Mission::mission.vehicle` — with the
+same errors. When the object reached exhibits the machine (`exhibit state modes;` in the part
+definition of a vehicle, say), the call runs that exhibited machine rather than a second copy,
+so the object's own transitions, the messages its ports receive over the assembly's
+connectors and the features it assigns are the run's; an object exhibiting the machine under
+two usages is refused as ambiguous, since the call cannot tell which it means. An object not
+exhibiting the machine performs a fresh one, as an empty performer does outside any object.
+Under `"explore"` every run creates the object graph anew, so the machine is explored inside
+its assembly and each outcome's `outputs` are the object's features as that run left them.
 
 ### `EvaluateCalc`
 
@@ -1269,7 +1315,11 @@ for an analysis case the message says to use `RunAnalysis`.
 `symbolId` names an analysis or verification definition or usage. `subjectSymbolId` optionally names a part or
 usage to instantiate as the case's `subject`, as `VerifyRequirement` takes one; a usage that
 binds its own subject (`subject s = ship;`) needs none, and a definition or unbinding usage
-run without one is an in-body failure naming the subject. `arguments` is a positional list of
+run without one is an in-body failure naming the subject. The subject may also be a path from
+a declaration into its parts, `Fleet::convoy.lead` or `Fleet::convoy.escorts[2]`, spelled and
+refused as `ExecuteAction`'s `performerSymbolId` is: the declaration is instantiated and the
+case runs on the object the path reaches, so `instances` opens with that object and its
+features read as its assembly binds them. `arguments` is a positional list of
 `Value`s for the case's other `in` parameters in declaration order and `namedArguments` binds
 them by name; a parameter left without a value or default is an in-body failure. `outputs`
 are the case's `out` and `return` values as `EvaluateCalc` reports a usage's, a returned value
@@ -1543,7 +1593,9 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 
 Reading a `Verdict`:
 
-- `kind` — `"constraint"`, `"requirement"` or `"satisfy"`.
+- `kind` — `"constraint"`, `"requirement"` or `"satisfy"`; `"object"` for the summary
+  [`ValidateInstance`](#validateinstance-every-assertion-about-one-object) returns about a
+  whole object.
 - `holds` — the verdict. **Omitted when false** (the default-omission rule), so the second and
   third examples say `massLight` does *not* hold for `sedan` (1200 is not < 100) by having no
   `holds` key. Read it with a default of `false`, and read `error` first.
@@ -1592,6 +1644,69 @@ $ … /VerifySatisfaction -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::analy
 for the `massLight` example.) Each assertion instantiated its own `sedan`, hence two ids; the
 second verdict has no `holds` and no `error`, so it is a real *false*.
 
+### `ValidateInstance`: every assertion about one object
+
+`ValidateInstance` takes the `symbolId` of a part definition or usage, builds one object of it,
+and answers every assertion about that object and the objects it holds — each `assert
+constraint` the carrier's type declares or inherits, each requirement usage it carries, and each
+`satisfy` assertion whose subject is an object in the tree — as `sysml -validate=<object>` and
+the REPL's `%validate` do. It is served under the `verification` capability and takes the
+`engine` field. The response is `verdicts`, one per (assertion, object), root first and then
+each held object in traversal order; `summary`, one `Verdict` of kind `"object"` about the root;
+`instances`, the whole tree in the shape `Instantiate` returns; `bounded`, present and `true`
+when the walk stopped at its depth bound before reaching every held object; and
+`verificationVerdicts` as `VerifyRequirement` returns them, keyed by `requirementId`. Over a
+model whose `Car` asserts `massOk`, carries requirement `light` (mass < 1000, violated by its
+1500 kg) and holds two `wheels : Wheel[2]` at 20 psi against `Wheel`'s asserted `pressure >=
+30.0`, with the standing fields omitted:
+
+```console
+$ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet::car"}'
+```
+
+```json
+{
+  "verdicts": [
+    {"kind": "constraint", "elementId": "Fleet::Car::massOk", "element": "assert constraint massOk", "holds": true, "instanceId": "1", "instanceTypeId": "Fleet::car"},
+    {"kind": "requirement", "elementId": "Fleet::Car::light", "element": "requirement light", "condition": "mass < 1000.0", "instanceId": "1", "instanceTypeId": "Fleet::car", "requirementId": "Fleet::Car::light"},
+    {"kind": "constraint", "elementId": "Fleet::Wheel::pressureOk", "element": "assert constraint pressureOk", "condition": "pressure >= 30.0", "instanceId": "2", "instanceTypeId": "Fleet::Car::wheels", "instancePath": "wheels[1]"},
+    {"kind": "constraint", "elementId": "Fleet::Wheel::pressureOk", "element": "assert constraint pressureOk", "condition": "pressure >= 30.0", "instanceId": "3", "instanceTypeId": "Fleet::Car::wheels", "instancePath": "wheels[2]"}
+  ],
+  "summary": {"kind": "object", "elementId": "Fleet::car", "element": "Fleet::car", "instanceId": "1", "instanceTypeId": "Fleet::car"},
+  "instances": [ … ]
+}
+```
+
+Reading the response:
+
+- Each of `verdicts` is a `Verdict` as above — `kind` is `"constraint"`, `"requirement"` or
+  `"satisfy"`, and `holds`, `condition`, `error`, `requirementId` mean what they mean there — with
+  one field more: `instancePath`, where the object the verdict is about sits under the root
+  (`engine.injector`, `wheels[2]`, one-based for a collection element), omitted for the root
+  itself. `instanceId` keys the object in `instances` as before.
+- `summary.holds` is `true` only when every verdict holds **and** the walk was complete. The
+  example's summary has no `holds` and no `error`, so the object is a real *not valid*: three
+  of its four assertions are false. A summary with `error` is undecided — an assertion that could
+  not be evaluated, a feature value that could not be read, or a walk that `bounded` cut short —
+  and says which; read `error` first, as for any `Verdict`.
+- An object no assertion is about decides nothing: `verdicts` is empty and `summary` neither
+  holds nor is a violation — its `error` says the object `states no assertion to validate`, with
+  `failureReason` `FAILURE_REASON_EVALUATION` — so an object is shown valid only by at least one
+  assertion holding.
+- An unknown `symbolId`, or one that has no object to validate — a package, an attribute, an
+  enumeration — is answered in-band, as the other verification calls answer it: `error` at the
+  top level with `failureReason` (`FAILURE_REASON_WRONG_KIND` for a symbol of the wrong kind),
+  and no `verdicts` or `summary`:
+
+  ```console
+  $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet::nope"}'
+  {"error":"symbol not found: Fleet::nope","failureReason":"FAILURE_REASON_EVALUATION"}
+  $ … /ValidateInstance -d '{"modelHash":"6457…5d2c","symbolId":"Fleet"}'
+  {"error":"not an object: Fleet is a package, which has no object to validate","failureReason":"FAILURE_REASON_WRONG_KIND"}
+  ```
+
+A constraint declared without `assert` is not swept — it is what `VerifyConstraint` is for.
+
 ### `ListEngines`, the `engine` field and the standing of an answer
 
 Every verification, analysis and sweep request is a question put to an analysis engine, and a
@@ -1625,8 +1740,8 @@ $ … /ListEngines -d '{}'
 ```
 
 The `engine` field on `VerifyConstraintRequest`, `VerifyRequirementRequest`,
-`VerifySatisfactionRequest`, `EvaluateCalcRequest`, `RunAnalysisRequest` and `RunSweepRequest`
-selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
+`VerifySatisfactionRequest`, `ValidateInstanceRequest`, `EvaluateCalcRequest`,
+`RunAnalysisRequest` and `RunSweepRequest` selects: unset or `"auto"` puts the question to the engine of highest authority covering it,
 advancing past one that refuses; a name puts it to that engine alone, whose refusal is then the
 answer (`VerifyConstraint` with `"engine":"explore"` returns a verdict whose `error` is the
 refusal); `"all"` puts it to every covering engine, one after another in name order, and
@@ -1656,6 +1771,55 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
 and lists engines with `Connection.list_engines()`.
 
+## Conversion: `Convert`
+
+`Convert` writes a model out in another representation, and needs the `convert` capability. The
+request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
+inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
+`sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
+`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
+`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
+file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
+`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
+`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
+inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
+`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
+
+```console
+$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+{
+  "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
+  "fromFormat": "xmi",
+  "toFormat": "sysml",
+  "experimental": true,
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
+too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
+migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
+client that needs the element-by-element account runs the command. What the migration maps,
+approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
+`error` alone:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
+convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
+`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
+`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
+[the model hash](#how-long-a-hash-is-valid).
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
@@ -1664,7 +1828,7 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
-`render_document`.
+`render_document`, and `render_document_html` too when its `form` is `html`.
 
 ### `Query`
 
@@ -1711,6 +1875,14 @@ arm says what was bound:
   by a quantity value type of the same dimension (`MassValue` for a mass, any for
   `ScalarQuantityValue`); a parameter of another dimension or of a scalar type such as
   `String` refuses it with `invalid_argument`.
+- **`object`** binds an object the service holds for the model — one `Instantiate` created —
+  as a `DocumentObject` with `instanceId` (the `id` `Instantiate` answered, an int64 so a
+  string in JSON) or `path` (the usage it was instantiated as, `car` or `Garage::car`; its id,
+  `#2`; or a walk through feature values from either, `car.wheels[2]`, indexes from 1) or
+  both, in which case the path is followed and must reach the object with that id. *This is
+  how a parameter of type `Element` is bound to an object rather than to its declaration*;
+  the query then reads the object's current values. The answer-side `element` of a
+  `DocumentObject` is ignored in a request.
 
 Model `7e6a…a687` is `conformance/fixtures/document.sysml`; `HeavySubsystemNames` takes
 `root : Element` and `threshold : String`:
@@ -1733,14 +1905,136 @@ The answer is a table: `columns` in order, and `rows` each with `element` (the r
 a `DocumentValue`, here always `elementId` plus `elementType`) and `cells` **positionally
 aligned with `columns`**. A cell holds `values`, a list of `DocumentValue`s (several for a
 multi-valued property, none for a missing one, in which case `values` is absent). A
-`DocumentValue` decodes like a `Value` — one arm present — but its arms are the seven above and
-never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
+`DocumentValue` decodes like a `Value` — one arm present — but its arms are the eight above plus
+the answer-only `verdict` below, and never a nested sequence or enum. `SubsystemTable` projects two columns and shows a
 `realValue` cell:
 
 ```console
 $ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","queryId":"Observatory::SubsystemTable","bindings":[{"parameter":"root","values":[{"elementId":"Observatory::telescope"}]}]}'
 {"columns":[{"name":"name"},{"name":"mass"}],"rows":[{"element":{"elementId":"Observatory::telescope::baffle|shroud *tricky*","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"baffle|shroud *tricky*"}]},{"values":[{"realValue":1.5}]}]},{"element":{"elementId":"Observatory::telescope::mount","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"mount"}]},{"values":[{"realValue":15}]}]},{"element":{"elementId":"Observatory::telescope::optics","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"optics"}]},{"values":[{"realValue":8.5}]}]},{"element":{"elementId":"Observatory::telescope::segmentControl","elementType":"PartUsage"},"cells":[{"values":[{"stringValue":"segmentControl"}]},{"values":[{"realValue":20}]}]}]}
 ```
+
+#### Objects the service holds
+
+The service keeps every object `Instantiate` creates for a model, under the qualified name it
+was instantiated as, for as long as the model stays cached; instantiating the name again makes
+it denote the new object, and the earlier one stays held, reached by its id. A query runs over
+that population: a binding names one of its objects, `DocumentQueries::Objects(type = T)`
+enumerates it — named objects by qualified name, then displaced ones by id — and answers no
+rows while nothing is held, and `RenderDocument` renders over it, so a document rendered after
+an `Instantiate` reports the objects' current values rather than their declared defaults.
+
+A row that is an object, and a cell whose value is one, is answered with the **`object`** arm:
+`instanceId`, `path` (the label the object is reached under, from the binding down —
+`Garage::car.wheels[2]`, or `#1.wheels[2]` when the binding was by id) and `element`, the
+usage the object stands for as an `elementId` `DocumentValue` with its `elementType`. Model
+`0ff2…48a0` is `internal/doc/docrender/testdata/object_report.sysml`; after
+`Instantiate` of `Garage::car` (answered id `1`, its engine `2` and wheels `3` and `4`) and of
+`Garage::spare` (`5`), `Drive` projects the car's `name`, `engine` and `wheels`:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff27b91eb544169523526daec8007f6d4e05a66c8d1bca59f9224561ea348a0","queryId":"Garage::Drive","bindings":[{"parameter":"root","values":[{"object":{"path":"car"}}]}]}'
+```
+
+```json
+{
+  "columns": [{"name": "name"}, {"name": "engine"}, {"name": "wheels"}],
+  "rows": [
+    {
+      "element": {"object": {"instanceId": "1", "path": "Garage::car", "element": {"elementId": "Garage::car", "elementType": "PartUsage"}}},
+      "cells": [
+        {"values": [{"stringValue": "car"}]},
+        {"values": [{"object": {"instanceId": "2", "path": "Garage::car.engine",    "element": {"elementId": "Garage::Car::engine", "elementType": "PartUsage"}}}]},
+        {"values": [{"object": {"instanceId": "3", "path": "Garage::car.wheels[1]", "element": {"elementId": "Garage::Car::wheels", "elementType": "PartUsage"}},
+                     {"object": {"instanceId": "4", "path": "Garage::car.wheels[2]", "element": {"elementId": "Garage::Car::wheels", "elementType": "PartUsage"}}]}
+      ]
+    }
+  ]
+}
+```
+
+Bound by id instead, the same objects are reported under `#1`; `Parts` walks the car's
+descendants and shows a projected `pressure` of the wheels — a `Descendants` walk over an
+object follows its feature values, so a wheel bound by path (`car.wheels[2]`) has no rows:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"1"}}]}]}'
+{"columns":[{"name":"name"},{"name":"qualifiedName"},{"name":"pressure"}],"rows":[{"element":{"object":{"instanceId":"2","path":"#1.engine","element":{"elementId":"Garage::Car::engine","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"engine"}]},{"values":[{"stringValue":"#1.engine"}]},{}]},{"element":{"object":{"instanceId":"3","path":"#1.wheels[1]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"wheels[1]"}]},{"values":[{"stringValue":"#1.wheels[1]"}]},{"values":[{"intValue":"30"}]}]},{"element":{"object":{"instanceId":"4","path":"#1.wheels[2]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"wheels[2]"}]},{"values":[{"stringValue":"#1.wheels[2]"}]},{"values":[{"intValue":"30"}]}]}]}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Wheels"}'
+{"columns":[{"name":"qualifiedName"},{"name":"pressure"}],"rows":[{"element":{"object":{"instanceId":"5","path":"Garage::spare","element":{"elementId":"Garage::spare","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::spare"}]},{"values":[{"intValue":"20"}]}]},{"element":{"object":{"instanceId":"3","path":"Garage::car.wheels[1]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::car.wheels[1]"}]},{"values":[{"intValue":"30"}]}]},{"element":{"object":{"instanceId":"4","path":"Garage::car.wheels[2]","element":{"elementId":"Garage::Car::wheels","elementType":"PartUsage"}}},"cells":[{"values":[{"stringValue":"Garage::car.wheels[2]"}]},{"values":[{"intValue":"30"}]}]}]}
+```
+
+`Wheels` takes no binding: it is an `OrderBy` over `Objects(type = "Wheel")`, so it answers the
+three wheels the model holds, spare first by its lower pressure. An object binding the model
+cannot honor is a Connect error naming the parameter — `not_found` while nothing is held or
+for an id or a usage no `Instantiate` created, `invalid_argument` for a path that does not
+reach an object or an id the path disagrees with:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"car"}}]}]}'
+HTTP/1.1 404 Not Found
+{"code":"not_found","message":"binding root: the model holds no objects (Instantiate creates one)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"9"}}]}]}'
+HTTP/1.1 404 Not Found
+{"code":"not_found","message":"binding root: no object #9 for this model: nothing materialized has that identity (the objects are #1, #2, #3, #4, #5)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"car.wheels[3]"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: wheels of Garage::car holds 2 objects, so wheels[3] names none (indexes run from 1 to 2)"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"path":"spare.pressure"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: pressure of Garage::spare holds a value (20), not an object"}
+
+$ … /RunDocumentQuery -d '{"modelHash":"0ff2…48a0","queryId":"Garage::Parts","bindings":[{"parameter":"root","values":[{"object":{"instanceId":"5","path":"car.wheels[2]"}}]}]}'
+HTTP/1.1 400 Bad Request
+{"code":"invalid_argument","message":"binding root: Garage::car.wheels[2] is object #4, not #5"}
+```
+
+A query over `DocumentQueries::Verdicts` answers **verdict rows**: the row's `element` is the
+ninth arm, **`verdict`**, a `DocumentVerdict` with `assertion` (the assertion checked, as an
+`elementId` `DocumentValue` — an anonymous `satisfy` keeps its `elementType` and has an empty
+`elementId`), `kind` (`constraint`, `requirement`, `satisfaction`, `verification`), `text`
+(the assertion as written), `path` (the object checked, from the bound element down —
+`Garage::car.wheels[2]`), `verdict` (`holds`, `violated`, `undecided`), and, where they apply,
+`condition` (the expression found false), `reason` (why a row is violated or undecided — an
+undecided row always carries one) and `verification` (the verdict kinds — `pass`, `fail`,
+`inconclusive`, `error` — of the verification cases verifying the requirement). An element
+bound by `elementId` is checked **as declared** — definition defaults and the usage's
+redefinitions; an object bound by `object` is checked as it is, its current values, and the
+rows' `path`s start from the label it was bound under. Model `a3d6…0d43` is `conformance/fixtures/verdicts.sysml`;
+`Failing` keeps the rows whose `verdict` is not `holds`:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"a3d6af37675d0e1d866cb2c59b88147a9eba7ebf00dbedcd51d7a29d12e60d43","queryId":"Garage::Failing","bindings":[{"parameter":"root","values":[{"elementId":"Garage::car"}]}]}'
+```
+
+```json
+{
+  "rows": [
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Car::fits",        "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint fits",       "path": "Garage::car",           "verdict": "undecided", "reason": "constraint fits: assertion evaluation failed: no value for feature capacity"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Engine::powerLow",  "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint powerLow",   "path": "Garage::car.engine",    "verdict": "violated",  "condition": "power < 200.0",    "reason": "constraint powerLow: assertion evaluated to false: power < 200.0"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Wheel::pressureOk", "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint pressureOk", "path": "Garage::car.wheels[1]", "verdict": "violated",  "condition": "pressure >= 30.0", "reason": "constraint pressureOk: assertion evaluated to false: pressure >= 30.0"}}},
+    {"element": {"verdict": {"assertion": {"elementId": "Garage::Wheel::pressureOk", "elementType": "ConstraintUsage"}, "kind": "constraint", "text": "assert constraint pressureOk", "path": "Garage::car.wheels[2]", "verdict": "violated",  "condition": "pressure >= 30.0", "reason": "constraint pressureOk: assertion evaluated to false: pressure >= 30.0"}}}
+  ]
+}
+```
+
+A `WhereFeature` query projects no columns, so `columns` is absent and each row is its
+`element` alone. `Checks` projects `path`, `name`, `verdict` and `reason`; a satisfaction row
+shows how a verdict relates to the verification of its requirement:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"a3d6…0d43","queryId":"Garage::Checks","bindings":[{"parameter":"root","values":[{"elementId":"Garage::car"}]}]}'
+{"columns":[{"name":"path"},{"name":"name"},{"name":"verdict"},{"name":"reason"}],"rows":[…,{"element":{"verdict":{"assertion":{"elementId":"","elementType":"SatisfyRequirementUsage"},"kind":"satisfaction","text":"satisfy strongEngine by car.engine","path":"Garage::car.engine","verdict":"holds","verification":["pass"]}},"cells":[{"values":[{"stringValue":"Garage::car.engine"}]},{},{"values":[{"stringValue":"holds"}]},{}]},{"element":{"verdict":{"assertion":{"elementId":"Garage::checkEngine","elementType":"VerificationCaseUsage"},"kind":"verification","text":"verification Garage::checkEngine","path":"Garage::car.engine","verdict":"holds","verification":["pass"]}},"cells":[{"values":[{"stringValue":"Garage::car.engine"}]},{"values":[{"stringValue":"checkEngine"}]},{"values":[{"stringValue":"holds"}]},{}]},…]}
+```
+
+A verdict is answered, never bound: a binding carrying the `verdict` arm is refused with
+`invalid_argument` (`binding root: a verdict is answered by queries, not bound to them`). A
+client that decodes `DocumentValue` by its one present arm therefore has nine arms to read in
+an answer and eight to write in a request.
 
 The request-side failures are Connect errors, because the request — not the model — is wrong:
 
@@ -1754,9 +2048,138 @@ HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"Observatory::telescope is not a document query: one is a calc def specializing DocumentQueries::Query"}
 ```
 
+## `ApplyEdits`: one document or several
+
+`ApplyEdits` rewrites the source a cached model was parsed from. Its answer names the edited
+notation twice, and a client reads one or the other by what it knows — and says which, by
+the request's `acceptDocuments`:
+
+- **`documents`** is the answer for every model. Each entry is one document the batch rewrote,
+  `name` the name the parse request gave it (`documents[].name` of `ParseSources`, the
+  `filePath` of a `ParseFile`, or `<content>` for inline content), `content` its whole edited
+  notation. The document the operations targeted comes first when it changed, then the others
+  in name order. A document the batch did not touch is **not** listed, so a client
+  writes back exactly the entries it receives.
+- **`content`** is the edited notation of a model of **exactly one** document, and is empty
+  for a model of several — including when the batch rewrote only one of them. It is the
+  field the sole-document contract answered before `documents` existed, and it keeps that
+  meaning: a client written against it sees the same answers it always did, and never a
+  multi-document model's, because such a model is edited only for a request that sets
+  **`acceptDocuments`** (`ApplyEditsRequest` field 4). A request leaving it unset — every
+  request a client of the previous schema can send — is refused on a model of several
+  documents with `failed_precondition`, as such a model refused every edit before, so a
+  client that reads `content` alone is never handed an empty one to write back. A model of
+  one document ignores the flag: its edit fills both fields either way.
+
+So an empty `content` beside a non-empty `documents` means "a model of several documents", not
+"nothing changed": every operation splices the document its target is declared in, so a
+successful edit always lists at least that one, and a document is listed when an operation
+reached it, whether or not the bytes it wrote differ from the ones it replaced. A new client
+sets `acceptDocuments`, reads `documents` only, and has one code path for both shapes;
+`content` is for the client that predates it, which keeps the refusal it always had.
+
+A model of one document, edited (fixture `engine_library.sysml`, parsed by `ParseSources`
+under that name; the two fields carry the same bytes):
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"234e…95d4","operations":[{"setValue":{"target":"EngineLibrary::Engine::power","value":"200"}}]}'
+{"content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Engine {\n\t\tattribute power : Integer = 200;\n\t}\n}\n",
+ "applied":[{"target":"EngineLibrary::Engine::power","offset":106,"length":3,"oldText":"150","newText":"200","document":"engine_library.sysml"}],
+ "documents":[{"name":"engine_library.sysml","content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Engine {\n\t\tattribute power : Integer = 200;\n\t}\n}\n"}]}
+```
+
+A model of two (`engine_library.sysml` and `engine_user.sysml`, parsed together), where a
+rename in the first is followed into the reference the second makes. The batch is applied as
+one: every document is spliced, re-parsed and re-analysed together, and either all of them are
+answered or none is. Each `applied` entry names the `document` its bytes belong to, and
+`content` is absent:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"operations":[{"rename":{"target":"EngineLibrary::Engine","newName":"Motor"}}]}'
+{"applied":[{"target":"EngineLibrary::Engine","offset":67,"length":6,"oldText":"Engine","newText":"Motor","document":"engine_library.sysml"},
+            {"target":"EngineLibrary::Engine","offset":86,"length":6,"oldText":"Engine","newText":"Motor","document":"engine_user.sysml"}],
+ "documents":[{"name":"engine_library.sysml","content":"package EngineLibrary {\n\tprivate import ScalarValues::*;\n\tpart def Motor {\n\t\tattribute power : Integer = 150;\n\t}\n}\n"},
+              {"name":"engine_user.sysml","content":"package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Car {\n\t\tpart motor : Motor;\n\t}\n}\n"}]}
+```
+
+An operation's target must be declared in one document of the model, which by default is the
+model's first. The request's `document` names another, by its parse name; a name that is not
+one of the model's is `invalid_argument` (the code table below). An edit that touches only
+that document answers only that document:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"engine_user.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
+{"applied":[{"target":"EngineUser::Car","offset":65,"length":3,"oldText":"Car","newText":"Automobile","document":"engine_user.sysml"}],
+ "documents":[{"name":"engine_user.sysml","content":"package EngineUser {\n\tprivate import EngineLibrary::*;\n\tpart def Automobile {\n\t\tpart motor : Engine;\n\t}\n}\n"}]}
+```
+
+The same rename sent without `acceptDocuments` is a call failure, before any document is
+spliced — the answer every request against a model of several documents received before
+`documents` existed:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"rename":{"target":"EngineLibrary::Engine","newName":"Motor"}}]}'
+HTTP/1.1 400 Bad Request
+{"code":"failed_precondition","message":"the model has 2 documents, and the request reads only content: set accept_documents to have each edited document answered in documents"}
+```
+
+A refusal is an in-body failure, HTTP 200, and carries **no** edited notation: neither
+`content` nor `documents` nor `applied` is present, only `error`, the `failure` kind, any
+`diagnostics`, and for a refused non-cascade delete or a refused rename, what still refers to
+the target. `referringElements` spells each referrer as text, `<name> (<document>)`, as it
+always has; `referrers` is the same list with `name` and `document` as separate fields, for a
+client that opens the file:
+
+```console
+$ … /ApplyEdits -d '{"modelHash":"997e…6134","operations":[{"delete":{"target":"EngineLibrary::Engine"}}]}'
+{"error":"EngineLibrary::Engine is referenced by EngineUser::Car::motor (engine_user.sysml); delete it with cascade to remove those declarations",
+ "failure":"EDIT_FAILURE_DELETE_REFERENCED",
+ "referringElements":["EngineUser::Car::motor (engine_user.sysml)"],
+ "referrers":[{"name":"EngineUser::Car::motor","document":"engine_user.sysml"}]}
+```
+
+`EDIT_FAILURE_REFERENCED_ELSEWHERE` is the kind for a rename, delete or move whose target is
+referred to from a document the edit cannot rewrite; a move respells references in its own
+document only, so a move of a declaration another document refers to is refused this way, and
+`referrers` names each. Every refusal that names a referrer fills both fields: a delete or move
+of a referenced declaration, a rename another namespace's declaration would capture
+(`EDIT_FAILURE_INVALID_NAME`, naming the namespace the captured reference is read in), and a
+move whose reference cannot be respelled (`EDIT_FAILURE_MOVE_REFERENCED`). An empty batch is
+`EDIT_FAILURE_NO_OPERATIONS`, with nothing else in the body, as it was before `documents`
+existed.
+
+The edited notation is judged at the conformance mode the model was parsed under, which the
+model hash already encodes: an edit that writes extension notation into a model parsed with
+`strictConformance:true` is refused as `EDIT_FAILURE_RESULT_INVALID` with the extension
+reported as an error, where the same edit of the default-mode model is applied and the
+extension is a warning. What is judged is the set of documents the batch rewrote, re-analysed
+together against the model's other documents as they stand; a document the batch leaves
+byte-for-byte unchanged is not re-analysed, so an edit whose only effect on it is through name
+resolution — a `part def X` added to a package it imports, taking over a name its `attribute`
+was typed by from another import — is applied, and the next parse of the edited documents
+reports what the untouched document now says. This is the scope the LSP's
+`opensysml/applyModelEdit` validates as well.
+
+Every field named here keeps its number and type in `api/proto/sysml.proto`; `documents`
+(7), `referrers` (8), `AppliedEdit.document` (7), `ApplyEditsRequest.document` (3) and
+`ApplyEditsRequest.acceptDocuments` (4) were appended, and the new `EditFailure` value
+appended after the last, so a generated client of the previous schema decodes every answer
+above and ignores what it does not know — and, never setting `acceptDocuments`, is answered
+exactly as before.
+
+The other direction is a capability: a service advertises `edit_documents` in `GetServerInfo`
+when it fills `documents`, `referrers` and each applied edit's `document`, edits a model of
+several documents for a request setting `acceptDocuments`, and targets the document a request
+names. A service without it — one built before those fields existed — edits a model of one
+document and answers `content` alone, with those three fields omitted; it refuses a model of
+several with `FAILED_PRECONDITION` whatever the request sets, and a request naming a `document`
+with `UNIMPLEMENTED` naming the capability. So a client written against `documents` checks the
+capability before reading them, and reads `content` from a service that lacks it, rather than
+taking an empty `documents` for a batch that rewrote nothing.
+
 ## Minimal clients: four illustrations
 
-The four snippets below are **illustrations, not shipped code**. They are not in `clients/`, not
+The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
 and where its pitfalls lie. A real client for any of these languages is one that passes the
 scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client

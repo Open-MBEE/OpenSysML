@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // documentModel declares a document over the query model's part tree, so
@@ -63,7 +65,7 @@ func TestRenderDocumentFlag(t *testing.T) {
 		"# Telescope Mass Report",
 		"Mass rollup for the telescope assembly.",
 		"## Heavy Subsystems",
-		"<!-- caption -->\n*Heavy subsystems by mass*",
+		"*Heavy subsystems by mass*",
 		"| name | mass |",
 		"| --- | --- |",
 		"| mount | 15 |")
@@ -86,14 +88,14 @@ func TestRenderDocumentFlag(t *testing.T) {
 // to act on.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	goldens := map[string]string{
 		"mermaid":  "telescope_report.golden.md",
 		"dot":      "telescope_report.dot.golden.md",
 		"plantuml": "telescope_report.plantuml.golden.md",
 	}
 	for form, name := range goldens {
-		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", name))
+		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,8 +133,8 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 // through the binary's full analysis, matching the committed golden Markdown.
 func TestRenderDocumentCommittedFixture(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
-	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.golden.md"))
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,4 +218,79 @@ func TestRenderDocumentFlagConflicts(t *testing.T) {
 		2, "ask for one per run")
 	wantReport(t, check(t, binary, documentModel, "-render-document", "Reports::MassReport", "-constraint", "C"),
 		2, "check it in its own run")
+}
+
+// objectDocumentModel declares a document whose table is bound to a part the
+// run may hold an object of, and one over the objects the run holds.
+const objectDocumentModel = objectQueryModel + `package Reports {
+	private import DocumentQueries::*;
+	private import Garage::*;
+
+	part def CarReport :> Document {
+		attribute redefines title = "Car Report";
+
+		part parts : Table {
+			attribute redefines caption = "Parts of the car";
+			calc rows : Parts {
+				in root = car;
+			}
+		}
+
+		part wheels : Table {
+			attribute redefines caption = "Wheels held";
+			calc rows : Wheels;
+		}
+	}
+}
+`
+
+// TestRenderDocumentOverObjects checks that -instantiate is the one check a
+// render run takes: a table bound to a part renders the object the run holds
+// under that name, by path, and Objects tables fill from what it holds.
+func TestRenderDocumentOverObjects(t *testing.T) {
+	binary := buildCLI(t)
+
+	wantReport(t, check(t, binary, objectDocumentModel, "-render-document", "Reports::CarReport"),
+		0, "# Car Report", "*Parts of the car*", "| name | pressure |", "*Wheels held*")
+	declared := check(t, binary, objectDocumentModel, "-render-document", "Reports::CarReport")
+	if strings.Contains(declared.stdout, "wheels[1]") {
+		t.Errorf("a run holding no object rendered one:\n%s", declared.stdout)
+	}
+
+	got := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport")
+	wantReport(t, got, 0,
+		"# Car Report",
+		"| name | pressure |",
+		`| wheels\[1\] | 30 |`,
+		`| wheels\[2\] | 30 |`,
+		"*Wheels held*",
+		"| pressure |",
+		"| 30 |")
+	if !strings.Contains(got.stderr, "Created instance") {
+		t.Errorf("the object created belongs on stderr:\n%s", got.stderr)
+	}
+
+	html := check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-render-document", "Reports::CarReport", "-doc-form", "html")
+	wantReport(t, html, 0,
+		`<tr class="sysml-row" data-object="#2" data-element="Garage::Car::wheels" data-element-kind="partUsage">`)
+
+	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::car", "-validate", "-render-document", "Reports::CarReport"),
+		2, "decides nothing about the model")
+	wantReport(t, check(t, binary, objectDocumentModel, "-instantiate", "Garage::NoSuchPart", "-render-document", "Reports::CarReport"),
+		2, "NoSuchPart")
+}
+
+// TestRenderDocumentOverObjectsUnderRunBounds checks that the run bounds the
+// environment sets are read before -instantiate materializes anything: a bad
+// value is refused at startup, and a small one bounds the object made.
+func TestRenderDocumentOverObjectsUnderRunBounds(t *testing.T) {
+	binary := buildCLI(t)
+	render := []string{"-instantiate", "Garage::car", "-render-document", "Reports::CarReport"}
+
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxStepsEnvVar + "=none"}, render...),
+		2, "OPENSYSML_MAX_STEPS=\"none\" is not an integer")
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxElementsEnvVar + "=1"}, render...),
+		2, "collection element limit exceeded")
+	wantReport(t, checkEnv(t, binary, objectDocumentModel, []string{runtime.MaxElementsEnvVar + "=1"}, "-render-document", "Reports::CarReport"),
+		0, "# Car Report")
 }

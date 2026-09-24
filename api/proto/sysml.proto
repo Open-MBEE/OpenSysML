@@ -51,6 +51,13 @@ service SysMLService {
   rpc VerifyConstraint(VerifyConstraintRequest) returns (VerifyConstraintResponse);
   rpc VerifyRequirement(VerifyRequirementRequest) returns (VerifyRequirementResponse);
   rpc VerifySatisfaction(VerifySatisfactionRequest) returns (VerifySatisfactionResponse);
+  // Validate an object as a whole, as the REPL's %validate and the CLI's
+  // -validate=<object> do: every assertion about an object of the named part
+  // and about the objects it holds — the asserted constraints of their types,
+  // the requirements they carry and the satisfactions they are the subject of —
+  // each answered on the concrete object it is about. Reported as the
+  // "verification" capability.
+  rpc ValidateInstance(ValidateInstanceRequest) returns (ValidateInstanceResponse);
   rpc EvaluateCalc(EvaluateCalcRequest) returns (EvaluateCalcResponse);
   rpc RunAnalysis(RunAnalysisRequest) returns (RunAnalysisResponse);
 
@@ -98,7 +105,8 @@ enum FailureReason {
 // it did not, which condition the model answered false about.
 message Verdict {
   // What was verified: "constraint", "requirement" or "satisfy"; for a check
-  // an analysis case run made, "objective" or "assertion".
+  // an analysis case run made, "objective" or "assertion"; for the summary
+  // of a ValidateInstance, "object".
   string kind = 1;
   // FQN of the element verified; empty for an anonymous satisfy assertion or
   // an anonymous assertion in a case body.
@@ -141,6 +149,11 @@ message Verdict {
   string strength = 12;
   // The bounds the engine ran under, each marked when it stopped the run.
   repeated Bound bounds = 13;
+  // For a verdict ValidateInstance reports: the path from the validated object
+  // to the object this verdict is about, as the REPL spells it ("engine",
+  // "wheels[2]", "engine.injector"). Empty for the validated object itself,
+  // and for every other RPC.
+  string instance_path = 14;
 }
 
 // Bound is one limit an engine ran under, as its plan names it: a count, or
@@ -164,7 +177,10 @@ message VerifyConstraintRequest {
   // Optional FQN of a part/usage to instantiate and evaluate the constraint
   // against, so the verdict is about concrete values rather than declared
   // defaults. The prompt evaluates against the object a %instantiate created;
-  // a call carries no session, so it names the subject instead.
+  // a call carries no session, so it names the subject instead. A path from a
+  // declaration, as `Mission::mission.vehicle`, instantiates the declaration and
+  // evaluates against the object the path reaches, inside the assembly built
+  // around it; an index picks from a multi-valued usage, `convoy.escorts[2]`.
   string subject_symbol_id = 3;
   // The engine the question is put to, as ListEngines names it, "auto" for the
   // strongest covering one, or "all" for every covering one. Unset is "auto".
@@ -191,7 +207,8 @@ message VerifyRequirementRequest {
   string model_hash = 1;
   // FQN of the requirement definition or usage to evaluate.
   string symbol_id = 2;
-  // Optional FQN of a part/usage to instantiate and evaluate against.
+  // Optional FQN of a part/usage to instantiate and evaluate against, or a path
+  // from one to a nested object; see VerifyConstraintRequest.subject_symbol_id.
   string subject_symbol_id = 3;
   // The engine the question is put to; see VerifyConstraintRequest.engine.
   string engine = 4;
@@ -255,6 +272,45 @@ message VerifySatisfactionResponse {
   // names the requirement it was reported for, which the verdict of an
   // assertion of that requirement carries as its own requirement_id.
   repeated VerificationVerdict verification_verdicts = 6;
+}
+
+// ValidateInstanceRequest asks for every assertion about an object of a part,
+// as %validate does: the object is built for the call.
+message ValidateInstanceRequest {
+  string model_hash = 1;
+  // FQN of the part or usage an object of which is validated.
+  string symbol_id = 2;
+  // The engine the validation is put to; see VerifyConstraintRequest.engine.
+  string engine = 3;
+}
+
+// ValidateInstanceResponse carries one verdict per assertion, in the order the
+// objects were reached from the validated one, and the verdict about the object
+// as a whole. An object no assertion is about has an empty list and a summary
+// that decides nothing.
+message ValidateInstanceResponse {
+  // One per assertion: kind "constraint", "requirement" or "satisfy", about the
+  // object `instance_id` names, reached along `instance_path`.
+  repeated Verdict verdicts = 1;
+  // The object as a whole, kind "object": holds when every assertion holds and
+  // every held object was reached. With `error` empty, false is the model's
+  // answer, some assertion failing; with `error` set, nothing was decided, an
+  // assertion being undecided or nesting left unreached.
+  Verdict summary = 2;
+  // Every object reached, the validated one first, so a client can read the
+  // feature values behind each verdict.
+  repeated Instance instances = 3;
+  string error = 4;
+  repeated Diagnostic diagnostics = 5;
+  // What kind of failure `error` reports.
+  FailureReason failure_reason = 6;
+  // What the body of every verification case verifying a requirement a verdict
+  // is about answered, once per requirement; each names its requirement, which
+  // the requirement and satisfy verdicts carry as their requirement_id.
+  repeated VerificationVerdict verification_verdicts = 7;
+  // True when nesting deeper than the validation descends, or past its budget,
+  // was left unvalidated; the summary then decides nothing.
+  bool bounded = 8;
 }
 
 // EvaluateCalcRequest invokes a calculation, as %calc does. Arguments are bound
@@ -327,7 +383,10 @@ message RunAnalysisRequest {
   string symbol_id = 2;
   // Optional FQN of a part/usage to instantiate as the case's subject. Empty
   // leaves the case's own `subject s = ...` binding to supply it; a case that
-  // binds none and is given none fails to run.
+  // binds none and is given none fails to run. A path from a declaration, as
+  // `Mission::mission.vehicle`, makes the subject the object the path reaches in
+  // an object of the declaration built for the run — every explored run its own
+  // — so what the assembly binds and connects on it is in force.
   string subject_symbol_id = 3;
   // Positional arguments for the case's input parameters, in declaration order;
   // the subject is never among them.
@@ -412,6 +471,9 @@ message Outcome {
   // it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
   // one run.
   repeated Diagnostic diagnostics = 7;
+  // The probability of the linearizations reaching this outcome, as explore
+  // computes it; a lower bound when the exploration is incomplete.
+  double probability = 8;
 }
 
 // ExplorationStatus is how an exploration ended: whether every linearization
@@ -427,6 +489,9 @@ message ExplorationStatus {
   // one run may resolve before the rest take their first alternative.
   int32 runs_budget = 4;
   int32 depth_budget = 5;
+  // True when the outcomes' probabilities are lower bounds: a budget kept some
+  // linearizations unexplored.
+  bool probabilities_lower_bound = 6;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
@@ -603,7 +668,11 @@ message InstantiateRequest {
   string symbol_id = 2;          // FQN of part/usage to instantiate
 }
 
-// InstantiateResponse contains the created instance
+// InstantiateResponse contains the created instance. The service keeps the
+// object for the model it was created in: a later RunDocumentQuery on the same
+// model_hash binds it by its id or by the name it was instantiated under, and
+// `DocumentQueries::Objects` enumerates it. Instantiating the same symbol again
+// creates a new object under the name; the earlier one stays reachable by id.
 message InstantiateResponse {
   Instance instance = 1;
   string error = 2;
@@ -625,6 +694,12 @@ message ExecuteActionRequest {
   // runs (default 1024) and of choice points per run (default 64), each run on
   // a fresh context, and answers with every distinct outcome reached.
   string schedule = 4;
+  // Optional FQN of a part/usage to perform the action on, or a path from one to
+  // a nested object, as `Mission::mission.vehicle`: the object is created for the
+  // run — inside the assembly the path walks, so its connectors carry what the
+  // action sends — and under explore each run creates its own. Empty performs
+  // the action outside any object.
+  string performer_symbol_id = 5;
 }
 
 // ExecuteActionResponse contains action execution results
@@ -655,6 +730,12 @@ message ExecuteStateRequest {
   // the response answers with `outcomes` and `exploration` in place of one run's
   // states_visited, final_context and error (see ExecuteActionResponse).
   string schedule = 4;
+  // Optional FQN of a part/usage to run the machine on, or a path from one to a
+  // nested object (see ExecuteActionRequest.performer_symbol_id). An object
+  // exhibiting the machine runs the one it exhibits, so what its assembly
+  // connects to it reaches the run; one exhibiting it under several usages is
+  // an error. Empty runs the machine outside any object.
+  string performer_symbol_id = 5;
 }
 
 // ExecuteStateResponse contains state machine execution trace
@@ -684,11 +765,14 @@ message ConvertRequest {
     string content = 2;
     string model_hash = 6;
   }
-  // "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-  // file_path's extension, and is notation for a model_hash, since that is what
-  // parse reads; inline content has neither, so it must say.
+  // "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
+  // "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
+  // v2 and never written. Empty infers from file_path's extension, and is
+  // notation for a model_hash, since that is what parse reads; inline content
+  // has neither, so it must say.
   string from_format = 3;
-  // Format to write, named as in from_format. Empty is rejected.
+  // Format to write, named as in from_format; the v1 names are refused, since
+  // a v2 model has no v1 form. Empty is rejected.
   string to_format = 4;
   // Write notation back out even when the parser could not read all of it,
   // reporting its syntax errors as diagnostics. Notation to notation only:
@@ -708,10 +792,12 @@ message ConvertResponse {
   // Syntax errors tolerated under tolerate_syntax_errors, or those that failed
   // the conversion.
   repeated Diagnostic diagnostics = 5;
-  // Set when either format is RDF, whose mapping is experimental: it covers
-  // model structure and the behavior its bodies state, refuses what it cannot
-  // write back, and its vocabulary may change without a compatibility path.
-  // Notation to notation is stable and leaves this unset.
+  // Set when either format is RDF or the API's JSON element form, whose
+  // mapping is experimental: it covers model structure and the behavior its
+  // bodies state, refuses what it cannot write back, and its vocabulary may
+  // change without a compatibility path. Also set when the source is SysML v1,
+  // whose migration is experimental in the same sense. Notation to notation is
+  // stable and leaves this unset.
   bool experimental = 6;
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.
@@ -720,12 +806,28 @@ message ConvertResponse {
 
 // ApplyEditsRequest asks for a model's source with edits applied to it. The
 // source edited is the one parse read, named by its hash, so an edit is applied
-// to the model that was inspected.
+// to the model that was inspected. A model of several documents (ParseSources)
+// is edited as one when the request sets `accept_documents`: the operations
+// target declarations of the document named by `document`, and a rename or
+// cascade delete follows references into every other document of the model,
+// rewriting those too. `document` and `accept_documents` are advertised as the
+// "edit_documents" capability: a service without it edits a model of one
+// document alone and answers `content` alone, so a client checks it before
+// naming a document or reading `documents`.
 message ApplyEditsRequest {
-  string model_hash = 1;  // from ParseFile response
+  string model_hash = 1;  // from a ParseFile or ParseSources response
   // Edits to apply, all of them or none. Empty is rejected: it names no edit,
   // and answering with the unedited source would look like one was made.
   repeated EditOperation operations = 2;
+  // The document whose declarations the operations target, named as the parse
+  // request named it; empty names the model's first document, which is the
+  // only one of a ParseFile model. An operation targeting a declaration of
+  // another document is refused as an unknown target, naming that document. A
+  // name no document of the model has fails the call as an invalid argument.
+  string document = 3;
+  // Whether the client reads the response's `documents`. A model of several documents is
+  // edited only when set; unset, such a model is refused as a failed precondition, as before.
+  bool accept_documents = 4;
 }
 
 // EditOperation is one source-preserving change to make.
@@ -786,31 +888,72 @@ message SetValueEdit {
   string value = 2;
 }
 
-// RenameEdit rewrites the name token of a declaration. References to the
-// element are not updated: a rename of an element referenced anywhere is
-// refused, naming the referring elements, rather than leaving a broken model.
+// RenameEdit rewrites the name token of a declaration and every reference to
+// it in the model's documents. A rename that reaches a reference in a document
+// the edit cannot rewrite is refused, naming the referring elements, rather
+// than leaving a broken model.
 message RenameEdit {
   string target = 1;    // element to rename, as SymbolInfo.id names it
   string new_name = 2;  // new declared name; must lex as an identifier
 }
 
 // ApplyEditsResponse carries the edited source, or says why nothing was edited.
+// The edited notation is in `documents`, one entry per document the edits
+// rewrote; `content` repeats it for a single-document model only.
 message ApplyEditsResponse {
-  // The edited notation, byte-identical to the source outside the edited spans.
-  // Empty when the edits were refused, so a refusal never writes a file.
+  // The edited notation of a single-document model, byte-identical to the
+  // source outside the edited spans. Empty when the edits were refused, so a
+  // refusal never writes a file, and empty for a model of several documents,
+  // whose edited notation is in `documents` alone: a client that reads
+  // `content` alone was written for one document and must not write one
+  // document's notation over another's. `documents` carries the same notation
+  // for a single-document model, so a client needs one code path.
   string content = 1;
-  // What each operation changed, in request order.
+  // What each operation changed, grouped by document in the order `documents`
+  // lists them and in request order within a document.
   repeated AppliedEdit applied = 2;
-  string error = 3;  // non-empty if the edits were refused; content is unset
+  string error = 3;  // non-empty if the edits were refused; content and documents are unset
   // Which kind of refusal `error` reports, so a client acts on the kind rather
   // than on the message text.
   EditFailure failure = 4;
   // Diagnostics behind a refusal: the parse errors of an unreadable new value,
-  // or the errors the edited source was found to have.
+  // or the errors the edited source was found to have. A diagnostic's span
+  // names the document it is in.
   repeated Diagnostic diagnostics = 5;
-  // Where the references to a declaration whose rename was refused are made:
-  // the FQN of each referring namespace.
+  // Where the references to a declaration whose rename, delete or move was
+  // refused are made: the FQN of each referring namespace, suffixed with its
+  // document in parentheses when that is not the document being edited.
+  // `referrers` carries the same list with the document as a field of its own.
   repeated string referring_elements = 6;
+  // The edited notation of every document the edits rewrote, named as the
+  // parse request named it: the document being edited first, then the others
+  // in name order. A document of several the edits left as parsed is not
+  // listed; the one document of a single-document model always is. Empty when
+  // the edits were refused.
+  repeated EditedDocument documents = 7;
+  // The declarations referring to the target of a refused rename, delete or
+  // move, each with the document declaring it, in document then name order.
+  // Empty when `referring_elements` is.
+  repeated Referrer referrers = 8;
+}
+
+// EditedDocument is the edited notation of one document of the model.
+message EditedDocument {
+  // The document's name as the parse request gave it: the file path of a
+  // file_path document, the name of an inline one, or the position it was
+  // given when it was named neither.
+  string name = 1;
+  // The edited notation, byte-identical to the source outside the edited spans.
+  string content = 2;
+}
+
+// Referrer is one declaration referring to the target of a refused edit.
+message Referrer {
+  // The declaration as the notation names it: the FQN of a named one, or the
+  // heading of an anonymous one within its namespace.
+  string name = 1;
+  // The document declaring it, named as the parse request named it.
+  string document = 2;
 }
 
 // AppliedEdit is one byte range of the original source that an operation
@@ -825,6 +968,9 @@ message AppliedEdit {
   int32 length = 4;     // bytes replaced; zero for text inserted
   string old_text = 5;  // what was there, empty for an insertion
   string new_text = 6;  // what was written
+  // The document the bytes are in, named as the parse request named it and as
+  // ApplyEditsResponse.documents lists it. Set for a single-document model too.
+  string document = 7;
 }
 
 // EditFailure says why edits were refused. Every refusal is one of these: an
@@ -848,6 +994,10 @@ enum EditFailure {
   EDIT_FAILURE_DELETE_REFERENCED = 15; // delete would leave references
   EDIT_FAILURE_OWNER_INSIDE_TARGET = 16; // move owner is the target or inside it
   EDIT_FAILURE_MOVE_REFERENCED = 17;  // move would leave a reference no spelling restores
+  // the target is referred to from a document the edit cannot rewrite: a
+  // library document, or any other document for a move, which respells
+  // references in the target's own document only
+  EDIT_FAILURE_REFERENCED_ELSEWHERE = 18;
 }
 
 // SymbolInfo represents any SysML element
@@ -1232,6 +1382,14 @@ message ServerInfoResponse {
   //                  rather than read as another value.
   //   "apply_edits" - the ApplyEdits RPC edits a parsed model's own source,
   //                  preserving everything the edit did not touch.
+  //   "edit_documents" - ApplyEdits edits a model of several documents as one
+  //                  batch for a request setting accept_documents, targets the
+  //                  document the request names, and answers each edited
+  //                  document by name in `documents`, each referrer of a refusal
+  //                  with its document in `referrers`, and each applied edit's
+  //                  `document`. Without it those fields are empty, a model of
+  //                  several documents is refused with FAILED_PRECONDITION, and
+  //                  a request naming a document is refused with UNIMPLEMENTED.
   //   "document_query" - the RunDocumentQuery RPC runs a named document query
   //                  and answers with typed rows.
   //   "render_document" - the RenderDocument RPC renders a named document to
@@ -1381,7 +1539,8 @@ message RunSweepRequest {
   string model_hash = 1;
   // FQN of the analysis case or calc, definition or usage.
   string symbol_id = 2;
-  // Optional FQN of a part/usage to instantiate as an analysis case's subject.
+  // Optional FQN of a part/usage to instantiate as an analysis case's subject,
+  // or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
   string subject_symbol_id = 3;
   // Positional arguments for the target's input parameters, in declaration
   // order, as every row binds them.
@@ -1456,7 +1615,9 @@ message RunSweepResponse {
 // RunDocumentQueryRequest runs a named document query — a calc def
 // specializing DocumentQueries::Query — against a model the service already
 // parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines.
+// typed rows rather than formatted lines. The query runs over the objects
+// Instantiate created for the model, which a binding may name (DocumentObject)
+// and `DocumentQueries::Objects` and `Verdicts` reach.
 message RunDocumentQueryRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document query to run. Fails with NOT_FOUND when the model does
@@ -1474,9 +1635,9 @@ message DocumentQueryBinding {
 }
 
 // DocumentValue is one typed document-query value. A request binds a model
-// element by qualified name in element_id; a response also says what the
-// element is in element_type. `infinity` denotes an unbounded multiplicity and
-// is only ever answered, never bound.
+// element by qualified name in element_id, or an object the service holds in
+// object; a response also says what the element is in element_type. `infinity`
+// denotes an unbounded multiplicity and is only ever answered, never bound.
 message DocumentValue {
   oneof kind {
     string element_id = 1;   // qualified name of a model element
@@ -1486,9 +1647,116 @@ message DocumentValue {
     bool bool_value = 5;
     bool infinity = 6;
     Quantity quantity = 8;   // magnitude in a unit, `2290000 [kg]`
+    DocumentVerdict verdict = 9;  // a row Verdicts answered; answered, never bound
+    DocumentObject object = 10;   // an object Instantiate created; bound and answered
+    DocumentState state = 11;     // a row States answered; answered, never bound
+    DocumentEvent event = 12;     // a row Events answered; answered, never bound
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;
+}
+
+// DocumentObject is an object the service holds for the model, created by
+// Instantiate, as a query binds and answers it. A request names it by path
+// when path is set, and by instance_id otherwise; a request setting both must
+// name one object by both. A response answers both, and the element the object
+// stands for.
+message DocumentObject {
+  // The object's id, as Instantiate answered it. Fails with NOT_FOUND when no
+  // object of the model has it.
+  int64 instance_id = 1;
+  // The object by the label a session reaches it under: the qualified name it
+  // was instantiated as (`Garage::car`), its id (`#2`), or a path through the
+  // feature values of either (`Garage::car.wheels[2]`, `#2.wheels[2]`; indexes
+  // count from 1). Fails with INVALID_ARGUMENT when the text is no reference or
+  // a segment reaches no object, and NOT_FOUND when the name it starts from has
+  // no object.
+  string path = 2;
+  // The usage the object is held under — its own definition or usage for an
+  // object Instantiate created — as an element value with its qualified name
+  // and metamodel type. Answered, ignored when bound.
+  DocumentValue element = 3;
+}
+
+// DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
+// on the object at `path`, which the row stands for as its `element`.
+message DocumentVerdict {
+  // The assertion checked, as an element value: the constraint, requirement,
+  // satisfy usage or verification case, its element_id empty when anonymous.
+  DocumentValue assertion = 1;
+  // "constraint", "requirement", "satisfaction" or "verification".
+  string kind = 2;
+  // The assertion as written ("assert constraint massKnown", "satisfy Range by
+  // cruise", "verification Tests::massTest"), naming an anonymous one.
+  string text = 3;
+  // The object checked, by path from the element the query was bound to
+  // ("Garage::car.wheels[2]"); the element's own qualified name for itself.
+  string path = 4;
+  // "holds", "violated" or "undecided".
+  string verdict = 5;
+  // The condition that evaluated to false, as written; empty otherwise.
+  string condition = 6;
+  // Why the assertion is violated or undecided; empty when it holds.
+  string reason = 7;
+  // The verdict kinds ("pass", "fail", "inconclusive", "error") of the
+  // verification cases verifying the requirement the row is about; a
+  // verification row's own kind. Empty for a constraint.
+  repeated string verification = 8;
+}
+
+// DocumentState is one row a `States` query answered: an active leaf state of
+// the state machine `object` exhibits, which the row stands for as its `element`
+// when the model declares it.
+message DocumentState {
+  // The object in the state, with the path the session reaches it by.
+  DocumentObject object = 1;
+  // The state machine, by the name the object exhibits it under (`lp`), else
+  // its declared name.
+  string machine = 2;
+  // The leaf state's name.
+  string name = 3;
+  // The leaf state's path in its machine, composite states first (`on.dim`).
+  string state_path = 4;
+  // The leaf state's declaration as an element value; empty when the machine
+  // declares no element for it.
+  DocumentValue state = 5;
+  // The orthogonal region the leaf is declared in; empty outside one.
+  string region = 6;
+  // The composite states enclosing the leaf, outermost first; each is active.
+  repeated string enclosing = 7;
+}
+
+// DocumentEvent is one row an `Events` query answered: one record of the
+// session's trace, in the order the run made it.
+message DocumentEvent {
+  // "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+  string kind = 1;
+  // The clock's instant when the record was made: a quantity in the clock's
+  // unit when the library reduces one, else a bare real of clock units.
+  DocumentValue time = 2;
+  // The object whose behavior made the record; unset for the run's own
+  // records (a due-order choice, a message posted from outside the model).
+  DocumentObject object = 3;
+  // The behavior the record is about, by the name the object exhibits it
+  // under, else its declared name; empty for the run's own records.
+  string machine = 4;
+  // The state entered, exited or stepped by an entry, exit or do record.
+  string state = 5;
+  // A fired transition's source and target states.
+  string from = 6;
+  string to = 7;
+  // The object a send was addressed to; unset for every other kind and a
+  // send addressed to no object.
+  DocumentObject target = 8;
+  // The signal or event accepted or sent, or the trigger a transition fired on.
+  string event = 9;
+  // An accept's payload, one `name = value` entry per parameter in name order.
+  repeated string payload = 10;
+  // A choice's alternatives, in the order they were offered, and the one taken.
+  repeated string alternatives = 11;
+  string taken = 12;
+  // The line the trace prints for the record.
+  string text = 13;
 }
 
 // DocumentQueryColumn is one projected property, in projection order.
@@ -1504,7 +1772,10 @@ message DocumentQueryCell {
 // DocumentQueryRow is one selected element and its projected cells, one per
 // column in column order.
 message DocumentQueryRow {
-  // The selected element itself, an element value with its qualified name.
+  // The selected element itself, an element value with its qualified name; an
+  // object value for a row over an object the service holds; a verdict value
+  // for a row `Verdicts` answered; a state value for a row `States` answered;
+  // an event value for a row `Events` answered.
   DocumentValue element = 1;
   repeated DocumentQueryCell cells = 2;
 }
@@ -1519,17 +1790,24 @@ message RunDocumentQueryResponse {
 }
 
 // RenderDocumentRequest renders a named document — a part def specializing
-// DocumentQueries::Document — to Markdown. A document binds its queries'
-// parameters in the model, so the request carries none.
+// DocumentQueries::Document — to Markdown or HTML. A document binds its
+// queries' parameters in the model, so the request carries none.
 message RenderDocumentRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document to render. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
   string document_id = 2;
+  // Form to render: "markdown" (the default when empty) or "html", the
+  // standalone page with the default stylesheet that the CLI's -doc-form html
+  // writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+  // converter toolchain and is not offered here.
+  string form = 3;
 }
 
-// RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-// CLI's -render-document writes.
+// RenderDocumentResponse carries the rendered document in the form requested,
+// byte-for-byte what the CLI's -render-document writes: markdown for the
+// Markdown form, html for the HTML form, the other left empty.
 message RenderDocumentResponse {
   string markdown = 1;
+  string html = 2;
 }

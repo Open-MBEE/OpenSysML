@@ -3,7 +3,7 @@
 // carry the edge and the waypoint or segment they stand on; the panel script
 // reads those attributes off whatever the pointer lands on.
 import type { RenderPoint } from "../protocol";
-import { CanvasLayout, FONT_SIZE, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
+import { CanvasLayout, FONT_SIZE, liftedEdges, MARGIN, movable, PlacedEdge, PlacedNode, steerable } from "./layout";
 
 const SVG = "http://www.w3.org/2000/svg";
 const LINE_HEIGHT = 18;
@@ -51,6 +51,55 @@ export function drawCanvas(layout: CanvasLayout): SVGSVGElement {
   }
   svg.append(edges, handles);
   return svg;
+}
+
+// liftNode floats a node, its descendants and the edges at them by (dx, dy) over a canvas that
+// stays put, the groups moved marked `lifted`; the canvas grows right and down to keep them in view.
+export function liftNode(svg: SVGSVGElement, layout: CanvasLayout, id: string, dx: number, dy: number): void {
+  const entry = layout.nodes.get(id);
+  if (!entry) {
+    return;
+  }
+  let right = layout.origin.x + layout.width;
+  let bottom = layout.origin.y + layout.height;
+  const lift = (current: PlacedNode): void => {
+    const group = svg.querySelector<SVGGElement>(`g.opensysml-node[data-opensysml-id="${cssEscape(current.node.id)}"]`);
+    if (group) {
+      group.setAttribute("transform", `translate(${dx} ${dy})`);
+      group.classList.add("lifted");
+      group.parentElement?.append(group);
+      right = Math.max(right, current.box.x + current.box.width + dx + MARGIN);
+      bottom = Math.max(bottom, current.box.y + current.box.height + dy + MARGIN);
+    }
+    for (const child of current.children) {
+      lift(child);
+    }
+  };
+  lift(entry);
+  for (const edge of liftedEdges(layout, id, dx, dy)) {
+    const drawn = drawEdge(edge);
+    drawn.classList.add("lifted");
+    svg.querySelector(`g.opensysml-edge[data-edge="${edge.index}"]`)?.replaceWith(drawn);
+    if (steerable(layout, edge)) {
+      const handles = drawHandles(edge);
+      handles.classList.add("lifted");
+      svg.querySelector(`g.edge-handles[data-edge="${edge.index}"]`)?.replaceWith(handles);
+    }
+    for (const point of edge.points) {
+      right = Math.max(right, point.x + MARGIN);
+      bottom = Math.max(bottom, point.y + MARGIN);
+    }
+  }
+  const width = right - layout.origin.x;
+  const height = bottom - layout.origin.y;
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("viewBox", `${layout.origin.x} ${layout.origin.y} ${width} ${height}`);
+}
+
+/** cssEscape quotes an id for an attribute selector, since CSS.escape is not in every webview host. */
+export function cssEscape(value: string): string {
+  return value.replace(/["\\]/g, String.raw`\$&`);
 }
 
 // markers are the arrowheads edges end in: a filled head for a transition or a
@@ -123,8 +172,21 @@ function labelLineClass(i: number, named: boolean): string {
 }
 
 // shape is the outline a node is drawn with: a box for an element, square-cornered
-// for a definition; a symbol for a control node.
+// for a definition; a symbol for a control node. Each colour a palette gave the node
+// rides along as a custom property, for the looks that draw them.
 function shape(entry: PlacedNode): SVGElement {
+  const outline = outlineOf(entry);
+  const { fill, border } = entry.node;
+  if (fill !== undefined) {
+    outline.style.setProperty("--node-fill", fill);
+  }
+  if (border !== undefined) {
+    outline.style.setProperty("--node-border", border);
+  }
+  return outline;
+}
+
+function outlineOf(entry: PlacedNode): SVGElement {
   const { x, y, width, height } = entry.box;
   const cx = x + width / 2;
   const cy = y + height / 2;
@@ -156,17 +218,35 @@ function shape(entry: PlacedNode): SVGElement {
       return group;
     }
     case "box": {
-      const definition = entry.node.kind.endsWith(" def") || CLASSIFIER_KINDS.has(entry.node.kind);
+      const classes = ["shape", boxClass(entry.node.kind)];
+      if (entry.children.length > 0 && !entry.collapsed) {
+        classes.push("container");
+      }
       const attrs: Record<string, string> = {
         x: String(x), y: String(y), width: String(width), height: String(height),
-        class: `shape${entry.children.length > 0 && !entry.collapsed ? " container" : ""}`,
+        class: classes.join(" "),
       };
-      if (!definition) {
+      if (classes[1] !== "definition") {
         attrs.rx = String(CORNER);
       }
       return element("rect", attrs);
     }
   }
+}
+
+// boxClass is what a box is drawn as, the way the PlantUML form stereotypes it; the
+// looks pick corner and border by it, a definition alone square in every look.
+function boxClass(kind: string): "package" | "definition" | "region" | "usage" {
+  if (kind.split(" ").includes("package")) {
+    return "package";
+  }
+  if (kind === "region") {
+    return "region";
+  }
+  if (kind.endsWith(" def") || CLASSIFIER_KINDS.has(kind)) {
+    return "definition";
+  }
+  return "usage";
 }
 
 // drawEdge is an edge's polyline with the arrowhead its kind takes and its label

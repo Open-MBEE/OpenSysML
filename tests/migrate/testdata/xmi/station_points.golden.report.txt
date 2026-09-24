@@ -1,0 +1,134 @@
+# SysML v1 to v2 migration report: station_points.xmi
+# migrated 126 element(s): 96 mapped, 26 approximated, 4 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (4)
+SignalEvent	<SignalEvent>	_skipEv	(every trigger referring to the event is dropped: it belongs to a behavior that is not written, or to an initial transition)
+Transition	Station::Cycle::main::<Transition>	_tSkip	(the target 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
+Pseudostate	Station::Cycle::main::Work::Through	_through	((_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tThrough	(the source 'Through' has no v2 form: (_tThrough) leads from the entry point straight to the exit point 'Leave' of the same state, crossing it without settling in it; the runtime would then run neither its entry nor its exit behavior)
+
+## approximated (26)
+Class	Station	_station	-> Station	(a plain UML class without «Block» is written as a part def)
+StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(the classifier behavior is run by every object of Station as its usage cycle)
+OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_goEff	-> Station::Cycle::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_diveEff	-> Station::Cycle::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_leaveEff	-> Station::Cycle::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_stopEff	-> Station::Cycle::unnamed4::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_gatherEff	-> Station::Cycle::unnamed5::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::<OpaqueBehavior>	_syncEntry	-> Station::Cycle::Sync::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::<OpaqueBehavior>	_syncExit	-> Station::Cycle::Sync::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::a::<Transition>::<OpaqueBehavior>	_agEff	-> Station::Cycle::Sync::regions::a::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::a::A1::<OpaqueBehavior>	_a1Entry	-> Station::Cycle::Sync::regions::a::A1::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::a::A1::<OpaqueBehavior>	_a1Exit	-> Station::Cycle::Sync::regions::a::A1::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::b::<Transition>::<OpaqueBehavior>	_bgEff	-> Station::Cycle::Sync::regions::b::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::b::B1::<OpaqueBehavior>	_b1Entry	-> Station::Cycle::Sync::regions::b::B1::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Sync::b::B1::<OpaqueBehavior>	_b1Exit	-> Station::Cycle::Sync::regions::b::B1::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::<OpaqueBehavior>	_workEntry	-> Station::Cycle::Work::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::<OpaqueBehavior>	_workExit	-> Station::Cycle::Work::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_startEff	-> Station::Cycle::Work::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_finishEff	-> Station::Cycle::Work::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::<Transition>::<OpaqueBehavior>	_outEff	-> Station::Cycle::Work::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Prep::<OpaqueBehavior>	_prepEntry	-> Station::Cycle::Work::Prep::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runEntry	-> Station::Cycle::Work::Run::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::<OpaqueBehavior>	_runExit	-> Station::Cycle::Work::Run::unnamed2	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_deepEff	-> Station::Cycle::Work::Run::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<OpaqueBehavior>	_backEff	-> Station::Cycle::Work::Run::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+OpaqueBehavior	Station::Cycle::main::Work::steps::Run::pace::Fast::<OpaqueBehavior>	_fastEntry	-> Station::Cycle::Work::Run::Fast::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+
+## mapped (96)
+SignalEvent	<SignalEvent>	_backEv	(written where a trigger refers to it, as accept Back)
+SignalEvent	<SignalEvent>	_nextEv	(written where a trigger refers to it, as accept Next)
+SignalEvent	<SignalEvent>	_finishEv	(written where a trigger refers to it, as accept Finish)
+SignalEvent	<SignalEvent>	_bumpEv	(written where a trigger refers to it, as accept Bump)
+SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept Go)
+SignalEvent	<SignalEvent>	_enterEv	(written where a trigger refers to it, as accept Enter)
+SignalEvent	<SignalEvent>	_diveEv	(written where a trigger refers to it, as accept Dive)
+SignalEvent	<SignalEvent>	_resumeEv	(written where a trigger refers to it, as accept Resume)
+SignalEvent	<SignalEvent>	_stopEv	(written where a trigger refers to it, as accept Stop)
+SignalEvent	<SignalEvent>	_pairEv	(written where a trigger refers to it, as accept Pair)
+SignalEvent	<SignalEvent>	_splitEv	(written where a trigger refers to it, as accept Split)
+Signal	Back	_back	-> Back
+Signal	Bump	_bump	-> Bump
+Signal	Dive	_dive	-> Dive
+Signal	Enter	_enter	-> Enter
+Signal	Finish	_finish	-> Finish
+Signal	Go	_go	-> Go
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Next	_next	-> Next
+Signal	Pair	_pair	-> Pair
+Signal	Resume	_resume	-> Resume
+Signal	Skip	_skip	-> Skip
+Signal	Split	_split	-> Split
+Region	Station::Cycle::main	_main	(the one region is written as the body of its owner)
+Pseudostate	Station::Cycle::main::<Pseudostate>	_init0	(written as the entry of the region)
+Transition	Station::Cycle::main::<Transition>	_t0
+Transition	Station::Cycle::main::<Transition>	_tGo	(the target 'Start' lies in another region and is named by its path Work::Start)
+Transition	Station::Cycle::main::<Transition>	_tNever
+Transition	Station::Cycle::main::<Transition>	_tEnter	(written to Work: no transition leaves the entry point 'Plain', so entering through it enters the state by its default entry)
+Transition	Station::Cycle::main::<Transition>	_tDive	(the target 'Deep' lies in another region and is named by its path Work::Run::Deep)
+Transition	Station::Cycle::main::<Transition>	_tResume	(the target 'H' lies in another region and is named by its path Work::H)
+Transition	Station::Cycle::main::<Transition>	_tLeave	(the source 'Leave' lies in another region and is named by its path Work::Leave)
+Transition	Station::Cycle::main::<Transition>	_tStop
+Transition	Station::Cycle::main::<Transition>	_tPair
+Transition	Station::Cycle::main::<Transition>	_tSplit	(the target 'Both' lies in another region and is named by its path Sync::Both)
+Transition	Station::Cycle::main::<Transition>	_tGather	(the source 'Gather' lies in another region and is named by its path Sync::Gather)
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trGo
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trNever
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trEnter
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trDive
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trResume
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trStop
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trPair
+Trigger	Station::Cycle::main::<Transition>::<Trigger>	_trSplit
+Constraint	Station::Cycle::main::<Transition>::never	_neverGuard
+State	Station::Cycle::main::Idle	_idle	-> Idle
+State	Station::Cycle::main::Sync	_sync	-> Sync
+Pseudostate	Station::Cycle::main::Sync::Both	_both	-> Both	(written as a fork of its state, whose branches start its regions; a transition entering through it runs the state's entry behavior, then the branches)
+Pseudostate	Station::Cycle::main::Sync::Gather	_gather	-> Gather	(written as a join of its state, which its regions leave through together; the transitions into the join run, then the state's exit behavior, then the transition leaving it)
+Region	Station::Cycle::main::Sync::a	_ra	-> a	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Station::Cycle::main::Sync::a::<Pseudostate>	_initA	(written as the entry of the region)
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tAi
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tBothA	(the source 'Both' lies in another region and is named by its path Sync::Both)
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tA
+Transition	Station::Cycle::main::Sync::a::<Transition>	_tAg	(the target 'Gather' lies in another region and is named by its path Sync::Gather)
+Constraint	Station::Cycle::main::Sync::a::<Transition>::<Constraint>	_bothAGuard	(a true guard is not written)
+Trigger	Station::Cycle::main::Sync::a::<Transition>::<Trigger>	_trA
+State	Station::Cycle::main::Sync::a::A0	_a0	-> A0
+State	Station::Cycle::main::Sync::a::A1	_a1	-> A1
+Region	Station::Cycle::main::Sync::b	_rb	-> b	(the one region is written as the body of its owner; an orthogonal region is written as a sub-state of the parallel state regions)
+Pseudostate	Station::Cycle::main::Sync::b::<Pseudostate>	_initB	(written as the entry of the region)
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tBi
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tBothB	(the source 'Both' lies in another region and is named by its path Sync::Both)
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tB
+Transition	Station::Cycle::main::Sync::b::<Transition>	_tBg	(the target 'Gather' lies in another region and is named by its path Sync::Gather)
+Trigger	Station::Cycle::main::Sync::b::<Transition>::<Trigger>	_trB
+State	Station::Cycle::main::Sync::b::B0	_b0	-> B0
+State	Station::Cycle::main::Sync::b::B1	_b1	-> B1
+State	Station::Cycle::main::Work	_work	-> Work
+Pseudostate	Station::Cycle::main::Work::Leave	_leave	-> Leave	(written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
+Pseudostate	Station::Cycle::main::Work::Plain	_plain	-> Work	(no transition leaves the entry point, so entering through it enters 'Work' by its default entry; a transition to it is written to the state)
+Pseudostate	Station::Cycle::main::Work::Start	_start	-> Start	(written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
+Region	Station::Cycle::main::Work::steps	_steps	(the one region is written as the body of its owner)
+Pseudostate	Station::Cycle::main::Work::steps::<Pseudostate>	_initW	(written as the entry of the region)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tWi
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tNext
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tStart	(the source 'Start' lies in another region and is named by its path Work::Start)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tFinish	(the target 'Leave' lies in another region and is named by its path Work::Leave)
+Transition	Station::Cycle::main::Work::steps::<Transition>	_tOut	(the source 'Out' lies in another region and is named by its path Work::Run::Out)
+Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trNext
+Trigger	Station::Cycle::main::Work::steps::<Transition>::<Trigger>	_trFinish
+Pseudostate	Station::Cycle::main::Work::steps::H	_hist	-> H	(written as a shallow history, which re-enters the substate active when its state was last left)
+State	Station::Cycle::main::Work::steps::Prep	_prep	-> Prep
+State	Station::Cycle::main::Work::steps::Run	_run	-> Run
+Pseudostate	Station::Cycle::main::Work::steps::Run::Deep	_deep	-> Deep	(written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction)
+Pseudostate	Station::Cycle::main::Work::steps::Run::Out	_out	-> Out	(written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it)
+Region	Station::Cycle::main::Work::steps::Run::pace	_pace	(the one region is written as the body of its owner)
+Pseudostate	Station::Cycle::main::Work::steps::Run::pace::<Pseudostate>	_initR	(written as the entry of the region)
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tRi
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tDeep	(the source 'Deep' lies in another region and is named by its path Work::Run::Deep)
+Transition	Station::Cycle::main::Work::steps::Run::pace::<Transition>	_tBack	(the target 'Out' lies in another region and is named by its path Work::Run::Out)
+Trigger	Station::Cycle::main::Work::steps::Run::pace::<Transition>::<Trigger>	_trBack
+State	Station::Cycle::main::Work::steps::Run::pace::Fast	_fast	-> Fast
+State	Station::Cycle::main::Work::steps::Run::pace::Slow	_slow	-> Slow
+Property	Station::trace	_trace	-> Station::trace
+Signal	Stop	_stop	-> Stop

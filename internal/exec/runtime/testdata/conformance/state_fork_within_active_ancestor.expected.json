@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "finalState": "done",
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "outer(entry) idle(exit) T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) outer(exit) T2(effect) "
+    }
+  },
+  "trace": true
+}

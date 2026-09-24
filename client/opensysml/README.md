@@ -34,7 +34,8 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |
-| Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` |
+| Play it step by step | `OpenSession`, then `Session.Instantiate`, `Send`, `Advance`, `Perform` |
+| Check it | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` |
 | Choose who answers | `ListEngines`, `WithEngine`, `Engine`, `CalcEngine` |
 | Search it | `Query`, `QueryOSLC` |
 | Report on it | `RunDocumentQuery`, `RenderDocument` |
@@ -58,6 +59,15 @@ A verdict of false is an answer about the model, not an error: a verification
 fails only when it could not be evaluated at all, and then it is a
 `*VerifyError` whose `Reason` classifies the failure. A condition the runtime
 could not evaluate for one subject arrives as `Verdict.Undecided()`.
+
+`ValidateInstance` builds one object of the part named and answers every
+assertion about it and the objects it holds — asserted constraints,
+requirement usages and `satisfy` assertions whose subject is in the tree — as
+a `Validation`: one `Verdict` per assertion per object, each placing its object
+by `InstancePath` (`wheels[2]`), and a `Summary` of Kind `"object"` that
+`Valid()` reads. `Violated()` lists the verdicts the model answered false, kept
+apart from undecided ones, and `Bounded` marks a walk cut short, which is not
+valid either.
 
 What running a verification case's body answered is a separate answer, reported
 beside the satisfaction verdict rather than instead of it, by a service
@@ -102,6 +112,81 @@ ended it. `WithSchedule("explore:runs=64,depth=8")` sets the budget; a run that
 fails under some orders is an `Outcome` with its `Error` set, not a failed call.
 The single-run and exploring calls refuse each other's policies with
 `CodeInvalidArgument`, so a policy is never quietly answered by the wrong shape.
+
+### Sessions
+
+`ExecuteAction` and `ExecuteState` run a whole behaviour and answer what it did.
+A `Session` is the interactive shape: a persistent run of one model that keeps
+its clock, its scheduling policy and the objects it instantiated between calls,
+for a debugger, a simulator's console or a game played against the model one
+key at a time.
+
+```go
+session, err := opensysml.OpenSession(client, model)
+defer session.Close()
+
+hero, err := session.Instantiate("Play::hero")           // starts the machines it exhibits
+err = session.SetSchedule("seed:42")                     // the dice later turns roll, the running machines' and clock's included
+states, err := session.ActiveStates(hero)                // ["town"]
+transitions, err := session.Transitions(hero)            // out of each active state and those enclosing it: Source, Target, Trigger, Signal or Event, Guarded
+acceptance, err := session.Accepts(hero, "Play::Go", nil) // Taken(), as dispatch selects among machines; Accepted; Enabled() is whether a guard holds now
+_, err = session.Send(hero, "Play::Go", nil)             // posts it, or refuses with CodeFailedPrecondition
+advanced, err := session.Advance(1)                      // dispatches, completion transitions included; Choices
+performed, err := session.Perform(hero, "Play::Hero::pay",
+	map[string]opensysml.Value{"amount": opensysml.Int(5)}) // Outputs, Choices, Branches; TurnedAway()
+value, err := session.Feature(hero, "gold")              // as the runs left it
+err = session.SetFeature(hero, "gold", opensysml.Int(100))
+v, err := session.Evaluate("town.shop.stick", opensysml.WithContextSymbol("Play::hero"))
+members, err := session.Members("Play::Mood")            // an enumeration's literals, a package's parts
+```
+
+A session answers facts, never the engine's own graphs or objects: a
+`Transition` is its ends and trigger by name; an `Acceptance` is whether a
+transition accepts the signal and whether one is enabled; a `Performance`
+carries the run's outputs, its `ChoicePoint`s (where the schedule chose, what
+it could have chosen, what it took) and the `Branch` each decision of the
+action's own flow left by, with `TurnedAway()` reading whether the opening
+decision took its else branch — the shape of an action that looks at its
+inputs and declines. Objects are `InstanceID` handles that `Feature`,
+`SetFeature`, `Accepts`, `Send` and `Perform` take, and `Evaluate` reads them
+where an expression names one.
+
+A `Session` is not part of the `Client` interface, on purpose. `Client` is the
+set of RPCs the service answers, and `New` and `Dial` are held to identical
+answers by the conformance suite; a session is state the engine holds between
+calls, which the service exposes no RPC for. Rather than a `Dial` that answers
+some methods and not others, `OpenSession` is a separate in-process-only
+surface opened from a `Client`: a client `New` returned answers it, a `Dial`
+client is refused with `CodeUnimplemented`, and nothing is stubbed in between.
+The `Client` contract is untouched — every one of its methods still answers
+identically over both — and a session over the wire, if one is added, will be
+a set of RPCs with the same fact-shaped answers.
+
+Misuse is refused, never a panic: a closed session answers `CodeUnavailable`;
+a signal no transition out of an active state, or a state enclosing one,
+accepts in any machine the object exhibits, or one whose every guard is false,
+`CodeFailedPrecondition`; an exploration policy or a negative
+advance `CodeInvalidArgument`; an unknown symbol, object or action, or a run
+the model fails, a `*FailureError` as the request-scoped calls report them. A
+session holds its model in the client's cache and the objects it made until
+`Close`, which releases them; closing twice is harmless, and `Close` on the
+client does not close a session opened from it, so close the session first.
+Its objects are bounded as the service bounds the objects it holds for
+queries (`OPENSYSML_GRPC_MAX_HELD_OBJECTS`, 10000 by default) — a call that
+would pass the bound answers `CodeResourceExhausted` — and its runs by the
+same step budget as `ExecuteAction`, each `Evaluate` and `Perform` a run of
+its own.
+
+The [Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD)
+is a client of this surface and nothing else: it imports only this package,
+compiled to WebAssembly.
+
+`PerformedBy` names the object an action or state machine runs on, as `sysml
+-action "<action> <object>"` does: a part definition or usage to make an object
+of, or a path from one into its parts — `PerformedBy("Mission::mission.vehicle")`
+makes the mission and runs on its vehicle, inside the assembly, so a machine the
+vehicle exhibits hears the ground station over their connector. Each explored run
+makes the object anew. The option needs the `performer` capability.
 
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
@@ -149,19 +234,25 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 })
 ```
 
-Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete` —
-and either all apply, answering the edited source, or none do and the refusal
-arrives as an `*EditError` naming its kind:
+Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete`,
+`Move` — and either all apply, answering the edited source, or none do and the
+refusal arrives as an `*EditError` naming its kind:
 
 ```go
 result, err := client.ApplyEdits(ctx, model,
 	opensysml.SetValue{Target: "Demo::sedan::mass", Value: "1200.0[SI::kg]"})
 
 var refused *opensysml.EditError
-if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureRenameReferenced {
-	// refused.Referring names what still refers to it
+if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureDeleteReferenced {
+	// refused.Referrers names what still refers to it, each with its document
 }
 ```
+
+The edited source is `result.Documents`, one `EditedDocument` per document the
+batch reached, under the name the model was parsed with; `result.Content` is the
+same notation for a model of one document and empty for a model of several, kept
+for callers of the sole-document contract. Each `AppliedEdit` names the
+`Document` its bytes belong to.
 
 ## What a model is here
 
@@ -190,10 +281,27 @@ own name, so a diagnostic locates itself in the file it came from, and
 `Model.Root` is the first, as it is for a one-document model. A set is cached by
 what is in it, so parsing the same documents again answers the same model hash.
 
-Two operations write one document's own notation back out, and they are refused
-with `CodeFailedPrecondition` for a model of several rather than applied to one
-of them: `Convert` from a model handle, and `ApplyEdits`. Convert a single
-document of such a set with `ConvertFile` or `ConvertSource`.
+`Convert` from a model handle writes one document's own notation back out, and
+is refused with `CodeFailedPrecondition` for a model of several rather than
+applied to one of them; convert a single document of such a set with
+`ConvertFile` or `ConvertSource`.
+
+`ApplyEdits` edits the set as one model. Its operations name elements declared in
+the first document; `ApplyDocumentEdits(ctx, model, "top.sysml", edits...)` names
+another, and a name that is not one of the model's is `CodeInvalidArgument`. A
+rename or a cascade delete follows its references into the other documents, every
+document touched is re-parsed and re-analysed together, and `result.Documents`
+lists exactly the documents rewritten — so a batch that reaches one document of
+three answers one `EditedDocument`, and `result.Content` is empty. The client marks
+every request as accepting documents; the service refuses a request that does not on a
+model of several, as it did before, so a program reading `Content` alone through an
+earlier client is never handed an empty one. A reference from
+a document the edit cannot rewrite, such as a bundled library file, refuses the
+edit as `EditFailureReferencedElsewhere`, naming it in `Referrers`. All of this is the
+`CapabilityEditDocuments` capability: a service without it edits a model of one
+document alone, answering `Content` with `Documents` empty, refuses a model of several
+with `CodeFailedPrecondition`, and refuses `ApplyDocumentEdits` with `CodeUnimplemented`
+— so a program reading `Documents` checks `ServerInfo` for the capability first.
 
 ## Concurrency, contexts and lifetime
 
@@ -221,7 +329,7 @@ checkout. It is informational: negotiate on capabilities.
 This is a Go repository: a Go program that imports this module already links
 the parser, the semantic engine and the runtime. `New` calls them directly —
 no port, no child process, no serialization round trip. It answers through the
-same service implementation (`internal/grpc.Service`) the wire transports
+same service implementation (`internal/frontend/grpc.Service`) the wire transports
 serve, so the semantics are the service's semantics: the same content-addressed
 parse cache and model hashes, the same capability list, the same in-band
 failures, the same runtime budgets (read from the environment, as the service
@@ -345,7 +453,7 @@ protocols of the reference runner:
 
 ```sh
 make conformance-pkg
-# or: go run ./cmd/conformance -protocols pkg,pkg-connect -allow-skips
+# or: go run -C tools ./cmd/conformance -protocols pkg,pkg-connect -allow-skips
 ```
 
 Two scenarios are reported as skips, because they state a request this API's

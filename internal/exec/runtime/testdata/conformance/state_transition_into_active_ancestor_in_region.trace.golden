@@ -1,0 +1,41 @@
+exit: inner (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);"
+      eval literal "inner(exit);" -> "inner(exit);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);inner(exit);"
+      eval literal "up(effect);" -> "up(effect);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);"
+transition: inner -> mid (event: accept Up)
+exit: mid (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);"
+      eval literal "mid(exit);" -> "mid(exit);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);"
+      eval literal "completion(effect);" -> "completion(effect);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);"
+enter: leftDone (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);"
+      eval literal "leftDone(entry);" -> "leftDone(entry);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);leftDone(entry);"
+transition: mid -> leftDone
+choice exiting outer: next leftDone(exit), b(exit) (unordered; took leftDone(exit) first)
+exit: leftDone
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);leftDone(entry);"
+      eval literal "b(exit);" -> "b(exit);"
+    eval operator + -> "mid(entry);inner(entry);b(entry);inner(exit);up(effect);mid(exit);completion(effect);leftDone(entry);b(exit);"
+exit: outer
+enter: done
+transition: outer -> done (event: accept Leave)

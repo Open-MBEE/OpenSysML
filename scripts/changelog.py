@@ -17,6 +17,7 @@ Run from the repository root:
 
     python3 scripts/changelog.py check              # every fragment is well-formed (CI)
     python3 scripts/changelog.py render             # fold fragments into "## Unreleased", delete them
+    python3 scripts/changelog.py summary            # one line per unreleased entry, for a snapshot's notes
     python3 scripts/changelog.py release 0.5.0      # render, then date the section as a release
     python3 scripts/changelog.py release 0.5.0 --date 2026-09-10
 """
@@ -40,6 +41,9 @@ FRAGMENT_NAME = re.compile(r"^(?P<slug>[A-Za-z0-9][A-Za-z0-9._-]*)\.(?P<section>
 UNRELEASED = re.compile(r"^## Unreleased[ \t]*\n", re.MULTILINE)
 VERSION_HEADING = re.compile(r"^## (?!Unreleased)", re.MULTILINE)
 SECTION_HEADING = re.compile(r"^### (?P<name>.*)$", re.MULTILINE)
+LIST_ITEM = re.compile(r"^- ", re.MULTILINE)
+BOLD_LEAD = re.compile(r"\A\*\*(?P<lead>.+?)\*\*", re.DOTALL)
+FIRST_SENTENCE = re.compile(r".+?[.!?](?:\s|$)")
 # Semantic Versioning 2.0.0, as published at semver.org.
 _NUM = r"(?:0|[1-9][0-9]*)"
 _PRE_ID = rf"(?:{_NUM}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
@@ -164,11 +168,8 @@ def fold(text: str, entries: dict[str, list[str]]) -> str:
     return text[:start] + out + text[end:]
 
 
-def render(dry_run: bool = False) -> None:
-    paths = fragments()
-    if not paths:
-        print("no fragments under changes/unreleased/")
-        return
+def _folded(paths: list[pathlib.Path]) -> str:
+    """CHANGELOG text with every fragment folded into "## Unreleased", written nowhere."""
     text = CHANGELOG.read_text(encoding="utf-8")
     start, end = _unreleased_bounds(text)
     entries: dict[str, list[str]] = {}
@@ -178,7 +179,15 @@ def render(dry_run: bool = False) -> None:
         if _already_folded(text[start:end], section, body):
             continue
         entries.setdefault(section, []).append(body)
-    new = fold(text, entries) if entries else text
+    return fold(text, entries) if entries else text
+
+
+def render(dry_run: bool = False) -> None:
+    paths = fragments()
+    if not paths:
+        print("no fragments under changes/unreleased/")
+        return
+    new = _folded(paths)
     if dry_run:
         start, end = _unreleased_bounds(new)
         sys.stdout.write("## Unreleased\n" + new[start:end])
@@ -187,6 +196,31 @@ def render(dry_run: bool = False) -> None:
     for p in paths:
         p.unlink()
     print(f"folded {len(paths)} fragment(s) into CHANGELOG.md")
+
+
+def _lead(item: str) -> str:
+    """The bold sentence an entry opens with, or its first sentence when it has none."""
+    m = BOLD_LEAD.match(item)
+    if m:
+        return " ".join(m.group("lead").split())
+    text = " ".join(item.split())
+    m = FIRST_SENTENCE.match(text)
+    return m.group(0).rstrip() if m else text
+
+
+def summary() -> None:
+    """Print each unreleased entry as one line under its section, fragments included."""
+    new = _folded(fragments())
+    start, end = _unreleased_bounds(new)
+    out = []
+    for name, content in _split_sections(new[start:end])[1]:
+        items = [i.strip() for i in LIST_ITEM.split(content.strip("\n")) if i.strip()]
+        if not items:
+            continue
+        out.append(f"### {name}\n")
+        out.extend(f"- {_lead(item)}" for item in items)
+        out.append("")
+    sys.stdout.write("\n".join(out))
 
 
 def release(version: str, date: str | None) -> int:
@@ -218,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("check", help="validate every fragment")
     r = sub.add_parser("render", help="fold fragments into CHANGELOG.md and delete them")
     r.add_argument("--dry-run", action="store_true", help="print the resulting Unreleased section, change nothing")
+    sub.add_parser("summary", help="print one line per unreleased entry, fragments included; change nothing")
     rel = sub.add_parser("release", help="render, then turn Unreleased into a dated version section")
     rel.add_argument("version")
     rel.add_argument("--date", help="YYYY-MM-DD (default: today)")
@@ -226,6 +261,9 @@ def main(argv: list[str] | None = None) -> int:
         return check()
     if a.cmd == "render":
         render(dry_run=a.dry_run)
+        return 0
+    if a.cmd == "summary":
+        summary()
         return 0
     return release(a.version, a.date)
 

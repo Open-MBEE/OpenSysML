@@ -25,15 +25,15 @@ What the renderer emits:
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
-- Every table and diagram caption preceded by a `<!-- caption -->` marker
-  line, so the caption is distinguishable from an emphasis-only paragraph.
-  The marker is metadata of OpenSysML's Markdown dialect: ordinary Markdown
-  renderers treat it as a comment and display nothing.
+- An object the session holds as its path from the object the query was bound
+  through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
+  (`assert constraint powerLow on car.engine: violated`).
 - All model-derived text escaped so it cannot break document structure.
 - A single trailing newline, no trailing whitespace.
 
-The output is deterministic: the same model produces byte-identical Markdown
-on every run, which is why the repository can keep rendered documents as
+The output is deterministic: the same model — and, for a document that reads
+the objects a session holds, the same objects in the same state — produces
+byte-identical Markdown on every run, which is why the repository can keep rendered documents as
 golden files (this manual does exactly that — see
 [the worked example](worked-example.md)).
 
@@ -94,6 +94,30 @@ apart), and a diagram's view, kind and flow direction.
 </tr>
 ```
 
+A row over an object the session holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds))
+adds `data-object="#<id>"`, the id the instantiation report printed, beside
+the usage the object stands for, and an object-valued cell is a
+`span.sysml-object` whose text is the object's path. A row a `Verdicts` query
+answered ([Which constraints and requirements hold](query-cookbook.md#which-constraints-and-requirements-hold))
+is the assertion checked, and its row or list item carries `data-verdict`
+(`holds`, `violated` or `undecided`), `data-path` (the object checked) and,
+over a held object, its `data-object`; a verdict-valued cell is a
+`span.sysml-verdict` with the same three attributes, whose text is the line
+Markdown prints, `<assertion> on <path>: <verdict>`. So a stylesheet colours
+what is violated with
+`[data-verdict="violated"] { … }` and a script reads which objects it is
+about without parsing the text.
+
+```html
+<tr class="sysml-row" data-object="#2" data-verdict="violated" data-path="car.engine"
+    data-element="Garage::Engine::powerLow" data-element-kind="constraintUsage">
+<td class="sysml-cell" data-column="path" data-value-kind="string">
+<span class="sysml-value" data-value-kind="string">car.engine</span></td>
+<td class="sysml-cell" data-column="verdict" data-value-kind="string">
+<span class="sysml-value" data-value-kind="string">violated</span></td>
+</tr>
+```
+
 Identifiers are the same anchors the Markdown writes, so a `Ref` resolves
 within the page; in a `-render-documents` set it resolves across pages, whose
 file names are the Markdown names with `.html` instead of `.md`. Diagram
@@ -103,12 +127,29 @@ By default the output loads nothing over the network, runs no JavaScript of
 its own, and is byte-identical between runs. To have a browser draw the
 diagrams, `-html-mermaid cdn` adds a `<script>` loading a pinned Mermaid
 release from jsDelivr, and `-html-mermaid <url>` loads it from a URL of your
-own; the page keeps the source, so it still reads where the script cannot
-load. A fragment has no page shell for the script, so a page embedding one
-loads Mermaid itself. Rendered with `-diagram-form dot` or `-diagram-form
-plantuml`, every graph-shaped diagram embeds its Graphviz DOT source in
+own; a second `<script>` configures it to draw the page's largest chart, which
+Mermaid's default size limits (50 000 characters, 500 edges) would refuse. The
+configuration never exceeds twenty times those defaults, so no page asks a
+browser for unbounded work: a chart past 1 000 000 characters or 10 000 edges
+is refused before it is written, naming the chart and its size, and is drawn
+with `-diagram-form dot` or `plantuml` instead. The page keeps the source, so it
+still reads where the script cannot load. A fragment has no page shell for the
+script, so a page embedding one loads Mermaid itself. Rendered with
+`-diagram-form dot` or `-diagram-form plantuml`, every graph-shaped diagram
+embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
+
+Formulas work the same way. A math span becomes `<span class="sysml-math">`
+and a `Formula` block a `<figure class="sysml-formula">` with its caption,
+each holding the LaTeX between MathJax's `\(…\)` or `\[…\]` delimiters.
+By default the page loads nothing and shows the source; `-html-math cdn`
+adds a `<script>` loading a pinned MathJax release from jsDelivr, and
+`-html-math <url>` loads it from a URL of your own. The script is configured
+to typeset `.sysml-math` elements alone, so a `$` or `\(` in ordinary prose
+is never mistaken for a formula. `-html-math` and `-html-mermaid` combine, and
+neither combines with `-html-fragment` — the embedding page loads the
+typesetter itself. See [Mathematics](#mathematics) for the PDF side.
 
 ### Styling it
 
@@ -128,7 +169,7 @@ renderer emits no `style` attributes to compete with.
 
 | Flag | Effect |
 |---|---|
-| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `modern`, `print` or `report` |
+| `-html-theme <name>` | Layer a bundled theme over the default sheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` |
 | `-html-default-css` | Write the default sheet and exit, to copy from; with `-html-theme`, the theme's whole sheet |
 | `-html-css <file\|url>` | Add a sheet after the default one: a file is inlined, a URL is linked (repeatable, applied in order) |
 | `-html-no-default-css` | Leave the default sheet out |
@@ -144,6 +185,17 @@ unlayered CSS still wins over both:
 | `modern` | Clean corporate sans-serif: filled table headers, zebra rows, rounded surfaces for code and contents |
 | `report` | Formal technical report: serif body, wider measure, open tables ruled top and bottom, captions above |
 | `print` | Monochrome and compact for paper: black rules, no fills, tables and figures kept whole across page breaks, external links spelled out |
+| `nasa` | NASA STI report series: Times 12pt body, Arial headings, tables and captions, letter page with 1in margins, page numbers centred below, black on white |
+| `ieee` | IEEE Transactions manuscript: Times 10pt body, 8pt captions and tables, centred small-caps section heads, italic subheads, justified with a 1pc indent, letter page with 0.67in margins, single column |
+| `acm` | ACM article (`acmart`): Libertine 10pt body falling back to Times, bold sans numbered heads, 9pt captions, letter page with 1in margins, single column |
+
+The three convention themes set their faces and point sizes on screen as on
+paper, so a page and its PDF agree. The Libertine fonts `acm` names are
+rarely installed, so Times metrics are what most machines print; and none of
+the three lays out two columns or writes a cover beyond the title, since the
+document model carries no report number, authors or affiliations. The
+sources and the choices made where a convention is silent are recorded in
+[the backend's design notes](../project/html-document-backend.md#bundled-themes).
 
 A theme needs the default sheet under it, so it is refused with
 `-html-no-default-css`, and a fragment has no page to style, so it is refused
@@ -170,13 +222,60 @@ $ sysml report.sysml -render-document Observatory::MassReport \
     -doc-form pdf -o report.pdf
 ```
 
-Internally the engine renders Markdown, converts it to styled HTML, renders
-any Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), and hands the result
-to an external HTML-to-PDF converter. Rendered with `-diagram-form dot` or
-`-diagram-form plantuml`, the diagrams are not drawn: the PDF keeps their DOT
-or PlantUML source under a notice saying so, and neither Mermaid CLI nor a
-Graphviz or PlantUML tool is looked for, so the run needs no diagram tool at
-all.
+Internally the PDF backend reads the compiled document tree, renders any
+Mermaid diagrams to SVG with Mermaid CLI (`mmdc`) — each under a
+configuration sized to the chart, within the same ceiling the
+[HTML backend](#html) draws under, and the same five-minute limit every
+converter runs under — typesets any formulas
+with KaTeX (`katex`), and hands an external converter the document in the
+form it reads: an HTML-to-PDF engine gets the [HTML backend's](#html) page
+with the drawn diagrams and typeset formulas in place of their source and a
+print stylesheet over the default sheet; pandoc gets the
+[Markdown](#markdown) with a filter swapping the artwork in on its own
+syntax tree. Rendered with `-diagram-form dot`, the diagrams are drawn by
+Graphviz — the `dot` named by `OPENSYSML_DOT`, else the one on `PATH`, writing
+SVG under the layout engine the block's `// layout:` header names, so a view
+the model positions is drawn where its `Layout` annotations put it — and with
+`-diagram-form plantuml` by the PlantUML jar named by `OPENSYSML_PLANTUML_JAR`,
+run by the `java` named by `OPENSYSML_JAVA` or found on `PATH`. Both are
+optional where Mermaid CLI is required: without the tool, the PDF keeps the
+block's DOT or PlantUML source under a notice naming the variable to set, and
+the render still succeeds. A tool that is present and fails stops the render
+with a typed `tool-failed` error carrying its output, as a failing `mmdc`
+does.
+
+### Styling a PDF
+
+An engine reading HTML lays out the same markup the HTML form writes, so a
+PDF is styled the way an HTML page is. The print stylesheet — page size and
+margins, the page-number footer, print faces and sizes, page breaks kept out
+of tables and figures, the title page and contents on pages of their own —
+is declared in a second cascade layer after the default sheet:
+
+```css
+@layer opensysml;              /* the default sheet, or the theme over it */
+@layer opensysml-print;        /* the PDF backend's print sheet */
+@layer opensysml-print-theme;  /* the theme's print companion, when it has one */
+```
+
+A theme that means to govern paper carries a print companion — `print`,
+`report`, `nasa`, `ieee` and `acm` do — that the PDF backend lays over the
+print sheet in the third layer, so the theme's page size and margins, faces,
+body size, heading scale and page-number footer reach the PDF rather than
+being overwritten by the print sheet's defaults. All three layers draw their
+values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF as it does a page, `-html-css` sheets apply
+unlayered after every layer and win on cascade origin, and
+`-html-no-default-css` leaves every bundled layer out so that only your
+sheets — `@page` rules included — style the PDF. Without a theme, the PDF is
+set in Times, Arial and Courier where they are installed and in their
+metric-compatible free equivalents (Liberation, Nimbus) where they are not. A sheet's relative `url()`
+and `@import` references resolve against the PDF's directory, as a page's
+resolve against the page's. The pandoc engine reads Markdown and writes its
+own HTML, so `-html-theme` and `-html-no-default-css` are refused for it,
+while `-html-css` sheets are attached in pandoc's page after its own.
+`-html-fragment`, `-html-mermaid` and `-html-math` shape a browser page and
+are refused for PDF.
 
 ### Engines
 
@@ -192,10 +291,14 @@ The converters are external tools, not bundled with the binary. If the
 selected tool is not on `PATH`, the render fails with a typed `tool-missing`
 error naming it. Environment variables override discovery:
 `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_PRINCE`,
-`OPENSYSML_MMDC`, and `OPENSYSML_MMDC_PUPPETEER` (extra Puppeteer
-configuration for Mermaid CLI). The repository's
-`scripts/download-doc-pdf-toolchain.sh` fetches a pinned WeasyPrint, pandoc
-and Mermaid CLI and prints the exports to use them.
+`OPENSYSML_MMDC`, `OPENSYSML_MMDC_PUPPETEER` (extra Puppeteer
+configuration for Mermaid CLI), `OPENSYSML_KATEX` and `OPENSYSML_KATEX_CSS`
+(the KaTeX stylesheet, when it is not installed beside the `katex` command),
+`OPENSYSML_DOT` (Graphviz), `OPENSYSML_PLANTUML_JAR` and `OPENSYSML_JAVA`
+(PlantUML). The repository's `scripts/download-doc-pdf-toolchain.sh` fetches
+a pinned WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz and PlantUML jar and
+prints the exports to use them; the jar still needs a Java runtime of your
+own.
 
 ### Deliverable options
 
@@ -208,22 +311,63 @@ and Mermaid CLI and prints the exports to use them.
 All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
 `-pdf-toc` and `-pdf-number-sections` are aliases of them.
 
+### Wide tables
+
+The PDF stylesheet keeps every table within the text width: cells wrap
+wherever they must, so a long qualified name breaks rather than pushing the
+rightmost columns off the page. A table of seven or more columns — a
+traceability matrix, say — is placed on landscape pages, together with the
+heading and caption that introduce it, while the surrounding pages stay
+portrait. The rules use the CSS `:has()` selector, which WeasyPrint — and so
+`weasyprint` and `pandoc` — supports; an engine without it keeps the whole
+document portrait.
+
 ### PDF rendering of inline runs and anchors
 
 Inline runs and cross-reference anchors keep their meaning in PDF. A
 paragraph built from `Span`/`Link`/`Ref` runs renders with emphasis, strong
 and code styling and working links; a `Ref` anchor becomes an invisible
 PDF-native anchor, so an in-document `Ref` is a clickable internal link; and
-a grouped table's group key renders in bold above each subtable. All
-three engines support internal links: `weasyprint` and `prince` from the
-prepared HTML's element ids and fragment hrefs, and `pandoc` from the
-Markdown itself, whose CommonMark reader keeps the anchor's raw HTML.
+a grouped table's group key heads each group. All three engines support
+internal links: `weasyprint` and `prince` from the HTML's element ids and
+fragment hrefs, and `pandoc` from the Markdown itself, whose CommonMark
+reader keeps the anchor's raw HTML. Captions are `<caption>` and
+`<figcaption>` elements in the HTML the first two read; the pandoc engine
+tells a caption from an emphasized paragraph by matching the paragraph ahead
+of each table, diagram and formula block against the document's captions in
+order, and styles it small.
+
+### Mathematics
+
+Formulas are typeset in the PDF, not printed as LaTeX. The backend lists the
+document's distinct formulas — math spans in paragraphs, list items and
+definitions, and `Formula` blocks — and runs each once through the KaTeX
+command line (`katex`, found on `PATH` or named by `OPENSYSML_KATEX`), which
+typesets it as HTML that needs no JavaScript. KaTeX's stylesheet and fonts
+are copied beside the page, so the finished PDF embeds the KaTeX faces and
+shows the formula as a formula:
+
+- `weasyprint` and `prince` lay out the typeset HTML in the HTML backend's
+  own places, an inline formula in its `<span class="sysml-math">` and a
+  displayed one in the `<div class="sysml-math">` of its
+  `<figure class="sysml-formula">`, centered under its caption;
+- `pandoc` reads the Markdown, and its filter replaces each formula pandoc
+  parses with the typeset HTML as a raw block or span, linking the same
+  stylesheet.
+
+A document without formulas needs no KaTeX, as one without diagrams needs no
+Mermaid. An escaped `\$` in prose stays a dollar sign, and a `$` inside a
+fenced code or diagram block is never read as math. A missing `katex` stops
+the run with the usual `tool-missing` message naming `OPENSYSML_KATEX`; a
+missing stylesheet names `OPENSYSML_KATEX_CSS`; and LaTeX KaTeX cannot parse
+fails the run with KaTeX's own message quoting the formula, rather than a PDF
+with a hole in it.
 
 ## Determinism
 
 **Markdown** is fully deterministic: byte-identical output for the same
-model and binary. Query results preserve declaration order unless ordered
-explicitly, ordering policies are explicit parameters, and rendering
+model, the same held objects and binary. Query results preserve declaration
+order unless ordered explicitly, ordering policies are explicit parameters, and rendering
 introduces no timestamps, random identifiers or map-order dependence.
 
 **PDF** is deterministic *for a pinned toolchain*. The engine does its

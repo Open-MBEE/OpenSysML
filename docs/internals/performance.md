@@ -6,6 +6,13 @@ say about where the remaining cost is. Figures below were taken on an
 ratios rather than absolutes. Each release is measured against the one before it
 in a record under `docs/project/`; the latest is
 [release 0.8.0 against release 0.7.0](../project/performance-release-0.8-vs-0.7.0.md).
+How far one realistic model scales — a satellite constellation with every
+spacecraft modeled to its components, from 2 to 12 800 satellites — and where
+validation, satisfaction checking and editing each stop being practical is in
+the [satellite-network stress test](../project/satellite-network-stress-test.md);
+the design for holding and editing models an order of magnitude larger than
+that test reaches is
+[scaling to very large models](../project/large-model-scaling-design.md).
 
 ## Profiling a run
 
@@ -44,13 +51,13 @@ Peak resident size is measured from outside:
 
 ## Benchmarks
 
-`internal/repl/bench_test.go` loads and runs synthetic models of a stated size,
+`internal/frontend/repl/bench_test.go` loads and runs synthetic models of a stated size,
 so a cost that grows faster than the model is visible as a per-element figure
 that grows with size:
 
 ```bash
-go test ./internal/repl -run '^$' -bench . -benchmem
-go test ./internal/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
+go test ./internal/frontend/repl -run '^$' -bench . -benchmem
+go test ./internal/frontend/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
 ```
 
 Beyond the standard figures they report:
@@ -63,21 +70,21 @@ Beyond the standard figures they report:
 before it holds anything, so reading a size against it separates the model's cost
 from the session's.
 
-`internal/core/parser/bench_test.go` times the parser alone over a real model: it
+`internal/syntax/parser/bench_test.go` times the parser alone over a real model: it
 parses every `.sysml` and `.kerml` file under the directory `OPENSYSML_BENCH_MODEL`
 names, with no library, no name resolution and no validation, and skips when the
 variable is unset:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 ```
 
-`internal/perfbench/model_bench_test.go` times the whole load of the same directory
+`tests/perf/model_bench_test.go` times the whole load of the same directory
 as one REPL session — library, resolution and validation included — and fails if the
 model has errors, so the measured load is a clean one:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/perfbench -run '^$' -bench REPLLoadModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./tests/perf -run '^$' -bench REPLLoadModel -benchmem
 ```
 
 ## A real model: Apollo 11
@@ -92,7 +99,7 @@ technical architectures, operations, and the trajectory calculations.
 
 ```bash
 git clone https://github.com/airbus/apollo-11-sysml-v2 && git -C apollo-11-sysml-v2 checkout 6e9c93f
-OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 ```
 
@@ -110,7 +117,7 @@ answered by name (below).
 
 ### What it reports
 
-The run reports **37 warnings and no error**, and every one of them is a finding
+The run reports **4 warnings and no error**, and every one of them is a finding
 about the model. Three of the warnings are calculation invocations that leave an
 input the calculation declares unbound, so the call cannot be evaluated — well-formed
 SysML v2 the reference validator also accepts, hence advisories rather than errors — all
@@ -121,10 +128,7 @@ in `Analysis/CalculationsPackage.sysml`:
 | 111 | `return deltaV :> ISQ::speed = isp * g0 * ln(m0 / mf);` | `ln` is the alias of `CoSMAQuantitiesAndUnitsPackage::naturalLogarithm`, declared `calc <ln> naturalLogarithm { in x: DataValue[1]; in y: DataValue[1]; return : DataValue[1]; }` — two inputs, one argument. A natural logarithm takes one argument; the second `in` is the slip |
 | 124 and 135 | `return deltaV :> ISQ::speed = calculateDeltaV(isp, initialMass, finalMass);` | `calculateDeltaV` declares `in isp`, `in g0`, `in m0`, `in mf` — four inputs, three arguments, so `g0` (standard gravity) is never supplied; bound by position, it is the last input, `mf`, that the warning names |
 
-Of the other warnings, 33 are the crew declarations in `Program/ProgramPackage.sysml`
-written `individual part : 'Eugene Cernan' :> crew;`, where `part` is read as the
-kind of the usage rather than its name, so the usage is unnamed; the last is
-dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
+The fourth is dimensional: `calculateLoiDeltaV` declares the Moon's gravitational parameter
 `in mu_Moon :> ISQ::force`, so `v_inf^2 + 2*mu_Moon/r_periapsis` adds a
 velocity squared (L²·T⁻²) to a force over a length (M·T⁻²). A gravitational
 parameter is L³·T⁻².
@@ -342,10 +346,10 @@ Three changes took it to under 20 ms, each measured over the same command
   15.0 MB and 123k. The expansion stays inherently iterative — most of its cost
   is the re-export closure itself — which is what the snapshot removes.
 - **The snapshot.** The library's frozen index is serialized at generation time
-  into `internal/core/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
+  into `internal/workspace/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
   binary grows from 16.9 to 20.5 MB) and decoded at start-up, so neither the
   parser nor the expansion runs for the library at all. The format is
-  hand-rolled (`internal/core/pack`, `internal/core/ast/astcodec`,
+  hand-rolled (`internal/syntax/pack`, `internal/syntax/ast/astcodec`,
   `symbols.WriteSnapshot`): varints over one string table, a node table per
   syntax-node type so each type's nodes are allocated in one block, and index
   references in place of pointers, so the decoded graph shares what the parsed
@@ -389,6 +393,75 @@ live model, paid by whatever allocates next, rather than work the run itself doe
 What this says about a real workload is that the collector, not the run, is what
 grows: a long-lived session over a large model tunes better with `GOGC` than with
 a faster executor.
+
+## What the persistent semantic model changes
+
+A `model.Workspace` keeps one `resolve.Resolver` and one `semantics.Model`
+for its lifetime, beside its index, and hands them to every `passes.Context`
+it builds; a context built outside a workspace still gets fresh ones. The
+resolver keeps a frame per document that owns what was memoized while that
+document was analyzed, and records which documents each frame read: a
+document depends on another when it imports a namespace the other contributes
+to, when both contribute to one namespace, or when a resolution from its scope
+returned the other's symbol. Replacing a document drops its frame and,
+transitively, its dependents' frames — their memo entries, cached diagnostics
+and reverse references — and nothing else. The three workspace-wide audits
+(OOSEM, MOSA, identity metadata) and the coherent-quantity ranking gather each
+document's facts once into the workspace, regather a document when it changes,
+and judge each analyzed document over the union.
+
+`TestIncrementalEqualsFresh` replays scripted and seeded random edit sequences
+— edits, reverts to earlier versions, closes and opens — over the fixtures and
+the four OMG corpora and, after every step, compares diagnostics, resolutions
+and reverse references with a workspace built fresh from the same documents.
+
+Measured on the satellite-network generator (`docs/project/satellite-network-stress-test.md`,
+"Editing"; Intel Xeon Platinum 8559C, 8 CPUs, 31 GiB, Go 1.25, `-benchtime=5x
+-count=3` medians), rebuilt on every edit → kept:
+
+| measurement | rebuilt | kept |
+| ----------- | ------- | ---- |
+| `BenchmarkEditBeside`, 512 satellites beside a two-line file, per edit | 861 ms, 327 MiB | 8.7 ms, 2.0 MiB |
+| `BenchmarkEditBeside`, 128 satellites | 189 ms, 83 MiB | 2.5 ms, 0.64 MiB |
+| `BenchmarkEditBeside`, 32 satellites | 48 ms, 22 MiB | 0.82 ms, 0.31 MiB |
+| `BenchmarkEditImported`, 512 satellites in 6 files, edit the library then every file's diagnostics | 8.78 s, 2.77 GiB | 5.26 s, 1.17 GiB |
+| `BenchmarkLoadFiles`, 512 satellites in 6 files through one workspace | 9.20 s, 3.05 GiB | 5.26 s, 1.56 GiB |
+| 1 600 satellites in 34 files through one workspace, open and analyze all | 126.5 s | 18.3 s |
+| `BenchmarkLoad`, 512 satellites in one file | 5.13 s, 254 MiB held | 5.99 s, 478 MiB held |
+| live heap after 1 000 edits beside 32 satellites, against after the first | — | 67.2 MB → 70.2 MB |
+
+Editing the library every file imports costs one analysis of the whole model,
+what loading it costs; the audits no longer gather every document once per
+document analyzed, which is the whole of the 34-file difference. What the
+model holds between edits nearly doubles — the memo tables that were allocated
+and discarded during every analysis now stay — and a thousand edits grow it by
+4.5%.
+
+### What the bookkeeping costs a one-shot validation
+
+Every memoized read records that the current document depends on the owner of
+the entry it read. That is what makes invalidation sound: an entry keyed by two
+symbols of two documents (`composed[(S, T)]`) must go when either changes, and
+the reader of a cached answer must be re-analyzed when the answer's owner is
+replaced, so the dependency has to be recorded on a hit as well as on a miss.
+A validation that will never edit records about 25 million such reads at
+roughly 8 ns each for nothing. `sysml -validate -memstats` on the 200-satellite
+constellation, one file, three runs each:
+
+| | rebuilt | kept |
+| --- | ------- | ---- |
+| wall | 1.85–1.96 s | 2.19–2.25 s |
+| allocated | 738 MiB in 10.97 M allocations | 767 MiB in 10.98 M allocations |
+| peak RSS (`/usr/bin/time`) | 421 MiB | 428 MiB |
+
+At 1 600 satellites: 17.7 s and 5.5 GiB allocated became 20.5 s and 5.8 GiB.
+The cost falls on whatever analyzes through the workspace's own context: the
+LSP server, a REPL session, and `sysml -validate`, which loads through a REPL
+session. A batch that analyzes each document in a private `passes.Context` —
+its own resolver and model over the read-only index, as a pool of workers
+must — has no frames to record into and pays none of it; the workspace's
+gathered facts are what such a batch should hand its workers, so that they do
+not gather per worker what the workspace gathered once.
 
 ## Notes for further work
 

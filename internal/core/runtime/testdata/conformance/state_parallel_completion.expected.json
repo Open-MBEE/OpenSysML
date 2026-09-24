@@ -1,9 +1,0 @@
-{
-    "type": "state",
-    "events": [
-        {"signal": "First", "args": null},
-        {"signal": "Second", "args": null}
-    ],
-    "finalState": "done+done",
-    "stateVisits": ["lstart", "rstart", "done", "done"]
-}

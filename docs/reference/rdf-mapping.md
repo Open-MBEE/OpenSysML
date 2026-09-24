@@ -6,7 +6,9 @@ represent. For saving and converting as a task, see [guide chapter 7](../guide/0
 ## Status: experimental
 
 RDF conversion (`sysml -convert ttl`, `%save model.ttl`, the service's `Convert`
-to or from `ttl`, and each in reverse) is **experimental** as of 0.1.0. Saving
+to or from `ttl`, and each in reverse) is **experimental** as of 0.1.0, and so is
+the [API element form](#the-api-element-form) (`api-json`, `.json`), which is the
+same graph written as JSON. Saving
 and converting notation (`.sysml`, `.kerml`) is stable; this mapping is not. Each
 of the following is a deliberate property of the mapping rather than a defect to
 report:
@@ -17,7 +19,7 @@ report:
   conversion of the written-back notation reproduces the Turtle byte for byte for
   every one — the notation is written from the [source text](#source-text) the
   graph carries. These figures are the
-  per-file ratchet in `internal/core/export/corpus_roundtrip_test.go`, described
+  per-file ratchet in `tests/corpus/roundtrip_test.go`, described
   in [rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md). See
   [Behavior](#behavior) and [Limitations](#limitations).
 - **The vocabulary may change without a compatibility path.** A graph written by
@@ -38,15 +40,30 @@ report:
   properties, the multi-valued ones included; what it loses is the `sysx:`
   properties, since the reader ignores predicates outside `sysml:` and
   `urn:sysmlv2:annotation:json:`. The measurement lives in
-  `internal/interop/flexo`, an opt-in gate described in
+  `internal/translate/interop/flexo`, an opt-in gate described in
   `.agents/skills/flexo-interop`, and its committed report records what changes
   as the remaining work lands.
+
+The same stack is also a place a model is read from and pushed to: `-convert`
+names a project branch of the configured stack by URL
+(`host[:port][/base]/projects/{p}/branches/{b}` of the `FLEXO_SYSMLV2_URL`
+endpoint — one naming another endpoint is refused, so a run cannot read one
+stack and write another — or `flexo://{p}/{b}`), reads the branch's head commit
+through Layer 1's SPARQL
+endpoint as the graph this document describes, and converts it as Turtle from
+there — `-convert sysml` writes the notation back, `-convert ttl` the
+normalized document. Pushed the other way, `-convert ttl -o <branch-url>`
+replaces the branch's whole model graph through Layer 1's graph endpoint,
+conditional on the branch's etag so a moved head is refused rather than
+overwritten. The bearer token is `FLEXO_INTEROP_TOKEN`; the head commit a read
+or push stood at is recorded in the sync state, so a later push refuses a
+branch another writer moved.
 
 Every surface reports this status where it is used: the command line writes a
 `note:` to stderr, `%save` prints one, and `ConvertResponse` carries `experimental`
 and `experimental_notice`, which the Python client raises as an
 `ExperimentalFeatureWarning`. The wording is a single constant,
-`export.ExperimentalNotice`.
+`convert.ExperimentalNotice`.
 
 ## The RDF mapping
 
@@ -167,10 +184,10 @@ copy of one) writes that id, so `ScalarValues::Real` is the same subject here as
 it is in the pilot's `sysml.library.xmi`:
 
 ```turtle
-<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:Package ;
+<urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> a sysml:LibraryPackage ;
     sysml:qualifiedName "ScalarValues" ;
     sysml:elementId "40bb440c-5036-58e1-8675-5afccb8b8f1d" ;
-    sysx:isStandardLibraryPackage "true"^^xsd:boolean ;
+    sysml:isStandard "true"^^xsd:boolean ;
     sysml:ownedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d .
 <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31> a sysml:DataType ;
     sysml:qualifiedName "ScalarValues::Real" ;
@@ -182,7 +199,21 @@ it is in the pilot's `sysml.library.xmi`:
 `elmt:` prefixed name, so a UUID reads either way depending on its first hex
 digit.)
 
-The id is a version-5 UUID (`internal/core/identity/normative`): the library
+Derived ids are spelled this way by default because the qualified name they
+encode lets a consumer address an element without resolving the graph. Passing
+`-id uuid` to `-convert ttl` or `-convert api-json` mints name-based uuids
+instead, as the library convention does: each root package gets
+`uuid5(URL namespace, prefix + name)` with `https://www.omg.org/spec/SysML/` as
+the prefix, and every subject the encoder derives under it gets
+`uuid5(package id, the id it would carry by default)` — so an owning
+membership's is `uuid5(package id, member id + "_om")` and an expression
+node's composes its owner's derived id the way the encoded positions do. Ids a
+declaration fixes (an `@ElementId` annotation, a library element's normative
+UUID) are never re-derived; `sysml:elementId` literals carry whichever form the
+subject carries, and the api-json reader classifies a node's namespace from the
+membership that owns it, so either form reads back to the same notation.
+
+The id is a version-5 UUID (`internal/semantic/identity`): the library
 package's is `uuid5(URL namespace, prefix + name)` with the prefix
 `https://www.omg.org/spec/KerML/` for the kernel libraries and
 `https://www.omg.org/spec/SysML/` for the systems and domain libraries; a named
@@ -190,7 +221,7 @@ member's is `uuid5(package id, qualified name)` and its owning membership's is
 `uuid5(package id, qualified name + "/owningMembership")`, both with the names
 quoted the way the pilot quotes them. Which bundled files are which library
 follows the stdlib tiers (`symbols.LibraryTier`), so a file OpenSysML adds under
-`internal/core/libs/stdlib` that is not part of either specification keeps
+`internal/workspace/libs/stdlib` that is not part of either specification keeps
 derived ids. So does an unnamed, aliased or shadowed library element: nothing
 is guessed.
 
@@ -217,14 +248,18 @@ declares, under the same qualified name, and all of one file. On the graph side
 the root must carry the package's normative id; in notation, where an
 unannotated package can state no id, the root must either state the normative id
 in an `@ElementId` annotation or be declared as the library declares it
-(`standard library package Occurrences`, `library package …`). Both sides apply
-the one test (`libraryDocument` for graph roots, `documentLibrary` for parsed
-roots in `internal/core/export/library_names.go`). It is not a test of names,
-file names or UUIDs alone: `package Actions { part def X; }` is a user package
-with encoded ids (`Actions`, `Actions__X`) and none of the library's members, a
-user element carrying a catalogued UUID under another qualified name keeps that
-id as declared, and a graph rooted at a nested library element
-(`ScalarValues::Real`) is not the document, even under its normative id.
+(`standard library package Occurrences`, `library package …`), and the document
+must be in the file's language: the text of `ScalarValues.kerml` under a `.sysml`
+name was parsed as SysML, so it is the user's file. Both sides apply
+the one test, `identity.Catalog.DocumentRootedAt` in
+`internal/semantic/identity/library_version.go` (`libraryDocument` for graph roots,
+`documentLibrary` for parsed roots in `internal/translate/export/library_names.go`
+feed it). It is not a test of names, file names or UUIDs alone:
+`package Actions { part def X; }` is a user package with encoded ids (`Actions`,
+`Actions__X`) and none of the library's members, a user element carrying a
+catalogued UUID under another qualified name keeps that id as declared, and a
+graph rooted at a nested library element (`ScalarValues::Real`) is not the
+document, even under its normative id.
 
 Such a version is analyzed *in the bundled file's place*, whatever its bytes: the
 encoder takes the bundled document out of the library index and indexes the
@@ -247,10 +282,17 @@ library file exact from the first hop: the Turtle of the rebuilt notation equals
 the Turtle it was rebuilt from, source text aside, and the rebuilt notation
 states no `@ElementId` (`library_graph_test.go:TestLibraryFilesComeBackFromTheGraphAlone`).
 
-This recognition is the RDF mapping's. A copy of a library file open in an
-editor workspace is still the user's file: the language server derives or
-declares its ids as for any other document and offers to mint them
-(`internal/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileStaysAUserFile`).
+The editor workspace applies the same recognition. A version of a library file
+open in a workspace (or on its disk) stands in for the bundled file: the
+workspace takes the bundled document out of its library index and indexes the
+version where it stood, so names resolve to the version's declarations, its
+elements carry their normative ids — hover states `(normative, KerML)` as on the
+bundled file — and the language server offers no minting action on them
+(`internal/frontend/lsp/identity_test.go:TestWorkspaceCopyOfLibraryFileIsTheLibrary`).
+Editing a root so it no longer qualifies (renaming the package, dropping its
+`library` keyword, stating a foreign id) makes the document the user's again and
+puts the bundled file back; closing a version whose on-disk text is the user's
+does the same (`internal/workspace/model/library_version_test.go`).
 
 A document holding **more than one project scope** qualifies each element's IRI
 with its scope's provenance (`elmt:<encoded-org>.<encoded-project>:<id>`), so an
@@ -276,8 +318,21 @@ triples come); a set of classes with no such member is refused, naming the subje
 
 - `rdf:type` — the SysML metaclass (`sysml:PartUsage`, `sysml:ActionDefinition`, …).
   Every definition and usage keyword the parser accepts has a metaclass; the
-  tables in `internal/core/export/kinds.go` are the source of truth, and the
-  reverse direction is derived from them so the two cannot disagree.
+  tables in `internal/translate/export/kinds.go` are the source of truth, and the
+  reverse direction is derived from them so the two cannot disagree. Every
+  metaclass written is one the metamodel declares **concrete** (checked against
+  the abstract classes of the pilot's `SysML.ecore` and `kerml.ecore`:
+  `ConnectorAsUsage`, `ControlNode`, `Element`, `Expose`, `Import`,
+  `InstantiationExpression`, `LoopActionUsage`, `Relationship`), since the
+  SysML v2 API never returns an abstract one. So an import is a
+  `sysml:NamespaceImport` (`import P::*`, `P::**`) or a `sysml:MembershipImport`
+  (`import P::M`, `P::M::**`), a view's `expose` likewise a
+  `sysml:NamespaceExpose` or a `sysml:MembershipExpose`, and a KerML
+  `connector` is a `sysml:Connector`. Reading, the abstract `sysml:Import`
+  earlier releases wrote is still accepted, told apart by its
+  `sysx:isNamespaceImport` and `sysx:isExpose` flags or its imported property,
+  as is `sysml:ConnectorAsUsage`; all are written back as the concrete class on
+  the next hop.
 - `sysml:declaredName`, `sysml:declaredShortName`, `sysml:qualifiedName` —
   on a requirement's `subject`, `assume constraint` and `require constraint`
   members as on any usage, so `subject <s> x : T;` comes back with its short name
@@ -322,14 +377,25 @@ triples come); a set of classes with no such member is refused, naming the subje
   stating the kind alone reads back by its kind, and gains the flag when
   re-exported
 - Declaration-head relationships, as element IRIs where the target resolves
-  inside the model — by name resolution, so a name reached through an import,
-  an alias or a nested package qualification links to the same element its
-  fully qualified spelling does — and as plain literals where it does not: `sysml:type`
+  to an element with an identity — by name resolution, so a name reached through
+  an import, an alias, an inherited member or a nested package qualification
+  links to the same element its fully qualified spelling does, and a standard
+  library element is linked by its [normative id](#normative-library-identity)
+  (`attribute mass : MassValue` links
+  `<urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c>`, whether or not
+  the library is in the graph) — and as plain literals only where the name
+  resolves to nothing the model declares: `sysml:type`
   (the `:` clause), `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `inverseOf`, `unions`, `chains`,
   `includes`, `via`, `subject`, `annotatedElement` for an `about` clause, and
-  the namespace or member an import names, `importedNamespace`. A literal
-  carries the name itself,
+  what an import names: `importedNamespace` on a `NamespaceImport`, and on a
+  `MembershipImport` `importedMembership`, which links the imported element's
+  **owning membership** (the metamodel's range), a library member's by its
+  normative membership id; an import written through an alias imports the
+  alias's owning membership. The same rule links a succession's `sourceFeature` (an implied `first
+  start then a` names the `start` the owner inherits from `Actions::Action`),
+  a feature chain's `targetFeature`, a feature reference's `referent` and an
+  invocation's `function`. A literal carries the name itself,
   without the quotes an unrestricted name is written with; a target that is an
   expression rather than a name (a feature chain, say) is carried as the text it
   was written as, typed `sysx:Expression` to tell the two apart. These
@@ -337,7 +403,7 @@ triples come); a set of classes with no such member is refused, naming the subje
   spelled in — `type`, `specializes`, `subsets`, `redefines`, `references`,
   `crosses`, `disjointFrom`, `intersects`, `differences`, `inverseOf`, `unions`,
   `chains`, `includes`, `via`, `annotatedElement`, `subject`, `featuringType`
-  (`internal/core/export/kinds.go` `relationshipOrder`, the same order the
+  (`internal/translate/export/kinds.go` `relationshipOrder`, the same order the
   clauses are written back in) — with the targets of one property in the order
   they were written; so `attribute :>> num : Real;` and `attribute : Real
   redefines num;` give byte-identical Turtle, and a `.ttl` kept under version
@@ -354,6 +420,13 @@ triples come); a set of classes with no such member is refused, naming the subje
   actions the loop body declares. A body expression's parameter, a `for` loop's
   variable and a trigger's parameter are no elements of the graph: a reference
   to one stays its name, even where it shadows a feature of the same name.
+  Reading a graph back, a link and a legacy literal spell the same reference:
+  a literal is the name as written; an IRI of this graph is spelled by the
+  shortest name that resolves to that element from where it is written, and a
+  library IRI by the library element's shortest visible name (`Real` under
+  `import ScalarValues::*`, else `ScalarValues::Real`) — so a short name
+  (`#moe`) comes back as the element's name (`#MeasureOfEffectiveness`) once
+  the source text is gone.
 - A KerML relationship written keyword-first as a member of its own
   (`specialization Gen subtype A specializes B;`, `subset f subsets g;`,
   `inverse f of g;`, `featuring of f by T;`, `disjoint A from B;`) is an element
@@ -429,7 +502,6 @@ The `sysx:` properties:
 | `sysx:declaredPrefix` | The keyword qualifying the kind keyword after it — the `assume` of `assume constraint c : C`. It says what the declaration is for, and the AST kind alone does not carry it. The `assert` of `assert constraint c : C` is not written here: that usage is a `sysml:AssertConstraintUsage`, and the metaclass states it; a graph stating both with another prefix is refused. |
 | `sysx:endForm` | The notation an end-binding head writes its ends in — `to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy`, `then` — so the head is rebuilt from the graph rather than read back from its text. See [End-binding heads](#end-binding-heads). |
 | `sysx:endVerb` | The verb a head writes ahead of its ends when its own keyword is the noun form (`connection c connect a to b`, `connector c from a to b`). Without it the verb would be missing or doubled. |
-| `sysx:endName` | The name a connector end declares for itself ahead of the feature it reference-subsets (`connect bead ::> t.bead to …`, `connector a ::> a.x to b;`, `bind e1 ::> a = e2 ::> b;`). The end's node relates the feature; without the name the end would come back as the bare feature. See [End-binding heads](#end-binding-heads). |
 | `sysx:endReferencesKeyword` | On a named end, the ReferencesKeyword written between the name and the feature when it is the word `references` (`bind e1 references a = …`). Absent, the end is written with `::>`; a value other than the two spellings is refused. |
 | `sysx:sourceMember`, `sysx:targetMember` | The member a succession sequences from or to where the notation names no end (`then b;`, or a `then` beside an unnamed member), or where the name the notation supplies for an end links no element (a `then` after `action redefines walk;` whose `walk` is inherited). The end is the element itself rather than only a name, so a same-named member elsewhere cannot be mistaken for it. |
 | `sysx:condition` | The condition a condition member states, as its notation. |
@@ -440,12 +512,117 @@ The `sysx:` properties:
 | `sysx:isKindImplicit` | The declaration wrote no kind keyword (`in x : Real;`), which takes its kind from its owner. Without it the canonical keyword would come back written out, declaring what the author did not. A kind named in a comment in the head (`in /* attribute */ x : Real;`) is trivia, not a keyword the declaration wrote. |
 | the behavioral properties | `sysx:guard`, `sysx:expression`, `sysx:payload`, … — the parts of a behavioral node the vocabulary has no predicate for, listed under [Behavior](#behavior). |
 
-Metaclass names with no counterpart in the OMG vocabulary are typed in the
-`sysx:` namespace rather than `sysml:`, so a consumer can tell them from the
-standard metaclasses: `sysx:Alias`, `sysx:FilterMember`,
-`sysx:MultiplicityDeclaration`, `sysx:ConstraintMember`, `sysx:AssumeMember`,
-`sysx:RequireMember`, and the
-behavioral ones listed under [Behavior](#behavior).
+For expressions and end-binding heads, the encoder still emits these `sysx:`
+terms. They carry notation or ordering facts for which the 202407 metamodel has
+no property; they are annotations, not replacements for the standard shape:
+
+| Terms | Why the annotation remains |
+|-------|----------------------------|
+| `sourceText`, `sourceTail` | Preserve source spelling, trivia and closing text when present; both are optional annotations and the decoder does not need them for the structural expression or end shapes. |
+| `argumentName` | Preserve a named argument's spelling; the metamodel has parameter ownership but no notation-level name on an argument occurrence. |
+| `typeArgument`, `isConstructor` | Preserve constructor syntax and a type argument on expression nodes where the metamodel has no corresponding notation flags. |
+| `hasBody` | Distinguish an explicitly empty expression body from one with no body; the metamodel does not preserve that source distinction. |
+| `resultExpression` | Identify the expression ending a body; the result expression's membership is structural, but the metamodel has no notation-level result marker for rebuilding the body form. |
+| `bodyParameter`, `bodyMember` | Preserve expression-body parameter/member roles and their source placement, which are not represented by a single standard predicate in this mapping. |
+| `memberIndex` | Preserve source order among expression-body parameters and members; RDF collections are unordered and the standard ownership graph does not carry this notation order. |
+| `endForm` | Reconstruct the selected end-binding head form (`to`, `nary`, `equals`, `firstThen`, `fromTo`, `flowTo`, `satisfy` or `then`), which the standard end relationships do not identify. |
+| `endVerb` | Preserve the noun-form head's explicit verb (`connect` or `from`), which the connector metaclass does not distinguish. |
+| `endReferencesKeyword` | Preserve whether a named end used the `references` keyword rather than `::>`, a notation choice not represented by the end's standard reference relationship. |
+| `sourceMember`, `targetMember` | Preserve the members named by positional `then` succession ends when no standard end name or resolvable element carries that notation. |
+| `payload` | Preserve a flow payload as an expression; the 202407 ontology table has no direct `payloadFeature` property for this graph shape. The metamodel models the payload as a feature/`ItemFlowEnd`, while this mapping keeps the payload expression rather than materializing that feature structure. |
+
+Every construct the metamodel has an element for is typed by that element,
+so a consumer reading `sysml:` terms alone sees the abstract syntax the pilot
+implementation serializes; the shapes below were each checked against the
+pilot's XMI of the standard library (`scripts/download-pilot-library-xmi.sh`):
+
+- `alias a for b;` is a `sysml:Membership` carrying `sysml:memberName` (and
+  `sysml:memberShortName` for `alias <s> a for b;`) whose `memberElement` is
+  `b` (KerML 1.0 § 8.3.2.4.3 `Membership::memberName`); `sysx:declaredKeyword "alias"`
+  tells it from a `first x;` membership.
+- `multiplicity m [1..*];` is a `sysml:MultiplicityRange` owned through an
+  `OwningMembership` like any member, its bounds owned as for an inline bound
+  (KerML 1.0 § 8.3.4.11.2 `MultiplicityRange`), `sysx:declaredKeyword "multiplicity"`.
+- `first x;` is a `sysml:Membership` of the member the body starts at, and
+  `done;` a `sysml:Membership` of the library's `Actions::Action::done`
+  (SysML.xtext `InitialNodeMember`; `first x then y` is the
+  `SuccessionAsUsage` it sequences). `sysx:declaredKeyword` keeps the keyword.
+- An `if` branch is a `sysml:ActionUsage` the `IfActionUsage` owns through a
+  `ParameterMembership`, after the `ParameterMembership` that owns its
+  condition (SysML v2 1.0 § 8.3.17.10 `IfActionUsage::thenAction`/`elseAction`), with
+  `sysx:branchKind` for the keyword.
+- `filter <expr>;` is a `sysml:ElementFilterMembership`; an `assume`/`require`
+  member a `sysml:RequirementConstraintMembership`; a constraint body's
+  condition a `sysml:ConstraintUsage`.
+- A state's `entry`/`do`/`exit` is a `sysml:StateSubactionMembership` and a
+  transition's `do` a `sysml:TransitionFeatureMembership` of `kind "effect"`
+  ([Behavior](#behavior)).
+
+What remains typed in the `sysx:` namespace is notation the SysML v2 grammar
+does not have, so no metaclass in the metamodel describes it; a consumer that
+reads only `sysml:` terms (the sysml-toolkit among them) does not interpret
+these, and the `nonstandard-notation` check reports the notation they come
+from:
+
+- `sysx:Pseudostate` — a state body's `choice`, `junction`, `fork`, `join`
+  and `history` vertices, with `sysx:pseudostateKind`. The SysML v2 grammar
+  has no pseudostate production, and the library's `States` package defines
+  no state to specialize for one, so a `StateUsage` would misstate them.
+- `sysx:DeferMember` — the `defer sig;` member of a state, carrying
+  `sysx:deferredEvent` per event; SysML v2 has no deferred triggers.
+- `sysx:ActionExecutionNode` — `action a { x + 1 }`, an action node
+  performing an inline expression, which no SysML v2 production spells.
+
+Reading, the metaclasses earlier releases wrote for the standard constructs
+above — `sysx:Alias`, `sysx:FilterMember`, `sysx:MultiplicityDeclaration`,
+`sysx:ConstraintMember`, `sysx:AssumeMember`, `sysx:RequireMember`,
+`sysx:InitialNode`, `sysx:FinalNode`, `sysx:IfBranch` — are still accepted and
+written back as the standard element on the next hop.
+
+The qualified usages spell their qualifier from the metaclass alone, so a graph
+that carries no `sysx:declaredKeyword`/`sysx:declaredPrefix` still writes the
+keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
+`ExhibitStateUsage`, `IncludeUseCaseUsage`, `AssertConstraintUsage`,
+`SatisfyRequirementUsage`):
+
+| Metaclass | Named | Unnamed reference form |
+|-----------|-------|------------------------|
+| `sysml:PerformActionUsage` | `perform action pa : A` | `perform a1;`, `perform sub.sa :>> a2;` |
+| `sysml:ExhibitStateUsage` | `exhibit state es : S` | `exhibit s1;`, `exhibit sub.ss :>> s2;` |
+| `sysml:IncludeUseCaseUsage` | `include use case iu : U` | `include u1;` |
+| `sysml:AssertConstraintUsage` | `assert constraint ac : C` | `assert c1;` |
+| `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
+
+An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
+where another writer collapses it there) — a chain target comes back as the
+`a.b` text its chain feature states. An unnamed `assert` that owns members or a
+`not` stays the anonymous declaration `assert constraint references c1`, which
+the reference form cannot say. A `sysx:declaredKeyword`/`sysx:declaredPrefix`
+that contradicts the metaclass (`perform` on a plain `sysml:ActionUsage`) is
+refused rather than one of the two written.
+
+The rest of the membership-side metaclasses the notation implies are
+standard: the mapping materializes each as the relationship element the OMG
+metamodel defines for it, so a consumer reading elements rather than notation
+sees the same relationships SysML.xtext produces.
+
+| Notation | Elements minted |
+|----------|-----------------|
+| `part wheels : Wheel[4];` | the member, a `sysml:FeatureTyping` (`<S>_ft0`) whose `general`/`type` is `Wheel` and whose `specific`/`typedFeature` is the member, a `sysml:MultiplicityRange` (`<S>_mult`) carrying the `[4]` bound, and the member's `sysml:OwningMembership` (`<S>_om`) |
+| `part v : Vehicle;` | the member, its `FeatureTyping` (`<S>_ft0`), its `OwningMembership` |
+| `:>> mass`, `redefines mass` | a `sysml:Redefinition` (`<S>_rd<i>`) with `redefiningFeature`/`redefinedFeature` |
+| `:> base`, `subsets base` | a `sysml:Subsetting`/`sysml:ReferenceSubsetting` (`<S>_ss<i>`/`<S>_rs<i>`) |
+| `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
+| `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
+| `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
+| `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
+| `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
+| `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
+| an expression's `referent`/`targetFeature` link | a `sysml:Membership` minted beside it (`<S>_referent`, `_preferent`, `_targetFeature`) restating the referent edge as `memberElement`/`owner`, the shape interchange readers navigate (KerML 1.0 § 8.3.4.8.5 `FeatureReferenceExpression::referent` is derived from that membership). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
+| `f(1)`, `T(q = 1)`, `a + b`, `s.twice(2)`, `ts.q`, `ts[1]`, `ts->select { … }` | the `InvocationExpression`/`ConstructorExpression`/`OperatorExpression`/`FeatureChainExpression`/`IndexExpression`/`CollectExpression`/`SelectExpression`; per operand a `sysml:ParameterMembership` (`<S>_pin<i>_om`) owning a `sysml:Feature` with `direction "in"` (`<S>_pin<i>`) that owns a `sysml:FeatureValue` (`<S>_pa<i>_om`) whose `value` is the operand tree; a `sysml:ReturnParameterMembership` (`<S>_pout_om`) owning the `direction "out"` result `Feature` (`<S>_pout`); and for an invocation a `sysml:Membership` (`<S>_pfunction`) whose `memberElement` is the invoked function or constructed type — the pilot serializes `InstantiationExpression::instantiatedType` through that membership, not a `FeatureTyping` (KerML 1.0 § 8.3.4.8.8 `InvocationExpression`, § 8.3.4.6.4 `ParameterMembership`, § 8.3.4.7.8 `ReturnParameterMembership`, § 8.3.4.10.2 `FeatureValue`). `sysml:function`, `sysml:argument`, `sysml:parameter`, `sysml:input` and `sysml:result` are written beside as the derived properties they are ([Expressions](#expressions)) |
+| `view v : VD { expose a; expose P::*; render r; filter @T; view sub : VD; }`, `viewpoint vp : VPD { frame concern c; }` | `sysml:ViewUsage`/`ViewDefinition`/`ViewpointUsage`/`ViewpointDefinition`/`RenderingUsage`/`RenderingDefinition`, a `sysml:MembershipExpose` or `sysml:NamespaceExpose` per `expose`, a `sysml:ViewRenderingMembership` owning the `RenderingUsage` a `render` names (through a `ReferenceSubsetting` of it), a `sysml:ElementFilterMembership` per `filter`, a `sysml:FramedConcernMembership` owning the `ConcernUsage` a `frame` names, and a nested view as a `ViewUsage` member (SysML v2 1.0 § 8.3.26 Views and Viewpoints) |
+| the document itself, in the API element form | an unnamed `sysml:Namespace` (`<root>_ns`) owning each top-level element through an `OwningMembership` (`<root>_om`); see [The API element form](#the-api-element-form) |
+| a `dependency`, keyword-first `specialization`/`subclassification`/`redefinition`/`subsetting`/`typing`/`disjoining`/`inverting`/`featuring`/`conjugation`, or `succession` declared in a body | the declared relationship, owned through an `OwningMembership` (`<S>_om`) like any other member — `Import` and `Membership`-family members excepted, which own directly |
 
 Comments, documentation and textual representations convert as their own
 elements (`sysml:Comment`, `sysml:Documentation`, `sysml:TextualRepresentation`)
@@ -678,7 +855,7 @@ stores a posted array both ways: one JSON annotation literal holding the array,
 plus a typed triple per member — an IRI for a `{"@id": …}` member, a typed
 literal for a primitive. The mapping writes what that path writes, so a graph
 OpenSysML produces reads back through that service with its collections intact;
-the live measurement is in `internal/interop/flexo/testdata/interop_expected.txt`.
+the live measurement is in `internal/translate/interop/flexo/testdata/interop_expected.txt`.
 
 The JSON shape is the commit path's:
 
@@ -743,7 +920,8 @@ of references and primitives, is refused naming the subject and the key; so is
 an array that repeats a member, since a graph holds each triple once and could
 not give the repetition back.
 
-The sync (`-sync-diff`) compares the typed triples and treats the annotation as
+The sync (`-sync-diff`, and the branch read and graph push under `-convert`)
+compares and writes the typed triples and treats the annotation as
 their restatement, reconciling it first; the service's commit path regenerates
 it from the array the sync posts. Minting ids into a model rewrites the typed
 triples and restates each annotation from them, so the two cannot drift: a
@@ -751,20 +929,22 @@ declared id that merely resembles a minted element's derived ids stays as it is.
 
 Code: `rdf.AnnotateCollections` (encoder pass), `rdf.ReconcileCollections`
 (decoder pass), `rdf.CollectionJSON`/`rdf.ParseCollectionJSON` (the shape).
-Tests: `internal/core/rdf/annotation_test.go`,
-`internal/core/export/rdf_collections_test.go`,
-`internal/interop/reposync/diff_test.go`.
+Tests: `internal/translate/rdf/annotation_test.go`,
+`tests/export/rdf_collections_test.go`,
+`tests/reposync/diff_test.go`.
 
 ## Expressions
 
 An expression-valued position — a feature value, a multiplicity bound, a guard,
 a filter, a condition, a send payload, a loop's collection — states the
-expression as a **tree of typed nodes** in the `expr:` namespace, so a consumer
-can query the model's semantics and not only its structure:
+expression as a **tree of typed nodes** in the `expr:` namespace and gives the
+tree the standard ownership shape. The expression root is held by an
+`OwningMembership` whose `memberElement` is the root and, for a feature value,
+whose metaclass is `FeatureValue` and whose `featureWithValue` names the
+containing feature:
 
 ```sysml
 package P {
-    private import ScalarValues::*;
     attribute a : Integer;
     attribute total : Integer = a * 2;
 }
@@ -773,20 +953,37 @@ package P {
 ```turtle
 elmt:P__total
     a sysml:AttributeUsage ;
+    sysml:value expr:P__total_pvalue ;
+    sysml:ownedMembership expr:P__total_pvalue_om ;
+    sysml:ownedRelationship expr:P__total_pvalue_om .
+
+expr:P__total_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:featureWithValue elmt:P__total ;
     sysml:value expr:P__total_pvalue .
 
 expr:P__total_pvalue
     a sysml:OperatorExpression ;
-    sysx:sourceText "a * 2" ;
     sysml:elementId "P__total_pvalue" ;
-    sysx:operator "*" ;
-    sysml:argument expr:P__total_pvalue_pa0, expr:P__total_pvalue_pa1 .
+    sysml:operator "*" ;
+    sysml:parameter expr:P__total_pvalue_pin0, expr:P__total_pvalue_pin1 ;
+    sysml:input expr:P__total_pvalue_pin0, expr:P__total_pvalue_pin1 ;
+    sysml:ownedFeatureMembership
+        expr:P__total_pvalue_pin0_om, expr:P__total_pvalue_pin1_om .
+
+expr:P__total_pvalue_pin0
+    a sysml:Feature ;
+    sysml:direction "in" ;
+    sysml:ownedMembership expr:P__total_pvalue_pa0_om .
+
+expr:P__total_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:featureWithValue expr:P__total_pvalue_pin0 ;
+    sysml:value expr:P__total_pvalue_pa0 .
 
 expr:P__total_pvalue_pa0
     a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "a" ;
-    sysml:referent elmt:P__a ;
-    sysx:argumentIndex "0"^^xsd:integer .
+    sysml:referent elmt:P__a .
 ```
 
 The rules the tree follows:
@@ -798,22 +995,25 @@ The rules the tree follows:
   `[A-Za-z0-9_-]+`, the alphabet the SysML v2 API's `requireValidId` accepts, and
   it can never be read as an element id or a membership id, because an element id
   never ends in a lone `_`.
-- **Every node carries `sysx:sourceText`**, the notation it was written as. The
-  tree is *additive*: the text is what a conversion back to notation is written
-  from while it still states the tree ([Source text](#source-text)), so
-  exactness does not depend on the tree being complete, and
-  `TestRoundTripIsLossless` covers the same round trip it did before. A node
-  whose tree was edited after export is written back from the tree instead.
-- **Operands are ordered** by `sysx:argumentIndex`, because an RDF graph is a set
-  and `a - b` is not `b - a`.
+- **A value root is owned structurally.** The containing feature keeps its
+  direct `sysml:value` for compatibility and also owns an `OwningMembership`.
+  A feature-valued root is reached through a typed `FeatureValue`, whose
+  `sysml:value` names the root and whose `featureWithValue` names the feature.
+  The decoder treats the direct route as canonical when both routes name the
+  same root, and refuses conflicting roots.
+- **Operands are owned structurally.** Each operand has an input `sysml:Feature`
+  with direction `in`, a `ParameterMembership` in the expression's
+  `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
+  the operand expression. `sysml:parameter`/`sysml:input` identify the
+  parameters, while the JSON annotation preserves their RDF order.
 - **Metaclasses are the standard ones** where the metamodel names them:
   `LiteralBoolean`, `LiteralInteger`, `LiteralRational`, `LiteralString`,
   `LiteralInfinity`, `NullExpression`, `FeatureReferenceExpression`,
   `FeatureChainExpression`, `OperatorExpression`, `InvocationExpression`,
   `CollectExpression`, `SelectExpression`, `ConstructorExpression`,
-  `MetadataAccessExpression`, `Expression` for a body. `sysx:operator`,
-  `sysx:argumentIndex` and `sysx:sourceText` are the properties the metamodel
-  does not define.
+  `MetadataAccessExpression`, `Expression` for a body. `sysml:operator` names
+  an operator expression. Legacy `sysml:argument` and `sysx:argumentIndex` are
+  still accepted on import; new graphs use the standard parameter shape.
 - **A literal's `sysml:value` is a typed literal** whose lexical form is the
   token the notation spells it with: `"2"^^xsd:integer`, `"1.5"^^xsd:decimal`,
   `"1.5E3"^^xsd:double` (an exponent is outside `xsd:decimal`'s lexical space),
@@ -831,20 +1031,27 @@ The rules the tree follows:
 - **A feature reference links to the element** it names (`sysml:referent`) when
   that element is in the graph, and carries its name as a literal when it
   resolves outside it, the same rule the declaration-head relationships follow.
-  An invocation links the function it names the same way (`sysml:function`),
-  beside the feature chain it is applied to (`sysml:operand`, for
-  `s.reading->twice()` or `s.signal.condition()`) and its arguments, named or
-  positional; a constructor states `sysx:isConstructor`. Written back, the
+  An invocation links the function it names the same way (`sysml:function`)
+  and owns a `sysml:Membership` (`<S>_pfunction`) whose `memberElement` is that
+  function — the pilot's serialization of `instantiatedType` — beside the
+  feature chain it is applied to (`sysml:operand`, for `s.reading->twice()` or
+  `s.signal.condition()`) and its arguments, named or positional, each owned
+  as a `ParameterMembership` parameter with a `FeatureValue`; a constructor
+  states `sysx:isConstructor` and the same membership names the type. The
+  reader takes the derived `sysml:function`/`sysml:argument` and the owned
+  structure as one statement: a graph carrying either alone reads, and one
+  whose function membership names a different element than `sysml:function`,
+  or whose parameters and `sysml:argument` disagree, is refused rather than
+  read one way. A body the invocation's operand owns (`->select { … }`) is
+  reached through its `FeatureMembership`, with no second membership. Written back, the
   function is spelled by the reference rule under [Limitations](#limitations),
   so an invocation whose function the graph neither links nor names, or that
   no spelling reaches from where it is written, is reported rather than
   misspelled.
 - **A node carries `sysml:elementId`**, the id its own IRI ends in, so it can be
   read and queried by that id like an element. It is still not a model element:
-  it has no `sysml:qualifiedName` and no ownership properties, it is reached only
-  from the position that holds it, and reading a graph back never turns one into
-  a declaration. Writing expressions as elements owned through memberships is
-  separate work.
+  it has no `sysml:qualifiedName`, and reading a graph back never turns one
+  into a declaration.
 - **A graph from another tool is read from its structure** when it carries no
   `sysx:sourceText`: the supported shapes above are written back as notation, and
   a shape this mapping cannot write (a missing operator, an operand count an
@@ -898,23 +1105,39 @@ legacy literals, foreign trees, unsupported shapes, round-trip exactness),
 
 ### Set and tensor values
 
-The mapping states a model, not an evaluation of it, so a value the runtime
-holds as a set (a `Collections::Set`'s `elements`, any unique, unordered
-collection) or as a tensor of any rank (`Quantities::TensorQuantityValue`)
-has **no literal form** in RDF. What the graph carries is the expression the
-feature is written with — the `(3, 1, 2, 2, 3)` valuing `elements`, the
-`TensorCalculations::'['(…, cubeRef)` building the tensor, the `cube#(2, 1, 2)`
-indexing it — as the typed tree above, and evaluating the model read back gives
-the same set or tensor, in the runtime's canonical order. No `xsd` datatype or
-`sysx:` vocabulary encodes an evaluated collection or a tensor's shape, and the
-RDF conversion never evaluates: a graph that wanted to state a set's members or a
-tensor's components would have to state the expression that yields them. The
-gRPC service is where evaluated values travel (the `set` and `tensorQuantity`
-arms of [the wire contract](wire-contract.md)).
+The mapping states a model, not an evaluation of it, and that holds for every
+value kind: an `Array`, a vector, a vector quantity and a scalar quantity with a
+unit are each written as the expression valuing the feature, never as the value
+the runtime computes, and the conversion never reaches the runtime (the layering
+test forbids `internal/translate/export` importing it). So a value the runtime
+holds as a set (the `elements` of a `Collections::Set`, `UniqueCollection` or
+`Map` — any unique, unordered collection) or as a tensor of any rank
+(`Quantities::TensorQuantityValue` over a `TensorMeasurementReference` with
+three, four or more `dimensions`) has **no literal form** in RDF, and needs
+none. What the graph carries is the expression the feature is written with — the
+`(3, 1, 2, 2, 3)` valuing `elements` as an `OperatorExpression` with
+`operator ","` over `LiteralInteger` operands, the
+`TensorCalculations::'['(…, cubeRef)` building the tensor as an
+`InvocationExpression` whose second argument is a `FeatureReferenceExpression`,
+the `cube#(2, 1, 2)` indexing it — as the typed tree above, under the feature's
+`sysml:type` (the IRI of `Set`, `TensorMeasurementReference`, …). Evaluating the
+model read back gives the same set — equal to one whose members were written in another
+order, as the runtime already treats them — and the same tensor, shape and
+components. No `xsd` datatype or `sysx:` vocabulary encodes an evaluated
+collection or a tensor's shape: the `sysx:` predicates on these trees are exactly
+those every other expression uses (the source-text triples). A graph that
+wanted to state a set's members or a tensor's components states the expression
+that yields them. The gRPC service is where evaluated
+values travel (the `set` and `tensorQuantity` arms of [the wire contract](wire-contract.md)).
 
-Tests: `set_tensor_rdf_test.go` (exactness with and without the source text,
-the expression trees a set-valued and a tensor-valued feature state, the
-absence of any evaluated form).
+Tests: `set_tensor_rdf_test.go` — exactness with and without the source text
+for `Set`, `UniqueCollection` and `Map` features and rank-3 and rank-4 tensors;
+the graph's shapes are the standard expression classes and no set- or
+tensor-specific term; removing a load-bearing structural predicate
+(`sysml:operator`, `sysml:function`, `sysml:referent`) breaks the round trip,
+and so does removing both operand routes (the `ParameterMembership` operands
+and the legacy `sysml:argument`), while either route alone still carries it; and
+the model read back evaluates to order-insensitive set equality and the same tensor shape and components as the original.
 
 ### Result expressions
 
@@ -972,26 +1195,27 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 
 | written | metaclass | carries |
 |---|---|---|
-| `first x;` in an action body | `sysx:InitialNode` | `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body |
-| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysx:InitialNode` with a `sysml:targetFeature` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
-| `done;` | `sysx:FinalNode` | — |
+| `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
+| `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
+| `done;` | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`; `then done;` is a `SuccessionAsUsage` targeting the same. Read, a `sysx:FinalNode` from an older graph is the same member |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
 | `send M(x) to p;`, `… via p;` | `sysml:SendActionUsage` | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
+| `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
 | `accept sig : Signal;`, `accept when c;` | the usage's own metaclass | `sysml:isAccept`, and `sysx:declaredKeyword "accept"` where the optional `action` was not written |
 | `fork`, `join`, `merge`, `decide` | `sysml:ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode` | `sysml:declaredName` |
 | `succession first a then b;`, `if g then b;`, `else b;`, and a state body's keyword-less `first a then b;` (a succession between two vertices, no initial node) | `sysml:SuccessionAsUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:guard`, `sysx:isElse`, `sysx:declaredKeyword`; the keyword-less spelling comes back as `succession first a then b;` from the graph alone, the same succession |
 | `public succession S first a if g then b;` (a guarded succession, which is a transition) | `sysml:TransitionUsage` | as a transition, with `sysx:declaredKeyword "succession"` for the keyword written; `sysx:transitionSyntax` is derived from where the AST places the source, not from the words ahead of it, so a visibility or a name does not change it. Written back, a named form always writes `first` (`succession S first a …`, `transition T first a …`), since only a nameless `transition` may state a bare source |
 | `while c { … }`, `loop { … } until c;` | `sysml:WhileLoopActionUsage` | `sysx:whileCondition`, `sysx:untilCondition` |
 | `for x in c { … }` | `sysml:ForLoopActionUsage` | `sysx:loopVariable`, `sysx:collection` |
-| `if c { … } else { … }` | `sysml:IfActionUsage` + `sysx:IfBranch` per branch | `sysx:condition`, `sysx:branchKind` |
+| `if c { … } else { … }` | `sysml:IfActionUsage`, owning through `sysml:ParameterMembership`s its condition and then a `sysml:ActionUsage` per branch | `sysx:condition`, and `sysx:branchKind` and `sysx:hasBody` on each branch; a `sysx:IfBranch` from an older graph reads as the same branch |
 | `state s { … }`, `state s parallel { … }`, `entry; then s; state s;` | `sysml:StateUsage` | `sysml:declaredName`, `sysx:declaredKeyword`, `sysml:isParallel`, its members |
-| `entry`/`do`/`exit`, `entry do { … }` (whatever separates the `do` from the body) | `sysml:StateSubactionMembership` | `sysx:subactionKind`, `sysx:declaredKeyword`, its actions |
+| `entry`/`do`/`exit`, `entry do { … }` (whatever separates the `do` from the body) | `sysml:StateSubactionMembership` | `sysml:kind` (`entry`, `do`, `exit`) beside `sysx:subactionKind`, `sysx:declaredKeyword`, the one action it performs, which a `perform a;` states as a `sysml:PerformActionUsage` and an empty `entry;` as an anonymous `sysml:ActionUsage` with no name and no body; a braced block `entry { … }` is an anonymous `sysml:ActionUsage` with `sysx:isKindImplicit` (no `action` keyword was written) whose `sysx:hasBody` is the braces. A graph from an older mapping that wrote a braced block as its statements under the membership, `sysx:hasBody` on the membership itself, is refused as unsupported: it holds no anonymous action to read the block back as |
 | `defer sig, other;` | `sysx:DeferMember` | `sysx:deferredEvent` per event |
 | `choice`, `junction`, `fork`, `join`, `shallow`/`deep history` | `sysx:Pseudostate` | `sysx:pseudostateKind`, `sysx:declaredKeyword` |
-| `transition [n] [first] s [accept t] [if g] [do e] then t;`, `… then t { … }` | `sysml:TransitionUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:trigger`, `sysx:triggerKeyword`, `sysx:guard`, `sysx:transitionSyntax`, its effect and body as members, linked by `sysx:effectMember` and `sysx:bodyMember`, with `sysx:bracedEffect` on every transition written with `do` (true for its braces, so an empty `do { }` survives) and `sysx:hasBody` for a trailing body; a graph with members linked by neither owns an effect alone, `sysx:hasBody` its braces |
+| `transition [n] [first] s [accept t] [if g] [do e] then t;`, `… then t { … }` | `sysml:TransitionUsage` | `sysml:sourceFeature`, `sysml:targetFeature`, `sysx:trigger`, `sysx:triggerKeyword`, `sysx:guard`, `sysx:transitionSyntax`, its effect and body as members: the effect is owned through a `sysml:TransitionFeatureMembership` with `sysml:kind "effect"` and `sysml:transitionFeature` (SysML v2 1.0 § 8.3.18.8), the transition stating it as `sysml:effectAction`, and the collapsed `sysx:effectMember`, `sysx:bodyMember` links are written beside; a graph carrying either form alone reads, and one whose `TransitionFeatureMembership` and `sysx:effectMember` name different members is refused, with `sysx:hasEffect` on every transition written with `do` (its braced effect `do { … }` is an anonymous action as for a state's `entry { … }`, so an empty `do { }` survives as that action's `sysx:hasBody`) and `sysx:hasBody` for a trailing body; a graph with members linked by neither owns an effect alone, `sysx:hasBody` its braces. A graph from an older mapping that wrote a braced effect as its statements (`sysx:bracedEffect`, or `sysx:hasBody` on an unlinked effect) is refused as unsupported: it holds no anonymous action to read the block back as |
 
 A state's members are held in the AST in one bucket per kind (entry, do, exit,
 defer, substates); they are written back in the order they were
@@ -1120,49 +1344,184 @@ notation offers a choice and the model does not:
   with, but the notation written back uses the document's own — a body written
   with CRLF comes back with LF. The text is otherwise verbatim.
 
-A second conversion of the notation written back gives the same graph; only
-`sysx:sourceText`, which quotes the source verbatim, shows the respelling.
+A second conversion of the notation written back gives the same graph. The
+optional `sysx:sourceText` annotation preserves source spelling and trivia, but
+the decoder does not need it when the structural expression shape is present.
+
+### Compatibility with earlier expression graphs
+
+Graphs written by earlier releases still import. This includes the legacy
+`sysml:argument` plus `sysx:argumentIndex` operand shape and expression roots
+reached only through their positional properties. When both standard
+`ParameterMembership` operands and legacy arguments are present, they are
+compared by ordered identity and argument name; disagreement is refused.
+Earlier releases also left the receiver of `x->f(a)` out of the parameters,
+naming it by `sysml:operand` alone, spelled `new` as `sysx:isConstructor` on a
+`sysml:InvocationExpression`, and owned a `return` parameter through a plain
+`FeatureMembership` with `sysml:isResult`: each still reads. A receiver the
+parameters do place, anywhere but first, and an `isResult` that contradicts a
+`ParameterMembership`/`ReturnParameterMembership` are refused.
+Likewise, when direct and typed `FeatureValue` value routes are both present,
+equal roots are rendered once and conflicting roots are refused.
 
 ### End-binding heads
 
 **A head that binds ends records the form it writes them in.** A `connect`,
 `bind`, `flow`, `succession`, `transition`, `accept` or `satisfy` declaration is
-carried as `sysx:sourceText` (the exact text is what a save writes back) and,
-beside it, as the structure the head expresses: its ends, and `sysx:endForm`, the
-notation those ends are written in. The form is what makes the head
-reconstructible without the text, so a graph from another tool converts to
-notation as well:
+carried as standard end structure, with the small `sysx:` annotations needed
+for notation that the metamodel does not carry. `sysx:sourceText` is optional:
+the decoder does not need it when the standard shape and the applicable
+annotations are present.
 
 ```turtle
 elmt:P__Car___402
     a sysml:ConnectionUsage ;
-    sysx:sourceText "connect left to right;" ;
     sysx:endForm "to" ;
-    sysx:relatedFeature expr:P__Car___402.end0, expr:P__Car___402.end1 .
+    sysml:connectorEnd expr:P__Car___402_pend0,
+        expr:P__Car___402_pend1 ;
+    sysml:ownedRelationship expr:P__Car___402_pend0_om,
+        expr:P__Car___402_pend1_om ;
+    sysml:ownedMembership expr:P__Car___402_pend0_om,
+        expr:P__Car___402_pend1_om ;
+    sysml:ownedFeatureMembership expr:P__Car___402_pend0_om,
+        expr:P__Car___402_pend1_om ;
+    sysml:ownedFeature expr:P__Car___402_pend0,
+        expr:P__Car___402_pend1 ;
+    sysml:relatedFeature elmt:P__Car__left, elmt:P__Car__right ;
+    sysml:sourceFeature elmt:P__Car__left ;
+    sysml:targetFeature elmt:P__Car__right .
 
-expr:P__Car___402.end0
-    a sysml:FeatureReferenceExpression ;
-    sysx:sourceText "left" ;
-    sysml:referent elmt:P__Car__left ;
-    sysx:endIndex "0"^^xsd:integer .
+expr:P__Car___402_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "P__Car___402_pend0" ;
+    sysml:isEnd true ;
+    sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs ;
+    sysml:owner elmt:P__Car___402 ;
+    sysml:owningMembership expr:P__Car___402_pend0_om .
+
+expr:P__Car___402_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:referencingFeature expr:P__Car___402_pend0 ;
+    sysml:referencedFeature elmt:P__Car__left ;
+    sysml:relatedElement expr:P__Car___402_pend0, elmt:P__Car__left .
+
+expr:P__Car___402_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:memberElement expr:P__Car___402_pend0 ;
+    sysml:owningRelatedElement elmt:P__Car___402 .
 ```
 
-`sysx:relatedFeature` points at one expression node per end, each carrying
-`sysx:endIndex` and — for a flow — `sysx:endRole` (`source`, `target`,
-`payload`). An end written behind a multiplicity (`connect [1] a to [0..1] b`,
+`sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
+is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
+end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`
+(SysML.xtext) against `ConnectorEnd returns ReferenceUsage` — an
+`EndFeatureMembership`, and an
+owned `ReferenceSubsetting` whose `sysml:referencedFeature` names the linked
+feature (or a literal when the name is not resolved). Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
+bounds are on the end. A qualified target such as `rover.telemetry` is an
+owned `sysml:Feature` — a *chain feature* — that owns one `sysml:FeatureChaining`
+relationship per link, in order, and keeps the derived `sysml:chainingFeature`
+list beside it; the end's `ReferenceSubsetting` owns the chain as its
+`sysml:ownedRelatedElement` (KerML `OwnedReferenceSubsetting`:
+`ownedRelatedElement += OwnedFeatureChain`) and names it as its
+`referencedFeature`:
+
+```turtle
+expr:P__Car___402_pend0
+    a sysml:ReferenceUsage ;
+    sysml:isEnd true ;
+    sysml:declaredName "bead" ;
+    sysml:name "bead" ;
+    sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs .
+
+expr:P__Car___402_pend0_pchain
+    a sysml:Feature ;
+    sysml:chainingFeature elmt:P__rover, elmt:P__telemetry ;
+    sysml:owningRelationship expr:P__Car___402_pend0_prs ;
+    sysml:owner expr:P__Car___402_pend0 ;
+    sysml:ownedRelationship expr:P__Car___402_pend0_pchain_pfc0,
+        expr:P__Car___402_pend0_pchain_pfc1 .
+
+expr:P__Car___402_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:chainingFeature elmt:P__rover ;
+    sysml:featureChained expr:P__Car___402_pend0_pchain ;
+    sysml:source expr:P__Car___402_pend0_pchain ;
+    sysml:target elmt:P__rover ;
+    sysml:relatedElement expr:P__Car___402_pend0_pchain, elmt:P__rover ;
+    sysml:owningRelatedElement expr:P__Car___402_pend0_pchain .
+
+expr:P__Car___402_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:chainingFeature elmt:P__telemetry ;
+    sysml:featureChained expr:P__Car___402_pend0_pchain ;
+    sysml:source expr:P__Car___402_pend0_pchain ;
+    sysml:target elmt:P__telemetry ;
+    sysml:relatedElement expr:P__Car___402_pend0_pchain, elmt:P__telemetry ;
+    sysml:owningRelatedElement expr:P__Car___402_pend0_pchain .
+
+expr:P__Car___402_pend0_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:referencedFeature expr:P__Car___402_pend0_pchain ;
+    sysml:ownedRelatedElement expr:P__Car___402_pend0_pchain .
+```
+
+The same chain feature carries a chain target a head relationship states
+(`redefines a.b`, `:>> a.b`, `references a.b`): the chain's `sysml:chainingFeature`
+property of the head names the chain element, and the materialized
+`Redefinition`, `Subsetting` or `ReferenceSubsetting` owns it the same way
+(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`). A chain
+link that resolves to a graph element is written as its IRI, and one that does
+not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed
+literal in Turtle — never a bare string; in a `FeatureChaining` the link is the
+single-valued `sysml:chainingFeature`, in the derived list it is one entry.
+Reading a graph back accepts three shapes of the same chain: the normative
+`FeatureChaining` elements alone (which is what other tools write), the derived
+`sysml:chainingFeature` list alone (what earlier releases of this one wrote),
+and both together — where the ordered links disagree, the graph is refused
+rather than read one way. A graph holds each triple once, so a repeated link
+(`n.next.next`) appears once in the derived `sysml:chainingFeature` list, in
+first-occurrence order; the ordered `FeatureChaining` elements carry the full
+chain and are the list the reader takes. A chain reached in an expression
+(`attribute x = a.b.c;`) is the nested `sysml:FeatureChainExpression` tree, and
+the chain a `a.b()` invocation reaches is a chain feature an `sysml:OwningMembership`
+owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.
+
+For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
+identify the two related features; `sysml:relatedFeature` remains the
+collection-valued relation for every arity. These two predicates are not
+written for n-ary connectors. A flow's payload remains the `sysx:payload`
+expression, not an additional connector end. Transitions use
+`sysml:source` and `sysml:target`; `sourceFeature` and `targetFeature` remain
+the legacy transition spelling accepted on import.
+
+### Compatibility with earlier end graphs
+
+Graphs written by earlier releases still import, including direct
+`sysml:references` on an end, `sysx:relatedFeature` with `sysx:endIndex`,
+`sysx:endRole` and `sysx:endName`, and transitions using
+`sysml:sourceFeature`/`sysml:targetFeature`. When both a
+`ReferenceSubsetting` and interim `sysml:references` are present, or when both
+standard and legacy end shapes are present, the decoder refuses a graph whose
+targets disagree. Non-name end targets
+that cannot be represented as a linked feature remain `sysx:Expression` typed
+literals, preserving the expression text rather than inventing an IRI.
+
+An end written behind a multiplicity (`connect [1] a to [0..1] b`,
 `bind [0..1] a = [0..1] b`) carries its bounds on that node as `sysml:lowerBound`
 and `sysml:upperBound` expression nodes, the way a feature carries its own; the
 decoder writes them back ahead of the end. A binding's two ends are two such
 nodes like a succession's or a connector's — `bind a = b` relates `end0` for `a`
 and `end1` for `b` — and neither is the connector's `sysml:value`: a binding
-states no value and no `sysml:references` of its own
+states no value and no `sysml:ownedReferenceSubsetting` of its own
 (`export_test.go:TestBindingEndMultiplicitiesAreStatedAsStructure`,
 `binding_connector_ends_test.go`). An end that
 declares a name of its own and reference-subsets the feature it attaches to
 (`connect bead ::> t.bead to …`, KerML `connector a ::> a.x to b;`,
 `bind e1 ::> a = e2 references b;`) relates that
-feature — `sysml:referent` or `sysml:targetFeature` is `t.bead`, not `bead` —
-and carries the name as `sysx:endName` on the same node, with
+feature — the end's `ReferenceSubsetting` names `t.bead`, a chain feature when
+the target is qualified, not `bead` —
+and carries the name as `sysml:declaredName` and `sysml:name` on the same node, with
 `sysx:endReferencesKeyword "references"` where the source spelled the word; the
 decoder writes it back as `<name> ::> <feature>` unless that spelling is recorded
 (`export_test.go:TestKerMLBinaryConnectorEndsCarryTheRoundTripWithoutSourceText`,
@@ -1170,7 +1529,7 @@ decoder writes it back as `<name> ::> <feature>` unless that spelling is recorde
 A named end that relates no feature, or one the graph names twice, is refused as
 that connector end rather than written (`TestBindingEndsWithoutANotationAreRefused`).
 A KerML binary connector without `from` starts with its first end, so
-`connector eng to t;` is an anonymous connector whose `end0` is `eng`, and a
+`connector eng to t;` is an anonymous connector whose first end is `eng`, and a
 named one writes `from` as its `sysx:endVerb`. The forms and what each writes:
 
 | `sysx:endForm` | Notation | Head |
@@ -1235,7 +1594,12 @@ proves the second hop loses nothing. `TestBindingEndsAreStatedAsStructure` cover
 **A succession carries its two ends.** Every succession is one node naming
 the members it sequences, whether it was written as its own member
 (`succession first a then b;`) or attached to one (`then action b : B;`, which
-the parser desugars to the same edge), so the order a model declares survives
+the parser desugars to the same edge). Its ends are the two `sysml:ReferenceUsage`
+elements an `sysml:EndFeatureMembership` each owns (SysML.xtext `TargetSuccession`):
+the `then` form's first end is the *empty source end* — a `ReferenceUsage` with
+`sysml:isEnd` and no `ReferenceSubsetting`, since the notation names no feature
+for it — and the second reference-subsets the member the `then` sequences to,
+so the order a model declares survives
 the hop:
 
 ```turtle
@@ -1429,17 +1793,21 @@ would be refused as a duplicate.
   term of that datatype, so it is reported rather than read as the text it
   spells, as is an `xsd:int` outside its 32-bit value space. `owl:real`, which
   names no lexical forms of its own, takes a finite `xsd:double`'s
-- a `sysx:` index (`sysx:memberIndex`, `sysx:argumentIndex`, `sysx:endIndex`)
-  that is negative or too large for the platform's `int`: it is a position the
-  writer orders by, and one it cannot hold would otherwise be read as 0 and
-  move the member to the front
+- a current `sysx:memberIndex` that is negative or too large for the platform's
+  `int`: it is a position the writer orders by, and one it cannot hold would
+  otherwise be read as 0 and move the member to the front. The older
+  `sysx:argumentIndex`, `sysx:endIndex`, `sysx:endRole` and `sysx:endName`
+  terms are legacy-only and are no longer written; current `connectorEnd` and
+  `ownedFeatureMembership` order comes from their `json:` collection
+  annotations
 - a subject stating a single-valued property twice with different objects —
   a body with two `sysx:resultExpression`s, an element with two
   `sysx:memberIndex`es, two `sysx:isNamespaceImport` flags or a
   `sysml:isDefault` stated both true and false: only one could be written, so
   the graph is refused naming both rather than the first being kept. Every
   `sysx:` property is single-valued but the members and parameters of a body,
-  `sysx:relatedFeature`, `sysx:deferredEvent` and `sysx:prefixMetadata`; of
+  `sysx:deferredEvent` and `sysx:prefixMetadata`; the legacy
+  `sysx:relatedFeature` end collection is no longer written; of
   the `sysml:` properties, the boolean `is…` flags and `sysml:portionKind`
   are. A triple stated twice is one triple to the graph, so only differing
   objects are a conflict
@@ -1452,14 +1820,211 @@ A graph that uses none of OpenSysML's `sysx:` properties (one produced by
 another tool) converts as far as the mapping allows and errors on the first
 element it cannot place, rather than emitting a model with elements missing.
 
+## The API element form
+
+`sysml -convert api-json` (`%save model.json`, the service's `Convert` to or from
+`api-json` or `json`) writes the graph above in the form the OMG SysML v2 API &
+Services specification serves from its `/elements` endpoints: a JSON array of
+element objects, one per graph subject in graph order, each with the metaclass as
+`@type`, the element id as `@id`, and the metamodel's properties as keys. It is
+not a second mapping. The Turtle path and this one build one graph (`ToRDF`) and
+read back into one graph (`ToSysML`), so everything the sections above say about
+metaclasses, identity, expressions, collections and limitations holds here
+unchanged, and `ttl` ↔ `api-json` converts through the graph without touching
+notation.
+
+```json
+[
+  {
+    "@type": "PartDefinition",
+    "@id": "Vehicles__Wheel",
+    "qualifiedName": "Vehicles::Wheel",
+    "elementId": "Vehicles__Wheel",
+    "sysx:memberIndex": 0,
+    "owningNamespace": { "@id": "Vehicles" },
+    "owner": { "@id": "Vehicles" },
+    "owningRelationship": { "@id": "Vehicles__Wheel_om" },
+    "owningMembership": { "@id": "Vehicles__Wheel_om" },
+    "declaredName": "Wheel",
+    "sysx:hasBody": true,
+    "ownedMember": [
+      { "@id": "Vehicles__Wheel__diameter" },
+      { "@id": "Vehicles__Wheel__mass" }
+    ],
+    "sysx:sourceText": "    part def Wheel {\n",
+    "sysx:sourceTail": "    }\n"
+  }
+]
+```
+
+How each part of the graph is spelled:
+
+| Graph | Element form |
+|-------|--------------|
+| `rdf:type sysml:PartDefinition` | `"@type": "PartDefinition"`; a metaclass of this project's own (`sysx:Pseudostate`, …) keeps its prefix, `"@type": "sysx:Pseudostate"` |
+| The subject's IRI | `"@id"`: the id after the final `:` of an `elmt:` or `expr:` IRI, with its project qualifier where the IRI has one (`Interop:Vehicles__Wheel`) — the same spelling the collection annotations use |
+| A `sysml:` property | the bare property name as key, in triple order |
+| A `sysx:` property | `"sysx:<name>"` as key |
+| The `urn:sysmlv2:annotation:json:` annotation of a collection | nothing of its own — it decides that the property it annotates is an array |
+| An IRI object | `{"@id": <id>}`, the id spelled from the subject as above |
+| An `xsd:boolean`, `xsd:integer`, `xsd:decimal`/`xsd:double` literal | a JSON boolean or number; a real whose lexical form JSON cannot spell is given the digits it needs (`.1` → `0.1`, `5.` → `5.0`), and `INF` or `NaN` is refused; a literal in another datatype (`xsd:float`, `xsd:int`, `owl:real`, a `xsd:double` without an exponent) is refused, since the form carries no datatype and the reader would restore a different one |
+| A plain literal (and, on the properties that carry it, expression text) | a JSON string; a literal in any other datatype is refused |
+| A name literal on an object property | `{"@ref": <name>}` — sysml-toolkit's spelling of a target the writer could not resolve, read back as the same name literal |
+| A `sysml:` property the metamodel declares multi-valued (unbounded upper) | an array of however many values the graph states, in the order the annotation records or in triple order when no annotation states it |
+| A `sysml:` property stated more than once with no annotation, that the metamodel declares single-valued | refused, since the graph does not say which order the values have |
+| A `sysx:` property stated more than once | an array, in triple order |
+
+Reading is the inverse, and refuses rather than guesses: the document is one
+element object or an array of them; every object carries a non-empty `@id` and a
+`@type`, no `@id` occurs twice, no `@` key other than those two is accepted, no key
+or `@type` is in a prefix other than the bare `sysml:` names and `sysx:`, an object
+value is a reference `{"@id": …}` or a `{"@ref": <name>}` — sysml-toolkit's
+spelling of a target it could not resolve, which reads as the name literal the
+mapping writes for a name-valued reference — and an array holds no array and no
+`null`. A `null` value states no triple. An array on a `sysml:` property becomes
+the repeated triples and the collection annotation the Turtle path would have
+written, so the graph read from the JSON form is the graph the Turtle form parses
+to, triple for triple. An `@id` is resolved within the subject's project scope, or
+by the `<qualifier>:<id>` it spells; an id in the expression grammar
+([Expressions](#expressions)) whose parent is a document element, carrying no
+`qualifiedName`, is an `expr:` node when its metaclass is one the mapping mints
+directly under a declaration — an expression class, the end feature of a
+connector, or a reference subsetting — or when its parent is itself an `expr:`
+node or an expression-class element. A membership id
+(`_om`) follows the node it owns, and any other element spelled that way is an
+ordinary element. The form carries no namespace of its own, so this is a reading
+of the id.
+
+### The root namespace
+
+The pilot implementation serializes every document as an unnamed top-level
+`Namespace` with no `owningRelationship`, whose `OwningMembership`s own the
+document's top-level packages (the head of any `.kermlx`). The element form
+writes the same: an unnamed `sysml:Namespace` first in the array, one
+`OwningMembership` per top-level element, and each top-level element's
+`owningRelationship`, `owningMembership`, `owningNamespace` and `owner`
+pointing back at them. The ids are derived, never declared, so they are the
+same on every run: in the `qualified` form the namespace is the first
+top-level element's id with `_ns` appended and each membership the member's
+id with `_om`, the suffix every other owning membership uses; in the `uuid`
+form both are UUIDv5 names in the same namespace the top-level element's
+uuid is minted in, so a document's ids are stable across the two forms and
+across re-exports. Encoded names cannot spell either suffix, but a document
+read from another writer may already use any id, so a suffix is repeated
+(`P_ns_ns`, `P_om_om`) until it names a subject the graph does not hold; the
+choice depends only on the graph, so it too is the same on every run.
+
+The Turtle form does not carry the wrapper. Turtle is this mapping's own
+notation round-trip carrier, and its root subjects are the document's own
+packages; adding a subject the notation has no spelling for would change
+every `.ttl` golden and the corpus ratchet for no reader that wants it. The
+identity gate over the pilot library (`tests/identity`) pins the ids of
+named library elements, which the wrapper does not touch. The reader treats
+the wrapper as transparent in both directions: an unnamed, unowned
+`Namespace` whose only content is `OwningMembership`s of top-level elements
+is stripped before the graph converts to notation, whether the toolkit or
+this mapping wrote it, so notation → `api-json` → notation is byte-identical.
+A root namespace that carries a name, an owner or members of its own is an
+ordinary element and is kept.
+
+Two readings are decided by the graph rather than the JSON, and are worth knowing:
+
+- **Multi-valued properties are arrays; single-valued ones are objects or
+  scalars.** The element form's property shape follows the metamodel's upper
+  multiplicity (`SysML.ecore` `upperBound="-1"` in the generated
+  `internal/translate/rdf/ontology` table): `ownedMember` with one value is
+  `[{"@id": …}]`, `owningRelationship` is `{"@id": …}`. The `json:`
+  annotation still fixes member order where the graph states it. The reader
+  accepts both shapes and records the annotation only for two members or more,
+  so a one-member array reads back to the same graph Turtle produces. What the
+  SysML v2 API's own commit path serves back for
+  the elements this form posts is measured, not assumed: the opt-in
+  `TestFlexoInterop` harness posts them as `DataVersion` payloads and reports the
+  elements and properties the service returns beside those the Turtle graph-load
+  path returns (the same set on the reference fixture, the `sysx:` properties
+  excepted, which the service drops on both paths).
+- **A string on a reference-valued property is a name or an expression.** The
+  encoder writes an unresolved target as its name (`"type": "Real"`) and a
+  computed one as expression text; JSON has one string for both. On the
+  properties the encoder writes expression text on (`type`, `general`,
+  `memberElement`, the connector ends and their subsetting) a string that does not
+  parse as a name is expression text; on every other property it is a name.
+
+Interchange with sysml-toolkit (the Open-MBEE Rust toolkit) runs both ways.
+The mapping materializes the same relationship elements the toolkit emits
+(`FeatureTyping`, `Subclassification`, `Redefinition`, `Subsetting`,
+`ReferenceSubsetting`, `MultiplicityRange`,
+`ConjugatedPortDefinition`/`PortConjugation`, the `ParameterMembership`,
+`FeatureValue` and `ReturnParameterMembership` structure of every expression,
+the `Membership` an expression referent is carried by — the table above) and
+writes the same unnamed root `Namespace` with its `OwningMembership` (see
+[The root namespace](#the-root-namespace)), so the toolkit's lifter reads this
+form's output back to the notation it came from. The per-`@type` element
+counts of the two still differ where the toolkit's own JSON is sparser than
+the metamodel: it writes no `ReturnParameterMembership` for an expression
+whose result is unused, spells a chained callee as `FeatureChaining`s on one
+feature where this mapping owns a `FeatureChainExpression` per link, and
+writes a `sysml:CaseDefinition` where an `analysis def` is an
+`AnalysisCaseDefinition`. What the toolkit does not
+read are the `sysx:` extension metaclasses listed above, and one place where
+its lifter is narrower than the metamodel and this mapping keeps the spec's
+shape: the toolkit names a referent only by qualified name, so a referent
+that is an anonymous owned element prints as that element's id with a
+`cannot name reference target` warning. That is a body argument
+(`cars->select { in c; c.mass > m }`), which is, as in the pilot's XMI, a
+`FeatureReferenceExpression` whose referent is the anonymous `Expression` it
+owns through a `FeatureMembership`; and a connector end written as a chain
+(`connect lv.payload to cm.dock`), whose end feature subsets the unnamed
+`Feature` owning the `FeatureChaining`s (KerML 1.0 § 8.3.3.3.5
+`FeatureChaining`), so the toolkit prints `end ref ::> <id>` instead of the chain.
+
+The toolkit's own JSON — `convert --to compact-json` or `--to full-json` —
+reads into the same graph through `ReadAPIJSON` and converts to notation like
+any graph this mapping holds:
+
+- **Both forms decode identically.** `full-json` states every property of an
+  element the compact form collapses onto its owner (`type` on a usage for
+  the `FeatureTyping` element, `isImpliedIncluded`, the membership ends), so
+  the reader derives the collapsed spelling back: a `sysml:FeatureTyping`
+  stating nothing the collapsed `type` edge does not already say contributes
+  its ends and is then elementless, an `isImpliedIncluded` element drops the
+  stated defaults (`isEnd`, `isReference`, `mayTimeVary`, …) its owner's
+  spelling never writes, and the resulting graph is the graph a compact
+  document produces — compact and full of one model convert to byte-identical
+  notation.
+- **The root `Namespace` is transparent.** The toolkit wraps the document in
+  a root `Namespace` and one `OwningMembership`; the reader strips both, so a
+  `package P { … }` comes back without a synthetic wrapper.
+- **A `{"@ref": <name>}` target is the unresolved name it spells**, matching
+  the name literal this form writes for the same case, and the dangling IRI a
+  full document uses for the same target (`unresolved:`-derived, recoverable
+  from the reference's `x-sysmlv2-unresolved-reference` textual annotation)
+  reads as the same name.
+- **Ends the notation alone cannot place are refused.** Where a member's two
+  collapsed ends disagree, or an element names no owner it can sit under,
+  `-convert sysml` fails rather than guesses a position.
+- **uuid ids are derived, not declared.** A document whose `@id`s are the
+  `-id uuid` form's name-based uuids reads back to the same notation, the ids
+  implied as in the default form; only an id that does not match the
+  derivation stays a declared `@ElementId` annotation.
+
+The per-file ratchet over `examples/` runs for this form too:
+`TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each
+model notation → `api-json` → notation → `api-json` and pins the verdict in
+`testdata/api_json_roundtrip_expected.txt`
+([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). Its verdicts
+are the Turtle gate's for every file but two, whose `.1` reals JSON respells as
+`0.1` (`graph-diff`).
+
 ## Where the code lives
 
 | Package | Role |
 |---------|------|
-| `internal/core/rdf` | Triple/graph model, Turtle writer, Turtle parser |
-| `internal/core/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), and the `Convert` entry point |
-| `internal/core/export/corpus_roundtrip_test.go` | The per-file round-trip ratchet over every model under `examples/`, with its baseline in `testdata/corpus_roundtrip_expected.txt` ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
-| `internal/repl` | `%save` |
+| `internal/translate/rdf` | Triple/graph model, Turtle writer, Turtle parser |
+| `internal/translate/export` | `ToRDF` (AST → graph), `ToSysML` (graph → notation), `WriteAPIJSON`/`ReadAPIJSON` (graph ↔ the API element form) |
+| `internal/translate/convert` | The `Convert` entry point: format names, notation parsing, the SysML v1 migration |
+| `tests/corpus/roundtrip_test.go` | The per-file round-trip ratchets over every model under `examples/`, with their baselines in `testdata/corpus_roundtrip_expected.txt` (Turtle) and `testdata/api_json_roundtrip_expected.txt` (the API element form) ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)) |
+| `internal/frontend/repl` | `%save` |
 | `cmd/sysml` | `-convert`, `-from`, `-o` |
 
 The RDF layer is hand-written against the Turtle grammar rather than pulled in

@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 var (
@@ -31,7 +31,7 @@ func engineStandin(t *testing.T) string {
 		}
 		standinPath = filepath.Join(dir, "enginestandin")
 		build := exec.Command("go", gobuild.Args(standinPath)...)
-		build.Dir = filepath.Join("..", "..", "internal", "core", "analysis", "testdata", "enginestandin")
+		build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", "enginestandin")
 		if out, err := build.CombinedOutput(); err != nil {
 			standinErr = fmt.Errorf("go build: %v\n%s", err, out)
 		}
@@ -191,6 +191,85 @@ func TestExternalWitnessedViolationFailsTheCheck(t *testing.T) {
 		"witness: step 3: 2@a first of 2@a, 3@b",
 		"standing: violated (witnessed: witness of 1 choice replayed); all: alpha violated (witnessed), beta violated (witnessed), check violated (witnessed)")
 	rejectReport(t, got, "could not be checked")
+}
+
+// TestProgressGoesToStandardError checks that what an external engine reports while it runs is
+// TestModelSeedReachesTheExternalEngine checks that the seed -seed names goes to an external
+// engine on the checker's question as `modelSeed`, 0 as much as any other seed, apart from
+// `schedule`, and that no `modelSeed` is written when -seed is not given.
+func TestModelSeedReachesTheExternalEngine(t *testing.T) {
+	binary := buildCLI(t)
+	dir, _ := recordingManifest(t)
+	entry := `{"kind":"engine","name":"alpha","version":"1.0.0","command":["alpha.sh"],"protocol":1,` +
+		`"answers":["holds"],"subjects":["action"],"model":["sources"],"witness":"schedule","authority":"bounded"}`
+	if err := os.WriteFile(filepath.Join(dir, "alpha.json"), []byte(entry), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\n" +
+		`ENGINE_STANDIN_DESCRIBE='{"name":"alpha","version":"1.0.0","protocol":1,"answers":["holds"],"subjects":["action"]}' ` +
+		"exec " + engineStandin(t) + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "alpha.sh"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ENGINE_STANDIN_RESULT", `{"claim":"holds","strength":"bounded"}`)
+	cases := []struct {
+		name  string
+		seed  []string
+		want  string
+		unset bool
+	}{
+		{name: "seed 0", seed: []string{"-seed", "0"}, want: `"schedule":"explore","modelSeed":0,"free"`},
+		{name: "seed 11", seed: []string{"-seed", "11"}, want: `"schedule":"explore","modelSeed":11,"free"`},
+		{name: "no seed", want: `"schedule":"explore","free"`, unset: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			wire := t.TempDir()
+			t.Setenv("ENGINE_STANDIN_WIRE", wire)
+			args := append([]string{"-engine", "all", "-instantiate", "Plant::tank",
+				"-action", "Plant::Tank::fill Plant::tank", "-check-property", "Plant::Tank::low"}, c.seed...)
+			got := check(t, binary, tankModel, args...)
+			wantReport(t, got, 1, `alpha not covered (engine "alpha" reports holds`)
+			lines := hostLines(t, wire)
+			question := ""
+			for _, line := range lines {
+				if strings.Contains(line, `"method":"run"`) {
+					question = line
+				}
+			}
+			if question == "" {
+				t.Fatalf("no run went to alpha; the host wrote:\n%s", strings.Join(lines, "\n"))
+			}
+			if !strings.Contains(question, c.want) {
+				t.Errorf("the question does not carry %s:\n%s", c.want, question)
+			}
+			if c.unset && strings.Contains(question, "modelSeed") {
+				t.Errorf("the question names a model seed without -seed:\n%s", question)
+			}
+		})
+	}
+}
+
+// hostLines is every line the host wrote to the stand-ins that recorded under dir.
+func hostLines(t *testing.T, dir string) []string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, "*.wire"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			if rest, ok := strings.CutPrefix(line, "< "); ok {
+				lines = append(lines, rest)
+			}
+		}
+	}
+	return lines
 }
 
 // TestProgressGoesToStandardError checks that what an external engine reports while it runs is

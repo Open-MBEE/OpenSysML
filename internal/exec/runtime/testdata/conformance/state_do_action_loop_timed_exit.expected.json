@@ -1,0 +1,40 @@
+{
+    "type": "state",
+    "libraries": true,
+    "exploreBudget": {"runs": 8192},
+    "outcomes": [
+        {
+            "finalState": "heard+finished",
+            "outputs": {
+                "left": { "type": "Integer", "value": 0 },
+                "right": { "type": "Integer", "value": 0 },
+                "late": { "type": "Integer", "value": 1 }
+            }
+        },
+        {
+            "finalState": "heard+finished",
+            "outputs": {
+                "left": { "type": "Integer", "value": 0 },
+                "right": { "type": "Integer", "value": 1 },
+                "late": { "type": "Integer", "value": 1 }
+            }
+        },
+        {
+            "finalState": "heard+finished",
+            "outputs": {
+                "left": { "type": "Integer", "value": 1 },
+                "right": { "type": "Integer", "value": 0 },
+                "late": { "type": "Integer", "value": 1 }
+            }
+        },
+        {
+            "finalState": "heard+finished",
+            "outputs": {
+                "left": { "type": "Integer", "value": 1 },
+                "right": { "type": "Integer", "value": 1 },
+                "late": { "type": "Integer", "value": 1 }
+            }
+        }
+    ],
+    "admissible": "A do step and a dispatch due at one instant: which goes first is open"
+}

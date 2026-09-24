@@ -51,8 +51,14 @@ capability's definition rather than something a client has to guess:
 
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
-| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `query`, `oslc_query`, `document_query`, `render_document`, `schedule` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `apply_edits`, `authoring`, `edit_documents`, `query`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `schedule`, `performer` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
+| how a response is *populated*: `type_facts`, `symbol_attributes`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `edit_documents` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+
+`edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
+and answers `content`, but omits `documents`, `referrers` and each applied edit's `document`;
+a request naming a `document` is refused with `UNIMPLEMENTED`, and a model of several documents
+with `FAILED_PRECONDITION` (a service advertising it refuses such a model the same way when the
+request leaves `accept_documents` unset; see [the wire contract](wire-contract.md)).
 
 `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values` and `infinity_value` sit in both
 rows: a complex — or an array, vector or vector quantity, a bare measurement reference, a calc held as a
@@ -199,7 +205,7 @@ supervisor that already spawns the binary as a child process could reach the ser
 port, which is the question [the evaluation](../internals/design/transport-evaluation.md) asked;
 its answer was to serve clients over a port. Choosing stdio also gives up everything else on this
 page: no reflection, no `/health`, no CORS, no TLS, one client per process. Write a client against
-the default port instead. The prototype is kept behind the flag and tested (`internal/stdiorpc`
+the default port instead. The prototype is kept behind the flag and tested (`internal/frontend/stdiorpc`
 covers the protocol and `cmd/sysml-grpc` covers the binary answering a framed call) so that it
 cannot rot unnoticed while it is still in the tree.
 
@@ -212,8 +218,8 @@ scenario list once per protocol — gRPC, Connect with a protobuf body, Connect 
 
 ```console
 $ make conformance                                    # all three protocols
-$ go run ./cmd/conformance -protocols connect-json    # one of them
-$ go run ./cmd/conformance -transport grpc -protocols grpc
+$ go run -C tools ./cmd/conformance -protocols connect-json    # one of them
+$ go run -C tools ./cmd/conformance -transport grpc -protocols grpc
 ```
 
 The JSON-specific edge cases above (`int64` as a string, the error shape) are exactly what that

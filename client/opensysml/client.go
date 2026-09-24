@@ -111,6 +111,15 @@ type Client interface {
 	// for a named engine, checked before anything is sent.
 	VerifySatisfaction(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Satisfaction, error)
 
+	// ValidateInstance instantiates the part or usage named and checks every
+	// assertion about the object and the objects it holds — asserted constraints
+	// and invariants, the requirements carried, and the satisfaction assertions
+	// whose subjects are inside it — WithEngine naming the engine that answers;
+	// the symbol named is the object validated, so Against is an invalid
+	// argument. Requires the verification capability, and engines for a named
+	// engine, checked before anything is sent.
+	ValidateInstance(ctx context.Context, model *Model, symbolID string, opts ...VerifyOption) (*Validation, error)
+
 	// EvaluateCalc invokes the named calculation with positional arguments, or,
 	// given none, evaluates a calc usage from its own members. Requires the
 	// verification capability, and the complex_values, structured_values,
@@ -146,8 +155,9 @@ type Client interface {
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
 	// RunDocumentQuery runs the named document query, binding its entry
-	// parameters, and answers typed rows. Requires the document_query
-	// capability.
+	// parameters — to elements, scalars, or objects the service holds for the
+	// model since Instantiate (Object) — and answers typed rows. Requires the
+	// document_query capability.
 	RunDocumentQuery(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
 	// RenderDocument renders the named document to Markdown. Requires the
@@ -171,9 +181,19 @@ type Client interface {
 	ConvertSource(ctx context.Context, content string, to Format, opts ...ConvertOption) (*Conversion, error)
 
 	// ApplyEdits answers the model's source with every edit applied, or refuses
-	// them all with an EditError. Requires the apply_edits capability, and a
-	// model of one document.
+	// them all with an EditError. The edits target the model's first document —
+	// its only one when parsed from a file or source — and a rename or cascade
+	// delete follows references into every other document of the model, whose
+	// rewritten notation the result lists. Requires the apply_edits capability;
+	// a model of several documents, and a result listing Documents, the
+	// edit_documents capability too.
 	ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*EditResult, error)
+
+	// ApplyDocumentEdits is ApplyEdits with the edits targeting the document
+	// named as the parse named it; empty names the first. A name the model has
+	// no document under is CodeInvalidArgument. Requires the apply_edits and
+	// edit_documents capabilities.
+	ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error)
 
 	// Close releases what the implementation holds. The Client answers no
 	// further calls: each is refused with CodeUnavailable. Closing twice is
@@ -268,6 +288,7 @@ type caller interface {
 	verifyConstraint(ctx context.Context, req *pb.VerifyConstraintRequest) (*pb.VerifyConstraintResponse, error)
 	verifyRequirement(ctx context.Context, req *pb.VerifyRequirementRequest) (*pb.VerifyRequirementResponse, error)
 	verifySatisfaction(ctx context.Context, req *pb.VerifySatisfactionRequest) (*pb.VerifySatisfactionResponse, error)
+	validateInstance(ctx context.Context, req *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error)
 	evaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest) (*pb.EvaluateCalcResponse, error)
 	runAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (*pb.RunAnalysisResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)

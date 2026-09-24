@@ -1,6 +1,6 @@
 ---
 name: testing-doc-html
-description: How to end-to-end test the sysml HTML document backend (internal/core/docrender/html.go + `-doc-form html`) in a real browser on Linux — the exact CLI invocations, which fixtures exercise which feature, how to prove the CSS-override/cascade-layer contract visually, and the traps that make an HTML render look fine when it is not.
+description: How to end-to-end test the sysml HTML document backend (internal/doc/docrender/html.go + `-doc-form html`) in a real browser on Linux — the exact CLI invocations, which fixtures exercise which feature, how to prove the CSS-override/cascade-layer contract visually, and the traps that make an HTML render look fine when it is not.
 ---
 
 # Testing the HTML document backend
@@ -9,8 +9,8 @@ description: How to end-to-end test the sysml HTML document backend (internal/co
 
 ```bash
 make build                      # bin/sysml
-mkdir -p /tmp/ht && cp internal/core/docrender/testdata/telescope_report.sysml \
-    internal/core/docrender/testdata/linked_reports.sysml /tmp/ht/
+mkdir -p /tmp/ht && cp internal/doc/docrender/testdata/telescope_report.sysml \
+    internal/doc/docrender/testdata/linked_reports.sysml /tmp/ht/
 ```
 
 - `telescope_report.sysml` → document `Observatory::MassReport`. The single best fixture:
@@ -20,8 +20,11 @@ mkdir -p /tmp/ht && cp internal/core/docrender/testdata/telescope_report.sysml \
   names (`baffle|shroud *tricky*`, `<b>&plain</b>`) that double as escaping cases.
 - `linked_reports.sysml` → `Observatory::SystemReport` + `Observatory::Mass Appendix`, the
   cross-document link pair. File names are percent-ish escaped:
-  `Observatory-Mass.20Appendix.html`. See `internal/core/docrender/html_crossdoc_test.go`
+  `Observatory-Mass.20Appendix.html`. See `internal/doc/docrender/html_crossdoc_test.go`
   for the exact expected `href`/anchor shapes.
+- `math_report.sysml` → `Optics::OpticsReport`, the formula fixture: an inline `style = "math"`
+  span next to a prose `$`, a captioned `Formula` block that a `Ref` targets, a display formula
+  containing `\$`, and math list items driven by a query.
 
 ## Invocations that matter
 
@@ -32,6 +35,7 @@ bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html \
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html \
     -html-css theme.css -o report_theme.html      # file is inlined; a URL is <link>ed
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html -html-fragment -o frag.html
+bin/sysml math_report.sysml -render-document Optics::OpticsReport -doc-form html -html-math cdn -o math.html
 bin/sysml m.sysml -render-document Observatory::MassReport -doc-form html -html-no-default-css -o nocss.html
 bin/sysml linked_reports.sysml -render-documents site -doc-form html   # pages + sysml-document.css
 bin/sysml -html-default-css -o default.css                             # no model needed
@@ -49,7 +53,7 @@ network requests. A useful sanity check: DevTools → Network shows exactly **1*
 
 ## Proving the CSS-override contract (the part a weak test misses)
 
-`internal/core/docrender/document.css` wraps everything in `@layer opensysml`, so *any*
+`internal/doc/docrender/document.css` wraps everything in `@layer opensysml`, so *any*
 unlayered reader rule must win regardless of specificity. Test all three mechanisms with a
 sheet that uses **no `!important`**:
 
@@ -71,13 +75,19 @@ rather than shared.
 
 - Mermaid diagrams are emitted as `<pre class="mermaid">` **source**, intentionally. Nothing
   is drawn unless you add a Mermaid script yourself. Not a bug.
+- Formulas likewise stay LaTeX source between `\(…\)`/`\[…\]` in `.sysml-math` elements until
+  `-html-math cdn|<url>` adds MathJax (`MathScriptURL` in `internal/doc/docrender/html.go` pins
+  the release). Typesetting is confined to `.sysml-math` (`processHtmlClass`), so the prose `$`
+  next to the inline formula must stay a literal dollar sign once MathJax has run — that is the
+  check that distinguishes scoped typesetting from a page-wide scan. Loading from the CDN needs
+  network access; without it the page degrades to source, which is expected.
 - A query that matches nothing yields a header-only `<table>` (no `<tbody>`), and an empty
   `List` renders nothing at all. Expect the "Missing Subsystems" section to look bare.
 - Linked-set pages can be short enough to fit the viewport, so a cross-document
   `...#anchor` navigation may not visibly scroll. Verify the anchor's section is on screen
   and the URL fragment matches rather than expecting movement.
 - `-html-default-css -o file` should be byte-identical to
-  `internal/core/docrender/document.css` and to the `sysml-document.css` a set writes;
+  `internal/doc/docrender/document.css` and to the `sysml-document.css` a set writes;
   `cmp` all three.
 - Escaping: build an adversarial model whose titles/cells/captions/link targets contain
   `</script><script>alert(1)</script>`, `"`, `&`, `--></style>`. Everything must appear as

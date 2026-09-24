@@ -2,23 +2,26 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { RenderEdge, RenderNode, RenderResult } from "../protocol";
+import type { AutoLayout } from "./autolayout";
 import {
   anchor,
   GAP,
   insertedWaypoint,
   labelLines,
   layoutCanvas,
+  liftedEdges,
   MARGIN,
   movable,
   movedNode,
   movedWaypoint,
+  nodeUnder,
   overridesOf,
   removedWaypoint,
   shapeOf,
   steerable,
 } from "./layout";
 
-const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } };
+const origin = { uri: "file:///m.sysml", range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } }, digest: "d0" };
 
 function node(id: string, name: string, extra: Partial<RenderNode> = {}): RenderNode {
   return { id, kind: "part", name, type: "", detail: "", fqn: `M::${name}`, origin, ...extra };
@@ -270,6 +273,25 @@ test("movable and steerable need the placeable kind and a declared target", () =
   assert.equal(movable(table, table.nodes.get("a")!), false);
 });
 
+test("movable and steerable take a target another document declares, named or not, and no library's", () => {
+  const foreignOrigin = { ...origin, uri: "file:///work/parts.sysml" };
+  const declaration = { start: { line: 2, character: 4 }, end: { line: 2, character: 30 } };
+  const library = layoutCanvas(rendering([
+    node("a", "a", { declaredHere: true }),
+    node("b", "b", { origin: foreignOrigin }),
+    node("c", "", { fqn: undefined, declaration, origin: foreignOrigin }),
+    node("d", "d", { fqn: undefined, origin: { ...origin, uri: "sysml-stdlib:///Systems%20Library/Parts.sysml" } }),
+  ], [
+    { from: "a", to: "b", label: "", kind: "connection", fqn: "Parts::ab", origin: foreignOrigin },
+    { from: "a", to: "d", label: "", kind: "connection", origin: foreignOrigin },
+  ]));
+  assert.equal(movable(library, library.nodes.get("b")!), true);
+  assert.equal(movable(library, library.nodes.get("c")!), true);
+  assert.equal(movable(library, library.nodes.get("d")!), false);
+  assert.equal(steerable(library, library.edges[0]), true);
+  assert.equal(steerable(library, library.edges[1]), false);
+});
+
 test("movable and steerable accept a target reached by its declaration alone", () => {
   const declaration = { start: { line: 2, character: 4 }, end: { line: 2, character: 30 } };
   const unnamed = layoutCanvas(rendering([node("a", "a"), node("b", "", { fqn: undefined, declaration })], [
@@ -277,6 +299,42 @@ test("movable and steerable accept a target reached by its declaration alone", (
   ]));
   assert.equal(movable(unnamed, unnamed.nodes.get("b")!), true);
   assert.equal(steerable(unnamed, unnamed.edges[0]), true);
+});
+
+test("nodeUnder is the innermost drawn node holding the point, the later sibling of two that overlap", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("c", "c", { x: 250, y: 100, width: 100, height: 50 }),
+    node("d", "d", { x: 600, y: 600, width: 100, height: 50 }),
+  ]));
+  assert.equal(nodeUnder(layout, { x: 10, y: 10 })?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 50, y: 80 })?.node.id, "b");
+  // Where a's and c's boxes overlap, c is drawn later, on top; a border counts as inside.
+  assert.equal(nodeUnder(layout, { x: 280, y: 120 })?.node.id, "c");
+  assert.equal(nodeUnder(layout, { x: 700, y: 650 })?.node.id, "d");
+  assert.equal(nodeUnder(layout, { x: 500, y: 500 }), undefined);
+});
+
+test("nodeUnder passes over the dragged subtree and the children a collapsed node hides", () => {
+  const layout = layoutCanvas(rendering([
+    node("a", "a", { x: 0, y: 0, width: 300, height: 200 }),
+    node("b", "b", { parent: "a", x: 20, y: 60, width: 100, height: 50 }),
+    node("e", "e", { parent: "b", x: 30, y: 80, width: 40, height: 20 }),
+    node("c", "c", { x: 400, y: 0, width: 200, height: 200, collapsed: true }),
+    node("f", "f", { parent: "c", x: 420, y: 50, width: 40, height: 20 }),
+  ]));
+  // The dragged node b is held over its own place: what is under the pointer is its owner.
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 }, "b")?.node.id, "a");
+  assert.equal(nodeUnder(layout, { x: 40, y: 85 })?.node.id, "e");
+  assert.equal(nodeUnder(layout, { x: 430, y: 60 })?.node.id, "c");
+});
+
+test("nodeUnder reads the layout it is given, so a node placed aside no longer covers its old point", () => {
+  const result = rendering([node("a", "a", { x: 0, y: 0, width: 100, height: 50 }), node("b", "b", { x: 200, y: 0, width: 100, height: 50 })]);
+  const shown = layoutCanvas(result, overridesOf(movedNode(layoutCanvas(result), "a", 200, 0)!));
+  assert.equal(nodeUnder(shown, { x: 50, y: 25 }), undefined);
+  assert.equal(nodeUnder(shown, { x: 250, y: 25 }, "a")?.node.id, "b");
 });
 
 test("movedNode writes the dragged node's new position, snapped, and nothing else about it", () => {
@@ -315,6 +373,37 @@ test("movedNode carries the placed descendants and inner routes along, leaving u
   ]);
   // Only the route between two nodes of the moved subtree moves with it.
   assert.deepEqual(placements.edges, [{ index: 0, route: [{ x: 150, y: 50 }] }]);
+});
+
+test("liftedEdges moves an edge within the lifted subtree whole and keeps a crossing edge's waypoints, re-anchored at its lifted end", () => {
+  const layout = layoutCanvas(rendering(
+    [
+      node("a", "a", { x: 0, y: 0 }),
+      node("b", "b", { parent: "a", x: 20, y: 60 }),
+      node("c", "c", { parent: "a" }),
+      node("d", "d"),
+    ],
+    [
+      { from: "b", to: "c", label: "", kind: "connection", fqn: "M::bc", route: [{ x: 50, y: 50 }] },
+      { from: "b", to: "d", label: "", kind: "connection", fqn: "M::bd", route: [{ x: 70, y: 70 }] },
+      { from: "d", to: "d", label: "", kind: "connection", fqn: "M::dd" },
+    ],
+  ));
+  const lifted = liftedEdges(layout, "a", 100, 30);
+  // The edge between two nodes outside the subtree is not touched.
+  assert.deepEqual(lifted.map((edge) => edge.index), [0, 1]);
+  const [inner, crossing] = lifted;
+  const shift = (points: { x: number; y: number }[]) => points.map((p) => ({ x: p.x + 100, y: p.y + 30 }));
+  assert.deepEqual(inner.points, shift(layout.edges[0].points));
+  assert.deepEqual(inner.route, [{ x: 150, y: 80 }]);
+  assert.deepEqual(inner.label, { x: layout.edges[0].label.x + 100, y: layout.edges[0].label.y + 30 });
+  // The crossing edge keeps the model's waypoint and its anchor on d; its anchor on b moves with b.
+  assert.deepEqual(crossing.route, [{ x: 70, y: 70 }]);
+  assert.deepEqual(crossing.points.at(-1), layout.edges[1].points.at(-1));
+  const b = layout.nodes.get("b")!.box;
+  assert.deepEqual(crossing.points[0], anchor({ ...b, x: b.x + 100, y: b.y + 30 }, { x: 70, y: 70 }));
+  // A node the layout does not hold lifts no edge.
+  assert.deepEqual(liftedEdges(layout, "z", 1, 1), []);
 });
 
 test("movedNode refuses a node no Layout can name", () => {
@@ -357,5 +446,43 @@ test("overridesOf previews a gesture: the moved node and route show where the dr
   assert.equal(preview.nodes.get("a")!.pinned, true);
   assert.deepEqual(preview.nodes.get("b")!.box, layout.nodes.get("b")!.box);
   assert.deepEqual(preview.edges[0].route, []);
+  assert.equal(preview.edges[0].points.length, 2);
+});
+
+test("layoutCanvas takes an auto layout's geometry for nodes the model does not place", () => {
+  const auto: AutoLayout = {
+    nodes: new Map([
+      ["a", { x: 100, y: 50, width: 140, height: 60 }],
+      ["b", { x: 300, y: 200, width: 140, height: 60 }],
+      ["c", { x: 500, y: 50, width: 140, height: 60 }],
+    ]),
+    routes: new Map([[0, [{ x: 240, y: 80 }, { x: 300, y: 80 }, { x: 300, y: 200 }, { x: 300, y: 230 }]]]),
+  };
+  const result = rendering(
+    [node("a", "a"), node("b", "b"), node("c", "c", { x: 50, y: 400, width: 90, height: 50 })],
+    [{ from: "a", to: "b", label: "", kind: "connection", fqn: "M::ab" }, { from: "a", to: "c", label: "", kind: "connection", fqn: "M::ac" }],
+  );
+  const layout = layoutCanvas(result, {}, auto);
+  const a = layout.nodes.get("a")!;
+  const b = layout.nodes.get("b")!;
+  const c = layout.nodes.get("c")!;
+  // The auto geometry is honored exactly, but does not pin the node.
+  assert.deepEqual(a.box, { x: 100, y: 50, width: 140, height: 60 });
+  assert.equal(a.pinned, false);
+  assert.equal(b.pinned, false);
+  // The model's geometry wins over the auto layout and stays pinned.
+  assert.deepEqual(c.box, { x: 50, y: 400, width: 90, height: 50 });
+  assert.equal(c.pinned, true);
+  // An edge between two auto-placed nodes follows the auto route verbatim: its
+  // anchors first and last, its inner points the edge's route.
+  assert.deepEqual(layout.edges[0].points, auto.routes.get(0));
+  assert.deepEqual(layout.edges[0].route, auto.routes.get(0)!.slice(1, -1));
+  // An edge at a node the model places is straight, the auto route void at it.
+  assert.equal(layout.edges[1].points.length, 2);
+  assert.deepEqual(layout.edges[1].route, []);
+  // A gesture wins over both, and the pinned end straightens the edge to it.
+  const preview = layoutCanvas(result, overridesOf({ nodes: [{ id: "a", layout: { x: 10, y: 10 } }], edges: [] }), auto);
+  assert.deepEqual([preview.nodes.get("a")!.box.x, preview.nodes.get("a")!.box.y], [10, 10]);
+  assert.equal(preview.nodes.get("a")!.pinned, true);
   assert.equal(preview.edges[0].points.length, 2);
 });

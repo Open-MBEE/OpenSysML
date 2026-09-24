@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "events": [
+    {"signal": "restart", "args": null}
+  ],
+  "finalState": "g1+Grouping+Watching",
+  "stateVisits": ["start", "Outer", "lstart", "rstart", "Grouping", "gstart", "Watching", "g1", "Grouping", "gstart", "g1"],
+  "outputs": {
+    "log": {"type": "Integer", "value": 17342913}
+  }
+}

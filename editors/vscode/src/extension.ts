@@ -2,18 +2,33 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import * as vscode from "vscode";
 import {
+  ClientCapabilities,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
+  StaticFeature,
   TransportKind,
 } from "vscode-languageclient/node";
 
 import { DiagramPanels } from "./diagram";
 import { DocumentRendering } from "./document";
-import { STDLIB_SCHEME } from "./protocol";
+import { CROSS_DOCUMENT_CAPABILITY, STDLIB_SCHEME } from "./protocol";
 import { StdlibDocuments } from "./stdlib";
 
 const EXECUTABLE = process.platform === "win32" ? "sysml-lsp.exe" : "sysml-lsp";
+
+// Tells the server the diagram panel pins another document's declarations to
+// the text they were drawn from, so renderings may name them.
+const crossDocumentFeature: StaticFeature = {
+  fillClientCapabilities(capabilities: ClientCapabilities): void {
+    capabilities.experimental = { ...(capabilities.experimental as object | undefined), [CROSS_DOCUMENT_CAPABILITY]: true };
+  },
+  initialize(): void {},
+  getState() {
+    return { kind: "static" as const };
+  },
+  clear(): void {},
+};
 
 let client: LanguageClient | undefined;
 let output: vscode.OutputChannel;
@@ -36,7 +51,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // The panel is the client of the server's render methods, and is registered
   // only once a server that serves them has started.
-  diagrams = new DiagramPanels(context.extensionUri, output);
+  diagrams = new DiagramPanels(context.extensionUri, output, context.workspaceState);
   documents = new DocumentRendering(output);
   stdlib = new StdlibDocuments(output);
   context.subscriptions.push(
@@ -51,6 +66,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         void restart();
       }
     }),
+    vscode.workspace.onDidGrantWorkspaceTrust(() => void restart()),
   );
 
   await enqueue(startClient);
@@ -81,6 +97,9 @@ async function startClient(): Promise<void> {
     return;
   }
 
+  if (!vscode.workspace.isTrusted) {
+    output.appendLine("Restricted Mode: a sysml-lsp build in the workspace's bin/ is skipped; using a configured or PATH server.");
+  }
   const command = resolveServer(config.get<string>("server.path", "").trim());
   if (!command) {
     void vscode.window.showWarningMessage(
@@ -109,6 +128,7 @@ async function startClient(): Promise<void> {
   };
 
   client = new LanguageClient("opensysml", "SysML v2 Language Server", serverOptions, clientOptions);
+  client.registerFeature(crossDocumentFeature);
   try {
     await client.start();
   } catch (err) {
@@ -136,6 +156,9 @@ async function stopClient(): Promise<void> {
 function resolveServer(configured: string): string | undefined {
   if (configured) {
     return isExecutable(configured) ? configured : undefined;
+  }
+  if (!vscode.workspace.isTrusted) {
+    return onPath(EXECUTABLE);
   }
   for (const folder of vscode.workspace.workspaceFolders ?? []) {
     const candidate = join(folder.uri.fsPath, "bin", EXECUTABLE);

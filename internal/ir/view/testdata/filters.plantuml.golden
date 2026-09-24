@@ -1,0 +1,50 @@
+@startuml
+' FilteredViews::safetyView — tree rendering
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "**Radio**\n<size:10>//«part def»//</size>" as n0 <<part def>>
+class "**Airbag**\n<size:10>//«part def»//</size>" as n1 <<part def>>
+class "**Braking::Brake**\n<size:10>//«part def»//</size>" as n2 <<part def>>
+class "**pad**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>
+n2 -- n3
+@enduml

@@ -133,6 +133,30 @@ class RenderTest(unittest.TestCase):
         for bad in ("1.0", "01.0.0", "1.0.0-", "1.0.0-rc..1", "1.0.0-01", "1.0.0+", "1.0.0 "):
             self.assertIsNone(changelog.VERSION.match(bad), bad)
 
+    def test_summary_lists_one_lead_per_entry_fragments_included(self):
+        (changelog.FRAGMENTS / "a.added.md").write_text(
+            "- **A lead that wraps\n  onto a second line.** The rest, which is not quoted.\n"
+            "  - a nested item\n\n- No bold lead. Second sentence.\n",
+            encoding="utf-8",
+        )
+        (changelog.FRAGMENTS / "b.changed.md").write_text("- `FLAG` is\n  now honored\n", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            changelog.summary()
+        self.assertEqual(
+            out.getvalue(),
+            "### Added\n\n"
+            "- Old added entry.\n"
+            "- A lead that wraps onto a second line.\n"
+            "- No bold lead.\n\n"
+            "### Changed\n\n"
+            "- `FLAG` is now honored\n\n"
+            "### Fixed\n\n"
+            "- Old fixed entry.\n",
+        )
+        self.assertEqual(changelog.CHANGELOG.read_text(encoding="utf-8"), BASE)
+        self.assertEqual(sorted(p.name for p in changelog.FRAGMENTS.iterdir()), ["a.added.md", "b.changed.md"])
+
     def test_release_heads_the_unreleased_entries_with_the_version(self):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(changelog.release("v0.5.0", "2026-09-04"), 0)

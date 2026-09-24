@@ -2,15 +2,23 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/core/project"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
 // deprecatedFlag rejects a flag that has been replaced, so the old spelling
@@ -30,67 +38,248 @@ func (f *deprecatedFlag) Set(string) error { return errors.New(f.instead) }
 //
 // A SysML v1 model (-from xmi, or a .xmi/.uml/.mdzip file) is migrated to v2 on the
 // way in; see writeMigrationReport for where its report goes.
-func runConvert(files []string) error {
+//
+// Either side may name a Flexo branch URL instead of a file: read as its RDF
+// graph, or the place a Turtle conversion is pushed.
+func runConvertExit(files []string) int {
+	status, err := runConvert(files)
+	if err != nil {
+		return fail(err)
+	}
+	return status
+}
+
+func runConvert(files []string) (int, error) {
 	to, err := parseTargetFormat(convertFormat)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(files) == 0 {
-		return errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
+		return 0, errors.New("no model to convert; name the file to convert, as `sysml model.sysml -convert ttl`")
 	}
 	if len(files) > 1 {
-		return fmt.Errorf("-convert converts one file; unexpected extra argument %q", files[1])
+		return 0, fmt.Errorf("-convert converts one file; unexpected extra argument %q", files[1])
 	}
 	input := files[0]
 
+	// A run asked to record puts the records in the session's buffer rather than
+	// in the file, so what is converted is that buffer's text, as %save writes it.
+	if len(modelChecks.records) > 0 {
+		if err := recordedConvertMisuse(input); err != nil {
+			return 0, err
+		}
+		return convertRecorded(input, to)
+	}
+
+	inputRef, inputIsURL, err := flexo.ParseBranchURL(input)
+	if err != nil {
+		return 0, err
+	}
+	outputRef := flexo.BranchRef{}
+	outputIsURL := false
+	if outputPath != "" {
+		if outputRef, outputIsURL, err = flexo.ParseBranchURL(outputPath); err != nil {
+			return 0, err
+		}
+	}
+	switch {
+	case inputIsURL && outputIsURL:
+		return 0, errors.New("a repository branch can be read or pushed in one run, not both; write the branch to a file, or convert a file to the branch")
+	case outputIsURL:
+		return pushBranch(input, to, outputRef)
+	case inputIsURL:
+		return readBranch(inputRef, to)
+	}
+	if syncState != "" {
+		return 0, fmt.Errorf("-sync-state records a repository branch's head; neither %s nor -o names a branch", input)
+	}
+
 	from, err := resolveFormat(fromFormat, input)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	name, data, err := project.ReadFile(input)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Reported before the conversion, so a refusal carries it too, and on stderr,
 	// where it cannot land in the converted model written to stdout.
-	for _, notice := range export.Notices(from, to) {
+	for _, notice := range convert.Notices(from, to) {
 		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
 	}
-	if migrationReport != "" && from != export.FormatXMI {
-		return fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	if migrationReport != "" && from != convert.FormatXMI {
+		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	}
 	if migrationReport != "" && outputPath != "" && samePath(migrationReport, outputPath) {
-		return fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
+		return 0, fmt.Errorf("-migration-report and -o both name %s; the report would be replaced by the model", outputPath)
 	}
 	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
-		return fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+		return 0, fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	}
+	if err := migrationResultsMisuse(from, input); err != nil {
+		return 0, err
+	}
+	if err := layoutMisuse(from, input); err != nil {
+		return 0, err
 	}
 	// A v2 model may be rewritten in place; a v1 model would be lost.
-	if from == export.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
-		return fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
+	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
+		return 0, fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
 	}
-	var out []byte
-	if from == export.FormatXMI {
-		var report *migrate.Report
-		out, report, err = export.Migrate(name, data, to)
-		if err != nil {
-			return err
-		}
-		if err := writeMigrationReport(report); err != nil {
-			return err
-		}
-	} else {
-		out, err = export.Convert(name, data, from, to)
-		if err != nil {
-			return err
-		}
+	out, err := convertInput(name, data, from, to)
+	if err != nil {
+		return 0, err
 	}
 	if outputPath == "" {
 		_, err := os.Stdout.Write(out)
+		return exitHolds, err
+	}
+	if err := writeConversion(outputPath, out, to); err != nil {
+		return 0, err
+	}
+	return exitHolds, nil
+}
+
+// convertInput runs the conversion the input format asks for: a SysML v1 model
+// is migrated and its report written, anything else converted.
+func convertInput(name string, data []byte, from, to convert.Format) ([]byte, error) {
+	opts, err := convertOptions(from, to)
+	if err != nil {
+		return nil, err
+	}
+	if from != convert.FormatXMI {
+		return convert.ConvertWith(name, data, from, to, opts)
+	}
+	migOpts, err := migrationOptions()
+	if err != nil {
+		return nil, err
+	}
+	migrated, err := convert.Migrate(name, data, to, migOpts)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeMigrationReport(migrated.Report); err != nil {
+		return nil, err
+	}
+	if err := writeMigrationResults(migrated.Results); err != nil {
+		return nil, err
+	}
+	return migrated.Output, nil
+}
+
+// recordedConvertMisuse is why a flag cannot share the run -record-run
+// converts: what is converted is the session the records join, not a file
+// migrated or a branch read or pushed.
+func recordedConvertMisuse(input string) error {
+	inRef, inputIsURL, err := flexo.ParseBranchURL(input)
+	if err != nil {
 		return err
 	}
-	replaced, err := export.WriteFile(outputPath, out)
+	if inputIsURL {
+		return fmt.Errorf("-record-run converts the recorded session model; a repository branch is not an input it reads (%s)", inRef)
+	}
+	if outputPath != "" {
+		outRef, outputIsURL, err := flexo.ParseBranchURL(outputPath)
+		if err != nil {
+			return err
+		}
+		if outputIsURL {
+			return fmt.Errorf("-record-run converts the recorded session model; -o cannot push it to a repository branch (%s)", outRef)
+		}
+	}
+	switch {
+	case syncState != "":
+		return errors.New("-record-run converts the recorded session model; -sync-state does not apply")
+	case migrationReport != "":
+		return errors.New("-record-run converts the recorded session model; -migration-report does not apply")
+	case migrationResults != "":
+		return errors.New("-record-run converts the recorded session model; -migration-results does not apply")
+	case layoutPath != "":
+		return errors.New("-record-run converts the recorded session model; -layout does not apply")
+	}
+	return nil
+}
+
+// convertRecorded loads the file, makes the runs -record-run names so the
+// records join the session's buffer, and converts that text; a load that did
+// not analyse or a run that failed converts nothing.
+func convertRecorded(input string, to convert.Format) (int, error) {
+	if fromFormat != "" && fromFormat != "sysml" {
+		return 0, fmt.Errorf("-record-run records into SysML notation; -from %s does not apply", fromFormat)
+	}
+	sess := newSession()
+	report, err := sess.LoadPathsReport([]string{input})
+	if err != nil {
+		return 0, err
+	}
+	writeLines(os.Stderr, report.Loaded)
+	writeLines(os.Stderr, report.Found)
+	writeLines(os.Stderr, report.Declared)
+	if report.Errors {
+		return 0, fmt.Errorf("%s did not analyse cleanly; nothing was converted", input)
+	}
+	// The objects -instantiate names are materialized first, so a run named on
+	// one has it to record.
+	for _, name := range modelChecks.instantiate {
+		created, err := sess.InstantiateReport(name)
+		if err != nil {
+			return 0, err
+		}
+		writeLines(os.Stderr, created.Lines)
+		if len(created.FeatureValueErrors) > 0 {
+			writeLines(os.Stderr, created.FeatureValueErrors)
+			return 0, fmt.Errorf("%s did not materialize cleanly; nothing was converted", name)
+		}
+	}
+	for _, invocation := range modelChecks.records {
+		verdict := modelChecks.record(sess, invocation)
+		writeLines(os.Stderr, verdict.Lines)
+		if verdict.Status != repl.VerdictHolds {
+			return 0, fmt.Errorf("%s: the run was not recorded; nothing was converted", invocation)
+		}
+	}
+	opts, err := convertOptions(convert.FormatSysML, to)
+	if err != nil {
+		return 0, err
+	}
+	out, tolerated, err := convert.ConvertTolerantWith(repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to, opts)
+	if err != nil {
+		return 0, err
+	}
+	if tolerated != nil {
+		for _, line := range strings.Split("warning: "+tolerated.Error(), "\n") {
+			fmt.Fprintln(os.Stderr, line)
+		}
+	}
+	if outputPath != "" {
+		return exitHolds, writeConversion(outputPath, out, to)
+	}
+	_, err = os.Stdout.Write(out)
+	return exitHolds, err
+}
+
+// convertOptions are the conversion settings -id asks for, refusing it for a
+// direction it does not apply to.
+func convertOptions(from, to convert.Format) (convert.Options, error) {
+	opts := convert.Options{}
+	if idForm == "" {
+		return opts, nil
+	}
+	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
+		return opts, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
+	}
+	form, ok := export.ParseIDForm(idForm)
+	if !ok {
+		return opts, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
+	}
+	opts.ID = form
+	return opts, nil
+}
+
+// writeConversion writes converted output to a file and reports it.
+func writeConversion(path string, out []byte, to convert.Format) error {
+	replaced, err := export.WriteFile(path, out)
 	if err != nil {
 		return err
 	}
@@ -98,7 +287,237 @@ func runConvert(files []string) error {
 	if replaced {
 		what = ", replaced the existing file"
 	}
-	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", outputPath, to, len(out), what)
+	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, to, len(out), what)
+	return nil
+}
+
+// openBranch resolves a branch URL's repository under the shared bearer token;
+// an http(s) form naming another endpoint would split reads and writes across stacks.
+func openBranch(ref flexo.BranchRef) (*flexo.Repository, flexo.Config, error) {
+	cfg, err := flexo.ConfigFromEnv()
+	if err != nil {
+		return nil, flexo.Config{}, fmt.Errorf("a repository branch needs its bearer token: %w", err)
+	}
+	if ref.SysMLV2URL != "" && !flexo.SameEndpoint(ref.SysMLV2URL, cfg.SysMLV2URL) {
+		return nil, flexo.Config{}, fmt.Errorf("%s names a SysML v2 endpoint other than the configured %s (%s); point %s and %s at that stack together, or write flexo://%s/%s",
+			ref.SysMLV2URL, cfg.SysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvSysMLV2URL, flexo.EnvLayer1URL, ref.Project, ref.Branch)
+	}
+	if err := cfg.CheckTransport(); err != nil {
+		return nil, flexo.Config{}, err
+	}
+	return flexo.New(cfg).Repository(ref.Project, ref.Branch), cfg, nil
+}
+
+// readBranch converts a repository branch to -convert's format: the branch is
+// read as its head commit's RDF graph.
+func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
+	if fromFormat != "" {
+		if f, err := convert.ParseFormat(fromFormat); err != nil {
+			return 0, err
+		} else if f != convert.FormatTurtle {
+			return 0, fmt.Errorf("a repository branch is read as its RDF graph; -from %s does not apply", fromFormat)
+		}
+	}
+	for _, notice := range convert.Notices(convert.FormatTurtle, to) {
+		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
+	}
+	if migrationReport != "" {
+		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if migrationResults != "" {
+		return 0, fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	if layoutPath != "" {
+		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
+	repo, cfg, err := openBranch(ref)
+	if err != nil {
+		return 0, err
+	}
+	// Resolve and check the state file before anything is written: -o must
+	// never replace it, and a state pinned elsewhere refuses first.
+	statePath := syncState
+	if statePath == "" && outputPath != "" {
+		statePath = reposync.StatePath(outputPath)
+	}
+	if statePath != "" && outputPath != "" && samePath(statePath, outputPath) {
+		return 0, fmt.Errorf("-o and -sync-state both name %s; the model would replace the recorded commit", outputPath)
+	}
+	var state *reposync.State
+	if statePath != "" {
+		if state, err = reposync.LoadState(statePath); err != nil {
+			return 0, err
+		}
+	}
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
+	if state != nil {
+		if err := state.Check(scope); err != nil {
+			return 0, err
+		}
+	}
+	graph, err := repo.Graph(context.Background())
+	if err != nil {
+		return failRepository(fmt.Errorf("read the repository: %w", err)), nil
+	}
+	out, err := convert.FromGraph(graph, to)
+	if err != nil {
+		return 0, err
+	}
+	if outputPath == "" {
+		if _, err := os.Stdout.Write(out); err != nil {
+			return 0, err
+		}
+	} else if err := writeConversion(outputPath, out, to); err != nil {
+		return 0, err
+	}
+	if statePath == "" {
+		return exitHolds, nil
+	}
+	return recordBranchState(repo.Seen(), state, scope, statePath)
+}
+
+// pushBranch replaces a branch's model graph with the model converted to
+// Turtle; a sync state the head moved past refuses the write.
+func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, error) {
+	if to != convert.FormatTurtle {
+		return 0, fmt.Errorf("a repository branch holds a graph; convert to ttl to push, not %s", to)
+	}
+	statePath := syncState
+	if statePath == "" {
+		if project.IsStdin(input) {
+			return 0, errors.New("a push records the commit it makes beside the model; with the model on stdin, name the state file with -sync-state")
+		}
+		statePath = reposync.StatePath(input)
+	}
+	if migrationReport != "" && input != "-" && samePath(migrationReport, input) {
+		return 0, fmt.Errorf("-migration-report names the model being migrated, %s; the report would replace it", input)
+	}
+	if migrationReport != "" && samePath(migrationReport, statePath) {
+		return 0, fmt.Errorf("-migration-report and the sync state both name %s; the report would be replaced by the recorded commit", statePath)
+	}
+	if migrationResults != "" && samePath(migrationResults, statePath) {
+		return 0, fmt.Errorf("-migration-results and the sync state both name %s; the results would be replaced by the recorded commit", statePath)
+	}
+	repo, cfg, err := openBranch(ref)
+	if err != nil {
+		return 0, err
+	}
+	scope := reposync.Scope{Org: cfg.Org, ProjectID: ref.Project, Branch: ref.Branch}
+	state, err := reposync.LoadState(statePath)
+	if err != nil {
+		return 0, err
+	}
+	if state != nil {
+		if err := state.Check(scope); err != nil {
+			return 0, err
+		}
+		repo.Resume(state.LastSeenCommit)
+	}
+	from, err := resolveFormat(fromFormat, input)
+	if err != nil {
+		return 0, err
+	}
+	name, data, err := project.ReadFile(input)
+	if err != nil {
+		return 0, err
+	}
+	for _, notice := range convert.Notices(from, to) {
+		fmt.Fprintf(os.Stderr, "note: %s\n", notice)
+	}
+	if migrationReport != "" && from != convert.FormatXMI {
+		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	}
+	if err := migrationResultsMisuse(from, input); err != nil {
+		return 0, err
+	}
+	if err := layoutMisuse(from, input); err != nil {
+		return 0, err
+	}
+	out, err := convertInput(name, data, from, to)
+	if err != nil {
+		return 0, err
+	}
+	head, err := repo.Push(context.Background(), out, "sysml -convert ttl")
+	if err != nil {
+		var stale *flexo.StaleBranchError
+		var unrecorded *flexo.UnrecordedPushError
+		var superseded *flexo.SupersededPushError
+		switch {
+		case errors.As(err, &stale):
+			fmt.Fprintf(os.Stderr, "%srefused to push: %v\n", commandPrefix, err)
+			return exitFailed, nil
+		case errors.As(err, &unrecorded), errors.As(err, &superseded):
+			fmt.Fprintf(os.Stderr, "%s%v\n", commandPrefix, err)
+			return exitFailed, nil
+		}
+		return failRepository(fmt.Errorf("push to the repository: %w", err)), nil
+	}
+	if state == nil {
+		state = &reposync.State{}
+	}
+	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = cfg.Org, ref.Project, ref.Branch, head
+	if err := state.Save(statePath); err != nil {
+		return 0, fmt.Errorf("pushed %d bytes of Turtle as commit %s, but could not record it: %w", len(out), head, err)
+	}
+	fmt.Fprintf(os.Stderr, "pushed %d bytes of Turtle to branch %s of %s; head commit %s recorded in %s\n",
+		len(out), ref.Branch, ref.Project, head, statePath)
+	return exitHolds, nil
+}
+
+// recordBranchState writes the head commit the run stood at to the sync state
+// file, over the state already loaded and checked for this scope.
+func recordBranchState(head string, state *reposync.State, scope reposync.Scope, statePath string) (int, error) {
+	if head == "" {
+		return exitHolds, nil
+	}
+	if state != nil && state.Scope() == scope && state.LastSeenCommit == head {
+		return exitHolds, nil
+	}
+	if state == nil {
+		state = &reposync.State{}
+	}
+	state.Org, state.ProjectID, state.Branch, state.LastSeenCommit = scope.Org, scope.ProjectID, scope.Branch, head
+	if err := state.Save(statePath); err != nil {
+		return 0, fmt.Errorf("could not record head commit %s: %w", head, err)
+	}
+	fmt.Fprintf(os.Stderr, "head commit %s recorded in %s\n", head, statePath)
+	return exitHolds, nil
+}
+
+// migrationOptions reads the -layout MTIP export into the migration's
+// options; none were given when the flag was not passed.
+func migrationOptions() (migrate.Options, error) {
+	if layoutPath == "" {
+		return migrate.Options{}, nil
+	}
+	data, err := os.ReadFile(layoutPath)
+	if err != nil {
+		return migrate.Options{}, err
+	}
+	layout, err := mtip.Parse(data)
+	if err != nil {
+		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
+	}
+	return migrate.Options{Layout: layout, LayoutSource: layoutPath}, nil
+}
+
+// layoutMisuse reports why -layout augments nothing: a v2 input has no
+// migration to lay out, and the export must not name a file the run rewrites.
+func layoutMisuse(from convert.Format, input string) error {
+	switch {
+	case layoutPath == "":
+		return nil
+	case from != convert.FormatXMI:
+		return fmt.Errorf("-layout augments a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	case outputPath != "" && samePath(layoutPath, outputPath):
+		return fmt.Errorf("-layout and -o both name %s; the model would replace the layout export", outputPath)
+	case migrationReport != "" && samePath(layoutPath, migrationReport):
+		return fmt.Errorf("-layout and -migration-report both name %s; the report would replace the layout export", migrationReport)
+	case migrationResults != "" && samePath(layoutPath, migrationResults):
+		return fmt.Errorf("-layout and -migration-results both name %s; the results would replace the layout export", migrationResults)
+	case input != "-" && samePath(layoutPath, input):
+		return fmt.Errorf("-layout names the model being migrated, %s; the migration would replace it", input)
+	}
 	return nil
 }
 
@@ -121,6 +540,41 @@ func writeMigrationReport(report *migrate.Report) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "wrote %s (migration report: %s)\n", migrationReport, report.Summary())
+	return nil
+}
+
+// migrationResultsMisuse reports why -migration-results writes nothing: a v2 input
+// has no tool results to index, and the sidecar must not replace the model or report.
+func migrationResultsMisuse(from convert.Format, input string) error {
+	switch {
+	case migrationResults == "":
+		return nil
+	case from != convert.FormatXMI:
+		return fmt.Errorf("-migration-results indexes the result snapshots of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	case outputPath != "" && samePath(migrationResults, outputPath):
+		return fmt.Errorf("-migration-results and -o both name %s; the results would be replaced by the model", outputPath)
+	case migrationReport != "" && samePath(migrationResults, migrationReport):
+		return fmt.Errorf("-migration-results and -migration-report both name %s; the results would be replaced by the report", migrationReport)
+	case input != "-" && samePath(migrationResults, input):
+		return fmt.Errorf("-migration-results names the model being migrated, %s; the results would replace it", input)
+	}
+	return nil
+}
+
+// writeMigrationResults writes the result snapshots the migration indexed to the
+// -migration-results file as JSON, for -compare-results to read against the migrated model.
+func writeMigrationResults(results *simresults.Results) error {
+	if migrationResults == "" {
+		return nil
+	}
+	body, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return err
+	}
+	if _, err := export.WriteFile(migrationResults, append(body, '\n')); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s (%s)\n", migrationResults, results.Summary())
 	return nil
 }
 
@@ -167,13 +621,13 @@ func resolvePath(path string) (string, error) {
 
 // parseTargetFormat resolves the -convert value, explaining the flag when a file
 // name was passed where a format belongs — the spelling this flag used to take.
-func parseTargetFormat(value string) (export.Format, error) {
-	f, err := export.ParseFormat(value)
+func parseTargetFormat(value string) (convert.Format, error) {
+	f, err := convert.ParseFormat(value)
 	if err != nil && namesAFile(value) {
 		return 0, fmt.Errorf("%w; -convert names the format to convert to, so write `sysml %s -convert ttl`", err, value)
 	}
 	if err == nil && !f.Writable() {
-		return 0, &export.NotWritableError{Format: f}
+		return 0, &convert.NotWritableError{Format: f}
 	}
 	return f, err
 }
@@ -190,13 +644,13 @@ func namesAFile(value string) bool {
 // resolveFormat returns the format named by the flag, or the one the path's
 // extension implies. Standard input carries no extension to read it from, so
 // -from is the only thing that can name its format.
-func resolveFormat(flagValue, path string) (export.Format, error) {
+func resolveFormat(flagValue, path string) (convert.Format, error) {
 	if flagValue != "" {
-		return export.ParseFormat(flagValue)
+		return convert.ParseFormat(flagValue)
 	}
 	if project.IsStdin(path) {
 		return 0, errors.New("standard input carries no file name to take the format from; name it with -from, as `-from sysml`")
 	}
-	f, err := export.FormatOfPath(path)
-	return f, export.Advise(err, "pass -from, or "+export.ExtensionAdvice)
+	f, err := convert.FormatOfPath(path)
+	return f, convert.Advise(err, "pass -from, or "+convert.ExtensionAdvice)
 }

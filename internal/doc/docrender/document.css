@@ -1,0 +1,155 @@
+/* The default OpenSysML document stylesheet. Every value comes from a
+   --sysml-* token on .sysml-document, and the whole sheet is in the
+   opensysml cascade layer, so unlayered reader CSS overrides it without
+   specificity fights or !important. */
+@layer opensysml;
+
+@layer opensysml {
+  .sysml-document {
+    --sysml-font-body: system-ui, sans-serif;
+    --sysml-font-mono: ui-monospace, monospace;
+    --sysml-font-size: 1rem;
+    --sysml-line-height: 1.55;
+    --sysml-measure: 42rem;
+    --sysml-space: 1rem;
+    --sysml-space-tight: 0.35rem;
+    --sysml-text: #16191d;
+    --sysml-muted: #5a6472;
+    --sysml-accent: #1f4e79;
+    --sysml-rule: #cfd6de;
+    --sysml-surface: #f4f6f8;
+    --sysml-cell-padding: 0.35rem 0.6rem;
+    --sysml-code-font-size: 0.9em;
+    --sysml-caption-font-size: 0.9em;
+    --sysml-border-width: 1px;
+    --sysml-table-width: 100%;
+    --sysml-title-page-height: 60vh;
+    --sysml-group-heading-weight: 600;
+    --sysml-term-weight: 600;
+    --sysml-formula-align: center;
+
+    box-sizing: border-box;
+    max-width: var(--sysml-measure);
+    margin: var(--sysml-space) auto;
+    padding: 0 var(--sysml-space);
+    font-family: var(--sysml-font-body);
+    font-size: var(--sysml-font-size);
+    line-height: var(--sysml-line-height);
+    color: var(--sysml-text);
+  }
+
+  .sysml-document .sysml-title {
+    color: var(--sysml-accent);
+  }
+
+  .sysml-document .sysml-title-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: var(--sysml-title-page-height);
+    text-align: center;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .sysml-document .sysml-section-number {
+    color: var(--sysml-muted);
+    margin-right: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-toc ol {
+    list-style: none;
+    padding-left: var(--sysml-space);
+  }
+
+  .sysml-document .sysml-toc > ol {
+    padding-left: 0;
+  }
+
+  .sysml-document .sysml-toc a {
+    color: inherit;
+  }
+
+  .sysml-document .sysml-paragraph {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-table {
+    border-collapse: collapse;
+    width: var(--sysml-table-width);
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    border: var(--sysml-border-width) solid var(--sysml-rule);
+    padding: var(--sysml-cell-padding);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .sysml-document .sysml-table thead th {
+    background: var(--sysml-surface);
+  }
+
+  .sysml-document .sysml-group-heading th {
+    background: var(--sysml-surface);
+    color: var(--sysml-muted);
+    font-weight: var(--sysml-group-heading-weight);
+  }
+
+  .sysml-document .sysml-caption {
+    color: var(--sysml-muted);
+    font-size: var(--sysml-caption-font-size);
+    text-align: left;
+  }
+
+  .sysml-document .sysml-list {
+    margin: var(--sysml-space) 0;
+    padding-left: var(--sysml-space);
+  }
+
+  .sysml-document .sysml-definitions {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-entry {
+    margin: var(--sysml-space-tight) 0;
+  }
+
+  .sysml-document .sysml-term {
+    font-weight: var(--sysml-term-weight);
+  }
+
+  .sysml-document .sysml-description {
+    margin: 0 0 0 var(--sysml-space);
+  }
+
+  .sysml-document .sysml-diagram {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-formula {
+    margin: var(--sysml-space) 0;
+    text-align: var(--sysml-formula-align);
+  }
+
+  .sysml-document .sysml-formula .sysml-math {
+    overflow-x: auto;
+  }
+
+  .sysml-document .sysml-diagram pre {
+    overflow-x: auto;
+    font-family: var(--sysml-font-mono);
+  }
+
+  .sysml-document code {
+    font-family: var(--sysml-font-mono);
+    font-size: var(--sysml-code-font-size);
+  }
+
+  .sysml-document .sysml-link,
+  .sysml-document .sysml-ref {
+    color: var(--sysml-accent);
+  }
+}

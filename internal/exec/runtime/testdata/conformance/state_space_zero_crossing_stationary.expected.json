@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "libraries": true,
+  "evaluate": "test::Gauge::counter",
+  "performers": [
+    {
+      "object": "test::gauge",
+      "finalState": "settled",
+      "stateVisits": ["idle", "once", "settled"]
+    }
+  ]
+}

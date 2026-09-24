@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 // Capability names a client can require of a ServerInfo, re-stated from the
@@ -25,6 +25,7 @@ const (
 	CapabilityFeatureValues        = sysmlgrpc.CapabilityFeatureValues
 	CapabilityApplyEdits           = sysmlgrpc.CapabilityApplyEdits
 	CapabilityAuthoring            = sysmlgrpc.CapabilityAuthoring
+	CapabilityEditDocuments        = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage       = sysmlgrpc.CapabilityInlineLanguage
 	CapabilityStrictConformance    = sysmlgrpc.CapabilityStrictConformance
 	CapabilityParseSources         = sysmlgrpc.CapabilityParseSources
@@ -41,6 +42,7 @@ const (
 	CapabilityVerificationVerdicts = sysmlgrpc.CapabilityVerificationVerdicts
 	CapabilityCaseEvaluations      = sysmlgrpc.CapabilityCaseEvaluations
 	CapabilityFinalTime            = sysmlgrpc.CapabilityFinalTime
+	CapabilityPerformer            = sysmlgrpc.CapabilityPerformer
 	CapabilityEngines              = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue    = sysmlgrpc.CapabilityUndeterminedValue
 )

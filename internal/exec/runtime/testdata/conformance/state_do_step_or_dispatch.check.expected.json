@@ -1,0 +1,12 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did stop \"",
+			"\"stop \""
+		]
+	},
+	"agreed": {
+		"finalState": "idle"
+	}
+}

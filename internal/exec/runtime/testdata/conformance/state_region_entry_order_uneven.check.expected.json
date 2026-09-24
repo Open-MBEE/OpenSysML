@@ -1,0 +1,13 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"left(entry) right(entry) r(entry) \"",
+			"\"right(entry) left(entry) r(entry) \"",
+			"\"right(entry) r(entry) left(entry) \""
+		]
+	},
+	"agreed": {
+		"finalState": "l+r"
+	}
+}

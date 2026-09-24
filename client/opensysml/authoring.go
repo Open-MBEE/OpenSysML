@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
@@ -9,10 +10,11 @@ import (
 // Format is a representation a model is written in or read from.
 type Format string
 
-// The formats conversion accepts. There are two canonical ones, FormatSysML and
-// FormatTTL, and a Conversion answers by those names whichever alias was asked
-// for. RDF, in any spelling, is an experimental mapping, which a Conversion
-// reports.
+// The formats conversion accepts. There are three canonical ones that are
+// written, FormatSysML, FormatTTL and FormatAPIJSON, and a Conversion answers by
+// those names whichever alias was asked for. RDF and the API's JSON element form,
+// in any spelling, are one experimental mapping, which a Conversion reports; so
+// is migration from FormatXMI, which is only ever read.
 const (
 	FormatSysML Format = "sysml"
 	FormatTTL   Format = "ttl"
@@ -22,8 +24,15 @@ const (
 	FormatText  Format = "text"
 	// FormatTurtle and FormatRDF are aliases of FormatTTL, the one RDF
 	// serialization written.
-	FormatTurtle Format = "turtle"
-	FormatRDF    Format = "rdf"
+	FormatTurtle  Format = "turtle"
+	FormatRDF     Format = "rdf"
+	FormatAPIJSON Format = "api-json"
+	// FormatJSON is an alias of FormatAPIJSON, the OMG API's JSON element
+	// form of the same graph FormatTTL writes.
+	FormatJSON Format = "json"
+	// FormatXMI is SysML v1 as UML XMI, an Eclipse UML2 .uml file or a .mdzip
+	// archive, migrated to v2 on the way in. Asking to write it is refused.
+	FormatXMI Format = "xmi"
 )
 
 // ConvertOption configures Convert and ConvertFile.
@@ -57,8 +66,8 @@ type Conversion struct {
 	// inferred learns what it was inferred as.
 	From Format
 	To   Format
-	// Experimental is set when either format is RDF, whose vocabulary may change
-	// without a compatibility path.
+	// Experimental is set when either format is RDF or the API's JSON form, or the
+	// source is SysML v1: mappings that may change without a compatibility path.
 	Experimental bool
 	// ExperimentalNotice says what is experimental about the conversion, empty
 	// when it is not.
@@ -226,6 +235,9 @@ const (
 	EditFailureDeleteReferenced  EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_DELETE_REFERENCED)
 	EditFailureOwnerInsideTarget EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_OWNER_INSIDE_TARGET)
 	EditFailureMoveReferenced    EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_MOVE_REFERENCED)
+	// EditFailureReferencedElsewhere is a rename, delete or move of a declaration
+	// referred to from a document the edit cannot rewrite, such as a library.
+	EditFailureReferencedElsewhere EditFailure = EditFailure(pb.EditFailure_EDIT_FAILURE_REFERENCED_ELSEWHERE)
 )
 
 // String names the refusal as the wire enum spells it.
@@ -235,13 +247,35 @@ func (f EditFailure) String() string {
 
 // EditResult is a model's source with every edit applied.
 type EditResult struct {
-	// Content is the edited notation, byte-identical to the source outside the
-	// edited spans.
+	// Content is the edited notation of a single-document model, byte-identical
+	// to the source outside the edited spans. Empty for a model of several
+	// documents, whose notation is in Documents alone.
+	//
+	// Deprecated: read Documents, which carries the same notation for a model of
+	// one document and every rewritten document of a model of several, from a
+	// service advertising the edit_documents capability.
 	Content string
-	// Applied says what each edit changed, in request order.
+	// Documents is the edited notation of every document the edits rewrote: the
+	// edited document first when it is among them, then the others in name order.
+	// A single-document model's one document is always listed; a document of
+	// several the edits left as parsed is not. Empty, with Content filled, from a
+	// service without the edit_documents capability, which edits one document alone.
+	Documents []EditedDocument
+	// Applied says what each edit changed, grouped by document in the order
+	// Documents lists them and in request order within a document.
 	Applied []AppliedEdit
 	// Diagnostics the edited source was found to have, when any.
 	Diagnostics []Diagnostic
+}
+
+// EditedDocument is the edited notation of one document of a model.
+type EditedDocument struct {
+	// Name is the document's name as the parse gave it: a File's path, a
+	// Document's Name, or the position of an inline document named neither.
+	Name string
+	// Content is the edited notation, byte-identical to the source outside the
+	// edited spans.
+	Content string
 }
 
 // AppliedEdit is one byte range of the original source an edit replaced.
@@ -250,6 +284,8 @@ type AppliedEdit struct {
 	Index int
 	// Target is the element edited, as the request named it.
 	Target string
+	// Document is the document the bytes belong to, named as in EditedDocument.
+	Document string
 	// Offset and Length are the bytes replaced; Length is zero for an insertion.
 	Offset int
 	Length int
@@ -258,12 +294,48 @@ type AppliedEdit struct {
 	NewText string
 }
 
+// Referrer is one declaration referring to the target of a refused rename,
+// delete or move, with the document declaring it.
+type Referrer struct {
+	// Name is the referring declaration, as the notation names it.
+	Name string
+	// Document is the document declaring it, named as in EditedDocument.
+	Document string
+}
+
 func (c *client) ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*EditResult, error) {
+	return c.ApplyDocumentEdits(ctx, model, "", edits...)
+}
+
+// requireEditDocuments refuses to send a document name to a service without
+// the edit_documents capability, which would ignore it and edit its sole document.
+func (c *client) requireEditDocuments(ctx context.Context, document string) error {
+	if document == "" {
+		return nil
+	}
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	if !info.Has(CapabilityEditDocuments) {
+		return &StatusError{
+			Code:    CodeUnimplemented,
+			Message: fmt.Sprintf("capability %q is unavailable", CapabilityEditDocuments),
+		}
+	}
+	return nil
+}
+
+func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.ApplyEditsRequest{ModelHash: hash}
+	if err := c.requireEditDocuments(ctx, document); err != nil {
+		return nil, err
+	}
+	// This client reads Documents, so a model of several documents may be edited.
+	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
 	for _, edit := range edits {
 		operation, err := editToProto(edit)
 		if err != nil {
@@ -281,20 +353,36 @@ func (c *client) ApplyEdits(ctx context.Context, model *Model, edits ...Edit) (*
 			FailureError: FailureError{Op: "ApplyEdits", Message: resp.Error, Diagnostics: diagnostics},
 			Failure:      EditFailure(resp.Failure),
 			Referring:    append([]string(nil), resp.ReferringElements...),
+			Referrers:    referrersFromProto(resp.Referrers),
 		}
 	}
 	result := &EditResult{Content: resp.Content, Diagnostics: diagnostics}
+	for _, doc := range resp.Documents {
+		result.Documents = append(result.Documents, EditedDocument{Name: doc.Name, Content: doc.Content})
+	}
 	for _, applied := range resp.Applied {
 		result.Applied = append(result.Applied, AppliedEdit{
-			Index:   int(applied.OperationIndex),
-			Target:  applied.Target,
-			Offset:  int(applied.Offset),
-			Length:  int(applied.Length),
-			OldText: applied.OldText,
-			NewText: applied.NewText,
+			Index:    int(applied.OperationIndex),
+			Target:   applied.Target,
+			Document: applied.Document,
+			Offset:   int(applied.Offset),
+			Length:   int(applied.Length),
+			OldText:  applied.OldText,
+			NewText:  applied.NewText,
 		})
 	}
 	return result, nil
+}
+
+func referrersFromProto(referrers []*pb.Referrer) []Referrer {
+	if len(referrers) == 0 {
+		return nil
+	}
+	out := make([]Referrer, 0, len(referrers))
+	for _, r := range referrers {
+		out = append(out, Referrer{Name: r.Name, Document: r.Document})
+	}
+	return out
 }
 
 func editToProto(edit Edit) (*pb.EditOperation, error) {

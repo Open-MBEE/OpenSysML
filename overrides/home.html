@@ -887,7 +887,7 @@ Vehicles::Car::wheels  PartUsage
     </p>
     <p class="osml-numbers__source">
       Speed is the smaller point. The pinned OMG pilot validator passes all 28 files without a
-      finding and OpenSysML's own validation reports 37 warnings and no error; asked to
+      finding and OpenSysML's own validation reports 4 warnings and no error; asked to
       <em>run</em> the model, the runtime stops its delta-v, reliability and injection
       calculations and the instantiation of the mission itself at defects only execution
       reaches — an <code>e</code> that resolves to a valueless ISO&nbsp;80000 quantity, a
@@ -953,6 +953,9 @@ go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
   <a href="{{ config.repo_url }}/releases/latest">releases page</a>; the
   <a href="{{ 'guide/01-install/'|url }}">install page</a> covers every route,
   checksums, and macOS Gatekeeper.</p>
+  <p>To try what landed today rather than at the last release, the
+  <a href="{{ 'project/nightly/'|url }}">nightly snapshot</a> builds
+  <code>develop</code> every night as a prerelease.</p>
 </section>
 
 <section class="osml-strip">

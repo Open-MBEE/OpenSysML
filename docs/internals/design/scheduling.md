@@ -23,15 +23,18 @@ linearization a run took, the points at which it had a choice, and the rule it c
 ## Choice points (`choice.go`, `action_choice.go`)
 
 A `ChoicePoint` is one point where an executor had several enabled alternatives the library leaves
-unordered and took one by its scheduling rule. `ChoiceKind` names the seven:
+unordered and took one by its scheduling rule. `ChoiceKind` names the ten:
 
 | Kind | Where it is noted | Alternatives, canonically |
 |------|-------------------|---------------------------|
 | `ChoiceTokenOrder` | `ActionExecutor.noteTokenOrder` | the tokens that could act in the step, by ID; the one stepped first is taken |
 | `ChoiceDecisionBranch` | `ActionExecutor.noteDecisionBranches` | the successions whose guards hold, by declaration position |
 | `ChoiceWriteOrder` | `stepWriteLedger.noteChoices` | the tokens that wrote one feature in one step; the write that stood is taken |
-| `ChoiceTransition` | `StateExecutor.chooseTransition`; `choiceBranchPoint` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` pseudostate enabled on arrival, read after the incoming segment's effect, labelled `choice <name>` |
-| `ChoiceRegionOrder` | `StateExecutor.chooseRegion`, drawn by `dispatchInOrder` | the states whose transitions one occurrence selected, by name in declaration order; the one fired first is taken |
+| `ChoiceTransition` | `StateExecutor.chooseTransition`; `pickBranch` (`state_route.go`) | the transitions one event enables out of one state, by declaration position; or the branches of a `choice` or `junction` pseudostate enabled when its guards are read, labelled `choice <name>` or `junction <name>` |
+| `ChoiceRegionOrder` | `dispatchInOrder`, drawn on the front of `state_unit_front.go` (`on <event>`); `chooseDoAction` (`do round at t=…`); `fireJoinIncoming` (`join <name>`) | the next unit — a source's exit, a segment's effect, a target's entry — of each firing one occurrence selected across regions, by source in declaration order; the one performed first is taken, and the entries and exits a firing nests are drawn on its front — likewise the states whose do behaviors are due in one round, and the sources of the transitions into a join that fires |
+| `ChoiceEntryOrder` | `enterRegionsInto` (`entering <state>`), `enterForkBranches` (`fork <name>`), a history's restore | the next entry unit of each region, branch or restored region of a composite state, in declaration order; the one performed first is taken. A unit performing no behavior rides with the performing unit beside it |
+| `ChoiceEntryStep` | `StateExecutor.entryStep` (`entry at t=…`) | a free dispatch due at the instant, followed by the held entry cascades that can resume; the free dispatch is listed first and the selected alternative is taken |
+| `ChoiceExitOrder` | `exitState` (`exiting <state>`) | the next exit unit of each region a state leaves, innermost first within a region, in declaration order; the one performed first is taken |
 | `ChoiceDueOrder` | `Context.runDue` (`advance.go`); the checker's run, one executor holding the turn until it has no move at the instant | the executors due at one instant, in creation order; the one run first is taken |
 | `ChoiceDispatchOrder` | `StateExecutor.nextEvent`, when the queue leaves several events unordered at its head | the events due at one instant the library does not order — time triggers with each other, a time trigger with a pool event of the same timestamp — labelled as the queue labels them; the one dispatched first is taken. A completion event goes before any of them and pool events keep their arrival order (`earlierFirstIncomingTransferSort`), so neither is a choice |
 
@@ -52,7 +55,8 @@ Two rules hold at every site:
 a preview of what a run would do, bracketed by `beginProbe` — notes nothing, since it is not a
 run. `Context.Notes`, `Choices` and `UnevaluableGuards` read them back; the executors' `Notes` and
 `NoteCount` let a caller driving a run call by call see what one call noted, which is how the REPL
-ends `%step`, `%continue` and `%advance` with a count.
+ends `%step`, `%continue` and `%advance` with a count; `NotesSince` reads the notes past such a
+mark without copying the ones before it.
 
 Region order is drawn per dispatch, not per event: `dispatchInOrder` draws among the candidates
 still active before each firing, since a reaction may leave a sibling's leaf, and both the
@@ -60,11 +64,32 @@ broadcast of a queued event and the polling of change triggers (`state_change_tr
 through it. The choice is labelled by the occurrence dispatched, not by the trigger of whichever
 region was drawn first, so the label is the same under every policy.
 
+An entry-step choice is recorded as `entry at t=<instant>` when a state entry cascade has been
+held by a non-default run-to-completion scope and a dispatch is due at the same clock instant.
+The alternatives list the free dispatch first, when one exists, followed by the held entries
+that can resume. A dispatch whose transition owner lies within a held scope is not offered as
+free; tied events are filtered to the free alternatives, and a dispatch with no free alternative
+does not appear. Fixed policies select the first alternative, so they dispatch before a held
+entry when that dispatch is free. Exploration snapshots the entry boundary and enumerates each
+alternative; replay parses the `entry at t=` location and applies the recorded pick. Once the
+selected dispatch or held entry settles, ordinary transition, region-entry and exit choice
+points continue as usual.
+
 A `choice` pseudostate's branch is drawn on arrival: `resolveChoice` reads its guards once the
 incoming segments' effects have run, so which branches are enabled can depend on those effects,
 and with two or more enabled the draw is a `ChoiceTransition` at `choice <name>` that `explore`
-enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's branch is settled
-statically before the transition fires and is not a choice point.
+enumerates and a seed replays (`TestExploreDynamicChoiceBranches`). A junction's guards are read
+statically, when the transition is selected — against the data as it stands before the incoming
+effect — and with two or more enabled the draw is likewise a `ChoiceTransition` at
+`junction <name>`, made and recorded only as the transition fires (`settleDraws`), after the
+region order among several candidates and after the transition's own guard is read again: a
+candidate another region's reaction disarms draws nothing, and no branch guard is read again:
+the route beyond each enabled branch — through any further junction — is settled with the
+transition, so the branch drawn is taken along it though another region's effect since changed
+what those guards read (`TestExploreStaticJunctionBranches`,
+`TestExploreJunctionDrawnAsTransitionFires`, `state_junction_guards_read_once`,
+`state_junction_beyond_a_draw_read_once`). A history's default transition through such a
+junction draws and records the same way (`TestExploreHistoryDefaultThroughJunction`).
 
 Two things that look like openings are determined and are never recorded. Deferral: a state in the
 active configuration that defers the occurrence dispatched holds it back from every enabled
@@ -84,13 +109,18 @@ A `SchedulePolicy` is parsed from one spelling and printed back to it:
 | `reverse` (default, zero value) | reverse spawn order | first in declaration order | last created |
 | `declared` | spawn order | first in declaration order | first created |
 | `seed:<n>` | shuffle of the tokens not parked | uniform draw | uniform draw |
-| `replay:<file>` | the witness's `step n: …` line, then `reverse` | the witness's line, then `reverse` | the witness's line, then `reverse` |
+| `replay:<file>` | the witness's `step n: …` line, then `reverse`'s pick alone | the witness's line, then `reverse` | the witness's line, then `reverse` |
 | `explore[:runs=N,depth=D]` | the exploration's plan | the exploration's plan | the exploration's plan |
 
 `reverse` is exactly what every run did before policies existed, so every `.expected.json` and
 `.trace.golden` recorded before them still holds unchanged; that is the invariant the whole design
 is built to keep. Under `reverse` and `declared` a region-order pick is declaration order and is
-still reported — a fixed policy resolves the choice, it does not remove it.
+still reported — a fixed policy resolves the choice, it does not remove it — and so are the
+entry-order and exit-order draws, one `choice` line per draw in the trace golden of a fixture
+entering or leaving a state of two or more regions, its event order unchanged
+([region-order scheduling](region-order-scheduling.md)). One order the fixed policies take is
+not yet a recorded choice: a due do step against the dispatch at the head of the pool, drawn
+per token move of the do flow in that note's design.
 
 `SchedulePolicy.start` begins the resolutions of one run as a `scheduler`. A seeded one carries a
 `math/rand/v2` PCG the run consumes draw by draw, so the same seed replays the same run on every
@@ -98,6 +128,10 @@ platform; `scheduler.mark` saves and restores that state around a probe, so prev
 move the generator. `Context.SetSchedule` sets the policy runs started from then on draw under; a
 run already under way keeps the one it started with, and `explore` is refused with
 `ErrExploreUndriven` because it is not a policy one context runs under (below).
+`Context.Reschedule` is the same change reaching the runs driven call by call too — the clock's
+and those of the behaviors the objects run — each given a scheduler started under the new policy
+where it stands, so a persistent session's turns from then on choose as a fresh run would; a
+snapshot restores the schedulers the runs had along with their marks.
 
 The scheduler lives in the run's `runState` beside the budget and the notes. A run driven call by
 call — a REPL `%action` or `%state` session — owns its `executorRun.state`, installed for each
@@ -108,15 +142,17 @@ own generator and an interleaved run neither consumes its draws nor inherits its
 — `ChoiceTaken.String` spellings, one per line up to the first blank line, so a checker's witness
 file with a trace body after its header serves as it stands — are followed one move at a time,
 each having to name the step the run is at and pick among the alternatives it offers, and once
-they are spent the run continues as `reverse`. A line the run cannot follow, or one left over at
-the end, is recorded as the run goes and reported by `Context.Unfollowed` as a `ReplayError`
-naming the move, its choice and what the run faced; the run is never quietly turned into another
-linearization. A refused move changes nothing: a transition draw is refused before the dispatch
+they are spent the run picks as `reverse` does, still one token a step — the witness was written
+by a run stepping so, and a sweep letting every token act would leave another trace. A line the
+run cannot follow, or one left over at the end, is recorded as the run goes and reported by
+`Context.Unfollowed` as a `ReplayError` naming the move, its choice and what the run faced; the
+run is never quietly turned into another linearization. A refused move changes nothing: a transition draw is refused before the dispatch
 fires (`broadcastEvent`), and a `choice` pseudostate's, drawn only once the compound transition's
-exits and incoming effects are made, undoes that move whole — exits, effects, the do behaviors the
-exits abandoned, what was traced and noted (`travel` marks the move with a `moveMark`, kept or
-undone by the refusal). The model checkers replay every `sat` witness under it before claiming a
-violation.
+exits and incoming effects are made, or a join's, drawn one incoming segment at a time, undoes
+that move whole — exits, effects, the do behaviors the exits abandoned, what was traced and noted
+(`moveWhole` marks the move with a `moveMark`, kept or undone by the refusal; marks nest, a
+`choice` on the way out of a join handing the do behaviors it ended to the join's). The model
+checkers replay every `sat` witness under it before claiming a violation.
 
 ## Exploration (`explore.go`)
 
@@ -126,17 +162,24 @@ fresh `Context`:
 1. The first run records each choice point it reaches as an `exploreSlot` (a `pick` among `n`
    alternatives, or which of the tokens able to act a step tries next) and takes the first
    alternative at each.
-2. `nextPrefix` walks the record backwards to the last slot with an untried alternative, keeps
-   the record up to it with that alternative advanced, and the next run replays that prefix and
-   takes first alternatives past it. This is a depth-first walk of the choice tree.
+2. `unexplored` leaves one prefix per slot the run owns with an untried alternative — the record
+   up to that slot with the alternative advanced — and a later run replays the prefix and takes
+   first alternatives past it. The queue (`explore_queue.go`) runs the prefixes in plan order:
+   those departing from the first run at one choice before any departing at two, and among them
+   the earliest choice varied first. So the first run's choice points are each varied once, from
+   the first, before any is varied twice: a choice met early with a long tail of choices behind
+   it is varied by the second run, not after every order of the tail, and a `runs` budget of one
+   more than the first run's choice points varies each of them at least once.
 3. A replay that does not meet the choice points its prefix planned — a different number of
    alternatives, or tokens able to act the plan did not find so — is `ErrExplorationDiverged`,
    and no outcome set is reported, since one could not be trusted.
 4. Runs stop when every alternative within depth is tried, or when the `runs` budget is reached;
    a slot resolved past the `depth` budget takes its first alternative and is not the
-   exploration's to vary. Either bound reached makes the `Exploration` incomplete, and
+   exploration's to vary, so a choice point deeper than `depth` is never varied however many
+   runs remain. Either bound reached makes the `Exploration` incomplete, and
    `Exploration.Status` says which; nothing is silently truncated. The default budget is
-   `DefaultExploreBudget`, 1024 runs and 64 choice points per run.
+   `DefaultExploreBudget`, 1024 runs and 64 choice points per run; a witness lists every choice
+   point its run met, so its length sizes `depth`.
 
 A fresh context per run is what makes replay sound: instances, identities, the message bus, the
 clock, object behaviors, calc memoization and the notes of one run cannot leak into the next.
@@ -155,7 +198,7 @@ one run and cannot replay from the start.
 ## The conformance contract
 
 Every element above has a test surface, documented for authors in
-`internal/core/runtime/testdata/conformance/README.md` and summarised in
+`internal/exec/runtime/testdata/conformance/README.md` and summarised in
 [testing](../testing.md):
 
 - A case whose model admits several results lists them under `outcomes` with an `admissible`

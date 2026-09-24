@@ -9,13 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // The binary is what an editor starts, so the lifecycle is tested through it:
@@ -48,13 +50,32 @@ func serverBinary(t *testing.T) string {
 	return builtServer
 }
 
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.b.String()
+}
+
 // session drives a started server over its stdin/stdout pipes.
 type session struct {
 	t      *testing.T
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
-	stderr *strings.Builder
+	stderr *lockedBuffer
+	failf  func(string, ...any)
+	killed atomic.Bool
 	waited bool
 	status int
 }
@@ -71,12 +92,12 @@ func startServer(t *testing.T, args ...string) *session {
 	if err != nil {
 		t.Fatalf("stdout pipe: %v", err)
 	}
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
+	stderr := &lockedBuffer{}
+	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("starting the server: %v", err)
 	}
-	s := &session{t: t, cmd: cmd, stdin: stdin, stdout: bufio.NewReader(stdout), stderr: &stderr}
+	s := &session{t: t, cmd: cmd, stdin: stdin, stdout: bufio.NewReader(stdout), stderr: stderr}
 	t.Cleanup(func() {
 		if !s.waited {
 			_ = cmd.Process.Kill()
@@ -114,7 +135,7 @@ func (s *session) response(id int) map[string]any {
 	s.t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
-		msg := s.read()
+		msg := s.readBy(deadline)
 		got, ok := msg["id"].(float64)
 		if ok && int(got) == id {
 			return msg
@@ -124,14 +145,29 @@ func (s *session) response(id int) map[string]any {
 	return nil
 }
 
-// read reads one framed message from the server.
-func (s *session) read() map[string]any {
+// readBy reads one framed message before deadline, killing the server if it
+// stays silent until then.
+func (s *session) readBy(deadline time.Time) map[string]any {
 	s.t.Helper()
+	start := time.Now()
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		s.fail("no message from the server within the deadline\nstderr: %s", s.stderr.String())
+		return nil
+	}
+	timer := time.AfterFunc(remaining, func() { s.dumpAndKill() })
+	defer timer.Stop()
+
 	length := -1
 	for {
 		line, err := s.stdout.ReadString('\n')
 		if err != nil {
-			s.t.Fatalf("read header: %v\nstderr: %s", err, s.stderr.String())
+			if s.killed.Load() {
+				s.fail("read header: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.stderr.String())
+			} else {
+				s.fail("read header: %v\nstderr: %s", err, s.stderr.String())
+			}
+			return nil
 		}
 		line = strings.TrimRight(line, "\r\n")
 		if line == "" {
@@ -139,27 +175,53 @@ func (s *session) read() map[string]any {
 		}
 		name, value, ok := strings.Cut(line, ":")
 		if !ok {
-			s.t.Fatalf("unframed server output: %q", line)
+			s.fail("unframed server output: %q", line)
+			return nil
 		}
 		if strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
 			length, err = strconv.Atoi(strings.TrimSpace(value))
 			if err != nil {
-				s.t.Fatalf("bad Content-Length %q: %v", value, err)
+				s.fail("bad Content-Length %q: %v", value, err)
+				return nil
 			}
 		}
 	}
 	if length < 0 {
-		s.t.Fatal("message without Content-Length header")
+		s.fail("message without Content-Length header")
+		return nil
 	}
 	body := make([]byte, length)
 	if _, err := io.ReadFull(s.stdout, body); err != nil {
-		s.t.Fatalf("read body: %v", err)
+		if s.killed.Load() {
+			s.fail("read body: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.stderr.String())
+		} else {
+			s.fail("read body: %v", err)
+		}
+		return nil
 	}
 	var msg map[string]any
 	if err := json.Unmarshal(body, &msg); err != nil {
-		s.t.Fatalf("unmarshal %q: %v", body, err)
+		s.fail("unmarshal %q: %v", body, err)
+		return nil
 	}
 	return msg
+}
+
+func (s *session) fail(format string, args ...any) {
+	if s.failf != nil {
+		s.failf(format, args...)
+		return
+	}
+	s.t.Fatalf(format, args...)
+}
+
+func (s *session) dumpAndKill() {
+	s.killed.Store(true)
+	if s.cmd.Process == nil {
+		return
+	}
+	_ = s.cmd.Process.Signal(quitSignal)
+	time.AfterFunc(5*time.Second, func() { _ = s.cmd.Process.Kill() })
 }
 
 // waitStatus waits for the process to end and returns its exit status. A server
@@ -285,5 +347,21 @@ func TestClosedStreamEndsTheProcess(t *testing.T) {
 	}
 	if status := s.waitStatus(20 * time.Second); status != exitServed {
 		t.Errorf("exit status = %d, want %d\nstderr: %s", status, exitServed, s.stderr.String())
+	}
+}
+
+func TestSilentServerFailsWithinDeadline(t *testing.T) {
+	s := startServer(t)
+	var failure string
+	s.failf = func(format string, args ...any) {
+		failure = fmt.Sprintf(format, args...)
+	}
+
+	s.readBy(time.Now().Add(500 * time.Millisecond))
+	if !strings.Contains(failure, "killed") {
+		t.Fatalf("failure = %q, want server-killed message", failure)
+	}
+	if runtime.GOOS != "windows" && !strings.Contains(failure, "goroutine") {
+		t.Fatalf("failure = %q, want goroutine dump", failure)
 	}
 }

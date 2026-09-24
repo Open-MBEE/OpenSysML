@@ -1,0 +1,86 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Named
+    a sysml:Package ;
+    sysml:qualifiedName "Named" ;
+    sysml:elementId "Named" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Named" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Named__Vehicle, elmt:Named__Mass ;
+    sysml:ownedMembership elmt:Named__Vehicle_om, elmt:Named__Car, elmt:Named__Mass_om ;
+    sysml:ownedRelationship elmt:Named__Vehicle_om, elmt:Named__Car, elmt:Named__Mass_om ;
+    sysx:sourceText "package Named {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Named__Vehicle\"},{\"@id\":\"Named__Mass\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car\"},{\"@id\":\"Named__Mass_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Named__Vehicle_om\"},{\"@id\":\"Named__Car\"},{\"@id\":\"Named__Mass_om\"}]" .
+
+elmt:Named__Vehicle
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Named::Vehicle" ;
+    sysml:elementId "Named__Vehicle" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Named ;
+    sysml:owner elmt:Named ;
+    sysml:owningRelationship elmt:Named__Vehicle_om ;
+    sysml:owningMembership elmt:Named__Vehicle_om ;
+    sysml:declaredName "Vehicle" ;
+    sysml:declaredShortName "v1" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    part def <v1> Vehicle;\n" .
+
+elmt:Named__Vehicle_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Named__Vehicle_om" ;
+    sysml:owner elmt:Named ;
+    sysml:memberElement elmt:Named__Vehicle ;
+    sysml:ownedMemberElement elmt:Named__Vehicle ;
+    sysml:ownedRelatedElement elmt:Named__Vehicle ;
+    sysml:owningRelatedElement elmt:Named ;
+    sysml:membershipOwningNamespace elmt:Named .
+
+elmt:Named__Car
+    a sysml:Membership ;
+    sysml:qualifiedName "Named::Car" ;
+    sysml:elementId "Named__Car" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Named ;
+    sysml:owner elmt:Named ;
+    sysml:owningRelatedElement elmt:Named ;
+    sysml:membershipOwningNamespace elmt:Named ;
+    sysx:declaredKeyword "alias" ;
+    sysml:memberName "Car" ;
+    sysml:memberElement elmt:Named__Vehicle ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    alias Car for Vehicle;\n" .
+
+elmt:Named__Mass
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "Named::Mass" ;
+    sysml:elementId "Named__Mass" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Named ;
+    sysml:owner elmt:Named ;
+    sysml:owningRelationship elmt:Named__Mass_om ;
+    sysml:owningMembership elmt:Named__Mass_om ;
+    sysml:declaredName "Mass" ;
+    sysml:declaredShortName "m" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    attribute def <m> Mass;\n" .
+
+elmt:Named__Mass_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Named__Mass_om" ;
+    sysml:owner elmt:Named ;
+    sysml:memberElement elmt:Named__Mass ;
+    sysml:ownedMemberElement elmt:Named__Mass ;
+    sysml:ownedRelatedElement elmt:Named__Mass ;
+    sysml:owningRelatedElement elmt:Named ;
+    sysml:membershipOwningNamespace elmt:Named .

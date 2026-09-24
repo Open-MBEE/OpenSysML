@@ -1,0 +1,176 @@
+# SysML v1 to v2 migration report: stereotype_filters.xmi
+# exported by Example UML Tool
+# migrated 161 element(s): 121 mapped, 38 approximated, 2 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (2)
+«Image» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Image	_st_owned_image	(the diagrams it shows are not known: «FilterByStereotypes» Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Filter By Stereotypes keeps or drops the «Block» Class Spares::Hose, which cannot be told before the query runs)
+«Image» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Image	_st_satown_image	(the diagrams it shows are not known: «CollectByDirectedRelationshipStereotypes» Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Collect Satisfiers follows relationships to elements only the query finds)
+
+## approximated (38)
+«Document» Class	Depot Handbook::Depot Handbook	_doc_handbook	-> 'Depot Handbook'::'Depot Handbook'	(a plain UML class without «Block» is written as a part def)
+Activity	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method	_act_figures	-> 'Depot Viewpoints'::'Critical Figures Viewpoint'::'Critical Figures Method'	(the classifier behavior is run by every object of Depot Viewpoints::Critical Figures Viewpoint as its usage critical Figures Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Collect Owned Elements	_figures_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByDiagramType» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Diagram Type	_figures_types	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Stereotypes	_figures_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method	_act_items	-> 'Depot Viewpoints'::'Critical Items Viewpoint'::'Critical Items Method'	(the classifier behavior is run by every object of Depot Viewpoints::Critical Items Viewpoint as its usage critical Items Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Collect Owned Elements	_items_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«TableAttributeColumn» CallBehaviorAction	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Critical Items::Name	_items_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Filter By Stereotypes	_items_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method	_act_layouts	-> 'Depot Viewpoints'::'Critical Layouts Viewpoint'::'Critical Layouts Method'	(the classifier behavior is run by every object of Depot Viewpoints::Critical Layouts Viewpoint as its usage critical Layouts Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Collect Owned Elements	_layouts_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Collect Owned Elements	_layouts_again	-> 'Collect Owned Elements 2'	(a step with no behavior and no duration; it passes the token on; written as Collect Owned Elements 2 since a sibling is also named Collect Owned Elements)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Filter By Stereotypes	_layouts_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Image	_layouts_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method	_act_exact	-> 'Depot Viewpoints'::'Exact Critical Layouts Viewpoint'::'Exact Critical Layouts Method'	(the classifier behavior is run by every object of Depot Viewpoints::Exact Critical Layouts Viewpoint as its usage exact Critical Layouts Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::Collect Owned Elements	_exact_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::Collect Owned Elements	_exact_again	-> 'Collect Owned Elements 2'	(a step with no behavior and no duration; it passes the token on; written as Collect Owned Elements 2 since a sibling is also named Collect Owned Elements)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::Filter By Stereotypes	_exact_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::Image	_exact_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method	_act_owned	-> 'Depot Viewpoints'::'Owned Figures Viewpoint'::'Owned Figures Method'	(the classifier behavior is run by every object of Depot Viewpoints::Owned Figures Viewpoint as its usage owned Figures Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Collect Owned Elements	_owned_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Collect Owned Elements	_owned_again	-> 'Collect Owned Elements 2'	(a step with no behavior and no duration; it passes the token on; written as Collect Owned Elements 2 since a sibling is also named Collect Owned Elements)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Filter By Stereotypes	_owned_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Image	_owned_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method	_act_sat	-> 'Depot Viewpoints'::'Satisfier Figures Viewpoint'::'Satisfier Figures Method'	(the classifier behavior is run by every object of Depot Viewpoints::Satisfier Figures Viewpoint as its usage satisfier Figures Method)
+«CollectByDirectedRelationshipStereotypes» CallBehaviorAction	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Collect Satisfiers	_sat_collect	-> 'Collect Satisfiers'	(a step with no behavior and no duration; it passes the token on)
+«FilterByDiagramType» CallBehaviorAction	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Filter By Diagram Type	_sat_types	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Image	_sat_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method	_act_satown	-> 'Depot Viewpoints'::'Satisfier Layouts Viewpoint'::'Satisfier Layouts Method'	(the classifier behavior is run by every object of Depot Viewpoints::Satisfier Layouts Viewpoint as its usage satisfier Layouts Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Collect Owned Elements	_satown_owned	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«CollectByDirectedRelationshipStereotypes» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Collect Satisfiers	_satown_collect	-> 'Collect Satisfiers'	(a step with no behavior and no duration; it passes the token on)
+«FilterByDiagramType» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Filter By Diagram Type	_satown_types	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Image	_satown_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method	_act_rest	-> 'Depot Viewpoints'::'Uncritical Figures Viewpoint'::'Uncritical Figures Method'	(the classifier behavior is run by every object of Depot Viewpoints::Uncritical Figures Viewpoint as its usage uncritical Figures Method)
+«CollectOwnedElements» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Collect Owned Elements	_rest_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByStereotypes» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Filter By Stereotypes	_rest_filter	-> 'Filter By Stereotypes'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_rest_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+
+## mapped (121)
+Profile	Cost Profile	_cost_profile	-> 'Cost Profile'
+Stereotype	Cost Profile::Critical	_st_cost_critical	-> 'Cost Profile'::Critical
+Model	Depot	_m	(the root model's members are written at the top level)
+Package	Depot Handbook	_pkg_doc	-> 'Depot Handbook'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_items_plant	-> 'Depot Handbook'::'Critical Items'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_items_spares	-> 'Depot Handbook'::'Critical Items'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_exact	-> 'Depot Handbook'::'Exact Critical Layouts'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_figures	-> 'Depot Handbook'::'Critical Figures'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_rest_plant	-> 'Depot Handbook'::'Uncritical Figures'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_rest_spares	-> 'Depot Handbook'::'Uncritical Figures'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_layouts	-> 'Depot Handbook'::'Critical Layouts'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_sat	-> 'Depot Handbook'::'Satisfier Figures'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_satown	-> 'Depot Handbook'::'Satisfier Layouts'
+«Expose» Dependency	Depot Handbook::<Dependency>	_expose_owned	-> 'Depot Handbook'::'Owned Figures'
+«View» Class	Depot Handbook::Critical Figures	_view_figures	-> 'Depot Handbook'::'Critical Figures'
+«Conform» Generalization	Depot Handbook::Critical Figures::<Generalization>	_gen_figures	-> 'Depot Handbook'::'Critical Figures'
+«View» Class	Depot Handbook::Critical Items	_view_items	-> 'Depot Handbook'::'Critical Items'
+«Conform» Generalization	Depot Handbook::Critical Items::<Generalization>	_gen_items	-> 'Depot Handbook'::'Critical Items'
+«View» Class	Depot Handbook::Critical Layouts	_view_layouts	-> 'Depot Handbook'::'Critical Layouts'
+«Conform» Generalization	Depot Handbook::Critical Layouts::<Generalization>	_gen_layouts	-> 'Depot Handbook'::'Critical Layouts'
+«Document» Class	Depot Handbook::Depot Handbook	_st_doc_handbook	-> part def 'Depot Handbook'::'Depot Handbook Document'	(the «Document» is written as a Document definition of 8 section(s))
+Property	Depot Handbook::Depot Handbook::criticalFigures	_hb_figures	-> 'Depot Handbook'::'Depot Handbook'::criticalFigures
+Property	Depot Handbook::Depot Handbook::criticalItems	_hb_items	-> 'Depot Handbook'::'Depot Handbook'::criticalItems
+Property	Depot Handbook::Depot Handbook::criticalLayouts	_hb_layouts	-> 'Depot Handbook'::'Depot Handbook'::criticalLayouts
+Property	Depot Handbook::Depot Handbook::exactCriticalLayouts	_hb_exact	-> 'Depot Handbook'::'Depot Handbook'::exactCriticalLayouts
+Property	Depot Handbook::Depot Handbook::ownedFigures	_hb_owned	-> 'Depot Handbook'::'Depot Handbook'::ownedFigures
+Property	Depot Handbook::Depot Handbook::satisfierFigures	_hb_sat	-> 'Depot Handbook'::'Depot Handbook'::satisfierFigures
+Property	Depot Handbook::Depot Handbook::satisfierLayouts	_hb_satown	-> 'Depot Handbook'::'Depot Handbook'::satisfierLayouts
+Property	Depot Handbook::Depot Handbook::uncriticalFigures	_hb_rest	-> 'Depot Handbook'::'Depot Handbook'::uncriticalFigures
+«View» Class	Depot Handbook::Exact Critical Layouts	_view_exact	-> 'Depot Handbook'::'Exact Critical Layouts'
+«Conform» Generalization	Depot Handbook::Exact Critical Layouts::<Generalization>	_gen_exact	-> 'Depot Handbook'::'Exact Critical Layouts'
+«View» Class	Depot Handbook::Owned Figures	_view_owned	-> 'Depot Handbook'::'Owned Figures'
+«Conform» Generalization	Depot Handbook::Owned Figures::<Generalization>	_gen_owned	-> 'Depot Handbook'::'Owned Figures'
+«View» Class	Depot Handbook::Satisfier Figures	_view_sat	-> 'Depot Handbook'::'Satisfier Figures'
+«Conform» Generalization	Depot Handbook::Satisfier Figures::<Generalization>	_gen_sat	-> 'Depot Handbook'::'Satisfier Figures'
+«View» Class	Depot Handbook::Satisfier Layouts	_view_satown	-> 'Depot Handbook'::'Satisfier Layouts'
+«Conform» Generalization	Depot Handbook::Satisfier Layouts::<Generalization>	_gen_satown	-> 'Depot Handbook'::'Satisfier Layouts'
+«View» Class	Depot Handbook::Uncritical Figures	_view_rest	-> 'Depot Handbook'::'Uncritical Figures'
+«Conform» Generalization	Depot Handbook::Uncritical Figures::<Generalization>	_gen_rest	-> 'Depot Handbook'::'Uncritical Figures'
+Package	Depot Viewpoints	_pkg_viewpoints	-> 'Depot Viewpoints'
+«Viewpoint» Class	Depot Viewpoints::Critical Figures Viewpoint	_vp_figures	-> 'Depot Viewpoints'::'Critical Figures Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<ActivityFinalNode>	_figures_final	-> final
+ControlFlow	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<ControlFlow>	_figures_e2
+ControlFlow	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<ControlFlow>	_figures_e3
+ControlFlow	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<ControlFlow>	_figures_e4
+ControlFlow	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<ControlFlow>	_figures_e5
+InitialNode	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::<InitialNode>	_figures_init	-> start
+«Image» CallBehaviorAction	Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Image	_st_figures_image	(it draws nothing: «FilterByDiagramType» Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Diagram Type drops all the elements collected, whichever they are, and it keeps only diagrams: «FilterByStereotypes» Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Stereotypes keeps or drops the «Block» Class Spares::Hose, which cannot be told before the query runs; an Image draws only diagrams)
+«Viewpoint» Class	Depot Viewpoints::Critical Items Viewpoint	_vp_items	-> 'Depot Viewpoints'::'Critical Items Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::<ActivityFinalNode>	_items_final	-> final
+ControlFlow	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::<ControlFlow>	_items_e2
+ControlFlow	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::<ControlFlow>	_items_e3
+ControlFlow	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::<ControlFlow>	_items_e4
+InitialNode	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::<InitialNode>	_items_init	-> start
+«TableStructure» StructuredActivityNode	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Critical Items	_items_table	-> 'Critical Items'
+«TableStructure» StructuredActivityNode	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Critical Items	_st_items_table	-> part 'Depot Handbook'::'Depot Handbook Document'::'Critical Items'::table	(its rows are the query 'Depot Handbook Critical Items Rows')
+InitialNode	Depot Viewpoints::Critical Items Viewpoint::Critical Items Method::Critical Items::<InitialNode>	_items_table_init	-> start
+«Viewpoint» Class	Depot Viewpoints::Critical Layouts Viewpoint	_vp_layouts	-> 'Depot Viewpoints'::'Critical Layouts Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<ActivityFinalNode>	_layouts_final	-> final
+ControlFlow	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<ControlFlow>	_layouts_e2
+ControlFlow	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<ControlFlow>	_layouts_e3
+ControlFlow	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<ControlFlow>	_layouts_e4
+ControlFlow	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<ControlFlow>	_layouts_e5
+InitialNode	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::<InitialNode>	_layouts_init	-> start
+«Image» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Image	_st_layouts_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Critical Layouts'::diagram
+«Image» CallBehaviorAction	Depot Viewpoints::Critical Layouts Viewpoint::Critical Layouts Method::Image	_st_layouts_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Critical Layouts'::'diagram 2'
+«Viewpoint» Class	Depot Viewpoints::Exact Critical Layouts Viewpoint	_vp_exact	-> 'Depot Viewpoints'::'Exact Critical Layouts Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<ActivityFinalNode>	_exact_final	-> final
+ControlFlow	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<ControlFlow>	_exact_e2
+ControlFlow	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<ControlFlow>	_exact_e3
+ControlFlow	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<ControlFlow>	_exact_e4
+ControlFlow	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<ControlFlow>	_exact_e5
+InitialNode	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::<InitialNode>	_exact_init	-> start
+«Image» CallBehaviorAction	Depot Viewpoints::Exact Critical Layouts Viewpoint::Exact Critical Layouts Method::Image	_st_exact_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Exact Critical Layouts'::diagram
+«Viewpoint» Class	Depot Viewpoints::Owned Figures Viewpoint	_vp_owned	-> 'Depot Viewpoints'::'Owned Figures Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<ActivityFinalNode>	_owned_final	-> final
+ControlFlow	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<ControlFlow>	_owned_e2
+ControlFlow	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<ControlFlow>	_owned_e3
+ControlFlow	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<ControlFlow>	_owned_e4
+ControlFlow	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<ControlFlow>	_owned_e5
+InitialNode	Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::<InitialNode>	_owned_init	-> start
+«Viewpoint» Class	Depot Viewpoints::Satisfier Figures Viewpoint	_vp_sat	-> 'Depot Viewpoints'::'Satisfier Figures Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::<ActivityFinalNode>	_sat_final	-> final
+ControlFlow	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::<ControlFlow>	_sat_e2
+ControlFlow	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::<ControlFlow>	_sat_e3
+ControlFlow	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::<ControlFlow>	_sat_e4
+InitialNode	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::<InitialNode>	_sat_init	-> start
+«Image» CallBehaviorAction	Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Image	_st_sat_image	(it draws nothing: «FilterByDiagramType» Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Filter By Diagram Type drops all the elements collected, whichever they are, and it keeps only diagrams: «CollectByDirectedRelationshipStereotypes» Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Collect Satisfiers follows relationships to elements only the query finds; an Image draws only diagrams)
+«Viewpoint» Class	Depot Viewpoints::Satisfier Layouts Viewpoint	_vp_satown	-> 'Depot Viewpoints'::'Satisfier Layouts Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<ActivityFinalNode>	_satown_final	-> final
+ControlFlow	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<ControlFlow>	_satown_e2
+ControlFlow	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<ControlFlow>	_satown_e3
+ControlFlow	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<ControlFlow>	_satown_e4
+ControlFlow	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<ControlFlow>	_satown_e5
+InitialNode	Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::<InitialNode>	_satown_init	-> start
+«Viewpoint» Class	Depot Viewpoints::Uncritical Figures Viewpoint	_vp_rest	-> 'Depot Viewpoints'::'Uncritical Figures Viewpoint'
+ActivityFinalNode	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::<ActivityFinalNode>	_rest_final	-> final
+ControlFlow	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::<ControlFlow>	_rest_e2
+ControlFlow	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::<ControlFlow>	_rest_e3
+ControlFlow	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::<ControlFlow>	_rest_e4
+InitialNode	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::<InitialNode>	_rest_init	-> start
+«Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_st_rest_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Uncritical Figures'::diagram
+«Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_st_rest_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Uncritical Figures'::'diagram 2'
+«Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_st_rest_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Uncritical Figures'::'diagram 3'
+«Image» CallBehaviorAction	Depot Viewpoints::Uncritical Figures Viewpoint::Uncritical Figures Method::Image	_st_rest_image	-> part 'Depot Handbook'::'Depot Handbook Document'::'Uncritical Figures'::'diagram 4'
+Package	Plant	_pkg_plant	-> Plant
+«Satisfy» Abstraction	Plant::<Abstraction>	_dep_satisfy_pump	-> Plant::Pump
+«Requirement» Class	Plant::Flow Rate	_req_flow	-> Plant::'Flow Rate'
+Diagram	Plant::Plant Layout	_diag_plant	-> Plant::'Plant Layout'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+«Block» Class	Plant::Pump	_blk_pump	-> Plant::Pump
+Diagram	Plant::Pump::Pump Layout	_diag_pump	-> Plant::Pump::'Pump Layout'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+«Block» Class	Plant::Tank	_blk_tank	-> Plant::Tank
+Diagram	Plant::Tank::Tank Layout	_diag_tank	-> Plant::Tank::'Tank Layout'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+«Block» Class	Plant::Valve	_blk_valve	-> Plant::Valve
+Diagram	Plant::Valve::Valve Layout	_diag_valve	-> Plant::Valve::'Valve Layout'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+Profile	Safety Profile	_safety_profile	-> 'Safety Profile'
+Stereotype	Safety Profile::Critical	_st_safety_critical	-> 'Safety Profile'::Critical
+Stereotype	Safety Profile::Vital	_st_safety_vital	-> 'Safety Profile'::Vital
+Package	Spares	_pkg_spares	-> Spares
+«Block» Class	Spares::Gasket	_blk_gasket	-> Spares::Gasket
+«Block» Class	Spares::Hose	_blk_hose	-> Spares::Hose	(«Critical» from http://example.com/schemas/Vendor.xmi is applied from a profile the document does not define; the application is kept as a comment)
+
+## skipped (4)
+Extension	Cost Profile::<Extension>	_ext_cost_critical	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Cost Profile::Critical::base_Class	_st_cost_critical_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)
+Extension	Safety Profile::<Extension>	_ext_safety_critical	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Safety Profile::Critical::base_Class	_st_safety_critical_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

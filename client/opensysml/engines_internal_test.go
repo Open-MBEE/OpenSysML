@@ -22,6 +22,11 @@ func (o *oldCaller) verifySatisfaction(context.Context, *pb.VerifySatisfactionRe
 	return nil, nil
 }
 
+func (o *oldCaller) validateInstance(context.Context, *pb.ValidateInstanceRequest) (*pb.ValidateInstanceResponse, error) {
+	o.t.Fatal("an engine was sent to a service without engines")
+	return nil, nil
+}
+
 // A named engine is refused before it leaves the client when the service lacks
 // the engines capability, since such a service would answer with whichever
 // engine it chose: whether it predates the capability or GetServerInfo itself.
@@ -41,6 +46,8 @@ func TestANamedEngineIsNotSentWithoutTheCapability(t *testing.T) {
 			wantUnimplemented(t, "VerifyRequirement", err)
 			_, err = c.VerifySatisfaction(ctx, model, "", WithEngine(EngineAll))
 			wantUnimplemented(t, "VerifySatisfaction", err)
+			_, err = c.ValidateInstance(ctx, model, "P", WithEngine("run"))
+			wantUnimplemented(t, "ValidateInstance", err)
 			_, err = c.RunAnalysis(ctx, model, "an", Engine("run"))
 			wantUnimplemented(t, "RunAnalysis", err)
 			_, err = c.Calculate(ctx, model, "f", CalcArguments(Int(1)), CalcEngine("run"))

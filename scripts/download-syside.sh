@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build Sensmetry SysIDE (sysml-2ls) into build/syside/, for the optional third
-# column of the differential harness in cmd/pilot-diff. See F7 in
+# column of the differential harness in tools/referee/diff. See F7 in
 # docs/project/pilot-differential.md.
 #
 # SysIDE is an independent SysML v2/KerML implementation in TypeScript. It is a
@@ -189,4 +189,4 @@ EOF
 
 echo "Built $launcher (SysIDE $SYSIDE_TAG, $SYSIDE_SPEC standard library)"
 echo "The differential harness picks it up automatically:"
-echo "  go run ./cmd/pilot-diff"
+echo "  go run -C tools ./cmd/pilot-diff"

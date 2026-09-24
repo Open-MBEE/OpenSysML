@@ -1,0 +1,10 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Station",
+  "slots": {
+    "total": {"type": "Real", "value": 1.5},
+    "last": {"type": "Real", "value": 1.5},
+    "cycles": {"type": "Integer", "value": 1}
+  }
+}

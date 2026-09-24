@@ -14,9 +14,12 @@ starts and stops on its own.
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers. Node,
-Java and Rust cover a smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
-those three only Node has an escape hatch to the rest, through the generated Connect client it
+They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
+Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+`renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
+query methods; Node and Rust cover
+that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
+those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
@@ -73,7 +76,7 @@ package Demo {
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f clients/java/pom.xml install` from a checkout.
+    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -228,7 +231,7 @@ go get github.com/Open-MBEE/OpenSysML@latest
 Nothing else needs installing: the SysML standard library is embedded in the module and no
 operation shells out. Every RPC the service offers is a method (`ParseFiles` for a model made of
 several documents, `ExecuteAction` and `ExecuteState`, `VerifyConstraint`, `VerifyRequirement`,
-`VerifySatisfaction`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
+`VerifySatisfaction`, `ValidateInstance`, `EvaluateCalc`, `RunAnalysis`, `ListEngines`, `Query`, `RunDocumentQuery`,
 `RenderDocument`, `Convert` and `ApplyEdits`), and queries and edits are built from typed values rather than a string dialect, so
 an unsupported operator is a compile error rather than a refused call.
 
@@ -244,9 +247,27 @@ every linearization under `"explore"` — the default when no policy is given �
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
 
+To play a model one step at a time instead — instantiate a part, offer its state machine a
+signal, perform an action on it, read what changed — open a `Session` with
+`opensysml.OpenSession(client, model)`: it keeps the clock, the schedule and the objects it made
+between calls and answers facts (the transitions out of the active states and the states
+enclosing them in every machine the object exhibits, whether a guard holds now, the choices a
+run made). Only a `New` client answers it; a `Dial` client refuses with
+`CodeUnimplemented`, since no RPC carries state between calls. The
+[Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD) is written
+on it and nothing else.
+
+An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
+`sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,
+or a [path from one into its parts](../reference/cli.md#objects-an-exploration-runs-on) —
+`PerformedBy("Mission::mission.vehicle")` makes the mission and runs the machine the vehicle
+exhibits, inside its assembly, so the ground station's messages reach it over their connector.
+Each explored run makes the object anew. A service not advertising `performer` refuses the
+option with `CodeUnimplemented`.
+
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen the same way
-`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` take
-`opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
+`sysml -engine` chooses it: `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` and
+`ValidateInstance` take `opensysml.WithEngine("run")`, `RunAnalysis` takes `opensysml.Engine(...)`, `Calculate` — `EvaluateCalc`
 with options — takes `opensysml.CalcEngine(...)` beside `opensysml.CalcArguments(...)`, `opensysml.EngineAll`
 asks every engine that covers the question and `opensysml.EngineAuto` — the default — leaves the
 choice to the service. `ListEngines` names the engines the service registers — the `check` and
@@ -291,7 +312,7 @@ the measured latency are documented in [reference/python-api.md](../reference/py
 
 ```bash
 pip install opensysml             # from PyPI
-pip install -e clients/python/          # or from a checkout, at the repository root
+pip install -e client/python/          # or from a checkout, at the repository root
 ```
 
 The dependencies (`grpcio`, `protobuf>=7.35.1`, `filelock`, `psutil`) are installed with it.
@@ -723,6 +744,51 @@ verdict is about using its `instance_id`:
 subject = next(i for i in verdict.instances if i.id == verdict.instance_id)
 ```
 
+#### Validating an object as a whole
+
+`validate_instance` is `sysml -validate=<object>` for a script: it builds one object of a part
+and evaluates every assertion about it and the objects it holds — each `assert constraint` the
+carrier's type declares or inherits, each requirement usage it carries, and each `satisfy`
+assertion whose subject is in the tree — rather than one named condition. Over a `Car` that
+asserts `massOk`, carries requirement `light` (mass under 1000, which its 1500 kg violates) and
+holds two `wheels : Wheel[2]` at 20 psi against `Wheel`'s asserted `pressure >= 30.0`:
+
+```python
+validation = model.validate_instance("Fleet::car")
+
+bool(validation)            # False — truthy only when every assertion holds and the whole tree was reached
+len(validation)             # 4 — one verdict per (assertion, object)
+for verdict in validation:  # root first, then each held object as the walk reaches it
+    print(verdict.instance_path or ".", verdict.holds)
+# . True
+# . False
+# wheels[1] False
+# wheels[2] False
+
+[v.instance_path for v in validation.violated]   # ['', 'wheels[1]', 'wheels[2]']
+validation.undecided                             # [] — verdicts whose condition could not be evaluated
+validation.summary.kind                          # 'object' — the verdict about the root itself
+validation.bounded                               # False — True when the walk stopped at its depth bound
+print(validation)
+# ✓ assert constraint massOk holds (on Fleet::car ID: 1) — witnessed by run
+# ✗ requirement light fails (on Fleet::car ID: 1): condition evaluated to false: mass < 1000.0 — witnessed by run
+# ✗ assert constraint pressureOk at wheels[1] fails (on Fleet::Car::wheels ID: 2): condition evaluated to false: pressure >= 30.0 — witnessed by run
+# ✗ assert constraint pressureOk at wheels[2] fails (on Fleet::Car::wheels ID: 3): condition evaluated to false: pressure >= 30.0 — witnessed by run
+# ✗ object Fleet::car fails (on Fleet::car ID: 1): condition evaluated to false — witnessed by run
+```
+
+Each verdict is a `Verdict` as above, with `instance_path` naming where its object sits under
+the root (`engine.injector`, `wheels[2]`, one-based for a collection element; empty for the root
+itself) and `instance_id` picking it out of `validation.instances`, which holds the whole tree.
+The same rule separates a *false* from a *failure*: `validation.violated` lists the verdicts the
+model answered false, `validation.undecided` the ones that could not be evaluated, and
+`validation.raise_for_error()` raises `ExecutionError` for the first of those, so a script that
+must not read an unbound feature as a passing check can insist on a decided answer. A
+`Validation` is falsy for an undecided assertion and for a `bounded` walk, since neither says the
+object holds. A constraint declared without `assert` is not swept — that is what
+`verify_constraint` is for — and an unknown or non-instantiable part raises `ExecutionError` from
+the call, as the other verification calls do.
+
 Calculations are invoked with positional arguments. A calc *usage* named without arguments is
 evaluated from its own members and reports every output feature it computes (SysML 7.17):
 
@@ -811,8 +877,8 @@ required upgrade rather than failing on an unimplemented method.
 #### Choosing the engine, and reading the standing of an answer
 
 Which [analysis engine](../reference/cli.md#analysis-engines) answers is chosen as `sysml -engine`
-chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `calc`,
-`run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
+chooses it: `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `validate_instance`,
+`calc`, `run_analysis` and `run_sweep` take `engine=` — `"auto"` (the default, the service picks),
 `"all"` (every engine that covers the question, composed) or one by name; `explore_analysis`
 takes a `schedule=` instead and leaves the engine to the service. A
 name the service does not register raises `InvalidRequestError` listing the ones it does, and
@@ -949,6 +1015,22 @@ text, and `write(path)` saves it. Formats are named `sysml`, `kerml`, `text`, `t
 `rdf`. A file path's format is inferred from its extension; inline `content` has no extension, so
 it needs `from_format`.
 
+`convert` also reads a **SysML v1** model and migrates it, when the source is UML XMI, an Eclipse
+UML2 `.uml` file or a `.mdzip` archive: `from_format` is `xmi`, `uml` or `mdzip`, inferred from
+those extensions, and is an input only — asking to write it raises `InvalidRequestError`, since a
+v2 model has no v1 form. Migration is
+[experimental](../reference/sysml-v1-migration.md#status-experimental) and warns as the RDF
+direction does. The service does not return the migration report; run
+`sysml Model.xmi -convert sysml -migration-report Model.report.txt` for the element-by-element
+account, as [chapter 11](11-migrating-from-sysml-v1.md) walks through.
+
+```python
+migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")  # ExperimentalFeatureWarning
+migrated.from_format, migrated.to_format                          # ('xmi', 'sysml')
+migrated.write("Vehicle.sysml")
+opensysml.convert("ttl", content=xmi_text, from_format="xmi")    # straight to RDF
+```
+
 A `Model` writes out the source the service parsed, identified by `model.hash`, so editing the file
 between `load` and `save` does not change what is written: the model saved is the model you
 inspected. `convert(file_path=…)` is the alternative, and reads the file as it is now. The
@@ -972,7 +1054,8 @@ What each direction preserves:
 Conversion is capability-negotiated: against a service that does not report the `convert`
 capability, these calls raise `MissingCapabilityError` naming the required upgrade rather than
 failing on an unimplemented method. For a service that does not report the RDF mapping's status,
-the status is worked out from the formats it reports, so an RDF conversion warns either way.
+the status is worked out from the formats it reports, so an RDF conversion or a v1 migration
+warns either way.
 Suppress the warning with `warnings.simplefilter("ignore",
 opensysml.ExperimentalFeatureWarning)`; no stable feature uses that warning class.
 
@@ -1019,8 +1102,13 @@ would otherwise break.
 `apply()` sends the operations in a single call and returns an `EditResult`, which *is* a
 `Conversion`: `str(result)` is the edited notation, and `result.save(path)` and
 `result.write(path)` write it. `result.applied` lists the changes as
-`AppliedEdit(operation_index, target, offset, length, old_text, new_text)` in source order, where
-`length == 0` marks a value added to a feature that had none before.
+`AppliedEdit(operation_index, target, offset, length, old_text, new_text, document)` in source
+order, where `length == 0` marks a value added to a feature that had none before, and
+`result.documents` lists the edited notation per document as `EditedDocument(name, content)` —
+one entry, named as the model was loaded, for the one-document models this client loads. A model
+of several documents, parsed together through the service's `ParseSources`, is edited as one
+atomic batch and answers its rewritten documents there, with `str(result)` empty; see
+[the wire contract](../reference/wire-contract.md#applyedits-one-document-or-several).
 
 How editing works:
 
@@ -1051,7 +1139,10 @@ All of these are subclasses of `EditError`, which carries `failure` (the kind of
 `diagnostics`, and `referring_elements` for a refused rename or a refused non-cascade delete. An
 `EditResultError`'s diagnostics have spans in the edited text. `referring_elements` names
 each namespace a reference is made from, telling you where to look rather than which
-expression is at fault.
+expression is at fault; `referrers` is the same list as `Referrer(name, document)` pairs, so a
+referrer in another document of the model can be opened. A `ReferencedElsewhereError` is a
+rename, delete or move referred to from a document the edit cannot rewrite, such as a bundled
+library file.
 
 ```python
 try:
@@ -1071,8 +1162,9 @@ These limitations are intentional:
   namespace, an import or a supertype), or that already means something at one of the references
   being rewritten, is refused. Such a rename would either be ambiguous or shadow an existing
   declaration, and either way unrelated expressions would start resolving to the renamed element.
-  References from another file are not rewritten, because an edit sees only the source of the
-  model it was given.
+  A reference from a file outside the model is not rewritten, because an edit sees only the
+  documents of the model it was given; within a model of several documents, a rename follows
+  its references into every document.
 - **A model cannot be built from scratch in Python.** Declarations are added to and deleted from a
   model that is already loaded; there is no way to author one from nothing, and no object facade.
   A declaration is described by the notation arguments of an `add_*` call rather than by a mutable
@@ -1150,6 +1242,7 @@ for row in result.rows:
 model.run_document_query("Observatory::HeavierThan", bindings={"threshold": 10.0})
 
 markdown = model.render_document("Observatory::SubsystemReport")
+html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
 A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`, an `int`, a
@@ -1157,11 +1250,13 @@ A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`,
 is sent. Cell values come back with those Python types, an element as `ElementRef` and an
 unbounded multiplicity as `opensysml.INFINITY`. `render_document` takes no bindings, because a
 document binds its queries' parameters in the model; it returns the Markdown text, identical to
-what `sysml -render-document` writes.
+what `sysml -render-document` writes, or with `form="html"` the standalone page
+`-doc-form html` writes. PDF stays with the CLI, whose converter toolchain it needs.
 
 An unknown query or document raises `SymbolNotFoundError`, a bad binding raises
 `InvalidRequestError` naming the parameter, and both calls are capability-negotiated
-(`document_query` and `render_document`) the same way as everything above.
+(`document_query`, `render_document` and, for HTML, `render_document_html`) the same way as
+everything above.
 
 ## From Node or a browser
 
@@ -1180,7 +1275,7 @@ tree.get("wheels");
 ```
 
 `@opensysml/client` is not published yet, so build it from a checkout: `npm install && npm run build`
-in `clients/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
+in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
@@ -1218,6 +1313,13 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
+
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  Exploration every = model.exploreAction("Test::race");          // one Outcome per distinct end state
+  Verification light = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
+  Analysis study = model.runAnalysis("Trade::lightest");          // selected alternative, evaluations
+  List<QueryElement> parts = model.query(
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 }
 ```
 
@@ -1225,23 +1327,27 @@ The client is meant to live inside a JVM host application it does not own (an Ec
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
 Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f clients/java/pom.xml install` puts it in your local repository.
+`mvn -f client/java/pom.xml install` puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
-`Instance` and `Instantiation` are records with copied collections. Everything thrown is unchecked
-and descends from `OpenSysMLException`, with `ServiceException` (the call was refused) kept separate
-from `ModelException` (the call succeeded and the answer reports a model failure).
+`Instance`, `Instantiation` and the execution, verification, analysis and query results are records
+with copied collections. Everything thrown is unchecked and descends from `OpenSysMLException`, with
+`ServiceException` (the call was refused) kept separate from `ModelException` (the call succeeded and
+the answer reports a model failure). A verdict that is false is neither: `light.holds()` answers
+`false` with `light.verdict().decided()` true, and only a verdict the service could not evaluate
+carries an `error` and a `failureReason`.
 
 One private service is started per classloader, so an Eclipse plugin and a web application in one JVM
 each own one and share nothing, while every connection made through one copy of the client shares a
 child and therefore its parse cache. Call `Connection.stopSharedServices()` from a plugin's `stop()`
 or a `ServletContextListener`, since unloading a classloader does not by itself stop the child.
 
-The typed surface stops short of execution (`ExecuteAction`, `ExecuteState` and `RunAnalysis` are
-among what v1 does not do), so nothing here takes a `schedule` or reads `outcomes`;
-`Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` only name the two capabilities a
-service advertising scheduling policies reports.
+`ExecutionOptions.defaults().withSchedule("seed:7")` fixes the order a run takes and
+`exploreAction` takes an `explore` schedule and answers every `Outcome` with the `witness` order
+that reaches it; `Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` are checked before
+the call. `runAnalysis` throws an `AnalysisException` whose `partial()` keeps what a failed run
+computed, so a trade study that stops on one alternative still shows the others.
 
 [The Java API reference](../reference/java-api.md) documents the surface, the exceptions and the
 options.

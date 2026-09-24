@@ -1,0 +1,50 @@
+name: SysON plugin against real artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  syson-artifacts:
+    name: SysON plugin against real artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.SYSON_PACKAGES_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build the service binary
+        run: make build-grpc
+
+      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install the client dependency
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Build against the real SysON artifacts
+        run: mvn -B -s editors/syson/settings.xml -f editors/syson/pom.xml -Psyson-artifacts -P '!stubs' install -Dopensysml.requireService=true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/syson/frontend/package-lock.json
+
+      - name: Build against the real Sirius packages
+        working-directory: editors/syson/frontend
+        run: |
+          npm ci --ignore-scripts
+          cp .npmrc.example .npmrc
+          npm run install:syson
+          npm run build:syson

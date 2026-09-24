@@ -9,17 +9,17 @@ pin in `scripts/pilot-pin.sh`.
 
 | Root | Files |
 |---|---|
-| `committed` (everything under `examples/` outside the downloaded roots) | 35 |
+| `committed` (everything under `examples/` outside the downloaded roots) | 41 |
 | `sysml-v2-training` | 100 |
 | `pilot-corpora/kerml-examples` | 58 |
 | `pilot-corpora/sysml-examples` | 99 |
 | `pilot-corpora/sysml-validation` | 56 |
 
-**Gate:** `TestCorpusRoundTrip` in `internal/core/export/corpus_roundtrip_test.go` converts each file
+**Gate:** `TestCorpusRoundTrip` in `tests/corpus/roundtrip_test.go` converts each file
 notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
-**Regenerate:** `go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip`
+**Regenerate:** `go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip`
 **Required in CI:** `OPENSYSML_REQUIRE_TRAINING_CORPUS=1` and `OPENSYSML_REQUIRE_PILOT_CORPORA=1`
 in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
 downloaded root fails instead of skipping. Both configurations also run the gate on its own so
@@ -27,7 +27,7 @@ its summary line is legible in the log and a skip cannot pass.
 
 ## Why
 
-The fixture round-trip tests in `internal/core/export/export_test.go` (`TestRoundTripIsLossless`,
+The fixture round-trip tests in `tests/export/export_test.go` (`TestRoundTripIsLossless`,
 `TestGoldenConversions` and the per-construct tests) assert byte-stability over a few dozen
 authored models, and they pass. The example corpus is an order of magnitude larger and is not
 clean under the mapping: some files are refused, some cannot be written back, and some come back
@@ -59,15 +59,15 @@ Recorded against the corpus above, reproduced byte-identically on a second run:
 
 | Verdict | Files |
 |---|---|
-| `stable` | 348 |
+| `stable` | 354 |
 | `whitespace-only` | 0 |
 | `graph-diff` | 0 |
 | `unwritable` | 0 |
 | `unparseable` | 0 |
 | `refused` | 0 |
-| **total** | **348** |
+| **total** | **354** |
 
-So every one of the 348 files converts to Turtle, and every one comes back as the same Turtle byte
+So every one of the 354 files converts to Turtle, and every one comes back as the same Turtle byte
 for byte. That is the source text at work: the decoder writes each file back from the
 `sysx:sourceText` it carries (see [What the gate does not do](#what-the-gate-does-not-do)), so the
 files that came back up to whitespace, as a different graph, or that could not be written back or
@@ -92,7 +92,10 @@ statement (`parser_features_demo_declarations.kerml`), a succession whose ends a
 (`Simple Tests/Connectors.kerml`), and an invocation expression (`Simple
 Tests/Expressions.kerml`, `SimpleVehicleModel.sysml`); one more, `TimeVaryingFeatures.kerml`,
 comes back from the graph alone with a `featured by` name the second conversion no longer
-resolves, which a named feature reproduces on `main`. The gate measures the source-backed trip,
+resolves, which a named feature reproduces on `main`. An `accept after 1 [s]` written as an
+action-body member rather than a transition trigger stops the same way
+(`runtime-showcase/spacecraft-comms.sysml`): its time expression is carried as source text
+alone, with no expression tree to write it back from. The gate measures the source-backed trip,
 where all of these are `stable`; the graph-only shapes are the open items in
 [rdf-mapping.md § Limitations](../reference/rdf-mapping.md#limitations).
 
@@ -140,6 +143,34 @@ adjudicated:
   shows it; review the movement, not the summary count.
 - The header records the file count of each root, so a root whose count differs from the header
   is a provisioning question — a stale or partial download — before it is a behaviour question.
+
+## The API element form
+
+The same file walk, verdicts and policy run a second time over the API's JSON element form
+(`api-json`, [rdf-mapping.md § The API element form](../reference/rdf-mapping.md#the-api-element-form)):
+`TestCorpusAPIJSONRoundTrip` converts each file notation → `api-json` (hop 1) → notation →
+`api-json` (hop 2) and pins the verdict in `tests/corpus/testdata/api_json_roundtrip_expected.txt`.
+`whitespace-only` compares the two JSON documents as the graphs `export.ReadAPIJSON` reads them
+to, under the same `sysx:sourceText` normalisation.
+
+**Regenerate:** `go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip`
+**Required in CI:** the same two variables, run as its own step beside the Turtle gate.
+
+| Verdict | Files |
+|---|---|
+| `stable` | 354 |
+| `graph-diff` | 2 |
+| every other verdict | 0 |
+| **total** | **356** |
+
+The two forms are one graph, so a file's two verdicts should agree, and they do for every file
+but two: `Vehicle Example/Annex_A_VehicleViews.sysml` and `Vehicle Example/SysML v2 Spec Annex A
+SimpleVehicleModel.sysml` spell a real as `.1` and `.6`, which Turtle carries as written and JSON
+cannot spell, so the element form carries `0.1` and `0.6`, the notation written back does too,
+and hop 2's `sysx:sourceText` differs from hop 1's. The value is the same; the spelling is not,
+and the verdict records that honestly rather than reading the literal back to its old lexical
+form. A file whose element-form verdict is worse than its Turtle verdict for any other reason is a
+defect in `export/api_json_out.go` or `export/api_json_in.go`, to be fixed at its root.
 
 ## What the gate does not do
 

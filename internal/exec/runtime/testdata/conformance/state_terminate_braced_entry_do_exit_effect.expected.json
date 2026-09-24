@@ -1,0 +1,13 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"finalState": "t",
+	"stateVisits": ["s", "t"],
+	"outputs": {
+		"e": {"type": "Integer", "value": 1},
+		"d": {"type": "Integer", "value": 1},
+		"x": {"type": "Integer", "value": 1},
+		"n": {"type": "Integer", "value": 1}
+	}
+}

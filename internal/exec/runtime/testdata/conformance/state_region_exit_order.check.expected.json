@@ -1,0 +1,13 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"l(exit) r(exit) outer(exit) work(exit) \"",
+			"\"r(exit) l(exit) outer(exit) work(exit) \"",
+			"\"r(exit) outer(exit) l(exit) work(exit) \""
+		]
+	},
+	"agreed": {
+		"finalState": "rest"
+	}
+}

@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"late": ["0.125", "0.25"]},
+	"agreed": {"early": "0.5", "final": "0.0625"}
+}

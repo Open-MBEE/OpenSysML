@@ -1,0 +1,262 @@
+name: Nightly snapshot
+
+# Builds the newest green `develop` commit into the release assets and publishes it
+# as the moving prerelease `nightly`, never marked latest. See docs/project/nightly.md.
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rebuild and republish even when the newest green develop commit is already the published snapshot
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-snapshot
+  cancel-in-progress: false
+
+env:
+  BRANCH: develop
+  TAG: nightly
+  # The commit is built by its own copy of this script; a green commit that predates it cannot be built.
+  BUILD_SCRIPT: scripts/build-release-artifacts.sh
+
+jobs:
+  select:
+    name: Pick the commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      publish: ${{ steps.pick.outputs.publish }}
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ env.BRANCH }}
+          # Full history: the candidates are the branch's own commits, walked from the head.
+          fetch-depth: 0
+
+      - name: Find the newest green develop commit
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          # The tag moves before the release exists, so a night counts as done only once a published
+          # release sits at it; `gh release create` uploads into a draft and publishes last.
+          # Both lookups answer an empty match, not 404, when there is no snapshot yet, so an API failure
+          # stops the job rather than passing for "no snapshot". The release is recreated nightly, so it is recent.
+          published=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$TAG" \
+            --jq ".[] | select(.ref == \"refs/tags/$TAG\") | .object.sha")
+          released=$(gh api "repos/$GH_REPO/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$TAG\" and .draft == false) | .id")
+
+          # First-parent commits only (a merged branch's commits carry its PR's statuses); CircleCI's
+          # combined state is `success` only when every job passed. The walk ends at the published snapshot.
+          sha=
+          while read -r candidate; do
+            state=$(gh api "repos/$GH_REPO/commits/$candidate/status" --jq .state)
+            if [ "$state" = success ] && ! git cat-file -e "$candidate:$BUILD_SCRIPT" 2>/dev/null; then
+              state="success, but has no $BUILD_SCRIPT"
+            fi
+            echo "$candidate: $state"
+            if [ "$state" = success ]; then
+              sha=$candidate
+              break
+            fi
+            if [ "$candidate" = "$published" ]; then
+              break
+            fi
+          done < <(git rev-list --first-parent --max-count=100 HEAD)
+          if [ -z "$sha" ]; then
+            if [ -n "$published" ]; then
+              echo "::notice::Nothing on $BRANCH newer than the published snapshot ${published:0:7} is green among the newest 100 commits; the previous snapshot stands."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::No commit among the newest 100 on $BRANCH has a green CircleCI status; nothing to publish."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+          if [ "$published" = "$sha" ] && [ -n "$released" ] && [ "$FORCE" != true ]; then
+            echo "::notice::$TAG already points at $sha, the newest green commit on $BRANCH, with its release; nothing to rebuild."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Publishing $sha as $TAG (previously ${published:-unpublished})."
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Build and publish the snapshot
+    needs: select
+    if: needs.select.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ needs.select.outputs.sha }}
+          # Full history: the notes count commits since the last `v*` tag.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+
+      - name: Derive the snapshot version
+        id: version
+        run: |
+          commit=$(git rev-parse --short HEAD)
+          {
+            echo "version=nightly-$(date -u +%Y%m%d)-${commit}"
+            echo "date=$(date -u +%Y-%m-%d)"
+            echo "base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build the release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: '"$BUILD_SCRIPT" dist'
+
+      # The extension is side-loaded, not published to a marketplace, so the snapshot
+      # is its distribution. Its version is the manifest's with the snapshot version as
+      # the pre-release part, so two nights' builds are told apart in VS Code and any
+      # stable release of the extension ranks above them. The selected commit may be
+      # older than this workflow, so the version is passed to the extension's own
+      # package script rather than through a Makefile variable it may not have yet.
+      - name: Package the VS Code extension
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          base=$(node -p "require('./editors/vscode/package.json').version")
+          expected="${base}-${VERSION}"
+          (cd editors/vscode && npm ci --ignore-scripts && npm run package -- "$expected" --no-update-package-json)
+          unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
+          stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+          if [ "$stamped" != "$expected" ]; then
+            echo "::error::opensysml-sysml.vsix carries version '$stamped', not the '$expected' it is being published as."
+            exit 1
+          fi
+          echo "ok: opensysml-sysml.vsix carries $stamped"
+          cp editors/vscode/opensysml-sysml.vsix dist/
+          (cd dist && sha256sum opensysml-sysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
+
+      # Keyless, like the stable release; the identity is this workflow's OIDC identity.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.0.3
+
+      - name: Sign the checksum manifest with cosign keyless
+        run: |
+          cd dist
+          cosign sign-blob SHA256SUMS.txt \
+            --bundle SHA256SUMS.txt.bundle \
+            --use-signing-config=false \
+            --yes
+
+      - name: Verify the signature against the identity the snapshot page documents
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          cd dist
+          cosign verify-blob SHA256SUMS.txt \
+            --bundle SHA256SUMS.txt.bundle \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity "https://github.com/${WORKFLOW_REF}"
+
+      - name: Write the release notes
+        env:
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DATE: ${{ steps.version.outputs.date }}
+          BASE: ${{ steps.version.outputs.base }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          count=$(git rev-list --count "$BASE..HEAD")
+          case $count in 1) commits="1 commit" ;; *) commits="$count commits" ;; esac
+          # GitHub renders a release body with hard line breaks, so each paragraph is one line.
+          {
+            printf '%s' "**Development snapshot of \`$BRANCH\`, not a release.** Built $DATE from"
+            printf '%s' " [\`${sha:0:7}\`](https://github.com/$GH_REPO/commit/$sha), $commits after"
+            printf '%s' " [$BASE](https://github.com/$GH_REPO/releases/tag/$BASE)"
+            printf '%s' " ([compare](https://github.com/$GH_REPO/compare/$BASE...$sha)), by"
+            printf '%s\n' " [this workflow run]($RUN_URL). Every binary reports \`$VERSION\`."
+            echo
+            printf '%s' "The snapshot is replaced each night and is never the \`latest\` release; Homebrew,"
+            printf '%s' " PyPI, npm and the Windows installer follow the stable line only. The"
+            printf '%s' " [snapshot page](https://opensysml.org/project/nightly/) explains what it is, how"
+            printf '%s' " to verify it and what to expect from it; the"
+            printf '%s\n' " [install guide](https://opensysml.org/guide/01-install/) covers the stable releases."
+            echo
+            printf '%s' "\`opensysml-sysml.vsix\` is the VS Code extension built from the same commit:"
+            printf '%s' " \`code --install-extension opensysml-sysml.vsix\`, with a snapshot's \`sysml-lsp\`"
+            printf '%s\n' " on your \`PATH\` or named by \`opensysml.server.path\`."
+            echo
+            echo "Verify a download against the signed manifest:"
+            echo
+            echo '```bash'
+            echo "sha256sum -c --ignore-missing SHA256SUMS.txt"
+            echo "cosign verify-blob SHA256SUMS.txt --bundle SHA256SUMS.txt.bundle \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com \\"
+            echo "  --certificate-identity https://github.com/$WORKFLOW_REF"
+            echo '```'
+            echo
+            echo "## Unreleased changes in this snapshot"
+            echo
+            printf '%s' "One line per entry; the full text is under"
+            printf '%s' " [\`changes/unreleased/\`](https://github.com/$GH_REPO/tree/$sha/changes/unreleased)"
+            printf '%s\n' " and \`CHANGELOG.md\` at this commit."
+            echo
+            # GitHub caps a release body at 125,000 characters; a one-line summary stays far under it.
+            python3 scripts/changelog.py summary | head -c 100000
+          } > notes.md
+          cat notes.md
+
+      # Recreated rather than edited, so no asset of a previous night survives.
+      # `gh release delete` leaves the tag behind; it is moved by hand.
+      - name: Publish the prerelease at the moving tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DATE: ${{ steps.version.outputs.date }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          if gh release view "$TAG" --json tagName >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+          git tag --force "$TAG" "$sha"
+          git push --force origin "refs/tags/$TAG"
+          gh release create "$TAG" \
+            --target "$sha" \
+            --title "Nightly snapshot $DATE ($VERSION)" \
+            --notes-file notes.md \
+            --prerelease \
+            --latest=false \
+            dist/*.tar.gz dist/*.zip dist/opensysml-sysml.vsix \
+            dist/SHA256SUMS.txt dist/SHA256SUMS.txt.bundle \
+            dist/grpc/sysml-grpc-*
+          gh release view "$TAG" --json url,assets --jq '.url, (.assets[].name)'

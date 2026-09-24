@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The setup wizard of the OpenSysML MSI, referenced from opensysml.wxs as
+  UIRef Id="OpenSysMLWizard".
+
+  Every dialog below is built from the standard Windows Installer controls
+  (Text, PushButton, PathEdit, DirectoryCombo, DirectoryList, SelectionTree,
+  ProgressBar) and standard control events (NewDialog, SpawnDialog, SetTargetPath,
+  Remove, Reinstall, EndDialog). Nothing here runs code: the stock WixUI dialog
+  sets are not used because they embed the WixUiCa custom-action DLL (MS-RL),
+  and the licensing note in README.md relies on the Binary table staying empty
+  and the only CustomAction row being a data-only type-51 set-property.
+
+  First install:  WelcomeDlg -> InstallDirDlg (Change... -> BrowseDlg)
+                  -> FeaturesDlg -> VerifyReadyDlg -> ProgressDlg -> ExitDlg
+  Re-run when installed: MaintenanceDlg (Repair | Remove) -> ProgressDlg -> ExitDlg
+  Any time:       CancelDlg, ErrorDlg, FatalErrorDlg, UserExitDlg, FilesInUse,
+                  MsiRMFilesInUse
+
+  Dialog geometry is the conventional 370x270 dialog units with a 44-unit
+  header band and the button row at y=243.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <UI Id="OpenSysMLWizard">
+      <TextStyle Id="WizardFont" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WizardFontBold" FaceName="Tahoma" Size="8" Bold="yes" />
+      <TextStyle Id="WizardFontTitle" FaceName="Verdana" Size="13" />
+
+      <Property Id="DefaultUIFont" Value="WizardFont" />
+      <Property Id="ErrorDialog" Value="ErrorDlg" />
+      <Property Id="RESTARTMANAGEROPTION" Value="UseRM" />
+      <!-- Target of the SelectionTree and of BrowseDlg: the directory being edited. -->
+      <Property Id="_BrowseProperty" Value="INSTALLFOLDER" />
+
+      <!-- ===================================================================== -->
+      <Dialog Id="WelcomeDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="60" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontTitle}Welcome to the [ProductName] [OPENSYSML_TAG] Setup Wizard" />
+        <Control Id="Description" Type="Text" X="20" Y="90" Width="330" Height="70" Transparent="yes" NoPrefix="yes"
+                 Text="The Setup Wizard will install [ProductName] on your computer: the sysml REPL and command line, the sysml-lsp language server, and optionally the sysml-grpc service and the Z3 SMT solver.&#13;&#10;&#13;&#10;Click Next to continue or Cancel to exit the Setup Wizard." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" Disabled="yes" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <Publish Event="NewDialog" Value="InstallDirDlg" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="InstallDirDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Destination Folder" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="Click Next to install to the default folder or click Change to choose another." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="FolderLabel" Type="Text" X="20" Y="60" Width="290" Height="30" NoPrefix="yes"
+                 Text="Install [ProductName] to:" />
+        <Control Id="Folder" Type="PathEdit" X="20" Y="100" Width="320" Height="18" Property="INSTALLFOLDER" Indirect="no" />
+        <Control Id="ChangeFolder" Type="PushButton" X="20" Y="120" Width="56" Height="17" Text="&amp;Change...">
+          <Publish Property="_BrowseProperty" Value="INSTALLFOLDER" Order="1" />
+          <Publish Event="SpawnDialog" Value="BrowseDlg" Order="2" />
+        </Control>
+        <Control Id="PathNote" Type="Text" X="20" Y="150" Width="330" Height="40" NoPrefix="yes"
+                 Text="The folder is added to the system PATH so that sysml and sysml-lsp can be run from any terminal. The Z3 solver, if selected, is installed in a z3 subfolder." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+          <Publish Event="NewDialog" Value="WelcomeDlg" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <!-- SetTargetPath validates the folder and raises the installer's own error dialog if it is unusable. -->
+          <Publish Event="SetTargetPath" Value="INSTALLFOLDER" Order="1" />
+          <Publish Event="NewDialog" Value="FeaturesDlg" Order="2" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="BrowseDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Change destination folder" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="Browse to the destination folder." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="ComboLabel" Type="Text" X="25" Y="58" Width="44" Height="10" TabSkip="no" Text="&amp;Look in:" />
+        <Control Id="DirectoryCombo" Type="DirectoryCombo" X="70" Y="55" Width="170" Height="80"
+                 Property="_BrowseProperty" Indirect="yes" Fixed="yes" Remote="yes">
+          <Subscribe Event="IgnoreChange" Attribute="IgnoreChange" />
+        </Control>
+        <!-- Plain text buttons: icons would need Binary table entries. -->
+        <Control Id="Up" Type="PushButton" X="246" Y="55" Width="40" Height="17" ToolTip="Up one level" Text="&amp;Up">
+          <Publish Event="DirectoryListUp" Value="0" />
+        </Control>
+        <Control Id="NewFolder" Type="PushButton" X="290" Y="55" Width="55" Height="17" ToolTip="Create a new folder" Text="Ne&amp;w folder">
+          <Publish Event="DirectoryListNew" Value="0" />
+        </Control>
+        <Control Id="DirectoryList" Type="DirectoryList" X="25" Y="83" Width="320" Height="98" Property="_BrowseProperty"
+                 Sunken="yes" Indirect="yes" TabSkip="no" />
+        <Control Id="PathLabel" Type="Text" X="25" Y="190" Width="320" Height="10" TabSkip="no" Text="&amp;Folder name:" />
+        <Control Id="PathEdit" Type="PathEdit" X="25" Y="202" Width="320" Height="18" Property="_BrowseProperty" Indirect="yes" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="OK" Type="PushButton" X="240" Y="243" Width="56" Height="17" Default="yes" Text="OK">
+          <Publish Event="SetTargetPath" Value="[_BrowseProperty]" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="Reset" Value="0" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="FeaturesDlg" Width="370" Height="270" Title="[ProductName] Setup" TrackDiskSpace="yes">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Choose components" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="Select the optional components to install." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="25" Y="55" Width="320" Height="24" NoPrefix="yes"
+                 Text="Click an item in the tree to read its description. The gRPC service and the bundled Z3 solver are optional; sysml and sysml-lsp are always installed." />
+        <Control Id="Tree" Type="SelectionTree" X="25" Y="85" Width="175" Height="95" Property="_BrowseProperty" Sunken="yes" TabSkip="no" />
+        <Control Id="Box" Type="GroupBox" X="210" Y="81" Width="140" Height="98" />
+        <Control Id="ItemDescription" Type="Text" X="215" Y="90" Width="131" Height="70" NoPrefix="yes"
+                 Text="Select an item in the tree to see its description.">
+          <Subscribe Event="SelectionDescription" Attribute="Text" />
+        </Control>
+        <Control Id="ItemSize" Type="Text" X="215" Y="160" Width="131" Height="15" NoPrefix="yes" Text=" ">
+          <Subscribe Event="SelectionSize" Attribute="Text" />
+        </Control>
+        <Control Id="LocationLabel" Type="Text" X="25" Y="190" Width="65" Height="10" Text="Location:" />
+        <Control Id="Location" Type="Text" X="90" Y="190" Width="260" Height="20" NoPrefix="yes" Text="[INSTALLFOLDER]">
+          <Subscribe Event="SelectionPath" Attribute="Text" />
+          <Subscribe Event="SelectionPathOn" Attribute="Visible" />
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Reset" Type="PushButton" X="10" Y="243" Width="56" Height="17" Text="Re&amp;set">
+          <Publish Event="Reset" Value="0" />
+          <Subscribe Event="SelectionNoItems" Attribute="Enabled" />
+        </Control>
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+          <Publish Event="NewDialog" Value="InstallDirDlg" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="VerifyReadyDlg" Width="370" Height="270" Title="[ProductName] Setup" TrackDiskSpace="yes">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Ready to install [ProductName]" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="Click Install to begin the installation." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="25" Y="60" Width="320" Height="60" NoPrefix="yes"
+                 Text="[ProductName] [OPENSYSML_TAG] will be installed to:&#13;&#10;&#13;&#10;[INSTALLFOLDER]&#13;&#10;&#13;&#10;Click Back to review or change any of your installation settings. Click Cancel to exit the wizard." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+          <Publish Event="NewDialog" Value="FeaturesDlg" />
+        </Control>
+        <Control Id="Install" Type="PushButton" ElevationShield="yes" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Install">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="MaintenanceDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Repair or remove [ProductName]" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="[ProductName] [OPENSYSML_TAG] is already installed on this computer." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="RepairButton" Type="PushButton" X="40" Y="65" Width="80" Height="17" Text="Re&amp;pair">
+          <Publish Event="ReinstallMode" Value="ecmus" Order="1" />
+          <Publish Event="Reinstall" Value="All" Order="2" />
+          <Publish Event="EndDialog" Value="Return" Order="3" />
+        </Control>
+        <Control Id="RepairText" Type="Text" X="130" Y="65" Width="220" Height="30" NoPrefix="yes"
+                 Text="Reinstall every file of the installed components and restore the PATH entries." />
+        <Control Id="RemoveButton" Type="PushButton" X="40" Y="110" Width="80" Height="17" Text="&amp;Remove">
+          <Publish Event="Remove" Value="All" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="RemoveText" Type="Text" X="130" Y="110" Width="220" Height="30" NoPrefix="yes"
+                 Text="Remove [ProductName] from this computer, including the bundled Z3 solver and the PATH entries." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Default="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="ProgressDlg" Width="370" Height="270" Title="[ProductName] Setup" Modeless="yes">
+        <Control Id="TitleInstalling" Type="Text" X="20" Y="15" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Installing [ProductName]"
+                 HideCondition="Installed AND NOT (RESUME OR Preselected)" />
+        <Control Id="TitleChanging" Type="Text" X="20" Y="15" Width="330" Height="15" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontBold}Repairing or removing [ProductName]"
+                 HideCondition="NOT Installed OR RESUME OR Preselected" />
+        <Control Id="Text" Type="Text" X="35" Y="65" Width="300" Height="20" NoPrefix="yes"
+                 Text="Please wait while the Setup Wizard works. This may take a few moments." />
+        <Control Id="StatusLabel" Type="Text" X="35" Y="100" Width="35" Height="10" Text="Status:" />
+        <Control Id="ActionText" Type="Text" X="70" Y="100" Width="265" Height="10">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
+        <Control Id="ProgressBar" Type="ProgressBar" X="35" Y="115" Width="300" Height="10" ProgressBlocks="yes" Text="Progress done">
+          <Subscribe Event="SetProgress" Attribute="Progress" />
+        </Control>
+        <Control Id="ActionData" Type="Text" X="70" Y="130" Width="265" Height="30">
+          <Subscribe Event="ActionData" Attribute="Text" />
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="ExitDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="60" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontTitle}Completed the [ProductName] Setup Wizard" />
+        <Control Id="Description" Type="Text" X="20" Y="90" Width="330" Height="80" Transparent="yes" NoPrefix="yes"
+                 Text="Click Finish to exit the Setup Wizard.&#13;&#10;&#13;&#10;[ProductName] was installed to [INSTALLFOLDER]. Open a new terminal to pick up the updated PATH, then run:  sysml -version"
+                 HideCondition="Installed AND NOT (RESUME OR Preselected)" />
+        <Control Id="DescriptionChanged" Type="Text" X="20" Y="90" Width="330" Height="80" Transparent="yes" NoPrefix="yes"
+                 Text="Click Finish to exit the Setup Wizard."
+                 HideCondition="NOT Installed OR RESUME OR Preselected" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="Cancel" />
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="FatalErrorDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="60" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontTitle}[ProductName] Setup Wizard ended prematurely" />
+        <Control Id="Description" Type="Text" X="20" Y="90" Width="330" Height="70" Transparent="yes" NoPrefix="yes"
+                 Text="[ProductName] setup ended prematurely because of an error. Your system has not been modified. To install this program at a later time, run Setup Wizard again.&#13;&#10;&#13;&#10;Click the Finish button to exit the Setup Wizard." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="Cancel" />
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="UserExitDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="20" Y="20" Width="330" Height="60" Transparent="yes" NoPrefix="yes"
+                 Text="{\WizardFontTitle}[ProductName] Setup Wizard was interrupted" />
+        <Control Id="Description" Type="Text" X="20" Y="90" Width="330" Height="70" Transparent="yes" NoPrefix="yes"
+                 Text="[ProductName] setup was interrupted. Your system has not been modified. To install this program at a later time, run Setup Wizard again.&#13;&#10;&#13;&#10;Click the Finish button to exit the Setup Wizard." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="&amp;Back" />
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;Finish">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Disabled="yes" Text="Cancel" />
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="CancelDlg" Width="260" Height="85" Title="[ProductName] Setup">
+        <Control Id="Text" Type="Text" X="20" Y="15" Width="225" Height="30" NoPrefix="yes"
+                 Text="Are you sure you want to cancel [ProductName] installation?" />
+        <Control Id="No" Type="PushButton" X="132" Y="57" Width="56" Height="17" Default="yes" Cancel="yes" Text="&amp;No">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Yes" Type="PushButton" X="72" Y="57" Width="56" Height="17" Text="&amp;Yes">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="ErrorDlg" Width="270" Height="105" Title="[ProductName] Setup" ErrorDialog="yes" NoMinimize="yes">
+        <Control Id="ErrorText" Type="Text" X="48" Y="15" Width="205" Height="60" TabSkip="no" NoPrefix="yes" Text="Information text" />
+        <Control Id="Y" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="&amp;Yes">
+          <Publish Event="EndDialog" Value="ErrorYes" />
+        </Control>
+        <Control Id="A" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="Cancel">
+          <Publish Event="EndDialog" Value="ErrorAbort" />
+        </Control>
+        <Control Id="C" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="Cancel">
+          <Publish Event="EndDialog" Value="ErrorCancel" />
+        </Control>
+        <Control Id="I" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="&amp;Ignore">
+          <Publish Event="EndDialog" Value="ErrorIgnore" />
+        </Control>
+        <Control Id="N" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="&amp;No">
+          <Publish Event="EndDialog" Value="ErrorNo" />
+        </Control>
+        <Control Id="O" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="OK">
+          <Publish Event="EndDialog" Value="ErrorOk" />
+        </Control>
+        <Control Id="R" Type="PushButton" X="100" Y="80" Width="56" Height="17" TabSkip="yes" Text="&amp;Retry">
+          <Publish Event="EndDialog" Value="ErrorRetry" />
+        </Control>
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="FilesInUse" Width="370" Height="270" Title="[ProductName] Setup" KeepModeless="yes">
+        <Control Id="Retry" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Cancel="yes" Text="Retry">
+          <Publish Event="EndDialog" Value="Retry" />
+        </Control>
+        <Control Id="Ignore" Type="PushButton" X="235" Y="243" Width="56" Height="17" Text="Ignore">
+          <Publish Event="EndDialog" Value="Ignore" />
+        </Control>
+        <Control Id="Exit" Type="PushButton" X="166" Y="243" Width="56" Height="17" Text="Exit">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Files in use" />
+        <Control Id="Description" Type="Text" X="20" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="Some files that need to be updated are currently in use." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="20" Y="55" Width="330" Height="30"
+                 Text="The following applications are using files that need to be updated by this setup. Close these applications and then click Retry to continue the installation or Cancel to exit it." />
+        <Control Id="List" Type="ListBox" X="20" Y="87" Width="330" Height="130" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+
+      <!-- ===================================================================== -->
+      <Dialog Id="MsiRMFilesInUse" Width="370" Height="270" Title="[ProductName] Setup" KeepModeless="yes">
+        <Control Id="OK" Type="PushButton" X="240" Y="243" Width="56" Height="17" Default="yes" Text="OK">
+          <Publish Event="EndDialog" Value="Return" />
+          <Publish Event="RMShutdownAndRestart" Value="0" Condition="RESTARTMANAGEROPTION~=&quot;UseRM&quot;" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="Files in use" />
+        <Control Id="Description" Type="Text" X="20" Y="23" Width="280" Height="20" Transparent="yes" NoPrefix="yes"
+                 Text="Some files that need to be updated are currently in use." />
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Text" Type="Text" X="20" Y="55" Width="330" Height="45"
+                 Text="The following applications are using files that need to be updated by this setup. You can let Setup Wizard close them and attempt to restart them or reboot the machine later." />
+        <Control Id="List" Type="ListBox" X="20" Y="100" Width="330" Height="80" Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="ShutdownOption" Type="RadioButtonGroup" X="26" Y="190" Width="305" Height="45" Property="RESTARTMANAGEROPTION">
+          <RadioButtonGroup Property="RESTARTMANAGEROPTION">
+            <RadioButton Value="UseRM" X="0" Y="0" Width="295" Height="16" Text="Close the applications and attempt to restart them." />
+            <RadioButton Value="DontUseRM" X="0" Y="20" Width="295" Height="16" Text="Do not close applications. A reboot will be required to complete the setup." />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+
+      <!-- Status line of ProgressDlg for the standard actions this package runs. -->
+      <ProgressText Action="AppSearch" Template="Property: [1], Signature: [2]" Message="Searching for installed applications" />
+      <ProgressText Action="CostFinalize" Message="Computing space requirements" />
+      <ProgressText Action="CostInitialize" Message="Computing space requirements" />
+      <ProgressText Action="FileCost" Message="Computing space requirements" />
+      <ProgressText Action="CreateFolders" Template="Folder: [1]" Message="Creating folders" />
+      <ProgressText Action="InstallFiles" Template="File: [1],  Directory: [9],  Size: [6]" Message="Copying new files" />
+      <ProgressText Action="InstallFinalize" Message="Finishing installation" />
+      <ProgressText Action="InstallInitialize" Message="Preparing installation" />
+      <ProgressText Action="InstallValidate" Message="Validating install" />
+      <ProgressText Action="LaunchConditions" Message="Evaluating launch conditions" />
+      <ProgressText Action="MigrateFeatureStates" Template="Application: [1]" Message="Migrating feature states from related applications" />
+      <ProgressText Action="ProcessComponents" Message="Updating component registration" />
+      <ProgressText Action="PublishFeatures" Template="Feature: [1]" Message="Publishing product features" />
+      <ProgressText Action="PublishProduct" Message="Publishing product information" />
+      <ProgressText Action="RegisterProduct" Template="[1]" Message="Registering product" />
+      <ProgressText Action="RegisterUser" Template="[1]" Message="Registering user" />
+      <ProgressText Action="RemoveEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]" Message="Updating environment strings" />
+      <ProgressText Action="RemoveExistingProducts" Template="Application: [1], Command line: [2]" Message="Removing applications" />
+      <ProgressText Action="RemoveFiles" Template="File: [1], Directory: [9]" Message="Removing files" />
+      <ProgressText Action="RemoveFolders" Template="Folder: [1]" Message="Removing folders" />
+      <ProgressText Action="RemoveRegistryValues" Template="Key: [1], Name: [2]" Message="Removing system registry values" />
+      <ProgressText Action="UnpublishFeatures" Template="Feature: [1]" Message="Unpublishing product features" />
+      <ProgressText Action="UnregisterProduct" Template="[1]" Message="Unregistering product" />
+      <ProgressText Action="ValidateProductID" Message="Validating product ID" />
+      <ProgressText Action="WriteEnvironmentStrings" Template="Name: [1], Value: [2], Action [3]" Message="Updating environment strings" />
+      <ProgressText Action="WriteRegistryValues" Template="Key: [1], Name: [2], Value: [3]" Message="Writing system registry values" />
+
+      <InstallUISequence>
+        <Show Dialog="FatalErrorDlg" OnExit="error" />
+        <Show Dialog="UserExitDlg" OnExit="cancel" />
+        <Show Dialog="ExitDlg" OnExit="success" />
+        <Show Dialog="WelcomeDlg" Before="ProgressDlg" Condition="NOT Installed" />
+        <Show Dialog="MaintenanceDlg" Before="ProgressDlg" Condition="Installed AND NOT RESUME AND NOT Preselected AND NOT PATCH" />
+        <Show Dialog="ProgressDlg" Before="ExecuteAction" />
+      </InstallUISequence>
+
+      <AdminUISequence>
+        <Show Dialog="FatalErrorDlg" OnExit="error" />
+        <Show Dialog="UserExitDlg" OnExit="cancel" />
+        <Show Dialog="ExitDlg" OnExit="success" />
+        <Show Dialog="ProgressDlg" Before="ExecuteAction" />
+      </AdminUISequence>
+    </UI>
+  </Fragment>
+</Wix>

@@ -1,0 +1,680 @@
+"""Verdicts of the verification the service performs.
+
+A verdict is an answer about the model: whether a constraint holds, whether a
+requirement is satisfied, whether a satisfaction assertion holds. A condition
+that evaluated to false is such an answer and is *not* an exception — it is what
+was asked. A failure to evaluate at all (an unbound feature, incommensurable
+units, an exhausted step budget) is not an answer, and is reported as
+:attr:`Verdict.error`, or raised by :meth:`Verdict.raise_for_error`.
+"""
+
+from opensysml.engines import Standing
+from opensysml.errors import ExecutionError
+
+#: Verdict kinds, as the service reports them.
+KIND_CONSTRAINT = "constraint"
+KIND_REQUIREMENT = "requirement"
+KIND_SATISFY = "satisfy"
+KIND_OBJECTIVE = "objective"
+KIND_ASSERTION = "assertion"
+KIND_OBJECT = "object"
+
+
+#: VerdictKind values a verification case's body produces, as the library
+#: declares them (``VerificationCases::VerdictKind``).
+VERDICT_PASS = "pass"
+VERDICT_FAIL = "fail"
+VERDICT_INCONCLUSIVE = "inconclusive"
+VERDICT_ERROR = "error"
+
+# Properties reading the standing of the engine that answered a request.
+_STRENGTH = property(lambda self: self.standing.strength, doc="Strength of the evidence.")
+_BOUNDS = property(lambda self: list(self.standing.bounds), doc="Bounds the engine ran under.")
+
+
+class VerificationVerdict:
+    """What the body of a verification case answered when it ran.
+
+    This is a separate answer from whether a requirement is satisfied: the
+    specification leaves the evaluation of a verdict unspecified, so the service
+    runs the case's body and the library's own ``PassIf`` calculation and reports
+    the ``VerdictKind`` that produced. It is reported beside the satisfaction
+    verdicts, never instead of them.
+
+    Truthy only for a pass, so a body that decided nothing does not read as one.
+
+    Attributes:
+        case_id (str): FQN of the verification case that ran
+        kind (str): The VerdictKind the body produced: 'pass', 'fail',
+            'inconclusive' or 'error'
+        detail (str): Why an inconclusive body decided nothing, or the error that
+            stopped the run; empty for a pass and a fail
+        subcase (bool): Whether this is the verdict of a case performed by
+            another, which the library states no roll-up for
+        requirement_id (str): FQN of the requirement this verdict was reported
+            for; empty for a case run for itself, as by
+            :meth:`~opensysml.Connection.run_analysis`
+    """
+
+    def __init__(self, pb_verdict):
+        self._pb = pb_verdict
+
+    @property
+    def case_id(self):
+        """FQN of the verification case that ran."""
+        return self._pb.case_id
+
+    @property
+    def kind(self):
+        """The VerdictKind the body produced."""
+        return self._pb.kind
+
+    @property
+    def detail(self):
+        """Why the body decided nothing, or the error that stopped its run."""
+        return self._pb.detail
+
+    @property
+    def subcase(self):
+        """Whether this verdict is of a case performed by another."""
+        return self._pb.subcase
+
+    @property
+    def requirement_id(self):
+        """FQN of the requirement this verdict was reported for, if any."""
+        return getattr(self._pb, "requirement_id", "")
+
+    def explain(self):
+        """One line saying what the body answered and why."""
+        marks = {VERDICT_PASS: "\u2713", VERDICT_FAIL: "\u2717"}
+        mark = marks.get(self.kind, "?")
+        line = f"{mark} verification {self.case_id} verdict: {self.kind}"
+        if self.subcase:
+            line += " (subcase)"
+        if self.detail:
+            line += f" \u2014 {self.detail}"
+        return line
+
+    def __bool__(self):
+        """A verdict is truthy only when the body passed."""
+        return self.kind == VERDICT_PASS
+
+    def __str__(self):
+        return self.explain()
+
+    def __repr__(self):
+        return (
+            f"VerificationVerdict(case_id={self.case_id!r}, kind={self.kind!r}, "
+            f"detail={self.detail!r}, subcase={self.subcase!r}, "
+            f"requirement_id={self.requirement_id!r})"
+        )
+
+
+class Verdict:
+    """One verification's answer.
+
+    Truthy when the condition holds, so a verdict reads as the answer it is::
+
+        if not model.verify_requirement("Demo::Range"):
+            print(verdict.explain())
+
+    Attributes:
+        kind (str): What was verified: 'constraint', 'requirement', 'satisfy',
+            an analysis case's 'objective' or 'assertion', or a validated
+            'object' as a whole
+        element_id (str): FQN of the element verified; empty for an anonymous
+            satisfaction assertion
+        element (str): The element as a reader names it — its FQN, or the
+            assertion as written ("satisfy Range by cruise")
+        holds (bool): Whether the condition holds
+        condition (str): The condition that evaluated to false, as written, when
+            the runtime names one
+        instance_id (int): Instance the verdict is about, 0 when it is about
+            declared values alone
+        instance_type_id (str): FQN of that instance's type
+        error (str): Set when evaluation failed rather than the model answering
+            false; ``holds`` is then False but is no verdict
+        instances (list[Instance]): The objects the call reported: the one this
+            verdict is about (``instance_id``) and those reachable from it. A
+            call answering several assertions reports one graph for them all, so
+            filter on ``instance_id`` to single out this verdict's own object
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        requirement_id (str): FQN of the requirement a 'satisfy' verdict asserts
+            satisfied; empty for every other kind and for an anonymous
+            requirement
+        instance_path (str): Where the object this verdict is about sits in a
+            validated one (``engine.injector``, ``wheels[2]``); empty for the
+            validated object itself and outside a validation
+        verifications (list[VerificationVerdict]): What the bodies of the
+            verification cases verifying this verdict's own requirement
+            answered, beside this verdict rather than instead of it. Empty when
+            the model states none, when the requirement is named by no FQN, or
+            when the service predates ``verification_verdicts``
+        standing (Standing): The engine that answered, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
+    """
+
+    def __init__(self, pb_verdict, instances=None, diagnostics=None, verifications=None):
+        self._pb = pb_verdict
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
+        self.standing = Standing.of(pb_verdict)
+
+    @property
+    def engine(self):
+        """Name of the engine that answered; empty when unreported."""
+        return self.standing.engine
+
+    @property
+    def strength(self):
+        """Strength of the evidence the answer rests on; empty when unreported."""
+        return self.standing.strength
+
+    @property
+    def bounds(self):
+        """The bounds the engine ran under, each marked when it stopped at it."""
+        return list(self.standing.bounds)
+
+    @property
+    def kind(self):
+        """What was verified."""
+        return self._pb.kind
+
+    @property
+    def element_id(self):
+        """FQN of the element verified."""
+        return self._pb.element_id
+
+    @property
+    def element(self):
+        """The element as a reader names it."""
+        return self._pb.element or self._pb.element_id
+
+    @property
+    def holds(self):
+        """Whether the condition holds."""
+        return self._pb.holds
+
+    @property
+    def condition(self):
+        """The condition that evaluated to false, as written, when named."""
+        return self._pb.condition
+
+    @property
+    def instance_id(self):
+        """Instance the verdict is about, 0 for none."""
+        return self._pb.instance_id
+
+    @property
+    def instance_type_id(self):
+        """FQN of the type of the instance the verdict is about."""
+        return self._pb.instance_type_id
+
+    @property
+    def requirement_id(self):
+        """FQN of the requirement a satisfaction verdict asserts satisfied."""
+        return getattr(self._pb, "requirement_id", "")
+
+    @property
+    def instance_path(self):
+        """Path from the validated object to the one this verdict is about."""
+        return getattr(self._pb, "instance_path", "")
+
+    @property
+    def error(self):
+        """Why evaluation failed, when it failed rather than answering."""
+        return self._pb.error
+
+    @property
+    def evaluated(self):
+        """Whether ``holds`` is an answer about the model at all."""
+        return not self._pb.error
+
+    def raise_for_error(self):
+        """Raise :class:`~opensysml.errors.ExecutionError` if evaluation failed.
+
+        A verdict of false raises nothing: it is the model's answer. Call this
+        where a failure to evaluate must not be read as a failing verdict.
+
+        Returns:
+            Verdict: self, so a call can be chained
+
+        Raises:
+            ExecutionError: If the condition could not be evaluated
+        """
+        if self._pb.error:
+            raise ExecutionError(
+                f"{self._named()}: {self._pb.error}",
+                diagnostics=self.diagnostics,
+            )
+        return self
+
+    def _named(self):
+        """How a line about this verdict names what it is about.
+
+        An assertion's text already says the kind it is ("satisfy r by p", "not
+        satisfy r by p"), so the kind is not repeated in front of it.
+        """
+        element = self.element
+        named = element if self.kind in element.split() else f"{self.kind} {element}"
+        if self.instance_path:
+            named += f" at {self.instance_path}"
+        return named
+
+    def explain(self):
+        """One line saying what the verdict is and why, then its standing when reported."""
+        line = self._answer()
+        if self.standing.reported:
+            line += f" \u2014 {self.standing}"
+        return line
+
+    def _answer(self):
+        subject = ""
+        if self.instance_id:
+            subject = f" (on {self.instance_type_id or 'instance'} ID: {self.instance_id})"
+        if self._pb.error:
+            return f"? {self._named()}{subject}: {self._pb.error}"
+        if self.holds:
+            return f"\u2713 {self._named()} holds{subject}"
+        detail = (
+            f": condition evaluated to false: {self.condition}"
+            if self.condition
+            else ": condition evaluated to false"
+        )
+        return f"\u2717 {self._named()} fails{subject}{detail}"
+
+    def __bool__(self):
+        """A verdict is truthy when the condition holds."""
+        return bool(self._pb.holds)
+
+    def __str__(self):
+        return self.explain()
+
+    def __repr__(self):
+        return (
+            f"Verdict(kind={self.kind!r}, element={self.element!r}, "
+            f"holds={self.holds!r}, condition={self.condition!r}, "
+            f"error={self.error!r})"
+        )
+
+
+class Validation:
+    """Every assertion about one object and the objects it holds, answered.
+
+    Validating an object evaluates each asserted constraint, each requirement
+    and each satisfaction assertion whose subject lies in the object's tree
+    against the object carrying it, as ``sysml -validate=<object>`` and the
+    REPL's ``%validate`` do. Truthy only when every assertion holds and the
+    whole tree was reached, so a verdict that could not be decided is not a
+    holding one and a tree cut short by the traversal bound is not valid.
+
+    Attributes:
+        verdicts (list[Verdict]): One per assertion, root first then each held
+            object in traversal order; ``instance_path`` says which object it
+            is about, empty for the root
+        summary (Verdict): The object's own verdict, of kind 'object': holds
+            when every assertion does, carries ``error`` when one could not be
+            decided or the tree was cut short
+        instances (list[Instance]): The object validated and every object
+            reachable from it
+        bounded (bool): Whether traversal stopped at its bound before reaching
+            every held object, so the verdicts are not the whole answer
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        verifications (list[VerificationVerdict]): What the bodies of the
+            verification cases of the requirements met answered
+        standing (Standing): The engine that answered; unreported when the
+            service predates ``engines``
+    """
+
+    def __init__(self, verdicts, summary, instances=None, diagnostics=None,
+                 verifications=None, bounded=False):
+        self.verdicts = list(verdicts or [])
+        self.summary = summary
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
+        self.bounded = bounded
+        self.standing = summary.standing if summary is not None else Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that answered.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
+
+    @property
+    def valid(self):
+        """Whether the object is shown valid: at least one assertion, every one
+        holding, and every held object reached."""
+        return self.summary is not None and self.summary.holds and not self.summary.error
+
+    @property
+    def violated(self):
+        """The verdicts the model answered false, as opposed to undecided ones."""
+        return [v for v in self.verdicts if not v.holds and not v.error]
+
+    @property
+    def undecided(self):
+        """The verdicts whose condition could not be evaluated."""
+        return [v for v in self.verdicts if v.error]
+
+    def raise_for_error(self):
+        """Raise :class:`~opensysml.errors.ExecutionError` if any assertion could not be decided.
+
+        A verdict of false raises nothing: it is the model's answer.
+
+        Returns:
+            Validation: self, so a call can be chained
+        """
+        for verdict in self.undecided:
+            verdict.raise_for_error()
+        return self
+
+    def __bool__(self):
+        """Truthy when the object is valid."""
+        return self.valid
+
+    def __len__(self):
+        return len(self.verdicts)
+
+    def __iter__(self):
+        return iter(self.verdicts)
+
+    def __getitem__(self, index):
+        return self.verdicts[index]
+
+    def __str__(self):
+        lines = [v.explain() for v in self.verdicts]
+        if self.summary is not None:
+            lines.append(self.summary.explain())
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return (
+            f"Validation(verdicts={len(self.verdicts)}, valid={self.valid!r}, "
+            f"bounded={self.bounded!r})"
+        )
+
+
+class CalcResult:
+    """What a calculation computed.
+
+    A calculation invoked with arguments returns one value, which is
+    :attr:`value`. A calc usage evaluated from its own members computes its
+    output features instead, which are :attr:`outputs` — a mapping of feature
+    name to value, in declaration order (SysML 7.17).
+
+    Attributes:
+        value: The value an invocation returned, or None when outputs carry the
+            answer
+        outputs (dict): Output features a calc usage computed
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        standing (Standing): The engine that answered, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
+    """
+
+    def __init__(self, value, outputs, diagnostics=None, standing=None):
+        self.value = value
+        self.outputs = dict(outputs or {})
+        self.diagnostics = list(diagnostics or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that answered.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
+
+    def __str__(self):
+        if self.outputs:
+            return ", ".join(f"{name} = {val}" for name, val in self.outputs.items())
+        return str(self.value)
+
+    def __repr__(self):
+        return f"CalcResult(value={self.value!r}, outputs={self.outputs!r})"
+
+
+class CaseEvaluation:
+    """One application an analysis case made of one of its own calcs as a value.
+
+    A trade study (``TradeStudies::TradeStudy``) evaluates its
+    ``evaluationFunction`` once per alternative to find the best; each such
+    evaluation is reported, in subject order, with the alternative it was of,
+    what it computed, and whether that alternative was the one selected.
+
+    Attributes:
+        function_id (str): FQN of the calc applied
+        arguments (list): What it was applied to, as Python values; an
+            alternative is the :class:`~opensysml.instance.Instance` it is
+        result: What it computed, or None when :attr:`error` says why nothing was
+        error (str): Why the evaluation computed nothing; empty when it did
+        selected (bool): Whether the case returned this evaluation's argument:
+            the alternative a trade study selected
+        tied (bool): Whether this evaluation computed what the selected one did
+            without being selected, ``selectOne`` having taken the first
+    """
+
+    def __init__(self, function_id, arguments, result=None, error="", selected=False, tied=False):
+        self.function_id = function_id
+        self.arguments = list(arguments or [])
+        self.result = result
+        self.error = error
+        self.selected = selected
+        self.tied = tied
+
+    @property
+    def evaluated(self):
+        """Whether the evaluation computed a result."""
+        return not self.error
+
+    def explain(self):
+        """One line saying what was evaluated, what it gave, and whether it was selected."""
+        call = f"{self.function_id}({', '.join(str(arg) for arg in self.arguments)})"
+        line = f"{call}: error: {self.error}" if self.error else f"{call} = {self.result}"
+        if self.selected:
+            line += " [selected]"
+        elif self.tied:
+            line += " [tied]"
+        return line
+
+    def __str__(self):
+        return self.explain()
+
+    def __repr__(self):
+        return (
+            f"CaseEvaluation(function_id={self.function_id!r}, arguments={self.arguments!r}, "
+            f"result={self.result!r}, error={self.error!r}, selected={self.selected!r}, "
+            f"tied={self.tied!r})"
+        )
+
+
+class AnalysisResult:
+    """What an analysis case computed and decided.
+
+    Running a case computes its ``out`` and ``return`` values, which are
+    :attr:`outputs` in declaration order, then checks its objective and each
+    ``assert constraint`` in its body against them, which are :attr:`verdicts`
+    (SysML 7.22). A verdict of false is the case's answer, not an exception; an
+    objective that could not be decided carries the reason in ``verdict.error``.
+
+    Attributes:
+        outputs (dict): Output features the case computed, by name; a value the
+            wire format cannot represent is an UnsupportedValueError in its place
+        verdicts (list[Verdict]): The objective and assertion verdicts, in the
+            order the case states them
+        instances (list[Instance]): The subject the case ran on and the objects
+            reachable from it, then every object an output or an evaluation
+            names; empty when the run named no object
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        verifications (list[VerificationVerdict]): For a verification case, what
+            its body answered, followed by the verdict of each subcase it
+            performed; empty for an analysis case
+        evaluations (list[CaseEvaluation]): Each application the run made of one
+            of the case's calcs as a value — a trade study's evaluation of each
+            alternative, in subject order; empty for a case making none, or for
+            a service without the ``case_evaluations`` capability
+        standing (Standing): The engine that ran the case, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
+    """
+
+    def __init__(self, outputs, verdicts, instances=None, diagnostics=None, verifications=None,
+                 evaluations=None, standing=None):
+        self.outputs = dict(outputs or {})
+        self.verdicts = list(verdicts or [])
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+        self.verifications = list(verifications or [])
+        self.evaluations = list(evaluations or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the case.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
+
+    @property
+    def selected(self):
+        """The evaluations of the alternatives the case selected; one for a trade study."""
+        return [e for e in self.evaluations if e.selected]
+
+    @property
+    def satisfied(self):
+        """Whether every objective and assertion holds; a case stating none is satisfied."""
+        return all(v.holds for v in self.verdicts)
+
+    def __bool__(self):
+        """A result is truthy when the case's objective and assertions hold."""
+        return self.satisfied
+
+    def __str__(self):
+        lines = [f"{name} = {val}" for name, val in self.outputs.items()]
+        lines.extend(v.explain() for v in self.verdicts)
+        lines.extend(v.explain() for v in self.verifications)
+        lines.extend(e.explain() for e in self.evaluations)
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return (
+            f"AnalysisResult(outputs={self.outputs!r}, "
+            f"verdicts={self.verdicts!r}, evaluations={self.evaluations!r})"
+        )
+
+
+class SweepRow:
+    """One run of a sweep: what it bound, what it produced, and how long it took.
+
+    A run that failed is a row like any other, carrying :attr:`error` in place
+    of outputs, so one failing run does not lose the rest of the table.
+
+    Attributes:
+        inputs (dict): The swept parameters as this run bound them, by name
+        outputs (dict): What the run produced, by name; a calc's returned value
+            is named "result", and an object is the
+            :class:`~opensysml.instance.Instance` the table carries for it
+        verdicts (list[Verdict]): The objective and assertion verdicts of an
+            analysis case; empty for a calc
+        seconds (float): Wall time of this run
+        error (str): Why this run failed; empty when it did not
+        evaluations (list[CaseEvaluation]): Each application this run made of
+            one of the case's calcs as a value — a trade study's evaluation of
+            each alternative, in subject order; a failed run keeps the ones it
+            made. Empty for a calc, or for a service without the
+            ``case_evaluations`` capability
+    """
+
+    def __init__(self, inputs, outputs, verdicts, seconds, error="", evaluations=None):
+        self.inputs = dict(inputs or {})
+        self.outputs = dict(outputs or {})
+        self.verdicts = list(verdicts or [])
+        self.seconds = seconds
+        self.error = error
+        self.evaluations = list(evaluations or [])
+
+    @property
+    def selected(self):
+        """The evaluations of the alternatives this run selected; one for a trade study."""
+        return [e for e in self.evaluations if e.selected]
+
+    @property
+    def failed(self):
+        """Whether this run failed rather than producing outputs."""
+        return bool(self.error)
+
+    def __bool__(self):
+        """Truthy when the run succeeded and every verdict of it holds."""
+        return not self.failed and all(v.holds for v in self.verdicts)
+
+    def __str__(self):
+        inputs = ", ".join(f"{name}={val}" for name, val in self.inputs.items())
+        if self.failed:
+            return f"{inputs}: {self.error}"
+        outputs = ", ".join(f"{name} = {val}" for name, val in self.outputs.items())
+        return f"{inputs}: {outputs}"
+
+    def __repr__(self):
+        return (
+            f"SweepRow(inputs={self.inputs!r}, outputs={self.outputs!r}, "
+            f"error={self.error!r})"
+        )
+
+
+class SweepTable:
+    """Every run of one sweep, in the order the runs were made.
+
+    A swept table runs lexicographically over its parameters in the order their
+    ranges were given; a sampled one runs in draw order, and echoes the seed it
+    was drawn from so the table can be reproduced.
+
+    Attributes:
+        rows (list[SweepRow]): One row per run
+        parameters (list[str]): The swept parameters, in the order their ranges
+            were given
+        sampled (bool): Whether the rows were drawn rather than stepped through
+        seed (int): The seed the rows were drawn from; 0 for a swept table
+        instances (list[Instance]): The subjects the runs were about and the
+            objects reachable from them; empty when no run bound a subject
+        diagnostics (list[Diagnostic]): Diagnostics the service reported
+        standing (Standing): The engine that ran the table, the strength of its
+            evidence and the bounds it ran under; unreported when the service
+            predates ``engines``
+    """
+
+    def __init__(self, rows, parameters, sampled=False, seed=0,
+                 instances=None, diagnostics=None, standing=None):
+        self.rows = list(rows or [])
+        self.parameters = list(parameters or [])
+        self.sampled = sampled
+        self.seed = seed
+        self.instances = list(instances or [])
+        self.diagnostics = list(diagnostics or [])
+        self.standing = standing or Standing()
+
+    engine = property(lambda self: self.standing.engine, doc="Name of the engine that ran the table.")
+    strength = _STRENGTH
+    bounds = _BOUNDS
+
+    @property
+    def failures(self):
+        """The runs that failed."""
+        return [row for row in self.rows if row.failed]
+
+    def __len__(self):
+        return len(self.rows)
+
+    def __iter__(self):
+        return iter(self.rows)
+
+    def __getitem__(self, index):
+        return self.rows[index]
+
+    def __bool__(self):
+        """Truthy when every run succeeded and every verdict of them holds."""
+        return bool(self.rows) and all(bool(row) for row in self.rows)
+
+    def __str__(self):
+        return "\n".join(str(row) for row in self.rows)
+
+    def __repr__(self):
+        return (
+            f"SweepTable(rows={len(self.rows)}, parameters={self.parameters!r}, "
+            f"sampled={self.sampled!r}, seed={self.seed!r})"
+        )

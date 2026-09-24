@@ -167,6 +167,196 @@
       }
     },
     {
+      "id": "document/a_verdicts_query_answers_verdict_rows",
+      "description": "A query over Verdicts checks the bound element as declared and answers verdict rows: the assertion checked, its kind, the path of the object checked and whether it holds; a violated or undecided row names its reason.",
+      "rpc": "RunDocumentQuery",
+      "requires_capabilities": [
+        "document_query"
+      ],
+      "model": {
+        "fixture": "verdicts.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "query_id": "Garage::Checks",
+        "bindings": [
+          {
+            "parameter": "root",
+            "values": [
+              {
+                "element_id": "Garage::car"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "counts": {
+          "columns": 4,
+          "rows": 7
+        },
+        "response": {
+          "columns": [
+            {
+              "name": "path"
+            },
+            {
+              "name": "name"
+            },
+            {
+              "name": "verdict"
+            },
+            {
+              "name": "reason"
+            }
+          ],
+          "rows": [
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::Car::massOk",
+                    "element_type": "ConstraintUsage"
+                  },
+                  "kind": "constraint",
+                  "text": "assert constraint massOk",
+                  "path": "Garage::car",
+                  "verdict": "holds"
+                }
+              }
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::Car::fits",
+                    "element_type": "ConstraintUsage"
+                  },
+                  "kind": "constraint",
+                  "text": "assert constraint fits",
+                  "path": "Garage::car",
+                  "verdict": "undecided"
+                }
+              }
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::Engine::powerLow",
+                    "element_type": "ConstraintUsage"
+                  },
+                  "kind": "constraint",
+                  "text": "assert constraint powerLow",
+                  "path": "Garage::car.engine",
+                  "verdict": "violated"
+                }
+              },
+              "cells": [
+                {
+                  "values": [
+                    {
+                      "string_value": "Garage::car.engine"
+                    }
+                  ]
+                },
+                {
+                  "values": [
+                    {
+                      "string_value": "powerLow"
+                    }
+                  ]
+                },
+                {
+                  "values": [
+                    {
+                      "string_value": "violated"
+                    }
+                  ]
+                },
+                {}
+              ]
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "",
+                    "element_type": "SatisfyRequirementUsage"
+                  },
+                  "kind": "satisfaction",
+                  "text": "satisfy strongEngine by car.engine",
+                  "path": "Garage::car.engine",
+                  "verdict": "holds"
+                }
+              }
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::checkEngine",
+                    "element_type": "VerificationCaseUsage"
+                  },
+                  "kind": "verification",
+                  "text": "verification Garage::checkEngine",
+                  "path": "Garage::car.engine",
+                  "verdict": "holds"
+                }
+              }
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::Wheel::pressureOk",
+                    "element_type": "ConstraintUsage"
+                  },
+                  "kind": "constraint",
+                  "text": "assert constraint pressureOk",
+                  "path": "Garage::car.wheels[1]",
+                  "verdict": "violated"
+                }
+              }
+            },
+            {
+              "element": {
+                "verdict": {
+                  "assertion": {
+                    "element_id": "Garage::Wheel::pressureOk",
+                    "element_type": "ConstraintUsage"
+                  },
+                  "kind": "constraint",
+                  "text": "assert constraint pressureOk",
+                  "path": "Garage::car.wheels[2]",
+                  "verdict": "violated"
+                }
+              }
+            }
+          ]
+        },
+        "non_empty": [
+          "rows.1.element.verdict.reason",
+          "rows.2.element.verdict.condition",
+          "rows.2.element.verdict.reason",
+          "rows.5.element.verdict.reason"
+        ],
+        "absent": [
+          "rows.0.element.verdict.reason",
+          "rows.0.element.verdict.condition",
+          "rows.3.element.verdict.reason"
+        ],
+        "contains_all": {
+          "rows.3.element.verdict.verification": [
+            "pass"
+          ],
+          "rows.4.element.verdict.verification": [
+            "pass"
+          ]
+        }
+      }
+    },
+    {
       "id": "document/an_unknown_query_is_not_found",
       "description": "A query the model does not declare is a wrong request, not an empty answer.",
       "rpc": "RunDocumentQuery",
@@ -200,6 +390,37 @@
       },
       "expect": {
         "status": "INVALID_ARGUMENT"
+      }
+    },
+    {
+      "id": "document/an_object_binding_needs_an_object_the_model_holds",
+      "description": "A parameter bound to an object by id or by path names one Instantiate created for this model; before any was, the binding is not found.",
+      "rpc": "RunDocumentQuery",
+      "requires_capabilities": [
+        "document_query"
+      ],
+      "model": {
+        "fixture": "document.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "query_id": "Observatory::SubsystemTable",
+        "bindings": [
+          {
+            "parameter": "root",
+            "values": [
+              {
+                "object": {
+                  "path": "telescope"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": "NOT_FOUND",
+        "status_message_contains": "holds no objects"
       }
     },
     {

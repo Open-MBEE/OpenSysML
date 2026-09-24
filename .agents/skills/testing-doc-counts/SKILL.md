@@ -1,23 +1,55 @@
 ---
 name: testing-doc-counts
-description: How to end-to-end test the generated documentation figures (cmd/doc-counts + internal/doccounts + `make docs-counts`) on Linux — proving `-check` is a real gate, that the block consumers cannot drift, that marker mutations fail loudly, and that no measured number moved.
+description: How to end-to-end test the generated documentation figures (tools/cmd/doc-counts + tools/census/doccounts + `make docs-counts`, and the build-time suite figures of scripts/mkdocs_suite_figures.py) on Linux — proving `-check` is a real gate, that the block consumers cannot drift, that marker mutations fail loudly, that the site renders the tree's figures, and that no measured number moved.
 ---
 
-# Testing the generated documentation figures (`cmd/doc-counts`)
+# Testing the generated documentation figures (`tools/cmd/doc-counts`)
 
-`cmd/doc-counts` regenerates two kinds of derived documentation from the committed baselines:
+`tools/cmd/doc-counts` regenerates three kinds of derived documentation:
 
-1. single-copy baseline lines in `README.md` (`**Reference differential:**`, `**Rejection oracle:**`);
+1. single-copy baseline lines in `README.md` (`**Reference differential:**`, `**Rejection oracle:**`),
+   from the committed baselines;
 2. the HTML-comment-delimited named block `<!-- doc-counts:begin refereed-figures -->` …
    `<!-- doc-counts:end refereed-figures -->`, rendered from **one** template in
-   `internal/doccounts/doccounts.go` into **two** consumers (`README.md` and
+   `tools/census/doccounts/doccounts.go` into **two** consumers (`README.md` and
    `docs/internals/architecture.md`), differing only by `Block.LinkPrefix`
-   (`docs/project/` vs `../project/`).
+   (`docs/project/` vs `../project/`);
+3. the README's `**Behavioral execution:**` figure, the **inline** block
+   `<!-- doc-counts:begin conformance-passing -->every conformance case passing<!-- doc-counts:end conformance-passing -->`
+   — the one suite figure still committed, because it moves only with `known_failures.txt`.
+
+The rest of the test-suite figures are **site blocks** (`doccounts.SiteBlocks()`, named in
+`siteSuiteBlocks` in `tools/census/doccounts/suite_blocks.go`): the compliance map's `**Test Coverage:**`
+inventory (`inventory-conformance`, `-robustness`, `-runtime-tests`, `-golden-asts`, `-traces`,
+`-negatives`, `-grpc`, `-tests`) and the LSP `**Measured coverage:**` line (`lsp-tests`). In git each
+holds a sentence naming what is counted and **no digit**; `go run -C tools ./cmd/doc-counts -check` refuses
+one that states a figure (`the block named "inventory-robustness" states a figure`). The figures
+are rendered when the site builds: `go run -C tools ./cmd/doc-counts -site-blocks` prints
+`{"docs/project/spec-compliance.md": {"inventory-robustness": "470 runtime robustness cases (…)", …}}`
+and `scripts/mkdocs_suite_figures.py` (an `on_pre_build` + `on_page_markdown` hook in
+`mkdocs.yml`) splices the text into the blocks, dropping the markers. Their inputs are the
+**tree**, read by `doccounts.ReadSuiteCounts` the way the gates enumerate them: `tests/fixtures`
+lists the conformance cases (the same package `TestExecutionConformance` and the gRPC conformance
+gate iterate), the parse and trace goldens are stat'ed against the case that owns them, and the
+robustness, negative and `Test`-function figures are counted from the `_test.go` files with
+`go/ast` (first-level `t.Run` calls across every `TestRuntimeRobustness*` / `TestGRPCRobustness*`
+function, multiplied out over the table literal a `range` walks, read in statement order and
+lexical scope, so a table rebound after the loop or shadowed by a `:=` in an inner block, branch or
+clause does not leak into it). The test and subtest total of a run is **not** generated — only a
+run can state it, so the prose does not quote one.
+
+A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
+renders the per-library table from `docs/project/analysis-library-census.json`, which
+`TestAnalysisLibraryCensus` (`internal/exec/runtime/library_census_test.go`) writes under
+`-update-library-census` and otherwise asserts. Its inputs are `doccounts.ReadFigures`
+(the refereed baselines plus the census); the same stale/marker/read-only checks below apply to it,
+and a census JSON mutated by hand (a declaration dropped from `evaluated`) must fail both `-check`
+(`has 0 verdicts, want 1`) and the runtime test.
 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
 `<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds
-(`make docs`). `doc-counts` and the `cmd/pilot-diff` guard only refuse a `🚧` row. Test the hook with
+(`make docs`). `doc-counts` and the `tools/referee/diff` guard only refuse a `🚧` row. Test the hook with
 `python3 scripts/mkdocs_census-test.py`, and prove it live by grepping the built
 `site/project/spec-compliance/index.html` for `semantic rules:` after adding a row.
 
@@ -41,12 +73,19 @@ to a possibly-unpublished record must use. `scripts/check-doc-links.py` only wal
 so it never sees `overrides/*.html`; the hook is the only guard, and both of its warnings
 (`which no page publishes`, `which does not exist`) fail `--strict`.
 
-Inputs are the three committed baselines
+Inputs to the refereed figures are the three committed baselines
 `docs/project/pilot-{differential,xpect,rejection}-baseline.json` (`doccounts.ReadRefereedCounts`);
-`docs/project/spec-compliance.md` is read only to refuse a `🚧` row.
+`docs/project/spec-compliance.md` is read to refuse a `🚧` row and, since it carries the inventory
+blocks, is also a consumer.
 
-`make docs-counts` = generate → `go run ./cmd/doc-counts -check` → `go test -count=1 ./cmd/pilot-diff
-./cmd/pilot-reject ./cmd/doc-counts`.
+`make docs-counts` = generate → `go run -C tools ./cmd/doc-counts -check` → `go run -C tools ./cmd/validation-census
+-check` → `go test -C tools -count=1 ./census/doccounts ./census/validation` →
+`go test -C tools -count=1 ./referee/diff ./referee/reject`.
+
+Adding a test or fixture anywhere in the module moves a site figure and **nothing committed**:
+`-check` stays `already current`, `-site-blocks` and the built site change. Only a baseline, the
+library census or `known_failures.txt` moving makes `TestCheckCommittedTreeIsCurrent` fail until
+`make docs-counts` runs. That is by design — CI runs `-check` and builds the site with `--strict`.
 
 ## Never test in a checkout someone else is using
 
@@ -71,7 +110,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
 - **Idempotence:** `make docs-counts` twice; both must print `doc-counts: already current` for the
   generate *and* the `-check` step, and `git status --short` must stay empty.
 - **`-check` is a gate, not decoration:** perturb one number *inside* the block in one consumer.
-  `go run ./cmd/doc-counts -check` must exit **1**, print `doc-counts: <that path> is stale` plus a
+  `go run -C tools ./cmd/doc-counts -check` must exit **1**, print `doc-counts: <that path> is stale` plus a
   `--- <path> (current) / +++ <path> (generated)` diff with `@@ line N @@` hunks, name **only** that
   file, and leave the file's `sha256sum` unchanged. Then the plain generator must restore it
   byte-identically to the committed hash.
@@ -94,7 +133,53 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   the whole block. Each must make *both* the generator and `-check` exit 1 with
   `named block "refereed-figures" is missing or unterminated` or
   `duplicate "<!-- doc-counts:begin refereed-figures -->" marker`, and `wc -c` on the file must be
-  unchanged (no truncation, no `already current`).
+  unchanged (no truncation, no `already current`). For an inline block, also: put the end marker
+  before the begin marker on the line (`ends before it begins`), repeat the pair on one line or
+  add a second copy on a line of its own (`duplicate markers of the block named`), and drop the
+  end marker (`missing or unterminated`).
+- **Tree propagation goes to the site, not to git:** drop a `state_probe.expected.json` into
+  `internal/exec/runtime/testdata/conformance/`, or a
+  `robustness_zz_probe_test.go` with a two-subtest `TestRuntimeRobustnessProbe` into
+  `internal/exec/runtime/`, or a `TestSomething` into any `_test.go`: `-check` must still print
+  `already current` and `git status --short` must show only the probe, while `-site-blocks`
+  moves the matching figure (`state×228` → `state×229`, `470 runtime robustness cases` → `472`,
+  the `Test`-function figure by one) and `make docs` renders the new number into
+  `site/project/spec-compliance/index.html`. `go test -run TestRuntimeRobustnessProbe -v` must run
+  both subtests — the counter follows Go discovery, not the other way round. List a real case in
+  `known_failures.txt`; now the **committed** README block goes stale (`every conformance case
+  passing` → `1 listed in known_failures.txt`) and `-check` must name `README.md`. Remove the
+  probes afterwards (`git status --short` must be empty again).
+- **A typed figure in a site block is refused:** put a digit inside any `inventory-*` or
+  `lsp-tests` block; `-check` must exit 1 naming the block and leave the file unchanged. Break a
+  site block's marker (drop the end marker, duplicate the pair): `-check` fails, and `make docs`
+  must abort under `--strict` with the hook's warning rather than publish the placeholder
+  sentence. Hide `go` from `PATH`: `make docs` must abort with `go: not found; the test-suite
+  figures need the Go toolchain`, and `python3 scripts/mkdocs_suite_figures-test.py` must fail
+  its real-tree case (not skip it).
+- **The site shows the tree's figures:** after `make docs`, grep
+  `site/project/spec-compliance/index.html` for `runtime robustness cases` and
+  `functions in <code>internal/frontend/lsp`; each must carry a number, no `doc-counts:begin inventory-`
+  or `lsp-tests` marker may remain (only the committed `analysis-libraries` markers do), and
+  none of the placeholder sentences (`the runtime robustness cases`) may be visible. Open the
+  served page in a browser to confirm the inventory reads naturally with the numbers spliced
+  into the sentences.
+- **The counters refuse what they cannot count:** a `.trace.golden` owned by no case, a
+  `<case>.typo.trace.golden` under no sweep policy, a `<case>.declared.trace.golden` of a case
+  with no `outcomes` (or no default golden), a `.sysml` under `testdata/parse/` with no `.golden`,
+  a `known_failures.txt` entry naming no case, a `for i := 0; i < n; i++ { t.Run(...) }` loop,
+  a `range` over a table the function `append`s to or rebinds under a condition before the loop, or
+  an `if cond { t.Run(...) }` in `TestRuntimeRobustness` must each make the generator and `-check`
+  exit 1 naming the file, rather than print a smaller (or larger) number. A `range` or `if` that
+  runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,
+  since `TestExecutionTrace` skips the case.
+- **The figures are the gates' figures** (read them from `-site-blocks`): `go test -count=1 -v
+  -run 'TestExecutionConformance$' ./internal/exec/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'`
+  must equal the conformance figure; the same shape with `TestRuntimeRobustness` and
+  `TestGRPCRobustness` (in `./internal/frontend/grpc`) — unanchored, summing the first-level `=== RUN`
+  lines of every function the prefix matches — `TestGolden$` and `Negative` (in
+  `./tests/parser` and `./internal/syntax/parser`, summing per function) must equal theirs; and
+  `go test -list '.*' ./... | grep -c '^Test'` must equal the `Test`-function figure. Test names
+  carry digits (`TestF62F63Negative`), so match `[^/ ]+`, not `[A-Za-z_]+`.
 - **Every landing link resolves on the built site:** grep the `href`s out of
   `/tmp/site/index.html` and check each one — a site-relative target must exist under
   `/tmp/site`, a repository target must exist under `docs/` — then click them in a browser
@@ -113,10 +198,12 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   `git show main:README.md | grep -o '[0-9][0-9]*'` vs the same on HEAD, `diff` must be empty (same
   for `docs/internals/architecture.md`), and `git diff main -- 'docs/project/pilot-*-baseline.json'`
   must be empty. This is the cheapest proof a "generate it instead of hand-maintaining it" refactor
-  restated exactly what was there.
+  restated exactly what was there. The site figures are not in either file, so compare them
+  against the gates instead (previous bullet): a figure `-site-blocks` prints that the matching
+  `go test -v` enumeration does not reproduce is a counting bug, not a fixture landing.
 - **Live oracle reproduction is a separate claim** from doc↔baseline consistency: the guards read
   only committed JSON. Run all three under a fresh cache
-  (`XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
+  (`XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
   each against its committed baseline.
 
 ## Gotchas
@@ -133,9 +220,10 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
 
 ## Recording
 
-The `cmd/doc-counts` checks are shell-only; no GUI, so no recording is needed. If the change
-touches `overrides/home.html`, the landing page itself must be verified in a browser (band
-renders, links navigate, light/dark, narrow viewport) — record that part. Serve the build
+The `tools/cmd/doc-counts` checks are shell-only; no GUI, so no recording is needed. If the change
+touches `overrides/home.html` or the site blocks, the built page must be verified in a browser
+(band renders, links navigate, light/dark, narrow viewport; the compliance map's inventory shows
+numbers, not placeholder sentences) — record that part. Serve the build
 with `python3 -m http.server 8899 -d /tmp/site`, maximize Chrome with
 `wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz`, and force a narrow viewport with
 `xdotool getactivewindow windowsize 620 1100` plus a couple of `ctrl+plus` page zooms
