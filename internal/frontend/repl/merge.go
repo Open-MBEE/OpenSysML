@@ -39,25 +39,46 @@ type edit struct {
 //
 // The returned spans locate the submitted text inside the merged result, so a
 // report still covers what was typed rather than the whole absorbed snippet.
-func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments string) (string, []source.Span, dropReport, bool) {
+// The last result reports the merge rewrote a snippet where it stands: the
+// submission's text is wholly inside it, so the caller appends nothing.
+func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments string) (string, []source.Span, dropReport, bool, bool) {
 	newDecl, ok := soleNamespace(src, root)
 	if !ok || len(newDecl.members) == 0 {
-		return "", nil, dropReport{}, false
+		return "", nil, dropReport{}, false, false
 	}
+	// A record nests its target package inside the same-named top namespace
+	// several files may open: the file already holding the deepest prefix of
+	// that nesting is where it belongs.
+	chain := namespaceChain(src, newDecl)
+	target, depth := -1, -1
+	var oldDecl nsDecl
 	for i, sn := range s.snippets {
 		// Only what the prompt typed in an earlier submission merges: a loaded
 		// file keeps its identity, so re-typing its package supersedes it, and
 		// two snippets of one submission are both part of that submission. A
 		// masked submission is not merged into either: its text is not analyzed,
 		// so folding it in would put what the parser could not read back into the
-		// buffer.
-		if sn.origin != "" || sn.gen == s.version || sn.open {
+		// buffer. A recorded run is the one exception: it merges into a loaded
+		// file's package, which keeps its file's identity on the result.
+		if sn.gen == s.version || sn.open || (sn.origin != "" && !s.recordMerge) {
 			continue
 		}
-		oldDecl, ok := namedNamespace(sn.src, newDecl.name)
+		cand, ok := namedNamespace(sn.src, newDecl.name)
 		// A different header is a different declaration, whatever it names: it
 		// replaces the old one rather than adding to a body it did not write.
-		if !ok || oldDecl.header != newDecl.header {
+		if !ok || cand.header != newDecl.header {
+			continue
+		}
+		if !s.recordMerge {
+			target, oldDecl = i, cand
+			break
+		}
+		if d := namespaceDepth(sn.src, cand, chain); d > depth {
+			target, depth, oldDecl = i, d, cand
+		}
+	}
+	for i, sn := range s.snippets {
+		if i != target {
 			continue
 		}
 		edits, replaced, gone := mergeEdits(sn.src, oldDecl, src, newDecl, newDecl.name)
@@ -70,10 +91,18 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		// even when the body it re-typed added nothing new.
 		edits = append(edits, edit{start: oldDecl.start, end: oldDecl.start, own: true})
 		merged, own := applyEdits(sn.src, edits)
+		if sn.origin != "" {
+			// A file's text is updated where it is, its origin and key kept, so
+			// a later reload of the file still supersedes it; the submission's
+			// own text is wholly inside it and is not appended again.
+			names := declaredNames(parser.New(source.New(parseDocName(sn.origin), []byte(merged))).ParseFile())
+			s.snippets[i] = snippet{src: merged, names: names, origin: sn.origin, key: sn.key, gen: s.version, own: own}
+			return "", nil, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true, true
+		}
 		s.snippets = append(s.snippets[:i:i], s.snippets[i+1:]...)
-		return merged, own, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true
+		return merged, own, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true, false
 	}
-	return "", nil, dropReport{}, false
+	return "", nil, dropReport{}, false, false
 }
 
 // reopenedNamespaces reports the namespaces a loaded file opens that another
@@ -141,6 +170,48 @@ func soleNamespace(src string, root *ast.RootNamespace) (nsDecl, bool) {
 		return nsDecl{}, false
 	}
 	return namespaceDeclOf(src, root.Members[0])
+}
+
+// namespaceChain names the nested namespace declarations inside decl, top to
+// innermost — the package nesting a generated record writes.
+func namespaceChain(src string, decl nsDecl) []string {
+	var segs []string
+	for {
+		var next nsDecl
+		for _, m := range decl.members {
+			if sub, ok := namespaceDeclOf(src, m); ok {
+				next = sub
+				break
+			}
+		}
+		if next.name == "" {
+			return segs
+		}
+		segs = append(segs, next.name)
+		decl = next
+	}
+}
+
+// namespaceDepth reports how many of the chain's segments decl's body already
+// holds as nested namespaces, counting from the first until one is missing.
+func namespaceDepth(src string, decl nsDecl, segs []string) int {
+	for i, seg := range segs {
+		found := false
+		for _, m := range decl.members {
+			if memberName(m) != seg {
+				continue
+			}
+			if sub, ok := namespaceDeclOf(src, m); ok {
+				decl = sub
+				found = true
+				break
+			}
+		}
+		if !found {
+			return i
+		}
+	}
+	return len(segs)
 }
 
 // namedNamespace finds the namespace declaration of the given name in an
