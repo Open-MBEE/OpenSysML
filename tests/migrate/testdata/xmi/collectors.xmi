@@ -68,6 +68,30 @@
         </ownedBehavior>
       </packagedElement>
 
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_all" name="All Diagrams Viewpoint" classifierBehavior="_act_all">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_all" name="All Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_all_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_all_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_all_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_all_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_all_e1" source="_all_init" target="_all_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_all_e2" source="_all_filter" target="_all_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_all_e3" source="_all_image" target="_all_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_noneof" name="No Diagrams Viewpoint" classifierBehavior="_act_noneof">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_noneof" name="No Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_noneof_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_noneof_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_noneof_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_noneof_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_noneof_e1" source="_noneof_init" target="_noneof_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_noneof_e2" source="_noneof_filter" target="_noneof_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_noneof_e3" source="_noneof_image" target="_noneof_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_sketch" name="Sketched Diagrams Viewpoint" classifierBehavior="_act_sketch">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_sketch" name="Sketched Diagrams Method">
           <node xmi:type="uml:InitialNode" xmi:id="_sketch_init"/>
@@ -322,6 +346,8 @@
       <packagedElement xmi:type="uml:Class" xmi:id="_doc_handbook" name="Yard Handbook">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_bdds" name="blockDiagrams" type="_view_bdds" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_sketch" name="sketchedDiagrams" type="_view_sketch" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_all" name="allDiagrams" type="_view_all" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_noneof" name="noDiagrams" type="_view_noneof" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_kin" name="kinDiagrams" type="_view_kin" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_others" name="otherDiagrams" type="_view_others" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ibds" name="internalDiagrams" type="_view_ibds" aggregation="composite"/>
@@ -354,6 +380,18 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_structure" client="_view_sketch" supplier="_diag_structure"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_internals" client="_view_sketch" supplier="_diag_internals"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_untyped" client="_view_sketch" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_all" name="All Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_all" general="_vp_all"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_all_structure" client="_view_all" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_all_untyped" client="_view_all" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_noneof" name="No Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_noneof" general="_vp_noneof"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_noneof_structure" client="_view_noneof" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_noneof_untyped" client="_view_noneof" supplier="_diag_untyped"/>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_kin" name="Kin Diagrams">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_kin" general="_vp_kin"/>
@@ -545,6 +583,8 @@
 
   <sysml:Viewpoint xmi:id="_st_vp_bdds" base_Class="_vp_bdds"/>
   <sysml:Viewpoint xmi:id="_st_vp_sketch" base_Class="_vp_sketch"/>
+  <sysml:Viewpoint xmi:id="_st_vp_all" base_Class="_vp_all"/>
+  <sysml:Viewpoint xmi:id="_st_vp_noneof" base_Class="_vp_noneof"/>
   <sysml:Viewpoint xmi:id="_st_vp_kin" base_Class="_vp_kin"/>
   <sysml:Viewpoint xmi:id="_st_vp_others" base_Class="_vp_others"/>
   <sysml:Viewpoint xmi:id="_st_vp_ibds" base_Class="_vp_ibds"/>
@@ -564,6 +604,8 @@
 
   <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
   <sysml:View xmi:id="_st_view_sketch" base_Class="_view_sketch"/>
+  <sysml:View xmi:id="_st_view_all" base_Class="_view_all"/>
+  <sysml:View xmi:id="_st_view_noneof" base_Class="_view_noneof"/>
   <sysml:View xmi:id="_st_view_kin" base_Class="_view_kin"/>
   <sysml:View xmi:id="_st_view_others" base_Class="_view_others"/>
   <sysml:View xmi:id="_st_view_ibds" base_Class="_view_ibds"/>
@@ -584,6 +626,8 @@
 
   <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
   <sysml:Conform xmi:id="_st_conform_sketch" base_Generalization="_gen_sketch"/>
+  <sysml:Conform xmi:id="_st_conform_all" base_Generalization="_gen_all"/>
+  <sysml:Conform xmi:id="_st_conform_noneof" base_Generalization="_gen_noneof"/>
   <sysml:Conform xmi:id="_st_conform_kin" base_Generalization="_gen_kin"/>
   <sysml:Conform xmi:id="_st_conform_others" base_Generalization="_gen_others"/>
   <sysml:Conform xmi:id="_st_conform_ibds" base_Generalization="_gen_ibds"/>
@@ -608,6 +652,10 @@
   <sysml:Expose xmi:id="_st_expose_sketch_structure" base_Dependency="_expose_sketch_structure"/>
   <sysml:Expose xmi:id="_st_expose_sketch_internals" base_Dependency="_expose_sketch_internals"/>
   <sysml:Expose xmi:id="_st_expose_sketch_untyped" base_Dependency="_expose_sketch_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_all_structure" base_Dependency="_expose_all_structure"/>
+  <sysml:Expose xmi:id="_st_expose_all_untyped" base_Dependency="_expose_all_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_noneof_structure" base_Dependency="_expose_noneof_structure"/>
+  <sysml:Expose xmi:id="_st_expose_noneof_untyped" base_Dependency="_expose_noneof_untyped"/>
   <sysml:Expose xmi:id="_st_expose_kin" base_Dependency="_expose_kin"/>
   <sysml:Expose xmi:id="_st_expose_others_structure" base_Dependency="_expose_others_structure"/>
   <sysml:Expose xmi:id="_st_expose_others_internals" base_Dependency="_expose_others_internals"/>
@@ -651,6 +699,12 @@
     <diagramTypes>SysML Block Definition Diagram</diagramTypes>
   </Document_Profile_:FilterByDiagramType>
   <Document_Profile_:Image xmi:id="_st_sketch_image" base_CallBehaviorAction="_sketch_image"/>
+
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_all_filter" base_CallBehaviorAction="_all_filter" include="false"/>
+  <Document_Profile_:Image xmi:id="_st_all_image" base_CallBehaviorAction="_all_image"/>
+
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_noneof_filter" base_CallBehaviorAction="_noneof_filter" include="true"/>
+  <Document_Profile_:Image xmi:id="_st_noneof_image" base_CallBehaviorAction="_noneof_image"/>
 
   <Document_Profile_:CollectOwners xmi:id="_st_kin_owners" base_CallBehaviorAction="_kin_owners" depth="0"/>
   <Document_Profile_:CollectOwnedElements xmi:id="_st_kin_owned" base_CallBehaviorAction="_kin_owned" depth="0"/>

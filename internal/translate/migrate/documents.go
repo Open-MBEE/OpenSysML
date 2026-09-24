@@ -1045,8 +1045,9 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 	types := c.diagramTypes(s)
 	holders, diagrams, hazy := c.holders, c.diagrams, c.hazy
 	c.ctx, c.holders, c.diagrams, c.hazy = qx{}, nil, nil, ""
+	// Naming no type, the filter keeps none or all, whatever their types.
 	for _, d := range diagrams {
-		if d.Kind == "" {
+		if d.Kind == "" && len(types) > 0 {
 			c.blur(s, "keeps or drops the diagram '"+d.Name+"', whose diagram type the archive does not record")
 			continue
 		}

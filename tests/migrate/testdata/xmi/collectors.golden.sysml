@@ -86,6 +86,28 @@ package 'Yard Viewpoints' {
         }
         perform action 'block Diagrams Method' : 'Block Diagrams Method';
     }
+    viewpoint 'All Diagrams Viewpoint' {
+        action def 'All Diagrams Method' {
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'all Diagrams Method' : 'All Diagrams Method';
+    }
+    viewpoint 'No Diagrams Viewpoint' {
+        action def 'No Diagrams Method' {
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'no Diagrams Method' : 'No Diagrams Method';
+    }
     viewpoint 'Sketched Diagrams Viewpoint' {
         action def 'Sketched Diagrams Method' {
             first start then 'fork';
@@ -319,6 +341,8 @@ package 'Yard Handbook' {
     part def 'Yard Handbook' {
         view blockDiagrams :> 'Block Diagrams';
         view sketchedDiagrams :> 'Sketched Diagrams';
+        view allDiagrams :> 'All Diagrams';
+        view noDiagrams :> 'No Diagrams';
         view kinDiagrams :> 'Kin Diagrams';
         view otherDiagrams :> 'Other Diagrams';
         view internalDiagrams :> 'Internal Diagrams';
@@ -348,6 +372,16 @@ package 'Yard Handbook' {
         satisfy 'Yard Viewpoints'::'Sketched Diagrams Viewpoint';
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
+        expose Sketches::Sketch;
+    }
+    view 'All Diagrams' {
+        satisfy 'Yard Viewpoints'::'All Diagrams Viewpoint';
+        expose Structure::'Crane Structure';
+        expose Sketches::Sketch;
+    }
+    view 'No Diagrams' {
+        satisfy 'Yard Viewpoints'::'No Diagrams Viewpoint';
+        expose Structure::'Crane Structure';
         expose Sketches::Sketch;
     }
     view 'Kin Diagrams' {
@@ -492,6 +526,17 @@ package 'Yard Handbook' {
         part 'Sketched Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Sketched Diagrams";
             /* not migrated: «Image» CallBehaviorAction 'Image' — the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record */
+        }
+        part 'All Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "All Diagrams";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Crane Structure";
+                ref redefines source = Structure::'Crane Structure';
+            }
+            /* not migrated: «Image» CallBehaviorAction 'Image' — the diagram of unknown kind 'Sketch' is a view rendered as textual notation, which a document does not draw */
+        }
+        part 'No Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "No Diagrams";
         }
         part 'Kin Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Kin Diagrams";

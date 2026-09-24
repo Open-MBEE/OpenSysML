@@ -431,6 +431,9 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"part 'Block Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Crane Structure";`,
 		"part 'Sketched Diagrams' : DocumentQueries::Section {",
+		"part 'All Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Structure";`,
+		"part 'No Diagrams' : DocumentQueries::Section {",
 		"part 'Kin Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Sway Limits";`,
 		`attribute redefines caption = "Yard Requirements";`,
@@ -449,12 +452,27 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantNote(t, r, "_st_bdds_image", migrate.Mapped, "")
 	// An Image is refused even where a rejoined branch knows its diagrams: the
 	// branch with an undecidable diagram type may add more.
-	from, to = to, strings.Index(notation, "part 'Kin Diagrams' : DocumentQueries::Section")
+	from, to = to, strings.Index(notation, "part 'All Diagrams' : DocumentQueries::Section")
 	if body := notation[from:to]; strings.Contains(body, "DocumentQueries::Diagram") {
 		t.Errorf("Sketched Diagrams draws the diagrams one branch knows while the other's are undecided:\n%s", body)
 	}
 	wantNote(t, r, "_st_sketch_image", migrate.Unmapped,
 		"the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record")
+	// A filter naming no type decides without reading the types: excluding
+	// keeps every diagram, the untyped one included, and including keeps none.
+	from, to = to, strings.Index(notation, "part 'No Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Count(body, "DocumentQueries::Diagram") != 1 {
+		t.Errorf("All Diagrams does not draw the one typed diagram an exclusion naming no type keeps:\n%s", body)
+	}
+	wantOneNote(t, r, "_st_all_image", migrate.Mapped, "")
+	wantOneNote(t, r, "_st_all_image", migrate.Unmapped,
+		"the diagram of unknown kind 'Sketch' is a view rendered as textual notation, which a document does not draw")
+	from, to = to, strings.Index(notation, "part 'Kin Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Contains(body, "DocumentQueries::Diagram") || strings.Contains(body, "not migrated") {
+		t.Errorf("No Diagrams draws or refuses where an inclusion naming no type knowingly keeps nothing:\n%s", body)
+	}
+	wantNote(t, r, "_st_noneof_image", migrate.Mapped,
+		"it draws nothing: «FilterByDiagramType» Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::Filter By Diagram Type drops all the diagrams collected: it names no diagram type; an Image draws only diagrams")
 	// Owners stop short of the flattened root Model, so the owned elements
 	// collected next are the requirement's package's, not every package's.
 	from, to = to, strings.Index(notation, "part 'Other Diagrams' : DocumentQueries::Section")
@@ -560,6 +578,8 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"# Yard Handbook",
 		"## Block Diagrams", "*Crane Structure*", "```mermaid",
 		"## Sketched Diagrams",
+		"## All Diagrams", "*Crane Structure*", "```mermaid",
+		"## No Diagrams",
 		"## Kin Diagrams", "*Sway Limits*", "```mermaid", "*Yard Requirements*", "```mermaid",
 		"## Other Diagrams", "*Crane Internals*", "```mermaid", "*Yard Requirements*", "```mermaid",
 		"## Internal Diagrams", "*Crane Internals*", "```mermaid",
@@ -587,10 +607,10 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"*Crane Internals*", "```mermaid", "*Gantry Drive*", "```mermaid",
 		"## Diagrams By Documentation", "*Gantry Drive*", "```mermaid", "*Crane Structure*", "```mermaid",
 		"## Owner Sorted Diagrams")
-	if n := strings.Count(md, "```mermaid"); n != 16 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 16:\n%s", n, md)
+	if n := strings.Count(md, "```mermaid"); n != 17 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 17:\n%s", n, md)
 	}
-	for _, heading := range []string{"## Sketched Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
+	for _, heading := range []string{"## Sketched Diagrams", "## No Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
 			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
 		}
