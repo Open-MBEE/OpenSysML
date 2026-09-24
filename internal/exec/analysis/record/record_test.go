@@ -364,6 +364,42 @@ func TestGenerateSettlesAnUnsetMemberToQuantity(t *testing.T) {
 	}
 }
 
+// A member Real in one row and a quantity in a later one declares the unit
+// companion, which only the rows with a unit redefine.
+func TestGenerateSettlesARealMemberToQuantity(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
+		Runs: []Run{
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(1)}}},
+			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
+				{Name: "x", Value: runtime.NewQuantityValue(&runtime.Quantity{
+					Num:  semantics.Value{Kind: semantics.ValReal, Real: 2.0},
+					Unit: semantics.Unit{Text: "kg"},
+				})},
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute x : ScalarValues::Real;",
+		"attribute xUnit : ScalarValues::String;",
+		"attribute :>> x = 1.0;",
+		`attribute :>> xUnit = "kg";`,
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("generated source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if strings.Count(res.Source, "xUnit = ") != 1 {
+		t.Errorf("only the row with a unit should redefine xUnit:\n%s", res.Source)
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
+	}
+}
+
 // Record numbers fill the gaps a package's earlier records leave.
 func TestGenerateNumbersIntoTheGaps(t *testing.T) {
 	res, err := Generate(Request{

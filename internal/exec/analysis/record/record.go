@@ -333,6 +333,10 @@ func buildFeatures(req *Request) ([]feature, error) {
 			if err := compatible(&f, sh); err != nil {
 				return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
 			}
+			// A Real that later carries a unit needs the companion for those rows.
+			if cur.kind == kindReal && sh.kind == kindQuantity {
+				shapes[m.name] = sh
+			}
 		}
 	}
 	// Second pass: emit the features, each quantity's unit companion after it;
