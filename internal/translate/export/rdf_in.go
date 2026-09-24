@@ -101,7 +101,10 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	// A graph in the normative element form — the toolkit's interchange JSON —
 	// mints what this mapping collapses; complete it with the collapsed
 	// properties and qualified names the decoder reads before anything else.
-	graph = deriveNormativeGraph(graph, metaclasses)
+	graph, err = deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		return nil, err
+	}
 	graph, err = rdf.ReconcileCollections(graph)
 	if err != nil {
 		var malformed *rdf.AnnotationError
@@ -638,6 +641,9 @@ type decoder struct {
 	nodeMembership   map[string]bool
 	expressionNodes  map[string]bool
 	featureValues    map[string]rdf.Term
+	// chainOwned indexes the FeatureChaining elements by the chain feature
+	// each names its owningRelatedElement, built on first lookup.
+	chainOwned map[string][]rdf.Term
 	// prefixed marks the elements whose head wrote their `#M` annotations.
 	prefixed map[*element]bool
 	// names is the spelling chosen for each reference; while nil, references are
@@ -1065,12 +1071,12 @@ func (d *decoder) checkReferences() error {
 			// A relationship inside an expression graph ends on its own nodes.
 			continue
 		}
-		if triple.Predicate.Value == rdf.SysML+pReferences &&
-			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
-			continue
+		isChain, err := d.chainFeatureTerm(triple.Object)
+		if err != nil {
+			return err
 		}
-		if triple.Predicate.Value == rdf.SysML+pReferencedFeature &&
-			d.graph.HasProperty(triple.Object, rdf.SysML+pChainingFeature) {
+		if isChain {
+			// A chain is written as its `a.b.c` text wherever it is reached.
 			continue
 		}
 		if d.metaclass(triple.Subject) == mReferenceSubsetting &&
@@ -1083,6 +1089,46 @@ func (d *decoder) checkReferences() error {
 		}
 	}
 	return nil
+}
+
+// chainFeatureTerm reports whether term is a chain feature of the graph: an
+// unnamed Feature stating chainingFeature links or owning FeatureChainings.
+func (d *decoder) chainFeatureTerm(term rdf.Term) (bool, error) {
+	if !term.IsIRI() || d.metaclass(term) != mFeature {
+		return false, nil
+	}
+	if d.graph.HasProperty(term, rdf.SysML+pChainingFeature) {
+		return true, nil
+	}
+	links, err := d.chainLinks(term)
+	if err != nil {
+		return false, err
+	}
+	return len(links) > 0, nil
+}
+
+// chainLinks is the ordered link list the FeatureChaining elements a chain
+// feature owns state, indexed over the graph on first use.
+func (d *decoder) chainLinks(chain rdf.Term) ([]rdf.Term, error) {
+	if d.chainOwned == nil {
+		d.chainOwned = chainOwnerIndex(d.graph, d.metaclass)
+	}
+	return chainLinksOf(d.graph, d.metaclass, d.chainOwned, chain)
+}
+
+// chainSegments is the ordered link list of a chain feature: the
+// FeatureChaining links where they exist, else the derived list.
+func (d *decoder) chainSegments(chain rdf.Term) ([]rdf.Term, error) {
+	links, err := d.chainLinks(chain)
+	if err != nil {
+		return nil, err
+	}
+	if len(links) > 0 {
+		// The ordered FeatureChaining elements carry the chain; a repeated
+		// link the derived chainingFeature list cannot state survives here.
+		return links, nil
+	}
+	return d.graph.Objects(chain, rdf.SysML+pChainingFeature), nil
 }
 
 // referencedElement resolves a referenced IRI to the graph subject whose
@@ -1814,10 +1860,13 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// Negation on its own has no notation, so it is reported rather than dropped.
 	prefix, hasPrefix := d.stringOf(el, rdf.OpenSysML+xDeclaredPrefix)
 	negated := d.boolOf(el, rdf.SysML+"isNegated")
-	// An asserted constraint's metaclass is its `assert`, which prefixes
-	// `constraint` or, written as the keyword itself, stands in for it.
+	// The qualifier a qualified usage's metaclass states prefixes the kind
+	// keyword of a declaration (`perform action pa`) and is the whole keyword
+	// of a reference (`perform a.b`); a recorded prefix spelling another is refused.
 	asserted := false
 	if el.metaclass == mAssertConstraintUsage {
+		// An asserted constraint's metaclass is its `assert`, which prefixes
+		// `constraint` or, written as the keyword itself, stands in for it.
 		if hasPrefix && prefix != "assert" {
 			return "", &UnsupportedError{
 				What: fmt.Sprintf("the asserted constraint <%s>", el.iri),
@@ -1825,8 +1874,38 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 			}
 		}
 		prefix, hasPrefix = "assert", true
+		// `assert <ref>` states only the constraint it names; one with members
+		// or a `not` is the anonymous declaration `assert constraint references`.
+		bodied := negated
+		for _, child := range el.children {
+			bodied = bodied || !child.implied
+		}
+		if len(identWords) == 0 && len(references) > 0 && !bodied {
+			keyword = "assert"
+		}
 		if keyword == "assert" {
 			keyword, asserted = "", true
+		}
+	}
+	// The qualifier a qualified usage's metaclass states prefixes the kind
+	// keyword of a declaration (`perform action pa`) and is the whole keyword
+	// of a reference (`perform a.b`); a recorded prefix spelling another is refused.
+	if qualifier, qualified := usageQualifier[el.metaclass]; qualified &&
+		el.metaclass != mAssertConstraintUsage && el.metaclass != mSatisfyRequirementUsage &&
+		!d.underActionMembership(el) {
+		if hasPrefix && prefix != qualifier {
+			return "", &UnsupportedError{
+				What: fmt.Sprintf("the `%s` declaration <%s>", qualifier, el.iri),
+				Note: fmt.Sprintf("its sysx:%s %q is not the `%s` its metaclass %s states", xDeclaredPrefix, prefix, qualifier, el.metaclass),
+			}
+		}
+		if len(identWords) > 0 {
+			prefix, hasPrefix = qualifier, true
+			if rest, cut := strings.CutPrefix(keyword, qualifier+" "); cut {
+				keyword = rest
+			}
+		} else if len(references) > 0 {
+			keyword = qualifier
 		}
 	}
 	switch {
@@ -1885,18 +1964,24 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 		skip = append(skip, ast.RelReferences)
 	}
 	// A satisfy head writes the requirement it subsets bare, after the keyword;
-	// without that form it declares a requirement usage of its own.
-	switch {
-	case endForm == formSatisfy:
-		targets, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
+	// without that form it declares a requirement usage of its own. An unnamed
+	// SatisfyRequirementUsage that subsets one is the reference form whether or
+	// not sysx:endForm records it.
+	var satisfyTargets []string
+	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage {
+		var err error
+		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
 		if err != nil {
 			return "", err
 		}
-		if len(targets) == 0 {
+	}
+	switch {
+	case endForm == formSatisfy || len(satisfyTargets) > 0 && len(identWords) == 0:
+		if len(satisfyTargets) == 0 {
 			return "", d.missing(el, sysmlPrefix+relationshipProperty[ast.RelSubsets],
 				"a satisfy head names the requirement it satisfies")
 		}
-		words = append(words, strings.Join(targets, ", "))
+		words = append(words, strings.Join(satisfyTargets, ", "))
 		skip = append(skip, ast.RelSubsets)
 	case kind == ast.UsageSatisfy:
 		words = append(words, "requirement")
@@ -1921,14 +2006,23 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// An unnamed inclusion may arrive as a reference subsetting instead (the
+	// collapsed form an API element document spells); it is the same use case.
+	includeByReference := false
+	if len(included) == 0 && el.metaclass == mIncludeUseCaseUsage && len(identWords) == 0 {
+		included, includeByReference = references, true
+	}
 	if len(included) > 0 {
 		skip = append(skip, ast.RelIncludes)
+		if includeByReference {
+			skip = append(skip, ast.RelReferences)
+		}
 		if len(d.identWords(el)) == 0 {
 			// `include <ref>;` states no kind keyword and takes the inclusion in
 			// its place; the typing the parser derives from it is that same target.
 			words = append(words[:keywordAt:keywordAt], "include", strings.Join(included, ", "))
 			skip = append(skip, ast.RelTyping)
-		} else {
+		} else if !hasPrefix || prefix != "include" {
 			words = append(words[:keywordAt:keywordAt], append([]string{"include"}, words[keywordAt:]...)...)
 		}
 	}
@@ -1959,6 +2053,18 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if referenced {
 		words = append(words, strings.Join(references, ", "))
 		skip = append(skip, ast.RelReferences)
+		// A qualified usage's redefinition follows the reference as `:>>`
+		// (SysML.xtext PerformActionUsageDeclaration & co.); `event` spells it.
+		if usageQualifier[el.metaclass] != "" {
+			redefined, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelRedefines])
+			if err != nil {
+				return "", err
+			}
+			if len(redefined) > 0 {
+				words = append(words, ":>>", strings.Join(redefined, ", "))
+				skip = append(skip, ast.RelRedefines)
+			}
+		}
 	}
 	// The multiplicity part (`[1] ordered nonunique`) qualifies the type it
 	// follows, so it goes with the typing clause and ahead of any further
@@ -2656,11 +2762,30 @@ func (d *decoder) metadataBodyMember(el *element) bool {
 	return d.metaclass(owner) == "MetadataUsage"
 }
 
+// underActionMembership reports whether a membership that supplies the
+// keyword owns el — a state's subaction or a transition's effect — where the
+// metaclass's own qualifier does not apply (`do action f`, not `perform f`).
+// A legacy graph owns a transition's effect through a plain FeatureMembership;
+// a state's ordinary members keep their qualifier, perform included.
+func (d *decoder) underActionMembership(el *element) bool {
+	ms := firstIRI(d.graph, rdf.IRI(el.iri), pOwningMembership, pOwningRelationship)
+	m := d.metaclass(ms)
+	if m == mSubaction || m == mTransitionFeatureMembership {
+		return true
+	}
+	if m != "FeatureMembership" {
+		return false
+	}
+	owner := firstIRI(d.graph, rdf.IRI(ms.Value), pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
+	return d.metaclass(owner) == mTransition
+}
+
 // keywordTyped checks that a keyword the graph types agrees with its typing:
 // the portion kind, the event typing or the AssertConstraintUsage metaclass.
 func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool) error {
 	var stated, expected string
-	switch keyword {
+	first, _, _ := strings.Cut(keyword, " ")
+	switch first {
 	case "snapshot", "timeslice":
 		if portion == keyword {
 			return nil
@@ -2674,11 +2799,11 @@ func (d *decoder) keywordTyped(el *element, keyword, portion string, event bool)
 			return nil
 		}
 		stated, expected = "the metaclass "+el.metaclass, mEventOccurrenceUsage
-	case "assert":
-		if el.metaclass == mAssertConstraintUsage {
+	case "perform", "exhibit", "include", "assert", "satisfy":
+		if usageQualifier[el.metaclass] == first {
 			return nil
 		}
-		stated, expected = "the metaclass "+el.metaclass, mAssertConstraintUsage
+		stated, expected = "the metaclass "+el.metaclass, qualifierMetaclass[first]
 	default:
 		return nil
 	}
@@ -3289,6 +3414,17 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if name, ok := d.bodyLocalName(term); ok {
 		return nameText(name), nil
 	}
+	isChain, err := d.chainFeatureTerm(term)
+	if err != nil {
+		return "", err
+	}
+	if isChain {
+		parts, err := d.standardChainText(term, el)
+		if err != nil {
+			return "", err
+		}
+		return strings.Join(parts, "."), nil
+	}
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
@@ -3397,6 +3533,17 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 		if naming.IsLiteral() {
 			return literalTargetName(naming)
 		}
+		isChain, err := d.chainFeatureTerm(naming)
+		if err != nil {
+			return "", false
+		}
+		if isChain {
+			parts, err := d.standardChainText(naming, el)
+			if err != nil || len(parts) == 0 {
+				return "", false
+			}
+			return parts[len(parts)-1], true
+		}
 		next, err := d.referencedElement(naming.Value)
 		if err != nil {
 			return "", false
@@ -3418,6 +3565,9 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 	}
 	redefs := d.graph.Objects(subject, rdf.SysML+relationshipProperty[ast.RelRedefines])
 	if len(redefs) == 0 || ast.IsFeatureChain(literalTarget(redefs[0])) {
+		return rdf.Term{}, false
+	}
+	if isChain, err := d.chainFeatureTerm(redefs[0]); err != nil || isChain {
 		return rdf.Term{}, false
 	}
 	return redefs[0], true

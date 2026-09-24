@@ -404,9 +404,21 @@ elmt:QuotedSuccessionEnds__drive___401
     sysml:owningRelationship elmt:QuotedSuccessionEnds__drive___401_om ;
     sysml:owningMembership elmt:QuotedSuccessionEnds__drive___401_om ;
     sysx:endForm "then" ;
+    sysml:connectorEnd expr:QuotedSuccessionEnds__drive___401_pend0, expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___401_pend0_om, expr:QuotedSuccessionEnds__drive___401_pend1_om ;
+    sysml:ownedMembership expr:QuotedSuccessionEnds__drive___401_pend0_om, expr:QuotedSuccessionEnds__drive___401_pend1_om ;
+    sysml:ownedFeatureMembership expr:QuotedSuccessionEnds__drive___401_pend0_om, expr:QuotedSuccessionEnds__drive___401_pend1_om ;
+    sysml:ownedFeature expr:QuotedSuccessionEnds__drive___401_pend0, expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:ownedEndFeature expr:QuotedSuccessionEnds__drive___401_pend0, expr:QuotedSuccessionEnds__drive___401_pend1 ;
     sysml:sourceFeature elmt:QuotedSuccessionEnds__drive__enter_20vehicle ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
-    sysx:sourceText "        then 'start engine';\n" .
+    sysx:sourceText "        then 'start engine';\n" ;
+    json:connectorEnd "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1\"}]" ;
+    json:ownedEndFeature "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1\"}]" .
 
 elmt:QuotedSuccessionEnds__drive___401_om
     a sysml:FeatureMembership ;
@@ -419,6 +431,65 @@ elmt:QuotedSuccessionEnds__drive___401_om
     sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__drive ;
     sysml:ownedMemberFeature elmt:QuotedSuccessionEnds__drive___401 ;
     sysml:owningType elmt:QuotedSuccessionEnds__drive .
+
+expr:QuotedSuccessionEnds__drive___401_pend0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__drive___401_pend0" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__drive___401_pend0_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__drive___401_pend0_om .
+
+expr:QuotedSuccessionEnds__drive___401_pend0_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__drive___401_pend0_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__drive___401_pend0 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__drive___401_pend0 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__drive___401_pend0 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__drive___401 .
+
+expr:QuotedSuccessionEnds__drive___401_pend1
+    a sysml:ReferenceUsage ;
+    sysml:elementId "QuotedSuccessionEnds__drive___401_pend1" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:owner elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:owningRelationship expr:QuotedSuccessionEnds__drive___401_pend1_om ;
+    sysml:owningMembership expr:QuotedSuccessionEnds__drive___401_pend1_om ;
+    sysx:sourceText "'start engine'" ;
+    sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
+    sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
+    sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
+    sysml:ownedRelationship expr:QuotedSuccessionEnds__drive___401_pend1_prs .
+
+expr:QuotedSuccessionEnds__drive___401_pend1_om
+    a sysml:EndFeatureMembership ;
+    sysml:elementId "QuotedSuccessionEnds__drive___401_pend1_om" ;
+    sysml:owner elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:memberElement expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:ownedMemberElement expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:ownedRelatedElement expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:owningRelatedElement elmt:QuotedSuccessionEnds__drive___401 ;
+    sysml:membershipOwningNamespace elmt:QuotedSuccessionEnds__drive___401 .
+
+expr:QuotedSuccessionEnds__drive___401_pend1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "QuotedSuccessionEnds__drive___401_pend1_prs" ;
+    sysml:referencingFeature expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:subsettingFeature expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:specific expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:source expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:owningFeature expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:owningType expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:referencedFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:subsettedFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:general elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:target elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:relatedElement expr:QuotedSuccessionEnds__drive___401_pend1, elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:owner expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    sysml:owningRelatedElement expr:QuotedSuccessionEnds__drive___401_pend1 ;
+    json:relatedElement "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1\"},{\"@id\":\"QuotedSuccessionEnds__drive__start_20engine\"}]" .
 
 elmt:QuotedSuccessionEnds__drive__start_20engine
     a sysml:ActionUsage ;
