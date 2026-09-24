@@ -7,16 +7,15 @@
 // record recomputes the run's output from the model *as it stands now*, so a
 // record whose numbers the model has moved away from reports its own drift.
 // See README.md for the commands that produced each recorded row.
-
 package Landers {
     private import ScalarValues::*;
 
     part def Lander {
-        attribute dryMass : Real;          // kg, without fuel
-        attribute fuel : Real;             // kg loaded at the start of descent
-        attribute burnRate : Real;         // kg/s the engine consumes at full thrust
-        attribute payload : Real;          // kg of instruments carried
-        attribute touchdownSpeed : Real;   // m/s, from the descent profile
+        attribute dryMass : Real; // kg, without fuel
+        attribute fuel : Real; // kg loaded at the start of descent
+        attribute burnRate : Real; // kg/s the engine consumes at full thrust
+        attribute payload : Real; // kg of instruments carried
+        attribute touchdownSpeed : Real; // m/s, from the descent profile
     }
 
     part scout : Lander {
@@ -35,8 +34,8 @@ package Landers {
     }
     part relay : Lander {
         attribute :>> dryMass = 450.0;
-        // The recorded relay run predates this edit: it was captured when fuel
-        // was 180.0, so its record now reads stale.
+        // The recorded relay run and trade study predate this edit: fuel was
+        // 180.0 then, so relayRun reads stale and lightestRun silently disagrees.
         attribute :>> fuel = 210.0;
         attribute :>> burnRate = 2.5;
         attribute :>> payload = 25.0;
@@ -60,8 +59,7 @@ package Descent {
     // through parameter bindings, and the case's outputs are read afterwards.
     analysis def FuelBudget {
         subject lander : Lander;
-        in attribute burnTime : Real = 40.0;   // s of engine burn
-
+        in attribute burnTime : Real = 40.0; // s of engine burn
         action burn {
             in rate : Real = lander.burnRate;
             in seconds : Real = burnTime;
@@ -219,135 +217,135 @@ package Results {
     // The saved runs, held as subparts of one part so a query can walk them.
     part results {
 
-    // One baseline run per candidate, at FuelBudget's default 40 s burn.
-    part scoutRun : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:14:00Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
+        // One baseline run per candidate, at FuelBudget's default 40 s burn.
+        part scoutRun : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:14:00Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
+            }
+            ref part :>> lander = scout;
+            attribute :>> caseName = "Descent::scoutBudget";
+            attribute :>> kind = "run";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
+            attribute :>> subjectName = "scout";
+            attribute :>> burnTime = 40.0;
+            attribute :>> fuelUsed = 120.0;
+            attribute :>> wetMass = 730.0;
+            attribute :>> fuelLeft = 130.0;
         }
-        ref part :>> lander = scout;
-        attribute :>> caseName = "Descent::scoutBudget";
-        attribute :>> kind = "run";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget";
-        attribute :>> subjectName = "scout";
-        attribute :>> burnTime = 40.0;
-        attribute :>> fuelUsed = 120.0;
-        attribute :>> wetMass = 730.0;
-        attribute :>> fuelLeft = 130.0;
-    }
-    part haulerRun : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:14:30Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
+        part haulerRun : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:14:30Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
+            }
+            ref part :>> lander = hauler;
+            attribute :>> caseName = "Descent::haulerBudget";
+            attribute :>> kind = "run";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
+            attribute :>> subjectName = "hauler";
+            attribute :>> burnTime = 40.0;
+            attribute :>> fuelUsed = 320.0;
+            attribute :>> wetMass = 1980.0;
+            attribute :>> fuelLeft = 580.0;
         }
-        ref part :>> lander = hauler;
-        attribute :>> caseName = "Descent::haulerBudget";
-        attribute :>> kind = "run";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget";
-        attribute :>> subjectName = "hauler";
-        attribute :>> burnTime = 40.0;
-        attribute :>> fuelUsed = 320.0;
-        attribute :>> wetMass = 1980.0;
-        attribute :>> fuelLeft = 580.0;
-    }
-    part relayRun : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:15:00Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
+        part relayRun : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:15:00Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
+            }
+            ref part :>> lander = relay;
+            attribute :>> caseName = "Descent::relayBudget";
+            attribute :>> kind = "run";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
+            attribute :>> subjectName = "relay";
+            attribute :>> burnTime = 40.0;
+            attribute :>> fuelUsed = 100.0;
+            attribute :>> wetMass = 530.0;
+            attribute :>> fuelLeft = 80.0;
         }
-        ref part :>> lander = relay;
-        attribute :>> caseName = "Descent::relayBudget";
-        attribute :>> kind = "run";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget";
-        attribute :>> subjectName = "relay";
-        attribute :>> burnTime = 40.0;
-        attribute :>> fuelUsed = 100.0;
-        attribute :>> wetMass = 530.0;
-        attribute :>> fuelLeft = 80.0;
-    }
 
-    // A sweep of scoutBudget over burnTime, one record per row the sweep printed.
-    part scoutSweep40 : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:20:10Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+        // A sweep of scoutBudget over burnTime, one record per row the sweep printed.
+        part scoutSweep40 : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:20:10Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            }
+            ref part :>> lander = scout;
+            attribute :>> caseName = "Descent::scoutBudget";
+            attribute :>> kind = "sweep";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            attribute :>> subjectName = "scout";
+            attribute :>> burnTime = 40.0;
+            attribute :>> fuelUsed = 120.0;
+            attribute :>> wetMass = 730.0;
+            attribute :>> fuelLeft = 130.0;
         }
-        ref part :>> lander = scout;
-        attribute :>> caseName = "Descent::scoutBudget";
-        attribute :>> kind = "sweep";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-        attribute :>> subjectName = "scout";
-        attribute :>> burnTime = 40.0;
-        attribute :>> fuelUsed = 120.0;
-        attribute :>> wetMass = 730.0;
-        attribute :>> fuelLeft = 130.0;
-    }
-    part scoutSweep60 : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:20:10Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+        part scoutSweep60 : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:20:10Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            }
+            ref part :>> lander = scout;
+            attribute :>> caseName = "Descent::scoutBudget";
+            attribute :>> kind = "sweep";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            attribute :>> subjectName = "scout";
+            attribute :>> burnTime = 60.0;
+            attribute :>> fuelUsed = 180.0;
+            attribute :>> wetMass = 670.0;
+            attribute :>> fuelLeft = 70.0;
         }
-        ref part :>> lander = scout;
-        attribute :>> caseName = "Descent::scoutBudget";
-        attribute :>> kind = "sweep";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-        attribute :>> subjectName = "scout";
-        attribute :>> burnTime = 60.0;
-        attribute :>> fuelUsed = 180.0;
-        attribute :>> wetMass = 670.0;
-        attribute :>> fuelLeft = 70.0;
-    }
-    part scoutSweep80 : FuelBudgetRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:20:10Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+        part scoutSweep80 : FuelBudgetRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:20:10Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            }
+            ref part :>> lander = scout;
+            attribute :>> caseName = "Descent::scoutBudget";
+            attribute :>> kind = "sweep";
+            attribute :>> 'objective' = "not satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
+            attribute :>> subjectName = "scout";
+            attribute :>> burnTime = 80.0;
+            attribute :>> fuelUsed = 240.0;
+            attribute :>> wetMass = 610.0;
+            attribute :>> fuelLeft = 10.0;
         }
-        ref part :>> lander = scout;
-        attribute :>> caseName = "Descent::scoutBudget";
-        attribute :>> kind = "sweep";
-        attribute :>> 'objective' = "not satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget -sweep burnTime=40.0..80.0:20.0";
-        attribute :>> subjectName = "scout";
-        attribute :>> burnTime = 80.0;
-        attribute :>> fuelUsed = 240.0;
-        attribute :>> wetMass = 610.0;
-        attribute :>> fuelLeft = 10.0;
-    }
 
-    // The trade study run: the selection and each alternative's score.
-    part lightestRun : TradeStudyRun {
-        @RecordedRun {
-            runAt = "2025-11-02T09:25:00Z";
-            tool = "sysml";
-            revision = "v0.8";
-            command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
+        // The trade study run: the selection and each alternative's score.
+        part lightestRun : TradeStudyRun {
+            @RecordedRun {
+                runAt = "2025-11-02T09:25:00Z";
+                tool = "sysml";
+                revision = "v0.8";
+                command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
+            }
+            attribute :>> caseName = "Selection::lightest";
+            attribute :>> kind = "trade";
+            attribute :>> 'objective' = "satisfied";
+            attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
+            attribute :>> selected = "relay";
+            attribute :>> scoutScore = 850.0;
+            attribute :>> haulerScore = 2300.0;
+            attribute :>> relayScore = 630.0;
         }
-        attribute :>> caseName = "Selection::lightest";
-        attribute :>> kind = "trade";
-        attribute :>> 'objective' = "satisfied";
-        attribute :>> command = "./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest";
-        attribute :>> selected = "relay";
-        attribute :>> scoutScore = 850.0;
-        attribute :>> haulerScore = 2300.0;
-        attribute :>> relayScore = 630.0;
-    }
     }
 }
 
@@ -362,8 +360,8 @@ package Reporting {
         in root : Element;
         Project(
             source = OrderBy(
-                source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
-                property = "burnTime", direction = "ascending", missing = "last", multiple = "error"),
+            source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
+            property = "burnTime", direction = "ascending", missing = "last", multiple = "error"),
             properties = ("name", "subjectName", "kind", "burnTime", "fuelUsed", "wetMass", "fuelLeft", "objective"))
     }
 
@@ -372,10 +370,10 @@ package Reporting {
         in root : Element;
         Project(
             source = OrderBy(
-                source = WhereFeature(
-                    source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
-                    'feature' = "kind", operator = "=", value = "sweep"),
-                property = "burnTime", direction = "ascending", missing = "last", multiple = "error"),
+            source = WhereFeature(
+            source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
+            'feature' = "kind", operator = "=", value = "sweep"),
+            property = "burnTime", direction = "ascending", missing = "last", multiple = "error"),
             properties = ("name", "caseName", "burnTime", "fuelUsed", "fuelLeft", "objective"))
     }
 
@@ -384,8 +382,8 @@ package Reporting {
         in root : Element;
         Project(
             source = WhereFeature(
-                source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
-                'feature' = "stale", operator = "=", value = "true"),
+            source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "FuelBudgetRun"),
+            'feature' = "stale", operator = "=", value = "true"),
             properties = ("name", "subjectName", "burnTime", "fuelLeft", "liveFuelLeft", "drift"))
     }
 

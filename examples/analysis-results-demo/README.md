@@ -79,7 +79,11 @@ written `'objective'` wherever a name is needed.
 
 ## The runs that were recorded
 
-One baseline run per candidate, at `FuelBudget`'s default 40 s burn:
+One baseline run per candidate, at `FuelBudget`'s default 40 s burn. **Two of
+these transcripts are records, not what the commands print today**: the relay
+run and the trade study were captured before `relay.fuel` was edited from
+`180.0` to `210.0`, which is what makes the staleness section below possible.
+Each is labelled; the scout and hauler runs print the same numbers now.
 
 ```bash
 ./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::scoutBudget
@@ -95,13 +99,33 @@ One baseline run per candidate, at `FuelBudget`'s default 40 s burn:
 
 ```bash
 ./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::haulerBudget
+```
+
+```
+  fuelUsed = 320.0
+  wetMass = 1980.0
+  fuelLeft = 580.0
+```
+
+The relay run, **as recorded** (when `relay.fuel` was `180.0`):
+
+```bash
 ./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Descent::relayBudget
 ```
 
 ```
-  fuelUsed = 320.0    fuelUsed = 100.0
-  wetMass = 1980.0    wetMass = 530.0
-  fuelLeft = 580.0    fuelLeft = 80.0
+  fuelUsed = 100.0
+  wetMass = 530.0
+  fuelLeft = 80.0
+```
+
+The same command **now prints** — the difference the `relayRun` record
+detects:
+
+```
+  fuelUsed = 100.0
+  wetMass = 560.0
+  fuelLeft = 110.0
 ```
 
 A sweep of `scoutBudget`, one record per row (this README's tables omit the
@@ -120,7 +144,7 @@ burnTime | fuelUsed | wetMass | fuelLeft | verdict
 80.0     | 240.0    | 610.0   | 10.0     | reserveHeld: not satisfied
 ```
 
-And the trade study:
+And the trade study, **as recorded** before the relay edit:
 
 ```bash
 ./bin/sysml examples/analysis-results-demo/lander-results.sysml -analysis Selection::lightest
@@ -134,6 +158,9 @@ And the trade study:
   evaluationFunction(Landers::hauler (object #2)) = 2300.0
   evaluationFunction(Landers::relay (object #3)) = 630.0 [selected]
 ```
+
+The same command **now prints** `660.0` for relay (`450.0 + 210.0`) — the
+selection is still `relay`, but the score the record saved no longer is.
 
 ## Records go stale — and can say so
 
@@ -157,6 +184,14 @@ can never give you: a record that notices the model moved.
     liveFuelLeft = 110.0
     drift = 30.0
 ```
+
+The relay edit made a second record stale too: `lightestRun` still reports
+`relayScore = 630.0` while `-analysis Selection::lightest` now scores relay
+`660.0`. Nothing flags it — `TradeStudyRun` rederives nothing, so it has no
+`liveFuelLeft` to compare against. That is the limitation the paragraph above
+describes, made concrete: drift detection only exists where the record
+definition recomputes the value itself, which is exactly what an automated
+record step would have to emit for every output it saves.
 
 The comparison is a derived Boolean on the record definition rather than a
 `Column` expression, because computed columns do not support `!=`. Any model
