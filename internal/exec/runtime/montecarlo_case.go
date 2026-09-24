@@ -76,8 +76,13 @@ type MonteCarloRun struct {
 	Observed Value
 
 	// Inputs are the values the run bound the case's input parameters to, in
-	// declaration order.
-	Inputs []InputBinding
+	// declaration order. Outputs are every declared output of this iteration
+	// as the iteration established it — the sample's statistics excluded — with
+	// the observed feature appended when it declares no output of its own.
+	// Unread holds the outputs that could not be read, by name.
+	Inputs  []InputBinding
+	Outputs []CalcOutputValue
+	Unread  map[string]error
 
 	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
 	// settles them over the sample, which keeps the checks that are the sample's alone.
@@ -137,6 +142,7 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 		Inputs:   run.inputs(),
 	}
 	r.Verdicts = r.checks()
+	r.Outputs, r.Unread = r.iterationOutputs()
 	r.left = make([]bool, len(r.Verdicts))
 	for i, v := range r.Verdicts {
 		r.left[i] = v.Status == VerdictUndecided
@@ -144,14 +150,16 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	return r, nil
 }
 
-// IterationOutputs are the values this run's declared outputs came to, the
+// iterationOutputs are the values this run's declared outputs came to, the
 // observed feature appended when it is not among them. The outputs that are
 // the sample's — runs, mean, deviation and outOfSpec — are left out whatever
-// their binding; any other output that cannot be read is left out too, its
-// error returned. Nothing the outputs evaluate is kept in the run.
-func (r *MonteCarloRun) IterationOutputs() ([]CalcOutputValue, error) {
+// their binding; any other output that cannot be read is in the error map
+// returned beside them. The whole read runs in a probe: nothing it evaluates
+// is kept, drawn or written in the run or its context.
+func (r *MonteCarloRun) iterationOutputs() ([]CalcOutputValue, map[string]error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
+	defer ctx.beginProbe()()
 	kept := r.run.outputs
 	r.run.outputs = maps.Clone(kept)
 	defer func() { r.run.outputs = kept }()
@@ -165,19 +173,14 @@ func (r *MonteCarloRun) IterationOutputs() ([]CalcOutputValue, error) {
 		}
 	}
 	var outputs []CalcOutputValue
-	var outputErr error
+	unread := map[string]error{}
 	for _, out := range r.run.shape.Outputs {
 		if out.Name == "" || stats[out.Name] {
 			continue
 		}
 		value, err := r.run.output(ctx, out.Name)
 		if err != nil {
-			switch {
-			case errors.Is(err, ErrMultiplicityViolation), errors.Is(err, ErrOutputNotAssigned):
-				// Reads a statistic the sample has not supplied yet.
-			case outputErr == nil:
-				outputErr = err
-			}
+			unread[out.Name] = err
 			continue
 		}
 		outputs = append(outputs, CalcOutputValue{Name: out.Name, Value: value})
@@ -194,7 +197,7 @@ func (r *MonteCarloRun) IterationOutputs() ([]CalcOutputValue, error) {
 			outputs = append(outputs, CalcOutputValue{Name: name, Value: r.Observed})
 		}
 	}
-	return outputs, outputErr
+	return outputs, unread
 }
 
 // checks decides the case's checks over the run as it stands. The outputs they read are

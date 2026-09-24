@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -107,19 +108,19 @@ func TestMonteCarloRunInputsAndIterationOutputs(t *testing.T) {
 	if len(run.Inputs) != 1 || run.Inputs[0].Name != "gain" {
 		t.Fatalf("inputs %+v, want the one binding of gain", run.Inputs)
 	}
-	outputs, err := run.IterationOutputs()
-	if err != nil {
-		t.Fatal(err)
-	}
 	var names []string
-	for _, out := range outputs {
+	for _, out := range run.Outputs {
 		names = append(names, out.Name)
 	}
 	// The statistics are bound over the sample, so the one output this
-	// iteration establishes is the observed value.
+	// iteration establishes is the observed value; the return reading a
+	// statistic is unread until the conclusion supplies it.
 	want := []string{"observed"}
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("outputs %v, want %v", names, want)
+	}
+	if run.Unread["Mean"] == nil {
+		t.Errorf("the stat-bound return is not in Unread: %v", run.Unread)
 	}
 }
 
@@ -154,7 +155,7 @@ func TestMonteCarloRunReportsAnOutputError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := run.IterationOutputs(); err == nil {
+	if run.Unread["Bad"] == nil {
 		t.Error("an output erroring for its own reason vanished")
 	}
 	if run.Observed.Kind != ValConst {
@@ -162,11 +163,82 @@ func TestMonteCarloRunReportsAnOutputError(t *testing.T) {
 	}
 }
 
-// IterationOutputs evaluates nothing into the run it is read of: called twice
-// it reports the same values, and the conclusion over the sample is the one a
-// sample no iteration's outputs were ever read of makes.
+// The outputs an observation captures are read in a probe: capturing them
+// draws nothing, so the conclusion over the sample — and the draws taken to
+// make it — are the ones a capture-free observation makes, whether or not an
+// output is a random draw of its own.
 func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
-	const model = `
+	sample := func(extraOutput string) (AnalysisResult, []DrawTaken, error) {
+		ctx, scope := analysisFixture(t, `
+			package test {
+				private import ScalarValues::*;
+				private import RandomFunctions::*;
+				part def Probe {
+					attribute t : Real;
+					action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+				}
+				individual def probe :> Probe;
+				analysis def Mc :> Simulation::MonteCarlo {
+					subject analysed : Probe;
+					perform action run ::> analysed.settle;
+					attribute :>> observed : Real = analysed.t;
+					return Mean : Real = mean;`+extraOutput+`
+				}
+			}`)
+		sym := requirementNamed(t, scope, "Mc")
+		probe, err := ctx.Instantiate(requirementNamed(t, scope, "probe"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx.SetModelSeed(RunSeed(1, 1))
+		var runs []*MonteCarloRun
+		for i := int64(1); i <= 3; i++ {
+			run, err := ctx.ObserveMonteCarlo(sym, AnalysisArgs{Subject: probe}, scope, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(run.run.outputs) != 0 {
+				t.Fatalf("capturing the outputs memoized into the run: %v", run.run.outputs)
+			}
+			runs = append(runs, run)
+		}
+		stats, err := MonteCarloSample(runs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := ConcludeMonteCarlo(runs, stats)
+		var observed []DrawTaken
+		for _, d := range ctx.DrawsTaken() {
+			if strings.HasPrefix(d.What, "uniform(1.0") {
+				observed = append(observed, d)
+			}
+		}
+		return res, observed, err
+	}
+
+	plain, drawsPlain, err := sample("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	drawn, drawsDrawn, err := sample(`
+					out Again : Real = uniform(0.0, 1.0);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(drawsDrawn, drawsPlain) {
+		t.Errorf("capturing a draw-made output moved the sample's draws: %v vs %v", drawsDrawn, drawsPlain)
+	}
+	for i, out := range plain.Outputs {
+		if i < len(drawn.Outputs) && drawn.Outputs[i].Name == out.Name && FormatValue(drawn.Outputs[i].Value) != FormatValue(out.Value) {
+			t.Errorf("output %s changed: %v vs %v", out.Name, drawn.Outputs[i].Value, out.Value)
+		}
+	}
+}
+
+// A return reading a statistic is unread on every run — the conclusion reads
+// it over the sample, the rows never carry it — even once concluded.
+func TestMonteCarloStatBoundReturnStaysUnread(t *testing.T) {
+	ctx, scope := analysisFixture(t, `
 		package test {
 			private import ScalarValues::*;
 			private import RandomFunctions::*;
@@ -180,56 +252,37 @@ func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
 				perform action run ::> analysed.settle;
 				attribute :>> observed : Real = analysed.t;
 				return Mean : Real = mean;
-				out Again : Real = uniform(0.0, 1.0);
 			}
-		}`
-	sample := func(read func(*MonteCarloRun)) (AnalysisResult, error) {
-		ctx, scope := analysisFixture(t, model)
-		sym := requirementNamed(t, scope, "Mc")
-		probe, err := ctx.Instantiate(requirementNamed(t, scope, "probe"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		ctx.SetModelSeed(RunSeed(1, 1))
-		var runs []*MonteCarloRun
-		for i := int64(1); i <= 3; i++ {
-			run, err := ctx.ObserveMonteCarlo(sym, AnalysisArgs{Subject: probe}, scope, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if read != nil {
-				read(run)
-			}
-			runs = append(runs, run)
-		}
-		stats, err := MonteCarloSample(runs)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return ConcludeMonteCarlo(runs, stats)
-	}
-
-	first, err := sample(nil)
+		}`)
+	sym := requirementNamed(t, scope, "Mc")
+	probe, err := ctx.Instantiate(requirementNamed(t, scope, "probe"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	read, err := sample(func(r *MonteCarloRun) {
-		a, err := r.IterationOutputs()
+	ctx.SetModelSeed(RunSeed(1, 1))
+	var runs []*MonteCarloRun
+	for i := 0; i < 2; i++ {
+		run, err := ctx.ObserveMonteCarlo(sym, AnalysisArgs{Subject: probe}, scope, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, err := r.IterationOutputs()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(a, b) {
-			t.Errorf("two reads differ: %v vs %v", a, b)
-		}
-	})
+		runs = append(runs, run)
+	}
+	stats, err := MonteCarloSample(runs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(read.Outputs, first.Outputs) || !reflect.DeepEqual(read.Verdicts, first.Verdicts) {
-		t.Errorf("reading the iterations' outputs moved the conclusion:\n%v\nwant\n%v", read, first)
+	if _, err := ConcludeMonteCarlo(runs, stats); err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range runs {
+		if run.Unread["Mean"] == nil {
+			t.Errorf("run %d's stat-bound return left Unread", run.Number)
+		}
+		for _, out := range run.Outputs {
+			if out.Name == "Mean" {
+				t.Errorf("run %d carries the sample's mean as its own", run.Number)
+			}
+		}
 	}
 }
