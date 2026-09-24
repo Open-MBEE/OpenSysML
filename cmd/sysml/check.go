@@ -27,6 +27,8 @@ type checks struct {
 	satisfy      optionalNames
 	calcs        stringSlice
 	analyses     stringSlice
+	records      stringSlice
+	recordInto   string
 	sweeps       stringSlice
 	samples      sweepCount
 	seed         sweepSeed
@@ -231,6 +233,7 @@ func (a *advanceTime) Set(value string) error {
 func (c *checks) requested() bool {
 	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
+		len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
 		c.sweeping() || c.running() || c.compare != "" || c.checker.given()
 }
@@ -328,11 +331,11 @@ func (c *checks) runsMisuse() string {
 	switch {
 	case !c.runs.given:
 		return "-observe names what -runs reports; ask for the runs, as -runs <number>"
-	case len(c.actions) == 0 && len(c.analyses) == 0:
+	case len(c.actions) == 0 && len(c.analyses) == 0 && len(c.records) == 0:
 		return "-runs runs an action or a Simulation::MonteCarlo analysis case; name one, as -action <name> or -analysis <name>"
-	case len(c.actions)+len(c.analyses) > 1:
+	case len(c.actions)+len(c.analyses)+len(c.records) > 1:
 		return "-runs runs one action or analysis case; name a single -action or -analysis"
-	case len(c.analyses) > 0 && len(c.observe) > 0:
+	case len(c.analyses)+len(c.records) > 0 && len(c.observe) > 0:
 		return "-runs of an analysis case observes what the case declares as observed; -observe names the features of an -action"
 	case len(c.states) > 0:
 		return "-runs runs an action; a state machine is run once, as -state <name> without -runs"
@@ -407,7 +410,7 @@ func (c *checks) sweepMisuse() string {
 	if !c.sweeping() {
 		return ""
 	}
-	targets := len(c.calcs) + len(c.analyses)
+	targets := len(c.calcs) + len(c.analyses) + len(c.records)
 	switch {
 	case targets == 0:
 		return "-sweep runs an analysis case or a calc; name one, as -analysis <name> or -calc <name>"
@@ -426,7 +429,34 @@ func (c *checks) sweepMisuse() string {
 func (c *checks) instantiatesOnly() bool {
 	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
+		len(c.records) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && c.compare == "" && !c.checker.given()
+}
+
+// recordsOnly reports whether the run makes records and decides nothing else,
+// so a document can be rendered over, or a file written from, what was recorded.
+// The bounds the records run under — a sweep's ranges, a Monte Carlo's runs,
+// seed and draws — and the objects -instantiate materializes for them, serve them.
+func (c *checks) recordsOnly() bool {
+	return len(c.records) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
+		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 &&
+		len(c.analyses) == 0 && len(c.observe) == 0 &&
+		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && c.compare == "" && !c.checker.given()
+}
+
+// recordMisuse reports why the flags the records were asked for with record
+// none, and "" when they record one.
+func (c *checks) recordMisuse() string {
+	if len(c.records) == 0 {
+		return ""
+	}
+	switch {
+	case c.samples.given:
+		return "-samples draws values for a sweep it does not run; -record-run records a run, a -sweep's rows or a -runs sample"
+	case len(c.records) > 1 && c.runs.given:
+		return "-runs runs one analysis case; name a single -record-run"
+	}
+	return ""
 }
 
 // checksOnly reports whether anything was asked about the model itself, as
@@ -434,6 +464,7 @@ func (c *checks) instantiatesOnly() bool {
 func (c *checks) checksOnly() bool {
 	return len(c.validate.targets) > 0 || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.satisfy.targets) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
+		len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 || c.compare != ""
 }
 
@@ -530,6 +561,10 @@ func runChecks(files []string, exprs []string, c checks) int {
 		return rep.finish()
 	}
 	if message := c.runsMisuse(); message != "" {
+		rep.failed(message)
+		return rep.finish()
+	}
+	if message := c.recordMisuse(); message != "" {
 		rep.failed(message)
 		return rep.finish()
 	}
@@ -708,6 +743,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 			rep.verdict(sess.RunAnalysis(invocation))
 		}
 	}
+	for _, invocation := range c.records {
+		rep.verdict(c.record(sess, invocation))
+	}
 	// With -advance every behavior named is started first and the clock they share
 	// is moved once, so an action's signal reaches a machine that accepts it later;
 	// under the check engine it bounds the search of the invocation's schedules.
@@ -751,6 +789,42 @@ func behaviors(values []string) []repl.Behavior {
 		out = append(out, repl.Behavior{Name: name, Performer: performer})
 	}
 	return out
+}
+
+// record runs one invocation as its -analysis twin does — swept or sampled over
+// -runs when the flags say — then writes the run into the model as records.
+func (c *checks) record(sess *repl.Session, invocation string) repl.Verdict {
+	command := c.recordCommand(invocation)
+	switch {
+	case c.sweeping():
+		return sess.RecordSweep(invocation, c.sweeps, c.recordInto, command)
+	case c.runs.given:
+		return sess.RecordMonteCarlo(invocation, c.runs.value, c.seed.seed(), c.recordInto, command)
+	default:
+		return sess.RecordAnalysis(invocation, c.recordInto, command)
+	}
+}
+
+// recordCommand is the invocation text a record's provenance carries: the flags
+// the run was made with, as written.
+func (c *checks) recordCommand(invocation string) string {
+	parts := []string{fmt.Sprintf("-record-run %q", invocation)}
+	for _, r := range c.sweeps {
+		parts = append(parts, fmt.Sprintf("-sweep %q", r))
+	}
+	if c.runs.given {
+		parts = append(parts, "-runs "+c.runs.text)
+	}
+	if c.seed.given {
+		parts = append(parts, "-seed "+c.seed.text)
+	}
+	if c.draws.text != "" {
+		parts = append(parts, "-draws "+c.draws.text)
+	}
+	if c.recordInto != "" {
+		parts = append(parts, "-record-into "+c.recordInto)
+	}
+	return strings.Join(parts, " ")
 }
 
 // sweep runs one invocation once per row of the ranges given: over every value

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/flexo"
@@ -60,6 +61,12 @@ func runConvert(files []string) (int, error) {
 		return 0, fmt.Errorf("-convert converts one file; unexpected extra argument %q", files[1])
 	}
 	input := files[0]
+
+	// A run asked to record puts the records in the session's buffer rather than
+	// in the file, so what is converted is that buffer's text, as %save writes it.
+	if len(modelChecks.records) > 0 {
+		return convertRecorded(input, to)
+	}
 
 	inputRef, inputIsURL, err := flexo.ParseBranchURL(input)
 	if err != nil {
@@ -163,6 +170,57 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, er
 		return nil, err
 	}
 	return migrated.Output, nil
+}
+
+// convertRecorded loads the file, makes the runs -record-run names so the
+// records join the session's buffer, and converts that text; a load that did
+// not analyse or a run that failed converts nothing.
+func convertRecorded(input string, to convert.Format) (int, error) {
+	sess := newSession()
+	report, err := sess.LoadPathsReport([]string{input})
+	if err != nil {
+		return 0, err
+	}
+	writeLines(os.Stderr, report.Loaded)
+	writeLines(os.Stderr, report.Found)
+	writeLines(os.Stderr, report.Declared)
+	if report.Errors {
+		return 0, fmt.Errorf("%s did not analyse cleanly; nothing was converted", input)
+	}
+	// The objects -instantiate names are materialized first, so a run named on
+	// one has it to record.
+	for _, name := range modelChecks.instantiate {
+		created, err := sess.InstantiateReport(name)
+		if err != nil {
+			return 0, err
+		}
+		writeLines(os.Stderr, created.Lines)
+		if len(created.FeatureValueErrors) > 0 {
+			writeLines(os.Stderr, created.FeatureValueErrors)
+			return 0, fmt.Errorf("%s did not materialize cleanly; nothing was converted", name)
+		}
+	}
+	for _, invocation := range modelChecks.records {
+		verdict := modelChecks.record(sess, invocation)
+		writeLines(os.Stderr, verdict.Lines)
+		if verdict.Status != repl.VerdictHolds {
+			return 0, fmt.Errorf("%s: the run was not recorded; nothing was converted", invocation)
+		}
+	}
+	out, tolerated, err := convert.ConvertTolerant(repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to)
+	if err != nil {
+		return 0, err
+	}
+	if tolerated != nil {
+		for _, line := range strings.Split("warning: "+tolerated.Error(), "\n") {
+			fmt.Fprintln(os.Stderr, line)
+		}
+	}
+	if outputPath != "" {
+		return exitHolds, writeConversion(outputPath, out, to)
+	}
+	_, err = os.Stdout.Write(out)
+	return exitHolds, err
 }
 
 // writeConversion writes converted output to a file and reports it.

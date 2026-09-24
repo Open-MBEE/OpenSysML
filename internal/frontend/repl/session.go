@@ -309,6 +309,12 @@ func (s *Session) SetToolVersion(tool string) {
 	s.toolVersion = tool
 }
 
+// Text is the session's buffer as it was submitted: what %save writes back.
+func (s *Session) Text() string {
+	defer s.reading()()
+	return s.text()
+}
+
 // enter takes the session for one command; the function returned leaves it.
 func (s *Session) enter() func() {
 	s.mu.Lock()
@@ -622,6 +628,10 @@ func isCommentOnly(src string) bool {
 // sessionOrigin names the accumulated session buffer in diagnostics, which
 // belongs to no file on disk.
 const sessionOrigin = "<session>"
+
+// SessionOrigin names the accumulated buffer in diagnostics, for callers that
+// write the session's text as a document of their own.
+const SessionOrigin = sessionOrigin
 
 // joined is the buffer the session analyzes: every accepted submission, with a
 // submission that does not close its own text masked out so it cannot change how
