@@ -203,3 +203,56 @@ func mustConvert(t *testing.T, path string, to convert.Format) []byte {
 	}
 	return document
 }
+
+// A state's own members are owned by plain FeatureMemberships, perform
+// members included — the qualifier exemption covers a transition's effect
+// (the legacy shape), not them.
+func TestStateBodyPerformKeepsQualifier(t *testing.T) {
+	src := "package P {\n\taction def A;\n\taction a1 : A;\n\tstate def S;\n\tstate running : S {\n\t\tperform action step : A;\n\t\tperform a1;\n\t\tdo action stop : A;\n\t}\n}"
+	document, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatAPIJSON)
+	if err != nil {
+		t.Fatalf("to api-json: %v", err)
+	}
+	var elements []any
+	if err := json.Unmarshal(document, &elements); err != nil {
+		t.Fatal(err)
+	}
+	var scrub func(v any) any
+	scrub = func(v any) any {
+		switch m := v.(type) {
+		case map[string]any:
+			out := map[string]any{}
+			for k, item := range m {
+				if strings.HasPrefix(k, "sysx:") {
+					continue
+				}
+				out[k] = scrub(item)
+			}
+			return out
+		case []any:
+			list := make([]any, 0, len(m))
+			for _, item := range m {
+				list = append(list, scrub(item))
+			}
+			return list
+		}
+		return v
+	}
+	document, err = json.Marshal(scrub(elements))
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("m.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("api-json without sysx: %v", err)
+	}
+	for _, want := range []string{
+		"perform action 'step' : A;",
+		"perform a1;",
+		"do action stop : A;",
+	} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("expected %q in:\n%s", want, back)
+		}
+	}
+}

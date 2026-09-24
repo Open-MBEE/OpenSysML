@@ -2765,6 +2765,8 @@ func (d *decoder) metadataBodyMember(el *element) bool {
 // underActionMembership reports whether a membership that supplies the
 // keyword owns el — a state's subaction or a transition's effect — where the
 // metaclass's own qualifier does not apply (`do action f`, not `perform f`).
+// A legacy graph owns a transition's effect through a plain FeatureMembership;
+// a state's ordinary members keep their qualifier, perform included.
 func (d *decoder) underActionMembership(el *element) bool {
 	ms := firstIRI(d.graph, rdf.IRI(el.iri), pOwningMembership, pOwningRelationship)
 	m := d.metaclass(ms)
@@ -2775,7 +2777,7 @@ func (d *decoder) underActionMembership(el *element) bool {
 		return false
 	}
 	owner := firstIRI(d.graph, rdf.IRI(ms.Value), pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
-	return d.metaclass(owner) == mTransition || d.metaclass(owner) == mStateUsage
+	return d.metaclass(owner) == mTransition
 }
 
 // keywordTyped checks that a keyword the graph types agrees with its typing:
