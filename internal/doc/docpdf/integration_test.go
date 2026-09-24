@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -541,6 +542,93 @@ func TestRenderThemesWithInstalledEngines(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestRenderThemeTablesWithInstalledEngines reads back the size an ordinary
+// (three-column, portrait) table's text is set at under each convention theme,
+// the default's body size being the control.
+func TestRenderThemeTablesWithInstalledEngines(t *testing.T) {
+	cases := []struct {
+		theme string
+		table float64
+	}{
+		{"", 11},
+		{"nasa", 11},
+		{"ieee", 8},
+		{"acm", 9},
+	}
+	document := narrowTableDocument(t)
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		for _, tc := range cases {
+			name := tc.theme
+			if name == "" {
+				name = docrender.DefaultTheme
+			}
+			t.Run(engine+"/"+name, func(t *testing.T) {
+				pdf, _ := renderInstalled(t, document, engine, Options{Theme: tc.theme})
+				if pages := pageOrientations(t, pdf); len(pages) != 1 || pages[0] != "portrait" {
+					t.Fatalf("pages are %v, want one portrait page", pages)
+				}
+				sizes := pdfTextSizes(t, pdf)
+				if got := dominantSize(sizes); math.Abs(got-tc.table) > 0.15 {
+					t.Errorf("table text is set at %gpt, want %gpt; sizes %v", got, tc.table, sizes)
+				}
+			})
+		}
+	}
+}
+
+// TestRenderNASAPageNumbersWithInstalledEngines reads the footers back from a
+// nasa report whose running text opens the document ahead of its first section:
+// front matter counts in roman numerals, the body restarts at 1 on its first page.
+func TestRenderNASAPageNumbersWithInstalledEngines(t *testing.T) {
+	cases := []struct {
+		name    string
+		opts    Options
+		footers []string
+	}{
+		{"body", Options{Theme: "nasa"}, []string{"1", "2"}},
+		{"toc", Options{Theme: "nasa", TOC: true}, []string{"i", "1", "2"}},
+		{"title-page", Options{Theme: "nasa", TitlePage: true}, []string{"", "1", "2"}},
+		{"title-page-toc", Options{Theme: "nasa", TitlePage: true, TOC: true}, []string{"", "ii", "1", "2"}},
+	}
+	document := leadDocument(t)
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		for _, tc := range cases {
+			t.Run(engine+"/"+tc.name, func(t *testing.T) {
+				_, text := renderInstalled(t, document, engine, tc.opts)
+				if got := pageFooters(text); !slices.Equal(got, tc.footers) {
+					t.Fatalf("page footers are %q, want %q", got, tc.footers)
+				}
+			})
+		}
+	}
+}
+
+// pageFooters returns the last line of text on each page of pdftotext's
+// layout output; a page whose last line is not a page number has "".
+func pageFooters(text string) []string {
+	number := regexp.MustCompile(`^(\d+|[ivxlc]+)$`)
+	var footers []string
+	for _, page := range strings.Split(strings.TrimSuffix(text, "\f"), "\f") {
+		last := ""
+		for _, line := range strings.Split(page, "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				last = line
+			}
+		}
+		if !number.MatchString(last) {
+			last = ""
+		}
+		footers = append(footers, last)
+	}
+	return footers
 }
 
 // TestRenderGenericFamilyWithInstalledEngines is the named stacks' control: a

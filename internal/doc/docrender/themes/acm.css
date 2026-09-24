@@ -18,6 +18,7 @@
     --sysml-cell-padding: 0.2em 0.5em;
     --sysml-code-font-size: 0.9em;
     --sysml-caption-font-size: 9pt;
+    --sysml-table-font-size: 9pt;
     --sysml-title-page-height: 80vh;
     --sysml-group-heading-weight: 700;
     --sysml-paragraph-indent: 10pt;
@@ -60,6 +61,10 @@
     margin: 0;
     text-indent: var(--sysml-paragraph-indent);
     hyphens: auto;
+  }
+
+  .sysml-document .sysml-table {
+    font-size: var(--sysml-table-font-size);
   }
 
   .sysml-document .sysml-table th,

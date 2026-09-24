@@ -25,18 +25,15 @@
     --sysml-title-page-height: 80vh;
   }
 
-  /* Front matter on named pages numbered in lowercase roman numerals, the
-     title page an unnumbered page i; the body's first page restarts at 1. */
+  /* Front matter (title page, contents, a bare title leading the contents) on
+     roman-numbered named pages; the article stays main and restarts at 1. */
   .sysml-document .sysml-title-page {
     page: cover;
   }
 
-  .sysml-document .sysml-toc {
+  .sysml-document .sysml-toc,
+  .sysml-document > .sysml-title:has(+ .sysml-toc) {
     page: front;
-  }
-
-  .sysml-document > .sysml-section {
-    page: main;
   }
 
   @page main:nth(1 of main) {
