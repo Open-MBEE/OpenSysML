@@ -111,6 +111,7 @@ func (m *migration) subjects(e *sysmlv1.Element) {
 			}
 		}
 		name := m.freshName(e, lowerFirst(m.nameFor(s)))
+		m.w.madeUp(writeName(name))
 		if first {
 			m.w.line("subject " + writeName(name) + m.typing(s) + m.ref(s, e) + ";")
 			first = false
@@ -163,8 +164,9 @@ func (m *migration) include(inc *sysmlv1.Element) {
 	name := m.nameOf(inc)
 	if name == "" {
 		name = m.freshName(inc.Parent, lowerFirst(m.nameFor(added)))
-		m.names[inc] = name
+		m.names[inc], m.synthesized[inc] = name, true
 	}
+	m.madeUp(inc, writeName(name))
 	m.wroteEdge(inc, m.scope, "include", name)
 	m.w.line("include use case " + writeName(name) + " : " + m.ref(added, m.scope) + ";")
 	m.add(inc, Mapped, m.v2Name(inc), "")
@@ -202,6 +204,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 	if name != "" {
 		decl += writeName(name) + " from "
 		target = m.v2Name(ext)
+		m.madeUp(ext, writeName(name))
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
 	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")

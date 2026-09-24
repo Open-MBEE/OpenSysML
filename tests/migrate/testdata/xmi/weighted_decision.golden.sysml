@@ -21,6 +21,7 @@ part def Sorter {
         merge 'merge';
         first 'merge' then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about 'decide', 'merge', final;
     }
     perform action route : Route;
 }

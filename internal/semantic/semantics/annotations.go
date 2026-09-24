@@ -382,15 +382,13 @@ func bodyScope(_ *ast.Usage, declared *symbols.Scope) *symbols.Scope { return de
 // aboutAnnotations returns the annotations that `metadata m about sym;`
 // declarations elsewhere in the workspace state about sym.
 func (m *Model) aboutAnnotations(sym *symbols.Symbol) []annotation {
-	if out, ok := m.annotationsAbout()[sym]; ok {
-		return out
+	about := m.annotationsAbout()
+	// Usages may have resolved sym across re-indexed trees, to as many symbols
+	// of one declaration; the declaration gathers what every one was told.
+	if sym.Decl != nil {
+		return m.aboutByDecl[sym.Decl]
 	}
-	// The caller may hold a symbol re-indexed from the same declaration as the
-	// one indexed here, which the declaration identifies across both trees.
-	if sym.Decl == nil {
-		return nil
-	}
-	return m.aboutByDecl[sym.Decl]
+	return about[sym]
 }
 
 // AboutAnnotatedSymbols returns every element an `about` metadata usage

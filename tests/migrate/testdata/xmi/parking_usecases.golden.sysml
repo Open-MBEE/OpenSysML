@@ -20,10 +20,12 @@ package 'Use Cases' {
             }
             first Enter then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         actor driver : Context::Driver;
         actor attendant : Context::Attendant[0..1];
         perform action 'park Flow' : 'Park Flow';
+        metadata MigrationMetadata::SynthesizedName about garage, 'pay Fee';
     }
     use case def 'Pay Fee' {
         subject garage : Context::Garage;
@@ -31,6 +33,7 @@ package 'Use Cases' {
         include use case authorise : 'Authorise Payment';
         attribute amount : Real;
         actor bank : Context::Bank;
+        metadata MigrationMetadata::SynthesizedName about garage, ticket;
     }
     use case def 'Authorise Payment' {
         subject;
@@ -51,10 +54,13 @@ package 'Use Cases' {
     connection def Settlement {
         end bank : Context::Bank;
         end 'pay Fee' : 'Pay Fee';
+        metadata MigrationMetadata::SynthesizedName about 'pay Fee';
     }
     connection def unnamed {
         end 'park Car' : 'Park Car';
         end 'wait For Space' : 'Wait For Space';
+        metadata MigrationMetadata::SynthesizedName about 'park Car', 'wait For Space';
     }
+    metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 attribute def Real;

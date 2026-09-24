@@ -150,6 +150,7 @@ part def Thermostat {
         first 'send stop' then final;
         action final terminate;
         flow seven.result to 'send level'.value;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }
 part def Room {

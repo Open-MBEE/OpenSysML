@@ -22,5 +22,6 @@ part def Recorder {
         }
         first get then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

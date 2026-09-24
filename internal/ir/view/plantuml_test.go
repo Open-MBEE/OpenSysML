@@ -184,7 +184,8 @@ func TestPlantUMLStateDiagram(t *testing.T) {
 
 // An action rendering takes the state grammar: control nodes are states with
 // their kind as stereotype, successions solid arrows and flows dashed and
-// labelled, every node and edge of the graph drawn.
+// labelled, every node and edge of the graph drawn. The `start` and `done` the
+// language names head as their kind, since those names are not the body's.
 func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	puml, err := render(t, "action.sysml", "FlowViews::driveView").PlantUML()
 	if err != nil {
@@ -193,9 +194,9 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 	for _, want := range []string{
 		"\nhide empty description\n",
 		"state \"**Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
-		"  state \"**start**\\n<size:10>//«initial»//</size>\" as n1 <<start>>\n",
+		"  state \"**initial**\" as n1 <<start>>\n",
 		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n8 <<fork>>\n",
-		"  state \"**done**\\n<size:10>//«final»//</size>\" as n10 <<end>>\n",
+		"  state \"**final**\" as n10 <<end>>\n",
 		"  state \"**check**\\n<size:10>//«decision»//</size>\" as n12 <<choice>>\n",
 		"  state \"**monitor**\\n<size:10>//«action»//</size>\\nown flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 -[dashed]-> n3 : torque to reading\n",

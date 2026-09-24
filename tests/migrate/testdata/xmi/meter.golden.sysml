@@ -7,6 +7,7 @@ part def Gauge {
     action def Tick {
         first start then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }
 part def Needle :> Gauge;
@@ -97,6 +98,7 @@ part def Meter {
         first shout then final;
         action final terminate;
         flow sense.y to record.v;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Skip {
         first start then idle;
@@ -125,6 +127,7 @@ part def Meter {
         action final terminate;
         /* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */
         /* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Flip {
         first start then bump;
@@ -178,6 +181,7 @@ part def Meter {
         }
         first 'alias' then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Arm {
         in armed : ScalarValues::Boolean {
@@ -197,6 +201,7 @@ part def Meter {
         }
         first latch then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Sweep {
         first start then spread;
@@ -252,5 +257,6 @@ part def Meter {
         /* partition 'cells' represents Meter::cells: calib, span, ticking */
         /* partition 'banks' represents Meter::banks: charge */
         /* partition 'bank' represents Bank: settle */
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

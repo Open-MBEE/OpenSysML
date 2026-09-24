@@ -27,11 +27,13 @@ type Data struct {
 
 // NodeData is one node of a rendering, with the node it is nested in.
 type NodeData struct {
-	ID     string
-	Kind   string
-	Name   string
-	Type   string
-	Detail string
+	ID   string
+	Kind string
+	Name string
+	// NameSynthesized marks a Name the model did not give: a name to key by, not one a picture shows.
+	NameSynthesized bool
+	Type            string
+	Detail          string
 	// Parent is the ID of the node this one is nested in, "" for a root.
 	Parent string
 	Origin Origin
@@ -89,8 +91,8 @@ func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
 		return out
 	}
 	out = append(out, NodeData{
-		ID: node.ID, Kind: node.Kind, Name: node.Name, Type: node.Type, Detail: node.Detail, Parent: parent, Origin: node.Origin,
-		Geometry: node.Geometry,
+		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
+		Parent: parent, Origin: node.Origin, Geometry: node.Geometry,
 	})
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID)

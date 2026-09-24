@@ -9,10 +9,20 @@ import (
 // buffer of its own, so deciding whether a body is empty never copies the
 // output written before it.
 type writer struct {
-	bufs   []*strings.Builder
+	bufs   []*buffer
 	indent int
 	// holes are the gaps left for text written once the rest of the document is.
 	holes []hole
+	// marker writes the line closing a body whose members it lists were declared
+	// under made-up names, if any body is; nil writes none.
+	marker func(names []string) string
+}
+
+// buffer is the text of one open block and the names it declared that were
+// made up, to be marked before the block closes.
+type buffer struct {
+	strings.Builder
+	madeUp []string
 }
 
 // hole is a gap in the output: what fills it, at what indent, and the text once filled.
@@ -36,13 +46,12 @@ func (w *writer) hole(fill func()) {
 func (w *writer) fill() {
 	for i := range w.holes {
 		h := &w.holes[i]
-		w.bufs = append(w.bufs, &strings.Builder{})
+		w.bufs = append(w.bufs, &buffer{})
 		indent := w.indent
 		w.indent = h.indent
 		h.fill()
+		h.text = w.close()
 		w.indent = indent
-		h.text = w.bufs[len(w.bufs)-1].String()
-		w.bufs = w.bufs[:len(w.bufs)-1]
 	}
 }
 
@@ -66,15 +75,46 @@ func (w *writer) filled(out string) string {
 	}
 }
 
-func (w *writer) buf() *strings.Builder {
+func (w *writer) buf() *buffer {
 	if len(w.bufs) == 0 {
-		w.bufs = append(w.bufs, &strings.Builder{})
+		w.bufs = append(w.bufs, &buffer{})
 	}
 	return w.bufs[len(w.bufs)-1]
 }
 
-func (w *writer) line(s string) {
+// madeUp records that the block being written declared name for an element
+// its source left anonymous; the block is marked as it closes.
+func (w *writer) madeUp(name string) {
 	b := w.buf()
+	b.madeUp = append(b.madeUp, name)
+}
+
+// markMadeUp writes the marker for the names the open block made up so far, if
+// any, so that the block need not: for a body whose writer knows what the
+// marker may refer to as.
+func (w *writer) markMadeUp(marker func(names []string) string) {
+	b := w.buf()
+	if len(b.madeUp) == 0 {
+		return
+	}
+	names := b.madeUp
+	b.madeUp = nil
+	w.line(marker(names))
+}
+
+// close pops the innermost block, marking the names it made up that no body
+// marked, and returns its text.
+func (w *writer) close() string {
+	if w.marker != nil {
+		w.markMadeUp(w.marker)
+	}
+	b := w.bufs[len(w.bufs)-1]
+	w.bufs = w.bufs[:len(w.bufs)-1]
+	return b.String()
+}
+
+func (w *writer) line(s string) {
+	b := &w.buf().Builder
 	if s == "" {
 		b.WriteByte('\n')
 		return
@@ -127,12 +167,11 @@ func (w *writer) trailed(header, empty, lead string, body func()) {
 // capture renders what body writes, one level deeper, without writing it.
 func (w *writer) capture(body func()) string {
 	w.buf()
-	w.bufs = append(w.bufs, &strings.Builder{})
+	w.bufs = append(w.bufs, &buffer{})
 	w.indent++
 	body()
+	inner := w.close()
 	w.indent--
-	inner := w.bufs[len(w.bufs)-1].String()
-	w.bufs = w.bufs[:len(w.bufs)-1]
 	return inner
 }
 
@@ -143,4 +182,11 @@ func (w *writer) indented(body func()) {
 	w.indent--
 }
 
-func (w *writer) String() string { return w.filled(w.buf().String()) }
+// String is the document: the root block, marked for the names it made up
+// like any block, with every hole filled.
+func (w *writer) String() string {
+	if w.marker != nil {
+		w.markMadeUp(w.marker)
+	}
+	return w.filled(w.buf().String())
+}

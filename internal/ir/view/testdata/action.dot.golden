@@ -11,20 +11,20 @@ digraph "FlowViews::driveView" {
     color=black;
     penwidth=0.5;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10"><i>«initial»</i></font>>];
+    "n1" [shape=circle, fillcolor=black, label="", width=0.2];
     "n2" [style="rounded,filled", label=<<b>provide : Provide</b><br/><font point-size="10"><i>«action»</i></font>>];
     subgraph "cluster_n3" {
       label=<<b>monitor</b><br/><font point-size="10"><i>«action»</i></font><br/>own flow>;
       color=black;
       penwidth=0.5;
       "n3" [shape=point, style=invis, width=0, height=0, label=""];
-      "n5" [shape=circle, label=<<b>begin</b><br/><font point-size="10"><i>«initial»</i></font>>];
+      "n5" [shape=circle, fillcolor=black, label="", width=0.2];
       "n6" [style="rounded,filled", label=<<b>record</b><br/><font point-size="10"><i>«action»</i></font>>];
     }
     "n7" [style="rounded,filled", label=<<b>tally</b><br/><font point-size="10"><i>«action»</i></font>>];
     "n8" [label=<<b>split</b><br/><font point-size="10"><i>«fork»</i></font>>];
     "n9" [label=<<b>sync</b><br/><font point-size="10"><i>«join»</i></font>>];
-    "n10" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];
+    "n10" [shape=doublecircle, fillcolor=black, label="", width=0.2];
     "n11" [style="rounded,filled", label=<<b>park</b><br/><font point-size="10"><i>«action»</i></font>>];
     "n12" [label=<<b>check</b><br/><font point-size="10"><i>«decision»</i></font>>];
   }

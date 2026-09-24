@@ -169,5 +169,6 @@ part def Reactor {
         }
         first bare then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
 }

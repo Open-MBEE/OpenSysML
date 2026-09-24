@@ -391,7 +391,7 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	for _, line := range lines[1:] {
 		parts = append(parts, plantumlText(line))
 	}
-	if node.Name != "" {
+	if keyworded(node) {
 		parts[1] = fmt.Sprintf("<size:%d>//%s//</size>", plantumlKeywordFontSize, parts[1])
 	}
 	return strings.Join(parts, `\n`)

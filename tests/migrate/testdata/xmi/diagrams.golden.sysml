@@ -17,6 +17,7 @@ package Structure {
             expose Engine;
             render Views::asElementTable;
         }
+        metadata MigrationMetadata::SynthesizedName about 'engine to wheel';
     }
     part def Engine {
         attribute power : ScalarValues::Real;
@@ -38,6 +39,7 @@ package Structure {
             }
             succession 'ignite to final' first ignite then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'start to ignite', 'ignite to final', final;
         }
         action crank : Crank;
         action def Halt {
@@ -51,6 +53,7 @@ package Structure {
              */
         }
         action halt : Halt;
+        metadata MigrationMetadata::SynthesizedName about wheel;
     }
     part def Wheel;
     view 'Vehicle Structure' {
@@ -93,6 +96,7 @@ package Behavior {
         }
         succession 'start engine to final' first 'start engine' then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about 'start to start engine', 'start engine to final', final;
     }
     state def Modes {
         view 'Idle 2' : StandardViewDefinitions::StateTransitionView {
@@ -103,6 +107,7 @@ package Behavior {
         state Idle;
         state Running;
         transition 'Idle then Running' first Idle then Running;
+        metadata MigrationMetadata::SynthesizedName about 'Idle then Running';
     }
 }
 package Usage {

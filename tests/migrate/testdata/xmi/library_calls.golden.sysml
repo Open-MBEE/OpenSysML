@@ -76,5 +76,6 @@ part def Recorder {
         flow second.result to position.seq;
         /* flow position.result to 'after'.x not written: 'position' is not migrated and produces no value */
         flow concat.result to print.value;
+        metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
     }
 }

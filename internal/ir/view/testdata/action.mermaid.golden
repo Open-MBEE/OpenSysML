@@ -8,17 +8,17 @@ config:
 flowchart TD
   subgraph n0 ["Drive<br>«action def»"]
     direction TD
-    n1["start<br>«initial»"]
+    n1["initial"]
     n2["provide : Provide<br>«action»"]
     subgraph n3 ["monitor<br>«action»<br>own flow"]
       direction TD
-      n5["begin<br>«initial»"]
+      n5["initial"]
       n6["record<br>«action»"]
     end
     n7["tally<br>«action»"]
     n8["split<br>«fork»"]
     n9["sync<br>«join»"]
-    n10["done<br>«final»"]
+    n10["final"]
     n11["park<br>«action»"]
     n12["check<br>«decision»"]
   end

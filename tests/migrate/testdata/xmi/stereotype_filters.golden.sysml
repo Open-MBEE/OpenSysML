@@ -57,6 +57,7 @@ package 'Depot Viewpoints' {
             }
             first 'Critical Items' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Items Method' : 'Critical Items Method';
     }
@@ -72,6 +73,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'exact Critical Layouts Method' : 'Exact Critical Layouts Method';
     }
@@ -87,6 +89,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Figures Method' : 'Critical Figures Method';
     }
@@ -100,6 +103,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'uncritical Figures Method' : 'Uncritical Figures Method';
     }
@@ -115,6 +119,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Layouts Method' : 'Critical Layouts Method';
     }
@@ -128,6 +133,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Figures Method' : 'Satisfier Figures Method';
     }
@@ -143,6 +149,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Layouts Method' : 'Satisfier Layouts Method';
     }
@@ -158,6 +165,7 @@ package 'Depot Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owned Figures Method' : 'Owned Figures Method';
     }

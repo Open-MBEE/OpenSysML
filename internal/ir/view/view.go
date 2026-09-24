@@ -179,9 +179,15 @@ type Node struct {
 	// Name is the element's name: qualified for a node the view exposes, simple
 	// for one nested in it. It is empty for an anonymous element.
 	Name string
+	// NameSynthesized marks a name the model did not give: a migration made it up, or
+	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
+	NameSynthesized bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
+	// Typings are the qualified names of the elements Type resolves to, in its
+	// order; a member of one is drawn as the type's own. Empty when none resolves.
+	Typings []string
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
@@ -531,6 +537,18 @@ func declKind(sym *symbols.Symbol) string {
 // `feature f typed by A, B`), empty for a declaration stating none.
 func declType(sym *symbols.Symbol) string {
 	return typingOf(semantics.RelationshipsOf(sym))
+}
+
+// declTypings are the qualified names, as the notation writes them, of the
+// elements a usage's declared typings resolve to.
+func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
+	var names []string
+	for _, typ := range r.model.DeclaredTypes(sym) {
+		if name := r.notationName(typ); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // nodeType is the type a usage lowered into a behavior graph is declared with

@@ -43,5 +43,6 @@ part def Recorder {
         flow label.result to size.list;
         flow label.result to get.list;
         flow get.result to print.value;
+        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
     }
 }

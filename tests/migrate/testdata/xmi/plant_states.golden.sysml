@@ -50,6 +50,7 @@ part def Plant {
                 }
             }
             transition first regions then done;
+            metadata MigrationMetadata::SynthesizedName about regions;
         }
         transition first Idle accept Go then Work;
         transition first Work::Run accept Stop then Idle;

@@ -32,5 +32,6 @@ package Behavior {
              * going = true;
              */
         }
+        metadata MigrationMetadata::SynthesizedName about 'start to step';
     }
 }

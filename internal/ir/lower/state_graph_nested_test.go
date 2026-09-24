@@ -304,6 +304,27 @@ func TestToStateGraph_ParallelBodyNonRegionMembers(t *testing.T) {
 		}
 	})
 
+	t.Run("metadata is not a region", func(t *testing.T) {
+		graph, err := ToStateGraph(stateUsageIn(t, `
+			package test {
+				metadata def Reviewed;
+				state Machine parallel {
+					state left {
+						entry; then idle;
+						state idle;
+					}
+					metadata Reviewed about left;
+				}
+			}
+		`), nil)
+		if err != nil {
+			t.Fatalf("parallel state with metadata: %v", err)
+		}
+		if len(graph.TopRegions) != 1 || graph.TopRegions[0].Name != "left" {
+			t.Fatalf("parallel regions = %v, want only left (not metadata)", graph.TopRegions)
+		}
+	})
+
 	t.Run("perform is rejected", func(t *testing.T) {
 		_, err := ToStateGraph(stateUsageIn(t, `
 			package test {

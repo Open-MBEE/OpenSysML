@@ -95,7 +95,7 @@ func (m *migration) nameRegions(regions []*sysmlv1.Element, owner *sysmlv1.Eleme
 		for _, r := range regions {
 			rname := m.nameOf(r)
 			if rname == "" {
-				rname = "region"
+				rname, m.synthesized[r] = "region", true
 			}
 			m.names[r] = freshIn(inner, rname)
 			m.parallel[r] = name
@@ -471,7 +471,7 @@ func (m *migration) nameVertex(v, owner *sysmlv1.Element, used map[string]bool) 
 	name := m.nameOf(v)
 	switch {
 	case name == "":
-		name = m.freshMember(owner, used, base)
+		name, m.synthesized[v] = m.freshMember(owner, used, base), true
 	case used[name]:
 		name = freshIn(used, name)
 	}
@@ -545,9 +545,11 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 					st.enter(false)
 					st.write()
 				})
+				m.madeUp(r, writeName(rname))
 				m.add(r, Mapped, rname, "an orthogonal region is written as a sub-state of the parallel state "+name)
 			}
 		})
+		m.w.madeUp(writeName(name))
 		m.w.line("transition first " + writeName(name) + " then done;")
 	}
 }
@@ -750,18 +752,22 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "choice", "junction":
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
+			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
 		case "fork", "join":
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
+			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
 		case "shallowHistory":
 			name := writeName(s.name(v))
 			s.m.w.line("history " + name + ";")
+			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a shallow history, which re-enters the substate active when its state was last left")
 		case "deepHistory":
 			name := writeName(s.name(v))
 			s.m.w.line("deep history " + name + ";")
+			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a deep history, which re-enters the innermost states active when its state was last left")
 		case "terminate":
 			s.m.add(v, Approximated, "done", "a terminate pseudostate ends the machine; a transition to it is written to done, which ends its region")
@@ -790,6 +796,7 @@ func (m *migration) connectionPoint(v *sysmlv1.Element) {
 		return
 	}
 	m.w.line(stateKw + writeName(name) + ";")
+	m.madeUp(v, writeName(name))
 	if pseudoKind(v) == "exitPoint" {
 		m.add(v, Mapped, name, "written as a state; a transition leaving a submachine state through the exit point leaves this state")
 		return
@@ -811,6 +818,7 @@ func (m *migration) statePoints(v *sysmlv1.Element) int {
 		default:
 			name := writeName(m.vertexNames[cp])
 			m.w.line(f.kw + " " + name + ";")
+			m.madeUp(cp, name)
 			m.add(cp, Mapped, name, f.note)
 			written++
 		}
@@ -833,6 +841,7 @@ func (m *migration) writtenPoints(v *sysmlv1.Element) int {
 // with its entry, do and exit actions, deferrals and regions.
 func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
+	s.m.madeUp(v, name)
 	defers := s.deferrals(v)
 	head := s.stateHead(v, name)
 	regions := s.m.populatedRegions(v)
@@ -1467,6 +1476,7 @@ func (s *stateRegion) writeAccepts(t *sysmlv1.Element, accepts []acceptance, tna
 				n = s.m.freshMember(s.owner, s.used, s.furtherName(t, tname, accept, guard, from, to))
 				s.m.wroteEdgeAlso(t, s.r, "transition", nil, n)
 			}
+			s.m.madeUp(t, writeName(n))
 			line += writeName(n) + " "
 		}
 		line += "first " + from + accept.clause + guard

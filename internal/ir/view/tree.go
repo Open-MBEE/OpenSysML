@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -37,8 +38,8 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 			continue
 		}
 		rendered[sub] = true
-		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), Type: declType(sub), Origin: symbolOrigin(sub),
-			Geometry: r.geometryOf(view, sub, out)}
+		node := &Node{ID: ids.take(), Kind: declKind(sub), Name: r.notationName(sub), NameSynthesized: r.model.NameSynthesized(sub),
+			Type: declType(sub), Typings: r.declTypings(sub), Origin: symbolOrigin(sub), Geometry: r.geometryOf(view, sub, out)}
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
 			for _, elem := range exposed {
@@ -63,20 +64,20 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*s
 	if !qualified {
 		name = localName(sym)
 	}
-	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, Type: declType(sym), Origin: symbolOrigin(sym),
-		Geometry: r.geometryOf(view, sym, out)}
+	node := &Node{ID: ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
+		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(view, sym, out)}
 	if seen[sym] {
 		node.Detail = detailWith(node.Detail, "already shown")
 		return node
 	}
 	if depth >= maxTreeDepth {
-		if len(containedMembers(sym)) > 0 {
+		if len(r.containedMembers(sym)) > 0 {
 			node.Detail = detailWith(node.Detail, fmt.Sprintf("nested deeper than %d levels; not shown", maxTreeDepth))
 		}
 		return node
 	}
 	seen[sym] = true
-	for _, member := range containedMembers(sym) {
+	for _, member := range r.containedMembers(sym) {
 		node.Children = append(node.Children, r.treeNode(view, member, ids, seen, depth+1, false, out))
 	}
 	return node
@@ -86,7 +87,7 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*s
 // declaration order: the elements a containment tree shows beneath it. A
 // reference member is anonymous, so the two member lists a scope keeps are
 // merged by source position rather than concatenated.
-func containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
+func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
 	}
@@ -94,7 +95,7 @@ func containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	seen := map[*symbols.Symbol]bool{}
 	for _, list := range [][]*symbols.Symbol{sym.Scope.Members(), sym.Scope.AnonymousMembers()} {
 		for _, member := range list {
-			if member == sym || seen[member] || !containedKind(member) {
+			if member == sym || seen[member] || !r.contentKind(member) {
 				continue
 			}
 			seen[member] = true
@@ -103,6 +104,22 @@ func containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
 	return out
+}
+
+// contentKind reports whether a member is model content a rendering shows, as
+// against what only describes a picture of it or its migration: a view's `render`
+// members, the DiagramLayout annotations and the SynthesizedName markers.
+// Ordinary metadata on an element is content.
+func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
+	if !containedKind(sym) {
+		return false
+	}
+	if sym.Kind == symbols.SymbolRenderingUsage && sym.OwnerScope != nil {
+		if owner := sym.OwnerScope.Owner(); owner != nil && semantics.IsView(owner) {
+			return false
+		}
+	}
+	return !r.model.IsLayoutAnnotation(sym) && !r.model.IsSynthesizedNameAnnotation(sym)
 }
 
 // containedKind reports whether a member is an element of the model a rendering
