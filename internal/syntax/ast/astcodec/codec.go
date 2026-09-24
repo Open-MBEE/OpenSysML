@@ -166,6 +166,13 @@ func (e *Encoder) ends(ns []*ast.ConnectorEnd) {
 	}
 }
 
+func (e *Encoder) operatorExprs(ns []*ast.OperatorExpr) {
+	e.w.Len(len(ns))
+	for _, n := range ns {
+		e.node(n)
+	}
+}
+
 func (e *Encoder) segments(segs []ast.NameSegment) {
 	e.w.Len(len(segs))
 	for _, s := range segs {
@@ -213,6 +220,7 @@ type Decoder struct {
 	nameSlices pack.Arena[*ast.QualifiedName]
 	regSlices  pack.Arena[*ast.StateRegion]
 	endSlices  pack.Arena[*ast.ConnectorEnd]
+	opSlices   pack.Arena[*ast.OperatorExpr]
 	segArena   pack.Arena[ast.NameSegment]
 	argArena   pack.Arena[ast.NamedArg]
 	paramArena pack.Arena[ast.BodyParam]
@@ -386,6 +394,14 @@ func (d *Decoder) ends() []*ast.ConnectorEnd {
 	out := d.endSlices.Take(d.r.Len())
 	for i := range out {
 		out[i] = typed[*ast.ConnectorEnd](d)
+	}
+	return out
+}
+
+func (d *Decoder) operatorExprs() []*ast.OperatorExpr {
+	out := d.opSlices.Take(d.r.Len())
+	for i := range out {
+		out[i] = typed[*ast.OperatorExpr](d)
 	}
 	return out
 }

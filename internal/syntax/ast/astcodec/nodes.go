@@ -1001,6 +1001,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 	case *ast.RootNamespace:
 		e.base(&n.NodeBase)
 		e.nodes(n.Members)
+		e.operatorExprs(n.UndefinedOperators)
 	case *ast.SelectExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Operand)
@@ -1504,6 +1505,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 	case *ast.RootNamespace:
 		d.base(&n.NodeBase)
 		n.Members = d.nodes()
+		n.UndefinedOperators = d.operatorExprs()
 	case *ast.SelectExpr:
 		d.base(&n.NodeBase)
 		n.Operand = d.node()

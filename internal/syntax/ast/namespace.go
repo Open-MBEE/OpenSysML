@@ -249,6 +249,9 @@ type Membership struct {
 type RootNamespace struct {
 	NodeBase
 	Members []Node // *Membership | *Import | *Alias | *ErrorNode
+	// UndefinedOperators are the `~` operator expressions of the document in
+	// source order: KerML leaves DataFunctions::'~' undefined, so a tool warns at each.
+	UndefinedOperators []*OperatorExpr
 }
 
 // PrefixMetadata records a `# QualifiedName` metadata annotation reference.
