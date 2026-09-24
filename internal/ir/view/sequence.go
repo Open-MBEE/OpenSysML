@@ -37,7 +37,7 @@ func (r *Renderer) renderSequence(exposed []*symbols.Symbol, out *Rendering) {
 				if participant != elem {
 					name = localName(participant)
 				}
-				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name,
+				node := &Node{ID: ids.take(), Kind: declKind(participant), Name: name, NameSynthesized: r.model.NameSynthesized(participant),
 					Type: declType(participant), Origin: symbolOrigin(participant)}
 				out.Roots = append(out.Roots, node)
 				lifelines[participant] = node

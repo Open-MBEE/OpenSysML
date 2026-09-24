@@ -175,7 +175,10 @@ func TestDOTLabelShape(t *testing.T) {
 		{"definition", &Node{Kind: "part def", Name: "Plant::Loop"},
 			`<<b>Plant::Loop</b><br/><font point-size="10"><i>«part def»</i></font>>`},
 		{"name-less", &Node{Kind: "connect"}, `<<b>connect</b>>`},
-		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>part</b>>`},
+		{"name-less typed", &Node{Kind: "part", Type: "Pump"}, `<<b>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>`},
+		{"synthesized name", &Node{Kind: "action", Name: "call", Type: "doTracking", NameSynthesized: true},
+			`<<b>: doTracking</b><br/><font point-size="10"><i>«action»</i></font>>`},
+		{"synthesized name, untyped", &Node{Kind: "action", Name: "stamp2", NameSynthesized: true}, `<<b>action</b>>`},
 		{"name-less with note", &Node{Kind: "connect", Detail: "already shown"}, `<<b>connect</b><br/>already shown>`},
 		{"notes", &Node{Kind: "part", Name: "sensor", Type: "Pump", Detail: "already shown as n1, collapsed"},
 			`<<b>sensor : Pump</b><br/><font point-size="10"><i>«part»</i></font><br/>already shown as n1, collapsed>`},
@@ -501,7 +504,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump :<br/>Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {

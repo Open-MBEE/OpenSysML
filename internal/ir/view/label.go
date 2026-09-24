@@ -104,24 +104,42 @@ func (l labeller) name(node *Node) string {
 	return source.QualifiedNameOf(names[len(l.context):])
 }
 
+// shown is the name a diagram shows for a node: its Name, unless a migration
+// made that up, in which case the node is drawn as its source drew it, unnamed.
+func shown(node *Node) string {
+	if node.NameSynthesized {
+		return ""
+	}
+	return node.Name
+}
+
 // head is the first line of a node's diagram label: its name, followed by
 // " : Type" for a typed usage, each type by the name it ends in. A node with no
-// name leads with its kind instead.
+// shown name leads with " : Type" alone when typed, else with its kind.
 func (l labeller) head(node *Node) string {
-	if node.Name == "" {
+	switch name, typ := shown(node), node.Type; {
+	case name == "" && typ == "":
 		return node.Kind
-	}
-	if node.Type == "" {
+	case name == "":
+		return ": " + source.ReferenceEndNames(typ)
+	case typ == "":
 		return l.name(node)
+	default:
+		return l.name(node) + " : " + source.ReferenceEndNames(typ)
 	}
-	return l.name(node) + " : " + source.ReferenceEndNames(node.Type)
+}
+
+// keyworded reports whether a node's label has a keyword line, the kind in
+// guillemets after the head: every node whose head is not the kind itself.
+func keyworded(node *Node) bool {
+	return shown(node) != "" || node.Type != ""
 }
 
 // lines is a node's diagram label in the graphical notation's order: the
-// head, the kind in guillemets when the head is a name, then the notes.
+// head, the keyword line when the node has one, then the notes.
 func (l labeller) lines(node *Node) []string {
 	lines := []string{l.head(node)}
-	if node.Name != "" {
+	if keyworded(node) {
 		lines = append(lines, "«"+node.Kind+"»")
 	}
 	if node.Detail != "" {

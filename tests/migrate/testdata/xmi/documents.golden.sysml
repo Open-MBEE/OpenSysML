@@ -77,6 +77,7 @@ package 'Fleet Viewpoints' {
             first 'Fleet Parts' then final;
             action final terminate;
             flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
     }
@@ -99,6 +100,7 @@ package 'Fleet Viewpoints' {
             action 'Requirement Texts';
             first 'Requirement Texts' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     viewpoint 'Safety Viewpoint' {
@@ -123,6 +125,7 @@ package 'Fleet Viewpoints' {
             }
             first 'Safety Requirements' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     viewpoint 'Figures Viewpoint' {
@@ -131,6 +134,7 @@ package 'Fleet Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
     }
@@ -140,6 +144,7 @@ package 'Fleet Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'gallery Method' : 'Gallery Method';
     }
@@ -153,6 +158,7 @@ package 'Fleet Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'selected Figures Method' : 'Selected Figures Method';
     }
@@ -164,6 +170,7 @@ package 'Fleet Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Figures Method' : 'Other Figures Method';
     }
@@ -177,6 +184,7 @@ package 'Fleet Viewpoints' {
             action List;
             first List then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figure Owners Method' : 'Figure Owners Method';
     }
@@ -188,6 +196,7 @@ package 'Fleet Viewpoints' {
             action Image;
             first Image then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Figures Method' : 'No Figures Method';
     }
@@ -206,6 +215,7 @@ package 'Fleet Viewpoints' {
             action 'Related Elements';
             first 'Related Elements' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'traceability Method' : 'Traceability Method';
     }
@@ -232,6 +242,7 @@ package 'Fleet Viewpoints' {
             }
             first 'Missing Behavior' then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         action def 'Per Truck' {
             first start then Paragraph;
@@ -241,6 +252,7 @@ package 'Fleet Viewpoints' {
             first 'Per Truck Again' then final;
             action final terminate;
             /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'oddities Method' : 'Oddities Method';
     }
@@ -250,6 +262,7 @@ package 'Fleet Viewpoints' {
             action Paragraph;
             first Paragraph then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'broken Method' : 'Broken Method';
     }

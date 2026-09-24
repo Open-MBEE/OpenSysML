@@ -202,6 +202,7 @@ func (m *migration) extend(ext *sysmlv1.Element) {
 	if name != "" {
 		decl += writeName(name) + " from "
 		target = m.v2Name(ext)
+		m.madeUp(ext, writeName(name))
 	}
 	m.wroteEdge(ext, m.scope, "dependency", name)
 	m.w.line(decl + from + " to " + to + "; /* " + comment + " */")

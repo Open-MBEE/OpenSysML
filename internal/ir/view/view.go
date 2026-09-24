@@ -179,8 +179,8 @@ type Node struct {
 	// Name is the element's name: qualified for a node the view exposes, simple
 	// for one nested in it. It is empty for an anonymous element.
 	Name string
-	// NameSynthesized marks a name a migration made up for an element its source
-	// left unnamed: a name to key by, not one a picture shows.
+	// NameSynthesized marks a name the model did not give: a migration made it up, or
+	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.

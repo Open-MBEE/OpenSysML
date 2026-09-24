@@ -72,6 +72,7 @@ func (m *migration) edgeName(e *sysmlv1.Element, base string) string {
 	if n := m.nameOf(e); n != "" {
 		return n
 	}
+	m.synthesized[e] = true
 	return base
 }
 

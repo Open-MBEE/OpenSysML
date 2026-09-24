@@ -93,25 +93,26 @@ type renderResult struct {
 // `#RRGGBB` colours the palette gives the node, as the DOT and PlantUML forms draw it; absent
 // for a node left black and white, and for every node when no palette is asked for.
 type renderNode struct {
-	ID           string          `json:"id"`
-	Kind         string          `json:"kind"`
-	Name         string          `json:"name"`
-	Type         string          `json:"type"`
-	Detail       string          `json:"detail"`
-	Parent       string          `json:"parent,omitempty"`
-	Fill         string          `json:"fill,omitempty"`
-	Border       string          `json:"border,omitempty"`
-	FQN          string          `json:"fqn,omitempty"`
-	DeclaredHere bool            `json:"declaredHere,omitempty"`
-	Notation     string          `json:"notation,omitempty"`
-	Owners       []renderOwner   `json:"owners,omitempty"`
-	Declaration  *protocol.Range `json:"declaration,omitempty"`
-	Origin       *renderOrigin   `json:"origin,omitempty"`
-	X            *float64        `json:"x,omitempty"`
-	Y            *float64        `json:"y,omitempty"`
-	Width        *float64        `json:"width,omitempty"`
-	Height       *float64        `json:"height,omitempty"`
-	Collapsed    bool            `json:"collapsed,omitempty"`
+	ID              string          `json:"id"`
+	Kind            string          `json:"kind"`
+	Name            string          `json:"name"`
+	NameSynthesized bool            `json:"nameSynthesized,omitempty"`
+	Type            string          `json:"type"`
+	Detail          string          `json:"detail"`
+	Parent          string          `json:"parent,omitempty"`
+	Fill            string          `json:"fill,omitempty"`
+	Border          string          `json:"border,omitempty"`
+	FQN             string          `json:"fqn,omitempty"`
+	DeclaredHere    bool            `json:"declaredHere,omitempty"`
+	Notation        string          `json:"notation,omitempty"`
+	Owners          []renderOwner   `json:"owners,omitempty"`
+	Declaration     *protocol.Range `json:"declaration,omitempty"`
+	Origin          *renderOrigin   `json:"origin,omitempty"`
+	X               *float64        `json:"x,omitempty"`
+	Y               *float64        `json:"y,omitempty"`
+	Width           *float64        `json:"width,omitempty"`
+	Height          *float64        `json:"height,omitempty"`
+	Collapsed       bool            `json:"collapsed,omitempty"`
 }
 
 // renderOwner is a namespace declaring a node: its qualified name, and whether
@@ -324,14 +325,15 @@ func (s *Server) renderNodes(out *renderResult, snapshot *model.Snapshot, nodes 
 	var declared []declaredNode
 	for _, node := range nodes {
 		n := renderNode{
-			ID:     node.ID,
-			Kind:   node.Kind,
-			Name:   node.Name,
-			Type:   node.Type,
-			Detail: node.Detail,
-			Parent: node.Parent,
-			Fill:   fills[node.ID].Fill,
-			Border: fills[node.ID].Border,
+			ID:              node.ID,
+			Kind:            node.Kind,
+			Name:            node.Name,
+			NameSynthesized: node.NameSynthesized,
+			Type:            node.Type,
+			Detail:          node.Detail,
+			Parent:          node.Parent,
+			Fill:            fills[node.ID].Fill,
+			Border:          fills[node.ID].Border,
 		}
 		declaring := s.declaring(snapshot, node.Origin)
 		n.Origin = s.originOf(declaring, node.Origin)

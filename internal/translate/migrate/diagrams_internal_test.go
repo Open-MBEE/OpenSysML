@@ -168,7 +168,7 @@ func TestDiagramViews(t *testing.T) {
 			   <ownedEnd xmi:type="uml:Property" xmi:id="_a_end" type="_pump" association="_feeds"/>
 			 </packagedElement>`,
 			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
-			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a shown primitive is exposed past a member named like its library package",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
@@ -199,7 +199,7 @@ func TestDiagramViews(t *testing.T) {
 		{"a state machine diagram exposes the state def whose graph it draws, its states drawn by the graph",
 			machineMembers,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle", "_run", "_t_go", "_sm_init"),
-			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n}"},
+			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n    metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Run';\n}"},
 			Mapped, "the view exposes state def Modes, whose graph the rendering draws with the 4 shown nodes and edges of it"},
 		{"a diagram of a composite state is drawn as the graph of the state def its machine is written as",
 			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">

@@ -20,6 +20,7 @@ package 'Use Cases' {
             }
             first Enter then final;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         actor driver : Context::Driver;
         actor attendant : Context::Attendant[0..1];
@@ -51,10 +52,13 @@ package 'Use Cases' {
     connection def Settlement {
         end bank : Context::Bank;
         end 'pay Fee' : 'Pay Fee';
+        metadata MigrationMetadata::SynthesizedName about 'pay Fee';
     }
     connection def unnamed {
         end 'park Car' : 'Park Car';
         end 'wait For Space' : 'Wait For Space';
+        metadata MigrationMetadata::SynthesizedName about 'park Car', 'wait For Space';
     }
+    metadata MigrationMetadata::SynthesizedName about unnamed;
 }
 attribute def Real;

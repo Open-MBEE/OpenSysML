@@ -182,14 +182,19 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, unwanted := range []string{`xlabel="'fork'"`, `xlabel="final"`, "'start to fork'", "«initial»", "«final»"} {
+		if strings.Contains(dot, unwanted) {
+			t.Errorf("DOT of the activity view draws the name %s the migration made up:\n%s", unwanted, dot)
+		}
+	}
 	for _, want := range []string{
 		"// layout: neato -n2\n",
-		`"n1" [fillcolor=black, label="", xlabel="'fork'", pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
+		`"n1" [fillcolor=black, label="", pos="100,217!", pin=true, width=1.6666666666666667, height=0.08333333333333333, fixedsize=true];`,
 		`"n7" [shape=diamond, label="", xlabel="check", pos="100,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`"n8" [shape=doublecircle, fillcolor=black, label="", xlabel="final", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
-		`<i>«initial»</i></font>>, pos="100,290!", pin=true, width=1.1111111111111112, height=1.1111111111111112];`,
-		`<i>«final»</i></font>>, pos="150,-14.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];`,
-		`"n9" -> "n1" [label="'start to fork'", pos="100,250 100,250 100,220 100,220"];`,
+		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"n9" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
+		`"n10" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
+		`"n9" -> "n1" [pos="100,250 100,250 100,220 100,220"];`,
 		`"n7" -> "n10" [label="[false]", pos="110,70 110,70 150,70 150,70 150,70 150,20 150,20"];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -199,13 +204,14 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 }
 
 // The routes a migrated view carries reach the DOT form as pinned edge splines for each
-// edge kind, labelled by name only where the edge has no text of its own.
+// edge kind, labelled by name only where the edge has no text of its own and the name is
+// the source's: one the migration made up, and marked, labels nothing.
 func TestMigratedRoutesRenderPinned(t *testing.T) {
 	r := migrateLaidOut(t, "diagram_edges")
 	s := session(t, r)
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n5" -> "n1" [label="'start to gain'", pos="60,180 60,180 60,210 60,210"];`,
+			`"n5" -> "n1" [pos="60,180 60,180 60,210 60,210"];`,
 			`"n3" -> "n4" [label="finish", pos="60,20 60,20 60,60 60,60"];`,
 			`[label="result to value", style=dashed, pos="110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 110,160 110,160"];`,
 		},
@@ -216,10 +222,10 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 			`"n3" -> "n2" [label="accept Resume", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
-			`[label="'engine to wheel'", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
-			`[label="'engine to wheel 2'", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80"];`,
 			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90"];`,
-			`[label="'mass = limit'", arrowhead=none, pos="200,10 200,10 120,10 120,10"];`,
+			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10"];`,
 		},
 	} {
 		rendering, err := s.ViewRendering(view)

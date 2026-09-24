@@ -258,7 +258,7 @@ func (a *activity) name(n *sysmlv1.Element, base string) string {
 		name = a.m.nameOf(n)
 		if name == "" || a.used[name] || a.m.taken[a.def][name] {
 			if name == "" {
-				name = base
+				name, a.m.synthesized[n] = base, true
 			}
 			name = a.fresh(name)
 		}
@@ -282,6 +282,11 @@ func (a *activity) edgeFresh(e *sysmlv1.Element, base string) string {
 		return a.fresh(name)
 	}
 	return ""
+}
+
+// madeUp records a made-up member name, written, for the body's SynthesizedName marker.
+func (a *activity) madeUp(written string) {
+	a.m.w.madeUp(written)
 }
 
 // fresh returns base, or base with a number, not yet used in the body.
@@ -676,6 +681,7 @@ func (a *activity) startSuccessions() {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
 		a.m.w.line("fork " + writeName(f) + ";")
+		a.madeUp(writeName(f))
 		from = writeName(f)
 	}
 	for _, t := range targets {
@@ -711,6 +717,7 @@ func (a *activity) succession(edges []*sysmlv1.Element, from, guard, to, tail st
 	for _, e := range edges {
 		if name = a.edgeFresh(e, spoken(from)+" to "+spoken(to)); name != "" {
 			line = "succession " + writeName(name) + " " + line
+			a.m.madeUp(e, writeName(name))
 			break
 		}
 	}
@@ -729,12 +736,14 @@ func (a *activity) startPrologue() string {
 		name := a.fresh("keep")
 		a.m.w.line("first start then " + writeName(name) + ";")
 		a.m.w.block(actionKw+writeName(name), func() { a.m.w.line(a.keeping) })
+		a.madeUp(writeName(name))
 		from = writeName(name)
 	}
 	for _, n := range a.nodes {
 		if s, ok := a.before[n]; ok && nodeKind(n) == nodeInitial {
 			a.m.w.line(firstKw + from + thenKw + s.name + ";")
 			a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
+			a.madeUp(s.name)
 			from = s.name
 		}
 	}
@@ -742,6 +751,7 @@ func (a *activity) startPrologue() string {
 		name := a.fresh("wait")
 		a.m.w.line(firstKw + from + thenKw + writeName(name) + ";")
 		a.m.w.line(actionKw + writeName(name) + " accept after " + w + ";")
+		a.madeUp(writeName(name))
 		from = writeName(name)
 	}
 	return from
@@ -876,6 +886,7 @@ func (a *activity) successions(n *sysmlv1.Element) {
 	if s, ok := a.after[n]; ok {
 		a.m.w.line(firstKw + from + thenKw + s.name + ";")
 		a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
+		a.madeUp(s.name)
 		from = s.name
 	}
 	outs := a.succ[n]
@@ -883,6 +894,7 @@ func (a *activity) successions(n *sysmlv1.Element) {
 		f := a.fresh("fork")
 		a.m.w.line(firstKw + from + thenKw + writeName(f) + ";")
 		a.m.w.line("fork " + writeName(f) + ";")
+		a.madeUp(writeName(f))
 		from = writeName(f)
 		a.m.downgrade(n, "several edges leave the node, which a fork "+f+" carries")
 	}
@@ -1310,6 +1322,7 @@ func (a *activity) declare(n *sysmlv1.Element) {
 	name := writeName(a.name(n, baseName(n)))
 	a.leadIn(n, name)
 	a.declareNode(n, name)
+	a.m.madeUp(n, name)
 	a.m.declared[n] = true
 }
 
@@ -1319,21 +1332,25 @@ func (a *activity) leadIn(n *sysmlv1.Element, into string) {
 	if w, ok := a.waits[n]; ok {
 		a.m.w.line(actionKw + w.name + " accept after " + w.delay + ";")
 		a.m.w.line(firstKw + w.name + thenKw + into + ";")
+		a.madeUp(w.name)
 		into = w.name
 	}
 	if s, ok := a.before[n]; ok {
 		a.m.w.block(actionKw+s.name, func() { a.m.w.lines(s.lines) })
 		a.m.w.line(firstKw + s.name + thenKw + into + ";")
+		a.madeUp(s.name)
 		into = s.name
 	}
 	if j, ok := a.joins[n]; ok {
 		a.m.w.line("join " + j + ";")
 		a.m.w.line(firstKw + j + thenKw + into + ";")
+		a.madeUp(j)
 		a.m.add(n, Approximated, "", "several edges lead to the node, which waits for all of them through the join "+j)
 	}
 	if m, ok := a.merges[n]; ok {
 		a.m.w.line("merge " + m + ";")
 		a.m.w.line(firstKw + m + thenKw + into + ";")
+		a.madeUp(m)
 	}
 }
 
@@ -1748,13 +1765,15 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 	if nodeKind(s) == nodeParam || nodeKind(tgt) == nodeParam {
 		kw, decl, base = "binding", "bind "+to+" = "+from, spoken(to)+" = "+spoken(from)
 	}
-	name := a.edgeFresh(a.namer(e, s, tgt), base)
+	namer := a.namer(e, s, tgt)
+	name := a.edgeFresh(namer, base)
 	if name != "" {
 		if kw == "flow" {
 			decl = "flow " + writeName(name) + " from " + from + " to " + to
 		} else {
 			decl = kw + " " + writeName(name) + " " + decl
 		}
+		a.m.madeUp(namer, writeName(name))
 	}
 	a.m.w.line(decl + ";")
 	a.m.wroteEdge(e, a.def, kw, name)

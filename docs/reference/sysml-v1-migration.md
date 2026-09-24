@@ -692,6 +692,18 @@ becomes is one the state debugger steps. Every generated model is gated to analy
 the migration tests execute a generated activity and a generated state machine, not only parse
 them.
 
+Every name the migration makes up because the source had none — an edge's spelling from its
+ends, a node's kind made unique (`decide`, `fork2`, `final`), the `unnamed` and typed-after-type
+refs, an anonymous end named for its type — is recorded in the body it is written in, once per
+body, as `metadata MigrationMetadata::SynthesizedName about 'start to call', 'fork', final;`
+(`$::MigrationMetadata::` where a member shadows the library). The names stay as written and
+keyed by — an `expose`, a route, a qualified name all reach them — and what reads the model can
+tell them from names the source gave: the [graphical renderings](../project/view-rendering-forms.md#node-labels)
+draw such an element as its source did, unnamed — a bare control-node symbol, an edge with no
+label — and every other name as it is. `MigrationMetadata` is a bundled OpenSysML library, not a
+standard one; a v1 name is never marked, however it was spelled, and a model whose bodies hold
+no made-up name gains no line.
+
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
 call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins

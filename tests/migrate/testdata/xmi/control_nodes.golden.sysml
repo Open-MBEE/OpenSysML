@@ -23,6 +23,7 @@ package Control {
             succession 'check to final' first check then final;
             succession 'check to done' first check if false then done;
             action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'start to fork', 'fork', 'fork to heat', 'fork to cool', 'heat to join', 'cool to join', 'join', 'join to check', 'check to final', 'check to done', final;
         }
     }
 }

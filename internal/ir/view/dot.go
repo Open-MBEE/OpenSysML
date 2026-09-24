@@ -512,7 +512,7 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		}
 	}
 	attrs = append(attrs, `label=""`)
-	if node.Name != "" && !node.NameSynthesized {
+	if shown(node) != "" {
 		attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 	}
 	return attrs
@@ -530,7 +530,7 @@ func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
 	if node.Kind == "final" {
 		shape = "shape=doublecircle"
 	}
-	if node.Name != "" && !node.NameSynthesized {
+	if shown(node) != "" {
 		return []string{shape, w.labels.dotLabel(node)}
 	}
 	attrs := []string{shape, "fillcolor=black", `label=""`}
@@ -564,7 +564,7 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 	if node.Kind == startKind {
 		return dotPointSize, dotPointSize
 	}
-	if (node.Kind == "initial" || node.Kind == "final") && node.Name == "" {
+	if (node.Kind == "initial" || node.Kind == "final") && shown(node) == "" {
 		return dotPseudostateSize, dotPseudostateSize
 	}
 	width, height = l.dotLabelExtent(node)
@@ -585,7 +585,7 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 		switch {
 		case i == 0:
 			glyph = dotBoldGlyphEm
-		case i == 1 && node.Name != "":
+		case i == 1 && keyworded(node):
 			size = dotKeywordPointSize
 		}
 		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
@@ -607,7 +607,7 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	parts := []string{dotSized(size, "<b>"+dotEscapeLines(head)+"</b>")}
 	left := height - float64(len(head))*size*dotLineEm
 	for i := 1; fits && i < len(lines); i++ {
-		keyword := i == 1 && node.Name != ""
+		keyword := i == 1 && keyworded(node)
 		lineSize := size
 		if keyword {
 			lineSize = math.Round(size * dotKeywordPointSize / dotFontSize)
@@ -656,12 +656,25 @@ func dotRunesAcross(width, size, glyph float64) int {
 }
 
 // dotWrap word-wraps text to at most across runes a line, breaking a word longer
-// than that at the rune it overruns.
+// than that at the rune it overruns. A ":" that would end a line instead leads
+// the type name after it onto the next, where the two fit together.
 func dotWrap(text string, across int) []string {
+	fits := func(line, word string) bool { // word fits on line, joined by a space when line is not empty
+		n := utf8.RuneCountInString(word)
+		if line != "" {
+			n += utf8.RuneCountInString(line) + 1
+		}
+		return n <= across
+	}
 	var lines []string
 	line := ""
-	for _, word := range strings.Fields(text) {
-		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(word) <= across {
+	words := strings.Fields(text)
+	for i := 0; i < len(words); i++ {
+		word := words[i]
+		if word == ":" && i+1 < len(words) && !fits(line, ": "+words[i+1]) && fits("", ": "+words[i+1]) {
+			word, i = ": "+words[i+1], i+1
+		}
+		if line != "" && fits(line, word) {
 			line += " " + word
 			continue
 		}
@@ -843,7 +856,7 @@ func (l labeller) dotLabel(node *Node) string {
 	for _, line := range lines[1:] {
 		parts = append(parts, dotEscape(line))
 	}
-	if node.Name != "" {
+	if keyworded(node) {
 		parts[1] = fmt.Sprintf(`<font point-size="%d"><i>%s</i></font>`, dotKeywordPointSize, parts[1])
 	}
 	return dotLabelAttribute("<" + strings.Join(parts, "<br/>") + ">")

@@ -39,7 +39,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		{"a word wider than the box is broken across lines", stated(&Node{ID: "n", Kind: "action", Name: "Reconfiguration"}, 60, 60),
 			`label=<<b>Reconf<br/>igurat<br/>ion</b>>`},
 		{"wrapping comes before shrinking", stated(&Node{ID: "n", Kind: "part", Name: "pump", Type: "Pump"}, 60, 40),
-			`label=<<b>pump :<br/>Pump</b>>`},
+			`label=<<b>pump<br/>: Pump</b>>`},
 	}
 	for _, tc := range cases {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
@@ -99,6 +99,9 @@ func TestDOTFitHead(t *testing.T) {
 		{"abcdef gh", 4, []string{"abcd", "ef", "gh"}},
 		{"  spaced   out  ", 10, []string{"spaced out"}},
 		{"", 5, []string{""}},
+		{"call : Pump", 6, []string{"call", ": Pump"}},
+		{": Pump", 6, []string{": Pump"}},
+		{"a :", 1, []string{"a", ":"}},
 	} {
 		if got := dotWrap(tc.text, tc.across); strings.Join(got, "|") != strings.Join(tc.want, "|") {
 			t.Errorf("dotWrap(%q, %d) = %q, want %q", tc.text, tc.across, got, tc.want)
@@ -187,15 +190,25 @@ func TestDOTSymbolsInStatedBoxes(t *testing.T) {
 	}
 }
 
-// A synthesized name is drawn nowhere a symbol stands, but a plain node keeps
-// its name in the box: the bit only silences the text beside a symbol.
+// A synthesized name is drawn nowhere: a plain node with one is drawn as its
+// source drew it, unnamed, so a typed one reads ": Type" and an untyped one its kind.
 func TestDOTSynthesizedNameOnAPlainNode(t *testing.T) {
-	dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{stated(&Node{ID: "n", Kind: "action", Name: "send2", NameSynthesized: true}, 100, 40)}}).DOT()
-	if err != nil {
-		t.Fatalf("DOT: %v", err)
-	}
-	if want := `label=<<b>send2</b><br/><font point-size="10"><i>«action»</i></font>>`; !strings.Contains(dot, want) {
-		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	for _, tc := range []struct {
+		name string
+		node *Node
+		want string
+	}{
+		{"typed", &Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking", NameSynthesized: true},
+			`label=<<b>: doTracking</b><br/><font point-size="10"><i>«action»</i></font>>`},
+		{"untyped", &Node{ID: "n", Kind: "action", Name: "send2", NameSynthesized: true}, `label=<<b>action</b>>`},
+	} {
+		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{stated(tc.node, 140, 40)}}).DOT()
+		if err != nil {
+			t.Fatalf("%s: DOT: %v", tc.name, err)
+		}
+		if !strings.Contains(dot, tc.want) {
+			t.Errorf("%s: DOT lacks %q:\n%s", tc.name, tc.want, dot)
+		}
 	}
 }
 

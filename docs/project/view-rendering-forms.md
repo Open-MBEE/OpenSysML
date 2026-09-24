@@ -57,7 +57,11 @@ the element's name first, the kind after it. `label.go` composes the lines once,
 only joins them:
 
 1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
-   name; an anonymous element leads with its kind instead;
+   name; an anonymous element leads with its kind instead, or with ` : Type` alone when typed.
+   A name the model did not give is not shown and the node heads as an anonymous one: a name a
+   [v1 migration](../reference/sysml-v1-migration.md) made up for an element its source left
+   unnamed, which it marks with `MigrationMetadata::SynthesizedName`, and the language's own
+   `start` and `done` of an action's flow (`Node.NameSynthesized`, `shown` in `label.go`);
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
@@ -110,8 +114,10 @@ binding — is labelled by its name, `'off then on'`. The rule holds for every k
 whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
 spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
 [temperature > 0]`, as the graphical notation draws it, since the name adds nothing a reader
-looks for and a migrated name would only repeat the ends. The rule is one place, so the text,
-Mermaid, DOT and PlantUML forms label an edge alike.
+looks for and a migrated name would only repeat the ends. A name the migration made up because
+the source had none (`MigrationMetadata::SynthesizedName`) never becomes a label: an edge with no
+text of its own and such a name is drawn unlabelled, as its source drew it. The rule is one place,
+so the text, Mermaid, DOT and PlantUML forms label an edge alike.
 
 ## Why DOT next to Mermaid
 
@@ -225,7 +231,7 @@ translation to DOT is:
 | `arrow { FontSize 13; LineThickness 1.0 }` | edge default `color="#181818", fontsize=13, penwidth=1` |
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
-| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the rendering names keeps its labelled ring unless a Layout sizes it. The `start` point is unchanged |
+| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the model names keeps its labelled ring unless a Layout sizes it. An action's `start` and `done`, being the language's names and not the body's, and a name a migration made up (`Node.NameSynthesized`) are the dot and the ring, as the notation draws them. The `start` point is unchanged |
 | symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn

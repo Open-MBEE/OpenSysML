@@ -41,6 +41,7 @@ package Structure {
             action final terminate;
             flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
             binding 'set speed.value = target' bind 'set speed'.value = target;
+            metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';
@@ -65,9 +66,11 @@ package Structure {
             metadata DiagramLayout::Route about 'mass = limit' { points = (200, 110, 120, 110); }
             render Views::asInterconnectionDiagram;
         }
+        metadata MigrationMetadata::SynthesizedName about 'engine to wheel', 'engine to wheel 2', 'mass = limit', 'satisfy Mass Limit', 'satisfy Speed Limit';
     }
     part def Engine :> Component {
         satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
+        metadata MigrationMetadata::SynthesizedName about 'satisfy Speed Limit';
     }
     part def Wheel;
     dependency 'Vehicle to Engine' from Vehicle to Engine;
@@ -89,6 +92,7 @@ package Structure {
         metadata DiagramLayout::Layout about Wheel { x = 230; y = 160; width = 100; height = 80; }
         render Views::asTreeDiagram;
     }
+    metadata MigrationMetadata::SynthesizedName about 'Vehicle to Engine', 'Engine to Component', 'Wheel to Component';
 }
 package Behavior {
     item def Go;
@@ -121,6 +125,7 @@ package Behavior {
         transition first Halted then Idle;
         transition 'Halted accept Go then Running' first Halted accept Go then Running;
         transition 'Halted accept Resume then Running' first Halted accept Resume then Running;
+        metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Running', 'Halted accept Go then Running', 'Halted accept Resume then Running';
     }
 }
 package Requirements {
@@ -133,7 +138,9 @@ package Requirements {
     verification def 'Mass Test' {
         objective 'objective' {
             verify requirement 'verify Mass Limit' : 'Mass Limit';
+            metadata MigrationMetadata::SynthesizedName about 'verify Mass Limit';
         }
+        metadata MigrationMetadata::SynthesizedName about 'objective';
     }
     view Traceability {
         expose 'Mass Limit';
