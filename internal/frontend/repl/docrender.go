@@ -227,7 +227,7 @@ func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*s
 // would meet letter case aside. Two documents of one name cannot be told apart.
 func documentFiles(names []string, extension string) (map[string]string, error) {
 	files, err := filename.Plan(names, func(name string, tagged bool) string {
-		return filename.Fit(docrender.DocumentFileStem(name), extension, tagged)
+		return filename.Fit(docrender.DocumentFileStem(name), extension, '.', tagged)
 	})
 	var collision *filename.CollisionError
 	if errors.As(err, &collision) {

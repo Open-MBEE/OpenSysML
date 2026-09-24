@@ -235,7 +235,7 @@ func renderFilename(name string, form view.Form, tagged bool) string {
 	if filename.DeviceStem(encoded) {
 		encoded = fmt.Sprintf("%%%02X", encoded[0]) + encoded[1:]
 	}
-	return filename.Fit(encoded, renderExtension(form), tagged)
+	return filename.Fit(encoded, renderExtension(form), '%', tagged)
 }
 
 // unsafeFilenameBytes are the printable bytes a rendering filename encodes: path separators,

@@ -1,8 +1,8 @@
 // Package filename fits the file names a run derives from qualified names
 // into what every common filesystem takes, and keeps a set of them apart:
-// a name too long for one path component, or whose stem a filesystem reads
-// as a device, is cut and tagged with a hash of the whole, and names that
-// meet letter case aside are tagged until no two meet.
+// a name too long for one path component is cut and tagged with a hash of
+// the whole, names that meet letter case aside are tagged until no two meet,
+// and a stem a filesystem reads as a device is told so its caller can encode it.
 package filename
 
 import (
@@ -22,25 +22,26 @@ const (
 )
 
 // Fit is name+ext, cut to Max bytes and tagged with `~` and a hash of the whole
-// name when tagged, when it is too long, or when its stem is a device name.
-// The cut splits neither a UTF-8 sequence nor a trailing `%XX` or `.XX` escape.
-func Fit(name, ext string, tagged bool) string {
-	if tagged || len(name)+len(ext) > Max || DeviceStem(name) {
+// name when tagged or when it is too long. The cut splits neither a UTF-8
+// sequence nor a trailing three-byte escape, `escape` being the byte the
+// name's encoding opens one with (`%` in `%2F`).
+func Fit(name, ext string, escape byte, tagged bool) string {
+	if tagged || len(name)+len(ext) > Max {
 		sum := sha256.Sum256([]byte(name))
 		tag := "~" + hex.EncodeToString(sum[:TagBytes])
-		name = cut(name, Max-len(ext)-len(tag)) + tag
+		name = cut(name, Max-len(ext)-len(tag), escape) + tag
 	}
 	return name + ext
 }
 
 // cut is the longest prefix of name within n bytes that splits neither a
-// UTF-8 sequence nor a three-byte escape opened by `%` or `.`.
-func cut(name string, n int) string {
+// UTF-8 sequence nor a three-byte escape opened by escape.
+func cut(name string, n int, escape byte) string {
 	n = min(n, len(name))
 	for n > 0 && n < len(name) && !utf8.RuneStart(name[n]) {
 		n--
 	}
-	if i := strings.LastIndexAny(name[:n], "%."); i >= 0 && i > n-3 {
+	if i := strings.LastIndexByte(name[:n], escape); i >= 0 && i > n-3 {
 		n = i
 	}
 	return name[:n]
