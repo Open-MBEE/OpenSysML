@@ -142,11 +142,13 @@ with the block's stable anchor — a destination like
 a root target links to the file alone. The file name is deterministic: the
 target document's fully qualified name with `::` replaced by `-` and any
 byte outside ASCII letters, digits and `_` escaped as `.XX` (uppercase hex),
-plus `.md`. Render the whole set with `-render-documents <dir>` so the links
-resolve on disk. Rendering a single document that references another still
-succeeds — the link points at the expected file name of the unrendered
-target, and it dangles until that document is rendered into the same
-directory. An unknown target is a typed planning error, and a target usage
+plus `.md`; where two names would meet in one file (see
+[Multi-document sets](outputs.md#multi-document-sets)) the link carries the
+tagged name the set writes. Render the whole set with `-render-documents
+<dir>` so the links resolve on disk. Rendering a single document that
+references another still succeeds — the link points at the file name the set
+gives the unrendered target, and it dangles until that document is rendered
+into the same directory. An unknown target is a typed planning error, and a target usage
 typed by more than one document definition is an ambiguous-target error;
 both carry the reference's source location.
 

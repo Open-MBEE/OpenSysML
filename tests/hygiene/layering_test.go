@@ -84,6 +84,7 @@ var packageLayer = map[string]string{
 	"internal/translate/rdf/ontology":     "translate",
 	"internal/translate/convert":          "translate",
 	"internal/translate/export":           "translate",
+	"internal/translate/filename":         "translate",
 	"internal/translate/migrate":          "translate",
 	"internal/translate/mtip":             "translate",
 	"internal/translate/simresults":       "translate",

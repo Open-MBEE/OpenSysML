@@ -647,9 +647,20 @@ drawn from its graph, each positioned where the MTIP layout put it when `-layout
 draw stays out of the figure rather than expanding into its whole contents, and
 `-render-unplaced strip` adds the unplaced elements; a diagram the
 migration left out of the document (empty, or rendered as textual notation) is absent from the
-render and the report says why, so a rendered document holds no empty figure. Styling beyond
-what the model carries — a cover image, a tool's fonts, its header and footer — is not
-invented; `-html-theme` and `-html-css` take a stylesheet of your own.
+render and the report says why, so a rendered document holds no empty figure. A table cell over
+a multi-valued slot (`attribute :>> tCalibNB = (69.0, 98.0);` under a column declared `[0..*]`)
+lists its values in order, `69, 98`, as DocGen's did, and one over a slot with no value is empty.
+Styling beyond what the model carries — a cover image, a tool's fonts, its header and footer —
+is not invented; `-html-theme` and `-html-css` take a stylesheet of your own.
+
+The whole set of a model's documents is rendered with `-render-documents <dir>` (see
+[the CLI reference](cli.md#rendering-a-view)): every document in one directory, linked to one
+another. A model whose documents repeat a short name across packages — DocGen templates
+instantiated in several places — renders each to its own file, since the file is named by the
+qualified name; naming one of them to `-render-document` by the short name alone is refused
+with the qualified name of every candidate. A document that cannot be rendered does not stop the
+set: the others are written, a page stating the error stands in for it, and the run lists each
+such document and exits `3`.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

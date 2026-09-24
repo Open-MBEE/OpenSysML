@@ -3,6 +3,7 @@
 package docrender
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 )
 
 // elementColumn heads the single column of a table whose query projected no
@@ -27,6 +29,11 @@ type MarkdownOptions struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+
+	// Files is the file each document of the set this one is rendered in is
+	// written to, by qualified name; a cross-document reference links to the
+	// target's file here, or to DocumentFileName of its name when absent.
+	Files map[string]string
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -46,7 +53,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	w := &markdownWriter{form: form, unplaced: opts.Unplaced}
+	w := &markdownWriter{form: form, unplaced: opts.Unplaced, files: opts.Files}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
@@ -76,6 +83,7 @@ func diagramForm(form view.Form) (view.Form, error) {
 type markdownWriter struct {
 	form     view.Form
 	unplaced view.Unplaced
+	files    map[string]string
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
@@ -113,13 +121,13 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 		}
 		return blocks, nil
 	case docir.ContentParagraph:
-		return []string{blockText(node.Runs())}, nil
+		return []string{w.blockText(node.Runs())}, nil
 	case docir.ContentTable:
 		return renderTable(node), nil
 	case docir.ContentList:
-		return renderList(node), nil
+		return w.renderList(node), nil
 	case docir.ContentDefinitions:
-		return renderDefinitions(node), nil
+		return w.renderDefinitions(node), nil
 	case docir.ContentFormula:
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
@@ -264,7 +272,7 @@ func writeTableRow(b *strings.Builder, cells []string) {
 
 // renderList writes one bullet or numbered list, one item per query row. An
 // empty list renders as nothing, which is the valid Markdown for no items.
-func renderList(node docir.Content) []string {
+func (w *markdownWriter) renderList(node docir.Content) []string {
 	items := node.Items()
 	if len(items) == 0 {
 		return nil
@@ -275,7 +283,7 @@ func renderList(node docir.Content) []string {
 		if node.Style() == docir.ListNumber {
 			marker = strconv.Itoa(i+1) + "."
 		}
-		lines = append(lines, marker+" "+itemText(item.Runs()))
+		lines = append(lines, marker+" "+w.itemText(item.Runs()))
 	}
 	return []string{strings.Join(lines, "\n")}
 }
@@ -361,11 +369,11 @@ const definitionSeparator = " — "
 // renderDefinitions writes one paragraph per entry: the term in strong
 // emphasis, an em dash, then the description. An entry lacking one side
 // writes the other alone; one lacking both, like an empty block, writes nothing.
-func renderDefinitions(node docir.Content) []string {
+func (w *markdownWriter) renderDefinitions(node docir.Content) []string {
 	var blocks []string
 	for _, entry := range node.Definitions() {
 		term := strings.TrimSpace(strongText(entry.Term()))
-		description := strings.TrimSpace(itemText(entry.Description()))
+		description := strings.TrimSpace(w.itemText(entry.Description()))
 		switch {
 		case term == "" && description == "":
 			continue
@@ -391,23 +399,23 @@ func strongText(runs []docir.TextRun) string {
 
 // blockText renders a paragraph's runs joined by single spaces, escaped so the
 // first character cannot open a heading, list, or quote.
-func blockText(runs []docir.TextRun) string {
-	return blockStart(itemText(runs))
+func (w *markdownWriter) blockText(runs []docir.TextRun) string {
+	return blockStart(w.itemText(runs))
 }
 
 // itemText joins text runs by single spaces, rendering each by its kind:
 // plain runs as escaped prose, styled runs in emphasis or strong delimiters
 // or as code spans, math runs as dollar math, links and references as inline
 // links.
-func itemText(runs []docir.TextRun) string {
+func (w *markdownWriter) itemText(runs []docir.TextRun) string {
 	parts := make([]string, len(runs))
 	for i, run := range runs {
-		parts[i] = runText(run)
+		parts[i] = w.runText(run)
 	}
 	return strings.Join(parts, " ")
 }
 
-func runText(run docir.TextRun) string {
+func (w *markdownWriter) runText(run docir.TextRun) string {
 	switch run.Kind() {
 	case docir.RunEmphasis:
 		return delimited("*", run.Text())
@@ -420,7 +428,7 @@ func runText(run docir.TextRun) string {
 	case docir.RunLink:
 		return "[" + inline(run.Text()) + "](<" + destination(run.Target()) + ">)"
 	case docir.RunRef:
-		return "[" + inline(run.Text()) + "](" + refDestination(run) + ")"
+		return "[" + inline(run.Text()) + "](" + w.refDestination(run) + ")"
 	default:
 		return inline(run.Text())
 	}
@@ -428,28 +436,46 @@ func runText(run docir.TextRun) string {
 
 // refDestination maps a reference run to its Markdown destination: an
 // in-document anchor, or a relative link into another document's file.
-func refDestination(run docir.TextRun) string {
+func (w *markdownWriter) refDestination(run docir.TextRun) string {
+	return refDestination(run, w.files, DocumentFileName)
+}
+
+// refDestination is a reference run's destination: its anchor within the
+// document, or the target document's file, the set's or the default, and anchor.
+func refDestination(run docir.TextRun, files map[string]string, defaultFile func(string) string) string {
 	if run.TargetDocument() == "" {
 		return "#" + run.Target()
 	}
-	destination := DocumentFileName(run.TargetDocument())
+	destination, ok := files[run.TargetDocument()]
+	if !ok {
+		destination = defaultFile(run.TargetDocument())
+	}
 	if run.Target() != "" {
 		destination += "#" + run.Target()
 	}
 	return destination
 }
 
-// DocumentFileName derives the deterministic Markdown file name of a rendered
-// document from its fully-qualified name, using the same escaping as anchors
-// so distinct documents never collide.
+// DocumentFileName is the Markdown file a document is written to on its own,
+// DocumentFileStem of its qualified name plus `.md`.
 func DocumentFileName(fqn string) string {
-	return documentFileName(fqn, ".md")
+	return DocumentFileStem(fqn) + ".md"
 }
 
-// documentFileName derives a rendered document's file name in one backend's
-// extension, escaped as anchors are.
-func documentFileName(fqn, extension string) string {
-	return docir.AnchorFor(strings.Split(fqn, "::")) + extension
+// DocumentFileStem is the file name, extension aside, a document derives from
+// its qualified name: `::` as `-` and every byte outside ASCII letters, digits
+// and `_` as `.XX`, the encoding of anchors. A stem naming a Windows device
+// has its first byte encoded too, and one opening with `.` is prefixed `_`, so
+// the file is neither a device nor hidden. A set fits and tags the stems it writes.
+func DocumentFileStem(fqn string) string {
+	stem := docir.AnchorFor(strings.Split(fqn, "::"))
+	if filename.DeviceStem(stem) {
+		stem = fmt.Sprintf(".%02X", stem[0]) + stem[1:]
+	}
+	if strings.HasPrefix(stem, ".") {
+		stem = "_" + stem
+	}
+	return stem
 }
 
 // captionBlock writes a caption as an emphasized paragraph without its surrounding

@@ -482,6 +482,10 @@ func doc() usage.Doc {
 				usage.Entry("2", "What was asked could not be carried out at all — an unreadable "+
 					"file, a model that did not analyse cleanly, an unresolved name, a "+
 					"failed conversion."),
+				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
+					"in which some document could not be rendered. The others were "+
+					"written, a page stating the error stands in for each that was not, "+
+					"and each failure is reported with the document's qualified name."),
 			},
 		}, {
 			Title: "Output streams",
@@ -599,7 +603,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
-	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory")
+	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
 	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")

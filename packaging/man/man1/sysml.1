@@ -266,7 +266,8 @@ Compile this document definition, run its queries and write the rendered
 document
 .TP
 .BR \-render\-documents " \fIdir\fP"
-Render every document definition, linked to one another, into this directory
+Render every document definition, linked to one another, into this directory;
+a document that cannot be rendered gets a page stating why and the run exits 3
 .TP
 .BR \-doc\-form " \fIform\fP"
 Form the documents are written in: markdown (default), html or pdf, which
@@ -904,6 +905,12 @@ The model answered false for a check.
 .B 2
 What was asked could not be carried out at all \(em an unreadable file, a
 model that did not analyse cleanly, an unresolved name, a failed conversion.
+.TP
+.B 3
+Part of what was asked was carried out: a \-render\-documents set in which
+some document could not be rendered. The others were written, a page stating
+the error stands in for each that was not, and each failure is reported with
+the document's qualified name.
 .SH OUTPUT STREAMS
 What was asked for is reported on stdout and what went wrong on stderr,
 prefixed "sysml: " unless it locates a finding in the source.

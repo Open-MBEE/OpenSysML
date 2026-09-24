@@ -43,15 +43,25 @@ func EvaluateLinked(
 	return evaluate(plan, context, options, text, external[plan.Name()])
 }
 
+// Evaluated is the outcome of evaluating one plan of a set: the document, or
+// under Err the error that kept the plan named Name from evaluating.
+type Evaluated struct {
+	Name     string
+	Document *Document
+	Err      error
+}
+
 // EvaluateSet evaluates a set of compiled document plans together, so a
 // content block one document references from another carries its anchor in
-// the rendered target document.
+// the rendered target document. Each plan evaluates on its own: one that
+// fails leaves the others' documents whole and is reported in its outcome.
+// A plan that is not compiled fails the set.
 func EvaluateSet(
 	plans []*docplan.Plan,
 	context queryexec.Context,
 	options queryexec.Options,
 	text view.SourceText,
-) ([]*Document, error) {
+) ([]Evaluated, error) {
 	external := make(map[string]map[string]bool)
 	for _, plan := range plans {
 		if !plan.Compiled() {
@@ -60,15 +70,32 @@ func EvaluateSet(
 		collectCrossAnchors(plan.Content(), external)
 	}
 	context = sharingRelationshipTables(context)
-	documents := make([]*Document, 0, len(plans))
+	outcomes := make([]Evaluated, 0, len(plans))
 	for _, plan := range plans {
 		document, err := evaluate(plan, context, options, text, external[plan.Name()])
-		if err != nil {
-			return nil, err
-		}
-		documents = append(documents, document)
+		outcomes = append(outcomes, Evaluated{Name: plan.Name(), Document: document, Err: err})
 	}
-	return documents, nil
+	return outcomes, nil
+}
+
+// Unrendered is the document a set writes in place of the one named name,
+// titled title, that could not be rendered: one paragraph stating why, so a
+// link into it lands on the reason rather than on nothing.
+func Unrendered(name, title string, err error) *Document {
+	if title == "" {
+		title = name
+	}
+	return &Document{
+		name:  name,
+		title: title,
+		content: []Content{{
+			kind: ContentParagraph,
+			runs: []TextRun{
+				{kind: RunStrong, text: "This document could not be rendered."},
+				{kind: RunPlain, text: err.Error()},
+			},
+		}},
+	}
 }
 
 func evaluate(
