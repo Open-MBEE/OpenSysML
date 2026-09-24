@@ -117,7 +117,8 @@ func (e *executor) evaluateColumnCell(
 
 // columnMultiplicity is how many values a column expression may produce: what
 // the feature or parameter it reads declares, one for an operator's result,
-// and a literal's own count; `a ?? b` admits either operand's count.
+// and a literal's own count — none for `null`, which declares an empty cell;
+// `a ?? b` admits either operand's count.
 func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity {
 	one := queryplan.Multiplicity{Lower: 1, Upper: 1, Known: true}
 	switch expression.Operation() {
@@ -125,7 +126,7 @@ func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity 
 		return expression.Multiplicity()
 	case queryplan.OperationLiteral:
 		if kind, _ := expression.Literal(); kind == queryplan.LiteralNull {
-			return queryplan.Multiplicity{Known: true}
+			return queryplan.Multiplicity{Lower: 0, Upper: 0, Known: true}
 		}
 		return one
 	case queryplan.OperationColumnOperator:

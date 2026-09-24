@@ -64,9 +64,10 @@ Each document in the set is compiled and evaluated on its own. One that
 cannot be rendered — a query column with no value for a row, a diagram past
 its form's limit — does not stop the others: they are written, a page carrying
 the document's title, **This document could not be rendered.** and the error
-is written in its place so links to it resolve, each failure is reported on
-stderr as `document <qualified name> could not be rendered: <reason>`, and the
-run exits with status 3 rather than 0.
+is written in its place so links to it resolve — a link into one of its blocks
+lands on a line naming that block, under the anchor the link expects — each
+failure is reported on stderr as `document <qualified name> could not be
+rendered: <reason>`, and the run exits with status 3 rather than 0.
 
 ## HTML
 

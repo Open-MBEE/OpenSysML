@@ -745,7 +745,8 @@ fills the cell with both in order (comma-joined in a document table) and one
 carrying none leaves it empty, while a feature declared without a multiplicity
 is one value per row — a row binding two fails the column with a typed
 `column-cardinality` error naming the declared bound, and a row binding none
-with `column-absent` unless `??` supplies a default. Operators always take one
+with `column-absent` unless `??` supplies a default — a value, or `null` to
+leave that row's cell empty (`Stage::mass ?? null`). Operators always take one
 value per operand, so `Element::documentation + "."` over two bodies fails.
 
 Quantities take part in column arithmetic with the runtime's rules, so a

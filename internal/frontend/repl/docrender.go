@@ -200,7 +200,7 @@ func (s *Session) renderDocumentSet(
 			rendered.Err = failed[name]
 		}
 		if rendered.Err != nil {
-			rendered.Content, err = render(docir.Unrendered(name, titles[name], rendered.Err), files)
+			rendered.Content, err = render(docir.Unrendered(name, titles[name], rendered.Err, plans), files)
 			if err != nil {
 				return nil, err
 			}

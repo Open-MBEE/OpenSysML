@@ -571,7 +571,8 @@ func TestRenderDocumentsSameShortName(t *testing.T) {
 }
 
 // partialModel declares three documents, one of which fails to evaluate: its
-// table reads a [1] attribute the row leaves unbound. The others link to it.
+// table reads a [1] attribute the row leaves unbound. Another links to it and
+// to its table.
 const partialModel = `package Reports {
 	private import DocumentQueries::*;
 	private import KerML::Root::Element;
@@ -608,6 +609,9 @@ const partialModel = `package Reports {
 			part see : Ref {
 				ref redefines target = brokenDoc;
 			}
+			part table : Ref {
+				ref redefines target = brokenDoc.timings;
+			}
 		}
 	}
 
@@ -622,16 +626,18 @@ const partialModel = `package Reports {
 
 // TestRenderDocumentsPartialSet checks a set with one document that cannot be
 // rendered still writes the others, writes a page stating the error where the
-// failed document's links land, names the failure on stderr, and exits 3.
+// failed document's links land — carrying the anchors links into its blocks
+// expect — names the failure on stderr, and exits 3.
 func TestRenderDocumentsPartialSet(t *testing.T) {
 	binary := buildCLI(t)
 	for _, form := range []struct {
 		name, ext string
 		args      []string
-		link      string
+		links     []string
+		anchor    string
 	}{
-		{"markdown", ".md", nil, "](Reports-Broken.md)"},
-		{"html", ".html", []string{"-doc-form", "html"}, `href="Reports-Broken.html"`},
+		{"markdown", ".md", nil, []string{"](Reports-Broken.md)", "](Reports-Broken.md#timings)"}, `<a id="timings"></a>`},
+		{"html", ".html", []string{"-doc-form", "html"}, []string{`href="Reports-Broken.html"`, `href="Reports-Broken.html#timings"`}, `id="timings"`},
 	} {
 		t.Run(form.name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "rendered")
@@ -657,14 +663,16 @@ func TestRenderDocumentsPartialSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(string(first), form.link) {
-				t.Errorf("the link to the failed document is not %s:\n%s", form.link, first)
+			for _, want := range form.links {
+				if !strings.Contains(string(first), want) {
+					t.Errorf("the link to the failed document is not %s:\n%s", want, first)
+				}
 			}
 			broken, err := os.ReadFile(filepath.Join(dir, "Reports-Broken"+form.ext))
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{"Broken Timings", "This document could not be rendered.", "duration"} {
+			for _, want := range []string{"Broken Timings", "This document could not be rendered.", "duration", form.anchor, "timings", "was not rendered with the rest of this document."} {
 				if !strings.Contains(string(broken), want) {
 					t.Errorf("the failed document's page lacks %q:\n%s", want, broken)
 				}

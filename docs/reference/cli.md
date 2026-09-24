@@ -701,7 +701,8 @@ is written. Once the set is being rendered, each document is compiled and evalua
 one that fails — a query whose column has no value for a row, a diagram past a form's limit — does
 not stop the others. The run writes every document that rendered, writes in place of each one
 that did not a page carrying its title, **This document could not be rendered.** and the error, so
-links to it from other pages resolve to that explanation rather than dangling, and then reports
+links to it from other pages resolve to that explanation rather than dangling (a link into one of
+its blocks lands on a line naming that block, under the anchor the link expects), and then reports
 each failure on stderr as `document <qualified name> could not be rendered: <reason>` and exits
 with status 3 (see [Exit status](#exit-status)). `-render-documents` cannot be combined with
 `-render-document`, `-render`, `-render-all`, `-o`, `-convert`, a query flag, or a check flag

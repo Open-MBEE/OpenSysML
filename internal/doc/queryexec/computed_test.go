@@ -516,6 +516,40 @@ calc def Bad :> Query {
 	}
 }
 
+// A `null` literal declares an empty cell: on its own, and as the `??`
+// default of a `[1]` feature a row leaves unbound.
+func TestExecuteComputedNullLiteralIsEmptyCell(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Box {
+	attribute size : Real[1];
+}
+part shed {
+	part b : Box;
+}
+calc def Blank :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "none", expression = null), Column(name = "s", expression = Box::size ?? null))
+	)
+}`)
+	result, err := fixture.execute(t, "Blank", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "shed"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want one", len(rows))
+	}
+	for i, cell := range rows[0].Cells() {
+		if len(cell.Values()) != 0 {
+			t.Fatalf("cell %d = %+v, want an empty cell", i, cell.Values())
+		}
+	}
+}
+
 // A `[1]` feature a row leaves unbound is absent, not an empty cell.
 func TestExecuteComputedRequiredFeatureRejectsNoValue(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
