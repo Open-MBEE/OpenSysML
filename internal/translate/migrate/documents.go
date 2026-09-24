@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -1185,8 +1186,8 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 	c.ctx = kept
 }
 
-// sort lowers a sort step to OrderBy over a query property. The diagrams sort
-// by name the same way and keep their order for any other property.
+// sort lowers a sort step to OrderBy over a query property and orders the current
+// diagrams and source elements as the query orders its rows: missing values last, ties kept.
 func (c *chain) sort(s *sysmlv1.DocGenStep, property string) {
 	if c.idle() {
 		return
@@ -1195,21 +1196,58 @@ func (c *chain) sort(s *sysmlv1.DocGenStep, property string) {
 	if s.Application.Tag("reverse") == "true" {
 		dir = "descending"
 	}
-	if property == "name" {
-		byName := func(a, b string) int {
-			if dir == "descending" {
-				return strings.Compare(b, a)
-			}
-			return strings.Compare(a, b)
+	byKey := func(a, b string) int {
+		if a == "" || b == "" {
+			return strings.Compare(b, a)
 		}
-		slices.SortStableFunc(c.diagrams, func(a, b *sysmlv1.Diagram) int { return byName(a.Name, b.Name) })
-		slices.SortStableFunc(c.holders, func(a, b *sysmlv1.Element) int { return byName(a.Name, b.Name) })
+		if dir == "descending" {
+			a, b = b, a
+		}
+		return strings.Compare(a, b)
 	}
+	slices.SortStableFunc(c.diagrams, func(a, b *sysmlv1.Diagram) int {
+		return byKey(diagramKey(a, property), diagramKey(b, property))
+	})
+	slices.SortStableFunc(c.holders, func(a, b *sysmlv1.Element) int {
+		return byKey(c.m.sortKey(a, property), c.m.sortKey(b, property))
+	})
 	if c.empty() {
 		return
 	}
 	c.ctx = qcall("OrderBy", qarg1("source", c.ctx), qarg1("property", qstr(property)),
 		qarg1("direction", qstr(dir)), qarg1("missing", qstr("last")), qarg1("multiple", qstr("first")))
+}
+
+// diagramKey is the value a diagram's view has for a query property: its name,
+// or the doc written from the diagram's own comment; "" when it has none.
+func diagramKey(d *sysmlv1.Diagram, property string) string {
+	switch property {
+	case "name":
+		return d.Name
+	case "documentation":
+		return docKey(commentText(d.Documentation))
+	}
+	return ""
+}
+
+// sortKey is the value e's v2 declaration has for a query property, as OrderBy
+// reads it: its v2 name, or the first doc written in its body; "" for none.
+func (m *migration) sortKey(e *sysmlv1.Element, property string) string {
+	switch property {
+	case "name":
+		return m.nameOf(e)
+	case "documentation":
+		return docKey(m.documentation(e))
+	}
+	return ""
+}
+
+// docKey is the body a query reads back from the doc comment written for text.
+func docKey(text string) string {
+	if text == "" {
+		return ""
+	}
+	return source.CommentBody(strings.Join(commentLines(text), "\n"))
 }
 
 // attribute reads a desiredAttribute tag as the query property it names.
@@ -1573,6 +1611,10 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 // elements, showing its migrated view, captioned by the diagram's title and
 // followed by its caption paragraph when DocGen shows captions.
 func (c *chain) image(s *sysmlv1.DocGenStep) {
+	if c.broken != "" {
+		c.refuse(s, "the diagrams it shows pass through "+c.broken)
+		return
+	}
 	if len(c.diagrams) == 0 {
 		if c.vague != "" {
 			c.refuse(s, "the diagrams it shows are not known: "+c.vague)

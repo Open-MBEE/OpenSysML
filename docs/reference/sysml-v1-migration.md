@@ -318,7 +318,8 @@ names a view's diagram after the «View» class, a state's after the state, and 
 written in the same body, so the diagram's view is renamed `Name 2` (`Name 3`… past the taken
 names) and the note says so. An «Expose» whose supplier is a diagram exposes the diagram's
 view under that written name, qualified from the client view's body when the name alone would
-not resolve to it.
+not resolve to it. The diagram's documentation — the first comment the diagram itself owns
+that annotates nothing but the diagram, which is how a tool serializes it — is the view's `doc`.
 
 The `render` names one of the standard `Views` library's renderings, chosen from the
 diagram's kind — the tool's `type` (`SysML Block Definition Diagram`, `Dependency Matrix`)
@@ -583,13 +584,16 @@ follows the source elements it collects so that `CollectOwnedElements` gathers t
 they own (to `depth`) — the way DocGen finds the figures of an exposed package or block — a
 name filter matches the diagram's name, a metaclass or stereotype filter keeps a diagram for
 `Element`, `NamedElement`, `Diagram` or the stereotype that is its diagram type,
-`FilterByDiagramType` keeps those of the types named, a sort by name orders them (a diagram
-has no documentation, so a sort by it leaves them as they are), a rejoin unites the branches'
+`FilterByDiagramType` keeps those of the types named, a sort orders them and the source
+elements they are collected from as `OrderBy` orders its rows — by name, or by the `doc` the
+migrated declaration carries (a diagram's is its own comment), those without one last, ties
+in place — a rejoin unites the branches'
 diagrams once each, `CollectOwners` adds the diagrams' owners to the query as
 `Named(qualifiedName = (…))`, `CollectThingsOnDiagram` reads what they show, and any other
 collect drops them. An `Image` after a filter that kept no diagram draws nothing and the
 report says which filter emptied it; one after a step whose result is known only when the
-query runs is refused, since which diagrams it would draw is not known.
+query runs is refused, since which diagrams it would draw is not known, and so is one after a
+step with no query spelling, as every other presentation step downstream of it is.
 
 A UML Constraint on a «Document» or «View» class whose specification is a `uml:Expression`
 tree with no symbol whose every operand is an `InstanceValue` naming no instance (a

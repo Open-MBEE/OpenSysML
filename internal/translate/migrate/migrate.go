@@ -3167,36 +3167,72 @@ func (m *migration) comments(e *sysmlv1.Element) { m.writeComments(e, true) }
 // writeComments writes e's comments; the first becomes doc only when e has no
 // doc yet.
 func (m *migration) writeComments(e *sysmlv1.Element, first bool) {
+	var doc *sysmlv1.Element
+	if first {
+		doc = m.docComment(e)
+	}
 	for _, c := range e.Owned("ownedComment") {
 		if m.framed[c] {
 			continue
 		}
 		about := m.model.Refs(c, "annotatedElement")
 		missing := m.dangling(c, "annotatedElement")
-		others := false
-		for _, a := range about {
-			if a != e {
-				others = true
-			}
-		}
 		text := commentBody(c)
 		if text == "" {
 			m.add(c, Skipped, "", "empty comment")
 			continue
 		}
-		if others {
+		if m.annotatesOthers(c, e) {
 			scope := m.scope
 			m.w.hole(func() { m.commentAbout(c, about, text, missing, scope) })
 			continue
 		}
-		if first {
+		if c == doc {
 			m.w.lines(prefixFirst("doc ", commentLines(text)))
-			first = false
 		} else {
 			m.w.lines(prefixFirst(commentPrefix, commentLines(text)))
 		}
 		m.add(c, verdictFor(missing), "", missing)
 	}
+}
+
+// docComment is the comment e's body writes as doc: the first with text that
+// annotates nothing but e and frames no concern; nil when there is none.
+func (m *migration) docComment(e *sysmlv1.Element) *sysmlv1.Element {
+	for _, c := range e.Owned("ownedComment") {
+		if !m.framed[c] && commentBody(c) != "" && !m.annotatesOthers(c, e) {
+			return c
+		}
+	}
+	return nil
+}
+
+// annotatesOthers reports whether c annotates an element other than e, which
+// makes it a `comment about` rather than e's own doc or comment.
+func (m *migration) annotatesOthers(c, e *sysmlv1.Element) bool {
+	for _, a := range m.model.Refs(c, "annotatedElement") {
+		if a != e {
+			return true
+		}
+	}
+	return false
+}
+
+// documentation is the first doc e's v2 declaration carries: a requirement's
+// text, else its doc comment, else a viewpoint's purpose; "" for none.
+func (m *migration) documentation(e *sysmlv1.Element) string {
+	if vertexBase(e) != "" || e.Role == "node" || e.Type == "Region" && e.Role == "region" {
+		return ""
+	}
+	if cat, _ := m.classify(e); cat == catRequirementDef {
+		if text := requirementText(e); text != "" {
+			return commentText(text)
+		}
+	}
+	if c := m.docComment(e); c != nil {
+		return commentBody(c)
+	}
+	return m.viewpointDoc(e)
 }
 
 // commentAbout writes a `comment about` other elements from inside scope's body

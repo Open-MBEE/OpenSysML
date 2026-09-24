@@ -507,6 +507,37 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantNote(t, r, "_st_todo_table", migrate.Unmapped,
 		"the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»")
 
+	// A sort by documentation orders the source elements as OrderBy orders the
+	// rows, so the diagrams collected from them follow: the crane and the
+	// package sort by their doc comment, the requirement by its text rather
+	// than its comment, and the gantry, with none, comes last either way;
+	// diagrams sort by the doc their view writes from the diagram's own comment.
+	wantInOrder(t, "Gantry Drive doc", notation,
+		"view 'Gantry Drive' {", "doc /* The trolley the gantry carries. */", "expose Gantry;")
+	wantInOrder(t, "Documented Owners query", notation,
+		"calc def 'Yard Handbook Documented Owners Rows'",
+		`property = "documentation",`, `direction = "ascending",`, `missing = "last",`, `multiple = "first"`)
+	wantInOrder(t, "Documented Diagrams", notation,
+		"part 'Documented Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Crane Internals";`,
+		`attribute redefines caption = "Sway Limits";`,
+		`attribute redefines caption = "Yard Requirements";`,
+		`attribute redefines caption = "Gantry Drive";`,
+		"part 'Reverse Documented Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Yard Requirements";`,
+		`attribute redefines caption = "Sway Limits";`,
+		`attribute redefines caption = "Crane Internals";`,
+		`attribute redefines caption = "Gantry Drive";`,
+		"part 'Diagrams By Documentation' : DocumentQueries::Section {",
+		`attribute redefines caption = "Gantry Drive";`,
+		`attribute redefines caption = "Crane Structure";`)
+	// A sort with no query spelling breaks the chain for the Image after it as
+	// for any other block: the diagrams current before it are not drawn as if
+	// it had sorted them.
+	wantNote(t, r, "_st_owner_sort", migrate.Unmapped, "no query property stands for the attribute Owner")
+	wantNote(t, r, "_st_owner_image", migrate.Unmapped,
+		"the diagrams it shows pass through «SortByAttribute» Yard Viewpoints::Owner Sorted Diagrams Viewpoint::Owner Sorted Diagrams Method::Sort By Owner is not migrated: no query property stands for the attribute Owner")
+
 	s := session(t, r)
 	md := markdown(t, s, "'Yard Handbook'::'Yard Handbook Document'")
 	wantInOrder(t, "Yard Handbook Markdown", md,
@@ -529,11 +560,19 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"## Specification",
 		"| shortName | name | documentation |",
 		"| Y-1 | Lift | The crane lifts a loaded container. |",
-		"| Y-2 | Sway | The load sways less than one degree. |")
-	if n := strings.Count(md, "```mermaid"); n != 4 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 4:\n%s", n, md)
+		"| Y-2 | Sway | The load sways less than one degree. |",
+		"## Documented Diagrams", "- Crane\n- Sway\n- Needs\n- Gantry",
+		"*Crane Internals*", "```mermaid", "*Sway Limits*", "```mermaid",
+		"*Yard Requirements*", "```mermaid", "*Gantry Drive*", "```mermaid",
+		"## Reverse Documented Diagrams",
+		"*Yard Requirements*", "```mermaid", "*Sway Limits*", "```mermaid",
+		"*Crane Internals*", "```mermaid", "*Gantry Drive*", "```mermaid",
+		"## Diagrams By Documentation", "*Gantry Drive*", "```mermaid", "*Crane Structure*", "```mermaid",
+		"## Owner Sorted Diagrams")
+	if n := strings.Count(md, "```mermaid"); n != 14 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 14:\n%s", n, md)
 	}
-	for _, heading := range []string{"## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do"} {
+	for _, heading := range []string{"## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
 			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
 		}

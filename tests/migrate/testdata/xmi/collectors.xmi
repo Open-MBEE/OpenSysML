@@ -45,9 +45,10 @@
     </packagedElement>
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_reqs" name="Needs">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_reqs" body="&lt;p&gt;What the yard&lt;/p&gt;&lt;p&gt;is asked to do.&lt;/p&gt;"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_req_lift" name="Lift"/>
       <packagedElement xmi:type="uml:Class" xmi:id="_req_sway" name="Sway">
-        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_sway" body="Measured at the hook."/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_sway" body="Above the hook."/>
       </packagedElement>
     </packagedElement>
 
@@ -205,6 +206,60 @@
         </ownedBehavior>
       </packagedElement>
 
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_docs" name="Documented Diagrams Viewpoint" classifierBehavior="_act_docs">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_docs" name="Documented Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_docs_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_docs_sort" name="Sort By Documentation"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_docs_list" name="Documented Owners"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_docs_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_docs_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_docs_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_docs_e1" source="_docs_init" target="_docs_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_docs_e5" source="_docs_sort" target="_docs_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_docs_e2" source="_docs_list" target="_docs_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_docs_e3" source="_docs_collect" target="_docs_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_docs_e4" source="_docs_image" target="_docs_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_rdocs" name="Reverse Documented Diagrams Viewpoint" classifierBehavior="_act_rdocs">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_rdocs" name="Reverse Documented Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_rdocs_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rdocs_sort" name="Sort By Documentation"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rdocs_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_rdocs_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_rdocs_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rdocs_e1" source="_rdocs_init" target="_rdocs_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rdocs_e2" source="_rdocs_sort" target="_rdocs_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rdocs_e3" source="_rdocs_collect" target="_rdocs_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_rdocs_e4" source="_rdocs_image" target="_rdocs_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_ddocs" name="Diagrams By Documentation Viewpoint" classifierBehavior="_act_ddocs">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_ddocs" name="Diagrams By Documentation Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_ddocs_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_ddocs_sort" name="Sort By Documentation"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_ddocs_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_ddocs_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ddocs_e1" source="_ddocs_init" target="_ddocs_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ddocs_e2" source="_ddocs_sort" target="_ddocs_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_ddocs_e3" source="_ddocs_image" target="_ddocs_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_owner" name="Owner Sorted Diagrams Viewpoint" classifierBehavior="_act_owner">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_owner" name="Owner Sorted Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_owner_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owner_sort" name="Sort By Owner"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_owner_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_owner_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owner_e1" source="_owner_init" target="_owner_sort"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owner_e2" source="_owner_sort" target="_owner_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_owner_e3" source="_owner_image" target="_owner_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_spec" name="Specification Viewpoint" classifierBehavior="_act_spec">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_spec" name="Specification Method">
           <node xmi:type="uml:InitialNode" xmi:id="_spec_init"/>
@@ -243,6 +298,10 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_none" name="noParts" type="_view_none" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_todo" name="toDo" type="_view_todo" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_spec" name="specification" type="_view_spec" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_docs" name="documentedDiagrams" type="_view_docs" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_rdocs" name="reverseDocumentedDiagrams" type="_view_rdocs" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ddocs" name="diagramsByDocumentation" type="_view_ddocs" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_owner" name="ownerSortedDiagrams" type="_view_owner" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_bdds" name="Block Diagrams">
@@ -316,6 +375,33 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_spec" general="_vp_spec"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_spec" client="_view_spec" supplier="_pkg_reqs"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_docs" name="Documented Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_docs" general="_vp_docs"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_docs_gantry" client="_view_docs" supplier="_blk_gantry"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_docs_reqs" client="_view_docs" supplier="_pkg_reqs"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_docs_crane" client="_view_docs" supplier="_blk_crane"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_docs_sway" client="_view_docs" supplier="_req_sway"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_rdocs" name="Reverse Documented Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_rdocs" general="_vp_rdocs"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rdocs_gantry" client="_view_rdocs" supplier="_blk_gantry"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rdocs_crane" client="_view_rdocs" supplier="_blk_crane"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rdocs_reqs" client="_view_rdocs" supplier="_pkg_reqs"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_rdocs_sway" client="_view_rdocs" supplier="_req_sway"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_ddocs" name="Diagrams By Documentation">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_ddocs" general="_vp_ddocs"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_ddocs_structure" client="_view_ddocs" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_ddocs_gantry" client="_view_ddocs" supplier="_diag_gantry"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_owner" name="Owner Sorted Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_owner" general="_vp_owner"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_owner" client="_view_owner" supplier="_diag_structure"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -361,6 +447,32 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_sway" name="Sway Limits" ownerOfDiagram="_req_sway">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Requirement Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_req_sway</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_gantry" name="Gantry Drive" ownerOfDiagram="_blk_gantry">
+          <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_diag_gantry" body="The trolley the gantry carries.">
+            <annotatedElement xmi:idref="_diag_gantry"/>
+          </ownedComment>
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_gantry</usedElements>
+                  <usedElements>_blk_trolley</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_untyped" name="Sketch" ownerOfDiagram="_pkg_structure"/>
       </modelExtension>
       <stereotypesHREFS>
@@ -395,6 +507,10 @@
   <sysml:Viewpoint xmi:id="_st_vp_shared" base_Class="_vp_shared"/>
   <sysml:Viewpoint xmi:id="_st_vp_todo" base_Class="_vp_todo"/>
   <sysml:Viewpoint xmi:id="_st_vp_spec" base_Class="_vp_spec"/>
+  <sysml:Viewpoint xmi:id="_st_vp_docs" base_Class="_vp_docs"/>
+  <sysml:Viewpoint xmi:id="_st_vp_rdocs" base_Class="_vp_rdocs"/>
+  <sysml:Viewpoint xmi:id="_st_vp_ddocs" base_Class="_vp_ddocs"/>
+  <sysml:Viewpoint xmi:id="_st_vp_owner" base_Class="_vp_owner"/>
 
   <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
   <sysml:View xmi:id="_st_view_others" base_Class="_view_others"/>
@@ -409,6 +525,10 @@
   <sysml:View xmi:id="_st_view_none" base_Class="_view_none"/>
   <sysml:View xmi:id="_st_view_todo" base_Class="_view_todo"/>
   <sysml:View xmi:id="_st_view_spec" base_Class="_view_spec"/>
+  <sysml:View xmi:id="_st_view_docs" base_Class="_view_docs"/>
+  <sysml:View xmi:id="_st_view_rdocs" base_Class="_view_rdocs"/>
+  <sysml:View xmi:id="_st_view_ddocs" base_Class="_view_ddocs"/>
+  <sysml:View xmi:id="_st_view_owner" base_Class="_view_owner"/>
 
   <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
   <sysml:Conform xmi:id="_st_conform_others" base_Generalization="_gen_others"/>
@@ -423,6 +543,10 @@
   <sysml:Conform xmi:id="_st_conform_none" base_Generalization="_gen_none"/>
   <sysml:Conform xmi:id="_st_conform_todo" base_Generalization="_gen_todo"/>
   <sysml:Conform xmi:id="_st_conform_spec" base_Generalization="_gen_spec"/>
+  <sysml:Conform xmi:id="_st_conform_docs" base_Generalization="_gen_docs"/>
+  <sysml:Conform xmi:id="_st_conform_rdocs" base_Generalization="_gen_rdocs"/>
+  <sysml:Conform xmi:id="_st_conform_ddocs" base_Generalization="_gen_ddocs"/>
+  <sysml:Conform xmi:id="_st_conform_owner" base_Generalization="_gen_owner"/>
 
   <sysml:Expose xmi:id="_st_expose_bdds_structure" base_Dependency="_expose_bdds_structure"/>
   <sysml:Expose xmi:id="_st_expose_bdds_internals" base_Dependency="_expose_bdds_internals"/>
@@ -444,6 +568,17 @@
   <sysml:Expose xmi:id="_st_expose_none" base_Dependency="_expose_none"/>
   <sysml:Expose xmi:id="_st_expose_todo" base_Dependency="_expose_todo"/>
   <sysml:Expose xmi:id="_st_expose_spec" base_Dependency="_expose_spec"/>
+  <sysml:Expose xmi:id="_st_expose_docs_gantry" base_Dependency="_expose_docs_gantry"/>
+  <sysml:Expose xmi:id="_st_expose_docs_reqs" base_Dependency="_expose_docs_reqs"/>
+  <sysml:Expose xmi:id="_st_expose_docs_crane" base_Dependency="_expose_docs_crane"/>
+  <sysml:Expose xmi:id="_st_expose_docs_sway" base_Dependency="_expose_docs_sway"/>
+  <sysml:Expose xmi:id="_st_expose_rdocs_gantry" base_Dependency="_expose_rdocs_gantry"/>
+  <sysml:Expose xmi:id="_st_expose_rdocs_crane" base_Dependency="_expose_rdocs_crane"/>
+  <sysml:Expose xmi:id="_st_expose_rdocs_reqs" base_Dependency="_expose_rdocs_reqs"/>
+  <sysml:Expose xmi:id="_st_expose_rdocs_sway" base_Dependency="_expose_rdocs_sway"/>
+  <sysml:Expose xmi:id="_st_expose_ddocs_structure" base_Dependency="_expose_ddocs_structure"/>
+  <sysml:Expose xmi:id="_st_expose_ddocs_gantry" base_Dependency="_expose_ddocs_gantry"/>
+  <sysml:Expose xmi:id="_st_expose_owner" base_Dependency="_expose_owner"/>
 
   <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
 
@@ -496,6 +631,21 @@
   </Document_Profile_:FilterByStereotypes>
   <Document_Profile_:TableStructure xmi:id="_st_todo_table" base_StructuredActivityNode="_todo_table"/>
   <Document_Profile_:TableAttributeColumn xmi:id="_st_todo_col_name" base_CallBehaviorAction="_todo_col_name" desiredAttribute="Name"/>
+
+  <Document_Profile_:SortByAttribute xmi:id="_st_docs_sort" base_CallBehaviorAction="_docs_sort" desiredAttribute="Documentation"/>
+  <Document_Profile_:BulletedList xmi:id="_st_docs_list" base_CallBehaviorAction="_docs_list" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_docs_collect" base_CallBehaviorAction="_docs_collect" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_docs_image" base_CallBehaviorAction="_docs_image"/>
+
+  <Document_Profile_:SortByAttribute xmi:id="_st_rdocs_sort" base_CallBehaviorAction="_rdocs_sort" desiredAttribute="Documentation" reverse="true"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_rdocs_collect" base_CallBehaviorAction="_rdocs_collect" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_rdocs_image" base_CallBehaviorAction="_rdocs_image"/>
+
+  <Document_Profile_:SortByAttribute xmi:id="_st_ddocs_sort" base_CallBehaviorAction="_ddocs_sort" desiredAttribute="Documentation"/>
+  <Document_Profile_:Image xmi:id="_st_ddocs_image" base_CallBehaviorAction="_ddocs_image"/>
+
+  <Document_Profile_:SortByAttribute xmi:id="_st_owner_sort" base_CallBehaviorAction="_owner_sort" desiredAttribute="Owner"/>
+  <Document_Profile_:Image xmi:id="_st_owner_image" base_CallBehaviorAction="_owner_image"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_spec_collect" base_CallBehaviorAction="_spec_collect" depth="0"/>
   <Document_Profile_:FilterByStereotypes xmi:id="_st_spec_filter" base_CallBehaviorAction="_spec_filter" include="true">

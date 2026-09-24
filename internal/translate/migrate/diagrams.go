@@ -519,6 +519,9 @@ func (m *migration) writeView(v *view) {
 		note = joinNotes(note, geo.note)
 	}
 	m.w.block(decl, func() {
+		if doc := commentText(d.Documentation); doc != "" {
+			m.w.lines(prefixFirst("doc ", commentLines(doc)))
+		}
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}

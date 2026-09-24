@@ -54,6 +54,7 @@ package Structure {
     }
     part def Wheel;
     view 'Vehicle Structure' {
+        doc /* The blocks the vehicle is built from. */
         expose Vehicle;
         expose Engine;
         expose Wheel;

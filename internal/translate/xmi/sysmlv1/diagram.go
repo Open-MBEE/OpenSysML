@@ -35,6 +35,9 @@ type Diagram struct {
 	// Stream names the archive entry the tool serialized the diagram's symbols
 	// to (a binaryObject's streamContentID); "" when none is named.
 	Stream string
+	// Documentation is the body of the diagram's first own comment: an
+	// ownedComment annotating nothing but the diagram; "" when it has none.
+	Documentation string
 	// Drawn reports whether Stream was read, so that Shown lists every element
 	// the diagram's symbols stand for and Free the symbols standing for none.
 	Drawn bool
@@ -75,7 +78,7 @@ func isDiagram(raw *xmi.Element) bool {
 func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 	d := Diagram{
 		ID: raw.ID, Name: raw.Name(), OwnerID: raw.Attr("ownerOfDiagram"),
-		Holder: ext.Owner, Extender: ext.Extender,
+		Holder: ext.Owner, Extender: ext.Extender, Documentation: ownDocumentation(raw),
 	}
 	rep := representation(raw)
 	if rep == nil {
@@ -101,6 +104,33 @@ func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 		}
 	})
 	m.Diagrams = append(m.Diagrams, d)
+}
+
+// ownDocumentation is the body of raw's first ownedComment that annotates
+// nothing but raw itself, as a tool serializes an element's documentation.
+func ownDocumentation(raw *xmi.Element) string {
+	for _, c := range raw.Tagged("ownedComment") {
+		if local(c.Type) != "Comment" {
+			continue
+		}
+		others := false
+		for _, id := range c.Refs("annotatedElement") {
+			others = others || id != raw.ID
+		}
+		if others {
+			continue
+		}
+		body := c.Attr("body")
+		if body == "" {
+			if b := c.First("body"); b != nil {
+				body = b.Text
+			}
+		}
+		if body = strings.TrimSpace(body); body != "" {
+			return body
+		}
+	}
+	return ""
 }
 
 // representation finds the diagram's representation object by how it is held or

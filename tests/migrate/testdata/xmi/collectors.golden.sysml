@@ -25,6 +25,12 @@ package Structure {
     part def Operator;
     part def Gantry {
         part trolley : Trolley;
+        view 'Gantry Drive' {
+            doc /* The trolley the gantry carries. */
+            expose Gantry;
+            expose Trolley;
+            render Views::asTreeDiagram;
+        }
     }
     part def Trolley {
         part motor : Motor;
@@ -46,12 +52,19 @@ package Structure {
     }
 }
 package Needs {
+    doc /* What the yard
+     * is asked to do.
+     */
     requirement def <'Y-1'> Lift {
         doc /* The crane lifts a loaded container. */
     }
     requirement def <'Y-2'> Sway {
         doc /* The load sways less than one degree. */
-        comment /* Measured at the hook. */
+        comment /* Above the hook. */
+        view 'Sway Limits' {
+            expose Sway;
+            render Views::asTreeDiagram;
+        }
     }
     view 'Yard Requirements' {
         expose Lift;
@@ -198,6 +211,56 @@ package 'Yard Viewpoints' {
         }
         perform action 'to Do Method' : 'To Do Method';
     }
+    viewpoint 'Documented Diagrams Viewpoint' {
+        action def 'Documented Diagrams Method' {
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then 'Documented Owners';
+            action 'Documented Owners';
+            first 'Documented Owners' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'documented Diagrams Method' : 'Documented Diagrams Method';
+    }
+    viewpoint 'Reverse Documented Diagrams Viewpoint' {
+        action def 'Reverse Documented Diagrams Method' {
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'reverse Documented Diagrams Method' : 'Reverse Documented Diagrams Method';
+    }
+    viewpoint 'Diagrams By Documentation Viewpoint' {
+        action def 'Diagrams By Documentation Method' {
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'diagrams By Documentation Method' : 'Diagrams By Documentation Method';
+    }
+    viewpoint 'Owner Sorted Diagrams Viewpoint' {
+        action def 'Owner Sorted Diagrams Method' {
+            first start then 'Sort By Owner';
+            action 'Sort By Owner';
+            first 'Sort By Owner' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'owner Sorted Diagrams Method' : 'Owner Sorted Diagrams Method';
+    }
     viewpoint 'Specification Viewpoint' {
         action def 'Specification Method' {
             first start then 'Collect Owned Elements';
@@ -234,6 +297,10 @@ package 'Yard Handbook' {
         view noParts :> 'Cable Parts';
         view toDo :> 'To Do';
         view specification :> Specification;
+        view documentedDiagrams :> 'Documented Diagrams';
+        view reverseDocumentedDiagrams :> 'Reverse Documented Diagrams';
+        view diagramsByDocumentation :> 'Diagrams By Documentation';
+        view ownerSortedDiagrams :> 'Owner Sorted Diagrams';
         /* applied stereotype «Document» */
     }
     view 'Block Diagrams' {
@@ -295,6 +362,29 @@ package 'Yard Handbook' {
         satisfy 'Yard Viewpoints'::'Specification Viewpoint';
         expose Needs::**;
     }
+    view 'Documented Diagrams' {
+        satisfy 'Yard Viewpoints'::'Documented Diagrams Viewpoint';
+        expose Structure::Gantry;
+        expose Needs::**;
+        expose Structure::Crane;
+        expose Needs::Sway;
+    }
+    view 'Reverse Documented Diagrams' {
+        satisfy 'Yard Viewpoints'::'Reverse Documented Diagrams Viewpoint';
+        expose Structure::Gantry;
+        expose Structure::Crane;
+        expose Needs::**;
+        expose Needs::Sway;
+    }
+    view 'Diagrams By Documentation' {
+        satisfy 'Yard Viewpoints'::'Diagrams By Documentation Viewpoint';
+        expose Structure::'Crane Structure';
+        expose Structure::Gantry::'Gantry Drive';
+    }
+    view 'Owner Sorted Diagrams' {
+        satisfy 'Yard Viewpoints'::'Owner Sorted Diagrams Viewpoint';
+        expose Structure::'Crane Structure';
+    }
     calc def 'Yard Handbook Shown Blocks Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
@@ -333,9 +423,21 @@ package 'Yard Handbook' {
                 type = ("RequirementDefinition")),
             properties = ("shortName", "name", "documentation"))
     }
+    calc def 'Yard Handbook Documented Owners Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::Named(qualifiedName = ("Structure::Gantry", "Needs", "Structure::Crane", "Needs::Sway")),
+                property = "documentation",
+                direction = "ascending",
+                missing = "last",
+                multiple = "first"),
+            properties = ("name"))
+    }
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Yard Handbook";
         ref crane : Structure::Crane;
+        ref sway : Needs::Sway;
+        ref gantry : Structure::Gantry;
         part 'Block Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Block Diagrams";
             part diagram : DocumentQueries::Diagram {
@@ -416,6 +518,63 @@ package 'Yard Handbook' {
                 attribute redefines caption = "Requirements Specification Table";
                 calc rows : 'Yard Handbook Requirements Specification Table Rows';
             }
+        }
+        part 'Documented Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Documented Diagrams";
+            part list : DocumentQueries::List {
+                attribute redefines style = "bullet";
+                calc items : 'Yard Handbook Documented Owners Rows';
+            }
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Crane Internals";
+                ref redefines source = crane.'Crane Internals';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Sway Limits";
+                ref redefines source = sway.'Sway Limits';
+            }
+            part 'diagram 3' : DocumentQueries::Diagram {
+                attribute redefines caption = "Yard Requirements";
+                ref redefines source = Needs::'Yard Requirements';
+            }
+            part 'diagram 4' : DocumentQueries::Diagram {
+                attribute redefines caption = "Gantry Drive";
+                ref redefines source = gantry.'Gantry Drive';
+            }
+        }
+        part 'Reverse Documented Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Reverse Documented Diagrams";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Yard Requirements";
+                ref redefines source = Needs::'Yard Requirements';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Sway Limits";
+                ref redefines source = sway.'Sway Limits';
+            }
+            part 'diagram 3' : DocumentQueries::Diagram {
+                attribute redefines caption = "Crane Internals";
+                ref redefines source = crane.'Crane Internals';
+            }
+            part 'diagram 4' : DocumentQueries::Diagram {
+                attribute redefines caption = "Gantry Drive";
+                ref redefines source = gantry.'Gantry Drive';
+            }
+        }
+        part 'Diagrams By Documentation' : DocumentQueries::Section {
+            attribute redefines title = "Diagrams By Documentation";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Gantry Drive";
+                ref redefines source = gantry.'Gantry Drive';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Crane Structure";
+                ref redefines source = Structure::'Crane Structure';
+            }
+        }
+        part 'Owner Sorted Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Owner Sorted Diagrams";
+            /* not migrated: «Image» CallBehaviorAction 'Image' — the diagrams it shows pass through «SortByAttribute» Yard Viewpoints::Owner Sorted Diagrams Viewpoint::Owner Sorted Diagrams Method::Sort By Owner is not migrated: no query property stands for the attribute Owner */
         }
     }
 }
