@@ -47,6 +47,9 @@ and `subjectName`/`subject` features `AnalysisRun` declares — `iteration`
 only on a sweep or sample's records — and a `ref` to its subject; verdicts and
 evaluations a trade study or verification made become
 `VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`. A
+parameter declared `inout` is one member — the record carries the value the
+run left in it — plus a `<name>In` companion carrying the value it was bound
+with, just as a quantity carries a `<name>Unit` companion naming the unit. A
 verification case's record also carries what its body decided — the `verdict`
 attribute (`"pass"`, `"fail"`, `"inconclusive"` or `"error"`) — and one
 `VerdictRecord` row apiece for the body's verdict (`kind` `"verification"`)
@@ -183,7 +186,8 @@ vocabulary the records are written in:
 - A value that is not a scalar, enum literal, quantity or resolvable reference
   is recorded as its printed String.
 - A quantity is recorded as its Real magnitude plus a `<name>Unit` String
-  companion naming the unit.
+  companion naming the unit; an `inout` parameter as the value the run left
+  plus a `<name>In` companion carrying the value it was bound with.
 - An input or output left unset is declared on the record but not redefined.
 - Records join only a package whose header is a plain `package Name`.
 - Recording is exposed at the REPL and CLI; the gRPC surface does not expose
