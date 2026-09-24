@@ -468,3 +468,23 @@ func TestGenerateOwnerStem(t *testing.T) {
 		}
 	}
 }
+
+// A member declared ScalarValue by an earlier, unset run accepts a concrete
+// type the next run settles it to.
+func TestGenerateExistingScalarValueAcceptsASettledType(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Existing: Existing{
+			Package: true, Definition: true,
+			Attributes: map[string]Feature{"x": {TypeFQN: "ScalarValues::ScalarValue"}},
+			Stem:       "check",
+		},
+		Runs: []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}}}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if !strings.Contains(res.Source, "attribute :>> x = 2.0;") {
+		t.Errorf("generated source is missing the redefinition:\n%s", res.Source)
+	}
+}

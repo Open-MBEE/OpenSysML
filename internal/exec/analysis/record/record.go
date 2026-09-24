@@ -516,7 +516,8 @@ func checkExisting(req *Request, feats []feature, defName string) error {
 			}
 			return fmt.Errorf("record definition %s declares %s as %s but the run values need %s; record into another package with `into`", def, f.name, kind, want)
 		}
-		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ && f.typ != "ScalarValues::ScalarValue" {
+		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ &&
+			f.typ != "ScalarValues::ScalarValue" && decl.TypeFQN != "ScalarValues::ScalarValue" {
 			return fmt.Errorf("record definition %s declares %s : %s but the run values need %s : %s; record into another package with `into`", def, f.name, decl.TypeFQN, f.name, f.typ)
 		}
 	}
