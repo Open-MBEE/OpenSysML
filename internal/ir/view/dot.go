@@ -628,13 +628,20 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 }
 
 // dotFitHead wraps a head line into a box at the largest font size, from the
-// default down to the floor, at which it fits; when none does, the floor's
+// default down to the floor, at which it fits with its words whole, else at the
+// largest at which it fits with a word broken; when none does, the floor's
 // wrapping is cut to the lines the height holds, the last ellipsized.
 func dotFitHead(head string, width, height float64) (size float64, lines []string, fits bool) {
-	for size = dotFontSize; size >= dotFitFloor; size-- {
-		lines = dotWrap(head, dotRunesAcross(width, size, dotBoldGlyphEm))
-		if float64(len(lines))*size*dotLineEm <= height {
-			return size, lines, true
+	for _, whole := range []bool{true, false} {
+		for size = dotFontSize; size >= dotFitFloor; size-- {
+			across := dotRunesAcross(width, size, dotBoldGlyphEm)
+			if whole && dotBreaksAWord(head, across) {
+				continue
+			}
+			lines = dotWrap(head, across)
+			if float64(len(lines))*size*dotLineEm <= height {
+				return size, lines, true
+			}
 		}
 	}
 	size = dotFitFloor
@@ -647,6 +654,17 @@ func dotFitHead(head string, width, height float64) (size float64, lines []strin
 		lines[down-1] = string(last[:max(0, min(len(last), across-1))]) + "…"
 	}
 	return size, lines, false
+}
+
+// dotBreaksAWord reports whether wrapping text to across runes a line must break
+// a word: one longer than the line.
+func dotBreaksAWord(text string, across int) bool {
+	for _, word := range strings.Fields(text) {
+		if utf8.RuneCountInString(word) > across {
+			return true
+		}
+	}
+	return false
 }
 
 // dotRunesAcross is how many glyphs of a font size fit across a width, one at

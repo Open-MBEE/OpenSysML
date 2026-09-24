@@ -336,9 +336,10 @@ digraph "PlantViews::placedView" {
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
   moving it. A stated size is `width`/`height` in inches with `fixedsize=true`, and the label
   is composed to fit it (`dotFittedLabel` in `dot.go`), never the box grown to the label: the
-  head is word-wrapped at the box's width, a word wider than the box broken where it overruns,
-  and drawn at the largest whole font size from 14 pt down to 8 pt at which the wrapped lines
-  stack within the height; the keyword line (at 10/14 of the head's size) and each detail line
+  head is word-wrapped at the box's width and drawn at the largest whole font size from 14 pt
+  down to 8 pt at which the wrapped lines stack within the height with every word whole — a
+  word wider than the box at every size is broken where it overruns, at the largest size whose
+  lines then fit; the keyword line (at 10/14 of the head's size) and each detail line
   follow only while height remains for them, so a 449×14 px compartment row holds
   `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
   height even at 8 pt is cut to the lines that fit and its last line ellipsized. The estimate is
@@ -572,9 +573,10 @@ and did not change. A view-render RPC added later would take the form as a strin
 - `internal/ir/view/dot_fit_test.go`: the label fitted to a stated box — a head wrapped at the
   width, kept at 14 pt while it fits and shrunk to 8 pt when it does not, the keyword and detail
   lines kept only while height remains, a compartment row's one line, a word broken across
-  lines, the ellipsis at the floor — and `dotFitHead`/`dotWrap` on their own; the symbol every
-  kind draws as in a stated box, its `xlabel` for a name and none for a synthesized one, a
-  `port def` and an unsized symbol kind still labelled; an unsized node's label unchanged.
+  lines only when no size keeps it whole, the ellipsis at the floor — and `dotFitHead`/`dotWrap`
+  on their own; the symbol every kind draws as in a stated box, its `xlabel` for a name and none
+  for a synthesized one, a `port def` and an unsized symbol kind still labelled; an unsized
+  node's label unchanged.
 - `internal/ir/view/label_test.go`: a member headed by its name below its drawn owner, at every
   depth and for a nested exposed element, an unrelated root left whole, the text form unchanged.
 - `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their

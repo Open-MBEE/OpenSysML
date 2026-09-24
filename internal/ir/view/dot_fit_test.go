@@ -38,6 +38,8 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 			`label=<<font point-size="8"><b>&#39;a name that runs on…</b></font>>, pos="60,-7!", pin=true, width=1.6666666666666667, height=0.19444444444444445, fixedsize=true];`},
 		{"a word wider than the box is broken across lines", stated(&Node{ID: "n", Kind: "action", Name: "Reconfiguration"}, 60, 60),
 			`label=<<b>Reconf<br/>igurat<br/>ion</b>>`},
+		{"shrinking to keep a word whole comes before breaking it", stated(&Node{ID: "n", Kind: "part", Name: "EventStream"}, 77, 32),
+			`label=<<font point-size="10"><b>EventStream</b></font><br/><font point-size="7"><i>«part»</i></font>>`},
 		{"wrapping comes before shrinking", stated(&Node{ID: "n", Kind: "part", Name: "pump", Type: "Pump"}, 60, 40),
 			`label=<<b>pump<br/>: Pump</b>>`},
 	}
@@ -67,7 +69,8 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 
 // The fitting estimates with the writer's glyph metrics: dotFitHead wraps a
 // head at the runes a bold line of the size holds and picks the largest size
-// whose wrapped lines stack within the height.
+// whose wrapped lines stack within the height, with every word whole where a
+// size down to the floor allows it.
 func TestDOTFitHead(t *testing.T) {
 	cases := []struct {
 		head          string
@@ -80,6 +83,8 @@ func TestDOTFitHead(t *testing.T) {
 		{"call : doTracking", 100, 80, 14, []string{"call :", "doTracking"}, true},
 		{"call : doTracking", 100, 20, 8, []string{"call : doTracking"}, true},
 		{"errorReq : Real", 449, 14, 11, []string{"errorReq : Real"}, true},
+		{"EventStream", 77, 32, 10, []string{"EventStream"}, true},
+		{"Reconfiguration", 60, 60, 14, []string{"Reconf", "igurat", "ion"}, true},
 		{"abcdefghijklmnopqrstuvwxyz", 40, 14, 8, []string{"abcdef…"}, false},
 		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmn", "opqrst…"}, false},
 	}
