@@ -42,10 +42,11 @@ func labelsOf(roots []*Node) labeller {
 	return labeller{context: context, owned: ownedNames(roots)}
 }
 
-// ownedNames names each node relative to the nearest drawn node whose
-// qualified name its own continues. A root's name is its qualified name; a
-// child named with one name is named under its parent, one named with a
-// qualified name stands on its own, as a nested view's exposed elements do.
+// ownedNames names each node relative to the nearest drawn owner its qualified
+// name continues: a drawn node, or the type of a drawn usage, whose members the
+// usage's box holds. A root's name is its qualified name; a child named with one
+// name is named under its parent, one named with a qualified name stands on its
+// own, as a nested view's exposed elements do.
 func ownedNames(roots []*Node) map[*Node]string {
 	drawn := map[string]bool{}
 	qualified := map[*Node][]string{} // the nodes named with a qualifier: the ones to shorten
@@ -67,6 +68,9 @@ func ownedNames(roots []*Node) map[*Node]string {
 			}
 			if names != nil {
 				drawn[source.QualifiedNameOf(names)] = true
+			}
+			for _, typ := range source.ReferenceQualifiedNames(node.Type) {
+				drawn[source.QualifiedNameOf(typ)] = true
 			}
 			walk(node.Children, false, names)
 		}

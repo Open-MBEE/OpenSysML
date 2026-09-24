@@ -198,3 +198,29 @@ func TestDOTSynthesizedNameOnAPlainNode(t *testing.T) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 }
+
+// A stated box is written before the stated boxes it encloses, whatever order
+// the rendering lists them in, so Graphviz paints the enclosed ones on top;
+// boxes that do not nest, and nodes with no box, keep the rendering's order.
+func TestDOTWritesAnEnclosingBoxFirst(t *testing.T) {
+	inner := &Node{ID: "inner", Kind: "part", Name: "sensor", Geometry: &Geometry{X: 20, Y: 20, Width: 60, Height: 30, HasSize: true}}
+	outer := &Node{ID: "outer", Kind: "part", Name: "bench", Geometry: &Geometry{X: 0, Y: 0, Width: 300, Height: 200, HasSize: true}}
+	beside := &Node{ID: "beside", Kind: "part", Name: "rack", Geometry: &Geometry{X: 400, Y: 0, Width: 60, Height: 30, HasSize: true}}
+	loose := &Node{ID: "loose", Kind: "part", Name: "spare"}
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{inner, beside, loose, outer}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	last := -1
+	for _, id := range []string{"outer", "inner", "beside", "loose"} {
+		at := strings.Index(dot, "\n  "+dotQuote(id)+" [")
+		if at < 0 {
+			t.Fatalf("DOT lacks node %q:\n%s", id, dot)
+		}
+		if at < last {
+			t.Errorf("node %q written out of draw order:\n%s", id, dot)
+		}
+		last = at
+	}
+}

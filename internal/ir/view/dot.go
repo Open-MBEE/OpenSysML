@@ -114,7 +114,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		b.WriteString("}\n")
 		return b.String(), nil
 	}
-	for _, root := range r.Roots {
+	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, 1)
 	}
 	for _, edge := range r.Edges {
@@ -181,6 +181,12 @@ type nodeBox struct {
 // centre is the middle of the box, the point Graphviz pins a node at.
 func (b nodeBox) centre() Point {
 	return Point{X: (b.low.X + b.high.X) / 2, Y: (b.low.Y + b.high.Y) / 2}
+}
+
+// encloses reports whether other lies within b and is the smaller of the two.
+func (b nodeBox) encloses(other nodeBox) bool {
+	return other != b && other.low.X >= b.low.X && other.low.Y >= b.low.Y &&
+		other.high.X <= b.high.X && other.high.Y <= b.high.Y
 }
 
 // routeEnd is where a route meets a node, and the waypoint it goes on to.
@@ -356,13 +362,33 @@ func dotInches(px float64) string {
 	return formatCoord(px / 72)
 }
 
+// drawOrder moves a placed sibling ahead of the siblings its box encloses, which
+// Graphviz would otherwise paint it over, as it paints in file order.
+func (w *dotWriter) drawOrder(nodes []*Node) []*Node {
+	ordered := make([]*Node, 0, len(nodes))
+	for _, node := range nodes {
+		at := len(ordered)
+		if box, ok := w.boxes[node.ID]; ok {
+			at = slices.IndexFunc(ordered, func(other *Node) bool {
+				inner, ok := w.boxes[other.ID]
+				return ok && box.encloses(inner)
+			})
+			if at < 0 {
+				at = len(ordered)
+			}
+		}
+		ordered = slices.Insert(ordered, at, node)
+	}
+	return ordered
+}
+
 // writeNode writes one node: a cluster holding its children, a plain node
 // otherwise. A tree writes the node and an edge to each child instead.
 func (w *dotWriter) writeNode(node *Node, depth int) {
 	indent := strings.Repeat("  ", depth)
 	if len(node.Children) == 0 || w.tree {
 		fmt.Fprintf(&w.b, "%s%s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotNodeAttributes(node), ", "))
-		for _, child := range node.Children {
+		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
 			w.writeEdge(node.ID, child.ID, dotContainmentAttributes())
 		}
@@ -373,7 +399,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		fmt.Fprintf(&w.b, "%s  %s;\n", indent, attr)
 	}
 	fmt.Fprintf(&w.b, "%s  %s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotAnchorAttributes(node), ", "))
-	for _, child := range node.Children {
+	for _, child := range w.drawOrder(node.Children) {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)

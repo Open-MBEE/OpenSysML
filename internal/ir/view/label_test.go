@@ -125,6 +125,37 @@ func TestLabelsHeadMembersUnderTheirDrawnOwner(t *testing.T) {
 	}
 }
 
+// A member of a drawn usage's type is headed by its name below that type, as
+// the usage's box holds it — an interconnection rendering exposes the parts and
+// ports of a part's type flat; a member of a type no drawn usage has keeps its
+// qualifier, and a type written without one names no owner.
+func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
+	roots := []*Node{
+		{Kind: "part", Name: "TMT::Design::'Optical Bench'::sH", Type: "TMT::Design::'SH Assembly'::SH"},
+		{Kind: "part", Name: "TMT::Design::'SH Assembly'::SH::'SH Filter Wheel'", Type: "TMT::Design::Parts::'Rotational Filter Wheel'"},
+		{Kind: "port", Name: "TMT::Design::Parts::'Rotational Filter Wheel'::'bN sensor2'", Type: "~TMT::Design::Parts::'BN sensor'"},
+		{Kind: "port", Name: "TMT::Design::Parts::Shutter::digital3", Type: "Digital"},
+		{Kind: "part", Name: "TMT::Design::'Optical Bench'::pIT", Type: "PIT"},
+		{Kind: "part", Name: "TMT::Design::PIT::'PIT CCD'", Type: "CCD"},
+	}
+	want := []string{
+		"'Optical Bench'::sH : SH",
+		"'SH Filter Wheel' : 'Rotational Filter Wheel'",
+		"'bN sensor2' : ~'BN sensor'",
+		"Parts::Shutter::digital3 : Digital",
+		"'Optical Bench'::pIT : PIT",
+		"PIT::'PIT CCD' : CCD",
+	}
+	labels := labelsOf(roots)
+	var got []string
+	for _, root := range roots {
+		got = append(got, labels.head(root))
+	}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Errorf("heads = %q, want %q", got, want)
+	}
+}
+
 // The text form keeps the keyword leading, writes the type after a colon and
 // the notes in parentheses after it.
 func TestTextLabelShape(t *testing.T) {
