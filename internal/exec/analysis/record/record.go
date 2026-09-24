@@ -211,6 +211,12 @@ func classify(v runtime.Value, r *Run) shape {
 	if r.Spell.Unset != nil && r.Spell.Unset(v) {
 		return shape{kind: kindUnset}
 	}
+	// An enumeration literal keeps its identity through a scalar payload too.
+	if lit := v.EnumerationLiteral(); lit != nil {
+		enum := semantics.EnumerationOwning(lit)
+		fqn := qualifiedName(enum)
+		return shape{kind: kindEnum, typ: fqn, literal: source.QualifiedNameText(fqn + "::" + lit.Name)}
+	}
 	switch v.Kind {
 	case runtime.ValNull:
 		return shape{kind: kindUnset}
@@ -223,11 +229,6 @@ func classify(v runtime.Value, r *Run) shape {
 		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(semantics.FormatConst(v.Const))}
 	case runtime.ValString:
 		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(v.Str())}
-	case runtime.ValEnumLiteral:
-		lit := v.Literal()
-		enum := semantics.EnumerationOwning(lit)
-		fqn := qualifiedName(enum)
-		return shape{kind: kindEnum, typ: fqn, literal: source.QualifiedNameText(fqn + "::" + lit.Name)}
 	case runtime.ValQuantity:
 		q := v.Quantity()
 		return shape{kind: kindQuantity, typ: "ScalarValues::Real", literal: semantics.FormatConst(q.Num), unit: q.Unit.String()}
@@ -374,6 +375,14 @@ func buildFeatures(req *Request) ([]feature, error) {
 				shapes[m.name] = sh
 				continue
 			}
+			// Integer and Real are one numeric family for the record
+			// definition: either way the member settles to Real, an Integer
+			// literal remaining valid under it.
+			if numericPair(cur.typ, sh.typ) {
+				cur = shape{kind: kindReal, typ: "ScalarValues::Real"}
+				shapes[m.name] = cur
+				continue
+			}
 			f := feature{name: m.name}
 			applyShape(&f, cur)
 			if err := compatible(&f, sh); err != nil {
@@ -402,7 +411,11 @@ func buildFeatures(req *Request) ([]feature, error) {
 		f := feature{name: owner}
 		applyShape(&f, shapes[owner])
 		if err := compatible(&f, shapes[companion]); err != nil {
-			return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
+			if !numericPair(shapes[owner].typ, shapes[companion].typ) {
+				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
+			}
+			shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+			shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
 		}
 	}
 	var feats []feature
@@ -418,6 +431,13 @@ func buildFeatures(req *Request) ([]feature, error) {
 		}
 	}
 	return feats, nil
+}
+
+// numericPair reports whether the types are Integer and Real in either order:
+// one numeric family for the record definition, settling to Real.
+func numericPair(a, b string) bool {
+	return (a == "ScalarValues::Integer" && b == "ScalarValues::Real") ||
+		(a == "ScalarValues::Real" && b == "ScalarValues::Integer")
 }
 
 // applyShape gives a feature the declared shape a value's first supply asks for.
@@ -567,6 +587,12 @@ func checkExisting(req *Request, feats []feature, defName string) error {
 		}
 		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ &&
 			f.typ != "ScalarValues::ScalarValue" && decl.TypeFQN != "ScalarValues::ScalarValue" {
+			// An Integer literal is valid under a declared Real; the
+			// reverse would widen a definition the model owns, so it stays
+			// refused.
+			if decl.TypeFQN == "ScalarValues::Real" && f.typ == "ScalarValues::Integer" {
+				continue
+			}
 			return fmt.Errorf("record definition %s declares %s : %s but the run values need %s : %s; record into another package with `into`", def, f.name, decl.TypeFQN, f.name, f.typ)
 		}
 	}

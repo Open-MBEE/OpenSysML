@@ -595,3 +595,86 @@ func TestGenerateInoutRun(t *testing.T) {
 		t.Fatalf("generated source does not parse: %v\n%s", reparsed.Diagnostics[0], res.Source)
 	}
 }
+
+// A scalar-valued enumeration literal records as the literal it is, not the
+// scalar it equals.
+func TestGenerateScalarValuedEnumLiteral(t *testing.T) {
+	file := parser.New(source.New("<test>", []byte(
+		`package P { enum def Grade { enum high = 3; enum low = 1; } }`))).ParseFile()
+	scope := symbols.Build(file)
+	p, _ := scope.LookupLocal("P")
+	grade, _ := p.Scope.LookupLocal("Grade")
+	high, ok := grade.Scope.LookupLocal("high")
+	if !ok {
+		t.Fatal("enum literal not built")
+	}
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Outputs: []runtime.CalcOutputValue{
+				{Name: "g", Value: runtime.EnumeratedValue(high, integer(3))},
+				{Name: "half", Value: real(1.5)},
+			},
+			Spell: spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute g : P::Grade;",
+		"attribute :>> g = P::Grade::high;",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}
+
+// Integer and Real are one numeric family for the record definition: rows of
+// either settle the member to Real, each literal staying its own.
+func TestGenerateNumericFamilySettlesToReal(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindSweep),
+		Runs: []Run{
+			{Outputs: []runtime.CalcOutputValue{{Name: "half", Value: integer(3)}}, Spell: spell()},
+			{Outputs: []runtime.CalcOutputValue{{Name: "half", Value: real(3.5)}}, Spell: spell()},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute half : ScalarValues::Real;",
+		"attribute :>> half = 3;",
+		"attribute :>> half = 3.5;",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}
+
+// A declared Real member accepts Integer values — Integer specializes it —
+// while a declared Integer member cannot take a Real back.
+func TestGenerateExistingRealAcceptsAnInteger(t *testing.T) {
+	req := Request{
+		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindRun),
+		Existing: Existing{
+			Package: true, Definition: true,
+			Attributes: map[string]Feature{"half": {TypeFQN: "ScalarValues::Real"}},
+		},
+		Runs: []Run{{
+			Outputs: []runtime.CalcOutputValue{{Name: "half", Value: integer(3)}},
+			Spell:   spell(),
+		}},
+	}
+	if _, err := Generate(req); err != nil {
+		t.Fatalf("an Integer under a declared Real: %v", err)
+	}
+	req.Existing.Attributes["half"] = Feature{TypeFQN: "ScalarValues::Integer"}
+	req.Runs[0].Outputs[0].Value = real(3.5)
+	if _, err := Generate(req); err == nil {
+		t.Error("a Real under a declared Integer: want an error")
+	}
+}

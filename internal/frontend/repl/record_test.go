@@ -658,3 +658,43 @@ func TestRecordMergesIntoTheFileHoldingTheTargetPackage(t *testing.T) {
 		t.Fatalf("recording left errors: %v", errs)
 	}
 }
+
+// A member the runs supply as Integer and Real alike settles to Real — the
+// Integer literal stays valid under it — and a scalar-valued enum literal
+// records as the literal it is.
+func TestRecordRunSettlesNumericFamilyAndKeepsLiterals(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	res := s.Submit(`package Demo {
+	private import ScalarValues::*;
+	part def Thing;
+	part t : Thing;
+	enum def Grade :> Integer { high = 3; low = 1; }
+	analysis def Mix {
+		subject s = t;
+		in n : Real;
+		return half : Real = if n > 2 ? 3 else n / 2.0;
+		out g : Grade = Grade::high;
+	}
+}`)
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::Mix(n=1.0)"), "recorded Records::Mix_run1")
+	wants(t, run(t, s, "%record Demo::Mix(n=3.0)"), "recorded Records::Mix_run2")
+	text := s.text()
+	for _, want := range []string{
+		"attribute half : ScalarValues::Real;",
+		"attribute g : Demo::Grade;",
+		"attribute :>> half = 0.5;",
+		"attribute :>> half = 3;",
+		"attribute :>> g = Demo::Grade::high;",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("session text is missing %q:\n%s", want, text)
+		}
+	}
+	if errs := errorDiagnostics(s.diagnostics()); len(errs) > 0 {
+		t.Fatalf("recording left errors: %v", errs)
+	}
+}
