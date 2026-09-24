@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -34,9 +35,15 @@ func TestUndefinedOperatorsRecordsEveryTilde(t *testing.T) {
 
 // `~~x` records both the inner and the outer `~` expression.
 func TestUndefinedOperatorsRecordsNestedTildes(t *testing.T) {
-	root := New(source.New("t.sysml", []byte("package p { attribute a = ~~x; }"))).ParseFile()
-	if len(root.UndefinedOperators) != 2 {
-		t.Fatalf("UndefinedOperators len = %d, want 2 for ~~x", len(root.UndefinedOperators))
+	src := "package p { attribute a = ~~x; }"
+	root := New(source.New("t.sysml", []byte(src))).ParseFile()
+	ops := root.UndefinedOperators
+	if len(ops) != 2 {
+		t.Fatalf("UndefinedOperators len = %d, want 2 for ~~x", len(ops))
+	}
+	outer := strings.Index(src, "~~")
+	if got := []int{ops[0].Span().Offset, ops[1].Span().Offset}; got[0] != outer || got[1] != outer+1 {
+		t.Fatalf("offsets = %v, want outer %d then inner %d", got, outer, outer+1)
 	}
 }
 

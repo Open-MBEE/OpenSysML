@@ -185,11 +185,17 @@ func (p *Parser) parseUnary() ast.Node {
 		return p.parsePrimary()
 	}
 	p.advance() // prefix operator
+	// Reserve the slot before the operand so nested `~~x` records in source order.
+	slot := -1
+	if op == ast.OpBitNot {
+		slot = len(p.undefinedOps)
+		p.undefinedOps = append(p.undefinedOps, nil)
+	}
 	operand := p.parseUnary()
 	e := &ast.OperatorExpr{Operator: op, Operands: []ast.Node{operand}}
 	e.NodeSpan = p.spanFrom(start)
-	if op == ast.OpBitNot {
-		p.undefinedOps = append(p.undefinedOps, e)
+	if slot >= 0 {
+		p.undefinedOps[slot] = e
 	}
 	return e
 }
