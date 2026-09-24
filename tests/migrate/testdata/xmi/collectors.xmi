@@ -329,6 +329,23 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e6" source="_drafts_image" target="_drafts_final"/>
         </ownedBehavior>
       </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_optional" name="Optional Drafts Viewpoint" classifierBehavior="_act_optional">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_optional" name="Optional Drafts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_optional_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_optional_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_optional_names" name="Filter By Names"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_optional_list" name="Bulleted List"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_optional_owned" name="Collect Owned Diagrams"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_optional_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_optional_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e1" source="_optional_init" target="_optional_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e2" source="_optional_collect" target="_optional_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e3" source="_optional_names" target="_optional_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e4" source="_optional_list" target="_optional_owned"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e5" source="_optional_owned" target="_optional_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_optional_e6" source="_optional_image" target="_optional_final"/>
+        </ownedBehavior>
+      </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_owner" name="Owner Sorted Diagrams Viewpoint" classifierBehavior="_act_owner">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_owner" name="Owner Sorted Diagrams Method">
@@ -389,6 +406,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ddocs" name="diagramsByDocumentation" type="_view_ddocs" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_owner" name="ownerSortedDiagrams" type="_view_owner" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_drafts" name="unnamedDrafts" type="_view_drafts" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_optional" name="optionalDrafts" type="_view_optional" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_bdds" name="Block Diagrams">
@@ -517,6 +535,11 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_drafts" general="_vp_drafts"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_drafts" client="_view_drafts" supplier="_pkg_drafts"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_optional" name="Optional Drafts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_optional" general="_vp_optional"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_optional" client="_view_optional" supplier="_pkg_drafts"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -656,6 +679,7 @@
   <sysml:Viewpoint xmi:id="_st_vp_ddocs" base_Class="_vp_ddocs"/>
   <sysml:Viewpoint xmi:id="_st_vp_owner" base_Class="_vp_owner"/>
   <sysml:Viewpoint xmi:id="_st_vp_drafts" base_Class="_vp_drafts"/>
+  <sysml:Viewpoint xmi:id="_st_vp_optional" base_Class="_vp_optional"/>
 
   <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
   <sysml:View xmi:id="_st_view_sketch" base_Class="_view_sketch"/>
@@ -679,6 +703,7 @@
   <sysml:View xmi:id="_st_view_ddocs" base_Class="_view_ddocs"/>
   <sysml:View xmi:id="_st_view_owner" base_Class="_view_owner"/>
   <sysml:View xmi:id="_st_view_drafts" base_Class="_view_drafts"/>
+  <sysml:View xmi:id="_st_view_optional" base_Class="_view_optional"/>
 
   <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
   <sysml:Conform xmi:id="_st_conform_sketch" base_Generalization="_gen_sketch"/>
@@ -702,6 +727,7 @@
   <sysml:Conform xmi:id="_st_conform_ddocs" base_Generalization="_gen_ddocs"/>
   <sysml:Conform xmi:id="_st_conform_owner" base_Generalization="_gen_owner"/>
   <sysml:Conform xmi:id="_st_conform_drafts" base_Generalization="_gen_drafts"/>
+  <sysml:Conform xmi:id="_st_conform_optional" base_Generalization="_gen_optional"/>
 
   <sysml:Expose xmi:id="_st_expose_bdds_structure" base_Dependency="_expose_bdds_structure"/>
   <sysml:Expose xmi:id="_st_expose_bdds_internals" base_Dependency="_expose_bdds_internals"/>
@@ -742,6 +768,7 @@
   <sysml:Expose xmi:id="_st_expose_ddocs_gantry" base_Dependency="_expose_ddocs_gantry"/>
   <sysml:Expose xmi:id="_st_expose_owner" base_Dependency="_expose_owner"/>
   <sysml:Expose xmi:id="_st_expose_drafts" base_Dependency="_expose_drafts"/>
+  <sysml:Expose xmi:id="_st_expose_optional" base_Dependency="_expose_optional"/>
 
   <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
 
@@ -835,6 +862,14 @@
   <Document_Profile_:BulletedList xmi:id="_st_drafts_list" base_CallBehaviorAction="_drafts_list" showTargets="true" includeDoc="false"/>
   <Document_Profile_:CollectOwnedElements xmi:id="_st_drafts_owned" base_CallBehaviorAction="_drafts_owned" depth="1"/>
   <Document_Profile_:Image xmi:id="_st_drafts_image" base_CallBehaviorAction="_drafts_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_optional_collect" base_CallBehaviorAction="_optional_collect" depth="1"/>
+  <Document_Profile_:FilterByNames xmi:id="_st_optional_names" base_CallBehaviorAction="_optional_names" include="true">
+    <names>(Sketchy)?</names>
+  </Document_Profile_:FilterByNames>
+  <Document_Profile_:BulletedList xmi:id="_st_optional_list" base_CallBehaviorAction="_optional_list" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_optional_owned" base_CallBehaviorAction="_optional_owned" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_optional_image" base_CallBehaviorAction="_optional_image"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_spec_collect" base_CallBehaviorAction="_spec_collect" depth="0"/>
   <Document_Profile_:FilterByStereotypes xmi:id="_st_spec_filter" base_CallBehaviorAction="_spec_filter" include="true">

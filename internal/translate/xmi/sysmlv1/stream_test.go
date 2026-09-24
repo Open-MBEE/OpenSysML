@@ -106,7 +106,8 @@ func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
 // Every diagram is read from its stream in the archive: one whose tool lists
 // no used element gets what the symbols draw, one whose list names elements
 // keeps the list in order and gains the elements the symbols draw beyond it,
-// however the two spell an element's href; one whose stream is absent or
+// however the two spell an element's href, while hrefs into two modules stay
+// two elements though their fragments agree; one whose stream is absent or
 // unreadable stays unread with its list as written.
 func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	model := strings.Replace(string(diagramDocument(bddDiagram+`
@@ -155,6 +156,11 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
           </xmi:Extension>
         </ownedDiagram>`)),
 		`xmlns:diagram=`, `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diagram=`, 1)
+	model = strings.Replace(model, `<packagedElement xmi:type="uml:Class" xmi:id="_b" name="B"/>`,
+		`<packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_b_x" name="x"><type xmi:type="uml:Class" href="ModuleA.xmi#_shared"/></ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_b_y" name="y"><type xmi:type="uml:Class" href="ModuleB.xmi#_shared"/></ownedAttribute>
+      </packagedElement>`, 1)
 	m, err := Parse(archive(t, "", map[string][]byte{
 		"com.nomagic.magicdraw.uml_model.model": []byte(model),
 		"BINARY-1": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement>` +
@@ -163,7 +169,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 			`<mdElement elementClass="TextBox"/></mdOwnedViews>`),
 		"BINARY-empty": []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_empty"/></mdElement><mdElement elementClass="ImageShape"/></mdOwnedViews>`),
 		"BINARY-drawn": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/><mdOwnedViews><mdElement elementClass="Part"><elementID xmi:idref="_a_b"/></mdElement></mdOwnedViews></mdElement>` +
-			`<mdElement elementClass="DataType"><elementID href="PrimitiveTypes.mdzip#Real"/></mdElement></mdOwnedViews>`),
+			`<mdElement elementClass="DataType"><elementID href="PrimitiveTypes.mdzip#Real"/></mdElement>` +
+			`<mdElement elementClass="Class"><elementID href="ModuleA.xmi#_shared"/></mdElement>` +
+			`<mdElement elementClass="Class"><elementID href="ModuleB.xmi#_shared"/></mdElement></mdOwnedViews>`),
 		"BINARY-lost": []byte("\xff\xfe not a stream"),
 		"BINARY-cut":  []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
@@ -188,10 +196,11 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	if d := byID["_d_empty"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"ImageShape": 1}) {
 		t.Errorf("empty diagram: drawn %v, shown %q, free %v", d.Drawn, shown(d), d.Free)
 	}
-	if d := byID["_d_drawn"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_b", "_a_b", "PrimitiveTypes.mdzip#Real"}) || len(d.Free) != 0 ||
+	if d := byID["_d_drawn"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_b", "_a_b", "PrimitiveTypes.mdzip#Real", "ModuleA.xmi#_shared", "ModuleB.xmi#_shared"}) || len(d.Free) != 0 ||
 		d.Shown[0].Element == nil || d.Shown[1].Element == nil ||
-		d.Shown[2].Element != m.Lookup("http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real") {
-		t.Errorf("drawn diagram: drawn %v, shown %q, free %v; want the module-file href resolved to the proxy", d.Drawn, shown(d), d.Free)
+		d.Shown[2].Element != m.Lookup("http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real") ||
+		d.Shown[3].Element != m.Lookup("ModuleA.xmi#_shared") || d.Shown[4].Element != m.Lookup("ModuleB.xmi#_shared") || d.Shown[3].Element == d.Shown[4].Element {
+		t.Errorf("drawn diagram: drawn %v, shown %q, free %v; want the module-file href resolved to the proxy and the two modules' elements both shown", d.Drawn, shown(d), d.Free)
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())

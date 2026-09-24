@@ -122,20 +122,32 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		}
 		d.Drawn = true
 		d.Free = syms.free
-		listed := map[string]bool{}
+		// Two spellings name one element when they resolve to it; ones resolving
+		// to none are the same only when spelled alike.
+		elements := map[*Element]bool{}
+		dangling := map[string]bool{}
+		listed := func(id string) bool {
+			if e := m.shown(id); e != nil {
+				was := elements[e]
+				elements[e] = true
+				return was
+			}
+			was := dangling[id]
+			dangling[id] = true
+			return was
+		}
 		for _, ref := range d.Shown {
-			listed[fragment(ref.ID)] = true
+			listed(ref.ID)
 		}
 		for _, id := range syms.shown {
-			if !listed[fragment(id)] {
-				listed[fragment(id)] = true
+			if !listed(id) {
 				d.Shown = append(d.Shown, ElementRef{ID: id})
 			}
 		}
 	}
 }
 
-// fragment is the element id an href or id names: the list and the symbols may
+// fragment is the element id an href or id names: a list and the symbols may
 // spell one element's href by module file or by project resource.
 func fragment(id string) string {
 	return id[strings.LastIndexByte(id, '#')+1:]

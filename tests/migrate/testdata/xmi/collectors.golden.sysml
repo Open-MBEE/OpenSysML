@@ -337,6 +337,23 @@ package 'Yard Viewpoints' {
         }
         perform action 'unnamed Drafts Method' : 'Unnamed Drafts Method';
     }
+    viewpoint 'Optional Drafts Viewpoint' {
+        action def 'Optional Drafts Method' {
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'Bulleted List';
+            action 'Bulleted List';
+            first 'Bulleted List' then 'Collect Owned Diagrams';
+            action 'Collect Owned Diagrams';
+            first 'Collect Owned Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'optional Drafts Method' : 'Optional Drafts Method';
+    }
     viewpoint 'Owner Sorted Diagrams Viewpoint' {
         action def 'Owner Sorted Diagrams Method' {
             first start then 'Sort By Owner';
@@ -393,6 +410,7 @@ package 'Yard Handbook' {
         view diagramsByDocumentation :> 'Diagrams By Documentation';
         view ownerSortedDiagrams :> 'Owner Sorted Diagrams';
         view unnamedDrafts :> 'Unnamed Drafts';
+        view optionalDrafts :> 'Optional Drafts';
         /* applied stereotype «Document» */
     }
     view 'Block Diagrams' {
@@ -500,6 +518,10 @@ package 'Yard Handbook' {
         satisfy 'Yard Viewpoints'::'Unnamed Drafts Viewpoint';
         expose Drafts::**;
     }
+    view 'Optional Drafts' {
+        satisfy 'Yard Viewpoints'::'Optional Drafts Viewpoint';
+        expose Drafts::**;
+    }
     calc def 'Yard Handbook Shown Blocks Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
@@ -550,12 +572,7 @@ package 'Yard Handbook' {
     }
     calc def 'Yard Handbook Bulleted List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereName(
-                source = DocumentQueries::Descendants(
-                    source = DocumentQueries::Named(qualifiedName = ("Drafts")),
-                    maxDepth = 1),
-                operator = "matches",
-                value = "^(?:unnamed)$"),
+            source = DocumentQueries::Named(qualifiedName = ("Drafts::unnamed", "Drafts::Sketchy")),
             properties = ("name"))
     }
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
@@ -564,6 +581,7 @@ package 'Yard Handbook' {
         ref crane : Structure::Crane;
         ref gantry : Structure::Gantry;
         ref unnamed : Drafts::unnamed;
+        ref sketchy : Drafts::Sketchy;
         part 'Block Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Block Diagrams";
             part diagram : DocumentQueries::Diagram {
@@ -730,6 +748,9 @@ package 'Yard Handbook' {
         }
         part 'Unnamed Drafts' : DocumentQueries::Section {
             attribute redefines title = "Unnamed Drafts";
+        }
+        part 'Optional Drafts' : DocumentQueries::Section {
+            attribute redefines title = "Optional Drafts";
             part list : DocumentQueries::List {
                 attribute redefines style = "bullet";
                 calc items : 'Yard Handbook Bulleted List Rows';
@@ -737,6 +758,10 @@ package 'Yard Handbook' {
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "Overview";
                 ref redefines source = unnamed.Overview;
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Sketchy Overview";
+                ref redefines source = sketchy.'Sketchy Overview';
             }
         }
     }

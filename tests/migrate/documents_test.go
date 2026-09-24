@@ -48,6 +48,21 @@ func wantOneNote(t *testing.T, r *migrate.Result, id string, verdict migrate.Ver
 	t.Errorf("entries for %s = %+v, want a %v entry noting %q", id, es, verdict, note)
 }
 
+// notationSection is the written Section of the title up to the next Section,
+// or "" when the notation writes none.
+func notationSection(notation, title string) string {
+	head := "part '" + title + "' : DocumentQueries::Section {"
+	i := strings.Index(notation, head)
+	if i < 0 {
+		return ""
+	}
+	body := notation[i:]
+	if j := strings.Index(body[len(head):], ": DocumentQueries::Section {"); j >= 0 {
+		body = body[:len(head)+j]
+	}
+	return body
+}
+
 // markdownSection is the Markdown from heading to the next heading of its
 // level, or "" when the document has no such heading.
 func markdownSection(md, heading string) string {
@@ -572,20 +587,32 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantNote(t, r, "_st_owner_image", migrate.Unmapped,
 		"the diagrams it shows pass through «SortByAttribute» Yard Viewpoints::Owner Sorted Diagrams Viewpoint::Owner Sorted Diagrams Method::Sort By Owner is not migrated: no query property stands for the attribute Owner")
 
-	// A name filter matches the name the element bears in the output, as its
-	// query does: the anonymous block written as `unnamed` passes the filter
-	// naming it, so the diagram it owns is drawn, and its named sibling's is not.
-	wantInOrder(t, "Unnamed Drafts", notation,
+	// A name filter matches the v1 name, as DocGen does: the anonymous block the
+	// write names `unnamed` does not pass the filter naming it, so the section
+	// shows nothing, and no WhereName query over v2 names stands in its place.
+	wantNote(t, r, "_st_drafts_list", migrate.Mapped, "it shows nothing: «FilterByNames» Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names drops all 2 elements collected, none of them a diagram")
+	wantNote(t, r, "_st_drafts_image", migrate.Mapped, "it draws nothing: «FilterByNames» Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names drops all 2 elements collected, none of them a diagram; an Image draws only diagrams")
+	if body := notationSection(notation, "Unnamed Drafts"); strings.Contains(body, "DocumentQueries::Diagram") || strings.Contains(body, "DocumentQueries::List") || strings.Contains(notation, `"^(?:unnamed)$"`) {
+		t.Errorf("Unnamed Drafts shows the block the filter drops by v1 name:\n%s", body)
+	}
+	// Where an element's v1 and v2 names fall on different sides of the pattern,
+	// the filter names the elements it keeps instead of spelling a WhereName
+	// query, which would read the v2 name: the pattern matching the empty name
+	// keeps the anonymous block and its named sibling alike.
+	wantInOrder(t, "Optional Drafts", notation,
 		"calc def 'Yard Handbook Bulleted List Rows'",
-		`value = "^(?:unnamed)$")`,
-		"part 'Unnamed Drafts' : DocumentQueries::Section {",
+		`DocumentQueries::Named(qualifiedName = ("Drafts::unnamed", "Drafts::Sketchy"))`,
+		"part 'Optional Drafts' : DocumentQueries::Section {",
 		"calc items : 'Yard Handbook Bulleted List Rows';",
 		`attribute redefines caption = "Overview";`,
-		"ref redefines source = unnamed.Overview;")
-	if body := notation[strings.Index(notation, "part 'Unnamed Drafts' : DocumentQueries::Section"):]; strings.Count(body, "DocumentQueries::Diagram") != 1 {
-		t.Errorf("Unnamed Drafts draws other than the unnamed block's diagram:\n%s", body)
+		"ref redefines source = unnamed.Overview;",
+		`attribute redefines caption = "Sketchy Overview";`,
+		"ref redefines source = sketchy.'Sketchy Overview';")
+	if body := notationSection(notation, "Optional Drafts"); strings.Count(body, "DocumentQueries::Diagram") != 2 {
+		t.Errorf("Optional Drafts draws other than both blocks' diagrams:\n%s", body)
 	}
-	wantNote(t, r, "_st_drafts_image", migrate.Mapped, "")
+	wantNote(t, r, "_st_optional_list", migrate.Approximated, "«FilterByNames» Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names names the elements it keeps, since a WhereName query matches v2 names: the «Block» Class Drafts::<Class> is named unnamed in v2")
+	wantOneNote(t, r, "_st_optional_image", migrate.Mapped, "")
 
 	s := session(t, r)
 	md := markdown(t, s, "'Yard Handbook'::'Yard Handbook Document'")
@@ -622,14 +649,12 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"*Crane Internals*", "```mermaid", "*Gantry Drive*", "```mermaid",
 		"## Diagrams By Documentation", "*Gantry Drive*", "```mermaid", "*Crane Structure*", "```mermaid",
 		"## Owner Sorted Diagrams",
-		"## Unnamed Drafts", "- unnamed", "*Overview*", "```mermaid")
-	if n := strings.Count(md, "```mermaid"); n != 18 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 18:\n%s", n, md)
+		"## Unnamed Drafts",
+		"## Optional Drafts", "- unnamed\n- Sketchy", "*Overview*", "```mermaid", "*Sketchy Overview*", "```mermaid")
+	if n := strings.Count(md, "```mermaid"); n != 19 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 19:\n%s", n, md)
 	}
-	if body := markdownSection(md, "## Unnamed Drafts"); strings.Contains(body, "Sketchy") {
-		t.Errorf("Unnamed Drafts shows the named sibling the filter drops:\n%s", body)
-	}
-	for _, heading := range []string{"## Sketched Diagrams", "## No Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
+	for _, heading := range []string{"## Sketched Diagrams", "## No Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams", "## Unnamed Drafts"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
 			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
 		}

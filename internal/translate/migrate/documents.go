@@ -1193,8 +1193,20 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		return false
 	}
 	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return matches(d.Name) })
-	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) { return matches(c.m.writtenName(e)), true })
+	// DocGen matches the v1 name; a query matches the v2 one, which differs
+	// where the write names an element anew, an anonymous one.
+	var renamed []*sysmlv1.Element
+	for _, e := range c.holders {
+		if c.m.written(e) && matches(e.Name) != matches(c.m.writtenName(e)) {
+			renamed = append(renamed, e)
+		}
+	}
+	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) { return matches(e.Name), true })
 	if c.empty() {
+		return
+	}
+	if len(renamed) > 0 {
+		c.keepNamed(s, renamed)
 		return
 	}
 	kept := qcall("WhereName", qarg1("source", c.ctx), qarg1("operator", qstr("matches")), qarg1("value", qstr(strings.Join(patterns, "|"))))
@@ -1203,6 +1215,42 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		return
 	}
 	c.ctx = kept
+}
+
+// keepNamed spells a name filter as the elements it keeps, since a WhereName
+// query over the v2 names would keep or drop the renamed elements otherwise.
+func (c *chain) keepNamed(s *sysmlv1.DocGenStep, renamed []*sysmlv1.Element) {
+	step := "«" + c.kind(s) + "» " + qualifiedName(s.Node)
+	var names []string
+	nameless := 0
+	for _, e := range c.holders {
+		switch {
+		case !c.m.written(e):
+		case c.m.writtenName(e) == "":
+			nameless++
+		default:
+			names = append(names, c.m.plainName(e))
+		}
+	}
+	var why []string
+	for _, e := range renamed {
+		why = append(why, "the "+kindOf(e)+" "+qualifiedName(e)+" is named "+c.m.writtenName(e)+" in v2")
+	}
+	c.note(step + " names the elements it keeps, since a WhereName query matches v2 names: " + strings.Join(why, "; "))
+	if nameless > 0 {
+		c.note(step + " leaves out " + plural(nameless, "element") + " it keeps that no query names, anonymous in v2")
+	}
+	if len(names) == 0 {
+		c.ctx = qx{}
+		if len(c.diagrams) == 0 {
+			c.none = c.dropped
+			if c.none == "" {
+				c.none = step + " keeps no element a query names"
+			}
+		}
+		return
+	}
+	c.ctx = qcall("Named", qstrs("qualifiedName", names...))
 }
 
 // sort lowers a sort step to OrderBy over a query property and orders the current

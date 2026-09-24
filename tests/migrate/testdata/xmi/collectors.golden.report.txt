@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: collectors.xmi
 # exported by Example UML Tool
-# migrated 399 element(s): 305 mapped, 86 approximated, 8 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 420 element(s): 319 mapped, 93 approximated, 8 unmapped (1 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (8)
 «Image» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Image	_st_all_image	(the diagram of unknown kind 'Sketch' is a view rendered as textual notation, which a document does not draw)
@@ -12,14 +12,14 @@
 «FilterByStereotypes» CallBehaviorAction	Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes	_st_todo_filter	(no v2 metaclass stands for the elements of «TODO_Owner»)
 «TableStructure» StructuredActivityNode	Yard Viewpoints::To Do Viewpoint::To Do Method::To Do Items	_st_todo_table	(the elements it shows pass through «FilterByStereotypes» Yard Viewpoints::To Do Viewpoint::To Do Method::Filter By Stereotypes is not migrated: no v2 metaclass stands for the elements of «TODO_Owner»)
 
-## approximated (86)
+## approximated (93)
 «Block» Class	Drafts::<Class>	_blk_draft	-> Drafts::unnamed	(the anonymous Class is named unnamed)
 Diagram	Sketches::Sketch	_diag_untyped	-> Sketches::Sketch	(a diagram of unknown kind written as a view rendered asTextualNotation; no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing)
 Diagram	Structure::Crane Structure	_diag_structure	-> Structure::'Crane Structure'	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 2 of 7 shown elements are not written and not exposed; 3 of 7 shown ids resolve to no element)
 Property	Structure::Crane::cable	_prop_cable	-> Structure::Crane::cable	(shared aggregation is written as a reference part)
 Property	Structure::Crane::counterweight	_prop_counterweight	-> Structure::Crane::counterweight	(the untyped property is written as a reference usage)
 «Document» Class	Yard Handbook::Yard Handbook	_doc_handbook	-> 'Yard Handbook'::'Yard Handbook'	(a plain UML class without «Block» is written as a part def)
-«Document» Class	Yard Handbook::Yard Handbook	_st_doc_handbook	-> part def 'Yard Handbook'::'Yard Handbook Document'	(the «Document» is written as a Document definition of 22 section(s); leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own)
+«Document» Class	Yard Handbook::Yard Handbook	_st_doc_handbook	-> part def 'Yard Handbook'::'Yard Handbook Document'	(the «Document» is written as a Document definition of 23 section(s); leaves out 2 elements shown on the SysML Block Definition Diagram 'Crane Structure' that the archive does not describe; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' that the migration does not write; leaves out 1 element shown on the SysML Block Definition Diagram 'Crane Structure' written within the elements owning them, with no v2 element of their own; «FilterByNames» Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names names the elements it keeps, since a WhereName query matches v2 names: the «Block» Class Drafts::<Class> is named unnamed in v2)
 Activity	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method	_act_all	-> 'Yard Viewpoints'::'All Diagrams Viewpoint'::'All Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::All Diagrams Viewpoint as its usage all Diagrams Method)
 «FilterByDiagramType» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Filter By Diagram Type	_all_filter	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::All Diagrams Viewpoint::All Diagrams Method::Image	_all_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -51,6 +51,13 @@ Activity	Yard Viewpoints::Kin Diagrams Viewpoint::Kin Diagrams Method	_act_kin	-
 Activity	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method	_act_noneof	-> 'Yard Viewpoints'::'No Diagrams Viewpoint'::'No Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::No Diagrams Viewpoint as its usage no Diagrams Method)
 «FilterByDiagramType» CallBehaviorAction	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::Filter By Diagram Type	_noneof_filter	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::Image	_noneof_image	-> Image	(a step with no behavior and no duration; it passes the token on)
+Activity	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method	_act_optional	-> 'Yard Viewpoints'::'Optional Drafts Viewpoint'::'Optional Drafts Method'	(the classifier behavior is run by every object of Yard Viewpoints::Optional Drafts Viewpoint as its usage optional Drafts Method)
+«BulletedList» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Bulleted List	_optional_list	-> 'Bulleted List'	(a step with no behavior and no duration; it passes the token on)
+«BulletedList» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Bulleted List	_st_optional_list	-> part 'Yard Handbook'::'Yard Handbook Document'::'Optional Drafts'::list	(its rows are the query 'Yard Handbook Bulleted List Rows'; «FilterByNames» Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names names the elements it keeps, since a WhereName query matches v2 names: the «Block» Class Drafts::<Class> is named unnamed in v2)
+«CollectOwnedElements» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Collect Owned Diagrams	_optional_owned	-> 'Collect Owned Diagrams'	(a step with no behavior and no duration; it passes the token on)
+«CollectOwnedElements» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Collect Owned Elements	_optional_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration; it passes the token on)
+«FilterByNames» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Filter By Names	_optional_names	-> 'Filter By Names'	(a step with no behavior and no duration; it passes the token on)
+«Image» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Image	_optional_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 Activity	Yard Viewpoints::Other Diagrams Viewpoint::Other Diagrams Method	_act_others	-> 'Yard Viewpoints'::'Other Diagrams Viewpoint'::'Other Diagrams Method'	(the classifier behavior is run by every object of Yard Viewpoints::Other Diagrams Viewpoint as its usage other Diagrams Method)
 «FilterByDiagramType» CallBehaviorAction	Yard Viewpoints::Other Diagrams Viewpoint::Other Diagrams Method::Filter By Diagram Type	_others_filter	-> 'Filter By Diagram Type'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::Other Diagrams Viewpoint::Other Diagrams Method::Image	_others_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -100,7 +107,7 @@ Activity	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method	_act_d
 «FilterByNames» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names	_drafts_names	-> 'Filter By Names'	(a step with no behavior and no duration; it passes the token on)
 «Image» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Image	_drafts_image	-> Image	(a step with no behavior and no duration; it passes the token on)
 
-## mapped (305)
+## mapped (319)
 Package	Drafts	_pkg_drafts	-> Drafts
 Diagram	Drafts::<Class>::Overview	_diag_draft	-> Drafts::unnamed::Overview	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
 «Block» Class	Drafts::Sketchy	_blk_sketchy	-> Drafts::Sketchy
@@ -178,6 +185,7 @@ Package	Yard Handbook	_pkg_doc	-> 'Yard Handbook'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_ddocs_gantry	-> 'Yard Handbook'::'Diagrams By Documentation'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_owner	-> 'Yard Handbook'::'Owner Sorted Diagrams'
 «Expose» Dependency	Yard Handbook::<Dependency>	_expose_drafts	-> 'Yard Handbook'::'Unnamed Drafts'
+«Expose» Dependency	Yard Handbook::<Dependency>	_expose_optional	-> 'Yard Handbook'::'Optional Drafts'
 «View» Class	Yard Handbook::All Diagrams	_view_all	-> 'Yard Handbook'::'All Diagrams'
 «Conform» Generalization	Yard Handbook::All Diagrams::<Generalization>	_gen_all	-> 'Yard Handbook'::'All Diagrams'
 «View» Class	Yard Handbook::Block Diagrams	_view_bdds	-> 'Yard Handbook'::'Block Diagrams'
@@ -200,6 +208,8 @@ Package	Yard Handbook	_pkg_doc	-> 'Yard Handbook'
 «Conform» Generalization	Yard Handbook::Kin Diagrams::<Generalization>	_gen_kin	-> 'Yard Handbook'::'Kin Diagrams'
 «View» Class	Yard Handbook::No Diagrams	_view_noneof	-> 'Yard Handbook'::'No Diagrams'
 «Conform» Generalization	Yard Handbook::No Diagrams::<Generalization>	_gen_noneof	-> 'Yard Handbook'::'No Diagrams'
+«View» Class	Yard Handbook::Optional Drafts	_view_optional	-> 'Yard Handbook'::'Optional Drafts'
+«Conform» Generalization	Yard Handbook::Optional Drafts::<Generalization>	_gen_optional	-> 'Yard Handbook'::'Optional Drafts'
 «View» Class	Yard Handbook::Other Diagrams	_view_others	-> 'Yard Handbook'::'Other Diagrams'
 «Conform» Generalization	Yard Handbook::Other Diagrams::<Generalization>	_gen_others	-> 'Yard Handbook'::'Other Diagrams'
 «View» Class	Yard Handbook::Owner Sorted Diagrams	_view_owner	-> 'Yard Handbook'::'Owner Sorted Diagrams'
@@ -232,6 +242,7 @@ Property	Yard Handbook::Yard Handbook::internalDiagrams	_hb_ibds	-> 'Yard Handbo
 Property	Yard Handbook::Yard Handbook::kinDiagrams	_hb_kin	-> 'Yard Handbook'::'Yard Handbook'::kinDiagrams
 Property	Yard Handbook::Yard Handbook::noDiagrams	_hb_noneof	-> 'Yard Handbook'::'Yard Handbook'::noDiagrams
 Property	Yard Handbook::Yard Handbook::noParts	_hb_none	-> 'Yard Handbook'::'Yard Handbook'::noParts
+Property	Yard Handbook::Yard Handbook::optionalDrafts	_hb_optional	-> 'Yard Handbook'::'Yard Handbook'::optionalDrafts
 Property	Yard Handbook::Yard Handbook::otherDiagrams	_hb_others	-> 'Yard Handbook'::'Yard Handbook'::otherDiagrams
 Property	Yard Handbook::Yard Handbook::ownerSortedDiagrams	_hb_owner	-> 'Yard Handbook'::'Yard Handbook'::ownerSortedDiagrams
 Property	Yard Handbook::Yard Handbook::parametricDiagrams	_hb_pars	-> 'Yard Handbook'::'Yard Handbook'::parametricDiagrams
@@ -309,6 +320,16 @@ ControlFlow	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::<Control
 ControlFlow	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::<ControlFlow>	_noneof_e3
 InitialNode	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::<InitialNode>	_noneof_init	-> start
 «Image» CallBehaviorAction	Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::Image	_st_noneof_image	(it draws nothing: «FilterByDiagramType» Yard Viewpoints::No Diagrams Viewpoint::No Diagrams Method::Filter By Diagram Type drops all the diagrams collected: it names no diagram type; an Image draws only diagrams)
+«Viewpoint» Class	Yard Viewpoints::Optional Drafts Viewpoint	_vp_optional	-> 'Yard Viewpoints'::'Optional Drafts Viewpoint'
+ActivityFinalNode	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ActivityFinalNode>	_optional_final	-> final
+ControlFlow	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ControlFlow>	_optional_e2
+ControlFlow	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ControlFlow>	_optional_e3
+ControlFlow	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ControlFlow>	_optional_e4
+ControlFlow	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ControlFlow>	_optional_e5
+ControlFlow	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<ControlFlow>	_optional_e6
+InitialNode	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::<InitialNode>	_optional_init	-> start
+«Image» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Image	_st_optional_image	-> part 'Yard Handbook'::'Yard Handbook Document'::'Optional Drafts'::diagram
+«Image» CallBehaviorAction	Yard Viewpoints::Optional Drafts Viewpoint::Optional Drafts Method::Image	_st_optional_image	-> part 'Yard Handbook'::'Yard Handbook Document'::'Optional Drafts'::'diagram 2'
 «Viewpoint» Class	Yard Viewpoints::Other Diagrams Viewpoint	_vp_others	-> 'Yard Viewpoints'::'Other Diagrams Viewpoint'
 ActivityFinalNode	Yard Viewpoints::Other Diagrams Viewpoint::Other Diagrams Method::<ActivityFinalNode>	_others_final	-> final
 ControlFlow	Yard Viewpoints::Other Diagrams Viewpoint::Other Diagrams Method::<ControlFlow>	_others_e2
@@ -404,8 +425,8 @@ ControlFlow	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::<C
 ControlFlow	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::<ControlFlow>	_drafts_e5
 ControlFlow	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::<ControlFlow>	_drafts_e6
 InitialNode	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::<InitialNode>	_drafts_init	-> start
-«BulletedList» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Bulleted List	_st_drafts_list	-> part 'Yard Handbook'::'Yard Handbook Document'::'Unnamed Drafts'::list	(its rows are the query 'Yard Handbook Bulleted List Rows')
-«Image» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Image	_st_drafts_image	-> part 'Yard Handbook'::'Yard Handbook Document'::'Unnamed Drafts'::diagram
+«BulletedList» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Bulleted List	_st_drafts_list	(it shows nothing: «FilterByNames» Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names drops all 2 elements collected, none of them a diagram)
+«Image» CallBehaviorAction	Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Image	_st_drafts_image	(it draws nothing: «FilterByNames» Yard Viewpoints::Unnamed Drafts Viewpoint::Unnamed Drafts Method::Filter By Names drops all 2 elements collected, none of them a diagram; an Image draws only diagrams)
 
 ## skipped (1)
 Comment	<uml:Comment>	_cmt_diag_gantry	(tool-private xmi:Extension content written by Example UML Tool 1.0)
