@@ -101,7 +101,17 @@ are reported and the model is as it was.
 
 The `@AnalysisRecords::RecordedRun` metadata makes every record findable by
 `WhereMetadata`, and its features are ordinary values `WhereFeature` and
-`Project` read — see [Which query is which](query-kinds.md#object-rows-and-verdict-rows):
+`Project` read — see [Which query is which](query-kinds.md#object-rows-and-verdict-rows).
+This run goes into `Demo::Log` instead, so the query's `root=Demo` subtree
+contains it:
+
+```text
+%record Demo::timed into Demo::Log
+✓ Demo::timed
+  x = 5.0
+  standing: value (observed: 1 run under reverse)
+  recorded Demo::Log::timed_run1 (Demo::Log::TimedRun)
+```
 
 ```sysml
 calc def TimedRuns :> DocumentQueries::Query {
