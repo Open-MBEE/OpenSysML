@@ -358,7 +358,7 @@ func (c *checks) compareMisuse() string {
 	switch {
 	case len(c.states) > 0 || c.sweeping() || c.advance.given || c.checker.given() ||
 		c.validate.given || c.satisfy.given || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
-		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.queries) > 0:
+		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.records) > 0 || len(c.queries) > 0:
 		return "-compare-results runs the migrated configurations the results index and compares the runs with the tool's; the other checks are made in a run of their own"
 	}
 	for _, pair := range c.observe {

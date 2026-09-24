@@ -166,6 +166,7 @@ func TestMigrationResultsThroughCLI(t *testing.T) {
 		"missing sidecar":         {[]string{model, "-compare-results", filepath.Join(dir, "none.json")}, "-compare-results: open"},
 		"sidecar not JSON":        {[]string{model, "-compare-results", model}, "the results are not the JSON -migration-results writes"},
 		"with convert":            {[]string{model, "-compare-results", sidecar, "-convert", "ttl"}, "cannot be combined with -convert"},
+		"with record-run":         {[]string{model, "-compare-results", sidecar, "-record-run", "Group 0"}, "the other checks are made in a run of their own"},
 		"results without xmi":     {[]string{model, "-convert", "ttl", "-migration-results", sidecar}, "-migration-results indexes the result snapshots of a SysML v1 migration"},
 		"results without convert": {[]string{model, "-migration-results", sidecar}, "-migration-results accompanies -convert"},
 		"results over the model":  {[]string{simconfigXMI, "-convert", "sysml", "-o", sidecar, "-migration-results", sidecar}, "-migration-results and -o both name"},
