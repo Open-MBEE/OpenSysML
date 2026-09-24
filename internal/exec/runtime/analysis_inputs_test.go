@@ -107,8 +107,12 @@ func TestMonteCarloRunInputsAndIterationOutputs(t *testing.T) {
 	if len(run.Inputs) != 1 || run.Inputs[0].Name != "gain" {
 		t.Fatalf("inputs %+v, want the one binding of gain", run.Inputs)
 	}
+	outputs, err := run.IterationOutputs()
+	if err != nil {
+		t.Fatal(err)
+	}
 	var names []string
-	for _, out := range run.Outputs {
+	for _, out := range outputs {
 		names = append(names, out.Name)
 	}
 	// The statistics are bound over the sample, so the one output this
@@ -150,10 +154,82 @@ func TestMonteCarloRunReportsAnOutputError(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if run.OutputErr == nil {
+	if _, err := run.IterationOutputs(); err == nil {
 		t.Error("an output erroring for its own reason vanished")
 	}
 	if run.Observed.Kind != ValConst {
 		t.Errorf("the run's observed is invalid: %v", run.Observed)
+	}
+}
+
+// IterationOutputs evaluates nothing into the run it is read of: called twice
+// it reports the same values, and the conclusion over the sample is the one a
+// sample no iteration's outputs were ever read of makes.
+func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
+	const model = `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			part def Probe {
+				attribute t : Real;
+				action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+			}
+			individual def probe :> Probe;
+			analysis def Mc :> Simulation::MonteCarlo {
+				subject analysed : Probe;
+				perform action run ::> analysed.settle;
+				attribute :>> observed : Real = analysed.t;
+				return Mean : Real = mean;
+				out Again : Real = uniform(0.0, 1.0);
+			}
+		}`
+	sample := func(read func(*MonteCarloRun)) (AnalysisResult, error) {
+		ctx, scope := analysisFixture(t, model)
+		sym := requirementNamed(t, scope, "Mc")
+		probe, err := ctx.Instantiate(requirementNamed(t, scope, "probe"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx.SetModelSeed(RunSeed(1, 1))
+		var runs []*MonteCarloRun
+		for i := int64(1); i <= 3; i++ {
+			run, err := ctx.ObserveMonteCarlo(sym, AnalysisArgs{Subject: probe}, scope, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if read != nil {
+				read(run)
+			}
+			runs = append(runs, run)
+		}
+		stats, err := MonteCarloSample(runs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ConcludeMonteCarlo(runs, stats)
+	}
+
+	first, err := sample(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	read, err := sample(func(r *MonteCarloRun) {
+		a, err := r.IterationOutputs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := r.IterationOutputs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(a, b) {
+			t.Errorf("two reads differ: %v vs %v", a, b)
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(read.Outputs, first.Outputs) || !reflect.DeepEqual(read.Verdicts, first.Verdicts) {
+		t.Errorf("reading the iterations' outputs moved the conclusion:\n%v\nwant\n%v", read, first)
 	}
 }
