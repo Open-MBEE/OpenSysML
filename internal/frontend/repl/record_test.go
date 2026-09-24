@@ -225,3 +225,34 @@ func TestRecordKeepsDebugSession(t *testing.T) {
 	}
 	wants(t, run(t, s, "%step"), "Step")
 }
+
+// A sweep that could not run records nothing and does not hold: its verdict is
+// the sweep's own error, not a report over an empty table.
+func TestRecordSweepErrorRecordsNothing(t *testing.T) {
+	s := recordSession(t)
+	before := s.text()
+	v := s.RecordSweep("Demo::timed", []string{"missing=1..3"}, "", "%record Demo::timed")
+	if v.Status == VerdictHolds {
+		t.Errorf("a sweep that could not run holds:\n%s", strings.Join(v.Lines, "\n"))
+	}
+	for _, line := range v.Lines {
+		if strings.Contains(line, "recorded") {
+			t.Errorf("a failed sweep reported a record: %q", line)
+		}
+	}
+	if s.text() != before {
+		t.Error("a failed sweep record changed the buffer")
+	}
+}
+
+// `into` splits only outside quoted names, string literals and parentheses.
+func TestSplitRecordArgsLeavesIntoInNames(t *testing.T) {
+	inv, into, err := splitRecordArgs("'step into space'")
+	if err != nil || into != "" || inv.name != "'step into space'" {
+		t.Errorf("'step into space': inv %+v, into %q, err %v", inv, into, err)
+	}
+	inv, into, err = splitRecordArgs(`c("go into it") into P`)
+	if err != nil || into != "P" || inv.name != "c" || inv.argText != `"go into it"` {
+		t.Errorf(`c("go into it") into P: inv %+v, into %q, err %v`, inv, into, err)
+	}
+}

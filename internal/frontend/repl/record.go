@@ -32,7 +32,7 @@ func (s *Session) doRecord(tail string) ([]string, bool, error) {
 // splitRecordArgs takes apart %record's tail: the invocation %analysis takes,
 // then `into <package>` written last when it is.
 func splitRecordArgs(tail string) (analysisInvocation, string, error) {
-	if i := strings.LastIndex(tail, " into "); i >= 0 {
+	if i := lastTopLevelInto(tail); i >= 0 {
 		into := strings.TrimSpace(tail[i+len(" into "):])
 		if _, ok := source.QualifiedNameSegments(into); !ok {
 			return analysisInvocation{}, "", fmt.Errorf("%q does not name a package", into)
@@ -42,6 +42,38 @@ func splitRecordArgs(tail string) (analysisInvocation, string, error) {
 	}
 	inv, err := splitAnalysisArgs(tail)
 	return inv, "", err
+}
+
+// lastTopLevelInto is the index of the last ` into ` token written at top
+// level — outside quoted names, string literals and parentheses — or -1.
+func lastTopLevelInto(tail string) int {
+	last, depth := -1, 0
+	var quote byte
+	escaped := false
+	for i := 0; i < len(tail); i++ {
+		c := tail[i]
+		switch {
+		case escaped:
+			escaped = false
+		case c == '\\':
+			escaped = true
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '\'' || c == '"':
+			quote = c
+		case c == '(':
+			depth++
+		case c == ')':
+			if depth > 0 {
+				depth--
+			}
+		case depth == 0 && strings.HasPrefix(tail[i:], " into "):
+			last = i
+		}
+	}
+	return last
 }
 
 // RecordAnalysis runs the invocation as %analysis does and records the run
@@ -123,10 +155,10 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 		return unresolvedVerdict(sweepLabel(inv, sweepDraws{}), err.Error())
 	}
 	table, plan, err := s.runSweep(inv, specs, sweepDraws{})
-	verdict := standing(s.sweepReport(inv, table, sweepDraws{}), plan)
 	if err != nil {
-		return verdict
+		return standing(unresolvedVerdict(sweepLabel(inv, sweepDraws{}), err.Error()), plan)
 	}
+	verdict := standing(s.sweepReport(inv, table, sweepDraws{}), plan)
 	var runs []record.Run
 	contexts := map[*runtime.Context]bool{}
 	skipped := 0
