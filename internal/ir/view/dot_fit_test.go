@@ -242,3 +242,52 @@ func TestDOTWritesAnEnclosingBoxFirst(t *testing.T) {
 		last = at
 	}
 }
+
+// A stated box that holds other stated boxes keeps its title in the strip above
+// the topmost of them, as the notation's header compartment does: the label is
+// fitted to that strip's height and set at the top, so no member covers it. A
+// box holding none, or with a name too long for the strip, is fitted as before,
+// to the whole box, or cut to the strip and ellipsized.
+func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
+	// Cameo's IBD: a 300×200 part with two members from 40px down, a third box beside it.
+	member := func(id string, x, y float64) *Node {
+		return &Node{ID: id, Kind: "part", Name: id, Geometry: &Geometry{X: x, Y: y, Width: 80, Height: 30, HasSize: true}}
+	}
+	outer := &Node{ID: "outer", Kind: "part", Name: "'summit Installation'", Type: "'Summit Installation'",
+		Geometry: &Geometry{X: 0, Y: 0, Width: 300, Height: 200, HasSize: true}}
+	beside := &Node{ID: "beside", Kind: "part", Name: "rack", Geometry: &Geometry{X: 400, Y: 0, Width: 300, Height: 200, HasSize: true}}
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, member("computer", 20, 60), member("sensor", 120, 40), beside}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, want := range []string{
+		// The 40px strip holds the head wrapped to two 14pt lines (33.6px), not the keyword line too; the label sits at the top.
+		`"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>, labelloc=t, pos="150,-100!", pin=true, width=4.166666666666667, height=2.7777777777777777, fixedsize=true];`,
+		// A box holding nothing is fitted to the whole of it and centred; the members keep their stated boxes.
+		`"beside" [style="rounded,filled", label=<<b>rack</b><br/><font point-size="10"><i>«part»</i></font>>, pos="550,-100!"`,
+		`"computer" [style="rounded,filled", label=<<b>computer</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-75!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	// A node the Layout only places, its box sized to its label, is no member: the title is fitted to the whole box.
+	placed := &Node{ID: "loose", Kind: "action", Name: "spare", Geometry: &Geometry{X: 20, Y: 20}}
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{outer, placed}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b><br/><font point-size="10"><i>«part»</i></font>>, pos="150,-100!"`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+	// A member 9px below the top leaves the title one 8pt line, cut to the width and ellipsized.
+	narrow := &Node{ID: "outer", Kind: "part", Name: outer.Name, Type: outer.Type, Geometry: &Geometry{X: 0, Y: 0, Width: 150, Height: 200, HasSize: true}}
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 9)}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39;…</b></font>>, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+}

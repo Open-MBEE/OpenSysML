@@ -173,9 +173,11 @@ func (w *dotWriter) countPlaced(node *Node) {
 	}
 }
 
-// nodeBox is where a node is drawn: its box in pixels, top-left to bottom-right.
+// nodeBox is where a node is drawn, top-left to bottom-right in pixels; stated
+// when the Layout gives its size and not only its corner.
 type nodeBox struct {
 	low, high Point
+	stated    bool
 }
 
 // centre is the middle of the box, the point Graphviz pins a node at.
@@ -234,7 +236,7 @@ func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd) {
 func (w *dotWriter) statedBox(node *Node) nodeBox {
 	g := node.Geometry
 	width, height := w.labels.dotBox(node)
-	return nodeBox{low: Point{X: g.X, Y: g.Y}, high: Point{X: g.X + width, Y: g.Y + height}}
+	return nodeBox{low: Point{X: g.X, Y: g.Y}, high: Point{X: g.X + width, Y: g.Y + height}, stated: g.HasSize}
 }
 
 // routedBox is the box a node with no Layout takes from the routes that meet
@@ -442,7 +444,11 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
 		}
 		if stated {
-			attrs = append(attrs, w.labels.dotFittedLabel(node, node.Geometry.Width, node.Geometry.Height))
+			height, header := w.headroom(node)
+			attrs = append(attrs, w.labels.dotFittedLabel(node, node.Geometry.Width, height))
+			if header {
+				attrs = append(attrs, "labelloc=t")
+			}
 		} else {
 			attrs = append(attrs, w.labels.dotLabel(node))
 		}
@@ -461,6 +467,19 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		}
 	}
 	return attrs
+}
+
+// headroom is the height a stated box has for its title: the strip above the
+// topmost stated box it encloses (header), or the whole box when it encloses none.
+func (w *dotWriter) headroom(node *Node) (height float64, header bool) {
+	box := w.boxes[node.ID]
+	top := box.high.Y
+	for _, inner := range w.boxes {
+		if inner.stated && box.encloses(inner) && inner.low.Y < top {
+			top, header = inner.low.Y, true
+		}
+	}
+	return top - box.low.Y, header
 }
 
 // isSymbolKind reports whether a kind has a notation symbol a stated box is drawn
@@ -787,7 +806,7 @@ func (w *dotWriter) clusterBox(node *Node) nodeBox {
 	g := node.Geometry
 	corner := Point{X: g.X, Y: g.Y}
 	if g.HasSize {
-		return nodeBox{low: corner, high: Point{X: g.X + g.Width, Y: g.Y + g.Height}}
+		return nodeBox{low: corner, high: Point{X: g.X + g.Width, Y: g.Y + g.Height}, stated: true}
 	}
 	box := nodeBox{low: corner, high: corner}
 	if members := w.membersBox(node); members != nil {

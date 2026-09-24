@@ -342,7 +342,13 @@ digraph "PlantViews::placedView" {
   lines then fit; the keyword line (at 10/14 of the head's size) and each detail line
   follow only while height remains for them, so a 449×14 px compartment row holds
   `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
-  height even at 8 pt is cut to the lines that fit and its last line ellipsized. The estimate is
+  height even at 8 pt is cut to the lines that fit and its last line ellipsized. A stated box
+  that holds other stated boxes — a part whose members are drawn inside it, a definition over
+  its compartment rows — keeps its title clear of them: the label is fitted to the strip between
+  the box's top and the topmost box it encloses and set there with `labelloc=t`, so the title
+  reads as a diagram frame's header and the members below it stay where the Layout put them
+  (`headroom` in `dot.go`; a box that is only placed, and so sized to its own label, is not one
+  the title moves for). The estimate is
   the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
   particular to the tool that stated the box. A symbol kind in a stated box carries no label at
   all ([Style](#style)). Without a stated size
@@ -573,7 +579,9 @@ and did not change. A view-render RPC added later would take the form as a strin
 - `internal/ir/view/dot_fit_test.go`: the label fitted to a stated box — a head wrapped at the
   width, kept at 14 pt while it fits and shrunk to 8 pt when it does not, the keyword and detail
   lines kept only while height remains, a compartment row's one line, a word broken across
-  lines only when no size keeps it whole, the ellipsis at the floor — and `dotFitHead`/`dotWrap`
+  lines only when no size keeps it whole, the ellipsis at the floor, the title of a box that
+  holds stated boxes fitted to the strip above them and set at the top, an only-placed box
+  leaving it be — and `dotFitHead`/`dotWrap`
   on their own; the symbol every kind draws as in a stated box, its `xlabel` for a name and none
   for a synthesized one, a `port def` and an unsized symbol kind still labelled; an unsized
   node's label unchanged.

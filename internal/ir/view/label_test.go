@@ -139,6 +139,10 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 		{Kind: "port", Name: "TMT::Design::Parts::Shutter::digital3", Type: "Digital"},
 		{Kind: "part", Name: "TMT::Design::'Optical Bench'::pIT", Type: "PIT"},
 		{Kind: "part", Name: "TMT::Design::PIT::'PIT CCD'", Type: "CCD"},
+		// A type written by its bare name is drawn as the element it resolves to.
+		{Kind: "part", Name: "TMT::Design::'APS Physical'::'summit Installation'", Type: "'Summit Installation'",
+			Typings: []string{"TMT::Design::Physical::'Summit Installation'"}},
+		{Kind: "part", Name: "TMT::Design::Physical::'Summit Installation'::computer", Type: "Control"},
 	}
 	want := []string{
 		"'Optical Bench'::sH : SH",
@@ -147,6 +151,8 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 		"Parts::Shutter::digital3 : Digital",
 		"'Optical Bench'::pIT : PIT",
 		"PIT::'PIT CCD' : CCD",
+		"'APS Physical'::'summit Installation' : 'Summit Installation'",
+		"computer : Control",
 	}
 	labels := labelsOf(roots)
 	var got []string
@@ -155,6 +161,21 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 	}
 	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
 		t.Errorf("heads = %q, want %q", got, want)
+	}
+	// From a model: the usage's type is written by its imported bare name and
+	// resolves to the element whose member is exposed beside it.
+	rendering := render(t, "typings.sysml", "SpelledViews::siteView")
+	labels = labelsOf(rendering.Roots)
+	got = got[:0]
+	for _, root := range rendering.Roots {
+		got = append(got, labels.head(root))
+	}
+	want = []string{"Physical::'APS Physical'::'summit Installation' : 'Summit Installation'", "computer : Control"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Errorf("heads = %q, want %q", got, want)
+	}
+	if text := rendering.Text(); !strings.Contains(text, "part Sites::'Summit Installation'::computer : Control") {
+		t.Errorf("the text form is headed by the diagram label:\n%s", text)
 	}
 }
 

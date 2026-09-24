@@ -69,8 +69,8 @@ func ownedNames(roots []*Node) map[*Node]string {
 			if names != nil {
 				drawn[source.QualifiedNameOf(names)] = true
 			}
-			for _, typ := range source.ReferenceQualifiedNames(node.Type) {
-				drawn[source.QualifiedNameOf(typ)] = true
+			for _, typ := range drawnTypes(node) {
+				drawn[typ] = true
 			}
 			walk(node.Children, false, names)
 		}
@@ -86,6 +86,19 @@ func ownedNames(roots []*Node) map[*Node]string {
 		}
 	}
 	return owned
+}
+
+// drawnTypes are the qualified names of the types a node's box draws the members
+// of: the elements its typings resolved to, else the typings as written.
+func drawnTypes(node *Node) []string {
+	if len(node.Typings) > 0 {
+		return node.Typings
+	}
+	var types []string
+	for _, typ := range source.ReferenceQualifiedNames(node.Type) {
+		types = append(types, source.QualifiedNameOf(typ))
+	}
+	return types
 }
 
 // name is a node's name below its nearest drawn owner, or else with the
