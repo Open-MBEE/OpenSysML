@@ -1148,7 +1148,8 @@ bundled `AnalysisRecords` library: a record definition named for the case
 (`TimedRun` for `Demo::timed`) specializing `AnalysisRecords::AnalysisRun`, in a
 `Records` package beside the case's enclosing package or the one `-record-into`
 names, and one part per run carrying a redefinition of each input bound and
-output produced, `caseName`, `kind` and `iteration`, a `ref` to the subject and
+output produced, `caseName`, `kind` and `objective` — `iteration` on a sweep or
+sample's records — a `ref` to the subject and
 `@AnalysisRecords::RecordedRun` provenance metadata (`runAt`, `tool`, `command`,
 `kind`). Verdicts a trade study or verification made become
 `VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`.

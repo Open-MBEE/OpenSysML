@@ -36,25 +36,26 @@ package Demo {
   recorded Records::timed_run1 (Records::TimedRun)
 ```
 
-The run goes into a `Records` package in the package enclosing the case's —
-`Demo::Records` when the case is `Demo::timed`, a top-level `Records` when it
-has no enclosing package — and into a record definition named for the case
+The run goes into a `Records` package beside the package enclosing the case's —
+a top-level `Records` when the case is `Demo::timed`, `A::Records` for a case in
+a package `A::Descent` declares — and into a record definition named for the case
 (`TimedRun`), specializing `AnalysisRecords::AnalysisRun`. `%record ... into
 <pkg>` names the package instead. The record part holds a redefinition for
-each input and output of the case, its `caseName`, `kind` and `iteration`, and
-a `ref` to its subject; verdicts a trade study or verification made become
+each input and output of the case, plus the `caseName`, `kind`, `'objective'`
+and `subjectName`/`subject` features `AnalysisRun` declares — `iteration`
+only on a sweep or sample's records — and a `ref` to its subject; verdicts and
+evaluations a trade study or verification made become
 `VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`:
 
 ```sysml
 package Records {
     part def TimedRun :> AnalysisRecords::AnalysisRun {
-        attribute caseName : String;
         attribute gain : ScalarValues::Real;
         attribute x : ScalarValues::Real;
     }
     part timed_run1 : TimedRun {
         @AnalysisRecords::RecordedRun {
-            runAt = "2026-01-01T00:00:00Z";
+            runAt = "2026-09-24T02:21:14Z";
             tool = "sysml dev";
             command = "%record Demo::timed";
             kind = "run";
@@ -62,8 +63,8 @@ package Records {
         attribute :>> caseName = "Demo::timed";
         attribute :>> kind = "run";
         attribute :>> 'objective' = "undecided";
-        attribute :>> iteration = 1;
         ref :>> 'subject' = Demo::probe;
+        attribute :>> subjectName = "Demo::probe";
         attribute :>> gain = 2.0;
         attribute :>> x = 5.0;
     }
@@ -128,18 +129,22 @@ calc def TimedRuns :> DocumentQueries::Query {
 
 ## The AnalysisRecords library
 
-`internal/workspace/libs/stdlib/OpenSysML Libraries/AnalysisRecords.sysml`,
-bundled like `DocumentQueries`, declares what a record specializes:
+`internal/workspace/libs/stdlib/OpenSysML Libraries/AnalysisRecords.sysml`, a
+non-normative OpenSysML extension bundled like `DocumentQueries`, declares the
+vocabulary the records are written in:
 
-- `AnalysisRecords::AnalysisRun` — the record definition's supertype; carries
-  `caseName`, `kind`, `iteration` and `subjectName`, subsets `verdicts` and
-  `evaluations`.
-- `AnalysisRecords::RecordedRun` — the metadata annotation carrying
-  `runAt`, `tool`, `command` and `kind`.
-- `AnalysisRecords::VerdictRecord` — one asserted verdict: `subjectName`,
-  `condition`, `status`, `reason`.
-- `AnalysisRecords::EvaluationRecord` — one trade-study evaluation:
-  `alternativeName`, `score`, `selected`.
+- `RecordedRun` — the metadata annotation a record carries: `runAt` (the UTC
+  timestamp), `tool`, `command`, `kind` (`"run"`, `"trade"`, `"sweep"` or
+  `"runs"`).
+- `AnalysisRun` — the record definition's supertype: `caseName`, `kind`,
+  `'objective'` (the run's objective verdict, `"undecided"` when the case
+  declares none), `iteration` (its position in a sweep or sample), `'subject'`
+  and `subjectName` (the object it ran on), and `verdicts`/`evaluations`.
+- `VerdictRecord` — one check a run made: `kind` (`"objective"` or
+  `"assertion"`), `name`, `status`, `detail` (the violated condition, or why
+  an undecided check could not be evaluated).
+- `EvaluationRecord` — one trade-study evaluation: `function`, `alternative`,
+  `score`, `result`, `selected`, `tied`, `error`.
 
 ## Limitations
 
