@@ -14,7 +14,7 @@ import (
 // name leaves behind once its parts are appended elsewhere.
 var unobservable = graphcmp.SkipFields(
 	"Index.directChildrenGeneration", "libraryIdentityMemo.gen",
-	"Index.directChildrenCache", "Index.directChildrenByName",
+	"Index.directChildrenCache", "Index.directChildrenByName", "Index.shortNamedCache",
 	"QualifiedName.part0",
 )
 
