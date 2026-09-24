@@ -324,6 +324,16 @@ func mermaidText(text string) string {
 	return replacer.Replace(text)
 }
 
+// MermaidLimits is the maxTextSize and maxEdges every one of the sources fits
+// under, which Mermaid's defaults refuse a large chart by (an edge takes a line).
+func MermaidLimits(sources ...string) (textSize, edges int) {
+	for _, source := range sources {
+		textSize = max(textSize, len(source)+1)
+		edges = max(edges, strings.Count(source, "\n")+2)
+	}
+	return textSize, edges
+}
+
 // mermaidTransitionText escapes a state transition's label, which follows an
 // unquoted colon: a state diagram reads `::` in it as the class marker, so a
 // qualified name in a trigger or guard is written with its colons as entities.

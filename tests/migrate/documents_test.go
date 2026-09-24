@@ -426,11 +426,14 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 
 	// The presentation type, not the UML diagram kind, decides the filter:
 	// the BDD is a "Class Diagram" in UML terms yet is kept as a block diagram,
-	// and excluding it keeps the other two typed diagrams. A diagram whose type
-	// the archive does not record cannot be decided, so the Image says so.
+	// and excluding it keeps the other two typed diagrams.
 	wantInOrder(t, "Block Diagrams", notation,
 		"part 'Block Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Crane Structure";`,
+		"part 'Sketched Diagrams' : DocumentQueries::Section {",
+		"part 'Kin Diagrams' : DocumentQueries::Section {",
+		`attribute redefines caption = "Sway Limits";`,
+		`attribute redefines caption = "Yard Requirements";`,
 		"part 'Other Diagrams' : DocumentQueries::Section {",
 		`attribute redefines caption = "Crane Internals";`,
 		`attribute redefines caption = "Yard Requirements";`,
@@ -439,12 +442,25 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"part 'Parametric Diagrams' : DocumentQueries::Section {",
 		`attribute redefines title = "Parametric Diagrams";`,
 		"}")
-	from, to := strings.Index(notation, "part 'Block Diagrams' : DocumentQueries::Section"), strings.Index(notation, "part 'Other Diagrams' : DocumentQueries::Section")
+	from, to := strings.Index(notation, "part 'Block Diagrams' : DocumentQueries::Section"), strings.Index(notation, "part 'Sketched Diagrams' : DocumentQueries::Section")
 	if body := notation[from:to]; strings.Count(body, "DocumentQueries::Diagram") != 1 {
 		t.Errorf("Block Diagrams draws diagrams the type filter drops:\n%s", body)
 	}
-	wantOneNote(t, r, "_st_bdds_image", migrate.Approximated,
-		"it may draw more than the diagrams known: «FilterByDiagramType» Yard Viewpoints::Block Diagrams Viewpoint::Block Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record")
+	wantNote(t, r, "_st_bdds_image", migrate.Mapped, "")
+	// An Image is refused even where a rejoined branch knows its diagrams: the
+	// branch with an undecidable diagram type may add more.
+	from, to = to, strings.Index(notation, "part 'Kin Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Contains(body, "DocumentQueries::Diagram") {
+		t.Errorf("Sketched Diagrams draws the diagrams one branch knows while the other's are undecided:\n%s", body)
+	}
+	wantNote(t, r, "_st_sketch_image", migrate.Unmapped,
+		"the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record")
+	// Owners stop short of the flattened root Model, so the owned elements
+	// collected next are the requirement's package's, not every package's.
+	from, to = to, strings.Index(notation, "part 'Other Diagrams' : DocumentQueries::Section")
+	if body := notation[from:to]; strings.Count(body, "DocumentQueries::Diagram") != 2 {
+		t.Errorf("Kin Diagrams draws diagrams owned beyond the requirement's package:\n%s", body)
+	}
 	wantNote(t, r, "_st_pars_image", migrate.Mapped,
 		"it draws nothing: «FilterByDiagramType» Yard Viewpoints::Parametric Diagrams Viewpoint::Parametric Diagrams Method::Filter By Diagram Type drops all the diagrams collected: none is a SysML Parametric Diagram; an Image draws only diagrams")
 
@@ -543,6 +559,8 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantInOrder(t, "Yard Handbook Markdown", md,
 		"# Yard Handbook",
 		"## Block Diagrams", "*Crane Structure*", "```mermaid",
+		"## Sketched Diagrams",
+		"## Kin Diagrams", "*Sway Limits*", "```mermaid", "*Yard Requirements*", "```mermaid",
 		"## Other Diagrams", "*Crane Internals*", "```mermaid", "*Yard Requirements*", "```mermaid",
 		"## Internal Diagrams", "*Crane Internals*", "```mermaid",
 		"## Parametric Diagrams",
@@ -569,10 +587,10 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"*Crane Internals*", "```mermaid", "*Gantry Drive*", "```mermaid",
 		"## Diagrams By Documentation", "*Gantry Drive*", "```mermaid", "*Crane Structure*", "```mermaid",
 		"## Owner Sorted Diagrams")
-	if n := strings.Count(md, "```mermaid"); n != 14 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 14:\n%s", n, md)
+	if n := strings.Count(md, "```mermaid"); n != 16 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 16:\n%s", n, md)
 	}
-	for _, heading := range []string{"## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
+	for _, heading := range []string{"## Sketched Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {
 			t.Errorf("%s shows content DocGen has nothing for:\n%s", heading, body)
 		}

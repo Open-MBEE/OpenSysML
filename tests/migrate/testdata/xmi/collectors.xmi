@@ -52,6 +52,8 @@
       </packagedElement>
     </packagedElement>
 
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_sketches" name="Sketches"/>
+
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Yard Viewpoints">
 
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_bdds" name="Block Diagrams Viewpoint" classifierBehavior="_act_bdds">
@@ -63,6 +65,39 @@
           <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e1" source="_bdds_init" target="_bdds_filter"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e2" source="_bdds_filter" target="_bdds_image"/>
           <edge xmi:type="uml:ControlFlow" xmi:id="_bdds_e3" source="_bdds_image" target="_bdds_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_sketch" name="Sketched Diagrams Viewpoint" classifierBehavior="_act_sketch">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_sketch" name="Sketched Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_sketch_init"/>
+          <node xmi:type="uml:ForkNode" xmi:id="_sketch_fork"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sketch_names" name="Filter By Names"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sketch_filter" name="Filter By Diagram Type"/>
+          <node xmi:type="uml:MergeNode" xmi:id="_sketch_merge"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_sketch_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_sketch_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e1" source="_sketch_init" target="_sketch_fork"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e2" source="_sketch_fork" target="_sketch_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e3" source="_sketch_fork" target="_sketch_filter"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e4" source="_sketch_names" target="_sketch_merge"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e5" source="_sketch_filter" target="_sketch_merge"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e6" source="_sketch_merge" target="_sketch_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_sketch_e7" source="_sketch_image" target="_sketch_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_kin" name="Kin Diagrams Viewpoint" classifierBehavior="_act_kin">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_kin" name="Kin Diagrams Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_kin_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_kin_owners" name="Collect Owners"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_kin_owned" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_kin_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_kin_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_kin_e1" source="_kin_init" target="_kin_owners"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_kin_e2" source="_kin_owners" target="_kin_owned"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_kin_e3" source="_kin_owned" target="_kin_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_kin_e4" source="_kin_image" target="_kin_final"/>
         </ownedBehavior>
       </packagedElement>
 
@@ -286,6 +321,8 @@
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_doc" name="Yard Handbook">
       <packagedElement xmi:type="uml:Class" xmi:id="_doc_handbook" name="Yard Handbook">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_bdds" name="blockDiagrams" type="_view_bdds" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_sketch" name="sketchedDiagrams" type="_view_sketch" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_kin" name="kinDiagrams" type="_view_kin" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_others" name="otherDiagrams" type="_view_others" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ibds" name="internalDiagrams" type="_view_ibds" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_pars" name="parametricDiagrams" type="_view_pars" aggregation="composite"/>
@@ -310,7 +347,18 @@
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_structure" client="_view_bdds" supplier="_diag_structure"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_internals" client="_view_bdds" supplier="_diag_internals"/>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_reqs" client="_view_bdds" supplier="_diag_reqs"/>
-      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_bdds_untyped" client="_view_bdds" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_sketch" name="Sketched Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_sketch" general="_vp_sketch"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_structure" client="_view_sketch" supplier="_diag_structure"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_internals" client="_view_sketch" supplier="_diag_internals"/>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_sketch_untyped" client="_view_sketch" supplier="_diag_untyped"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_kin" name="Kin Diagrams">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_kin" general="_vp_kin"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_kin" client="_view_kin" supplier="_diag_sway"/>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_others" name="Other Diagrams">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_others" general="_vp_others"/>
@@ -473,7 +521,7 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
-        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_untyped" name="Sketch" ownerOfDiagram="_pkg_structure"/>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_untyped" name="Sketch" ownerOfDiagram="_pkg_sketches"/>
       </modelExtension>
       <stereotypesHREFS>
         <stereotype name="MagicDraw_Profile:TODO_Owner" stereotypeHREF="UML_Standard_Profile.mdzip#_st_todo"/>
@@ -496,6 +544,8 @@
   <MagicDraw_Profile:TODO_Owner xmi:id="_app_todo_cable" base_Element="_blk_cable" TODO="Rate the cable."/>
 
   <sysml:Viewpoint xmi:id="_st_vp_bdds" base_Class="_vp_bdds"/>
+  <sysml:Viewpoint xmi:id="_st_vp_sketch" base_Class="_vp_sketch"/>
+  <sysml:Viewpoint xmi:id="_st_vp_kin" base_Class="_vp_kin"/>
   <sysml:Viewpoint xmi:id="_st_vp_others" base_Class="_vp_others"/>
   <sysml:Viewpoint xmi:id="_st_vp_ibds" base_Class="_vp_ibds"/>
   <sysml:Viewpoint xmi:id="_st_vp_pars" base_Class="_vp_pars"/>
@@ -513,6 +563,8 @@
   <sysml:Viewpoint xmi:id="_st_vp_owner" base_Class="_vp_owner"/>
 
   <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
+  <sysml:View xmi:id="_st_view_sketch" base_Class="_view_sketch"/>
+  <sysml:View xmi:id="_st_view_kin" base_Class="_view_kin"/>
   <sysml:View xmi:id="_st_view_others" base_Class="_view_others"/>
   <sysml:View xmi:id="_st_view_ibds" base_Class="_view_ibds"/>
   <sysml:View xmi:id="_st_view_pars" base_Class="_view_pars"/>
@@ -531,6 +583,8 @@
   <sysml:View xmi:id="_st_view_owner" base_Class="_view_owner"/>
 
   <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
+  <sysml:Conform xmi:id="_st_conform_sketch" base_Generalization="_gen_sketch"/>
+  <sysml:Conform xmi:id="_st_conform_kin" base_Generalization="_gen_kin"/>
   <sysml:Conform xmi:id="_st_conform_others" base_Generalization="_gen_others"/>
   <sysml:Conform xmi:id="_st_conform_ibds" base_Generalization="_gen_ibds"/>
   <sysml:Conform xmi:id="_st_conform_pars" base_Generalization="_gen_pars"/>
@@ -551,7 +605,10 @@
   <sysml:Expose xmi:id="_st_expose_bdds_structure" base_Dependency="_expose_bdds_structure"/>
   <sysml:Expose xmi:id="_st_expose_bdds_internals" base_Dependency="_expose_bdds_internals"/>
   <sysml:Expose xmi:id="_st_expose_bdds_reqs" base_Dependency="_expose_bdds_reqs"/>
-  <sysml:Expose xmi:id="_st_expose_bdds_untyped" base_Dependency="_expose_bdds_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_sketch_structure" base_Dependency="_expose_sketch_structure"/>
+  <sysml:Expose xmi:id="_st_expose_sketch_internals" base_Dependency="_expose_sketch_internals"/>
+  <sysml:Expose xmi:id="_st_expose_sketch_untyped" base_Dependency="_expose_sketch_untyped"/>
+  <sysml:Expose xmi:id="_st_expose_kin" base_Dependency="_expose_kin"/>
   <sysml:Expose xmi:id="_st_expose_others_structure" base_Dependency="_expose_others_structure"/>
   <sysml:Expose xmi:id="_st_expose_others_internals" base_Dependency="_expose_others_internals"/>
   <sysml:Expose xmi:id="_st_expose_others_reqs" base_Dependency="_expose_others_reqs"/>
@@ -586,6 +643,18 @@
     <diagramTypes>SysML Block Definition Diagram</diagramTypes>
   </Document_Profile_:FilterByDiagramType>
   <Document_Profile_:Image xmi:id="_st_bdds_image" base_CallBehaviorAction="_bdds_image"/>
+
+  <Document_Profile_:FilterByNames xmi:id="_st_sketch_names" base_CallBehaviorAction="_sketch_names" include="true">
+    <names>Crane Structure</names>
+  </Document_Profile_:FilterByNames>
+  <Document_Profile_:FilterByDiagramType xmi:id="_st_sketch_filter" base_CallBehaviorAction="_sketch_filter" include="true">
+    <diagramTypes>SysML Block Definition Diagram</diagramTypes>
+  </Document_Profile_:FilterByDiagramType>
+  <Document_Profile_:Image xmi:id="_st_sketch_image" base_CallBehaviorAction="_sketch_image"/>
+
+  <Document_Profile_:CollectOwners xmi:id="_st_kin_owners" base_CallBehaviorAction="_kin_owners" depth="0"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_kin_owned" base_CallBehaviorAction="_kin_owned" depth="0"/>
+  <Document_Profile_:Image xmi:id="_st_kin_image" base_CallBehaviorAction="_kin_image"/>
 
   <Document_Profile_:FilterByDiagramType xmi:id="_st_others_filter" base_CallBehaviorAction="_others_filter" include="false">
     <diagramTypes>SysML Block Definition Diagram</diagramTypes>

@@ -127,10 +127,12 @@ By default the output loads nothing over the network, runs no JavaScript of
 its own, and is byte-identical between runs. To have a browser draw the
 diagrams, `-html-mermaid cdn` adds a `<script>` loading a pinned Mermaid
 release from jsDelivr, and `-html-mermaid <url>` loads it from a URL of your
-own; the page keeps the source, so it still reads where the script cannot
-load. A fragment has no page shell for the script, so a page embedding one
-loads Mermaid itself. Rendered with `-diagram-form dot` or `-diagram-form
-plantuml`, every graph-shaped diagram embeds its Graphviz DOT source in
+own; a second `<script>` configures it to draw the page's largest chart, which
+Mermaid's default size limits would refuse. The page keeps the source, so it
+still reads where the script cannot load. A fragment has no page shell for the
+script, so a page embedding one loads Mermaid itself. Rendered with
+`-diagram-form dot` or `-diagram-form plantuml`, every graph-shaped diagram
+embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
 

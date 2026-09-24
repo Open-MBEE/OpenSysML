@@ -47,9 +47,6 @@ package Structure {
         expose Crane;
         render Views::asTreeDiagram;
     }
-    view Sketch {
-        render Views::asTextualNotation;
-    }
 }
 package Needs {
     doc /* What the yard
@@ -72,6 +69,11 @@ package Needs {
         render Views::asTreeDiagram;
     }
 }
+package Sketches {
+    view Sketch {
+        render Views::asTextualNotation;
+    }
+}
 package 'Yard Viewpoints' {
     viewpoint 'Block Diagrams Viewpoint' {
         action def 'Block Diagrams Method' {
@@ -83,6 +85,37 @@ package 'Yard Viewpoints' {
             action final terminate;
         }
         perform action 'block Diagrams Method' : 'Block Diagrams Method';
+    }
+    viewpoint 'Sketched Diagrams Viewpoint' {
+        action def 'Sketched Diagrams Method' {
+            first start then 'fork';
+            fork 'fork';
+            first 'fork' then 'Filter By Names';
+            first 'fork' then 'Filter By Diagram Type';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'merge';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then 'merge';
+            merge 'merge';
+            first 'merge' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'sketched Diagrams Method' : 'Sketched Diagrams Method';
+    }
+    viewpoint 'Kin Diagrams Viewpoint' {
+        action def 'Kin Diagrams Method' {
+            first start then 'Collect Owners';
+            action 'Collect Owners';
+            first 'Collect Owners' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'kin Diagrams Method' : 'Kin Diagrams Method';
     }
     viewpoint 'Other Diagrams Viewpoint' {
         action def 'Other Diagrams Method' {
@@ -285,6 +318,8 @@ package 'Yard Viewpoints' {
 package 'Yard Handbook' {
     part def 'Yard Handbook' {
         view blockDiagrams :> 'Block Diagrams';
+        view sketchedDiagrams :> 'Sketched Diagrams';
+        view kinDiagrams :> 'Kin Diagrams';
         view otherDiagrams :> 'Other Diagrams';
         view internalDiagrams :> 'Internal Diagrams';
         view parametricDiagrams :> 'Parametric Diagrams';
@@ -308,7 +343,16 @@ package 'Yard Handbook' {
         expose Structure::'Crane Structure';
         expose Structure::Crane::'Crane Internals';
         expose Needs::'Yard Requirements';
-        expose Structure::Sketch;
+    }
+    view 'Sketched Diagrams' {
+        satisfy 'Yard Viewpoints'::'Sketched Diagrams Viewpoint';
+        expose Structure::'Crane Structure';
+        expose Structure::Crane::'Crane Internals';
+        expose Sketches::Sketch;
+    }
+    view 'Kin Diagrams' {
+        satisfy 'Yard Viewpoints'::'Kin Diagrams Viewpoint';
+        expose Needs::Sway::'Sway Limits';
     }
     view 'Other Diagrams' {
         satisfy 'Yard Viewpoints'::'Other Diagrams Viewpoint';
@@ -331,7 +375,7 @@ package 'Yard Handbook' {
     view 'Shown On Both Diagrams' {
         satisfy 'Yard Viewpoints'::'Shown Everywhere Viewpoint';
         expose Structure::'Crane Structure';
-        expose Structure::Sketch;
+        expose Sketches::Sketch;
     }
     view 'Drive Parts' {
         satisfy 'Yard Viewpoints'::'Drive Parts Viewpoint';
@@ -435,14 +479,29 @@ package 'Yard Handbook' {
     }
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Yard Handbook";
-        ref crane : Structure::Crane;
         ref sway : Needs::Sway;
+        ref crane : Structure::Crane;
         ref gantry : Structure::Gantry;
         part 'Block Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Block Diagrams";
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "Crane Structure";
                 ref redefines source = Structure::'Crane Structure';
+            }
+        }
+        part 'Sketched Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Sketched Diagrams";
+            /* not migrated: «Image» CallBehaviorAction 'Image' — the diagrams it shows are not known: «FilterByDiagramType» Yard Viewpoints::Sketched Diagrams Viewpoint::Sketched Diagrams Method::Filter By Diagram Type keeps or drops the diagram 'Sketch', whose diagram type the archive does not record */
+        }
+        part 'Kin Diagrams' : DocumentQueries::Section {
+            attribute redefines title = "Kin Diagrams";
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Sway Limits";
+                ref redefines source = sway.'Sway Limits';
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Yard Requirements";
+                ref redefines source = Needs::'Yard Requirements';
             }
         }
         part 'Other Diagrams' : DocumentQueries::Section {

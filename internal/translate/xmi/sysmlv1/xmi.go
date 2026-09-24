@@ -425,9 +425,7 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 		sort.Strings(names)
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
 	}
-	if err := m.readStreams(entries); err != nil {
-		return nil, err
-	}
+	m.readStreams(entries)
 	model, err := m.finish()
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)

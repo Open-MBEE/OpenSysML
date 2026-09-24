@@ -1,6 +1,8 @@
 package sysmlv1
 
 import (
+	"archive/zip"
+	"bytes"
 	"reflect"
 	"strings"
 	"testing"
@@ -153,5 +155,54 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())
+	}
+}
+
+// A stream entry that cannot be extracted leaves its diagram unread, as an
+// undecodable one does; the model it is presentation for is still parsed.
+func TestParseArchiveSurvivesTornDiagramStream(t *testing.T) {
+	model := strings.Replace(string(diagramDocument(bddDiagram+`
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_torn" name="Torn" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmi:id="_d_torn_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents xmi:id="_d_torn_contents">
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-torn"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>`)),
+		`xmlns:diagram=`, `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diagram=`, 1)
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("com.nomagic.magicdraw.uml_model.model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.Write([]byte(model))
+	raw, err := zw.CreateRaw(&zip.FileHeader{Name: "BINARY-torn", Method: zip.Deflate, UncompressedSize64: 64, CompressedSize64: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = raw.Write([]byte("not defl"))
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	m, err := Parse(buf.Bytes())
+	if err != nil {
+		t.Fatalf("a torn diagram stream failed the model: %v", err)
+	}
+	var torn *Diagram
+	for i := range m.Diagrams {
+		if m.Diagrams[i].ID == "_d_torn" {
+			torn = &m.Diagrams[i]
+		}
+	}
+	if torn == nil || torn.Drawn || len(torn.Shown) != 0 || !torn.Represented() {
+		t.Errorf("torn stream: %+v; want an unread, represented diagram", torn)
+	}
+	if m.Lookup("_b") == nil {
+		t.Error("the model beside the torn stream was not read")
 	}
 }

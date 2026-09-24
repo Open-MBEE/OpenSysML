@@ -238,9 +238,9 @@ func (m *migration) owned(e *sysmlv1.Element, depth int, visit func(*sysmlv1.Ele
 }
 
 // owners walks from e up through its owners to depth, all of them for 0,
-// calling visit on each.
+// calling visit on each. The root Model, which is not written, ends the walk.
 func owners(e *sysmlv1.Element, depth int, visit func(*sysmlv1.Element)) {
-	for i := 0; e != nil && (depth == 0 || i < depth); i, e = i+1, e.Parent {
+	for i := 0; e != nil && !isTopLevel(e) && (depth == 0 || i < depth); i, e = i+1, e.Parent {
 		visit(e)
 	}
 }

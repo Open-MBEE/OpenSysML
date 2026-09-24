@@ -228,7 +228,9 @@ that source in `<pre class="mermaid">` inside the `<figure>` by default — it i
 Mermaid's own client-side renderer looks for, so a site that already loads Mermaid renders it
 with no further work, and a site that does not shows the source rather than nothing. A
 standalone page asked to with `-html-mermaid` loads that renderer itself, from the pinned
-jsDelivr release or a URL the caller names. When pre-rendered images are supplied, the `<pre>`
+jsDelivr release or a URL the caller names, and configures it with the text and edge limits
+its largest chart fits under, since Mermaid's defaults refuse a large diagram of a large model
+rather than draw it. When pre-rendered images are supplied, the `<pre>`
 is replaced by `<img>` with the caption as its `alt` text; that is the path the PDF converters
 use, since no print engine runs Mermaid. Table-kind views keep rendering as a table, as they do
 in Markdown.

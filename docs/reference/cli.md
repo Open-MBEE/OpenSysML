@@ -760,7 +760,9 @@ Mermaid renders as a diagram and any other page shows as source. By default the 
 nothing over the network, runs no JavaScript of its own, and is byte-identical between runs.
 `-html-mermaid cdn` adds one `<script>` before `</body>` that loads a pinned Mermaid release from
 jsDelivr so a browser with network access draws the diagrams; `-html-mermaid <url>` loads the
-script from a URL of your own instead, such as a copy served beside the pages. The page still
+script from a URL of your own instead, such as a copy served beside the pages. A second
+`<script>` configures Mermaid to draw every chart on the page whatever its size: Mermaid's
+default text and edge limits refuse a large diagram of a large model. The page still
 carries only the source, so it degrades to source wherever the script cannot load. The option
 does not combine with `-html-fragment`: a fragment has no page shell to hold the script, so the
 embedding page loads Mermaid itself.

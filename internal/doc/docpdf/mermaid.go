@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
 // mermaidRasterizer draws Mermaid blocks with mermaid-cli (mmdc), which every
@@ -39,12 +41,11 @@ type htmlLabels struct {
 
 // configFor sizes a chart's configuration to its source: plain <text> labels,
 // which PDF-oriented SVG renderers draw where <foreignObject> HTML is lost, and
-// text and edge caps the whole figure fits under (an edge takes a line).
+// the text and edge limits the whole figure fits under.
 func configFor(source string) mermaidConfig {
-	return mermaidConfig{
-		MaxTextSize: len(source) + 1,
-		MaxEdges:    strings.Count(source, "\n") + 2,
-	}
+	var config mermaidConfig
+	config.MaxTextSize, config.MaxEdges = view.MermaidLimits(source)
+	return config
 }
 
 func (m *mermaidRasterizer) draw(dir, source, output string) error {

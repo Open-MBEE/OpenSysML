@@ -733,3 +733,21 @@ func checkGolden(t *testing.T, path, got string) {
 		t.Errorf("%s differs\n--- want ---\n%s\n--- got ---\n%s", path, want, got)
 	}
 }
+
+// TestMermaidLimits checks the limits every chart fits under are sized to the
+// largest, not fixed at Mermaid's defaults, so no chart of a model is refused.
+func TestMermaidLimits(t *testing.T) {
+	small := "flowchart LR\n  a --> b"
+	large := "flowchart LR\n" + strings.Repeat("  n --> n\n", 1000) + strings.Repeat("x", 60000)
+	textSize, edges := MermaidLimits(small)
+	if textSize <= len(small) || textSize > 100 || edges <= 1 || edges > 10 {
+		t.Errorf("a two-line chart gets limits %d, %d, not ones sized to it", textSize, edges)
+	}
+	textSize, edges = MermaidLimits(small, large, small)
+	if textSize <= len(large) || edges <= strings.Count(large, "\n")+1 {
+		t.Errorf("limits %d, %d do not fit a chart of %d bytes and %d lines", textSize, edges, len(large), strings.Count(large, "\n")+1)
+	}
+	if textSize, edges = MermaidLimits(); textSize != 0 || edges != 0 {
+		t.Errorf("no chart gets limits %d, %d", textSize, edges)
+	}
+}

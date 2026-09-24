@@ -684,7 +684,7 @@ func (c *chain) diagramOwners(depth int) (names []string, why string) {
 	for _, d := range c.diagrams {
 		owner := diagramOwner(d)
 		for i := 0; owner != nil && (depth == 0 || i < depth); i, owner = i+1, owner.Parent {
-			if owner.Parent == nil && owner.Type == "Model" {
+			if isTopLevel(owner) {
 				break
 			}
 			if !c.m.written(owner) {
@@ -1609,17 +1609,18 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 
 // image lowers an Image: one Diagram block per diagram among the current
 // elements, showing its migrated view, captioned by the diagram's title and
-// followed by its caption paragraph when DocGen shows captions.
+// followed by its caption paragraph when DocGen shows captions. A chain whose
+// diagrams are not all known draws none: a partial set would pass for the whole.
 func (c *chain) image(s *sysmlv1.DocGenStep) {
 	if c.broken != "" {
 		c.refuse(s, "the diagrams it shows pass through "+c.broken)
 		return
 	}
+	if c.vague != "" {
+		c.refuse(s, "the diagrams it shows are not known: "+c.vague)
+		return
+	}
 	if len(c.diagrams) == 0 {
-		if c.vague != "" {
-			c.refuse(s, "the diagrams it shows are not known: "+c.vague)
-			return
-		}
 		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Mapped, "it draws nothing: "+c.noDiagrams()))
 		return
 	}
@@ -1667,9 +1668,6 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		if text := c.captionText(s, i); text != "" {
 			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
 		}
-	}
-	if c.vague != "" {
-		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Approximated, "it may draw more than the diagrams known: "+c.vague))
 	}
 }
 

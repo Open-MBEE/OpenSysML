@@ -97,11 +97,10 @@ func attr(t xml.StartElement, local string) string {
 }
 
 // readStreams reads, for each diagram whose tool listed no used element, the
-// stream the tool serialized its symbols to, so an empty diagram is told from
-// one drawing elements the list omits or free symbols only. A diagram whose
-// list names elements is left as listed, the list being the tool's own record
-// of what it draws.
-func (m *Model) readStreams(entries map[string]*zip.File) error {
+// stream its symbols were serialized to, so an empty diagram is told from one
+// drawing elements the list omits. A stream that cannot be read or decoded
+// leaves the diagram's contents unknown; presentation data never fails the model.
+func (m *Model) readStreams(entries map[string]*zip.File) {
 	for i := range m.Diagrams {
 		d := &m.Diagrams[i]
 		f := entries[d.Stream]
@@ -110,7 +109,7 @@ func (m *Model) readStreams(entries map[string]*zip.File) error {
 		}
 		data, err := readEntry(f)
 		if err != nil {
-			return err
+			continue
 		}
 		syms, err := readSymbols(data, d.ID)
 		if err != nil {
@@ -122,5 +121,4 @@ func (m *Model) readStreams(entries map[string]*zip.File) error {
 			d.Shown = append(d.Shown, ElementRef{ID: id})
 		}
 	}
-	return nil
 }
