@@ -124,7 +124,7 @@ so the text, Mermaid, DOT and PlantUML forms label an edge alike.
 A trigger names its signal or operation the way a node's type is named, by the name the reference
 ends in (`triggerLabel` in `behavior.go`): `accept Signals::'APS Internal'::'Go Now'` reads
 `accept 'Go Now'`, a named payload keeps its name (`accept msg : Halt`) and a call trigger its
-arguments (`accept setSpeed(value)`), so a transition a v1 migration wrote with the signal's whole
+arguments (`accept setSpeed(value)`, `accept halt()` — the parentheses tell a call from a signal), so a transition a v1 migration wrote with the signal's whole
 path does not carry that path across the drawing. A time or change event, and an accept of an
 event feature (`accept :> shutDown`), keep their written text.
 

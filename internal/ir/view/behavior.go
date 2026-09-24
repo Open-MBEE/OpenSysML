@@ -8,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // maxBehaviorDepth bounds how deep a nested action usage is lowered, so a
@@ -353,16 +352,16 @@ func payloadHead(payload *ast.Usage) string {
 	return nameText(payload.Ident.Name) + " :"
 }
 
-// endName is the name a qualified reference ends in, quoted as the notation does.
+// endName is the last segment of a qualified reference, quoted as the notation does.
 func endName(name *ast.QualifiedName) string {
-	return source.ReferenceEndNames(notationName(qualifiedText(name)))
-}
-
-// callParameters writes a call trigger's argument names, `(speed)`, "" for none.
-func callParameters(parameters []ast.NameSegment) string {
-	if len(parameters) == 0 {
+	if name == nil || len(name.Parts) == 0 {
 		return ""
 	}
+	return nameText(name.Parts[len(name.Parts)-1].Text)
+}
+
+// callParameters writes a call trigger's argument list, `(speed)`, `()` for none.
+func callParameters(parameters []ast.NameSegment) string {
 	names := make([]string, len(parameters))
 	for i, parameter := range parameters {
 		names[i] = nameText(parameter.Text)
