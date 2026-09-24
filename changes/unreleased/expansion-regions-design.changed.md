@@ -1,1 +1,0 @@
-- The design record for concurrent per-element performance ("expansion regions"), `docs/project/expansion-regions.md`, closes the roadmap item: the iterative form is `for`; the parallel form is not SysML v2. The compliance mapping's bullet and the roadmap say so, and no executor work follows.

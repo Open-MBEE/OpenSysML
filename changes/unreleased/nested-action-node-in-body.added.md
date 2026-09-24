@@ -1,2 +1,0 @@
-- **Nested action flows in loop and branch bodies now execute with their stated succession, fork, join, and termination semantics.** Body-local attributes are initialized for each iteration.
-- **Action-node body execution now covers stated flows in action and state behaviors.** Invalid or unsupported body forms report typed runtime errors.

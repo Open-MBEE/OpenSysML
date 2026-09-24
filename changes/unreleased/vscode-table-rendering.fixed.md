@@ -1,1 +1,0 @@
-- **The diagram panel shows an element table as a table.** A table-kind view or the `#table` pseudo-view was written into the panel as its Markdown source; it is now drawn as a table from the rendering's rows, and clicking a row opens its element in the editor.
