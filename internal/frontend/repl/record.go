@@ -181,6 +181,9 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 			Spell:       s.recordSpelling(own),
 		})
 	}
+	if len(runs) == 0 {
+		return s.recorded(verdict, record.Result{}, nil, skipped, []string{"nothing recorded: every row failed"})
+	}
 	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, runs)
 	return s.recorded(verdict, res, rerr, skipped, nil)
 }
@@ -208,9 +211,10 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	var reasons []string
 	skipped := 0
 	for _, run := range sample.completed {
-		if run.OutputErr != nil {
+		outputs, oerr := run.IterationOutputs()
+		if oerr != nil {
 			skipped++
-			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, run.OutputErr))
+			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, oerr))
 			continue
 		}
 		own := map[*runtime.Context]bool{run.Context(): true}
@@ -218,12 +222,33 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Iteration: int(run.Number),
 			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
-			Outputs:   run.Outputs,
+			Outputs:   outputs,
 			Verdicts:  run.Verdicts,
 			Spell:     s.recordSpelling(own),
 		})
 	}
+	// The sample's own record carries what the run rows cannot: the statistics,
+	// the result and the sample's checks of the case's conclusion.
+	switch concluded, cerr := sample.conclusion(); {
+	case cerr != nil:
+		reasons = append(reasons, fmt.Sprintf("sample not recorded: %s", cerr))
+	case len(sample.completed) > 0:
+		last := sample.last()
+		own := map[*runtime.Context]bool{last.Context(): true}
+		runs = append(runs, record.Run{
+			Kind:        record.KindSample,
+			Subject:     s.recordSubject(last.Subject, inv.object, own),
+			Inputs:      last.Inputs,
+			Outputs:     concluded.Outputs,
+			Verdicts:    concluded.Verdicts,
+			Evaluations: concluded.Evaluations,
+			Spell:       s.recordSpelling(own),
+		})
+	}
 	skipped += len(sample.table.Rows) - len(sample.completed)
+	if len(runs) == 0 {
+		return s.recorded(verdict, record.Result{}, nil, skipped, append(reasons, "nothing recorded: no run completed"))
+	}
 	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, runs)
 	return s.recorded(verdict, res, rerr, skipped, reasons)
 }

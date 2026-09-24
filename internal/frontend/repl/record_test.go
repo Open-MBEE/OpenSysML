@@ -334,14 +334,91 @@ func TestRecordMonteCarloSkipsOutputErrors(t *testing.T) {
 	seed := uint64(7)
 	v := s.RecordMonteCarlo("MC::Mc MC::probe", 1, &seed, "", "%record MC::Mc")
 	out := strings.Join(v.Lines, "\n")
-	if !strings.Contains(out, "run 1 not recorded:") {
-		t.Errorf("the skipped run is not reported:\n%s", out)
+	for _, want := range []string{"run 1 not recorded:", "sample not recorded:", "nothing recorded: no run completed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the skipped run is not reported (%q missing):\n%s", want, out)
+		}
 	}
-	if strings.Contains(out, "recorded MC::Mc") && !strings.Contains(out, "nothing was recorded") {
-		t.Errorf("a run whose output errored was recorded anyway:\n%s", out)
-	}
-	if strings.Contains(s.text(), "Mc_run1") {
+	if strings.Contains(s.text(), "Mc_run") {
 		t.Errorf("the model holds a record of an unreadable run:\n%s", s.text())
+	}
+}
+
+// A Monte Carlo sample records each iteration under kind "runs" and its
+// conclusion once under kind "sample", carrying the statistics and result
+// the rows cannot.
+func TestRecordMonteCarloRecordsTheSample(t *testing.T) {
+	s := monteCarloSession(t)
+	run(t, s, "%instantiate MC::probe")
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Mc MC::probe", 3, &seed, "", "%record MC::Mc")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "recorded 4 runs") {
+		t.Errorf("three iterations and the sample were not recorded:\n%s", out)
+	}
+	text := s.text()
+	for _, want := range []string{
+		`attribute :>> kind = "runs"`, `attribute :>> kind = "sample"`,
+		"attribute :>> Mean", "attribute :>> Deviation", "attribute :>> N = 3",
+		"attribute :>> iteration = 3",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("recorded model is missing %q:\n%s", want, text)
+		}
+	}
+
+	path := filepath.Join(t.TempDir(), "model.sysml")
+	if _, _, err := s.runMeta("%save " + path); err != nil {
+		t.Fatal(err)
+	}
+	fresh := recordSession(t)
+	res := fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}})
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("saved model has errors: %v", errs)
+	}
+}
+
+// A sample no run of which completed records nothing and says why instead of
+// reporting a generator error.
+func TestRecordMonteCarloRecordsNothingWhenNoRunCompletes(t *testing.T) {
+	s := monteCarloSession(t)
+	run(t, s, "%instantiate MC::probe")
+	before := s.text()
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Crashing MC::probe", 2, &seed, "", "%record MC::Crashing")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "nothing recorded: no run completed") {
+		t.Errorf("the empty sample is not explained:\n%s", out)
+	}
+	if strings.Contains(out, "record") && strings.Contains(out, "nothing to record") {
+		t.Errorf("the generator's own error reported instead:\n%s", out)
+	}
+	if s.text() != before {
+		t.Errorf("the model changed:\n%s", s.text())
+	}
+}
+
+// A sweep whose every row failed records nothing and says why instead of
+// reporting a generator error.
+func TestRecordSweepRecordsNothingWhenEveryRowFails(t *testing.T) {
+	s := recordSession(t)
+	if errs := errorDiagnostics(s.Submit(`package Demo {
+	analysis def Breakable { subject s : Probe; in n : Real; out x : Real = 3.0 / n; }
+	analysis breakable : Breakable { subject s = probe; }
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	before := s.text()
+	v := s.RecordSweep("Demo::breakable", []string{"n=0..0"}, "", "%record Demo::breakable")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "nothing recorded: every row failed") {
+		t.Errorf("the empty sweep is not explained:\n%s", out)
+	}
+	if strings.Contains(out, "nothing to record") {
+		t.Errorf("the generator's own error reported instead:\n%s", out)
+	}
+	if s.text() != before {
+		t.Errorf("the model changed:\n%s", s.text())
 	}
 }
 

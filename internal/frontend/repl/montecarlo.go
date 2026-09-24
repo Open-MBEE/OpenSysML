@@ -135,6 +135,11 @@ type monteCarloRuns struct {
 	// unconcluded says why the case is not concluded over the table: no run completed,
 	// or the sample of the completed ones was refused.
 	unconcluded error
+	// concluded and concludeErr are the conclusion made once, for the report and
+	// the recorder to share.
+	concluded     runtime.AnalysisResult
+	concludeErr   error
+	concludedOnce bool
 }
 
 // last is the completed run the conclusion is read through.
@@ -144,7 +149,12 @@ func (m *monteCarloRuns) last() *runtime.MonteCarloRun {
 
 // conclude settles every completed run's checks over the sample and concludes the case in
 // the last; each row then carries the run's settled checks, the sample's own left to the conclusion.
+// It runs once: every caller reads the same conclusion.
 func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
+	if m.concludedOnce {
+		return m.concluded, m.concludeErr
+	}
+	m.concludedOnce = true
 	concluded, err := runtime.ConcludeMonteCarlo(m.completed, m.stats)
 	byNumber := make(map[int64]*runtime.MonteCarloRun, len(m.completed))
 	for _, run := range m.completed {
@@ -155,7 +165,16 @@ func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
 			m.table.Rows[k].Verdicts = byNumber[i].Verdicts
 		}
 	}
+	m.concluded, m.concludeErr = concluded, err
 	return concluded, err
+}
+
+// conclusion is the conclusion a completed sample made, or why it has none.
+func (m *monteCarloRuns) conclusion() (runtime.AnalysisResult, error) {
+	if m.unconcluded != nil {
+		return runtime.AnalysisResult{}, m.unconcluded
+	}
+	return m.conclude()
 }
 
 // monteCarloSample makes count runs of the invocation, each in its own context on objects
