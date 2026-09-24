@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // recordModel declares the cases the -record-run tests record: one case whose
@@ -271,5 +273,52 @@ func TestRecordRunBoundsApplyToRenderDocument(t *testing.T) {
 		"-record-run", "Demo::timed", "-runs", "3", "-seed", "7", "-sweep", "gain=1..3", "-render-document", "Demo::Doc"))
 	if code != 2 || !strings.Contains(out, "-runs runs an action; -sweep and -samples run an analysis case or calc") {
 		t.Errorf("-runs + -sweep with -record-run -render-document: code %d:\n%s", code, out)
+	}
+}
+
+// TestRecordRunConvertHonoursRunBounds applies the run bounds the env vars
+// ask for on a recorded conversion, as runChecks does on a plain -sweep.
+func TestRecordRunConvertHonoursRunBounds(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	t.Setenv(runtime.MaxSweepRunsEnvVar, "notanumber")
+	out, code := exitCode(t, exec.Command(binary, source, "-record-run", "Demo::timed", "-convert", "sysml"))
+	if code != 2 || !strings.Contains(out, runtime.MaxSweepRunsEnvVar) {
+		t.Errorf("an unusable %s went unreported: code %d:\n%s", runtime.MaxSweepRunsEnvVar, code, out)
+	}
+}
+
+// TestRecordRunConvertHonoursTheSweepBudget caps a recorded sweep the same
+// way a plain -sweep is capped.
+func TestRecordRunConvertHonoursTheSweepBudget(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	t.Setenv(runtime.MaxSweepRunsEnvVar, "2")
+	out, code := exitCode(t, exec.Command(binary, source,
+		"-record-run", "Demo::timed", "-sweep", "gain=1..5", "-convert", "sysml"))
+	if code == 0 || !strings.Contains(out, runtime.MaxSweepRunsEnvVar) {
+		t.Errorf("a sweep over the budget converted: code %d:\n%s", code, out)
+	}
+}
+
+// TestRecordRunConvertRefusesIrrelevantFlags refuses the flags a recorded
+// conversion does not honour, before the model is even loaded.
+func TestRecordRunConvertRefusesIrrelevantFlags(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	for name, args := range map[string][]string{
+		"branch input":      {"flexo://proj-1/main", "-record-run", "Demo::timed", "-convert", "sysml"},
+		"branch output":     {source, "-record-run", "Demo::timed", "-convert", "ttl", "-o", "flexo://proj-1/main"},
+		"sync-state":        {source, "-record-run", "Demo::timed", "-convert", "ttl", "-sync-state", filepath.Join(t.TempDir(), "s.ttl")},
+		"migration report":  {source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-report", filepath.Join(t.TempDir(), "r.json")},
+		"migration results": {source, "-record-run", "Demo::timed", "-convert", "sysml", "-migration-results", filepath.Join(t.TempDir(), "r.txt")},
+		"layout":            {source, "-record-run", "Demo::timed", "-convert", "sysml", "-layout", filepath.Join(t.TempDir(), "l.json")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, code := exitCode(t, exec.Command(binary, args...))
+			if code != 2 || !strings.Contains(out, "-record-run converts the recorded session model") {
+				t.Errorf("%v: code %d:\n%s", args, code, out)
+			}
+		})
 	}
 }

@@ -599,6 +599,9 @@ func runCLI() int {
 				fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
 				return 2
 			}
+			if status := resolveRunBounds(); status != 0 {
+				return status
+			}
 		}
 		return runConvertExit(args)
 	}

@@ -65,6 +65,9 @@ func runConvert(files []string) (int, error) {
 	// A run asked to record puts the records in the session's buffer rather than
 	// in the file, so what is converted is that buffer's text, as %save writes it.
 	if len(modelChecks.records) > 0 {
+		if err := recordedConvertMisuse(input); err != nil {
+			return 0, err
+		}
 		return convertRecorded(input, to)
 	}
 
@@ -163,6 +166,39 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, er
 		return nil, err
 	}
 	return migrated.Output, nil
+}
+
+// recordedConvertMisuse is why a flag cannot share the run -record-run
+// converts: what is converted is the session the records join, not a file
+// migrated or a branch read or pushed.
+func recordedConvertMisuse(input string) error {
+	inRef, inputIsURL, err := flexo.ParseBranchURL(input)
+	if err != nil {
+		return err
+	}
+	if inputIsURL {
+		return fmt.Errorf("-record-run converts the recorded session model; a repository branch is not an input it reads (%s)", inRef)
+	}
+	if outputPath != "" {
+		outRef, outputIsURL, err := flexo.ParseBranchURL(outputPath)
+		if err != nil {
+			return err
+		}
+		if outputIsURL {
+			return fmt.Errorf("-record-run converts the recorded session model; -o cannot push it to a repository branch (%s)", outRef)
+		}
+	}
+	switch {
+	case syncState != "":
+		return errors.New("-record-run converts the recorded session model; -sync-state does not apply")
+	case migrationReport != "":
+		return errors.New("-record-run converts the recorded session model; -migration-report does not apply")
+	case migrationResults != "":
+		return errors.New("-record-run converts the recorded session model; -migration-results does not apply")
+	case layoutPath != "":
+		return errors.New("-record-run converts the recorded session model; -layout does not apply")
+	}
+	return nil
 }
 
 // convertRecorded loads the file, makes the runs -record-run names so the
