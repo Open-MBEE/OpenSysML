@@ -26,6 +26,9 @@ const (
 	KindSweep Kind = "sweep"
 	// KindRuns records the runs of a Monte-Carlo sample.
 	KindRuns Kind = "runs"
+	// KindSample records the conclusion a Monte-Carlo sample made, beside the
+	// runs it was made of.
+	KindSample Kind = "sample"
 )
 
 // Provenance is what a recorded run reports about how it was made.
@@ -72,6 +75,9 @@ type Run struct {
 
 	// Evaluations are the calc applications the run made.
 	Evaluations []runtime.AnalysisEvaluation
+
+	// Kind is the run shape this record makes; empty, the request's kind.
+	Kind Kind
 
 	// Spell renders the run's values for the text it cannot supply itself, in
 	// the context it was made in — a sweep's rows each carry their own.
@@ -566,7 +572,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 		{"runAt", source.StringText(req.Provenance.RunAt.UTC().Format(time.RFC3339))},
 		{"tool", source.StringText(req.Provenance.Tool)},
 		{"command", source.StringText(req.Provenance.Command)},
-		{"kind", source.StringText(string(req.Provenance.Kind))},
+		{"kind", source.StringText(string(kindOf(r, req)))},
 	} {
 		writeIndent(src, depth+2)
 		src.WriteString(m.name)
@@ -578,7 +584,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 	src.WriteString("}\n")
 
 	writeFeature(src, depth+1, "caseName", source.StringText(req.Case))
-	writeFeature(src, depth+1, "kind", source.StringText(string(req.Provenance.Kind)))
+	writeFeature(src, depth+1, "kind", source.StringText(string(kindOf(r, req))))
 	writeFeature(src, depth+1, "'objective'", source.StringText(objectiveOf(r)))
 	if r.Iteration > 0 {
 		writeIndent(src, depth+1)
@@ -639,6 +645,15 @@ func objectiveOf(r *Run) string {
 		}
 	}
 	return "undecided"
+}
+
+// kindOf is the kind a run's record reports: its own where set, the
+// request's otherwise.
+func kindOf(r *Run, req *Request) Kind {
+	if r.Kind != "" {
+		return r.Kind
+	}
+	return req.Provenance.Kind
 }
 
 // writeFeature writes `attribute :>> name = literal;`.

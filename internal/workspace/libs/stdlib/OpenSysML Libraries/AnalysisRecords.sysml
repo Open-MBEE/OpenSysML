@@ -14,7 +14,8 @@ library package AnalysisRecords {
 		attribute tool : String;
 		/* command is the invocation text that made the run. */
 		attribute command : String;
-		/* kind is the run shape recorded: "run", "trade", "sweep" or "runs". */
+		/* kind is the run shape recorded: "run", "trade", "sweep", "runs" or
+		 * "sample" — the conclusion a Monte-Carlo sample made. */
 		attribute kind : String;
 	}
 
