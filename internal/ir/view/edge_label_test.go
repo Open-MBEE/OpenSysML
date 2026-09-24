@@ -80,6 +80,55 @@ func TestBindingIsAnInterconnectionEdge(t *testing.T) {
 	}
 }
 
+// A trigger names its signal or operation by the name it ends in, as a type is
+// headed, however far the source qualifies it; its payload name and call
+// arguments are kept, and time and change events keep their written text.
+func TestTriggerLabelsHeadTheirSignalByItsEndName(t *testing.T) {
+	model := `package Triggers {
+	package Signals { package 'APS Internal' { attribute def 'Go Now'; attribute def Halt; attribute def 'Go::Now'; } }
+	action def setSpeed { in value : ScalarValues::Real; }
+	action def halt;
+	state def Machine {
+		entry; then idle;
+		state idle;
+		state moving;
+		state stopped;
+		state parked;
+		transition first idle accept Triggers::Signals::'APS Internal'::'Go Now' then moving;
+		transition first moving accept msg : Signals::'APS Internal'::Halt then stopped;
+		transition first stopped accept Triggers::setSpeed(value) then moving;
+		transition first moving accept after 5 then idle;
+		transition first idle accept Signals::'APS Internal'::'Go::Now' then parked;
+		transition first parked accept Triggers::halt() then stopped;
+	}
+	view machineView : StandardViewDefinitions::StateTransitionView { expose Machine; }
+}
+`
+	r, idx := loadSources(t, []string{"triggers.sysml"}, [][]byte{[]byte(model)})
+	rendering, err := r.Render(lookup(t, idx, "Triggers::machineView"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	text := rendering.Text()
+	for _, want := range []string{
+		"idle -> moving: accept 'Go Now'",
+		"moving -> stopped: accept msg : Halt",
+		"stopped -> moving: accept setSpeed(value)",
+		"moving -> idle: after 5",
+		"idle -> parked: accept 'Go::Now'",
+		"parked -> stopped: accept halt()",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("rendering lacks %q:\n%s", want, text)
+		}
+	}
+	for _, edge := range rendering.Edges {
+		if strings.Contains(edge.Label, "Triggers::") || strings.Contains(edge.Label, "Signals::") {
+			t.Errorf("a trigger label keeps its qualification: %q", edge.Label)
+		}
+	}
+}
+
 // A name labels an edge only when the edge has no text of its own: a trigger, guard,
 // pin or payload takes the label and the name is left out, given or synthesized.
 func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
