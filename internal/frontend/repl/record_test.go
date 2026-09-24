@@ -581,3 +581,80 @@ func TestNewProblemsCountsOccurrences(t *testing.T) {
 		t.Errorf("a new message is the record's: %v", got)
 	}
 }
+
+// An inout is one parameter: the record carries the value the run left in it
+// as the member, and the value it was bound with as an <name>In companion.
+func TestRecordInoutRun(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	res := s.Submit(`package Demo {
+	private import ScalarValues::*;
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	part def Probe;
+	part probe : Probe;
+	analysis def Doubling {
+		subject s : Probe;
+		inout counter : Integer = 3;
+		return doubled : Integer = counter * 2;
+	}
+	analysis tick : Doubling { subject s = probe; }
+	calc def Counts :> DocumentQueries::Query {
+		in root : Element;
+		Project(source = WhereMetadata(
+			source = Descendants(source = root, maxDepth = 10),
+			'metadata' = "AnalysisRecords::RecordedRun"),
+			properties = ("counter", "counterIn", "doubled"))
+	}
+}`)
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::tick into Demo::Log"), "recorded Demo::Log::tick_run1")
+	text := s.text()
+	for _, want := range []string{
+		"attribute counter : ScalarValues::Integer;",
+		"attribute counterIn : ScalarValues::Integer;",
+		"attribute :>> counter = 3;",
+		"attribute :>> counterIn = 3;",
+		"attribute :>> doubled = 6;",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("session text is missing %q:\n%s", want, text)
+		}
+	}
+	wants(t, run(t, s, "%run-query Counts root=Demo"),
+		"counter = 3", "counterIn = 3", "doubled = 6")
+	path := filepath.Join(t.TempDir(), "demo.sysml")
+	if _, _, err := s.runMeta("%save " + path); err != nil {
+		t.Fatal(err)
+	}
+	fresh := NewSession()
+	if errs := errorDiagnostics(fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}}).Diagnostics); len(errs) > 0 {
+		t.Fatalf("saved model has errors: %v", errs)
+	}
+}
+
+// Two files reopening one package: the record goes into the file that already
+// holds the target package, not the first file opening the shared ancestor.
+func TestRecordMergesIntoTheFileHoldingTheTargetPackage(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	res := s.SubmitFiles([]SourceFile{
+		{Name: "one.sysml", Text: `package A {
+	private import ScalarValues::*;
+	package Cases { analysis def Bound { out y : Real = 1.0; } analysis check : Bound; }
+}`},
+		{Name: "two.sysml", Text: `package A { package Records { attribute keep : ScalarValues::Integer; } }`},
+	})
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record A::Cases::check"), "recorded A::Records::check_run1")
+	if n := strings.Count(s.text(), "package Records"); n != 1 {
+		t.Fatalf("the record made a second A::Records:\n%s", s.text())
+	}
+	if errs := errorDiagnostics(s.diagnostics()); len(errs) > 0 {
+		t.Fatalf("recording left errors: %v", errs)
+	}
+}

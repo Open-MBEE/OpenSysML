@@ -46,6 +46,12 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 	if !ok || len(newDecl.members) == 0 {
 		return "", nil, dropReport{}, false, false
 	}
+	// A record nests its target package inside the same-named top namespace
+	// several files may open: the file already holding the deepest prefix of
+	// that nesting is where it belongs.
+	chain := namespaceChain(src, newDecl)
+	target, depth := -1, -1
+	var oldDecl nsDecl
 	for i, sn := range s.snippets {
 		// Only what the prompt typed in an earlier submission merges: a loaded
 		// file keeps its identity, so re-typing its package supersedes it, and
@@ -57,10 +63,22 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		if sn.gen == s.version || sn.open || (sn.origin != "" && !s.recordMerge) {
 			continue
 		}
-		oldDecl, ok := namedNamespace(sn.src, newDecl.name)
+		cand, ok := namedNamespace(sn.src, newDecl.name)
 		// A different header is a different declaration, whatever it names: it
 		// replaces the old one rather than adding to a body it did not write.
-		if !ok || oldDecl.header != newDecl.header {
+		if !ok || cand.header != newDecl.header {
+			continue
+		}
+		if !s.recordMerge {
+			target, oldDecl = i, cand
+			break
+		}
+		if d := namespaceDepth(sn.src, cand, chain); d > depth {
+			target, depth, oldDecl = i, d, cand
+		}
+	}
+	for i, sn := range s.snippets {
+		if i != target {
 			continue
 		}
 		edits, replaced, gone := mergeEdits(sn.src, oldDecl, src, newDecl, newDecl.name)
@@ -152,6 +170,48 @@ func soleNamespace(src string, root *ast.RootNamespace) (nsDecl, bool) {
 		return nsDecl{}, false
 	}
 	return namespaceDeclOf(src, root.Members[0])
+}
+
+// namespaceChain names the nested namespace declarations inside decl, top to
+// innermost — the package nesting a generated record writes.
+func namespaceChain(src string, decl nsDecl) []string {
+	var segs []string
+	for {
+		var next nsDecl
+		for _, m := range decl.members {
+			if sub, ok := namespaceDeclOf(src, m); ok {
+				next = sub
+				break
+			}
+		}
+		if next.name == "" {
+			return segs
+		}
+		segs = append(segs, next.name)
+		decl = next
+	}
+}
+
+// namespaceDepth reports how many of the chain's segments decl's body already
+// holds as nested namespaces, counting from the first until one is missing.
+func namespaceDepth(src string, decl nsDecl, segs []string) int {
+	for i, seg := range segs {
+		found := false
+		for _, m := range decl.members {
+			if memberName(m) != seg {
+				continue
+			}
+			if sub, ok := namespaceDeclOf(src, m); ok {
+				decl = sub
+				found = true
+				break
+			}
+		}
+		if !found {
+			return i
+		}
+	}
+	return len(segs)
 }
 
 // namedNamespace finds the namespace declaration of the given name in an
