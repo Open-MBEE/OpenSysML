@@ -447,11 +447,7 @@ func recordDefOwner(def *symbols.Symbol) string {
 	if !ok {
 		return ""
 	}
-	owner, err := strconv.Unquote(lit.Value)
-	if err != nil {
-		return ""
-	}
-	return owner
+	return source.StringValue(lit.Value)
 }
 
 // specializesOne reports whether def specializes want among its supertypes.
