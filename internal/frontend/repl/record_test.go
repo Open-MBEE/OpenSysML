@@ -136,6 +136,32 @@ func TestRecordRunQueryable(t *testing.T) {
 	wants(t, out, "Bound_run1", "Demo::Bound", "run")
 }
 
+// A document query filters records by the features they carry and projects the
+// values the run bound, so the run is readable as model data.
+func TestRecordRunQueryableByFeature(t *testing.T) {
+	s := recordSession(t)
+	if errs := errorDiagnostics(s.Submit(`package Demo {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	calc def TimedRuns :> Query {
+		in root : Element;
+		Project(source = WhereFeature(
+			source = WhereMetadata(
+				source = Descendants(source = root, maxDepth = 10),
+				'metadata' = "AnalysisRecords::RecordedRun"),
+			'feature' = "caseName",
+			operator = "=",
+			value = "Demo::timed"),
+			properties = ("name", "gain", "x"))
+	}
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("query has errors: %v", errs)
+	}
+	run(t, s, "%record Demo::timed into Demo::Log")
+	out := run(t, s, "%run-query TimedRuns root=Demo")
+	wants(t, out, "timed_run1", "gain = 2.0", "x = 5.0")
+}
+
 // Recording a run does not end a debugging session over an unrelated
 // declaration.
 func TestRecordKeepsDebugSession(t *testing.T) {
