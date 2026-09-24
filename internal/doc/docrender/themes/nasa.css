@@ -1,0 +1,96 @@
+/* nasa: NASA STI Report Series conventions (NASA Publications Guide for
+   Authors, NASA STI Standards): Times 12pt text, sans heads and tables. */
+@layer opensysml {
+  .sysml-document {
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-heading: Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
+    --sysml-font-size: 12pt;
+    --sysml-line-height: 1.25;
+    --sysml-measure: 6.5in;
+    --sysml-space: 0.75em;
+    --sysml-space-tight: 0.25em;
+    --sysml-text: #000000;
+    --sysml-muted: #000000;
+    --sysml-accent: #000000;
+    --sysml-rule: #000000;
+    --sysml-surface: transparent;
+    --sysml-cell-padding: 0.2em 0.5em;
+    --sysml-code-font-size: 0.9em;
+    --sysml-caption-font-size: 12pt;
+    --sysml-table-font-size: 11pt;
+    --sysml-title-page-height: 80vh;
+    --sysml-group-heading-weight: 700;
+  }
+
+  .sysml-document h1,
+  .sysml-document h2,
+  .sysml-document h3,
+  .sysml-document h4 {
+    font-family: var(--sysml-font-heading);
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .sysml-document .sysml-title {
+    font-size: 24pt;
+    text-align: center;
+  }
+
+  .sysml-document h2 {
+    font-size: 14pt;
+    margin-top: 1.5em;
+  }
+
+  .sysml-document h3,
+  .sysml-document h4 {
+    font-size: 12pt;
+  }
+
+  .sysml-document .sysml-table {
+    font-family: var(--sysml-font-heading);
+  }
+
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    font-size: var(--sysml-table-font-size);
+    border: none;
+    border-bottom: var(--sysml-border-width) solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-table thead th {
+    border-top: var(--sysml-border-width) solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-caption {
+    caption-side: top;
+    font-weight: 700;
+    padding-bottom: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-diagram {
+    text-align: center;
+  }
+
+  .sysml-document .sysml-diagram .sysml-caption {
+    font-family: var(--sysml-font-heading);
+    text-align: center;
+  }
+
+  .sysml-document .sysml-diagram pre {
+    text-align: left;
+    border: var(--sysml-border-width) solid var(--sysml-rule);
+    padding: var(--sysml-space-tight);
+    overflow-x: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .sysml-document .sysml-link,
+  .sysml-document .sysml-ref {
+    text-decoration: none;
+  }
+}

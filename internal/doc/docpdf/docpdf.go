@@ -26,15 +26,16 @@ type Options struct {
 	NumberSections bool
 
 	// Theme names the HTML backend's bundled theme laid under the print
-	// stylesheet; empty is the default sheet alone.
+	// stylesheet, with the theme's print companion, when it carries one, laid
+	// over the print stylesheet; empty is the default sheet alone.
 	Theme string
 
 	// NoDefaultStylesheet leaves the HTML backend's default sheet out, and the
 	// print stylesheet layered over it, so Stylesheets alone style the page.
 	NoDefaultStylesheet bool
 
-	// Stylesheets are the reader's, attached after the print stylesheet and
-	// unlayered, so they override it as they override the HTML form.
+	// Stylesheets are the reader's, attached after the bundled sheets and
+	// unlayered, so they override them as they override the HTML form.
 	Stylesheets []docrender.Stylesheet
 
 	// BaseDir is the directory a reader stylesheet's relative url() and
@@ -52,7 +53,8 @@ type Options struct {
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
 // page counter, print fonts and breaks, over the HTML backend's default sheet
-// in a later cascade layer so a reader's unlayered stylesheet still wins.
+// in a later cascade layer so a reader's unlayered stylesheet still wins. It
+// declares the layer a theme's print companion fills after its own.
 //
 //go:embed print.css
 var PrintStylesheet string
@@ -116,7 +118,11 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 			return nil, err
 		}
 	case InputHTML:
-		page, err := docrender.HTML(document, htmlOptions(opts, dir, images, math))
+		htmlOpts, err := htmlOptions(opts, dir, images, math)
+		if err != nil {
+			return nil, err
+		}
+		page, err := docrender.HTML(document, htmlOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -150,14 +156,22 @@ func checkOptions(converter Converter, opts Options) error {
 }
 
 // htmlOptions shapes the HTML backend's page for a print engine: the default
-// sheet and theme, the print stylesheet over them, the KaTeX stylesheet when
-// formulas were typeset, then the reader's sheets; the diagram images and
-// typeset formulas take the place of source. The page's base is the reader's
-// directory, so the working directory's files are referenced by file URL.
-func htmlOptions(opts Options, dir string, images []string, math formulas) docrender.HTMLOptions {
+// sheet and theme, the print stylesheet over them, the theme's print
+// companion over that, the KaTeX stylesheet when formulas were typeset, then
+// the reader's sheets; the diagram images and typeset formulas take the place
+// of source. The page's base is the reader's directory, so the working
+// directory's files are referenced by file URL.
+func htmlOptions(opts Options, dir string, images []string, math formulas) (docrender.HTMLOptions, error) {
 	var sheets []docrender.Stylesheet
 	if !opts.NoDefaultStylesheet {
 		sheets = append(sheets, docrender.InlineStylesheet(PrintStylesheet))
+		companion, err := docrender.ThemePrintStylesheet(opts.Theme)
+		if err != nil {
+			return docrender.HTMLOptions{}, err
+		}
+		if companion != "" {
+			sheets = append(sheets, docrender.InlineStylesheet(companion))
+		}
 	}
 	if math.css != "" {
 		sheets = append(sheets, docrender.LinkedStylesheet(fileURL(filepath.Join(dir, math.css))))
@@ -174,7 +188,7 @@ func htmlOptions(opts Options, dir string, images []string, math formulas) docre
 		DiagramForm:         opts.DiagramForm,
 		DiagramImages:       images,
 		Math:                math.html,
-	}
+	}, nil
 }
 
 // fileRefs is the file URL of each named file within dir, in order; an empty
