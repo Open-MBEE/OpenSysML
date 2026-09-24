@@ -307,9 +307,8 @@ func members(r Run) []struct {
 func buildFeatures(req *Request) ([]feature, error) {
 	var feats []feature
 	byName := map[string]int{}
-	// companions maps a quantity's unit companion name to its member's, so a
-	// real member taking that name — written before or after the quantity —
-	// is the collision it is.
+	// companions maps each unit companion name to its quantity member, so a
+	// real member taking that name in either order is caught as a collision.
 	companions := map[string]string{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
