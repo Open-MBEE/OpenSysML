@@ -103,15 +103,13 @@ func attr(t xml.StartElement, local string) string {
 	return ""
 }
 
-// readStreams reads, for each diagram whose tool listed no used element, the
-// stream its symbols were serialized to, so an empty diagram is told from one
-// drawing elements the list omits. A stream that cannot be read or decoded
-// leaves the diagram's contents unknown; presentation data never fails the model.
+// readStreams reads each diagram's symbols and appends the elements they stand
+// for that the tool's list omits; an unreadable stream leaves the list as written.
 func (m *Model) readStreams(entries map[string]*zip.File) {
 	for i := range m.Diagrams {
 		d := &m.Diagrams[i]
 		f := entries[d.Stream]
-		if d.Stream == "" || f == nil || len(d.Shown) > 0 {
+		if d.Stream == "" || f == nil {
 			continue
 		}
 		data, err := readEntry(f)
@@ -124,8 +122,21 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		}
 		d.Drawn = true
 		d.Free = syms.free
+		listed := map[string]bool{}
+		for _, ref := range d.Shown {
+			listed[fragment(ref.ID)] = true
+		}
 		for _, id := range syms.shown {
-			d.Shown = append(d.Shown, ElementRef{ID: id})
+			if !listed[fragment(id)] {
+				listed[fragment(id)] = true
+				d.Shown = append(d.Shown, ElementRef{ID: id})
+			}
 		}
 	}
+}
+
+// fragment is the element id an href or id names: the list and the symbols may
+// spell one element's href by module file or by project resource.
+func fragment(id string) string {
+	return id[strings.LastIndexByte(id, '#')+1:]
 }

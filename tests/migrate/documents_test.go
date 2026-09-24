@@ -572,6 +572,21 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 	wantNote(t, r, "_st_owner_image", migrate.Unmapped,
 		"the diagrams it shows pass through «SortByAttribute» Yard Viewpoints::Owner Sorted Diagrams Viewpoint::Owner Sorted Diagrams Method::Sort By Owner is not migrated: no query property stands for the attribute Owner")
 
+	// A name filter matches the name the element bears in the output, as its
+	// query does: the anonymous block written as `unnamed` passes the filter
+	// naming it, so the diagram it owns is drawn, and its named sibling's is not.
+	wantInOrder(t, "Unnamed Drafts", notation,
+		"calc def 'Yard Handbook Bulleted List Rows'",
+		`value = "^(?:unnamed)$")`,
+		"part 'Unnamed Drafts' : DocumentQueries::Section {",
+		"calc items : 'Yard Handbook Bulleted List Rows';",
+		`attribute redefines caption = "Overview";`,
+		"ref redefines source = unnamed.Overview;")
+	if body := notation[strings.Index(notation, "part 'Unnamed Drafts' : DocumentQueries::Section"):]; strings.Count(body, "DocumentQueries::Diagram") != 1 {
+		t.Errorf("Unnamed Drafts draws other than the unnamed block's diagram:\n%s", body)
+	}
+	wantNote(t, r, "_st_drafts_image", migrate.Mapped, "")
+
 	s := session(t, r)
 	md := markdown(t, s, "'Yard Handbook'::'Yard Handbook Document'")
 	wantInOrder(t, "Yard Handbook Markdown", md,
@@ -606,9 +621,13 @@ func TestMigratedCollectorsAndFilters(t *testing.T) {
 		"*Yard Requirements*", "```mermaid", "*Sway Limits*", "```mermaid",
 		"*Crane Internals*", "```mermaid", "*Gantry Drive*", "```mermaid",
 		"## Diagrams By Documentation", "*Gantry Drive*", "```mermaid", "*Crane Structure*", "```mermaid",
-		"## Owner Sorted Diagrams")
-	if n := strings.Count(md, "```mermaid"); n != 17 {
-		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 17:\n%s", n, md)
+		"## Owner Sorted Diagrams",
+		"## Unnamed Drafts", "- unnamed", "*Overview*", "```mermaid")
+	if n := strings.Count(md, "```mermaid"); n != 18 {
+		t.Errorf("Yard Handbook Markdown draws %d diagrams, want 18:\n%s", n, md)
+	}
+	if body := markdownSection(md, "## Unnamed Drafts"); strings.Contains(body, "Sketchy") {
+		t.Errorf("Unnamed Drafts shows the named sibling the filter drops:\n%s", body)
 	}
 	for _, heading := range []string{"## Sketched Diagrams", "## No Diagrams", "## Parametric Diagrams", "## Shown On Both Diagrams", "## Cable Parts", "## To Do", "## Owner Sorted Diagrams"} {
 		if body := markdownSection(md, heading); strings.Contains(body, "```mermaid") || strings.Contains(body, "|") || strings.Contains(body, "\n- ") {

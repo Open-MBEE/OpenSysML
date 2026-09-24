@@ -103,9 +103,11 @@ func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
 	}
 }
 
-// A diagram whose tool lists no used element is read from its stream in the
-// archive; one whose list names elements keeps the list; one whose stream is
-// absent or unreadable stays unread.
+// Every diagram is read from its stream in the archive: one whose tool lists
+// no used element gets what the symbols draw, one whose list names elements
+// keeps the list in order and gains the elements the symbols draw beyond it,
+// however the two spell an element's href; one whose stream is absent or
+// unreadable stays unread with its list as written.
 func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	model := strings.Replace(string(diagramDocument(bddDiagram+`
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_empty" name="Empty" ownerOfDiagram="_p">
@@ -155,11 +157,15 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 		`xmlns:diagram=`, `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diagram=`, 1)
 	m, err := Parse(archive(t, "", map[string][]byte{
 		"com.nomagic.magicdraw.uml_model.model": []byte(model),
-		"BINARY-1":                              []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement></mdOwnedViews>`),
-		"BINARY-empty":                          []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_empty"/></mdElement><mdElement elementClass="ImageShape"/></mdOwnedViews>`),
-		"BINARY-drawn":                          []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/><mdOwnedViews><mdElement elementClass="Part"><elementID xmi:idref="_a_b"/></mdElement></mdOwnedViews></mdElement></mdOwnedViews>`),
-		"BINARY-lost":                           []byte("\xff\xfe not a stream"),
-		"BINARY-cut":                            []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
+		"BINARY-1": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement>` +
+			`<mdElement elementClass="DataType"><elementID href="PrimitiveTypes.mdzip#Real"/></mdElement>` +
+			`<mdElement elementClass="Class"><elementID xmi:idref="_a"/><mdOwnedViews><mdElement elementClass="Part"><elementID xmi:idref="_a_m"/></mdElement></mdOwnedViews></mdElement>` +
+			`<mdElement elementClass="TextBox"/></mdOwnedViews>`),
+		"BINARY-empty": []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_empty"/></mdElement><mdElement elementClass="ImageShape"/></mdOwnedViews>`),
+		"BINARY-drawn": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/><mdOwnedViews><mdElement elementClass="Part"><elementID xmi:idref="_a_b"/></mdElement></mdOwnedViews></mdElement>` +
+			`<mdElement elementClass="DataType"><elementID href="PrimitiveTypes.mdzip#Real"/></mdElement></mdOwnedViews>`),
+		"BINARY-lost": []byte("\xff\xfe not a stream"),
+		"BINARY-cut":  []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -175,15 +181,17 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 		}
 		return ids
 	}
-	if d := byID["_d_bdd"]; d.Drawn || len(d.Shown) != 6 || shown(d)[0] != "_a" {
-		t.Errorf("listed diagram: drawn %v, shown %q; want the list kept", d.Drawn, shown(d))
+	if d := byID["_d_bdd"]; !d.Drawn || len(d.Shown) != 7 || shown(d)[0] != "_a" || shown(d)[6] != "_a_m" ||
+		d.Shown[6].Element != m.Lookup("_a_m") || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
+		t.Errorf("listed diagram: drawn %v, shown %q, free %v; want the list kept and the unlisted element after it", d.Drawn, shown(d), d.Free)
 	}
 	if d := byID["_d_empty"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"ImageShape": 1}) {
 		t.Errorf("empty diagram: drawn %v, shown %q, free %v", d.Drawn, shown(d), d.Free)
 	}
-	if d := byID["_d_drawn"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_b", "_a_b"}) || len(d.Free) != 0 ||
-		d.Shown[0].Element == nil || d.Shown[1].Element == nil {
-		t.Errorf("drawn diagram: drawn %v, shown %q, free %v", d.Drawn, shown(d), d.Free)
+	if d := byID["_d_drawn"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_b", "_a_b", "PrimitiveTypes.mdzip#Real"}) || len(d.Free) != 0 ||
+		d.Shown[0].Element == nil || d.Shown[1].Element == nil ||
+		d.Shown[2].Element != m.Lookup("http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real") {
+		t.Errorf("drawn diagram: drawn %v, shown %q, free %v; want the module-file href resolved to the proxy", d.Drawn, shown(d), d.Free)
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())

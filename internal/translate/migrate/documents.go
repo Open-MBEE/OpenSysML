@@ -1193,7 +1193,7 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		return false
 	}
 	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return matches(d.Name) })
-	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) { return matches(e.Name), true })
+	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) { return matches(c.m.writtenName(e)), true })
 	if c.empty() {
 		return
 	}
@@ -1254,7 +1254,7 @@ func diagramKey(d *sysmlv1.Diagram, property string) string {
 func (m *migration) sortKey(e *sysmlv1.Element, property string) string {
 	switch property {
 	case "name":
-		return m.nameOf(e)
+		return m.writtenName(e)
 	case "documentation":
 		return docKey(m.documentation(e))
 	}

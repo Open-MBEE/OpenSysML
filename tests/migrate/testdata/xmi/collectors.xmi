@@ -54,6 +54,11 @@
 
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_sketches" name="Sketches"/>
 
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_drafts" name="Drafts">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_draft"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_sketchy" name="Sketchy"/>
+    </packagedElement>
+
     <packagedElement xmi:type="uml:Package" xmi:id="_pkg_viewpoints" name="Yard Viewpoints">
 
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_bdds" name="Block Diagrams Viewpoint" classifierBehavior="_act_bdds">
@@ -307,6 +312,24 @@
         </ownedBehavior>
       </packagedElement>
 
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_drafts" name="Unnamed Drafts Viewpoint" classifierBehavior="_act_drafts">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_drafts" name="Unnamed Drafts Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_drafts_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drafts_collect" name="Collect Owned Elements"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drafts_names" name="Filter By Names"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drafts_list" name="Bulleted List"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drafts_owned" name="Collect Owned Diagrams"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_drafts_image" name="Image"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_drafts_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e1" source="_drafts_init" target="_drafts_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e2" source="_drafts_collect" target="_drafts_names"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e3" source="_drafts_names" target="_drafts_list"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e4" source="_drafts_list" target="_drafts_owned"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e5" source="_drafts_owned" target="_drafts_image"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_drafts_e6" source="_drafts_image" target="_drafts_final"/>
+        </ownedBehavior>
+      </packagedElement>
+
       <packagedElement xmi:type="uml:Class" xmi:id="_vp_owner" name="Owner Sorted Diagrams Viewpoint" classifierBehavior="_act_owner">
         <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_owner" name="Owner Sorted Diagrams Method">
           <node xmi:type="uml:InitialNode" xmi:id="_owner_init"/>
@@ -365,6 +388,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_rdocs" name="reverseDocumentedDiagrams" type="_view_rdocs" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_ddocs" name="diagramsByDocumentation" type="_view_ddocs" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_owner" name="ownerSortedDiagrams" type="_view_owner" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_hb_drafts" name="unnamedDrafts" type="_view_drafts" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_bdds" name="Block Diagrams">
@@ -488,6 +512,11 @@
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_owner" general="_vp_owner"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_owner" client="_view_owner" supplier="_diag_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_drafts" name="Unnamed Drafts">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_drafts" general="_vp_drafts"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_drafts" client="_view_drafts" supplier="_pkg_drafts"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -560,6 +589,29 @@
           </xmi:Extension>
         </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_untyped" name="Sketch" ownerOfDiagram="_pkg_sketches"/>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_draft" name="Overview" ownerOfDiagram="_blk_draft">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_draft</usedElements>
+                  <usedElements>_blk_cable</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_sketchy" name="Sketchy Overview" ownerOfDiagram="_blk_sketchy">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_sketchy</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
       </modelExtension>
       <stereotypesHREFS>
         <stereotype name="MagicDraw_Profile:TODO_Owner" stereotypeHREF="UML_Standard_Profile.mdzip#_st_todo"/>
@@ -571,6 +623,8 @@
   <sysml:Block xmi:id="_st_blk_hook" base_Class="_blk_hook"/>
   <sysml:Block xmi:id="_st_blk_latch" base_Class="_blk_latch"/>
   <sysml:Block xmi:id="_st_blk_cable" base_Class="_blk_cable"/>
+  <sysml:Block xmi:id="_st_blk_draft" base_Class="_blk_draft"/>
+  <sysml:Block xmi:id="_st_blk_sketchy" base_Class="_blk_sketchy"/>
   <sysml:Block xmi:id="_st_blk_operator" base_Class="_blk_operator"/>
   <sysml:Block xmi:id="_st_blk_gantry" base_Class="_blk_gantry"/>
   <sysml:Block xmi:id="_st_blk_trolley" base_Class="_blk_trolley"/>
@@ -601,6 +655,7 @@
   <sysml:Viewpoint xmi:id="_st_vp_rdocs" base_Class="_vp_rdocs"/>
   <sysml:Viewpoint xmi:id="_st_vp_ddocs" base_Class="_vp_ddocs"/>
   <sysml:Viewpoint xmi:id="_st_vp_owner" base_Class="_vp_owner"/>
+  <sysml:Viewpoint xmi:id="_st_vp_drafts" base_Class="_vp_drafts"/>
 
   <sysml:View xmi:id="_st_view_bdds" base_Class="_view_bdds"/>
   <sysml:View xmi:id="_st_view_sketch" base_Class="_view_sketch"/>
@@ -623,6 +678,7 @@
   <sysml:View xmi:id="_st_view_rdocs" base_Class="_view_rdocs"/>
   <sysml:View xmi:id="_st_view_ddocs" base_Class="_view_ddocs"/>
   <sysml:View xmi:id="_st_view_owner" base_Class="_view_owner"/>
+  <sysml:View xmi:id="_st_view_drafts" base_Class="_view_drafts"/>
 
   <sysml:Conform xmi:id="_st_conform_bdds" base_Generalization="_gen_bdds"/>
   <sysml:Conform xmi:id="_st_conform_sketch" base_Generalization="_gen_sketch"/>
@@ -645,6 +701,7 @@
   <sysml:Conform xmi:id="_st_conform_rdocs" base_Generalization="_gen_rdocs"/>
   <sysml:Conform xmi:id="_st_conform_ddocs" base_Generalization="_gen_ddocs"/>
   <sysml:Conform xmi:id="_st_conform_owner" base_Generalization="_gen_owner"/>
+  <sysml:Conform xmi:id="_st_conform_drafts" base_Generalization="_gen_drafts"/>
 
   <sysml:Expose xmi:id="_st_expose_bdds_structure" base_Dependency="_expose_bdds_structure"/>
   <sysml:Expose xmi:id="_st_expose_bdds_internals" base_Dependency="_expose_bdds_internals"/>
@@ -684,6 +741,7 @@
   <sysml:Expose xmi:id="_st_expose_ddocs_structure" base_Dependency="_expose_ddocs_structure"/>
   <sysml:Expose xmi:id="_st_expose_ddocs_gantry" base_Dependency="_expose_ddocs_gantry"/>
   <sysml:Expose xmi:id="_st_expose_owner" base_Dependency="_expose_owner"/>
+  <sysml:Expose xmi:id="_st_expose_drafts" base_Dependency="_expose_drafts"/>
 
   <Document_Profile_:Document xmi:id="_st_doc_handbook" base_Class="_doc_handbook"/>
 
@@ -769,6 +827,14 @@
 
   <Document_Profile_:SortByAttribute xmi:id="_st_owner_sort" base_CallBehaviorAction="_owner_sort" desiredAttribute="Owner"/>
   <Document_Profile_:Image xmi:id="_st_owner_image" base_CallBehaviorAction="_owner_image"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_drafts_collect" base_CallBehaviorAction="_drafts_collect" depth="1"/>
+  <Document_Profile_:FilterByNames xmi:id="_st_drafts_names" base_CallBehaviorAction="_drafts_names" include="true">
+    <names>unnamed</names>
+  </Document_Profile_:FilterByNames>
+  <Document_Profile_:BulletedList xmi:id="_st_drafts_list" base_CallBehaviorAction="_drafts_list" showTargets="true" includeDoc="false"/>
+  <Document_Profile_:CollectOwnedElements xmi:id="_st_drafts_owned" base_CallBehaviorAction="_drafts_owned" depth="1"/>
+  <Document_Profile_:Image xmi:id="_st_drafts_image" base_CallBehaviorAction="_drafts_image"/>
 
   <Document_Profile_:CollectOwnedElements xmi:id="_st_spec_collect" base_CallBehaviorAction="_spec_collect" depth="0"/>
   <Document_Profile_:FilterByStereotypes xmi:id="_st_spec_filter" base_CallBehaviorAction="_spec_filter" include="true">

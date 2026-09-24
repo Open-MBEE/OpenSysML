@@ -74,6 +74,21 @@ package Sketches {
         render Views::asTextualNotation;
     }
 }
+package Drafts {
+    part def unnamed {
+        view Overview {
+            expose unnamed;
+            expose Structure::Cable;
+            render Views::asTreeDiagram;
+        }
+    }
+    part def Sketchy {
+        view 'Sketchy Overview' {
+            expose Sketchy;
+            render Views::asTreeDiagram;
+        }
+    }
+}
 package 'Yard Viewpoints' {
     viewpoint 'Block Diagrams Viewpoint' {
         action def 'Block Diagrams Method' {
@@ -305,6 +320,23 @@ package 'Yard Viewpoints' {
         }
         perform action 'diagrams By Documentation Method' : 'Diagrams By Documentation Method';
     }
+    viewpoint 'Unnamed Drafts Viewpoint' {
+        action def 'Unnamed Drafts Method' {
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'Bulleted List';
+            action 'Bulleted List';
+            first 'Bulleted List' then 'Collect Owned Diagrams';
+            action 'Collect Owned Diagrams';
+            first 'Collect Owned Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+        }
+        perform action 'unnamed Drafts Method' : 'Unnamed Drafts Method';
+    }
     viewpoint 'Owner Sorted Diagrams Viewpoint' {
         action def 'Owner Sorted Diagrams Method' {
             first start then 'Sort By Owner';
@@ -360,6 +392,7 @@ package 'Yard Handbook' {
         view reverseDocumentedDiagrams :> 'Reverse Documented Diagrams';
         view diagramsByDocumentation :> 'Diagrams By Documentation';
         view ownerSortedDiagrams :> 'Owner Sorted Diagrams';
+        view unnamedDrafts :> 'Unnamed Drafts';
         /* applied stereotype «Document» */
     }
     view 'Block Diagrams' {
@@ -463,6 +496,10 @@ package 'Yard Handbook' {
         satisfy 'Yard Viewpoints'::'Owner Sorted Diagrams Viewpoint';
         expose Structure::'Crane Structure';
     }
+    view 'Unnamed Drafts' {
+        satisfy 'Yard Viewpoints'::'Unnamed Drafts Viewpoint';
+        expose Drafts::**;
+    }
     calc def 'Yard Handbook Shown Blocks Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
             source = DocumentQueries::OrderBy(
@@ -511,11 +548,22 @@ package 'Yard Handbook' {
                 multiple = "first"),
             properties = ("name"))
     }
+    calc def 'Yard Handbook Bulleted List Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::WhereName(
+                source = DocumentQueries::Descendants(
+                    source = DocumentQueries::Named(qualifiedName = ("Drafts")),
+                    maxDepth = 1),
+                operator = "matches",
+                value = "^(?:unnamed)$"),
+            properties = ("name"))
+    }
     part def 'Yard Handbook Document' :> DocumentQueries::Document {
         attribute redefines title = "Yard Handbook";
         ref sway : Needs::Sway;
         ref crane : Structure::Crane;
         ref gantry : Structure::Gantry;
+        ref unnamed : Drafts::unnamed;
         part 'Block Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Block Diagrams";
             part diagram : DocumentQueries::Diagram {
@@ -679,6 +727,17 @@ package 'Yard Handbook' {
         part 'Owner Sorted Diagrams' : DocumentQueries::Section {
             attribute redefines title = "Owner Sorted Diagrams";
             /* not migrated: «Image» CallBehaviorAction 'Image' — the diagrams it shows pass through «SortByAttribute» Yard Viewpoints::Owner Sorted Diagrams Viewpoint::Owner Sorted Diagrams Method::Sort By Owner is not migrated: no query property stands for the attribute Owner */
+        }
+        part 'Unnamed Drafts' : DocumentQueries::Section {
+            attribute redefines title = "Unnamed Drafts";
+            part list : DocumentQueries::List {
+                attribute redefines style = "bullet";
+                calc items : 'Yard Handbook Bulleted List Rows';
+            }
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Overview";
+                ref redefines source = unnamed.Overview;
+            }
         }
     }
 }
