@@ -2,7 +2,9 @@ package docrender
 
 import (
 	"embed"
+	"errors"
 	"html"
+	"io/fs"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,14 +30,17 @@ const (
 
 func DefaultStylesheet() string { return defaultCSS }
 
-// themeFS holds the bundled themes, one <name>.css each, written against the
-// default sheet's tokens in its cascade layer.
+// themeFS holds the bundled themes, one <name>.css each written against the
+// default sheet's tokens, and the <name>.print.css companion a theme may carry.
 //
 //go:embed themes/*.css
 var themeFS embed.FS
 
 // DefaultTheme names the default stylesheet on its own.
 const DefaultTheme = "default"
+
+// printCompanionSuffix ends the file of a theme's print companion.
+const printCompanionSuffix = ".print.css"
 
 // Themes lists the bundled theme names, the default first and the rest sorted.
 func Themes() []string {
@@ -45,6 +50,9 @@ func Themes() []string {
 	}
 	names := []string{DefaultTheme}
 	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), printCompanionSuffix) {
+			continue
+		}
 		names = append(names, strings.TrimSuffix(entry.Name(), ".css"))
 	}
 	sort.Strings(names[1:])
@@ -65,6 +73,25 @@ func ThemeStylesheet(name string) (string, error) {
 		return "", &Error{Kind: ErrorUnknownTheme, Actual: name}
 	}
 	return defaultCSS + "\n" + string(overrides), nil
+}
+
+// ThemePrintStylesheet is the named theme's print companion, the overrides a
+// paged backend lays over its print stylesheet; empty for a theme without one.
+func ThemePrintStylesheet(name string) (string, error) {
+	if _, err := ThemeStylesheet(name); err != nil {
+		return "", err
+	}
+	if name == "" || name == DefaultTheme {
+		return "", nil
+	}
+	companion, err := themeFS.ReadFile("themes/" + name + printCompanionSuffix)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(companion), nil
 }
 
 // StylesheetFileName is the file a rendered document set links its shared

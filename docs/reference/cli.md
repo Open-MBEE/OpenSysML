@@ -229,7 +229,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
 | `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
-| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `modern`, `print` or `report` (default: the default stylesheet alone) |
+| `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
 | `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
 | `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
 | `--html-default-css` | | Write the default document stylesheet and exit, as a starting point for your own; with `--html-theme`, the theme's whole sheet |
@@ -800,8 +800,10 @@ The default stylesheet is inlined in a standalone page and declared in a cascade
 Your own CSS is unlayered, so it wins on cascade origin rather than specificity — overriding a
 default needs neither `!important` nor a matching selector. Every default value comes from a
 `--sysml-*` custom property on `.sysml-document`, so retheming can be a handful of properties, and
-the renderer emits no `style` attributes to compete with. `-html-theme modern|print|report` layers
-a bundled theme over the default sheet, in the same layer, so your CSS still wins over both.
+the renderer emits no `style` attributes to compete with. `-html-theme acm|ieee|modern|nasa|print|report`
+layers a bundled theme over the default sheet, in the same layer, so your CSS still wins over both;
+`nasa`, `ieee` and `acm` follow the NASA STI report series, IEEE Transactions and ACM `acmart`
+manuscript conventions (see [the manual](../manual/outputs.md#html) for what each sets).
 `-html-default-css` writes that sheet to copy from (the theme's whole sheet with `-html-theme`),
 `-html-css` adds sheets after it (a file is inlined in a single page and written beside a set's pages, a URL is linked), and
 `-html-no-default-css` drops it entirely. A `-render-documents` set writes one shared
@@ -840,11 +842,21 @@ Markdown unchanged.
 
 A PDF from an HTML-reading engine is styled as an HTML page is: the print stylesheet — page size
 and margins, the page-number footer, print faces, page breaks kept out of tables and figures — is
-declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, draws
-its values from the same `--sysml-*` tokens and writes no `style` attributes, so `-html-theme`
-rethemes a PDF, `-html-css` sheets apply unlayered after both layers and win on cascade origin,
-and `-html-no-default-css` leaves both layers out so only your sheets (their `@page` rules
-included) style the PDF. A sheet's relative `url()` and `@import` references resolve against
+declared in a cascade layer `opensysml-print` after the default sheet's `opensysml` layer, and a
+theme's print companion, when the theme carries one, in a layer `opensysml-print-theme` after
+that, so the sheets cascade in the order
+
+```text
+theme (opensysml) < print sheet (opensysml-print) < theme's print part (opensysml-print-theme) < your -html-css, unlayered
+```
+
+All draw their values from the same `--sysml-*` tokens and write no `style` attributes, so
+`-html-theme` rethemes a PDF down to its page size, margins, faces, body size, heading scale and
+page-number footer, `-html-css` sheets apply unlayered after every layer and win on cascade
+origin, and `-html-no-default-css` leaves every bundled layer out so only your sheets (their
+`@page` rules included) style the PDF. Without a theme, the print sheet names Times, Arial and
+Courier first, then their metric-compatible free equivalents (Liberation, Nimbus), then the
+generic family. A sheet's relative `url()` and `@import` references resolve against
 the PDF's directory, as a page's resolve against the page's, so a font or image beside the
 `-o` path is found under every engine. `pandoc` writes its own HTML, so it refuses `-html-theme`
 and `-html-no-default-css` with an `unsupported-option` error naming an engine that reads HTML,

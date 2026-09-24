@@ -1,13 +1,15 @@
 /* The PDF backend's print stylesheet, laid over the HTML backend's default
-   sheet in a later cascade layer: it wins over the default and a theme, and a
-   reader's unlayered stylesheet still wins over it. Every value comes from a
+   sheet in a later cascade layer: it wins over the default and a theme, a
+   theme's print companion in the layer declared after it wins over it, and a
+   reader's unlayered stylesheet still wins over all. Every value comes from a
    --sysml-* token, so a reader retunes the page by setting tokens alone. */
-@layer opensysml-print;
+@layer opensysml-print, opensysml-print-theme;
 
 @layer opensysml-print {
   :root {
     --sysml-page-size: A4;
     --sysml-page-margin: 2.2cm;
+    --sysml-page-number-font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
     --sysml-page-number-font-size: 9pt;
     --sysml-page-number-color: #444444;
   }
@@ -18,14 +20,18 @@
 
     @bottom-center {
       content: counter(page);
+      font-family: var(--sysml-page-number-font-family);
       font-size: var(--sysml-page-number-font-size);
       color: var(--sysml-page-number-color);
     }
   }
 
+  /* Named faces ahead of the generic keyword, so fontconfig's generic
+     fallback (DejaVu on most Linux hosts) is not what sets the page. */
   .sysml-document {
-    --sysml-font-body: serif;
-    --sysml-font-heading: sans-serif;
+    --sysml-font-body: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    --sysml-font-heading: Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
+    --sysml-font-mono: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace;
     --sysml-font-size: 11pt;
     --sysml-line-height: 1.45;
     --sysml-measure: none;
