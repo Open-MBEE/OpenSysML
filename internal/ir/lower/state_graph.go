@@ -1087,8 +1087,9 @@ func isParallelRegionMember(member ast.Node) bool {
 
 // parallelOwnedMember reports whether a parallel state may own a member itself
 // rather than contribute it to a region: its behaviors, its deferred events, the
-// pseudostates its regions branch through, the edges between them, and a
-// definition written in its body, which declares a type rather than a region.
+// pseudostates its regions branch through, the edges between them, a metadata
+// usage annotating it, and a definition written in its body, which declares a
+// type rather than a region.
 func parallelOwnedMember(member ast.Node) bool {
 	switch n := member.(type) {
 	case *ast.Comment, *ast.Documentation, *ast.TextualRepresentation,
@@ -1099,7 +1100,7 @@ func parallelOwnedMember(member ast.Node) bool {
 		return true
 	case *ast.Usage:
 		switch n.Kind {
-		case ast.UsageAttribute, ast.UsagePort, ast.UsageSuccession:
+		case ast.UsageAttribute, ast.UsagePort, ast.UsageSuccession, ast.UsageMetadata:
 			return true
 		}
 		return IsTerminateUsage(n)
