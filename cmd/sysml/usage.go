@@ -425,7 +425,8 @@ func doc() usage.Doc {
 					"these tools is needed until PDF output is asked for; " +
 					"scripts/download-doc-pdf-toolchain.sh provisions pinned copies.",
 				"HTML output needs nothing external and loads nothing by default: -html-theme " +
-					"picks one of the bundled looks (default, modern, print, report), -html-css adds " +
+					"picks one of the bundled looks (default, acm, ieee, modern, nasa, print, report; " +
+					"acm, ieee and nasa follow those bodies' manuscript conventions), -html-css adds " +
 					"your own stylesheets, -html-no-default-css drops the default one, " +
 					"-html-fragment writes the document element alone to embed in a " +
 					"page of yours, and -html-default-css writes the default sheet out " +
@@ -594,7 +595,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 
-	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, modern, print or report")
+	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, acm, ieee, modern, nasa, print or report")
 	fs.Var(&htmlCSS, "html-css", "Style the HTML or PDF with this stylesheet too: a file is inlined, a URL is linked (repeatable, applied in order after the default sheet)")
 	fs.BoolVar(&htmlNoCSS, "html-no-default-css", false, "Leave the default stylesheet out, so only -html-css sheets style the HTML or PDF")
 	fs.BoolVar(&htmlFragment, "html-fragment", false, "Write the document element alone, without the page shell or a stylesheet, to embed in a page of your own")

@@ -284,13 +284,16 @@ document. Class names are stable and unprefixed by depth: nesting expresses dept
 
 The flags follow from that:
 
-- **`-html-theme <name>`** layers one of the bundled themes (`modern`, `print`, `report`;
-  `default` names the default sheet alone) after the default sheet, in the same `<style>` and
-  the same `opensysml` layer. A theme is written against the `--sysml-*` tokens and the class
-  vocabulary and scopes every selector under `.sysml-document`, so it changes the look without
-  changing the cascade contract: unlayered reader CSS still wins over default and theme alike.
-  The themes live in `docrender/themes/*.css` and are embedded; the file names are the theme
-  names, so adding a theme is adding a file.
+- **`-html-theme <name>`** layers one of the bundled themes (`acm`, `ieee`, `modern`, `nasa`,
+  `print`, `report`; `default` names the default sheet alone) after the default sheet, in the
+  same `<style>` and the same `opensysml` layer. A theme is written against the `--sysml-*`
+  tokens and the class vocabulary and scopes every selector under `.sysml-document`, so it
+  changes the look without changing the cascade contract: unlayered reader CSS still wins over
+  default and theme alike. The themes live in `docrender/themes/*.css` and are embedded; the
+  file names are the theme names, so adding a theme is adding a file. A theme may bring a
+  print companion, `themes/<name>.print.css`, which is no theme of its own — `Themes()` leaves
+  it out and `ThemeStylesheet` refuses its name — but is what the PDF backend lays over its
+  print sheet for that theme (§ *Bundled themes* and § *What this does to the PDF backend*).
 - **`-html-css <file-or-url>`**, repeatable. A file's contents are inlined, so the artifact
   stays self-contained; a URL becomes a `<link>` for a site that serves its own. Each is
   emitted after the default, unlayered, in the order given.
@@ -311,6 +314,26 @@ The flags follow from that:
 The print stylesheet the PDF path needs — `@page` margins, page counters, page breaks — stays
 with the PDF backend, where its `@page` rules belong, and is layered the same way so
 `-html-css` works for PDF too.
+
+### Bundled themes
+
+`modern`, `print` and `report` are generic looks. `nasa`, `ieee` and `acm` follow a publishing
+convention, and each sets on screen the faces and point sizes it sets on paper, so a page and
+its PDF agree. All three are black on white (`--sysml-text`, `--sysml-accent` and
+`--sysml-rule` black, `--sysml-surface` transparent), rule their tables with thin horizontal
+lines only, title tables above and caption figures below, set code in Courier or Liberation
+Mono, and leave the measure unconstrained on paper (the print sheet's `--sysml-measure: none`
+stands, since no companion sets a measure).
+
+| Theme | Convention and sources | Verified values the theme sets | Choices where the convention is silent |
+|---|---|---|---|
+| `nasa` | NASA STI Report Series: *NASA Publications Guide for Authors* (NASA/SP-2005-7602, NTRS 20050189209, § 4.3.1.7 *Mechanics and Layout*) and *NASA Scientific and Technical Information Standards* (NTRS 20060049392, § 1.3.1.2 *Recommendations for Font Usage*, § 1.3.1.4 *Page Numbering*, the figure and table chapters), both citing NPR 2200.2 and ANSI/NISO Z39.18 for covers and title pages | Serif text with sans-serif titles, figure text, tables and graphics; standard cross-platform faces (Times, Arial, Courier); body 11–12pt, 12pt highly recommended, never below 10pt (the theme sets 12pt); 8½ × 11 in page; figures centred with the caption centred below; captions in the same type size as the text; front matter in lowercase roman numerals with the title page as unnumbered page i, body in arabic numerals; no heading left alone at a page foot | Heading sizes live in the STI Word templates, not the text: bold sans 14/12/12pt for the three section levels, numbered and left-aligned, is a template-consistent choice. 1 in margins, line height 1.25, a 24pt bold sans title on the existing title-page block, the page number centred in the bottom margin at body size. The roman front matter is realised with named pages: the title page is `cover` (no number), the contents are `front` (`lower-roman`, so the contents open on page ii), and the first body page resets the counter to 1 |
+| `ieee` | IEEE Transactions and Journals: *IEEE Editorial Style Manual for Authors* and IEEE PES *Preparation of a Formatted Transactions/Journal Paper*, which states the sizes | 8½ × 11 in page; margins about 0.67 in (16.9 mm) on every side; proportional serif (Times) throughout; 10pt body and equations; 8pt captions, table text, footnotes and references; 24pt title; primary headings centred in small caps, subheadings italic; full justification; 1 pica paragraph indent | Section heads keep the renderer's arabic numbers (see the limitations); line height 1.2; the existing title-page block with the 24pt title; the page number centred in the bottom margin at 8pt |
+| `acm` | ACM Primary Article Template (`acmart`) and the [ACM proceedings template page](https://www.acm.org/publications/proceedings-template) | Libertine family — `"Libertinus Serif", "Linux Libertine O", "Linux Libertine"` with `"Times New Roman", "Liberation Serif", serif` after it; sans `"Libertinus Sans", "Linux Biolinum O", "Linux Biolinum"` with Arial and Liberation Sans after; 10pt body; letter page; numbered bold sans headings; captions in the body face at 9pt; single-column `acmsmall` and `manuscript` styles exist, so one column is a legitimate ACM layout | 1 in margins, line height 1.2, a 10pt paragraph indent, a 17pt bold sans title, 9pt tables and page numbers |
+
+The Libertine fonts `acm` names are installed on few machines; where they are absent the stack
+falls through to Times metrics (Liberation Serif on a Linux box), which is the documented
+fallback, not an error.
 
 ## Surfaces
 
@@ -357,14 +380,38 @@ formula its typeset HTML. Rasterizers for other diagram forms plug into that sea
 
 The print stylesheet is `internal/doc/docpdf/print.css`: `@page` geometry, the page counter, print
 fonts and breaks, and the print treatment of the `sysml-*` classes, in `@layer opensysml-print`
-declared after `@layer opensysml`. The cascade order for an HTML-input engine is the backend's
-default sheet and theme, the print layer, KaTeX's stylesheet when the document has formulas,
-then the reader's `-html-css` sheets unlayered — so the override contract of § *Styling and
-overriding it* holds for PDF byte for byte, and `-html-theme` and `-html-no-default-css` mean
-for PDF what they mean for HTML. Pandoc's own HTML carries pandoc's structure rather than the
-backend's classes, so the pandoc engine keeps a stylesheet of its own (`pandoc.css`), attaches
-`-html-css` sheets in its page's head after it, and rejects `-html-theme` and
-`-html-no-default-css` with a typed error.
+declared after `@layer opensysml`. Its default faces name the conventional print families first
+and their metric-compatible free equivalents next — `"Times New Roman", Times, "Liberation Serif",
+"Nimbus Roman", serif` for text, `Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif`
+for headings, `"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace` for code
+— rather than the bare generic family, because fontconfig resolves a bare `serif` to DejaVu Serif
+on most Linux machines, a face some 15 % wider and taller than Times at the same nominal size,
+while the Times-metric Liberation Serif installed beside it is chosen only when named. The
+screen sheet keeps `system-ui`: a system face is the deliberate default for a page.
+
+A theme sits in `opensysml` under the print sheet, so on its own it cannot move the page: the
+print sheet's `--sysml-font-size`, faces and heading scale win over the theme's. A theme that
+means to govern paper therefore carries a print companion, `themes/<name>.print.css`, one block
+of `@layer opensysml-print-theme`, which the print sheet declares after its own layer
+(`@layer opensysml-print, opensysml-print-theme;`) and which `docpdf.htmlOptions` inlines right
+after the print sheet through `docrender.ThemePrintStylesheet`. A companion writes `:root` page
+tokens (`--sysml-page-size`, `--sysml-page-margin`, the page-number font tokens), `@page` rules
+and page-margin boxes, and `.sysml-document` tokens — so it governs page geometry, typography,
+captions, tables, heading scale and the footer — and nothing else. The cascade order for an
+HTML-input engine is
+
+```text
+default sheet + theme (opensysml) < print sheet (opensysml-print) < theme's companion (opensysml-print-theme) < KaTeX < reader's -html-css, unlayered
+```
+
+so the override contract of § *Styling and overriding it* holds for PDF byte for byte,
+`-html-theme` means for PDF what it means for HTML down to the page, and `-html-no-default-css`
+leaves the default sheet, the print sheet and the companion out together. `print`, `report`,
+`nasa`, `ieee` and `acm` carry companions; `modern` does not, being a screen look. Pandoc's own
+HTML carries pandoc's structure rather than the backend's classes, so the pandoc engine keeps a
+stylesheet of its own (`pandoc.css`, naming the same default faces), attaches `-html-css` sheets
+in its page's head after it, and rejects `-html-theme` and `-html-no-default-css` with a typed
+error.
 
 A sheet's relative `url()` and `@import` references resolve for PDF as they do for HTML:
 against the output's own directory. The converters run in a temporary working directory, so
@@ -454,9 +501,27 @@ HTML stylesheet options reaching `-doc-form pdf`.
   whose text equals the next caption and which sits directly ahead of that caption's block
   would be styled as the caption. The HTML-input engines carry captions as `<caption>` and
   `<figcaption>` and have no such ambiguity.
-- **Three bundled themes, no house style.** `modern`, `print` and `report` are generic looks
-  built on the layer and the token vocabulary; an organisation's house style is still a
-  `-html-css` sheet of its own, and no theme is loaded from the network.
+- **Bundled themes, no house style.** `modern`, `print` and `report` are generic looks and
+  `nasa`, `ieee` and `acm` follow published manuscript conventions, all built on the layer and
+  the token vocabulary; an organisation's house style is still a `-html-css` sheet of its own,
+  and no theme is loaded from the network.
+- **Single column for `ieee` and `acm`.** IEEE Transactions are set in two 3.5 in columns; the
+  theme does not attempt that, since migrated tables and wide diagrams do not fit a column, so
+  `ieee` is a single-column manuscript of a two-column journal. ACM's `acmsmall` and
+  `manuscript` styles are single-column, so `acm` is a layout ACM itself publishes.
+- **Roman-numbered IEEE section heads are not written.** IEEE numbers primary heads I, II, III.
+  The renderer writes each number as text in `sysml-section-number`, and the contents list
+  repeats it, so a stylesheet can neither restyle that text as roman nor replace it with a CSS
+  counter without hiding the number the markup carries; `ieee` keeps arabic numbers rather than
+  fake roman ones.
+- **NASA covers stop at the title.** A NASA report's cover and title page carry a report number,
+  authors and affiliations, the issuing centre and the SF-298 report documentation page; none of
+  these is in the document IR, so `nasa` styles the existing title-page block and invents
+  nothing. Its roman-numbered front matter covers the pages the markup can name — the title page
+  and the contents — and a document rendered without `-doc-title-page` or `-doc-toc` simply has
+  fewer of them.
+- **Libertine may be absent.** `acm` falls through to Times metrics where the Libertine fonts are
+  not installed, which is most machines.
 - **The class and token vocabulary becomes a compatibility surface.** Once readers write
   stylesheets against `sysml-` classes, `data-` attributes and `--sysml-*` properties,
   renaming one breaks them silently. It is documented in `docs/reference/` as a contract and
