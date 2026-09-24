@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // renderModel declares a view stating no rendering, one exposing nothing, and a
@@ -657,7 +659,7 @@ func TestRenderFilenameEncodesWhatAFilesystemRefuses(t *testing.T) {
 		{"Ops::Größe", "Ops.Größe.mmd"},
 	}
 	for _, tc := range cases {
-		got := renderFilename(tc.name, view.FormMermaid)
+		got := renderFilename(tc.name, view.FormMermaid, false)
 		if got != tc.want {
 			t.Errorf("renderFilename(%q) = %q, want %q", tc.name, got, tc.want)
 		}
@@ -671,17 +673,17 @@ func TestRenderFilenameEncodesWhatAFilesystemRefuses(t *testing.T) {
 // the whole, at a boundary that splits neither a `%XX` escape nor a UTF-8 sequence.
 func TestRenderFilenameFitsAPathComponent(t *testing.T) {
 	long := "TMT::" + strings.Repeat("'Acquire Telescope Pointing w/NSEN'::", 8)
-	got := renderFilename(long+"first", view.FormDot)
+	got := renderFilename(long+"first", view.FormDot, false)
 	if len(got) != maxFilenameBytes || !strings.HasSuffix(got, ".dot") {
 		t.Errorf("renderFilename(long) = %q (%d bytes), want %d ending in .dot", got, len(got), maxFilenameBytes)
 	}
 	if i := strings.LastIndexByte(got, '~'); i < 0 || len(got)-i != 1+2*filenameTagBytes+len(".dot") {
 		t.Errorf("renderFilename(long) = %q lacks a %d-byte hash tag before the extension", got, 2*filenameTagBytes)
 	}
-	if got != renderFilename(long+"first", view.FormDot) {
+	if got != renderFilename(long+"first", view.FormDot, false) {
 		t.Errorf("renderFilename(long) is not deterministic")
 	}
-	if other := renderFilename(long+"second", view.FormDot); other == got {
+	if other := renderFilename(long+"second", view.FormDot, false); other == got {
 		t.Errorf("two long names that differ only past the cut share %q", got)
 	}
 	a := strings.Repeat("a", 230)
@@ -693,7 +695,7 @@ func TestRenderFilenameFitsAPathComponent(t *testing.T) {
 		{a + "aaaö" + a, a + "aaa"},
 		{a + "aaö" + a, a + "aaö"},
 	} {
-		got := renderFilename(tc.name, view.FormDot)
+		got := renderFilename(tc.name, view.FormDot, false)
 		if len(got) > maxFilenameBytes || !strings.HasPrefix(got, tc.stem+"~") {
 			t.Errorf("renderFilename(%q) = %q (%d bytes), want the stem %q", tc.name, got, len(got), tc.stem)
 		}
@@ -735,9 +737,53 @@ func TestRenderAllEncodesUnsafeViewNames(t *testing.T) {
 	}
 }
 
+// The files -render-all plans are distinct letter case aside, and only views the
+// written form is written for take part: a view whose plain name is another's
+// tagged name is tagged in turn, a view the forced form skips leaves its peer's
+// plain name alone, and two names still meeting tagged are refused.
+func TestRenderFilenamesMeetOnlyOnce(t *testing.T) {
+	tree := func(name string) model.ViewInfo {
+		return model.ViewInfo{Name: name, Kind: view.KindTree, Supported: true}
+	}
+	tagged := renderFilename("Demo::Report", view.FormDot, true)
+	tagName := "Demo::" + strings.TrimSuffix(strings.TrimPrefix(tagged, "Demo."), ".dot")
+	got, err := renderFilenames([]model.ViewInfo{tree("Demo::Report"), tree("Demo::report"), tree(tagName), tree("Demo::other")}, view.FormDot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["Demo::Report"] != tagged || got["Demo::other"] != "Demo.other.dot" {
+		t.Errorf("filenames = %v, want Demo::Report as %s and Demo::other plain", got, tagged)
+	}
+	if got[tagName] == tagged || !strings.Contains(got[tagName], "~") {
+		t.Errorf("view %s named like the tag is written to %q, want a tagged name other than %s", tagName, got[tagName], tagged)
+	}
+	folded := map[string]string{}
+	for name, filename := range got {
+		if other, met := folded[caseFolded(filename)]; met {
+			t.Errorf("views %s and %s are both written to %s", other, name, filename)
+		}
+		folded[caseFolded(filename)] = name
+	}
+
+	sequence := model.ViewInfo{Name: "Demo::report", Kind: view.KindSequence, Supported: true}
+	got, err = renderFilenames([]model.ViewInfo{tree("Demo::Report"), sequence}, view.FormDot)
+	if err != nil || len(got) != 1 || got["Demo::Report"] != "Demo.Report.dot" {
+		t.Errorf("filenames beside a view DOT skips = %v, %v; want Demo::Report plain alone", got, err)
+	}
+	got, err = renderFilenames([]model.ViewInfo{tree("Demo::Report"), sequence}, "")
+	if err != nil || len(got) != 2 || got["Demo::Report"] == got["Demo::report"] || !strings.Contains(got["Demo::report"], "~") {
+		t.Errorf("filenames in machine forms = %v, %v; want both tagged", got, err)
+	}
+
+	if _, err := renderFilenames([]model.ViewInfo{tree("Demo::Report"), tree("Demo::Report")}, view.FormDot); err == nil || !strings.Contains(err.Error(), "same rendering path") {
+		t.Errorf("one name twice err = %v, want the shared path refused", err)
+	}
+}
+
 // Two views whose names differ in letter case alone would share one file on a
-// filesystem that ignores case, so they are refused together on every platform.
-func TestRenderAllRefusesPathsMeetingUnderCaseFolding(t *testing.T) {
+// filesystem that ignores case, so both are written under hash-tagged names on
+// every platform, and a third view that meets neither keeps its plain name.
+func TestRenderAllTagsPathsMeetingUnderCaseFolding(t *testing.T) {
 	binary := buildCLI(t)
 	for _, tc := range []struct{ first, second string }{
 		{"Report", "report"},
@@ -753,13 +799,34 @@ func TestRenderAllRefusesPathsMeetingUnderCaseFolding(t *testing.T) {
         expose Demo::Vehicle;
         render Views::asTreeDiagram;
     }
+    view other {
+        expose Demo::Vehicle;
+        render Views::asTreeDiagram;
+    }
 }
 `, tc.first, tc.second)
 		dir := filepath.Join(t.TempDir(), "rendered")
 		got := runStreams(t, binary, model, "-render-all", dir, "-render-form", "dot")
-		want := fmt.Sprintf("views Demo::%s and Demo::%s have the same rendering path", strings.Trim(tc.first, "'"), strings.Trim(tc.second, "'"))
-		if got.status != exitUnevaluable || !strings.Contains(got.stderr, want) {
-			t.Errorf("exit status = %d, want %d naming both views\n%s", got.status, exitUnevaluable, got.output())
+		if got.status != exitHolds {
+			t.Fatalf("exit status = %d, want %d\n%s", got.status, exitHolds, got.output())
+		}
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var names []string
+		for _, file := range files {
+			names = append(names, file.Name())
+		}
+		if len(names) != 3 || !slices.Contains(names, "Demo.other.dot") {
+			t.Fatalf("files = %v, want three including Demo.other.dot", names)
+		}
+		for _, name := range []string{tc.first, tc.second} {
+			stem := "Demo." + strings.Trim(name, "'") + "~"
+			i := slices.IndexFunc(names, func(f string) bool { return strings.HasPrefix(f, stem) && strings.HasSuffix(f, ".dot") })
+			if i < 0 || len(names[i]) != len(stem)+2*filenameTagBytes+len(".dot") {
+				t.Errorf("files = %v, want one hash-tagged %s*.dot", names, stem)
+			}
 		}
 	}
 }

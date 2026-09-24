@@ -494,8 +494,11 @@ the 255 bytes a path component may hold is cut short of that — at a boundary t
 `%XX` nor a UTF-8 sequence — and tagged with `~` and the first 16 hex digits of the SHA-256 of the
 full encoded name, so two long names that agree up to the cut still take two files; such a file
 name no longer reads back to the view name. Two views whose names meet in the same path — letter
-case aside under Unicode's simple case folding, since a filesystem may ignore it — stop the run
-with status 2 naming both. With no
+case aside under Unicode's simple case folding, since a filesystem may ignore it — are each
+written under their name tagged the same way (`Views.Report~<hash>.dot` and
+`Views.report~<hash>.dot`), so neither overwrites the other; a view meeting no other keeps its
+plain name. Only views written in the requested form take part, and a plain name that meets a
+tagged one is tagged in turn, so no two files written in one run meet. With no
 `-render-form`, graph-shaped kinds use Mermaid (`.mmd`) and tables use Markdown (`.md`); a forced text form uses
 `.txt` and unbounded width, a forced `dot` form uses `.dot`, and a forced `plantuml` form uses
 `.puml`, PlantUML's conventional extension.
