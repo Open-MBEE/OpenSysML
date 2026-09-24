@@ -318,7 +318,7 @@ digraph "PlantViews::placedView" {
     bb="292,692,628,768";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
-    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
 }
@@ -339,11 +339,13 @@ digraph "PlantViews::placedView" {
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
   moving it. A stated size is `width`/`height` in inches with `fixedsize=true`, and the label
   is composed to fit it (`dotFittedLabel` in `dot.go`), never the box grown to the label: the
-  head is word-wrapped at the box's width and drawn at the largest whole font size from 14 pt
-  down to 8 pt at which the wrapped lines stack within the height with every word whole — a
-  word wider than the box at every size is broken where it overruns, at the largest size whose
-  lines then fit; the keyword line (at 10/14 of the head's size) and each detail line
-  follow only while height remains for them, so a 449×14 px compartment row holds
+  node's `margin=0` gives the whole box to the label (Graphviz's default pads it by 0.11 by
+  0.055 in, which a 14 px compartment row cannot spare), the head is word-wrapped at the box's
+  width and drawn at the largest whole font size from 14 pt down to 8 pt at which the wrapped
+  lines stack within the height with every word whole — a word wider than the box at every size
+  is broken where it overruns, at the largest size whose lines then fit; the keyword line (at
+  10/14 of the head's size) and each detail line follow only while height remains for them, so
+  a 449×14 px compartment row holds
   `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
   height even at 8 pt is cut to the lines that fit and its last line ellipsized. A stated box
   that holds other stated boxes — a part whose members are drawn inside it, a definition over

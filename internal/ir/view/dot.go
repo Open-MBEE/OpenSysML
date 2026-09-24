@@ -620,8 +620,9 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 }
 
 // dotStatedLabel is a stated box's label attributes: the label fitted to the
-// box's width and its headroom, set at the top when that is a header strip; when
-// the room holds no line even at the floor, the head is set outside as `xlabel`.
+// box's width and its headroom with no margin taken off them, set at the top
+// when that is a header strip; when the room holds no line even at the floor,
+// the head is set outside as `xlabel`.
 func (w *dotWriter) dotStatedLabel(node *Node) []string {
 	width := node.Geometry.Width
 	height, header := w.headroom(node)
@@ -632,7 +633,7 @@ func (w *dotWriter) dotStatedLabel(node *Node) []string {
 		}
 		return attrs
 	}
-	attrs := []string{w.labels.dotFittedLabel(node, width, height)}
+	attrs := []string{w.labels.dotFittedLabel(node, width, height), "margin=0"}
 	if header {
 		attrs = append(attrs, "labelloc=t")
 	}

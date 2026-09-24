@@ -15,7 +15,8 @@ func stated(node *Node, width, height float64) *Node {
 // width, keeps 14pt while the wrapped lines fit the height and shrinks a point at
 // a time to 8pt when they do not; the keyword and detail lines follow only while
 // height remains; a head that overruns at 8pt is cut to the lines that fit and
-// ellipsized. The box itself is never resized.
+// ellipsized. The box itself is never resized, and its margin is zeroed so the
+// whole box is the label's, as the fit assumes.
 func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	cases := []struct {
 		name string
@@ -23,7 +24,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		want string
 	}{
 		{"room for everything", stated(&Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking"}, 200, 80),
-			`label=<<b>call : doTracking</b><br/><font point-size="10"><i>«action»</i></font>>, pos="100,-40!", pin=true, width=2.7777777777777777, height=1.1111111111111112, fixedsize=true];`},
+			`label=<<b>call : doTracking</b><br/><font point-size="10"><i>«action»</i></font>>, margin=0, pos="100,-40!", pin=true, width=2.7777777777777777, height=1.1111111111111112, fixedsize=true];`},
 		{"head wraps at the width", stated(&Node{ID: "n", Kind: "action", Name: "Execute Find and Identify Algorithm"}, 100, 100),
 			`label=<<b>Execute<br/>Find and<br/>Identify<br/>Algorithm</b><br/><font point-size="10"><i>«action»</i></font>>`},
 		{"keyword dropped for want of height", stated(&Node{ID: "n", Kind: "action", Name: "call", Type: "doTracking"}, 200, 24),
@@ -33,15 +34,20 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		{"detail when it fits", stated(&Node{ID: "n", Kind: "state", Name: "idle", Detail: "entry, do"}, 200, 60),
 			`label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font><br/>entry, do>`},
 		{"a compartment row shrinks to one line", stated(&Node{ID: "n", Kind: "attribute", Name: "errorReq", Type: "Real"}, 449, 14),
-			`label=<<font point-size="11"><b>errorReq : Real</b></font>>, pos="224.5,-7!", pin=true, width=6.236111111111111, height=0.19444444444444445, fixedsize=true];`},
+			`label=<<font point-size="11"><b>errorReq : Real</b></font>>, margin=0, pos="224.5,-7!", pin=true, width=6.236111111111111, height=0.19444444444444445, fixedsize=true];`},
 		{"a name too long for the floor is ellipsized", stated(&Node{ID: "n", Kind: "attribute", Name: "'a name that runs on well past the width of the row it is drawn in'"}, 120, 14),
-			`label=<<font point-size="8"><b>&#39;a name that runs on…</b></font>>, pos="60,-7!", pin=true, width=1.6666666666666667, height=0.19444444444444445, fixedsize=true];`},
+			`label=<<font point-size="8"><b>&#39;a name that runs on…</b></font>>, margin=0, pos="60,-7!", pin=true, width=1.6666666666666667, height=0.19444444444444445, fixedsize=true];`},
 		{"a word wider than the box is broken across lines", stated(&Node{ID: "n", Kind: "action", Name: "Reconfiguration"}, 60, 60),
 			`label=<<b>Reconf<br/>igurat<br/>ion</b>>`},
 		{"shrinking to keep a word whole comes before breaking it", stated(&Node{ID: "n", Kind: "part", Name: "EventStream"}, 77, 32),
 			`label=<<font point-size="10"><b>EventStream</b></font><br/><font point-size="7"><i>«part»</i></font>>`},
 		{"wrapping comes before shrinking", stated(&Node{ID: "n", Kind: "part", Name: "pump", Type: "Pump"}, 60, 40),
 			`label=<<b>pump<br/>: Pump</b>>`},
+		// Twenty bold 14pt glyphs measure 184.8pt: the whole width is the label's, no margin off it.
+		{"a head filling the width keeps its size", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 185, 20),
+			`label=<<b>doughboundhoundpound</b>>, margin=0, pos="92.5,-10!"`},
+		{"a head a point over the width shrinks", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 184, 20),
+			`label=<<font point-size="13"><b>doughboundhoundpound</b></font>>, margin=0, pos="92,-10!"`},
 	}
 	for _, tc := range cases {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
@@ -54,6 +60,9 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		}
 		if !strings.Contains(dot, "fixedsize=true") {
 			t.Errorf("%s: the stated box is not fixed:\n%s", tc.name, dot)
+		}
+		if !strings.Contains(dot, ", margin=0, ") {
+			t.Errorf("%s: the stated box keeps Graphviz's margin, which the fit did not allow for:\n%s", tc.name, dot)
 		}
 	}
 	// A node with no stated size keeps the label-fitted box and the plain label.
@@ -266,10 +275,10 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	for _, want := range []string{
 		// The 40px strip holds the head wrapped to two 14pt lines (33.6px), not the keyword line too; the label sits at the top.
-		`"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>, labelloc=t, pos="150,-100!", pin=true, width=4.166666666666667, height=2.7777777777777777, fixedsize=true];`,
+		`"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>, margin=0, labelloc=t, pos="150,-100!", pin=true, width=4.166666666666667, height=2.7777777777777777, fixedsize=true];`,
 		// A box holding nothing is fitted to the whole of it and centred; the members keep their stated boxes.
-		`"beside" [style="rounded,filled", label=<<b>rack</b><br/><font point-size="10"><i>«part»</i></font>>, pos="550,-100!"`,
-		`"computer" [style="rounded,filled", label=<<b>computer</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-75!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];`,
+		`"beside" [style="rounded,filled", label=<<b>rack</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="550,-100!"`,
+		`"computer" [style="rounded,filled", label=<<b>computer</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-75!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -281,7 +290,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b><br/><font point-size="10"><i>«part»</i></font>>, pos="150,-100!"`; !strings.Contains(dot, want) {
+	if want := `"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="150,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	// A member 10px below the top leaves the title one 8pt line, cut to the width and ellipsized.
@@ -290,7 +299,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39;…</b></font>>, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
+	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39;…</b></font>>, margin=0, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	// A member 9px below the top leaves no room for a line even at the floor: the head is set outside.
@@ -339,7 +348,7 @@ func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 		{"bare", &Node{ID: "n", Kind: "action", Geometry: &Geometry{X: 0, Y: 0, Width: 20, Height: 6, HasSize: true}},
 			`"n" [style="rounded,filled", label="", pos="10,-3!"`},
 		{"one line", &Node{ID: "n", Kind: "action", Name: "tick", Geometry: &Geometry{X: 0, Y: 0, Width: 30, Height: 10, HasSize: true}},
-			`"n" [style="rounded,filled", label=<<font point-size="8"><b>tick</b></font>>, pos="15,-5!"`},
+			`"n" [style="rounded,filled", label=<<font point-size="8"><b>tick</b></font>>, margin=0, pos="15,-5!"`},
 	} {
 		dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{tc.node}}).DOT()
 		if err != nil {

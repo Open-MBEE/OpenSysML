@@ -485,7 +485,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
 		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
-		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
+		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -504,7 +504,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
@@ -529,7 +529,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		"// not represented: 1 node(s) without a position, left undrawn, and 1 edge(s) at them\n// layout: neato -n2\ndigraph",
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
 		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
-		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, margin=0, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
 		`"n1" -> "n2" [label="off_on", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
 	} {
@@ -594,7 +594,7 @@ digraph "Pinned::view" {
     bb="10,180,210,280";
     comment="collapsed";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="110,230!", pin=true];
-    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
+    "n1" [style="rounded,filled", label=<<b>a</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="56,252!", pin=true, width=1, height=0.5, fixedsize=true];
     "n2" [style="rounded,filled", label=<<b>b</b><br/><font point-size="10"><i>«part»</i></font>>, pos="147,251.5!", pin=true, width=0.75, height=0.5138888888888888];
   }
   subgraph "cluster_n3" {
@@ -649,7 +649,7 @@ digraph "Pinned::view" {
 		"// layout: neato -n2\n",
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,300!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"400,0!\", pin=true];\n  \"n0\"",
 		// Outer's box holds a's, 10px below its top: its title is fitted to that strip, at the top.
-		`"n0" [label=<<font point-size="8"><b>Outer</b></font>>, labelloc=t, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
+		`"n0" [label=<<font point-size="8"><b>Outer</b></font>>, margin=0, labelloc=t, pos="110,230!", pin=true, width=2.7777777777777777, height=1.3888888888888888, fixedsize=true, comment="collapsed"];`,
 		`"n3" [label=<<b>Other</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="338,81.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`,
 	} {
 		if !strings.Contains(dot, want) {
@@ -781,7 +781,7 @@ digraph "Routed::view" {
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="157.75,165!", pin=true];
     "n1" [shape=circle, label=<<b>start</b><br/><font point-size="10"><i>«initial»</i></font>>, pos="160,313!", pin=true, width=1.1111111111111112, height=1.1111111111111112];
     "n2" [style="rounded,filled", label=<<b>wait</b><br/><font point-size="10"><i>«action»</i></font>>, pos="160,215.5!", pin=true, width=0.8888888888888888, height=0.5138888888888888];
-    "n3" [style="rounded,filled", label=<<b>send</b><br/><font point-size="10"><i>«action»</i></font>>, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
+    "n3" [style="rounded,filled", label=<<b>send</b><br/><font point-size="10"><i>«action»</i></font>>, margin=0, pos="160,106!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
     "n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>, pos="150,11.5!", pin=true, width=0.9583333333333334, height=0.9583333333333334];
   }
   "n1" -> "n2" [pos="160,273 160,273 160,234 160,234"];

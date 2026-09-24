@@ -220,7 +220,7 @@ func TestDOTPaletteFills(t *testing.T) {
 	checkDOTSyntax(t, dot)
 	part, port, item, other := paletteColors[PaletteOkabeIto][0], paletteColors[PaletteOkabeIto][2], paletteColors[PaletteOkabeIto][1], paletteColors[PaletteOkabeIto][18%8]
 	for _, want := range []string{
-		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<b>p</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<b>p</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", fillcolor="` + paletteFill(port, true) + `", color="` + port + `", penwidth=1, label=`,
 		`"n3" [fillcolor="` + item + `", color="` + item + `", penwidth=1, label=`,
 		`"n4" [shape=circle, fillcolor=black, label="", pos=`,
