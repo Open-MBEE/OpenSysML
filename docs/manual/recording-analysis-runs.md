@@ -189,6 +189,10 @@ vocabulary the records are written in:
   companion naming the unit; an `inout` parameter as the value the run left
   plus a `<name>In` companion carrying the value it was bound with.
 - An input or output left unset is declared on the record but not redefined.
+- A member's type is settled from the values the runs supply; Integer and
+  Real are one numeric family for it — either way the member is Real (an
+  Integer literal is valid under it). A recorded value that is a scalar-valued
+  enum literal keeps the literal (`= Grade::high`), not the scalar it equals.
 - Records join only a package whose header is a plain `package Name`.
 - Recording is exposed at the REPL and CLI; the gRPC surface does not expose
   it yet.
