@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -381,6 +382,83 @@ func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref str
 	return !m.drawsAsEdge(f, el) && (x.exposed(ref) || inGraph(f, el) && m.drawsNode(el, f))
 }
 
+// emptyView says why a view of form f draws nothing: its diagram shows no
+// element the view exposes; "" when the rendering has something to draw.
+func (m *migration) emptyView(v *view, f viewForm) string {
+	d := v.d
+	if len(m.exposures(d, v.host, f).refs) > 0 {
+		return ""
+	}
+	for _, td := range v.tables {
+		m.lowerTable(td)
+		if td.written() {
+			return ""
+		}
+	}
+	switch {
+	case !d.Represented():
+		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case len(d.Shown) == 0:
+		return "it " + showsNothing(d, "shows no model element") + ", and its view exposes nothing"
+	}
+	return "none of the " + strconv.Itoa(len(d.Shown)) + " elements it shows is written, and its view exposes nothing"
+}
+
+// showsNothing predicates what a diagram showing no model element draws, as far
+// as its serialization tells: nothing at all, or free symbols only, which stand
+// for no element and so no view exposes; unread tells only what the tool listed.
+func showsNothing(d *sysmlv1.Diagram, unread string) string {
+	switch {
+	case !d.Drawn:
+		return unread
+	case len(d.Free) == 0:
+		return "draws nothing at all"
+	}
+	return "shows no model element, only " + freeSymbols(d.Free) + " standing for none"
+}
+
+// freeSymbolNouns names the tool's symbol classes that stand for no element.
+var freeSymbolNouns = map[string]string{
+	"ImageShape": "image", "TextBox": "text box", "TextBoxWithIcon": "text box",
+	"Note": "note", "NoteAnchor": "note anchor", "RectangularShape": "rectangle",
+	"Separator": "separator", "Swimlane": "swimlane", "ContainmentLink": "containment line",
+	"Tree": "tree line",
+}
+
+// freeSymbols lists free symbols by count: "an image and 2 text boxes".
+func freeSymbols(free map[string]int) string {
+	counts := map[string]int{}
+	for class, n := range free {
+		noun, ok := freeSymbolNouns[class]
+		if !ok {
+			noun = class + " symbol"
+		}
+		counts[noun] += n
+	}
+	nouns := make([]string, 0, len(counts))
+	for noun := range counts {
+		nouns = append(nouns, noun)
+	}
+	sort.Strings(nouns)
+	parts := make([]string, 0, len(nouns))
+	for _, noun := range nouns {
+		n := counts[noun]
+		if n == 1 {
+			parts = append(parts, article(noun)+noun)
+			continue
+		}
+		if strings.HasSuffix(noun, "x") {
+			noun += "e"
+		}
+		parts = append(parts, strconv.Itoa(n)+" "+noun+"s")
+	}
+	if len(parts) > 1 {
+		parts[len(parts)-2] += " and " + parts[len(parts)-1]
+		parts = parts[:len(parts)-1]
+	}
+	return strings.Join(parts, ", ")
+}
+
 // writeView writes a diagram as a view usage exposing each shown element the
 // document writes, rendered by the diagram's kind, and records its report row.
 func (m *migration) writeView(v *view) {
@@ -420,7 +498,7 @@ func (m *migration) writeView(v *view) {
 	case !d.Represented():
 		note = joinNotes(note, "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing")
 	case shown == 0:
-		note = joinNotes(note, "the diagram shows nothing; the view exposes nothing")
+		note = joinNotes(note, "the diagram "+showsNothing(d, "shows nothing")+"; the view exposes nothing")
 	case len(x.refs) == 0:
 		note = joinNotes(note, "none of the "+strconv.Itoa(shown)+" shown elements is written; the view exposes nothing")
 	}
@@ -441,6 +519,9 @@ func (m *migration) writeView(v *view) {
 		note = joinNotes(note, geo.note)
 	}
 	m.w.block(decl, func() {
+		if doc := commentText(d.Documentation); doc != "" {
+			m.w.lines(prefixFirst("doc ", commentLines(doc)))
+		}
 		for _, ref := range x.refs {
 			m.w.line("expose " + ref + ";")
 		}

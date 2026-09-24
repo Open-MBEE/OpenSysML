@@ -59,6 +59,9 @@ func (l *treeLowering) feature(path []string, write bool) (opaqueRef, *refusal) 
 // expressionTree writes a UML Expression tree as a v2 expression yielding what
 // want asks for. ok is false when a node has no v2 form; note says why.
 func (m *migration) expressionTree(v, scope *sysmlv1.Element, want wanted) (expr string, ok bool, note string) {
+	if blankTree(v) {
+		return "", false, blankTreeNote
+	}
 	l := &treeLowering{s: m.bodyScope(scope), leaves: map[string]opaqueRef{}, spelled: treeWords(v)}
 	text, err := l.lower(v)
 	if err == nil {
@@ -68,6 +71,30 @@ func (m *migration) expressionTree(v, scope *sysmlv1.Element, want wanted) (expr
 		return "", false, "the UML " + v.Type + " tree has no v2 form: " + err.note()
 	}
 	return expr, true, joinNotes("the UML Expression tree is written as a v2 expression", l.s.note(""))
+}
+
+// blankTreeNote says why a blank Expression tree is left out.
+const blankTreeNote = "the UML Expression tree spells nothing: no node has a symbol and every operand is an instance value naming no instance"
+
+// blankTree reports whether Expression tree v is notation only, as a tool writes a
+// presentation constraint: no symbol anywhere, every leaf an instance value naming no instance.
+func blankTree(v *sysmlv1.Element) bool {
+	switch v.Type {
+	case "Expression", "StringExpression":
+		if strings.TrimSpace(v.Attrs["symbol"]) != "" {
+			return false
+		}
+		operands := append(v.Owned("operand"), v.Owned("subExpression")...)
+		for _, o := range operands {
+			if !blankTree(o) {
+				return false
+			}
+		}
+		return len(operands) > 0
+	case "InstanceValue":
+		return len(v.RefIDs("instance")) == 0
+	}
+	return false
 }
 
 // lower writes value specification v as script text, refusing what the

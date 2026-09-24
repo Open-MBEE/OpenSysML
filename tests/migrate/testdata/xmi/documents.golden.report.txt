@@ -1,8 +1,8 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 317 element(s): 234 mapped, 65 approximated, 18 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 317 element(s): 236 mapped, 65 approximated, 16 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (18)
+## unmapped (16)
 «CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_named	(property "META:QPROP:Element:name" is not the comment body)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_empty	(the paragraph's comment has no body)
@@ -10,12 +10,10 @@
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_other_doc	(viewId "_doc_gone" names no document)
 «Conform» Generalization	Fleet Documents::Notes::<Generalization>	_gen_notes	(the viewpoint is not in the document; applied stereotypes «Conform»)
 Activity	Fleet Viewpoints::Broken Viewpoint::Broken Method	_act_broken	(the method Fleet Viewpoints::Broken Viewpoint::Broken Method is not migrated: no initial node)
-«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	(the SysML Activity Diagram 'Parts Method Flow' is a view rendered as textual notation, which a document does not draw)
 «Viewpoint» Class	Fleet Viewpoints::Headless Viewpoint	_st_vp_headless	(the viewpoint Fleet Viewpoints::Headless Viewpoint's method is not migrated: method "_act_vanished" names no element)
 «CollectOwnedElements» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements	_st_odd_depth	(the depth "many" is not a whole number)
 «CollectTypes» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Types	_st_odd_types	(no query operation or content block stands for «CollectTypes»)
 «Paragraph» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Evaluated Paragraph	_st_odd_ocl	(its body is evaluated as OCL, which no query evaluates)
-«Image» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Image	_st_odd_image	(it shows no diagram: only a diagram the view exposes or the node targets directly has a view to show)
 CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Missing Behavior	_odd_missing	(behavior "_act_gone" names no element)
 CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Missing Behavior	_odd_missing	-> 'Missing Behavior'	(1 behavior reference(s) resolve to nothing in the document (_act_gone); the action calls no behavior)
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Type Table	_st_odd_table	(the elements it shows pass through «CollectOwnedElements» Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Collect Owned Elements is not migrated: the depth "many" is not a whole number)
@@ -89,7 +87,7 @@ Activity	Fleet Viewpoints::Traceability Viewpoint::Traceability Method	_act_trac
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_trace_list	-> 'Related Elements'	(a step with no behavior and no duration; it passes the token on)
 «BulletedList» CallBehaviorAction	Fleet Viewpoints::Traceability Viewpoint::Traceability Method::Related Elements	_st_trace_list	-> part 'Fleet Documents'::'Fleet Handbook Document'::Traceability::list	(its rows are the query 'Fleet Handbook Related Elements Rows'; each item's documentation follows its name)
 
-## mapped (234)
+## mapped (236)
 Package	Fleet	_pkg_fleet	-> Fleet
 Package	Fleet Documents	_pkg_docs	-> 'Fleet Documents'
 «Expose» Dependency	Fleet Documents::<Dependency>	_expose_intro	-> 'Fleet Documents'::Introduction
@@ -169,6 +167,7 @@ InitialNode	Fleet Viewpoints::Figures Viewpoint::Figures Method::<InitialNode>	_
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::paragraph	(the paragraph is the Diagram's caption)
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 2'
 «Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 3'
+«Image» CallBehaviorAction	Fleet Viewpoints::Figures Viewpoint::Figures Method::Image	_st_figures_image	-> part 'Fleet Documents'::'Fleet Brief Document'::Fleet::'diagram 4'
 «Viewpoint» Class	Fleet Viewpoints::Gallery Viewpoint	_vp_gallery	-> 'Fleet Viewpoints'::'Gallery Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::<ActivityFinalNode>	_gallery_final	-> final
 ControlFlow	Fleet Viewpoints::Gallery Viewpoint::Gallery Method::<ControlFlow>	_gallery_e2
@@ -180,7 +179,7 @@ ActivityFinalNode	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::<Ac
 ControlFlow	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::<ControlFlow>	_nofig_e2
 ControlFlow	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::<ControlFlow>	_nofig_e3
 InitialNode	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::<InitialNode>	_nofig_init	-> start
-«Image» CallBehaviorAction	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Image	_st_nofig_image	(it draws nothing: «FilterByMetaclasses» Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Packages Only keeps none of the diagrams the view exposes or the node targets)
+«Image» CallBehaviorAction	Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Image	_st_nofig_image	(it draws nothing: «FilterByMetaclasses» Fleet Viewpoints::No Figures Viewpoint::No Figures Method::Packages Only drops all the diagrams collected; an Image draws only diagrams)
 «Viewpoint» Class	Fleet Viewpoints::Oddities Viewpoint	_vp_odd	-> 'Fleet Viewpoints'::'Oddities Viewpoint'
 ActivityFinalNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ActivityFinalNode>	_odd_final	-> final
 ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>	_odd_e2
@@ -191,6 +190,7 @@ ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>
 ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>	_odd_e7
 ControlFlow	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<ControlFlow>	_odd_e8
 InitialNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::<InitialNode>	_odd_init	-> start
+«Image» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Image	_st_odd_image	(it draws nothing: the only element collected, the «Block» Class Fleet::Structure::Truck, is not a diagram; an Image draws only diagrams)
 CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Per Truck	_odd_dynamic	-> 'Per Truck'
 CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Per Truck	_odd_dynamic	-> part 'Fleet Documents'::'Fleet Handbook Document'::Oddities::'Per Truck'
 «TableStructure» StructuredActivityNode	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Type Table	_odd_table	-> 'Type Table'

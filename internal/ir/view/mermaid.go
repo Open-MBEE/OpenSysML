@@ -245,7 +245,7 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 		fmt.Fprintf(b, "%s%s --> %s\n", indent, from, to)
 		return
 	}
-	fmt.Fprintf(b, "%s%s --> %s : %s\n", indent, from, to, mermaidText(label))
+	fmt.Fprintf(b, "%s%s --> %s : %s\n", indent, from, to, mermaidTransitionText(label))
 }
 
 // writeSequenceDiagram writes a sequence rendering as a Mermaid sequence
@@ -322,4 +322,85 @@ func mermaidArrow(kind EdgeKind) string {
 func mermaidText(text string) string {
 	replacer := strings.NewReplacer("#", "#35;", "\"", "#quot;", "\n", " ", "<", "#lt;", ">", "#gt;", ";", "#59;")
 	return replacer.Replace(text)
+}
+
+// MermaidTextCeiling and MermaidEdgeCeiling bound the maxTextSize and maxEdges
+// a chart is ever drawn under: twenty times Mermaid's defaults, so a large
+// model's figures draw while no chart asks a browser for unbounded work.
+const (
+	MermaidTextCeiling = 1_000_000
+	MermaidEdgeCeiling = 10_000
+)
+
+// MermaidSize is the maxTextSize and maxEdges a chart's source is drawn under:
+// one past its length and one past the edges it declares.
+func MermaidSize(source string) (textSize, edges int) {
+	return len(source) + 1, mermaidEdges(source) + 1
+}
+
+// mermaidEdges counts the lines that draw an arrow outside a quoted label; a
+// comment declares none.
+func mermaidEdges(source string) int {
+	edges := 0
+	for _, line := range strings.Split(source, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "%%") {
+			continue
+		}
+		if declaresEdge(unquoted(line)) {
+			edges++
+		}
+	}
+	return edges
+}
+
+// declaresEdge reports whether a statement without its labels draws an arrow:
+// a flowchart's or state diagram's between spaces or before its label's bar, or
+// a sequence message's.
+func declaresEdge(statement string) bool {
+	if strings.Contains(statement, "->>") {
+		return true
+	}
+	for _, arrow := range []string{"-->", "---", "-.->"} {
+		if strings.Contains(statement, " "+arrow+" ") || strings.Contains(statement, " "+arrow+"|") {
+			return true
+		}
+	}
+	return false
+}
+
+// unquoted is a statement without its quoted labels; mermaidText writes a quote
+// inside one as an entity.
+func unquoted(statement string) string {
+	var b strings.Builder
+	for i, part := range strings.Split(statement, "\"") {
+		if i%2 == 0 {
+			b.WriteString(part)
+		}
+	}
+	return b.String()
+}
+
+// MermaidFits reports whether a chart's source is drawn under the ceilings.
+func MermaidFits(source string) bool {
+	textSize, edges := MermaidSize(source)
+	return textSize <= MermaidTextCeiling && edges <= MermaidEdgeCeiling
+}
+
+// MermaidLimits is the maxTextSize and maxEdges every one of the sources fits
+// under, which Mermaid's defaults refuse a large chart by, never past the ceilings.
+func MermaidLimits(sources ...string) (textSize, edges int) {
+	for _, source := range sources {
+		t, e := MermaidSize(source)
+		textSize = max(textSize, min(t, MermaidTextCeiling))
+		edges = max(edges, min(e, MermaidEdgeCeiling))
+	}
+	return textSize, edges
+}
+
+// mermaidTransitionText escapes a state transition's label, which follows an
+// unquoted colon: a state diagram reads `::` in it as the class marker, so a
+// qualified name in a trigger or guard is written with its colons as entities.
+func mermaidTransitionText(text string) string {
+	return strings.ReplaceAll(mermaidText(text), ":", "#58;")
 }
