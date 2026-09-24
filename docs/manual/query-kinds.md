@@ -80,7 +80,12 @@ record is written into the model as elements annotated
 `@AnalysisRecords::RecordedRun`, so `WhereMetadata` finds each one and
 `WhereFeature`/`Project`/`OrderBy` read the values it bound — `caseName`,
 `kind`, `iteration`, and a property per input and output. See
-[Recording analysis runs](recording-analysis-runs.md).
+[Recording analysis runs](recording-analysis-runs.md). A plain `-analysis`,
+`-sweep` or trade study still prints and discards its results, so a run that
+was not recorded leaves nothing a query can see;
+[the analysis-results demo](../../examples/analysis-results-demo/README.md)
+tables records in the same vocabulary, including records that flag themselves
+stale when the model moves.
 
 ## Runtime state and event queries
 
