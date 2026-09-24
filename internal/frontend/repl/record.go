@@ -265,21 +265,44 @@ func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string,
 // or Records beside the package enclosing the case's own package.
 func (s *Session) recordPackage(fqn, into string) (string, error) {
 	if into != "" {
-		if _, ok := source.QualifiedNameSegments(into); !ok {
+		segs, ok := source.QualifiedNameSegments(into)
+		if !ok {
 			return "", fmt.Errorf("%q does not name a package", into)
 		}
-		for _, sym := range s.symbolIndex().LookupQualified(into) {
-			if sym.Kind != symbols.SymbolPackage {
-				return "", fmt.Errorf("%s names a %s, not a package", into, sym.Kind)
+		for i := 1; i <= len(segs); i++ {
+			prefix := strings.Join(segs[:i], "::")
+			for _, sym := range s.symbolIndex().LookupQualified(prefix) {
+				if sym.Kind != symbols.SymbolPackage {
+					return "", fmt.Errorf("%s names a %s, not a package", prefix, sym.Kind)
+				}
 			}
 		}
 		return into, nil
 	}
-	segs, ok := source.QualifiedNameSegments(fqn)
-	if !ok || len(segs) < 3 {
-		return "Records", nil
+	idx := s.symbolIndex()
+	for _, sym := range idx.LookupQualified(fqn) {
+		pkg := enclosingPackage(sym)
+		if pkg == nil {
+			continue
+		}
+		parent := enclosingPackage(pkg.Owner())
+		if parent == nil {
+			return "Records", nil
+		}
+		return idx.GetFQN(parent) + "::Records", nil
 	}
-	return strings.Join(segs[:len(segs)-2], "::") + "::Records", nil
+	return "Records", nil
+}
+
+// enclosingPackage walks a symbol's owners to the nearest package, nil when
+// there is none.
+func enclosingPackage(sym *symbols.Symbol) *symbols.Symbol {
+	for s := sym; s != nil; s = s.Owner() {
+		if s.Kind == symbols.SymbolPackage {
+			return s
+		}
+	}
+	return nil
 }
 
 // recordExisting is what the target package already declares of the shape
@@ -458,8 +481,7 @@ func (s *Session) submitRecord(src string) error {
 		if d.Severity != diag.SeverityError {
 			continue
 		}
-		key := fmt.Sprintf("%d:%s", d.Span.Offset, d.Message)
-		if !beforeErrors[key] {
+		if !beforeErrors[d.Message] {
 			problems = append(problems, d.Message)
 		}
 	}
@@ -475,30 +497,25 @@ func (s *Session) submitRecord(src string) error {
 	return fmt.Errorf("the model was left unchanged: %s", strings.Join(problems, "; "))
 }
 
-// errorSet keys the error diagnostics the buffer already reports.
+// errorSet keys the error diagnostics the buffer already reports, by message:
+// a merge can move the offsets an old error sits at without making it new.
 func (s *Session) errorSet() map[string]bool {
 	set := map[string]bool{}
 	for _, d := range s.diagnostics() {
 		if d.Severity == diag.SeverityError {
-			set[fmt.Sprintf("%d:%s", d.Span.Offset, d.Message)] = true
+			set[d.Message] = true
 		}
 	}
 	return set
 }
 
-// rollbackSubmit restores the snippets a failed record submission replaced,
-// reopening the buffer as it was so the next submission sees only it.
+// rollbackSubmit restores the snippets a failed record submission replaced and
+// rebuilds over them as a submission does, so what the session holds — its
+// objects and debugging sessions — is carried into the restored document.
 func (s *Session) rollbackSubmit(before []snippet) {
 	s.snippets = before
 	s.version++
-	sysml, _ := s.joinedFor(docName)
-	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, found := s.joinedFor(kermlDocName); found {
-		s.ws.Open(kermlDocName, []byte(kerml), s.version)
-	} else {
-		s.ws.Remove(kermlDocName)
-	}
-	s.rtCtx = nil
+	s.rebuildOver(nil)
 	s.idxVersion = 0
 	s.names = nil
 }

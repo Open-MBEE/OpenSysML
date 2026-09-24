@@ -869,29 +869,8 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	if at, ok := firstText(own); ok {
 		offset = at
 	}
-	// What the session holds is recorded against the resolution that produced it
-	// before the new text replaces that resolution, so what the new document does
-	// not change can be told apart from what it does.
-	over := s.recordCarryover()
-	sysml, _ := s.joinedFor(docName)
-	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, found := s.joinedFor(kermlDocName); found {
-		s.ws.Open(kermlDocName, []byte(kerml), s.version)
-	} else {
-		s.ws.Remove(kermlDocName)
-	}
-	// The document is a new AST and scope tree, so the context derived from the
-	// previous one is replaced; the objects it holds are carried into the new one
-	// where the declarations they were materialized against are unchanged. The
-	// index is re-used and brought up to date on the next lookup instead, which is
-	// why it records the version it holds.
-	s.rtCtx = nil
-	gone := goneNames(drops)
-	whole = s.carryOverObjects(over)
-	whole = append(whole, s.dropStaleDebugSessions(gone, over)...)
+	whole = s.rebuildOver(drops)
 	notices := append(dropNotices(drops), whole...)
-	s.rebindRestartedMachine()
-	s.keepIdentitiesOf(over.prev)
 	// The diagnostics already carry their own "did you mean" hints.
 	diags := s.diagnostics()
 	members := s.sessionMembers()
@@ -910,6 +889,35 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	}
 	res.Blocked = s.blockedBy(res)
 	return res, byFile, whole
+}
+
+// rebuildOver replaces the open document and everything derived from it — the
+// runtime context, the resolutions held objects and debugging sessions were
+// made against — after the snippets changed, reporting what it carried over.
+func (s *Session) rebuildOver(drops []dropReport) []string {
+	// What the session holds is recorded against the resolution that produced it
+	// before the new text replaces that resolution, so what the new document does
+	// not change can be told apart from what it does.
+	over := s.recordCarryover()
+	sysml, _ := s.joinedFor(docName)
+	s.ws.Open(docName, []byte(sysml), s.version)
+	if kerml, found := s.joinedFor(kermlDocName); found {
+		s.ws.Open(kermlDocName, []byte(kerml), s.version)
+	} else {
+		s.ws.Remove(kermlDocName)
+	}
+	// The document is a new AST and scope tree, so the context derived from the
+	// previous one is replaced; the objects it holds are carried into the new one
+	// where the declarations they were materialized against are unchanged. The
+	// index is re-used and brought up to date on the next lookup instead, which is
+	// why it records the version it holds.
+	s.rtCtx = nil
+	gone := goneNames(drops)
+	whole := s.carryOverObjects(over)
+	whole = append(whole, s.dropStaleDebugSessions(gone, over)...)
+	s.rebindRestartedMachine()
+	s.keepIdentitiesOf(over.prev)
+	return whole
 }
 
 // fileSpan is where the current submission's text from the named file sits in the
