@@ -75,6 +75,16 @@ Over gRPC, `RunDocumentQuery` answers an object row in the `object` arm of
 `DocumentValue` and a verdict row in the `verdict` arm; see
 [Native document queries and rendering over gRPC](../reference/api.md#native-document-queries-and-rendering-over-grpc).
 
+One kind of result neither sees: what an analysis run printed. `-analysis`,
+`-sweep` and trade studies report their outputs and verdicts on the terminal
+and discard them — no element and no held object records that a run
+happened, so no `Project` or `Verdicts` table can tabulate the runs a model
+has had. The workaround is to write the runs back into the model as
+result-record usages, which then filter, sort and project like anything else;
+[the analysis-results demo](../../examples/analysis-results-demo/README.md)
+works the pattern end to end, including records that flag themselves stale
+when the model moves.
+
 ## Runtime state and event queries
 
 Object rows tell you *what an object holds*; three more operations tell you
