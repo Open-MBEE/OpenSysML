@@ -375,10 +375,19 @@ func buildFeatures(req *Request) ([]feature, error) {
 				shapes[m.name] = sh
 				continue
 			}
+			// A quantity member takes a plain-number row either order: the
+			// row keeps its literal and takes no unit.
+			if sh.kind == kindQuantity && (cur.kind == kindInteger || cur.kind == kindReal) {
+				shapes[m.name] = sh
+				continue
+			}
+			if cur.kind == kindQuantity && (sh.kind == kindInteger || sh.kind == kindReal) {
+				continue
+			}
 			// Integer and Real are one numeric family for the record
 			// definition: either way the member settles to Real, an Integer
 			// literal remaining valid under it.
-			if cur.kind != kindQuantity && sh.kind != kindQuantity && numericPair(cur.typ, sh.typ) {
+			if numericPair(cur.typ, sh.typ) {
 				cur = shape{kind: kindReal, typ: "ScalarValues::Real"}
 				shapes[m.name] = cur
 				continue
@@ -387,10 +396,6 @@ func buildFeatures(req *Request) ([]feature, error) {
 			applyShape(&f, cur)
 			if err := compatible(&f, sh); err != nil {
 				return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
-			}
-			// A Real that later carries a unit needs the companion for those rows.
-			if cur.kind == kindReal && sh.kind == kindQuantity {
-				shapes[m.name] = sh
 			}
 		}
 	}
@@ -411,12 +416,18 @@ func buildFeatures(req *Request) ([]feature, error) {
 		f := feature{name: owner}
 		applyShape(&f, shapes[owner])
 		if err := compatible(&f, shapes[companion]); err != nil {
-			if shapes[owner].kind == kindQuantity || shapes[companion].kind == kindQuantity ||
-				!numericPair(shapes[owner].typ, shapes[companion].typ) {
+			o, c := shapes[owner], shapes[companion]
+			switch {
+			case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
+				shapes[companion] = o
+			case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
+				shapes[owner] = c
+			case numericPair(o.typ, c.typ):
+				shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+				shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+			default:
 				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
 			}
-			shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
-			shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
 		}
 	}
 	var feats []feature

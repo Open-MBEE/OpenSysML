@@ -678,3 +678,45 @@ func TestGenerateExistingRealAcceptsAnInteger(t *testing.T) {
 		t.Error("a Real under a declared Integer: want an error")
 	}
 }
+
+// A quantity member takes a plain-number row in either order: the row keeps
+// its literal and takes no unit.
+func TestGenerateQuantityAndPlainNumbers(t *testing.T) {
+	kg := runtime.NewQuantityValue(&runtime.Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: 3.0},
+		Unit: semantics.Unit{Text: "kg"},
+	})
+	orders := map[string][]runtime.Value{
+		"integer then quantity": {integer(2), kg},
+		"quantity then integer": {kg, integer(2)},
+	}
+	for name, values := range orders {
+		var runs []Run
+		for _, v := range values {
+			runs = append(runs, Run{
+				Outputs: []runtime.CalcOutputValue{{Name: "x", Value: v}},
+				Spell:   spell(),
+			})
+		}
+		res, err := Generate(Request{
+			Package: "P::Records", Case: "P::mix", Provenance: provenance(KindSweep), Runs: runs,
+		})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		for _, want := range []string{
+			"attribute x : ScalarValues::Real;",
+			"attribute xUnit : ScalarValues::String;",
+			"attribute :>> x = 2;",
+			"attribute :>> x = 3.0;",
+			`attribute :>> xUnit = "kg";`,
+		} {
+			if !strings.Contains(res.Source, want) {
+				t.Errorf("%s: source is missing %q:\n%s", name, want, res.Source)
+			}
+		}
+		if strings.Count(res.Source, "xUnit = ") != 1 {
+			t.Errorf("%s: a plain-number row wrote a unit:\n%s", name, res.Source)
+		}
+	}
+}
