@@ -324,12 +324,33 @@ func mermaidText(text string) string {
 	return replacer.Replace(text)
 }
 
+// MermaidTextCeiling and MermaidEdgeCeiling bound the maxTextSize and maxEdges
+// a chart is ever drawn under: twenty times Mermaid's defaults, so a large
+// model's figures draw while no chart asks a browser for unbounded work.
+const (
+	MermaidTextCeiling = 1_000_000
+	MermaidEdgeCeiling = 10_000
+)
+
+// MermaidSize is the maxTextSize and maxEdges a chart's source is drawn under
+// (an edge takes a line).
+func MermaidSize(source string) (textSize, edges int) {
+	return len(source) + 1, strings.Count(source, "\n") + 2
+}
+
+// MermaidFits reports whether a chart's source is drawn under the ceilings.
+func MermaidFits(source string) bool {
+	textSize, edges := MermaidSize(source)
+	return textSize <= MermaidTextCeiling && edges <= MermaidEdgeCeiling
+}
+
 // MermaidLimits is the maxTextSize and maxEdges every one of the sources fits
-// under, which Mermaid's defaults refuse a large chart by (an edge takes a line).
+// under, which Mermaid's defaults refuse a large chart by, never past the ceilings.
 func MermaidLimits(sources ...string) (textSize, edges int) {
 	for _, source := range sources {
-		textSize = max(textSize, len(source)+1)
-		edges = max(edges, strings.Count(source, "\n")+2)
+		t, e := MermaidSize(source)
+		textSize = max(textSize, min(t, MermaidTextCeiling))
+		edges = max(edges, min(e, MermaidEdgeCeiling))
 	}
 	return textSize, edges
 }

@@ -735,7 +735,8 @@ func checkGolden(t *testing.T, path, got string) {
 }
 
 // TestMermaidLimits checks the limits every chart fits under are sized to the
-// largest, not fixed at Mermaid's defaults, so no chart of a model is refused.
+// largest, not fixed at Mermaid's defaults, so no chart of a model under the
+// ceilings is refused, and never raised past the ceilings.
 func TestMermaidLimits(t *testing.T) {
 	small := "flowchart LR\n  a --> b"
 	large := "flowchart LR\n" + strings.Repeat("  n --> n\n", 1000) + strings.Repeat("x", 60000)
@@ -747,7 +748,18 @@ func TestMermaidLimits(t *testing.T) {
 	if textSize <= len(large) || edges <= strings.Count(large, "\n")+1 {
 		t.Errorf("limits %d, %d do not fit a chart of %d bytes and %d lines", textSize, edges, len(large), strings.Count(large, "\n")+1)
 	}
+	if !MermaidFits(small) || !MermaidFits(large) {
+		t.Errorf("a chart under the ceilings does not fit")
+	}
 	if textSize, edges = MermaidLimits(); textSize != 0 || edges != 0 {
 		t.Errorf("no chart gets limits %d, %d", textSize, edges)
+	}
+	manyEdges := "flowchart LR\n" + strings.Repeat("  n --> n\n", MermaidEdgeCeiling)
+	longText := "flowchart LR\n  a[\"" + strings.Repeat("x", MermaidTextCeiling) + "\"]"
+	if MermaidFits(manyEdges) || MermaidFits(longText) {
+		t.Errorf("a chart past a ceiling fits")
+	}
+	if textSize, edges = MermaidLimits(manyEdges, longText); textSize != MermaidTextCeiling || edges != MermaidEdgeCeiling {
+		t.Errorf("limits %d, %d are raised past the ceilings %d, %d", textSize, edges, MermaidTextCeiling, MermaidEdgeCeiling)
 	}
 }

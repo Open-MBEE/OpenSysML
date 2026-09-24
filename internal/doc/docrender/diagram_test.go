@@ -242,6 +242,36 @@ func TestDiagramUnrenderableKind(t *testing.T) {
 	}
 }
 
+// TestDiagramOversized checks a Mermaid chart past the ceiling a chart is drawn
+// under is refused by the Markdown and HTML backends, with its size and the
+// ceiling, while the same diagram is written in another form.
+func TestDiagramOversized(t *testing.T) {
+	rendering := graphRendering(view.KindTree)
+	for i := 0; i < view.MermaidEdgeCeiling; i++ {
+		rendering.Edges = append(rendering.Edges, view.Edge{From: "n0", To: "n1"})
+	}
+	var typed *Error
+	_, err := diagramBlocks("Wide", "", rendering, view.Options{}, view.FormMermaid)
+	if !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
+		t.Fatalf("Markdown: error = %v, want %s", err, ErrorOversizedDiagram)
+	}
+	if typed.Content != "Wide" || typed.Edges <= view.MermaidEdgeCeiling || typed.TextSize <= 0 {
+		t.Errorf("error sizes the chart as %d characters and %d edges", typed.TextSize, typed.Edges)
+	}
+	for _, want := range []string{"diagram Wide is ", " edges of mermaid, past the 1000000 characters and 10000 edges", "another diagram form"} {
+		if !strings.Contains(typed.Error(), want) {
+			t.Errorf("message lacks %q: %s", want, typed.Error())
+		}
+	}
+	w := &htmlWriter{form: view.FormMermaid}
+	if err := w.writeFigure("", "Wide", "", rendering, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
+		t.Fatalf("HTML: error = %v, want %s", err, ErrorOversizedDiagram)
+	}
+	if got := renderedDiagramForm(t, "", rendering, "", view.FormDot); !strings.HasPrefix(got, "```dot\n") {
+		t.Errorf("the oversized diagram is not written as dot:\n%.80s", got)
+	}
+}
+
 func TestDiagramDeterminism(t *testing.T) {
 	first := renderedDiagram(t, "c", graphRendering(view.KindState), view.DirectionLeftRight)
 	second := renderedDiagram(t, "c", graphRendering(view.KindState), view.DirectionLeftRight)

@@ -128,7 +128,11 @@ its own, and is byte-identical between runs. To have a browser draw the
 diagrams, `-html-mermaid cdn` adds a `<script>` loading a pinned Mermaid
 release from jsDelivr, and `-html-mermaid <url>` loads it from a URL of your
 own; a second `<script>` configures it to draw the page's largest chart, which
-Mermaid's default size limits would refuse. The page keeps the source, so it
+Mermaid's default size limits (50 000 characters, 500 edges) would refuse. The
+configuration never exceeds twenty times those defaults, so no page asks a
+browser for unbounded work: a chart past 1 000 000 characters or 10 000 edges
+is refused before it is written, naming the chart and its size, and is drawn
+with `-diagram-form dot` or `plantuml` instead. The page keeps the source, so it
 still reads where the script cannot load. A fragment has no page shell for the
 script, so a page embedding one loads Mermaid itself. Rendered with
 `-diagram-form dot` or `-diagram-form plantuml`, every graph-shaped diagram
@@ -208,7 +212,10 @@ $ sysml report.sysml -render-document Observatory::MassReport \
 ```
 
 Internally the PDF backend reads the compiled document tree, renders any
-Mermaid diagrams to SVG with Mermaid CLI (`mmdc`), typesets any formulas
+Mermaid diagrams to SVG with Mermaid CLI (`mmdc`) — each under a
+configuration sized to the chart, within the same ceiling the
+[HTML backend](#html) draws under, and the same five-minute limit every
+converter runs under — typesets any formulas
 with KaTeX (`katex`), and hands an external converter the document in the
 form it reads: an HTML-to-PDF engine gets the [HTML backend's](#html) page
 with the drawn diagrams and typeset formulas in place of their source and a
