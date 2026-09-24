@@ -23,6 +23,10 @@ type MarkdownOptions struct {
 	// DiagramForm is the source every graph-shaped diagram is written as,
 	// Mermaid when empty; a table-kind view is a pipe table whichever it is.
 	DiagramForm view.Form
+
+	// Unplaced is where a DOT diagram some Layout positions puts the nodes
+	// none does: left undrawn when empty, or in a strip below the drawing.
+	Unplaced view.Unplaced
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -42,7 +46,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	w := &markdownWriter{form: form}
+	w := &markdownWriter{form: form, unplaced: opts.Unplaced}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
@@ -70,7 +74,16 @@ func diagramForm(form view.Form) (view.Form, error) {
 // markdownWriter carries the choices one Markdown render applies to every
 // node it writes.
 type markdownWriter struct {
-	form view.Form
+	form     view.Form
+	unplaced view.Unplaced
+}
+
+// figureOptions is what a diagram's rendering is written with: its stated
+// direction and palette, and the render's placement of unplaced nodes.
+func figureOptions(node docir.Content, unplaced view.Unplaced) view.Options {
+	options := node.Options()
+	options.Unplaced = unplaced
+	return options
 }
 
 // renderContent renders one content node, with level the ATX heading level a
@@ -110,7 +123,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentFormula:
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
-		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), node.Options(), w.form)
+		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.unplaced), w.form)
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -184,7 +197,8 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, options view
 }
 
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
-// with the diagram's direction and palette, without its trailing newline.
+// with the diagram's direction, palette and placement of unplaced nodes,
+// without its trailing newline.
 func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
 	if !rendering.Kind.SupportsForm(form) {
 		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}

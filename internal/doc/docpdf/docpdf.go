@@ -48,6 +48,10 @@ type Options struct {
 	// DiagramForm is the source graph-shaped diagrams are drawn from, Mermaid
 	// when empty.
 	DiagramForm view.Form
+
+	// Unplaced is where a DOT diagram some Layout positions puts the nodes
+	// none does: left undrawn when empty, or in a strip below the drawing.
+	Unplaced view.Unplaced
 }
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
@@ -78,7 +82,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := converter.Available(); err != nil {
 		return nil, err
 	}
-	diagrams, err := docrender.Diagrams(document, opts.DiagramForm)
+	diagrams, err := docrender.Diagrams(document, opts.DiagramForm, opts.Unplaced)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm})
+		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm, Unplaced: opts.Unplaced})
 		if err != nil {
 			return nil, err
 		}
@@ -172,6 +176,7 @@ func htmlOptions(opts Options, dir string, images []string, math formulas) docre
 		NumberSections:      opts.NumberSections,
 		Lang:                opts.Lang,
 		DiagramForm:         opts.DiagramForm,
+		Unplaced:            opts.Unplaced,
 		DiagramImages:       images,
 		Math:                math.html,
 	}

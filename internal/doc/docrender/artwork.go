@@ -20,9 +20,10 @@ type Diagram struct {
 }
 
 // Diagrams lists the document's graph-shaped diagrams in document order, each
-// with the source the backends write for it in form (Mermaid when empty). A
-// table-kind view is a table, not a diagram, and is left out.
-func Diagrams(document *docir.Document, form view.Form) ([]Diagram, error) {
+// with the source the backends write for it in form (Mermaid when empty) with
+// unplaced nodes placed as unplaced says. A table-kind view is a table, not a
+// diagram, and is left out.
+func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced) ([]Diagram, error) {
 	if document == nil {
 		return nil, &Error{Kind: ErrorNilDocument}
 	}
@@ -50,7 +51,7 @@ func Diagrams(document *docir.Document, form view.Form) ([]Diagram, error) {
 			if !rendering.Kind.Supported() {
 				return &Error{Kind: ErrorUnrenderableDiagram, Content: node.Name(), Actual: string(rendering.Kind)}
 			}
-			source, err := diagramSource(node.Name(), rendering, node.Options(), resolved)
+			source, err := diagramSource(node.Name(), rendering, figureOptions(node, unplaced), resolved)
 			if err != nil {
 				return err
 			}

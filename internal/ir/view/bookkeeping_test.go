@@ -67,7 +67,8 @@ func TestLayoutAnnotationsAreNotDrawn(t *testing.T) {
 // A name the migration made up (MigrationMetadata::SynthesizedName) keys its
 // node but is not one a picture shows: the node carries the bit, as does the
 // language's own start of an action's flow, and an edge with no text but such
-// a name carries no label, in every rendering kind.
+// a name carries no label, in every rendering kind. The marker itself, being
+// about the migration and not the model, is drawn by none.
 func TestSynthesizedNamesAreReadFromTheModel(t *testing.T) {
 	synthesized := map[string]bool{"start": true, "'fork'": true, "final": true, "wheel": true, "'start to call'": true, "'call to fork'": true,
 		"'fork to log'": true, "'fork to final'": true, "'Idle accept Go then Running'": true, "'engine to wheel'": true}
@@ -77,6 +78,9 @@ func TestSynthesizedNamesAreReadFromTheModel(t *testing.T) {
 		for _, node := range allNodes(rendering.Roots) {
 			if node.NameSynthesized != synthesized[node.Name] {
 				t.Errorf("%s: node %q NameSynthesized = %v, want %v", view, node.Name, node.NameSynthesized, synthesized[node.Name])
+			}
+			if node.Kind == "metadata" {
+				t.Errorf("%s: synthesized-name marker drawn as node %q : %q", view, node.Name, node.Type)
 			}
 		}
 		names := nodeNames(rendering.Roots)

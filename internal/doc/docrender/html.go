@@ -144,6 +144,10 @@ type HTMLOptions struct {
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
 
+	// Unplaced is where a DOT diagram some Layout positions puts the nodes
+	// none does: left undrawn when empty, or in a strip below the drawing.
+	Unplaced view.Unplaced
+
 	// DiagramImages are images drawn ahead of the render, one per graph-shaped
 	// diagram in the order Diagrams lists them, each written as <img> in place
 	// of its source; an empty entry, or none, keeps the source. More entries
@@ -619,7 +623,7 @@ func displayMathHTML(source string) string {
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), node.Options())
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts.Unplaced))
 }
 
 func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {

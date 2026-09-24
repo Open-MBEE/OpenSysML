@@ -132,8 +132,9 @@ func TestDOTClusterBorders(t *testing.T) {
 				Geometry: &Geometry{X: 0, Y: 0, HasSize: true, Width: 100, Height: 50}},
 		}},
 	}}
+	// body is placed, so the rest is drawn only when asked for, in the strip.
 	for _, palette := range []Palette{"", PaletteTolBright} {
-		dot, err := rendering.DOTWith(Options{Palette: palette})
+		dot, err := rendering.DOTWith(Options{Palette: palette, Unplaced: UnplacedStrip})
 		if err != nil {
 			t.Fatalf("DOT: %v", err)
 		}
@@ -207,11 +208,12 @@ func TestDOTPaletteFills(t *testing.T) {
 			{ID: "n6", Kind: "view", Name: "v"},
 		}},
 	}, Edges: []Edge{{From: "n1", To: "n2", Kind: EdgeConnection}}}
-	plain, err := rendering.DOT()
+	// p is placed, so the rest is drawn only when asked for, in the strip.
+	plain, err := rendering.DOTWith(Options{Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	dot, err := rendering.DOTWith(Options{Palette: PaletteOkabeIto})
+	dot, err := rendering.DOTWith(Options{Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -221,8 +223,8 @@ func TestDOTPaletteFills(t *testing.T) {
 		`"n1" [style="rounded,filled", fillcolor="` + paletteFill(part, true) + `", color="` + part + `", penwidth=1, label=<<b>p</b><br/><font point-size="10"><i>«part»</i></font>>, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", fillcolor="` + paletteFill(port, true) + `", color="` + port + `", penwidth=1, label=`,
 		`"n3" [fillcolor="` + item + `", color="` + item + `", penwidth=1, label=`,
-		`"n4" [shape=circle, fillcolor=black, label="", width=0.2];`,
-		`"n5" [shape=point, fillcolor=black, label=""];`,
+		`"n4" [shape=circle, fillcolor=black, label="", pos=`,
+		`"n5" [shape=point, fillcolor=black, label="", pos=`,
 		`"n6" [style="rounded,filled", fillcolor="` + paletteFill(other, true) + `", color="` + other + `", penwidth=1, label=`,
 		"    label=<<b>Def</b><br/><font point-size=\"10\"><i>«part def»</i></font>>;\n    color=black;\n    penwidth=0.5;\n",
 		`"n1" -> "n2" [arrowhead=none, penwidth=3];`,
@@ -244,7 +246,7 @@ func TestDOTPaletteFills(t *testing.T) {
 		t.Errorf("palette changes more than fills:\n%s\nblack and white:\n%s", dot, plain)
 	}
 	// A tree fills the nodes that an interconnection draws as clusters.
-	tree, err := (&Rendering{View: "V", Kind: KindTree, Roots: rendering.Roots}).DOTWith(Options{Palette: PaletteOkabeIto})
+	tree, err := (&Rendering{View: "V", Kind: KindTree, Roots: rendering.Roots}).DOTWith(Options{Palette: PaletteOkabeIto, Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}

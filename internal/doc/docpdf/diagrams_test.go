@@ -59,7 +59,7 @@ func fakeJar(t *testing.T, dir string) string {
 // telescopeDiagrams lists the telescope report's two diagrams written in form.
 func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
 	t.Helper()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), form)
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), form, "")
 	if err != nil {
 		t.Fatal(err)
 	}

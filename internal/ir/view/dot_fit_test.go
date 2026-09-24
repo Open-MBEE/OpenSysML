@@ -219,13 +219,14 @@ func TestDOTSynthesizedNameOnAPlainNode(t *testing.T) {
 
 // A stated box is written before the stated boxes it encloses, whatever order
 // the rendering lists them in, so Graphviz paints the enclosed ones on top;
-// boxes that do not nest, and nodes with no box, keep the rendering's order.
+// boxes that do not nest, and boxes not stated (here the strip's), keep the
+// rendering's order.
 func TestDOTWritesAnEnclosingBoxFirst(t *testing.T) {
 	inner := &Node{ID: "inner", Kind: "part", Name: "sensor", Geometry: &Geometry{X: 20, Y: 20, Width: 60, Height: 30, HasSize: true}}
 	outer := &Node{ID: "outer", Kind: "part", Name: "bench", Geometry: &Geometry{X: 0, Y: 0, Width: 300, Height: 200, HasSize: true}}
 	beside := &Node{ID: "beside", Kind: "part", Name: "rack", Geometry: &Geometry{X: 400, Y: 0, Width: 60, Height: 30, HasSize: true}}
 	loose := &Node{ID: "loose", Kind: "part", Name: "spare"}
-	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{inner, beside, loose, outer}}).DOT()
+	dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{inner, beside, loose, outer}}).DOTWith(Options{Unplaced: UnplacedStrip})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
@@ -247,7 +248,9 @@ func TestDOTWritesAnEnclosingBoxFirst(t *testing.T) {
 // the topmost of them, as the notation's header compartment does: the label is
 // fitted to that strip's height and set at the top, so no member covers it. A
 // box holding none, or with a name too long for the strip, is fitted as before,
-// to the whole box, or cut to the strip and ellipsized.
+// to the whole box, or cut to the strip and ellipsized; a strip too thin for one
+// line at the floor sets the head outside the box instead. A stated box drawn as
+// a cluster round its children is fitted the same way.
 func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	// Cameo's IBD: a 300×200 part with two members from 40px down, a third box beside it.
 	member := func(id string, x, y float64) *Node {
@@ -281,13 +284,70 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	if want := `"outer" [style="rounded,filled", label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b><br/><font point-size="10"><i>«part»</i></font>>, pos="150,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
-	// A member 9px below the top leaves the title one 8pt line, cut to the width and ellipsized.
+	// A member 10px below the top leaves the title one 8pt line, cut to the width and ellipsized.
 	narrow := &Node{ID: "outer", Kind: "part", Name: outer.Name, Type: outer.Type, Geometry: &Geometry{X: 0, Y: 0, Width: 150, Height: 200, HasSize: true}}
-	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 9)}}).DOT()
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 10)}}).DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39;…</b></font>>, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+	// A member 9px below the top leaves no room for a line even at the floor: the head is set outside.
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{narrow, member("computer", 20, 9)}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `"outer" [style="rounded,filled", label="", xlabel="'summit Installation' : 'Summit Installation'", pos="75,-100!"`; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+	// A cluster's label is fitted to its stated box the same way: the title wrapped
+	// to the 40px strip above its child, the keyword line left out.
+	framed := &Node{ID: "outer", Kind: "part", Name: outer.Name, Type: outer.Type, Geometry: outer.Geometry, Children: []*Node{member("computer", 20, 40)}}
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if want := "subgraph \"cluster_outer\" {\n    label=<<b>&#39;summit Installation&#39; : &#39;Summit<br/>Installation&#39;</b>>;\n"; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+	// A cluster's label has no outside to go to: a strip thinner than a line still gets one line at the floor.
+	framed.Children[0].Geometry.Y = 4
+	dot, err = (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{framed}}).DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := "subgraph \"cluster_outer\" {\n    label=<<font point-size=\"8\"><b>&#39;summit Installation&#39; : &#39;Summit Installation&#39;</b></font>>;\n"; !strings.Contains(dot, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, dot)
+	}
+}
+
+// A stated box too short for one line at the floor, or too narrow for one glyph,
+// holds no text: its head is set outside as `xlabel`, as a symbol's is, and a
+// box with nothing but its kind to show is left bare.
+func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		node *Node
+		want string
+	}{
+		{"short", &Node{ID: "n", Kind: "action", Name: "tick", Geometry: &Geometry{X: 0, Y: 0, Width: 20, Height: 6, HasSize: true}},
+			`"n" [style="rounded,filled", label="", xlabel="tick", pos="10,-3!", pin=true, width=0.2777777777777778, height=0.08333333333333333, fixedsize=true];`},
+		{"narrow", &Node{ID: "n", Kind: "part", Type: "Pump", Geometry: &Geometry{X: 0, Y: 0, Width: 4, Height: 40, HasSize: true}},
+			`"n" [style="rounded,filled", label="", xlabel=": Pump", pos="2,-20!"`},
+		{"bare", &Node{ID: "n", Kind: "action", Geometry: &Geometry{X: 0, Y: 0, Width: 20, Height: 6, HasSize: true}},
+			`"n" [style="rounded,filled", label="", pos="10,-3!"`},
+		{"one line", &Node{ID: "n", Kind: "action", Name: "tick", Geometry: &Geometry{X: 0, Y: 0, Width: 30, Height: 10, HasSize: true}},
+			`"n" [style="rounded,filled", label=<<font point-size="8"><b>tick</b></font>>, pos="15,-5!"`},
+	} {
+		dot, err := (&Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{tc.node}}).DOT()
+		if err != nil {
+			t.Fatalf("%s: DOT: %v", tc.name, err)
+		}
+		checkDOTSyntax(t, dot)
+		if !strings.Contains(dot, tc.want) {
+			t.Errorf("%s: DOT lacks %q:\n%s", tc.name, tc.want, dot)
+		}
 	}
 }

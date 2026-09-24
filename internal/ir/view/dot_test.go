@@ -516,15 +516,17 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		t.Errorf("plain DOT states a canvas it has none of:\n%s", plain)
 	}
 	// States and transitions are placed the same way; the start, with neither
-	// a Layout nor a routed transition, is not, and leaves the graph to neato.
+	// a Layout nor a routed transition, is not, and is left undrawn with its edge.
 	machine, err := render(t, "layout.sysml", "PlantViews::machineView").DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, machine)
+	if strings.Contains(machine, `"n3"`) {
+		t.Errorf("machine DOT draws the unplaced start:\n%s", machine)
+	}
 	for _, want := range []string{
-		"// layout: neato\ndigraph",
-		`"n3" [shape=point, fillcolor=black, label=""];`,
+		"// not represented: 1 node(s) without a position, left undrawn, and 1 edge(s) at them\n// layout: neato -n2\ndigraph",
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
 		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
 		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
@@ -546,9 +548,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 
 // A graph whose every node is positioned is written for `neato -n`, and for
 // `neato -n2` once any edge is routed; a route of one waypoint is noticed,
-// as are routes while a node is left for `neato` to place; a cluster
+// as is a node left unplaced, which is not drawn; a cluster
 // states its box — the stated one, or the one from its corner round its
-// members — and pins its anchor at the centre; a tree pins the node itself.
+// members — and pins its anchor at the centre; a stated cluster's label is
+// fitted to the strip above its topmost stated member; a tree pins the node itself.
 func TestDOTPinsEveryNode(t *testing.T) {
 	rendering := &Rendering{
 		View:   "Pinned::view",
@@ -585,7 +588,7 @@ digraph "Pinned::view" {
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,300!", pin=true];
   "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="400,0!", pin=true];
   subgraph "cluster_n0" {
-    label=<<b>Outer</b><br/><font point-size="10"><i>«part def»</i></font>>;
+    label=<<font point-size="8"><b>Outer</b></font>>;
     color=black;
     penwidth=0.5;
     bb="10,180,210,280";
@@ -619,15 +622,14 @@ digraph "Pinned::view" {
 	if !strings.Contains(dot, "// layout: neato -n2\n") || !strings.Contains(dot, `"n2" -> "n3" [style=dashed, pos="174,252 174,252 300,80 300,80", lhead="cluster_n3"];`) || strings.Contains(dot, "not represented") {
 		t.Errorf("fully routed DOT:\n%s", dot)
 	}
-	// Leaving a node unpositioned hands the graph to `neato`, which redraws
-	// the routes it is given, so they are noticed.
+	// Leaving a node unpositioned leaves it undrawn, the rest pinned as before.
 	rendering.Roots[1].Children[0].Geometry = nil
 	dot, err = rendering.DOT()
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// not represented: 2 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them\n// canvas: unit=px w=400 h=300\n// layout: neato\n") {
+	if !strings.Contains(dot, "// not represented: 1 node(s) without a position, left undrawn\n// canvas: unit=px w=400 h=300\n// layout: neato -n2\n") || strings.Contains(dot, `"n4"`) {
 		t.Errorf("partly positioned DOT:\n%s", dot)
 	}
 	rendering.Roots[1].Children[0].Geometry = &Geometry{X: 310, Y: 210}
@@ -694,7 +696,7 @@ digraph "Pinned::view" {
 		}
 	}
 	// A cluster with a corner but no positioned member has no box to state;
-	// its anchor is pinned at the corner and neato places the members.
+	// its anchor is pinned at the corner and the unplaced member is left undrawn.
 	corner := &Rendering{View: "V", Kind: KindInterconnection, Roots: []*Node{
 		{ID: "n0", Kind: "part def", Name: "Outer", Geometry: &Geometry{X: 30, Y: 40}, Children: []*Node{{ID: "n1", Kind: "part", Name: "a"}}},
 	}}
@@ -703,7 +705,7 @@ digraph "Pinned::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato\n") || strings.Contains(dot, "bb=") || !strings.Contains(dot, `"n0" [shape=point, style=invis, width=0, height=0, label="", pos="30,-40!", pin=true];`) {
+	if !strings.Contains(dot, "// layout: neato -n\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n1"`) || !strings.Contains(dot, `"n0" [shape=point, style=invis, width=0, height=0, label="", pos="30,-40!", pin=true];`) {
 		t.Errorf("corner-only cluster DOT:\n%s", dot)
 	}
 	// A canvas with a unit alone is named in the header and pins nothing, and
@@ -732,7 +734,7 @@ digraph "Pinned::view" {
 // The cluster round them is boxed a margin round every placed member. Every
 // node then has a position and the header names `neato -n2`; a stated Layout
 // still wins over the route, a one-point route places nothing, and a node with
-// neither Layout nor route leaves the graph to `neato` as before.
+// neither Layout nor route is left undrawn, with the edges at it.
 func TestDOTPlacesNodesFromRoutes(t *testing.T) {
 	rendering := &Rendering{
 		View:   "Routed::view",
@@ -817,8 +819,8 @@ digraph "Routed::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// not represented: route of n3->n4 is one waypoint, (150, 240); a line needs two\n// not represented: 2 route(s) written as pos; neato redraws every edge, only neato -n2 keeps them\n// canvas: unit=px w=250 h=326\n// layout: neato\n") ||
-		!strings.Contains(dot, `"n4" [shape=doublecircle, label=<<b>done</b><br/><font point-size="10"><i>«final»</i></font>>];`) {
+	if !strings.Contains(dot, "// not represented: 1 node(s) without a position, left undrawn, and 1 edge(s) at them\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") ||
+		strings.Contains(dot, `"n4"`) || strings.Contains(dot, "one waypoint") {
 		t.Errorf("one-waypoint DOT:\n%s", dot)
 	}
 	rendering.Edges = rendering.Edges[:2]
@@ -828,11 +830,11 @@ digraph "Routed::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato\n") || !strings.Contains(dot, `"n5" [style="rounded,filled", label=<<b>value</b><br/><font point-size="10"><i>«action»</i></font>>];`) {
+	if !strings.Contains(dot, "// not represented: 2 node(s) without a position, left undrawn\n// canvas: unit=px w=250 h=326\n// layout: neato -n2\n") || strings.Contains(dot, `"n5"`) {
 		t.Errorf("unrouted-node DOT:\n%s", dot)
 	}
 	// A tree has no clusters to box round members: the parent itself is left
-	// to neato when nothing routes to it.
+	// undrawn when nothing routes to it, its children drawn with no edge to it.
 	rendering.Roots[0].Children = rendering.Roots[0].Children[:4]
 	rendering.Kind = KindTree
 	dot, err = rendering.DOT()
@@ -840,8 +842,153 @@ digraph "Routed::view" {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, dot)
-	if !strings.Contains(dot, "// layout: neato\n") || strings.Contains(dot, "bb=") || !strings.Contains(dot, `"n0" [label=<<b>SendAck</b><br/><font point-size="10"><i>«action def»</i></font>>];`) {
+	if !strings.Contains(dot, "// layout: neato -n2\n") || strings.Contains(dot, "bb=") || strings.Contains(dot, `"n0"`) || !strings.Contains(dot, `"n1" -> "n2" [pos=`) {
 		t.Errorf("tree DOT:\n%s", dot)
+	}
+}
+
+// A drawing some Layout positions leaves the nodes none does undrawn, with the
+// edges at them, and says so; asked for the strip, it sets them in rows below
+// everything placed — canvas, boxes and routes — a gap clear of it and of one
+// another, an unplaced cluster round its own members, a tree's nodes each on
+// their own; a drawing nothing positions is laid out by `dot` as ever.
+func TestDOTSettlesUnplacedNodes(t *testing.T) {
+	rendering := func() *Rendering {
+		return &Rendering{
+			View:   "V",
+			Kind:   KindInterconnection,
+			Canvas: &Canvas{Unit: "px", Width: 300, Height: 100, HasSize: true},
+			Roots: []*Node{
+				{ID: "placed", Kind: "part", Name: "pump", Geometry: &Geometry{X: 10, Y: 10, Width: 100, Height: 40, HasSize: true}},
+				{ID: "low", Kind: "part", Name: "tank", Geometry: &Geometry{X: 150, Y: 120, Width: 60, Height: 30, HasSize: true}},
+				{ID: "loose", Kind: "part", Name: "spare"},
+				{ID: "wide", Kind: "part def", Name: "A rather long definition name"},
+				{ID: "group", Kind: "part def", Name: "Group", Children: []*Node{
+					{ID: "g1", Kind: "part", Name: "g1"},
+					{ID: "g2", Kind: "part", Name: "g2"},
+				}},
+			},
+			Edges: []Edge{
+				{From: "placed", To: "low", Kind: EdgeConnection, Route: []Point{{X: 60, Y: 50}, {X: 60, Y: 170}, {X: 150, Y: 170}}},
+				{From: "placed", To: "loose", Kind: EdgeConnection},
+				{From: "loose", To: "g1", Kind: EdgeFlow},
+			},
+		}
+	}
+	dot, err := rendering().DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: 5 node(s) without a position, left undrawn, and 2 edge(s) at them\n// canvas: unit=px w=300 h=100\n// layout: neato -n2\n") {
+		t.Errorf("omitting DOT header:\n%s", dot)
+	}
+	for _, id := range []string{"loose", "wide", "group", "g1", "g2"} {
+		if strings.Contains(dot, dotQuote(id)) {
+			t.Errorf("omitting DOT draws unplaced %s:\n%s", id, dot)
+		}
+	}
+	if !strings.Contains(dot, `"placed" -> "low" [arrowhead=none, penwidth=3, pos=`) || strings.Count(dot, " -> ") != 1 {
+		t.Errorf("omitting DOT edges:\n%s", dot)
+	}
+	// The strip: the canvas is 300 wide but tank reaches to y=170 with its route,
+	// so the strip starts at y=194 and rows wrap at x=300.
+	dot, err = rendering().DOTWith(Options{Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if !strings.Contains(dot, "// not represented: 5 node(s) without a position, drawn in a strip below the drawing\n// canvas: unit=px w=300 h=100\n// layout: neato -n2\n") {
+		t.Errorf("strip DOT header:\n%s", dot)
+	}
+	for _, want := range []string{
+		// spare: 63x37 from (0, 194), so its centre is (31.5, 212.5), y flipped
+		// against the 100-high canvas; the long name, 284 wide, would overrun 300
+		// beside it, so it heads the next row, 24 below.
+		`"loose" [style="rounded,filled", label=<<b>spare</b><br/><font point-size="10"><i>«part»</i></font>>, pos="31.5,-112.5!", pin=true, width=0.875, height=0.5138888888888888];`,
+		`"wide" [label=<<b>A rather long definition name</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="142,-173.5!", pin=true, width=3.9444444444444446, height=0.5138888888888888];`,
+		// Group heads the third row at y=316: its title, then g1 and g2 side by
+		// side, a margin of 8 in from its box.
+		"    bb=\"0,-298,148,-216\";\n",
+		`"g1" [style="rounded,filled", label=<<b>g1</b><br/><font point-size="10"><i>«part»</i></font>>, pos="35,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="113,-271.5!", pin=true, width=0.75, height=0.5138888888888888];`,
+		`"placed" -> "loose" [arrowhead=none, penwidth=3];`,
+		`"loose" -> "g1" [style=dashed];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("strip DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	assertStripBelow(t, rendering(), 170)
+	// A tree sets each unplaced node on its own, the containment edges drawn to them.
+	tree := rendering()
+	tree.Kind = KindTree
+	dot, err = tree.DOTWith(Options{Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	if strings.Contains(dot, "bb=") || !strings.Contains(dot, `"group" -> "g1" [arrowhead=none];`) ||
+		!strings.Contains(dot, `"group" [label=<<b>Group</b><br/><font point-size="10"><i>«part def»</i></font>>, pos="38,-234.5!", pin=true, width=1.0555555555555556, height=0.5138888888888888];`) ||
+		!strings.Contains(dot, `"g2" [style="rounded,filled", label=<<b>g2</b><br/><font point-size="10"><i>«part»</i></font>>, pos="205,-234.5!", pin=true, width=0.75, height=0.5138888888888888];`) {
+		t.Errorf("tree strip DOT:\n%s", dot)
+	}
+	assertStripBelow(t, tree, 170)
+	// Nothing positioned: every node drawn, laid out by dot, whatever is asked.
+	for _, unplaced := range []Unplaced{"", UnplacedOmit, UnplacedStrip} {
+		plain := rendering()
+		plain.Canvas = nil
+		for _, root := range plain.Roots {
+			root.Geometry = nil
+		}
+		plain.Edges[0].Route = nil
+		dot, err = plain.DOTWith(Options{Unplaced: unplaced})
+		if err != nil {
+			t.Fatalf("%q: DOT: %v", unplaced, err)
+		}
+		if !strings.Contains(dot, "// kind: interconnection\n// layout: dot\n") || strings.Contains(dot, "pos=") || strings.Count(dot, " -> ") != 3 {
+			t.Errorf("%q: unpositioned DOT:\n%s", unplaced, dot)
+		}
+	}
+	// A placement no name has is refused, naming the ones there are.
+	if _, err := rendering().DOTWith(Options{Unplaced: "pile"}); err == nil || !errors.Is(err, ErrUnknownUnplaced) || err.Error() != `unknown placement "pile" of unplaced nodes; the placements are omit, strip` {
+		t.Errorf("unknown placement: %v", err)
+	}
+}
+
+// assertStripBelow checks every node the strip places sits below everything
+// the Layouts place — the canvas and every stated box and route end at floor —
+// and that no two strip boxes overlap.
+func assertStripBelow(t *testing.T, r *Rendering, floor float64) {
+	t.Helper()
+	w := newDOTWriter(r, Options{})
+	stated := map[string]nodeBox{}
+	for id, box := range w.boxes {
+		stated[id] = box
+	}
+	w.stripUnplaced(r.Roots, r.Edges)
+	var strip []nodeBox
+	for id, box := range w.boxes {
+		if _, ok := stated[id]; ok {
+			continue
+		}
+		if box.low.Y < floor+dotStripGap {
+			t.Errorf("strip box %s at y=%v is not below the drawing's %v", id, box.low.Y, floor)
+		}
+		strip = append(strip, box)
+	}
+	if len(strip) == 0 {
+		t.Fatal("the strip placed nothing")
+	}
+	for i, a := range strip {
+		for _, b := range strip[i+1:] {
+			if a.encloses(b) || b.encloses(a) {
+				continue // a cluster round its members
+			}
+			if a.low.X < b.high.X && b.low.X < a.high.X && a.low.Y < b.high.Y && b.low.Y < a.high.Y {
+				t.Errorf("strip boxes overlap: %+v and %+v", a, b)
+			}
+		}
 	}
 }
 

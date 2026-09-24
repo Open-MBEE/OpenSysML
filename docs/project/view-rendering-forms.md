@@ -28,10 +28,12 @@ kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
 whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it is owned — and the
 `render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
 how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
-those views without the `metadata` and `render` nodes their annotations would add. Every other
-metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`, an annotation
-typed by any definition outside `DiagramLayout` — is drawn as before, and a rendering usage owned
-by anything but a view (a `rendering` under a package) stays a node.
+those views without the `metadata` and `render` nodes their annotations would add. The
+`MigrationMetadata::SynthesizedName` marker a migration leaves in a body is left out the same way:
+it records what the migration did, not what the model holds. Every other metadata usage — a
+user's `metadata Approved about errorCBE { by = "review"; }`, an annotation typed by any
+definition outside `DiagramLayout` and `MigrationMetadata` — is drawn as before, and a rendering
+usage owned by anything but a view (a `rendering` under a package) stays a node.
 
 A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
@@ -302,7 +304,7 @@ preprocessing step:
 // kind: interconnection
 // stated: render asInterconnectionDiagram
 // canvas: unit=px w=1200 h=800
-// layout: neato
+// layout: neato -n2
 digraph "PlantViews::placedView" {
   graph [fontname="Helvetica", inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
@@ -313,7 +315,8 @@ digraph "PlantViews::placedView" {
     label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    bb="292,692,628,768";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
     "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
@@ -348,7 +351,12 @@ digraph "PlantViews::placedView" {
   the box's top and the topmost box it encloses and set there with `labelloc=t`, so the title
   reads as a diagram frame's header and the members below it stay where the Layout put them
   (`headroom` in `dot.go`; a box that is only placed, and so sized to its own label, is not one
-  the title moves for). The estimate is
+  the title moves for). A stated box too short for one 8 pt line, or too narrow for one glyph —
+  whether the whole box or the strip its members leave it — holds no text: its head is set
+  outside as `xlabel`, as a symbol's is, and a box with only its kind to show is left bare
+  (`dotStatedLabel`). A stated node drawn as a cluster round its children has its label fitted the
+  same way, to the strip above its topmost stated child; a cluster's label has no outside to go
+  to, so a strip thinner than a line still gets one line at 8 pt. The estimate is
   the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
   particular to the tool that stated the box. A symbol kind in a stated box carries no label at
   all ([Style](#style)). Without a stated size
@@ -378,16 +386,30 @@ digraph "PlantViews::placedView" {
   kind draws takes a route: a connection, binding or flow of an interconnection, a transition
   of a state rendering, a succession or flow of an action rendering — the annotation names the
   member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Unplaced nodes.** A node counts as positioned however its box was found — by its
+  `Layout`, round its members, or from a route. When some nodes are positioned and others are
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  every edge at one of them and the containment edge a tree would draw to it, and a
+  `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
+  edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
+  diagram never drew stay out of its picture. `Options.Unplaced = UnplacedStrip`
+  (`-render-unplaced strip` at the CLI, for `-render`, `-render-all` and the `dot` diagrams of a
+  document) keeps them instead: each unplaced node not under another unplaced node (every one, in
+  a tree) is boxed as an unpositioned node is — fitted to its label, or as a cluster round its
+  children — and the boxes are packed in rows, left to right, wrapped at the drawing's width,
+  24 px apart and 24 px below the drawing's extent (the canvas when it has one, else the
+  positioned boxes and routes), then pinned like any other; the notice says so. A strip node
+  keeps its place in the text — a member of a positioned cluster is written in that cluster,
+  whose stated box is not stretched to it — so Graphviz draws it below the box it belongs to.
+  A drawing with no positioned node is unchanged by either setting. An `Unplaced` that is
+  neither is refused (`UnknownUnplacedError`).
 - **Engine.** The `// layout:` header names the command that honours what is written:
-  `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
-  written routes are taken as given, the other edges are drawn), `neato -n` when every node is
-  positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
-  rest are placed around them), `dot` when none is. A node counts as positioned however its box
-  was found — by its `Layout`, round its members, or from a route — so a view whose every node
-  is placed or routed is written for `neato -n2`, which refuses a node with no position.
-  `neato` and `dot` redraw every edge, so when the header names either and a route was
-  written, a `// not represented:` notice says so. A rendering with no geometry is written byte
-  for byte as before.
+  `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
+  given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is
+  positioned. Every node a positioned drawing draws is pinned, so plain `neato` is never named
+  and `neato -n2`, which refuses a node with no position, always has one for each; a route of
+  two or more waypoints positions its ends, so a written route is always read by `neato -n2`.
+  A rendering with no geometry is written byte for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.
@@ -581,15 +603,16 @@ and did not change. A view-render RPC added later would take the form as a strin
   lines kept only while height remains, a compartment row's one line, a word broken across
   lines only when no size keeps it whole, the ellipsis at the floor, the title of a box that
   holds stated boxes fitted to the strip above them and set at the top, an only-placed box
-  leaving it be — and `dotFitHead`/`dotWrap`
+  leaving it be, a stated cluster's label fitted to its strip, a box or strip too short or
+  narrow for a line setting its head outside — and `dotFitHead`/`dotWrap`
   on their own; the symbol every kind draws as in a stated box, its `xlabel` for a name and none
   for a synthesized one, a `port def` and an unsized symbol kind still labelled; an unsized
   node's label unchanged.
 - `internal/ir/view/label_test.go`: a member headed by its name below its drawn owner, at every
   depth and for a nested exposed element, an unrelated root left whole, the text form unchanged.
 - `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their
-  `DiagramLayout` annotations or `render` members, while a user's metadata usage and a rendering
-  usage outside a view are still drawn.
+  `DiagramLayout` annotations, `SynthesizedName` markers or `render` members, while a user's
+  metadata usage and a rendering usage outside a view are still drawn.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every
