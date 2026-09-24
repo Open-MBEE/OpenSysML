@@ -46,7 +46,11 @@ each input and output of the case, plus the `caseName`, `kind`, `'objective'`
 and `subjectName`/`subject` features `AnalysisRun` declares — `iteration`
 only on a sweep or sample's records — and a `ref` to its subject; verdicts and
 evaluations a trade study or verification made become
-`VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`:
+`VerdictRecord`/`EvaluationRecord` parts under `verdicts`/`evaluations`. A
+verification case's record also carries what its body decided — the `verdict`
+attribute (`"pass"`, `"fail"`, `"inconclusive"` or `"error"`) — and one
+`VerdictRecord` row apiece for the body's verdict (`kind` `"verification"`)
+and each subcase's (`kind` `"subcase"`):
 
 ```sysml
 package Records {
@@ -160,10 +164,12 @@ vocabulary the records are written in:
 - `AnalysisRun` — the record definition's supertype: `caseName`, `kind`,
   `'objective'` (the run's objective verdict, `"undecided"` when the case
   declares none), `iteration` (its position in a sweep or sample), `'subject'`
-  and `subjectName` (the object it ran on), and `verdicts`/`evaluations`.
-- `VerdictRecord` — one check a run made: `kind` (`"objective"` or
-  `"assertion"`), `name`, `status`, `detail` (the violated condition, or why
-  an undecided check could not be evaluated).
+  and `subjectName` (the object it ran on), `verdict` (what a verification
+  case's body decided — `"pass"`, `"fail"`, `"inconclusive"` or `"error"`;
+  unset for a case that is not a verification), and `verdicts`/`evaluations`.
+- `VerdictRecord` — one check a run made: `kind` (`"objective"`, `"assertion"`,
+  `"verification"` or `"subcase"`), `name`, `status`, `detail` (the violated
+  condition, or why an undecided check could not be evaluated).
 - `EvaluationRecord` — one trade-study evaluation: `function`, `alternative`,
   `score`, `result`, `selected`, `tied`, `error`.
 
