@@ -81,6 +81,11 @@ type MonteCarloRun struct {
 	Inputs  []InputBinding
 	Outputs []CalcOutputValue
 
+	// OutputErr is the first error reading an output left behind — anything
+	// other than the statistics the sample had not supplied yet, which are
+	// skipped; the run itself still completed.
+	OutputErr error
+
 	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
 	// settles them over the sample, which keeps the checks that are the sample's alone.
 	Verdicts []AnalysisVerdict
@@ -138,7 +143,7 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 		Observed: observed,
 		Inputs:   run.inputs(),
 	}
-	r.Outputs = r.iterationOutputs()
+	r.Outputs, r.OutputErr = r.iterationOutputs()
 	r.Verdicts = r.checks()
 	r.left = make([]bool, len(r.Verdicts))
 	for i, v := range r.Verdicts {
@@ -148,18 +153,23 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 }
 
 // iterationOutputs are the values this run's declared outputs came to, with the
-// observed feature appended when it is not among them. An output that cannot
-// be read — the statistics the sample has not supplied yet — is left out.
-func (r *MonteCarloRun) iterationOutputs() []CalcOutputValue {
+// observed feature appended when it is not among them. The statistics the
+// sample has not supplied yet are left out; any other output that cannot be
+// read is left out too, its error returned.
+func (r *MonteCarloRun) iterationOutputs() ([]CalcOutputValue, error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
 	var outputs []CalcOutputValue
+	var outputErr error
 	for _, out := range r.run.shape.Outputs {
 		if out.Name == "" {
 			continue
 		}
 		value, err := r.run.output(ctx, out.Name)
 		if err != nil {
+			if !errors.Is(err, ErrMultiplicityViolation) && !errors.Is(err, ErrOutputNotAssigned) && outputErr == nil {
+				outputErr = err
+			}
 			continue
 		}
 		outputs = append(outputs, CalcOutputValue{Name: out.Name, Value: value})
@@ -176,7 +186,7 @@ func (r *MonteCarloRun) iterationOutputs() []CalcOutputValue {
 			outputs = append(outputs, CalcOutputValue{Name: name, Value: r.Observed})
 		}
 	}
-	return outputs
+	return outputs, outputErr
 }
 
 // checks decides the case's checks over the run as it stands. The outputs they read are

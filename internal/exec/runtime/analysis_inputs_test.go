@@ -118,3 +118,42 @@ func TestMonteCarloRunInputsAndIterationOutputs(t *testing.T) {
 		t.Errorf("outputs %v, want %v", names, want)
 	}
 }
+
+// An output erroring for its own reason — not the statistics the sample has
+// not supplied — is reported on the run, which still completes and observes.
+func TestMonteCarloRunReportsAnOutputError(t *testing.T) {
+	ctx, scope := analysisFixture(t, `
+		package test {
+			private import ScalarValues::*;
+			private import RandomFunctions::*;
+			part def Probe {
+				attribute t : Real;
+				action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+			}
+			individual def probe :> Probe;
+			analysis def Mc :> Simulation::MonteCarlo {
+				subject analysed : Probe;
+				perform action run ::> analysed.settle;
+				attribute :>> observed : Real = analysed.t;
+				return Mean : Real = mean;
+				out Bad : Real = 1.0 / 0.0;
+			}
+		}
+	`)
+	sym := requirementNamed(t, scope, "Mc")
+	probe, err := ctx.Instantiate(requirementNamed(t, scope, "probe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx.SetModelSeed(RunSeed(1, 1))
+	run, err := ctx.ObserveMonteCarlo(sym, AnalysisArgs{Subject: probe}, scope, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if run.OutputErr == nil {
+		t.Error("an output erroring for its own reason vanished")
+	}
+	if run.Observed.Kind != ValConst {
+		t.Errorf("the run's observed is invalid: %v", run.Observed)
+	}
+}
