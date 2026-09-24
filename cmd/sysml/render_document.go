@@ -86,9 +86,6 @@ func pdfOptions() (docpdf.Options, error) {
 	}, nil
 }
 
-// runRenderDocuments renders every document definition of the model named on
-// the command line as linked files in the directory -render-documents names,
-// so cross-document references resolve on disk.
 // runRenderDocuments renders every document of the model named on the command
 // line into -render-documents as a linked set, writing the pages of the
 // documents that render and, for each that does not, a page stating why; it
