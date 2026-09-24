@@ -20,12 +20,13 @@ library package AnalysisRecords {
 	}
 
 	/* VerdictRecord is what one check of a recorded run decided: an
-	 * objective's required conditions or an assertion in the case's body. */
+	 * objective's required conditions, an assertion in the case's body,
+	 * or a verification case's own verdict and its subcases'. */
 	part def VerdictRecord {
-		/* kind is "objective" or "assertion". */
+		/* kind is "objective", "assertion", "verification" or "subcase". */
 		attribute kind : String;
-		/* name names the objective or asserted constraint, or spells an
-		 * anonymous assertion's condition. */
+		/* name names the objective or asserted constraint, the verification
+		 * case, or spells an anonymous assertion's condition. */
 		attribute name : String;
 		/* status is what the check decided. */
 		attribute status : String;
@@ -70,6 +71,10 @@ library package AnalysisRecords {
 		ref part 'subject';
 		/* subjectName is the subject object's text. */
 		attribute subjectName : String;
+		/* verdict is what the verification body's verdict value decided —
+		 * "pass", "fail", "inconclusive" or "error" — unset for a case
+		 * that is not a verification. */
+		attribute verdict : String;
 		/* verdicts are what the run's checks decided, in order. */
 		part verdicts : VerdictRecord[0..*];
 		/* evaluations are the calc applications the run made, in order. */

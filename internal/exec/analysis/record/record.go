@@ -79,6 +79,10 @@ type Run struct {
 	// Kind is the run shape this record makes; empty, the request's kind.
 	Kind Kind
 
+	// Verifications are what a verification case's body and its subcases
+	// decided, for a case that is one.
+	Verifications []runtime.VerificationVerdict
+
 	// Spell renders the run's values for the text it cannot supply itself, in
 	// the context it was made in — a sweep's rows each carry their own.
 	Spell Spelling
@@ -166,7 +170,8 @@ type Result struct {
 // reservedFeatures are AnalysisRun's own features a parameter name may not take.
 var reservedFeatures = map[string]bool{
 	"caseName": true, "kind": true, "objective": true, "iteration": true,
-	"subject": true, "subjectName": true, "verdicts": true, "evaluations": true,
+	"subject": true, "subjectName": true, "verdict": true, "verdicts": true,
+	"evaluations": true,
 }
 
 // feature is one member the record definition declares for a run value.
@@ -419,7 +424,7 @@ func Generate(req Request) (Result, error) {
 		return Result{}, fmt.Errorf("case %s: nothing to record", req.Case)
 	}
 	for _, r := range req.Runs {
-		if len(r.Outputs) == 0 && len(r.Verdicts) == 0 && len(r.Evaluations) == 0 {
+		if len(r.Outputs) == 0 && len(r.Verdicts) == 0 && len(r.Evaluations) == 0 && len(r.Verifications) == 0 {
 			return Result{}, fmt.Errorf("case %s produced no outputs to record", req.Case)
 		}
 	}
@@ -587,6 +592,11 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 	writeFeature(src, depth+1, "caseName", source.StringText(req.Case))
 	writeFeature(src, depth+1, "kind", source.StringText(string(kindOf(r, req))))
 	writeFeature(src, depth+1, "'objective'", source.StringText(objectiveOf(r)))
+	for _, v := range r.Verifications {
+		if !v.Subcase {
+			writeFeature(src, depth+1, "verdict", source.StringText(string(v.Kind)))
+		}
+	}
 	if r.Iteration > 0 {
 		writeIndent(src, depth+1)
 		src.WriteString("attribute :>> iteration = ")
@@ -629,6 +639,9 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 
 	for i, v := range r.Verdicts {
 		writeVerdict(src, depth+1, i+1, v)
+	}
+	for i, v := range r.Verifications {
+		writeVerification(src, depth+1, i+1, v)
 	}
 	for i, e := range r.Evaluations {
 		writeEvaluation(src, depth+1, i+1, e, r)
@@ -678,6 +691,25 @@ func writeVerdict(src *strings.Builder, depth, n int, v runtime.AnalysisVerdict)
 	writeFeature(src, depth+1, "kind", source.StringText(v.Kind))
 	writeFeature(src, depth+1, "name", source.StringText(v.Name))
 	writeFeature(src, depth+1, "status", source.StringText(v.Status.String()))
+	if v.Detail != "" {
+		writeFeature(src, depth+1, "detail", source.StringText(v.Detail))
+	}
+	writeIndent(src, depth)
+	src.WriteString("}\n")
+}
+
+// writeVerification writes a verification case's body or subcase verdict as
+// one more VerdictRecord: its kind says which, its name the case that ran.
+func writeVerification(src *strings.Builder, depth, n int, v runtime.VerificationVerdict) {
+	kind := "verification"
+	if v.Subcase {
+		kind = "subcase"
+	}
+	writeIndent(src, depth)
+	src.WriteString(fmt.Sprintf("part verification%d : AnalysisRecords::VerdictRecord :> verdicts {\n", n))
+	writeFeature(src, depth+1, "kind", source.StringText(kind))
+	writeFeature(src, depth+1, "name", source.StringText(v.Case))
+	writeFeature(src, depth+1, "status", source.StringText(string(v.Kind)))
 	if v.Detail != "" {
 		writeFeature(src, depth+1, "detail", source.StringText(v.Detail))
 	}

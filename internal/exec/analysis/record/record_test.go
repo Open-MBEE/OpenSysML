@@ -488,3 +488,65 @@ func TestGenerateExistingScalarValueAcceptsASettledType(t *testing.T) {
 		t.Errorf("generated source is missing the redefinition:\n%s", res.Source)
 	}
 }
+
+// A verification run records what its body and subcases decided: the body's
+// verdict beside the case's features, each verdict a VerdictRecord row.
+func TestGenerateVerificationRun(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::fire", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Outputs:  []runtime.CalcOutputValue{{Name: "margin", Value: real(-200.0)}},
+			Verdicts: []runtime.AnalysisVerdict{{Kind: "objective", Name: "thrust", Status: runtime.VerdictNotSatisfied}},
+			Verifications: []runtime.VerificationVerdict{
+				{Case: "P::fire", Kind: runtime.VerdictFail},
+				{Case: "P::cold", Kind: runtime.VerdictPass, Subcase: true},
+				{Case: "P::hot", Kind: runtime.VerdictInconclusive, Subcase: true, Detail: "no data"},
+			},
+			Spell: spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		`attribute :>> verdict = "fail";`,
+		`part verification1 : AnalysisRecords::VerdictRecord :> verdicts {`,
+		`attribute :>> kind = "verification";`,
+		`attribute :>> name = "P::fire";`,
+		`attribute :>> status = "fail";`,
+		`part verification2`,
+		`attribute :>> kind = "subcase";`,
+		`attribute :>> name = "P::cold";`,
+		`attribute :>> status = "pass";`,
+		`part verification3`,
+		`attribute :>> status = "inconclusive";`,
+		`attribute :>> detail = "no data";`,
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	reparsed := parser.New(source.New("<record>", []byte(res.Source)))
+	reparsed.ParseFile()
+	if len(reparsed.Diagnostics) > 0 {
+		t.Fatalf("generated source does not parse: %v\n%s", reparsed.Diagnostics[0], res.Source)
+	}
+}
+
+// A run that decided only verification verdicts is still a record worth
+// making: verdicts count toward "nothing to record".
+func TestGenerateVerificationOnlyRun(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::fire", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Verifications: []runtime.VerificationVerdict{{Case: "P::fire", Kind: runtime.VerdictPass}},
+			Spell:         spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	if !strings.Contains(res.Source, `attribute :>> verdict = "pass";`) {
+		t.Errorf("source is missing the verdict:\n%s", res.Source)
+	}
+}
