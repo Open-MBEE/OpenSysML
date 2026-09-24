@@ -115,12 +115,13 @@ func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string
 		inst = run.result.Subject
 	}
 	rec := record.Run{
-		Subject:     s.recordSubject(inst, run.label, contexts),
-		Inputs:      run.result.Inputs,
-		Outputs:     run.result.Outputs,
-		Verdicts:    run.result.Verdicts,
-		Evaluations: run.result.Evaluations,
-		Spell:       s.recordSpelling(contexts),
+		Subject:       s.recordSubject(inst, run.label, contexts),
+		Inputs:        run.result.Inputs,
+		Outputs:       run.result.Outputs,
+		Verdicts:      run.result.Verdicts,
+		Evaluations:   run.result.Evaluations,
+		Verifications: run.verdicts,
+		Spell:         s.recordSpelling(contexts),
 	}
 	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec})
 	return s.recorded(verdict, res, rerr, 0, nil)
@@ -211,23 +212,15 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	var runs []record.Run
 	var reasons []string
 	skipped := 0
-	// The conclusion adjudicates an unread output: one it supplies is the
-	// sample's and the row leaves it out; anything else failed the iteration.
 	concluded, cerr := sample.conclusion()
-	concludedNames := map[string]bool{}
-	if cerr == nil {
-		for _, out := range concluded.Outputs {
-			concludedNames[out.Name] = true
-		}
-	}
 	for _, run := range sample.completed {
-		var missing []string
-		for name := range run.Unread {
-			if !concludedNames[name] {
+		// Outputs that are the sample's were already left out of Unread; what
+		// is left failed the iteration.
+		if len(run.Unread) > 0 {
+			missing := make([]string, 0, len(run.Unread))
+			for name := range run.Unread {
 				missing = append(missing, name)
 			}
-		}
-		if len(missing) > 0 {
 			sort.Strings(missing)
 			skipped++
 			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, run.Unread[missing[0]]))
@@ -625,20 +618,12 @@ func upperFirst(name string) string {
 // loss or error the submission makes restores the buffer as it was.
 func (s *Session) submitRecord(src string) error {
 	before := append([]snippet{}, s.snippets...)
-	beforeErrors := s.errorSet()
+	beforeErrors := s.errorCounts()
 	s.recordMerge = true
 	res, _, _ := s.submitEach([]SourceFile{{Text: src}})
 	s.recordMerge = false
 
-	var problems []string
-	for _, d := range res.Diagnostics {
-		if d.Severity != diag.SeverityError {
-			continue
-		}
-		if !beforeErrors[d.Message] {
-			problems = append(problems, d.Message)
-		}
-	}
+	problems := newProblems(beforeErrors, res.Diagnostics)
 	for _, drop := range s.recordDrops {
 		for _, name := range append(append([]string{}, drop.lost...), drop.gone...) {
 			problems = append(problems, fmt.Sprintf("recording would drop %s", name))
@@ -651,16 +636,35 @@ func (s *Session) submitRecord(src string) error {
 	return fmt.Errorf("the model was left unchanged: %s", strings.Join(problems, "; "))
 }
 
-// errorSet keys the error diagnostics the buffer already reports, by message:
-// a merge can move the offsets an old error sits at without making it new.
-func (s *Session) errorSet() map[string]bool {
-	set := map[string]bool{}
-	for _, d := range s.diagnostics() {
-		if d.Severity == diag.SeverityError {
-			set[d.Message] = true
+// newProblems reports the error diagnostics a submission raised that the
+// model did not already report: a message the model reported before is new
+// only once its count grows.
+func newProblems(before map[string]int, diagnostics []diag.Diagnostic) []string {
+	var problems []string
+	for _, d := range diagnostics {
+		if d.Severity != diag.SeverityError {
+			continue
+		}
+		if before[d.Message] > 0 {
+			before[d.Message]--
+		} else {
+			problems = append(problems, d.Message)
 		}
 	}
-	return set
+	return problems
+}
+
+// errorCounts keys the error diagnostics the buffer already reports, by
+// message: a merge can move the offsets an old error sits at, and a record's
+// diagnostic is new only once it outnumbers what the model already reported.
+func (s *Session) errorCounts() map[string]int {
+	counts := map[string]int{}
+	for _, d := range s.diagnostics() {
+		if d.Severity == diag.SeverityError {
+			counts[d.Message]++
+		}
+	}
+	return counts
 }
 
 // rollbackSubmit restores the snippets a failed record submission replaced and

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // recordModel declares cases %record runs: one binding its own subject, one
@@ -517,5 +519,65 @@ func TestRecordSettlesAnEarlierUnsetMember(t *testing.T) {
 	wants(t, run(t, s, "%record Demo::settle(2.0)"), "recorded Records::settle_run2")
 	if !strings.Contains(s.text(), "attribute :>> x = 2.0;") {
 		t.Errorf("the settled run did not record:\n%s", s.text())
+	}
+}
+
+// A verification case's record carries the verdict its body decided and a
+// VerdictRecord row for it, beside whatever the body's checks returned.
+func TestRecordVerificationRun(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	res := s.Submit(`package Demo {
+	private import ScalarValues::*;
+	part def Engine { attribute thrust : Real; }
+	part engine : Engine { attribute :>> thrust = 2800.0; }
+	verification def Fire {
+		subject e : Engine;
+		VerificationCases::PassIf(e.thrust >= 3000.0)
+	}
+	verification fire : Fire { subject e = engine; }
+}`)
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::fire"), "recorded Records::fire_run1")
+	text := s.text()
+	for _, want := range []string{
+		`attribute :>> verdict = "fail"`,
+		`attribute :>> kind = "verification"`,
+		`attribute :>> status = "fail"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("session text is missing %q:\n%s", want, text)
+		}
+	}
+	// The record parses and validates clean on reload.
+	path := filepath.Join(t.TempDir(), "demo.sysml")
+	if _, _, err := s.runMeta("%save " + path); err != nil {
+		t.Fatal(err)
+	}
+	fresh := NewSession()
+	if errs := errorDiagnostics(fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}}).Diagnostics); len(errs) > 0 {
+		t.Fatalf("saved model has errors: %v", errs)
+	}
+}
+
+// A diagnostic the model already reports is a record's fault only when the
+// record adds an occurrence of it.
+func TestNewProblemsCountsOccurrences(t *testing.T) {
+	err := func(msg string) diag.Diagnostic {
+		return diag.Diagnostic{Severity: diag.SeverityError, Message: msg}
+	}
+	warn := diag.Diagnostic{Severity: diag.SeverityWarning, Message: "w"}
+	before := map[string]int{"old": 2}
+	got := newProblems(before, []diag.Diagnostic{err("old"), err("old"), warn})
+	if len(got) != 0 {
+		t.Errorf("reported %v for what the model already had", got)
+	}
+	if got := newProblems(map[string]int{"old": 1}, []diag.Diagnostic{err("old"), err("old")}); len(got) != 1 || got[0] != "old" {
+		t.Errorf("a second occurrence is the record's: %v", got)
+	}
+	if got := newProblems(map[string]int{"old": 1}, []diag.Diagnostic{err("new")}); len(got) != 1 || got[0] != "new" {
+		t.Errorf("a new message is the record's: %v", got)
 	}
 }
