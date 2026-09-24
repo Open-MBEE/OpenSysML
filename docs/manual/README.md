@@ -36,7 +36,10 @@ was produced by it.
    graded reports, from three flat requirements and their satisfiers to a
    multi-team program with derivation chains, verdicts, coverage gaps and a
    grouped matrix, each with its source and rendered output
-10. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+10. [Recording analysis runs](recording-analysis-runs.md) — writing the runs a
+    case makes into the model as `AnalysisRecords` elements, and reading them
+    back with document queries
+11. [Limitations and troubleshooting](troubleshooting.md) — the typed error
     catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it
