@@ -192,7 +192,21 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		if err := e.arguments(subject, owner, []ast.Node{n.Operand}); err != nil {
 			return err
 		}
-		e.graph.Add(subject, e.sysml(pTargetFeature), e.reference(n.Member))
+		if qualifiedNameHasChain(n.Member) {
+			// A chained member is the chain feature the expression owns through
+			// an OwningMembership (OwnedFeatureChainMember).
+			chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "targetFeature"), subject, "targetFeature")
+			e.typed(chain, mFeature)
+			e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+			e.featureChainings(chain, e.qualifiedChainReferences(n.Member))
+			membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
+			e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
+			e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+			e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+			e.graph.Add(subject, e.sysml(pTargetFeature), chain)
+		} else {
+			e.graph.Add(subject, e.sysml(pTargetFeature), e.reference(n.Member))
+		}
 
 	case *ast.IndexExpr:
 		operator := opAt
@@ -547,9 +561,7 @@ func (e *encoder) calleeMembership(subject rdf.Term, function *ast.QualifiedName
 		chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, "function"), subject, "function")
 		e.typed(chain, mFeature)
 		e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
-		for _, segment := range e.qualifiedChainReferences(function) {
-			e.graph.Add(chain, e.sysml(pChainingFeature), segment)
-		}
+		e.featureChainings(chain, e.qualifiedChainReferences(function))
 		membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
 		e.emitMembershipCore(membership, chain, subject, mOwningMembership, true)
 		e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
@@ -639,11 +651,12 @@ var expressionMetaclasses = map[string]bool{
 
 // isExpressionRoot reports whether the encoder mints an expr: node of this
 // metaclass directly under a declared element: an expression class, the cross
-// feature a connector writes at its end, or its reference subsetting.
+// feature a connector writes at its end, an interface end's PortUsage, or its
+// reference subsetting.
 func isExpressionRoot(metaclass string) bool {
 	return expressionMetaclasses[metaclass] || metaclass == mReferenceSubsetting ||
 		metaclass == crossFeatureMetaclass(true) ||
-		metaclass == crossFeatureMetaclass(false)
+		metaclass == crossFeatureMetaclass(false) || metaclass == mPortUsage
 }
 
 // isExpressionNode reports whether a subject is part of a declaration (an expression
@@ -793,6 +806,16 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	if !d.isExpressionNode(triple.Object) {
 		return nil
 	}
+	isChain, err := d.chainFeatureTerm(triple.Object)
+	if err != nil {
+		return err
+	}
+	if isChain {
+		// A chain feature is written as its `a.b.c` reference wherever the
+		// property that names it is written, not as an expression.
+		parents[triple.Object.Value] = append(parents[triple.Object.Value], triple.Subject)
+		return nil
+	}
 	featureValueOwner, skip, err := d.valueOwner(triple, valueTargets, directValues)
 	if err != nil || skip {
 		return err
@@ -852,7 +875,10 @@ func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 
 // noteSegment records every feature chain segment node reaches in wanted.
 func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) error {
-	segments := d.graph.Objects(node, rdf.SysML+pChainingFeature)
+	segments, err := d.chainSegments(node)
+	if err != nil {
+		return err
+	}
 	if d.metaclass(node) != mFeatureChain && len(segments) == 0 {
 		return nil
 	}
@@ -1649,15 +1675,21 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 				member = m
 			}
 		case mOwningMembership:
-			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok &&
-				d.metaclass(m) == mFeature && d.graph.HasProperty(m, rdf.SysML+pChainingFeature) {
-				chain = m
+			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok {
+				if isChain, err := d.chainFeatureTerm(m); err != nil {
+					return "", false, err
+				} else if isChain {
+					chain = m
+				}
 			}
 		}
 	}
 	switch {
 	case chain.Value != "":
-		segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
+		segments, err := d.chainSegments(chain)
+		if err != nil {
+			return "", false, err
+		}
 		var parts, spelled []string
 		for _, segment := range segments {
 			name, err := d.referenceName(segment, in)

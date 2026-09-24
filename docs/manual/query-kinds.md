@@ -75,15 +75,17 @@ Over gRPC, `RunDocumentQuery` answers an object row in the `object` arm of
 `DocumentValue` and a verdict row in the `verdict` arm; see
 [Native document queries and rendering over gRPC](../reference/api.md#native-document-queries-and-rendering-over-grpc).
 
-One kind of result neither sees: what an analysis run printed. `-analysis`,
-`-sweep` and trade studies report their outputs and verdicts on the terminal
-and discard them — no element and no held object records that a run
-happened, so no `Project` or `Verdicts` table can tabulate the runs a model
-has had. The workaround is to write the runs back into the model as
-result-record usages, which then filter, sort and project like anything else;
+A run `%record`/`-record-run` makes is **model** rows, not object rows: the
+record is written into the model as elements annotated
+`@AnalysisRecords::RecordedRun`, so `WhereMetadata` finds each one and
+`WhereFeature`/`Project`/`OrderBy` read the values it bound — `caseName`,
+`kind`, `iteration`, and a property per input and output. See
+[Recording analysis runs](recording-analysis-runs.md). A plain `-analysis`,
+`-sweep` or trade study still prints and discards its results, so a run that
+was not recorded leaves nothing a query can see;
 [the analysis-results demo](../../examples/analysis-results-demo/README.md)
-works the pattern end to end, including records that flag themselves stale
-when the model moves.
+tables records in the same vocabulary, including records that flag themselves
+stale when the model moves.
 
 ## Runtime state and event queries
 

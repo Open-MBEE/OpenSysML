@@ -439,7 +439,11 @@ func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
 		}
 	}
 	var text string
-	if d.graph.HasProperty(target, rdf.SysML+pChainingFeature) {
+	isChain, err := d.chainFeatureTerm(target)
+	if err != nil {
+		return "", err
+	}
+	if isChain {
 		parts, err := d.standardChainText(target, in)
 		if err != nil {
 			return "", err
@@ -587,7 +591,10 @@ func (d *decoder) standardEndTarget(end rdf.Term, in *element) (rdf.Term, bool, 
 
 // standardChainText resolves and renders the ordered segments of a chain feature.
 func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, error) {
-	segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature)
+	segments, err := d.chainSegments(chain)
+	if err != nil {
+		return nil, err
+	}
 	parts := make([]string, 0, len(segments))
 	operand := ""
 	for _, segment := range segments {

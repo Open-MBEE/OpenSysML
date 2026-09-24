@@ -184,14 +184,20 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, options view
 }
 
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
-// with the diagram's direction and palette, without its trailing newline.
+// with the diagram's direction and palette, without its trailing newline. A
+// Mermaid chart past the size a chart is drawn under is refused, not written.
 func diagramSource(name string, rendering *view.Rendering, options view.Options, form view.Form) (string, error) {
 	if !rendering.Kind.SupportsForm(form) {
 		return "", &Error{Kind: ErrorUnrenderableForm, Content: name, Actual: string(rendering.Kind), DiagramForm: form}
 	}
 	switch form {
 	case view.FormMermaid:
-		return strings.TrimRight(rendering.MermaidWith(options), "\n"), nil
+		source := strings.TrimRight(rendering.MermaidWith(options), "\n")
+		if !view.MermaidFits(source) {
+			textSize, edges := view.MermaidSize(source)
+			return "", &Error{Kind: ErrorOversizedDiagram, Content: name, DiagramForm: form, TextSize: textSize, Edges: edges}
+		}
+		return source, nil
 	case view.FormDot:
 		dot, err := rendering.DOTWith(options)
 		if err != nil {

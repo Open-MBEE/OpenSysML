@@ -67,7 +67,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageConnector:     "Connector",
 	ast.UsageSuccession:    "SuccessionAsUsage",
 	ast.UsageFlow:          "FlowUsage",
-	ast.UsagePort:          "PortUsage",
+	ast.UsagePort:          mPortUsage,
 	ast.UsageInterface:     "InterfaceUsage",
 	ast.UsageInteraction:   "InteractionUsage",
 	ast.UsageAllocation:    "AllocationUsage",
@@ -137,9 +137,34 @@ func crossFeatureMetaclass(kerml bool) string {
 // The metaclasses an `event` or `assert` declaration builds: the keyword is a
 // type of its own in the metamodel, so the graph types it rather than spelling it.
 const (
-	mEventOccurrenceUsage  = "EventOccurrenceUsage"
-	mAssertConstraintUsage = "AssertConstraintUsage"
+	mEventOccurrenceUsage    = "EventOccurrenceUsage"
+	mAssertConstraintUsage   = "AssertConstraintUsage"
+	mExhibitStateUsage       = "ExhibitStateUsage"
+	mIncludeUseCaseUsage     = "IncludeUseCaseUsage"
+	mSatisfyRequirementUsage = "SatisfyRequirementUsage"
+	mPortUsage               = "PortUsage"
 )
+
+// usageQualifier maps the metaclass a qualified-usage keyword types to that
+// keyword (SysML.xtext PerformActionUsage, ExhibitStateUsage,
+// IncludeUseCaseUsage, AssertConstraintUsage, SatisfyRequirementUsage).
+var usageQualifier = map[string]string{
+	mPerform:                 "perform",
+	mExhibitStateUsage:       "exhibit",
+	mIncludeUseCaseUsage:     "include",
+	mAssertConstraintUsage:   "assert",
+	mSatisfyRequirementUsage: "satisfy",
+}
+
+// qualifierMetaclass reverses usageQualifier, for reporting the metaclass a
+// recorded qualifier keyword contradicts.
+var qualifierMetaclass = map[string]string{}
+
+func init() {
+	for metaclass, qualifier := range usageQualifier {
+		qualifierMetaclass[qualifier] = metaclass
+	}
+}
 
 // declaredMetaclass gives the metaclass a declaration outside any metadata body
 // builds, or "" for a node that declares no element of its own.
@@ -173,9 +198,9 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case n.IsPerformedAction():
 		return mPerform, true
 	case n.IsExhibitedState():
-		return "ExhibitStateUsage", true
+		return mExhibitStateUsage, true
 	case n.IsIncludedUseCase():
-		return "IncludeUseCaseUsage", true
+		return mIncludeUseCaseUsage, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
@@ -225,8 +250,8 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mAssertConstraintUsage: ast.UsageConstraint,
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
-	"ExhibitStateUsage":    ast.UsageState,
-	"IncludeUseCaseUsage":  ast.UsageUseCase,
+	mExhibitStateUsage:     ast.UsageState,
+	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an
 	// objective member; the requirement is the keyword each metaclass alone
 	// spells, the others come from the membership's metaclass.

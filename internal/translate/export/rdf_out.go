@@ -1645,7 +1645,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), mult: end.Multiplicity, name: name, keyword: keyword}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: slot, index: i, ends: endCount, target: end.AttachedTarget(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -1671,22 +1671,38 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 // connectorEndSpec is one connector end to emit: which end it is, its target,
 // its multiplicity and the name and `references` keyword it was written with.
 type connectorEndSpec struct {
-	owner, slot   string
-	index, ends   int
-	target        ast.Node
+	owner, slot string
+	index, ends int
+	target      ast.Node
+	// targetTerm is a resolved member IRI the end references, for an end
+	// whose target the notation reaches by position rather than by name.
+	targetTerm    rdf.Term
 	mult          *ast.Multiplicity
 	name, keyword string
+	// port types the end a PortUsage rather than a ReferenceUsage: an
+	// interface usage's ends are ports (SysML.xtext InterfaceEnd).
+	port bool
+	// empty mints the end even when it names nothing: a `then` succession's
+	// implied source end is an end feature that refers to nothing.
+	empty bool
+	// noCollapse leaves the collapsed end properties to the caller: a
+	// succession's edgeEnds states them beside the ends it owns.
+	noCollapse bool
 }
 
 // connectorEnd emits a standard ConnectorEnd feature and its EndFeatureMembership.
 func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
-	if end.target == nil {
+	if end.target == nil && end.targetTerm.Value == "" && !end.empty {
 		return nil
 	}
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, end.slot), subject, end.slot)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-	e.typed(feature, crossFeatureMetaclass(false))
+	metaclass := crossFeatureMetaclass(false)
+	if end.port {
+		metaclass = mPortUsage
+	}
+	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
 	e.graph.Add(feature, e.sysml(pIsEnd), rdf.Bool(true))
 	e.graph.Add(subject, e.sysml(pConnectorEnd), feature)
@@ -1695,7 +1711,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
-	if reference, ok := e.endReferenceIRI(end.target); ok {
+	if reference, ok := e.endReferenceIRI(end.target); ok && !end.noCollapse {
 		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
 		if end.ends == 2 && end.index == 0 {
 			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
@@ -1704,7 +1720,9 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		}
 	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
-	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(end.target)))
+	if end.target != nil {
+		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(end.target)))
+	}
 	if end.name != "" {
 		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.name))
@@ -1712,7 +1730,12 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
 	}
-	if err := e.endReferences(feature, end.target); err != nil {
+	if end.target == nil && end.targetTerm.Value == "" {
+		return nil
+	}
+	if end.targetTerm.Value != "" {
+		e.referenceSubsetting(feature, end.targetTerm)
+	} else if err := e.endReferences(feature, end.target); err != nil {
 		return err
 	}
 	return e.multiplicity(feature, end.owner, end.mult)
@@ -1750,7 +1773,7 @@ func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
 
 // referenceSubsetting writes the standard relationship that connects an end
 // feature to the feature or expression it references.
-func (e *encoder) referenceSubsetting(feature, target rdf.Term) {
+func (e *encoder) referenceSubsetting(feature, target rdf.Term) rdf.Term {
 	subsetting := e.ids.mintedNode(rdf.ExpressionIRI(feature, "rs"), feature, "rs")
 	e.typed(subsetting, mReferenceSubsetting)
 	e.graph.Add(subsetting, e.sysml(pElementID), rdf.String(rdf.LocalName(subsetting.Value)))
@@ -1766,21 +1789,21 @@ func (e *encoder) referenceSubsetting(feature, target rdf.Term) {
 	e.graph.Add(feature, e.sysml(pOwnedSubsetting), subsetting)
 	e.graph.Add(feature, e.sysml(pOwnedSpecialization), subsetting)
 	e.relationshipOwnership(subsetting, feature, crossFeatureMetaclass(false), mReferenceSubsetting)
+	return subsetting
 }
 
-// chainFeature creates an owned structural Feature holding ordered chain segments.
+// chainFeature mints the chain Feature an end's reference subsetting owns
+// (OwnedReferenceSubsetting's OwnedFeatureChain): it is related to the end
+// through the ReferenceSubsetting, whose ownedRelatedElement it is.
 func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
-	for _, segment := range segments {
-		e.graph.Add(chain, e.sysml(pChainingFeature), segment)
-	}
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(chain), chain, rdf.OwningMembershipSuffix)
-	e.emitMembershipCore(membership, chain, feature, mOwningMembership, true)
-	e.graph.Add(feature, e.sysml(pOwnedRelationship), membership)
-	e.graph.Add(feature, e.sysml(pOwnedMembership), membership)
-	e.referenceSubsetting(feature, chain)
+	e.featureChainings(chain, segments)
+	subsetting := e.referenceSubsetting(feature, chain)
+	e.graph.Add(subsetting, e.sysml(pOwnedRelatedElement), chain)
+	e.graph.Add(chain, e.sysml(pOwningRelationship), subsetting)
+	e.graph.Add(chain, e.sysml(pOwner), feature)
 }
 
 func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
@@ -2025,15 +2048,19 @@ func withoutComments(text string) string {
 // relationships writes a head's clauses in relationshipOrder, not the order the
 // notation spelled them in, so the Turtle is the same for every spelling.
 func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Relationship) {
+	chains := chainTargets(rels)
 	for _, kind := range relationshipOrder {
 		property := relationshipProperty[kind]
 		for _, rel := range rels {
 			if rel == nil || rel.Target == nil || rel.Kind != kind {
 				continue
 			}
-			// A name is mapped as a reference, which links it when this document
-			// declares it; a feature chain or other expression is not a name, so it
-			// is carried as the text it was written as.
+			// A name is a reference; a feature chain is the chain Feature the
+			// materialized relationship owns, other expressions written text.
+			if k, chained := chains[rel]; chained {
+				e.graph.Add(subject, e.sysml(property), e.headChain(subject, rel.Target, k))
+				continue
+			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
 				e.graph.Add(subject, e.sysml(property), e.reference(name))
 				continue
@@ -2041,6 +2068,50 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 			e.graph.Add(subject, e.sysml(property), rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression))
 		}
 	}
+}
+
+// chainTargets indexes the qualified-name relationship targets written as a
+// feature chain (`:>> a.b`), for the kinds a relationship element owns it for.
+func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
+	chained := map[ast.RelationshipKind]bool{
+		ast.RelSpecializes: true, ast.RelSubsets: true,
+		ast.RelRedefines: true, ast.RelReferences: true,
+	}
+	chains := map[*ast.Relationship]int{}
+	for _, rel := range rels {
+		if rel == nil || rel.Target == nil || !chained[rel.Kind] {
+			continue
+		}
+		switch target := rel.Target.(type) {
+		case *ast.QualifiedName:
+			if qualifiedNameHasChain(target) {
+				chains[rel] = len(chains)
+			}
+		case *ast.FeatureChainExpr:
+			chains[rel] = len(chains)
+		}
+	}
+	return chains
+}
+
+// headChain mints the chain Feature a head relationship's chain target stands
+// for (`:>> a.b`), which the materialized relationship owns.
+func (e *encoder) headChain(subject rdf.Term, target ast.Node, k int) rdf.Term {
+	var links []rdf.Term
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		links = e.qualifiedChainReferences(target)
+	case *ast.FeatureChainExpr:
+		for _, segment := range featureChainSegments(target) {
+			links = append(links, e.reference(segment))
+		}
+	}
+	slot := fmt.Sprintf("chain%d", k)
+	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+	e.typed(chain, mFeature)
+	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
+	e.featureChainings(chain, links)
+	return chain
 }
 
 // relationshipEnd writes one end of a keyword-first relationship, as a link

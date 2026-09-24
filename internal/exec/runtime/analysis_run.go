@@ -221,6 +221,13 @@ type AnalysisEvaluation struct {
 	Tied     bool
 }
 
+// InputBinding is the value one input parameter of a case was bound to for a
+// run: its argument, or the default its declaration evaluated to.
+type InputBinding struct {
+	Name  string
+	Value Value
+}
+
 // AnalysisResult is what one run of an analysis case produced: its output
 // values in declaration order, and the verdict of each objective and assertion.
 type AnalysisResult struct {
@@ -230,6 +237,10 @@ type AnalysisResult struct {
 	// Subject is the object the case ran on — supplied, bound by the usage or
 	// taken from the enclosing case; nil for a case declaring no subject.
 	Subject *Instance
+
+	// Inputs are the values the run bound the case's input parameters to, in
+	// declaration order, the subject parameter excluded: what the body ran with.
+	Inputs []InputBinding
 
 	// Outputs are the case's out and return parameters, in declaration order;
 	// a value the body returned into an unnamed result is named "result".
@@ -300,7 +311,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 
 	// The outputs computed before one failed stay reported; the verdicts and the
 	// pick do not, since the case established neither.
-	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx)}
+	result := AnalysisResult{Case: shape.Name, Subject: run.boundSubject(ctx), Inputs: run.inputs()}
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {

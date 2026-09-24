@@ -57,7 +57,15 @@ returned over the service yet.
   [Diagrams](#diagrams)). The representation object is found by how it is held or tagged, or
   failing that by the `umlType` it states; a child with a plain `type` (a comment, a legend, a
   property) is not it, and what it lists is not shown; a diagram without a representation shows
-  nothing, whatever else the tool lists inside it. Layout and the rest of the extension —
+  nothing, whatever else the tool lists inside it. In an `.mdzip`, every diagram is read from
+  the archive entry its `binaryObject` names (the stream MagicDraw serializes the diagram's
+  symbols to): each symbol's `elementID` is a shown element, and a symbol naming none — a
+  pasted image, a text box, a note — is counted as free content, so a blank diagram is told
+  from one drawing elements the list omits, and a list that names elements is completed with
+  the symbols the stream adds. The list also names what a symbol displays without one of its
+  own — a property in a compartment, a trigger on a transition — so a listed element is kept
+  when a symbol stands for it or for an element it is owned under, and dropped when none
+  does, since nothing drawn shows it. Layout and the rest of the extension —
   tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
   skipped profile or library package. A package is library content
   when it is a standard or tool profile (a user profile is written, see
@@ -122,6 +130,7 @@ returned over the service yet.
 | Literal default on a value type with no scalar base (a structured value type, an enumeration) | comment | approximated |
 | Real literal on an `Integer`/`Natural` feature, numeric string on a scalar feature | converted to the feature's scalar | mapped |
 | Constraint whose specification is a literal, instance or opaque body yielding no Boolean (an integer, a real, a string spelling no `true`/`false`, an enumeration literal) | comment naming the value and the Boolean the constraint yields | **unmapped** — no v2 checker accepts a constraint body of another type; a string `"true"`/`"false"` is written as the Boolean it spells |
+| Constraint whose specification is a `uml:Expression` tree with no symbol at any node and, as leaves, only `InstanceValue`s naming no instance (a tool's presentation constraint on a document, a Cameo Collaborator marker) | nothing: the tree spells nothing | skipped — notation only; a tree with a symbol, or a leaf naming an instance, is translated or refused like any other expression |
 | Association with a name, «AssociationBlock» | `connection def` | mapped |
 | Anonymous association with a classifier-owned end | nothing: the end property carries it | mapped |
 | Anonymous association owning every end | a named `connection def` | approximated |
@@ -277,7 +286,7 @@ returned over the service yet.
 | Activity diagram of a behavior written as an `action def`; state machine diagram of one written as a `state def` | `view 'Name' : StandardViewDefinitions::ActionFlowView` / `StateTransitionView` exposing the definition, whose graph the rendering draws — its nodes and edges are drawn, not exposed one by one — and the shown elements from elsewhere; rendered `asInterconnectionDiagram` | mapped |
 | ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
-| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates | approximated |
+| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
@@ -312,7 +321,8 @@ names a view's diagram after the «View» class, a state's after the state, and 
 written in the same body, so the diagram's view is renamed `Name 2` (`Name 3`… past the taken
 names) and the note says so. An «Expose» whose supplier is a diagram exposes the diagram's
 view under that written name, qualified from the client view's body when the name alone would
-not resolve to it.
+not resolve to it. The diagram's documentation — the first comment the diagram itself owns
+that annotates nothing but the diagram, which is how a tool serializes it — is the view's `doc`.
 
 The `render` names one of the standard `Views` library's renderings, chosen from the
 diagram's kind — the tool's `type` (`SysML Block Definition Diagram`, `Dependency Matrix`)
@@ -556,28 +566,46 @@ section, in the activity's order:
 |---|---|
 | `CollectOwnedElements(depth)`, `CollectOwners(depth)` | `Descendants` / `Ancestors(source, maxDepth = depth)`; `depth` 0 or absent is unbounded |
 | `CollectByDirectedRelationshipStereotypes(stereotypes, directionOut, depth)` | one `RelatedElements(relationshipKind, direction, maxDepth)` per stereotype the kinds above cover, `Union`ed |
-| `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations |
-| `FilterByNames(names)` | one `WhereName(operator = "matches", value = "^(?:<pattern>)$\|^(?:<pattern>)$\|…")` keeping the elements in their order; every pattern must compile as an RE2 regular expression |
+| `CollectByAssociation(associationType, depth)` | the types of the collected classifiers' attributes of that aggregation kind (`composite` when none is named), followed on to `depth`, are known from the source model and named, `Named(qualifiedName = (…))`; a type that is not written is left out with the note, and a chain whose elements are known only when the query runs is refused, since no query operation tells a composite feature from a shared one |
+| `CollectThingsOnDiagram` | the elements the collected diagrams show, `Named(qualifiedName = (…))`; a shown element the archive does not describe, that is not written, or that is written inside its owner with no v2 element of its own (a connector end) is left out with the note; a diagram whose content the archive does not record — no stream and no list, or a stream it names but does not hold or holds unreadable, whatever the list names — leaves the whole collection unknown, so the step is refused rather than named from the list and the other diagrams as if complete; a diagram that lists elements and names no stream is read as listed, with the note that the list need not be all it shows |
+| `FilterByMetaclasses`, `FilterByStereotypes` | `WhereType` on the v2 kinds, or `WhereMetadata` for a user stereotype written as a `metadata def`; `include = false` is `Except(source, exclude = …)`; `considerDerived = false` is approximated, since `WhereMetadata` honors specializations; a stereotype with neither a v2 metaclass nor a `metadata def` is refused |
+| `FilterByDiagramType(diagramTypes)` | keeps, among the collected diagrams, those whose diagram type (the tool's presentation type, `SysML Block Definition Diagram`, `SysML Internal Block Diagram`, …) is named, or the others when `include = false`; a diagram whose type the archive does not record leaves the result approximated, since the filter may keep or drop it |
+| `FilterByNames(names)` | one `WhereName(operator = "matches", value = "^(?:<pattern>)$\|^(?:<pattern>)$\|…")` keeping the elements in their order; every pattern must compile as an RE2 regular expression. The filter reads the v1 name, as DocGen does, so where a collected element's v1 and v2 names fall on different sides of the pattern — an anonymous block the write names `unnamed` — the elements it keeps are named, `Named(qualifiedName = (…))`, with the note, since `WhereName` would read the v2 name |
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
-| a fork whose branches rejoin at `Union` | `Union` of the branches' queries; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
+| a fork whose branches rejoin at `Union` | `Union` of the branches' queries; the doubt a step before the fork leaves (a diagram type or content the archive does not record) is carried on by the branches that keep its result and ended by those that name their own targets, so the rejoined step knows what it draws when every branch does; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
-| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; `includeDoc` adds `documentation`; a column beyond these is omitted with the note, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a column beyond these — a `MonteCarloAnalysis` statistic, which is recorded as a nested feature of the row's analysis that no `Column` reads, a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
 | `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
-| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the step targets or the view exposes, captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false; a diagram whose view renders as textual notation (an activity, state machine or sequence diagram) is refused, since a document draws no text view; a «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead. A «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
-The diagrams among the root elements are no query's rows — a migrated diagram is a view — but
-each step transforms them beside the query so an `Image` shows what the chain kept: a name
-filter matches the diagram's name, a metaclass or stereotype filter keeps a diagram for
-`Element`, `NamedElement`, `Diagram` or the stereotype that is its diagram type, a sort by name
-orders them (a diagram has no documentation, so a sort by it leaves them as they are), a
-rejoin unites the branches' diagrams once each, `CollectOwners` adds the diagrams' owners to
-the query as `Named(qualifiedName = (…))`, and any other collect drops them. An `Image` after
-a filter that kept no diagram draws nothing and the report says which filter emptied it.
+The diagrams among the collected elements are no query's rows — a migrated diagram is a view —
+but each step transforms them beside the query so an `Image` shows what the chain kept, as
+DocGen's does: the chain starts on the diagrams the view exposes or the node targets, and
+follows the source elements it collects so that `CollectOwnedElements` gathers the diagrams
+they own (to `depth`) — the way DocGen finds the figures of an exposed package or block — a
+name filter matches the diagram's name, a metaclass or stereotype filter keeps a diagram for
+`Element`, `NamedElement`, `Diagram` or the stereotype that is its diagram type,
+`FilterByDiagramType` keeps those of the types named, a sort orders them and the source
+elements they are collected from as `OrderBy` orders its rows — by name, or by the `doc` the
+migrated declaration carries (a diagram's is its own comment), those without one last, ties
+in place — a rejoin unites the branches'
+diagrams once each, `CollectOwners` adds the diagrams' owners to the query as
+`Named(qualifiedName = (…))`, `CollectThingsOnDiagram` reads what they show, and any other
+collect drops them. An `Image` after a filter that kept no diagram draws nothing and the
+report says which filter emptied it; one after a step whose result is known only when the
+query runs is refused, since which diagrams it would draw is not known, and so is one after a
+step with no query spelling, as every other presentation step downstream of it is.
 
-A step with no query spelling — `CollectTypes`, `CollectByAssociation`, `CollectThingsOnDiagram`,
-`FilterByDiagramType`, `SortByAttribute(Value)`, `SortByProperty`, a `*ByExpression` or
+A UML Constraint on a «Document» or «View» class whose specification is a `uml:Expression`
+tree with no symbol whose every operand is an `InstanceValue` naming no instance (a
+collaborator's presentation constraint) spells nothing, and is skipped as notation-only rather
+than refused; this is the expression translator's rule for such a tree wherever it stands (see
+[Mapping](#mapping)), not a document rule.
+
+A step with no query spelling — `CollectTypes`, `SortByAttribute(Value)`, `SortByProperty`,
+a `*ByExpression` or
 `TableExpressionColumn` beyond a bare query property (`owner.name`, `allInstances()`, OCL), a
 `CollectFilterUserScript`, a user script — is refused with the offending construct quoted,
 and so is every presentation step downstream of it, while the section and its independent
@@ -590,6 +618,35 @@ every reference is written `$::DocumentQueries::…`. A section, paragraph, tabl
 block declares members of its own (`title`, `rows`, the nested sections), and a reference written
 inside it is qualified past whichever of those it would otherwise resolve to — a section named
 like a top-level package names that package's view as `$::<package>::…`.
+
+#### Rendering a migrated document
+
+A migrated document is rendered as any other, by its qualified name (see
+[Rendering a document as HTML](cli.md#rendering-a-document-as-html) and
+[as PDF](cli.md#rendering-a-document-as-pdf)):
+
+```bash
+sysml Model.sysml -render-document "'Model Documents'::'Design Document'" -o design.md
+sysml Model.sysml -render-document "'Model Documents'::'Design Document'" -doc-form html \
+    -doc-title-page -doc-toc -doc-number-sections -o design.html
+sysml Model.sysml -render-document "'Model Documents'::'Design Document'" -doc-form pdf \
+    -doc-title-page -doc-toc -doc-number-sections -o design.pdf
+```
+
+What DocGen adds around a document's content — a title page, a table of contents and numbered
+headings — is no part of the DocGen model and none of a `Document`'s: it is asked of the run,
+with `-doc-title-page`, `-doc-toc` and `-doc-number-sections`, and shapes the HTML page and the
+PDF alike: the title on a page of its own, a `Contents` section listing every section by number,
+and headings numbered by nesting, `1`, `1.1`, `1.1.1`. Markdown has no page shell to put them in
+and refuses the three, so `-doc-form markdown` writes the title as its first heading and the
+section tree as nested headings, unnumbered. The rendered figures are the migrated views: a
+block or internal block diagram drawn from its exposures, an activity or state machine diagram
+drawn from its graph, each positioned where the MTIP layout put it when `-layout` was given
+(see [Layout from an MTIP export](#layout-from-an-mtip-export)); a diagram the
+migration left out of the document (empty, or rendered as textual notation) is absent from the
+render and the report says why, so a rendered document holds no empty figure. Styling beyond
+what the model carries — a cover image, a tool's fonts, its header and footer — is not
+invented; `-html-theme` and `-html-css` take a stylesheet of your own.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

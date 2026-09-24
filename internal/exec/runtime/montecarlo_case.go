@@ -75,6 +75,15 @@ type MonteCarloRun struct {
 	// Observed is the value the run's `observed` came to, null when the run left it unbound.
 	Observed Value
 
+	// Inputs are the values the run bound the case's input parameters to, in
+	// declaration order. Outputs are every declared output of this iteration
+	// as the iteration established it — the sample's statistics excluded — with
+	// the observed feature appended when it declares no output of its own.
+	// Unread holds the outputs that could not be read, by name.
+	Inputs  []InputBinding
+	Outputs []CalcOutputValue
+	Unread  map[string]error
+
 	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
 	// settles them over the sample, which keeps the checks that are the sample's alone.
 	Verdicts []AnalysisVerdict
@@ -130,13 +139,70 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 		Case:     shape.Name,
 		Subject:  run.boundSubject(ctx),
 		Observed: observed,
+		Inputs:   run.inputs(),
 	}
 	r.Verdicts = r.checks()
+	r.Outputs, r.Unread = r.iterationOutputs()
 	r.left = make([]bool, len(r.Verdicts))
 	for i, v := range r.Verdicts {
 		r.left[i] = v.Status == VerdictUndecided
 	}
 	return r, nil
+}
+
+// iterationOutputs are the values this run's declared outputs came to, the
+// observed feature appended when it is not among them. The outputs that are
+// the sample's — runs, mean, deviation and outOfSpec — are left out whatever
+// their binding; any other output that cannot be read is in the error map
+// returned beside them. The whole read runs in a probe: nothing it evaluates
+// is kept, drawn or written in the run or its context.
+func (r *MonteCarloRun) iterationOutputs() ([]CalcOutputValue, map[string]error) {
+	ctx := r.ctx
+	defer ctx.beginRun()()
+	defer ctx.beginProbe()()
+	kept := r.run.outputs
+	r.run.outputs = maps.Clone(kept)
+	defer func() { r.run.outputs = kept }()
+	stats := map[string]bool{}
+	for _, feature := range []string{
+		MonteCarloRunsOutput, MonteCarloMeanOutput,
+		MonteCarloDeviationOutput, MonteCarloOutOfSpecOutput,
+	} {
+		if name, ok := ctx.monteCarloMember(r.run.shape, feature); ok {
+			stats[name] = true
+		}
+	}
+	var outputs []CalcOutputValue
+	unread := map[string]error{}
+	for _, out := range r.run.shape.Outputs {
+		if out.Name == "" || stats[out.Name] {
+			continue
+		}
+		value, err := r.run.output(ctx, out.Name)
+		if err != nil {
+			var u *UnassignedOutputError
+			// Reading an unbound statistic through the binding leaves the
+			// output to the conclusion as much as the statistic itself.
+			if !(errors.As(err, &u) && stats[u.Output]) {
+				unread[out.Name] = err
+			}
+			continue
+		}
+		outputs = append(outputs, CalcOutputValue{Name: out.Name, Value: value})
+	}
+	if name, ok := ctx.monteCarloMember(r.run.shape, monteCarloObserved); ok {
+		seen := false
+		for _, out := range outputs {
+			if out.Name == name {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			outputs = append(outputs, CalcOutputValue{Name: name, Value: r.Observed})
+		}
+	}
+	return outputs, unread
 }
 
 // checks decides the case's checks over the run as it stands. The outputs they read are

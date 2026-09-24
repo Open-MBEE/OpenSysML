@@ -213,9 +213,23 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		head(rdf.SysMLTerm(mSuccession))
 		implied := impliedSource(n, n.Source)
 		if implied {
-			// `then b;` states no source end: the notation sequences from the
-			// member written before it, which the form records.
+			// `then b;` sequences from the member before it: an empty source
+			// end and the target end (SysML.xtext TargetSuccession).
 			e.graph.Add(subject, e.sysx(xEndForm), rdf.String(formThen))
+			if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, slot: "end0", index: 0, ends: 2, empty: true, noCollapse: true}); err != nil {
+				return true, err
+			}
+			target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
+			if n.Target != nil {
+				target.target = n.Target
+			} else if n.TargetMember != nil {
+				if fqn, ok := e.fqn[n.TargetMember]; ok {
+					target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
+				}
+			}
+			if err := e.connectorEnd(subject, target); err != nil {
+				return true, err
+			}
 		}
 		if err := e.edgeEnds(subject, n, owner,
 			edgeEnd{name: n.Source, member: n.SourceMember, implied: implied, stands: e.preceding[n]},

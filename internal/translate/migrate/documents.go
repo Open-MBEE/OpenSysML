@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -68,8 +69,8 @@ type contentPlan struct {
 	text  string
 	caption,
 	style string
-	// captionOf is the kind of the block a caption Paragraph follows.
-	captionOf string
+	// captionNote says which block's caption a caption Paragraph is.
+	captionNote string
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds.
 	query string
@@ -211,8 +212,19 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 		return
 	}
 	c := &chain{m: m, dp: dp, sec: sec, active: []*sysmlv1.Element{v.Method}}
-	c.roots(v.Exposed, "the view "+qualifiedName(v.Class)+" exposes")
+	c.start(v)
 	c.run(steps)
+}
+
+// start sets the chain's elements to what DocGen feeds a view's method: what
+// the view exposes, or the view itself when it exposes nothing.
+func (c *chain) start(v *sysmlv1.DocGenView) {
+	if len(v.Exposed) > 0 {
+		c.roots(v.Exposed, "the view "+qualifiedName(v.Class)+" exposes")
+		return
+	}
+	c.roots([]sysmlv1.ElementRef{{ID: v.Class.ID, Element: v.Class}}, "the view")
+	c.self = "the view " + qualifiedName(v.Class) + " exposes nothing, so its method works on the view itself"
 }
 
 // collaboratorParagraph plans a paragraph the View Editor attached to a view:
@@ -278,8 +290,20 @@ type chain struct {
 	// diagrams are the current elements that are diagrams, which no query
 	// names but an Image shows; each step transforms them as it does ctx.
 	diagrams []*sysmlv1.Diagram
+	// holders are the current source elements other than diagrams, followed so
+	// a collect step gathers the diagrams they own, as DocGen's does.
+	holders []*sysmlv1.Element
+	// vague says which step left the holders, and so the diagrams, unknown.
+	vague string
+	// hazy says which step left only the holders unknown, the diagrams still
+	// known: a collect over the holders may add diagrams, and turns vague.
+	hazy string
+	// self says the chain started on the view itself, which exposes nothing.
+	self string
 	// dropped names the filter that kept none of the diagrams, while none is current.
 	dropped string
+	// none says why the chain is known to hold no element at all, once a step left none.
+	none string
 	// broken says why the current elements are unknown, once a step failed.
 	broken string
 	// notes are approximations the collected elements carry into what shows them.
@@ -293,6 +317,7 @@ func (c *chain) sub() *chain {
 	s := *c
 	s.notes = append([]string(nil), c.notes...)
 	s.diagrams = append([]*sysmlv1.Diagram(nil), c.diagrams...)
+	s.holders = append([]*sysmlv1.Element(nil), c.holders...)
 	s.active = append([]*sysmlv1.Element(nil), c.active...)
 	return &s
 }
@@ -328,12 +353,10 @@ func contains(ss []string, s string) bool {
 }
 
 // roots sets the chain's elements to refs, named by qualified name once each;
-// a ref that resolves to no written element breaks the chain.
+// a ref that resolves to no written element breaks the chain, though the
+// source elements stay followed for the diagrams they own.
 func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
-	c.ctx, c.diagrams, c.dropped, c.broken = qx{}, nil, "", ""
-	if len(refs) == 0 {
-		return
-	}
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.self, c.dropped, c.none, c.broken = qx{}, nil, nil, "", "", "", "", "", ""
 	var names []string
 	for _, ref := range refs {
 		if d := c.m.model.Diagram(ref.ID); d != nil {
@@ -341,19 +364,24 @@ func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
 			continue
 		}
 		if ref.Element == nil {
-			c.broken = role + " " + ref.ID + ", which " + c.m.unresolvedRef(ref)
+			why := role + " " + ref.ID + ", which " + c.m.unresolvedRef(ref)
+			c.broken, c.vague = why, why
 			return
+		}
+		c.holders = append(c.holders, ref.Element)
+		if c.broken != "" {
+			continue
 		}
 		name, why := c.m.namedRoot(ref, "element")
 		if why != "" {
 			c.broken = role + " " + kindOf(ref.Element) + " " + qualifiedName(ref.Element) + ", which is not migrated"
-			return
+			continue
 		}
 		if !contains(names, name) {
 			names = append(names, name)
 		}
 	}
-	if len(names) > 0 {
+	if len(names) > 0 && c.broken == "" {
 		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
 	}
 }
@@ -379,7 +407,7 @@ func (c *chain) keepDiagrams(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Diagram) 
 		}
 	}
 	if len(kept) == 0 && len(c.diagrams) > 0 {
-		c.dropped = "«" + c.kind(s) + "» " + qualifiedName(s.Node)
+		c.dropped = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " drops all the diagrams collected"
 	}
 	c.diagrams = kept
 }
@@ -388,7 +416,27 @@ func (c *chain) keepDiagrams(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Diagram) 
 func (c *chain) empty() bool { return c.ctx.op == "" && c.ctx.lit == "" }
 
 // idle reports whether a query step has nothing at all to transform.
-func (c *chain) idle() bool { return c.broken != "" || (c.empty() && len(c.diagrams) == 0) }
+func (c *chain) idle() bool {
+	return c.empty() && len(c.diagrams) == 0 && len(c.holders) == 0 && c.vague == "" && c.hazy == ""
+}
+
+// blur records that a step left the source elements, diagrams among them,
+// unknown, so the diagrams a later collect would gather are unknown too.
+func (c *chain) blur(s *sysmlv1.DocGenStep, why string) {
+	if c.vague == "" {
+		c.vague = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " " + why
+	}
+	c.holders, c.hazy = nil, ""
+}
+
+// haze records that a step left the holders unknown while the diagrams, which
+// it decided, stay known: no diagram hides among the unknown until a collect.
+func (c *chain) haze(s *sysmlv1.DocGenStep, why string) {
+	if c.vague == "" && c.hazy == "" {
+		c.hazy = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " " + why
+	}
+	c.holders = nil
+}
 
 func (c *chain) run(steps []*sysmlv1.DocGenStep) {
 	for _, s := range steps {
@@ -400,7 +448,7 @@ func (c *chain) run(steps []*sysmlv1.DocGenStep) {
 // elements; a presentation node adds a block; a group recurses.
 func (c *chain) step(s *sysmlv1.DocGenStep) {
 	if s.Malformed != "" {
-		c.fail(s, s.Malformed)
+		c.abort(s, s.Malformed)
 		return
 	}
 	if len(s.Targets) > 0 {
@@ -417,10 +465,16 @@ func (c *chain) step(s *sysmlv1.DocGenStep) {
 		c.collect(s, "Ancestors")
 	case "CollectByDirectedRelationshipStereotypes":
 		c.collectRelated(s)
+	case "CollectThingsOnDiagram":
+		c.collectShown(s)
+	case "CollectByAssociation":
+		c.collectAssociated(s)
 	case "FilterByMetaclasses":
 		c.filterTypes(s, "metaclasses")
 	case "FilterByStereotypes":
 		c.filterTypes(s, "stereotypes")
+	case "FilterByDiagramType":
+		c.filterDiagramTypes(s)
 	case "FilterByNames":
 		c.filterNames(s)
 	case "SortByName":
@@ -456,15 +510,16 @@ func (c *chain) step(s *sysmlv1.DocGenStep) {
 		case len(s.Targets) > 0:
 			// A node that only resets the targets.
 		default:
-			c.fail(s, "the node "+qualifiedName(s.Node)+" carries no DocGen stereotype")
+			c.abort(s, "the node "+qualifiedName(s.Node)+" carries no DocGen stereotype")
 		}
 	default:
-		c.fail(s, "no query operation or content block stands for «"+s.Kind+"»")
+		c.abort(s, "no query operation or content block stands for «"+s.Kind+"»")
 	}
 }
 
 // fail records why a step is not migrated: a query step breaks the chain for
-// what follows, a presentation node stands as a comment in the section.
+// what follows, a presentation node stands as a comment in the section. The
+// source elements stay followed, since the step's effect on them is known.
 func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 	switch s.Kind {
 	case "TableStructure", "BulletedList", "Paragraph", "Image", "Dynamic_View", "DynamicView":
@@ -473,8 +528,15 @@ func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 		if c.broken == "" {
 			c.broken = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " is not migrated: " + why
 		}
+		c.ctx = qx{}
 		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, why))
 	}
+}
+
+// abort fails a step whose effect on the source elements is unknown too.
+func (c *chain) abort(s *sysmlv1.DocGenStep, why string) {
+	c.blur(s, "is not migrated: "+why)
+	c.fail(s, why)
 }
 
 // kind names a step for a reader: its stereotype, else its metaclass.
@@ -502,11 +564,39 @@ func (c *chain) ready(s *sysmlv1.DocGenStep) bool {
 	case c.empty() && len(c.diagrams) > 0:
 		c.refuse(s, "it shows no element: only diagrams are current, and a diagram is shown by an Image, not listed")
 		return false
+	case c.empty() && c.none != "":
+		c.nothing(s)
+		return false
 	case c.empty():
 		c.refuse(s, "it shows no element: the view exposes nothing and the node targets nothing")
 		return false
 	}
 	return true
+}
+
+// nothing records a presentation node over no element, which DocGen shows
+// nothing for either, except a table, whose headings it prints over no row.
+func (c *chain) nothing(s *sysmlv1.DocGenStep) {
+	verdict, note := Mapped, "it shows nothing: "+c.none
+	if s.Kind == "TableStructure" {
+		verdict, note = Approximated, "it lists nothing: "+c.none+"; the table DocGen prints, headings over no row, is left out"
+	}
+	c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, verdict, note))
+}
+
+// clear empties the chain for a known reason, which what follows reports.
+func (c *chain) clear(why string) {
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy = qx{}, nil, nil, "", ""
+	c.dropped, c.none = why, why
+}
+
+// keepNone lowers a filter that names nothing as DocGen runs it: including
+// keeps no element, excluding keeps them all.
+func (c *chain) keepNone(s *sysmlv1.DocGenStep, why string) {
+	if s.Application.Tag("include") == "false" {
+		return
+	}
+	c.clear("«" + c.kind(s) + "» " + qualifiedName(s.Node) + " keeps nothing: " + why)
 }
 
 // depth reads a collect step's depth: 0 or absent is unbounded.
@@ -523,24 +613,28 @@ func (c *chain) depth(s *sysmlv1.DocGenStep) (int, string) {
 }
 
 // collect lowers CollectOwnedElements and CollectOwners to a walk of the tree.
-// A diagram owns no element; its owners join the elements, named.
+// A diagram owns no element; its owners join the elements, named. The source
+// elements are walked the same way, gathering the diagrams they own.
 func (c *chain) collect(s *sysmlv1.DocGenStep, op string) {
 	if c.idle() {
 		return
 	}
 	depth, why := c.depth(s)
 	if why != "" {
-		c.fail(s, why)
+		c.abort(s, why)
 		return
 	}
 	var owners []string
 	if op == "Ancestors" {
-		if owners, why = c.diagramOwners(depth); why != "" {
-			c.fail(s, why)
-			return
-		}
+		owners, why = c.diagramOwners(depth)
 	}
-	c.diagrams, c.dropped = nil, ""
+	c.collectHolders(op, depth)
+	if why != "" {
+		c.fail(s, why)
+	}
+	if c.broken != "" {
+		return
+	}
 	var results []qx
 	if !c.empty() {
 		args := []qarg{qarg1("source", c.ctx)}
@@ -559,17 +653,54 @@ func (c *chain) collect(s *sysmlv1.DocGenStep, op string) {
 	c.ctx = union(results)
 }
 
+// collectHolders walks the source elements as the collect step does: down to
+// the elements and diagrams they own, or up to their owners and the diagrams'.
+func (c *chain) collectHolders(op string, depth int) {
+	holders, diagrams := c.holders, c.diagrams
+	c.diagrams, c.dropped, c.none = nil, "", ""
+	// Unknown holders own unknown diagrams; their owners are elements only.
+	if c.hazy != "" && op != "Ancestors" {
+		c.vague, c.hazy = c.hazy, ""
+	}
+	if c.vague != "" {
+		c.holders = nil
+		return
+	}
+	seen := map[*sysmlv1.Element]bool{}
+	var out []*sysmlv1.Element
+	add := func(e *sysmlv1.Element) {
+		if !seen[e] {
+			seen[e] = true
+			out = append(out, e)
+		}
+	}
+	if op == "Ancestors" {
+		for _, d := range diagrams {
+			if owner := diagramOwner(d); owner != nil {
+				owners(owner, depth, add)
+			}
+		}
+		for _, h := range holders {
+			if h.Parent != nil {
+				owners(h.Parent, depth, add)
+			}
+		}
+	} else {
+		for _, h := range holders {
+			c.m.owned(h, depth, add, func(d *sysmlv1.Diagram) { c.diagrams = appendDiagram(c.diagrams, d) })
+		}
+	}
+	c.holders = out
+}
+
 // diagramOwners names the owners of the current diagrams up to depth, all of
 // them for 0, or says which owner is not migrated. The root Model, which is
 // not written, ends the walk as it does for Ancestors.
 func (c *chain) diagramOwners(depth int) (names []string, why string) {
 	for _, d := range c.diagrams {
-		owner := d.Owner
-		if owner == nil {
-			owner = d.Holder
-		}
+		owner := diagramOwner(d)
 		for i := 0; owner != nil && (depth == 0 || i < depth); i, owner = i+1, owner.Parent {
-			if owner.Parent == nil && owner.Type == "Model" {
+			if isTopLevel(owner) {
 				break
 			}
 			if !c.m.written(owner) {
@@ -583,6 +714,209 @@ func (c *chain) diagramOwners(depth int) (names []string, why string) {
 	return names, ""
 }
 
+// collectShown lowers CollectThingsOnDiagram as DocGen runs it: the model
+// elements the current diagrams show, named; anything else is dropped.
+func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	diagrams, holders := c.diagrams, c.holders
+	c.ctx, c.diagrams, c.holders, c.dropped, c.none, c.hazy = qx{}, nil, nil, "", "", ""
+	if c.vague != "" {
+		c.fail(s, "the diagrams it reads are known only when the query runs, and no query operation reads what a diagram shows")
+		return
+	}
+	// One diagram whose symbols are unread leaves the whole collection unknown,
+	// listed or not: a Named query over the rest would pass for complete.
+	var unread, listed []string
+	for _, d := range diagrams {
+		what := "what the " + diagramKind(d) + " '" + d.Name + "' shows"
+		switch {
+		case d.Drawn:
+		case d.Stream != "" && len(d.Shown) > 0:
+			unread = append(unread, what+" beyond the "+plural(len(d.Shown), "element")+" the tool lists, whose symbols cannot be read")
+		case d.Stream != "" || len(d.Shown) == 0:
+			unread = append(unread, what+", which the archive does not record")
+		default:
+			listed = append(listed, "reads the "+plural(len(d.Shown), "element")+" the tool lists as used on the "+diagramKind(d)+" '"+d.Name+"', whose symbols are not serialized; the list need not be all it shows")
+		}
+	}
+	if len(unread) > 0 {
+		c.abort(s, "it collects "+strings.Join(unread, " and "))
+		return
+	}
+	for _, n := range listed {
+		c.note(n)
+	}
+	var names []string
+	for _, d := range diagrams {
+		unknown, unwritten, folded := 0, 0, 0
+		for _, ref := range d.Shown {
+			if sd := c.m.model.Diagram(ref.ID); sd != nil {
+				c.diagrams = appendDiagram(c.diagrams, sd)
+				continue
+			}
+			switch name, why := c.m.namedRoot(ref, "element"); {
+			case ref.Element == nil:
+				unknown++
+			case why != "" && c.m.foldedInto(ref.Element):
+				folded++
+			case why != "":
+				c.holders = appendElement(c.holders, ref.Element)
+				unwritten++
+			default:
+				c.holders = appendElement(c.holders, ref.Element)
+				if !contains(names, name) {
+					names = append(names, name)
+				}
+			}
+		}
+		shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
+		if unknown > 0 {
+			c.note("leaves out " + plural(unknown, "element") + shown + "that the archive does not describe")
+		}
+		if unwritten > 0 {
+			c.note("leaves out " + plural(unwritten, "element") + shown + "that the migration does not write")
+		}
+		if folded > 0 {
+			c.note("leaves out " + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
+		}
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+	}
+	if c.empty() && len(c.diagrams) == 0 && c.vague == "" {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.shownNothing(diagrams, holders)
+		c.dropped = c.none
+	}
+}
+
+// shownNothing says why no element is shown on the current diagrams: there is
+// none, or each shows no model element the query names.
+func (c *chain) shownNothing(diagrams []*sysmlv1.Diagram, holders []*sysmlv1.Element) string {
+	if len(diagrams) == 0 {
+		if len(holders) == 0 {
+			return "no diagram is collected for it to read"
+		}
+		return noneOf(holders) + ", and only a diagram shows elements"
+	}
+	var parts []string
+	for _, d := range diagrams {
+		if len(d.Shown) == 0 {
+			parts = append(parts, "the "+diagramKind(d)+" '"+d.Name+"' "+showsNothing(d, "shows no model element"))
+		} else {
+			parts = append(parts, "the "+diagramKind(d)+" '"+d.Name+"' shows no element the query names")
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+// plural counts nouns: "1 element", "3 elements".
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(n) + " " + noun + "s"
+}
+
+// collectAssociated lowers CollectByAssociation as DocGen runs it: from each
+// current classifier, the types of its attributes of the aggregation kind,
+// followed on to depth. The types are known statically, so they are named.
+func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	depth, why := c.depth(s)
+	if why != "" {
+		c.abort(s, why)
+		return
+	}
+	kind := c.aggregation(s)
+	// A diagram is no classifier, so it has no attributes to follow.
+	c.diagrams, c.dropped, c.none = nil, "", ""
+	if c.vague != "" || c.hazy != "" {
+		c.fail(s, "the elements it starts from are known only when the query runs, and no query operation tells a "+kind+" feature from the others")
+		return
+	}
+	holders := c.holders
+	c.holders, c.ctx = nil, qx{}
+	var names []string
+	// reached is the shallowest level each type was met at; a shallower path
+	// walks it again, since more depth remains below it.
+	reached := map[*sysmlv1.Element]int{}
+	var walk func(e *sysmlv1.Element, level int)
+	walk = func(e *sysmlv1.Element, level int) {
+		if depth > 0 && level > depth {
+			return
+		}
+		for _, p := range e.Owned("ownedAttribute") {
+			t := c.m.model.Ref(p, "type")
+			if aggregationOf(p) != kind || t == nil {
+				continue
+			}
+			at, met := reached[t]
+			if met && at <= level {
+				continue
+			}
+			if !met {
+				c.holders = append(c.holders, t)
+				if name, why := c.m.namedRoot(sysmlv1.ElementRef{ID: t.ID, Element: t}, "type"); why != "" {
+					c.note(why + ", so it is left out")
+				} else if !contains(names, name) {
+					names = append(names, name)
+				}
+			}
+			reached[t] = level
+			walk(t, level+1)
+		}
+	}
+	for _, h := range holders {
+		walk(h, 1)
+	}
+	if len(names) > 0 {
+		c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+		return
+	}
+	if len(c.holders) == 0 {
+		c.none = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " collects nothing: " + c.noAssociated(holders, kind)
+		c.dropped = c.none
+	}
+}
+
+// noAssociated says why no type is reached from the elements by attributes of
+// the aggregation kind: there is no element, or none has such an attribute.
+func (c *chain) noAssociated(holders []*sysmlv1.Element, kind string) string {
+	switch len(holders) {
+	case 0:
+		return "no element is collected for it to follow"
+	case 1:
+		return "the only element collected, the " + kindOf(holders[0]) + " " + qualifiedName(holders[0]) + ", has no typed attribute of " + kind + " aggregation"
+	}
+	return "none of the " + strconv.Itoa(len(holders)) + " elements collected has a typed attribute of " + kind + " aggregation"
+}
+
+// aggregation reads the association kind a CollectByAssociation follows, a
+// literal named or referred to; composite when none is.
+func (c *chain) aggregation(s *sysmlv1.DocGenStep) string {
+	kind := strings.TrimSpace(s.Application.Tag("associationType"))
+	if lit := c.m.model.Lookup(kind); lit != nil && lit.Name != "" {
+		kind = lit.Name
+	}
+	switch kind {
+	case "none", "shared":
+		return kind
+	}
+	return "composite"
+}
+
+// aggregationOf is a property's aggregation kind, none unless it says otherwise.
+func aggregationOf(p *sysmlv1.Element) string {
+	if a := p.Attrs["aggregation"]; a != "" {
+		return a
+	}
+	return "none"
+}
+
 // collectRelated lowers CollectByDirectedRelationshipStereotypes to a walk of
 // each supported relationship kind, united.
 func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
@@ -590,7 +924,10 @@ func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
 		return
 	}
 	// A migrated diagram is a view, which is the end of no relationship.
-	c.diagrams, c.dropped = nil, ""
+	c.diagrams, c.dropped, c.none = nil, "", ""
+	if len(c.holders) > 0 || c.hazy != "" || !c.empty() {
+		c.haze(s, "follows relationships to elements only the query finds")
+	}
 	if c.empty() {
 		return
 	}
@@ -660,7 +997,7 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 	}
 	refs := c.m.model.TagRefs(s.Application, tag)
 	if len(refs) == 0 {
-		c.fail(s, "it names no "+strings.TrimSuffix(tag, "es")+"")
+		c.keepNone(s, "it names no "+map[string]string{"metaclasses": "metaclass", "stereotypes": "stereotype"}[tag])
 		return
 	}
 	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool {
@@ -670,6 +1007,18 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 			}
 		}
 		return false
+	})
+	derived := s.Application.Tag("considerDerived") != "false"
+	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) {
+		known := true
+		for _, ref := range refs {
+			keep, ok := c.m.holderOfType(ref, e, derived)
+			if keep && ok {
+				return true, true
+			}
+			known = known && ok
+		}
+		return false, known
 	})
 	if c.empty() {
 		return
@@ -691,6 +1040,102 @@ func (c *chain) filterTypes(s *sysmlv1.DocGenStep, tag string) {
 		return
 	}
 	c.ctx = kept
+}
+
+// filterDiagramTypes lowers FilterByDiagramType as DocGen runs it: only
+// diagrams pass, those of a diagram type named, or the others when excluding.
+func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
+	if c.idle() {
+		return
+	}
+	types := c.diagramTypes(s)
+	holders, diagrams, hazy := c.holders, c.diagrams, c.hazy
+	c.ctx, c.holders, c.diagrams, c.hazy = qx{}, nil, nil, ""
+	// Naming no type, the filter keeps none or all, whatever their types.
+	for _, d := range diagrams {
+		if d.Kind == "" && len(types) > 0 {
+			c.blur(s, "keeps or drops the diagram '"+d.Name+"', whose diagram type the archive does not record")
+			continue
+		}
+		c.diagrams = append(c.diagrams, d)
+	}
+	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return contains(types, d.Kind) })
+	if len(c.diagrams) > 0 || c.vague != "" {
+		return
+	}
+	step := "«" + c.kind(s) + "» " + qualifiedName(s.Node)
+	switch {
+	case len(diagrams) == 0 && hazy != "":
+		c.none = step + " drops all the elements collected, whichever they are, and it keeps only diagrams: " + hazy
+	case len(diagrams) == 0 && len(holders) == 0:
+		return
+	case len(diagrams) == 0:
+		c.none = step + " drops " + noneOf(holders) + ", and it keeps only diagrams"
+	case len(types) == 0:
+		c.none = step + " drops all the diagrams collected: it names no diagram type"
+	case s.Application.Tag("include") == "false":
+		c.none = step + " drops all the diagrams collected: each is " + orList(types)
+	default:
+		c.none = step + " drops all the diagrams collected: none is " + orList(types)
+	}
+	c.dropped = c.none
+}
+
+// diagramTypes reads the diagram types a FilterByDiagramType names, as the
+// tool spells them: literally, or by a reference to a named element.
+func (c *chain) diagramTypes(s *sysmlv1.DocGenStep) []string {
+	var types []string
+	for _, raw := range s.Application.Tags["diagramTypes"] {
+		name := strings.TrimSpace(raw)
+		if e := c.m.model.Lookup(name); e != nil && e.Name != "" {
+			name = e.Name
+		}
+		if name != "" && !contains(types, name) {
+			types = append(types, name)
+		}
+	}
+	return types
+}
+
+// orList joins alternatives: "a", "a or b", "a, b or c".
+func orList(items []string) string {
+	quoted := make([]string, len(items))
+	for i, s := range items {
+		quoted[i] = "a " + s
+	}
+	if len(quoted) < 2 {
+		return strings.Join(quoted, "")
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " or " + quoted[len(quoted)-1]
+}
+
+// keepHolders keeps the source elements keep admits, or the others when the
+// step excludes; a verdict keep cannot tell leaves them unknown.
+func (c *chain) keepHolders(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Element) (keep, known bool)) {
+	include := s.Application.Tag("include") != "false"
+	var kept []*sysmlv1.Element
+	for _, e := range c.holders {
+		ok, known := keep(e)
+		if !known {
+			c.haze(s, "keeps or drops the "+kindOf(e)+" "+qualifiedName(e)+", which cannot be told before the query runs")
+			return
+		}
+		if ok == include {
+			kept = append(kept, e)
+		}
+	}
+	if len(kept) == 0 && len(c.holders) > 0 && len(c.diagrams) == 0 && c.dropped == "" {
+		c.dropped = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " drops " + noneOf(c.holders)
+	}
+	c.holders = kept
+}
+
+// noneOf describes collected elements none of which is a diagram.
+func noneOf(es []*sysmlv1.Element) string {
+	if len(es) == 1 {
+		return "the only element collected, the " + kindOf(es[0]) + " " + qualifiedName(es[0]) + ", which is not a diagram"
+	}
+	return "all " + strconv.Itoa(len(es)) + " elements collected, none of them a diagram"
 }
 
 // diagramOfType reports whether the element type ref admits diagram d: the
@@ -730,7 +1175,7 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 	}
 	names := s.Application.Tags["names"]
 	if len(names) == 0 {
-		c.fail(s, "it names no name pattern")
+		c.abort(s, "it names no name pattern")
 		return
 	}
 	var patterns []string
@@ -739,21 +1184,35 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 		pattern := "^(?:" + n + ")$"
 		re, err := regexp.Compile(pattern)
 		if err != nil {
-			c.fail(s, "the name pattern "+strconv.Quote(n)+" is not a regular expression the query can match")
+			c.abort(s, "the name pattern "+strconv.Quote(n)+" is not a regular expression the query can match")
 			return
 		}
 		patterns = append(patterns, pattern)
 		compiled = append(compiled, re)
 	}
-	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool {
+	matches := func(name string) bool {
 		for _, re := range compiled {
-			if re.MatchString(d.Name) {
+			if re.MatchString(name) {
 				return true
 			}
 		}
 		return false
-	})
+	}
+	c.keepDiagrams(s, func(d *sysmlv1.Diagram) bool { return matches(d.Name) })
+	// DocGen matches the v1 name; a query matches the v2 one, which differs
+	// where the write names an element anew, an anonymous one.
+	var renamed []*sysmlv1.Element
+	for _, e := range c.holders {
+		if c.m.written(e) && matches(e.Name) != matches(c.m.writtenName(e)) {
+			renamed = append(renamed, e)
+		}
+	}
+	c.keepHolders(s, func(e *sysmlv1.Element) (bool, bool) { return matches(e.Name), true })
 	if c.empty() {
+		return
+	}
+	if len(renamed) > 0 {
+		c.keepNamed(s, renamed)
 		return
 	}
 	kept := qcall("WhereName", qarg1("source", c.ctx), qarg1("operator", qstr("matches")), qarg1("value", qstr(strings.Join(patterns, "|"))))
@@ -764,8 +1223,44 @@ func (c *chain) filterNames(s *sysmlv1.DocGenStep) {
 	c.ctx = kept
 }
 
-// sort lowers a sort step to OrderBy over a query property. The diagrams sort
-// by name the same way and keep their order for any other property.
+// keepNamed spells a name filter as the elements it keeps, since a WhereName
+// query over the v2 names would keep or drop the renamed elements otherwise.
+func (c *chain) keepNamed(s *sysmlv1.DocGenStep, renamed []*sysmlv1.Element) {
+	step := "«" + c.kind(s) + "» " + qualifiedName(s.Node)
+	var names []string
+	nameless := 0
+	for _, e := range c.holders {
+		switch {
+		case !c.m.written(e):
+		case c.m.writtenName(e) == "":
+			nameless++
+		default:
+			names = append(names, c.m.plainName(e))
+		}
+	}
+	var why []string
+	for _, e := range renamed {
+		why = append(why, "the "+kindOf(e)+" "+qualifiedName(e)+" is named "+c.m.writtenName(e)+" in v2")
+	}
+	c.note(step + " names the elements it keeps, since a WhereName query matches v2 names: " + strings.Join(why, "; "))
+	if nameless > 0 {
+		c.note(step + " leaves out " + plural(nameless, "element") + " it keeps that no query names, anonymous in v2")
+	}
+	if len(names) == 0 {
+		c.ctx = qx{}
+		if len(c.diagrams) == 0 {
+			c.none = c.dropped
+			if c.none == "" {
+				c.none = step + " keeps no element a query names"
+			}
+		}
+		return
+	}
+	c.ctx = qcall("Named", qstrs("qualifiedName", names...))
+}
+
+// sort lowers a sort step to OrderBy over a query property and orders the current
+// diagrams and source elements as the query orders its rows: missing values last, ties kept.
 func (c *chain) sort(s *sysmlv1.DocGenStep, property string) {
 	if c.idle() {
 		return
@@ -774,19 +1269,58 @@ func (c *chain) sort(s *sysmlv1.DocGenStep, property string) {
 	if s.Application.Tag("reverse") == "true" {
 		dir = "descending"
 	}
-	if property == "name" {
-		slices.SortStableFunc(c.diagrams, func(a, b *sysmlv1.Diagram) int {
-			if dir == "descending" {
-				return strings.Compare(b.Name, a.Name)
-			}
-			return strings.Compare(a.Name, b.Name)
-		})
+	byKey := func(a, b string) int {
+		if a == "" || b == "" {
+			return strings.Compare(b, a)
+		}
+		if dir == "descending" {
+			a, b = b, a
+		}
+		return strings.Compare(a, b)
 	}
+	slices.SortStableFunc(c.diagrams, func(a, b *sysmlv1.Diagram) int {
+		return byKey(diagramKey(a, property), diagramKey(b, property))
+	})
+	slices.SortStableFunc(c.holders, func(a, b *sysmlv1.Element) int {
+		return byKey(c.m.sortKey(a, property), c.m.sortKey(b, property))
+	})
 	if c.empty() {
 		return
 	}
 	c.ctx = qcall("OrderBy", qarg1("source", c.ctx), qarg1("property", qstr(property)),
 		qarg1("direction", qstr(dir)), qarg1("missing", qstr("last")), qarg1("multiple", qstr("first")))
+}
+
+// diagramKey is the value a diagram's view has for a query property: its name,
+// or the doc written from the diagram's own comment; "" when it has none.
+func diagramKey(d *sysmlv1.Diagram, property string) string {
+	switch property {
+	case "name":
+		return d.Name
+	case "documentation":
+		return docKey(commentText(d.Documentation))
+	}
+	return ""
+}
+
+// sortKey is the value e's v2 declaration has for a query property, as OrderBy
+// reads it: its v2 name, or the first doc written in its body; "" for none.
+func (m *migration) sortKey(e *sysmlv1.Element, property string) string {
+	switch property {
+	case "name":
+		return m.writtenName(e)
+	case "documentation":
+		return docKey(m.documentation(e))
+	}
+	return ""
+}
+
+// docKey is the body a query reads back from the doc comment written for text.
+func docKey(text string) string {
+	if text == "" {
+		return ""
+	}
+	return source.CommentBody(strings.Join(commentLines(text), "\n"))
 }
 
 // attribute reads a desiredAttribute tag as the query property it names.
@@ -839,12 +1373,18 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	}
 	var results []qx
 	var diagrams []*sysmlv1.Diagram
-	dropped := c.dropped
+	var holders []*sysmlv1.Element
+	dropped, vague, hazy, none := c.dropped, c.vague, c.hazy, c.none
+	// Each branch starts from the chain's doubt and ends with its own, none
+	// once it names its targets anew; the union carries what the branches end with.
+	if len(s.Branches) > 0 {
+		dropped, vague, hazy, none = "", "", "", ""
+	}
 	for _, branch := range s.Branches {
 		sub := c.sub()
 		sub.run(branch)
 		if sub.broken != "" {
-			c.broken = sub.broken
+			c.broken, c.vague = sub.broken, sub.vague
 			return
 		}
 		for _, n := range sub.notes {
@@ -856,17 +1396,35 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 		for _, d := range sub.diagrams {
 			diagrams = appendDiagram(diagrams, d)
 		}
+		for _, h := range sub.holders {
+			holders = appendElement(holders, h)
+		}
 		if sub.dropped != "" {
 			dropped = sub.dropped
 		}
+		if sub.none != "" {
+			none = sub.none
+		}
+		if vague == "" {
+			vague = sub.vague
+		}
+		if hazy == "" {
+			hazy = sub.hazy
+		}
 	}
 	if s.Kind != "Union" {
-		c.fail(s, "its branches rejoin by "+strings.ToLower(s.Kind)+", which only a Union spelling exists for")
+		c.abort(s, "its branches rejoin by "+strings.ToLower(s.Kind)+", which only a Union spelling exists for")
 		return
 	}
-	c.diagrams, c.dropped = diagrams, dropped
+	c.diagrams, c.dropped, c.holders, c.vague, c.hazy, c.none = diagrams, dropped, holders, vague, hazy, none
+	if vague != "" {
+		c.hazy = ""
+	}
 	if len(diagrams) > 0 {
 		c.dropped = ""
+	}
+	if len(diagrams) > 0 || len(holders) > 0 || len(results) > 0 || vague != "" || hazy != "" {
+		c.none = ""
 	}
 	if len(results) == 0 {
 		c.ctx = qx{}
@@ -880,12 +1438,12 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	body, why := c.body(s)
 	if why != "" {
-		c.fail(s, why)
+		c.abort(s, why)
 		return
 	}
 	steps, end := c.m.model.DocGenChain(body)
 	if end != "" {
-		c.fail(s, "its body "+qualifiedName(body)+" is not migrated: "+end)
+		c.abort(s, "its body "+qualifiedName(body)+" is not migrated: "+end)
 		return
 	}
 	if s.Application != nil && s.Application.Tag("loop") == "true" {
@@ -897,7 +1455,8 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	if !flows {
 		return
 	}
-	c.ctx, c.diagrams, c.broken = sub.ctx, sub.diagrams, sub.broken
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.broken = sub.ctx, sub.diagrams, sub.holders, sub.vague, sub.hazy, sub.broken
+	c.dropped, c.none = sub.dropped, sub.none
 	for _, n := range sub.notes {
 		c.note(n)
 	}
@@ -941,9 +1500,9 @@ func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
 }
 
 // captionParagraph plans the Paragraph holding a block's caption, which a
-// document prints under the block.
-func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, of, text string) {
-	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, captionOf: of}
+// document prints under the block; note says whose caption it is.
+func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, note, text string) {
+	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, captionNote: note}
 	cp.name = c.sec.names.claim("paragraph")
 	c.sec.content = append(c.sec.content, cp)
 }
@@ -1005,7 +1564,7 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		cp.notes = append(cp.notes, "the table loops over its elements one table each; one table lists them together")
 	}
 	if text := c.captionText(s, 0); text != "" {
-		c.captionParagraph(s, "Table", text)
+		c.captionParagraph(s, "the paragraph is the Table's caption", text)
 	}
 }
 
@@ -1034,6 +1593,11 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 		refs := c.m.model.TagRefs(col.Application, "desiredProperty")
 		if len(refs) == 0 {
 			return "", expr, "it names no property"
+		}
+		if f := refs[0].Element; f != nil {
+			if prop := requirementProperty(f); prop != "" {
+				return prop, expr, ""
+			}
 		}
 		key, f, why := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host)
 		if why != "" {
@@ -1129,19 +1693,19 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 
 // image lowers an Image: one Diagram block per diagram among the current
 // elements, showing its migrated view, captioned by the diagram's title and
-// followed by its caption paragraph when DocGen shows captions.
+// followed by its caption paragraph when DocGen shows captions. A chain whose
+// diagrams are not all known draws none: a partial set would pass for the whole.
 func (c *chain) image(s *sysmlv1.DocGenStep) {
 	if c.broken != "" {
 		c.refuse(s, "the diagrams it shows pass through "+c.broken)
 		return
 	}
-	if len(c.diagrams) == 0 && c.dropped != "" {
-		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Mapped,
-			"it draws nothing: "+c.dropped+" keeps none of the diagrams the view exposes or the node targets"))
+	if c.vague != "" {
+		c.refuse(s, "the diagrams it shows are not known: "+c.vague)
 		return
 	}
 	if len(c.diagrams) == 0 {
-		c.refuse(s, "it shows no diagram: only a diagram the view exposes or the node targets directly has a view to show")
+		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Mapped, "it draws nothing: "+c.noDiagrams()))
 		return
 	}
 	titles := s.Application.Tags["titles"]
@@ -1151,8 +1715,22 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			c.refuse(s, "the Diagram '"+d.Name+"' is not written as a view")
 			continue
 		}
-		if rendering(d) == textualRendering {
-			c.refuse(s, "the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw")
+		form, why := c.m.form(d)
+		if form.rendering == textualRendering {
+			c.refuse(s, joinNotes("the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw", why))
+			continue
+		}
+		if empty := c.m.emptyView(v, form); empty != "" {
+			note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
+			verdict := Approximated
+			if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
+				verdict = Mapped
+			}
+			if text := c.captionText(s, i); text != "" {
+				note += "; its caption stands alone"
+				c.captionParagraph(s, "the paragraph is the caption of the figure left out for the diagram '"+d.Name+"'", text)
+			}
+			c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, verdict, note))
 			continue
 		}
 		def, _, why := c.m.viewSteps(v)
@@ -1172,9 +1750,31 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 		cp.name = c.sec.names.claim("diagram")
 		c.sec.content = append(c.sec.content, cp)
 		if text := c.captionText(s, i); text != "" {
-			c.captionParagraph(s, "Diagram", text)
+			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
 		}
 	}
+}
+
+// noDiagrams says why no diagram is current for an Image, as DocGen would
+// find none either: what the chain collected, and that none of it is a diagram.
+func (c *chain) noDiagrams() string {
+	var why string
+	switch {
+	case c.dropped != "":
+		why = c.dropped
+	case c.hazy != "":
+		why = "no diagram is among the elements collected, whichever they are: " + c.hazy
+	case len(c.holders) == 0:
+		why = "nothing is collected for it to draw"
+	case len(c.holders) == 1:
+		why = "the only element collected, the " + kindOf(c.holders[0]) + " " + qualifiedName(c.holders[0]) + ", is not a diagram"
+	default:
+		why = "none of the " + strconv.Itoa(len(c.holders)) + " elements collected is a diagram"
+	}
+	if c.self != "" {
+		why = c.self + ", and " + why
+	}
+	return why + "; an Image draws only diagrams"
 }
 
 // dynamicView lowers a Dynamic View node: a Section titled after it, holding
@@ -1434,8 +2034,8 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 	if cp.query != "" {
 		e.Note = joinNotes("its rows are the query "+writeName(cp.query), e.Note)
 	}
-	if cp.captionOf != "" {
-		e.Note = joinNotes("the paragraph is the "+cp.captionOf+"'s caption", e.Note)
+	if cp.captionNote != "" {
+		e.Note = joinNotes(cp.captionNote, e.Note)
 	}
 	return e
 }
