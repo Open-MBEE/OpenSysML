@@ -22,8 +22,8 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   (written by the new script), not from the DeciSym `pom.xml`.
 - `-validator /nonexistent` now says `run ./scripts/download-pilot-sysml-validator.sh`.
 - Measured at the `2026-08` pin, with a fresh library cache: `379 file(s), 347 fully agreeing; 38 agreed,
-  38 only ours, 1333 only the pilot's`, JSON totals `openSysMLDiagnostics 79 / pilotDiagnostics
-  1374 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
+  38 only ours, 1545 only the pilot's`, JSON totals `openSysMLDiagnostics 79 / pilotDiagnostics
+  1586 / severityMismatch 3`; ~2 min wall, byte-identical across runs *and* after a from-scratch
   rebuild of `build/pilot-validator`. The six `kerml-examples` pilot-only rows the `2026-07` run
   carried (`The opposite features 'owningType' … do not refer to each other`) are gone: the pilot
   fixed its `ownedDisjoining` delegate, and nothing on our side moved. `kerml-examples` carries no `syntax` diagnostic on either
@@ -137,7 +137,7 @@ The harness compares OpenSysML diagnostics against the OMG SysML v2 Pilot Implem
 `build/pilot-diff/pilot-diff.{txt,json}`. `docs/project/pilot-differential-baseline.json` is the
 committed result of the *last refreshed* run, so **the harness is testable by reproduction** —
 but only while the baseline is current. Check that first. As of the rebaseline that came when the Legend of the Red Dragon example left for its own repository it **is**
-current: a live run gives `379 file(s), 347 fully agreeing; 38 agreed, 38 only ours, 1333 only the
+current: a live run gives `379 file(s), 347 fully agreeing; 38 agreed, 38 only ours, 1545 only the
 pilot's`, byte-identical to the committed baseline, and `docs/project/pilot-differential.md`'s
 "Results" table matches. The rebaseline before it, at the architecture self-model's landing, covered two rounds, because the succession-shorthand
 removal before it landed without refreshing the baseline; a control run of its merge commit gives

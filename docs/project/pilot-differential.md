@@ -218,9 +218,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
-| `examples` | 44 | 30 | 13 | 1319 | 4 | 2 | 7 | 1313 |
+| `examples` | 44 | 30 | 13 | 1531 | 4 | 2 | 7 | 1525 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **379** | **347** | **79** | **1374** | **38** | **3** | **38** | **1333** |
+| **Total** | **379** | **347** | **79** | **1586** | **38** | **3** | **38** | **1545** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -791,8 +791,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **1333** |
-| pilot diagnostics | 123 | **1374** |
+| only pilot | 82 | **1545** |
+| pilot diagnostics | 123 | **1586** |
 | severity-only | 9 | **3** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -925,7 +925,7 @@ Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
 advisory of the [runtime showcase round](#runtime-showcase-round)); `testdata` 7
 `unmapped`, 1 `multiplicity`; `probes` 6 `unmapped`.
 Only-pilot: `testdata` 12 `kind-mismatch`, 3 `unmapped`, 3 syntax, 2 `unresolved-reference`;
-`examples` 10 syntax, 19 `unmapped`, 587 `kind-mismatch`, 697 `unresolved-reference` — of which
+`examples` 10 syntax, 29 `unmapped`, 654 `kind-mismatch`, 832 `unresolved-reference` — of which
 `relay-probe-demo/mission.sysml` carries none: it carried a `kind-mismatch` on its send of a
 `Telemetry` invocation until the send-argument round above, and the demo now writes the
 constructor, `send new Telemetry(…) via antenna`, which both implementations accept, so the row
@@ -1017,13 +1017,13 @@ page's history.
 | Count | Now |
 |---|---:|
 | overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
-| only pilot | **1333** |
-| pilot diagnostics | **1374** |
+| only pilot | **1545** |
+| pilot diagnostics | **1586** |
 | severity-only | **3** |
 | unmapped, our side | **34** |
 | kerml-examples: only ours | **10** |
 | pilot-examples: only ours | **7** |
-| examples: only pilot | **1313** |
+| examples: only pilot | **1525** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
 only-pilot, with 49 of 58 files fully
@@ -1171,15 +1171,16 @@ Nothing else moves: the file draws no diagnostic from this implementation, so `f
 ### Analysis results recording round
 
 `examples/analysis-results-demo/lander-results.sysml` is one file added to the `examples` root:
-files 43 → **44** on the root, 378 → **379** overall, and pilot diagnostics 1226 → **1374** /
-only pilot 1185 → **1333** — 148 diagnostics in 97 reported rows, 62 `unresolved-reference`
-(counted 103) and 35 `kind-mismatch` (counted 45), all inside the file's `Results` and
-`Reporting` packages. Every row is a construct the pinned artifact has no support for: the
-document-query calls (`Project`, `OrderBy`, `WhereType`, `WhereFeature`, `WhereMetadata`,
-`Verdicts`, `Descendants`), the `@RecordedRun` metadata annotations, and the run-record part
-usages' `'objective'` quoted name and `ref part :>>` redefinitions. The file draws no diagnostic
-from this implementation — it validates clean — so `fully agreeing`, `only ours`, `agreed` and
-`severity-only` all stay where the expressions walkthrough left them.
+files 43 → **44** on the root, 378 → **379** overall, and pilot diagnostics 1226 → **1586** /
+only pilot 1185 → **1545** — 360 diagnostics in 278 reported rows: 181 `unresolved-reference`
+(counted 243), 87 `kind-mismatch` (counted 107) and 10 `unmapped`, all inside the file's
+`Results` and `Reporting` packages. Every row is a construct the pinned artifact has no support
+for: the document-query calls (`Project`, `OrderBy`, `WhereType`, `WhereFeature`,
+`WhereMetadata`, `Verdicts`, `Descendants`), the `@AnalysisRecords::RecordedRun` metadata
+annotations and specializations of the `AnalysisRecords` library defs, and the run-record part
+usages' quoted `'objective'`/`'subject'` names and `ref part :>>`/`part :>>` redefinitions. The
+file draws no diagnostic from this implementation — it validates clean — so `fully agreeing`,
+`only ours`, `agreed` and `severity-only` all stay where the expressions walkthrough left them.
 
 ## Adjudications
 
