@@ -832,6 +832,20 @@ func (c *checks) recordCommand(invocation string) string {
 	if c.draws.text != "" {
 		parts = append(parts, "-draws "+c.draws.text)
 	}
+	// The flags the session runs under decide what the run computed and which
+	// objects it ran on, so the command records them as written too.
+	if schedule.text != "" {
+		parts = append(parts, "-schedule "+schedule.text)
+	}
+	if c.clockStep.given {
+		parts = append(parts, "-clock-step "+c.clockStep.text)
+	}
+	if engine.text != "" {
+		parts = append(parts, "-engine "+engine.text)
+	}
+	for _, name := range c.instantiate {
+		parts = append(parts, fmt.Sprintf("-instantiate %q", name))
+	}
 	if c.recordInto != "" {
 		parts = append(parts, "-record-into "+c.recordInto)
 	}

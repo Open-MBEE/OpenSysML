@@ -227,6 +227,28 @@ func TestRecordIntoWithoutRecordRunRefused(t *testing.T) {
 	}
 }
 
+// TestRecordRunCommandCarriesTheRunFlags records the flags the session ran
+// under in the record's provenance command.
+func TestRecordRunCommandCarriesTheRunFlags(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	out := filepath.Join(t.TempDir(), "saved.sysml")
+	cmd := exec.Command(binary, source, "-record-run", "Demo::timed",
+		"-clock-step", "0.5", "-instantiate", "Demo::probe", "-convert", "sysml", "-o", out)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("record with run flags: %v\n%s", err, output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`-clock-step 0.5`, `-instantiate \"Demo::probe\"`} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("recorded command is missing %q:\n%s", want, written)
+		}
+	}
+}
+
 // TestRecordIntoEmptyRefused rejects -record-into given without a package.
 func TestRecordIntoEmptyRefused(t *testing.T) {
 	binary := buildCLI(t)
