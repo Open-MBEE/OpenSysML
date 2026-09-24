@@ -2751,7 +2751,14 @@ func (d *decoder) metadataBodyMember(el *element) bool {
 func (d *decoder) underActionMembership(el *element) bool {
 	ms := firstIRI(d.graph, rdf.IRI(el.iri), pOwningMembership, pOwningRelationship)
 	m := d.metaclass(ms)
-	return m == mSubaction || m == mTransitionFeatureMembership
+	if m == mSubaction || m == mTransitionFeatureMembership {
+		return true
+	}
+	if m != "FeatureMembership" {
+		return false
+	}
+	owner := firstIRI(d.graph, rdf.IRI(ms.Value), pMembershipOwningNamespace, pOwningRelatedElement, pOwner)
+	return d.metaclass(owner) == mTransition || d.metaclass(owner) == mStateUsage
 }
 
 // keywordTyped checks that a keyword the graph types agrees with its typing:
