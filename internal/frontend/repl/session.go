@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
@@ -166,6 +167,16 @@ type Session struct {
 	// renderWidth is the width a text rendering's table is written to fit, 0 for
 	// as wide as its widest cell.
 	renderWidth int
+
+	// toolVersion is what a recorded run's provenance names as its tool.
+	toolVersion string
+	// now is the clock a recorded run's timestamp is taken from.
+	now func() time.Time
+	// recordMerge lets a record submission merge into a loaded file's package.
+	recordMerge bool
+	// recordDrops are the drop reports of the last submission, which a record
+	// submission inspects for the loss it must not make.
+	recordDrops []dropReport
 }
 
 // unnamedObject is an object a later %instantiate of its name displaced.
@@ -282,13 +293,20 @@ func (s *stateSession) selfOf() string {
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
 	return &Session{
-		ws:        model.NewWorkspace(),
-		instances: make(map[string]*runtime.Instance),
-		budgets:   runtime.DefaultBudgets(),
-		jobs:      analysis.DefaultJobs(),
-		engines:   engines.Default(),
-		verbosity: VerbosityNormal,
+		ws:          model.NewWorkspace(),
+		instances:   make(map[string]*runtime.Instance),
+		budgets:     runtime.DefaultBudgets(),
+		jobs:        analysis.DefaultJobs(),
+		engines:     engines.Default(),
+		verbosity:   VerbosityNormal,
+		toolVersion: "sysml dev",
+		now:         time.Now,
 	}
+}
+
+// SetToolVersion names the tool a recorded run's provenance reports.
+func (s *Session) SetToolVersion(tool string) {
+	s.toolVersion = tool
 }
 
 // enter takes the session for one command; the function returned leaves it.
@@ -456,10 +474,13 @@ func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dro
 		// snippet it absorbed, so the names it replaces are its own, not just
 		// the submitted ones — and is appended like any other submission so a
 		// report still scopes to the tail of the buffer.
-		if merged, added, drop, ok := s.mergeSubmission(src, root, comments); ok {
+		if merged, added, drop, ok, inPlace := s.mergeSubmission(src, root, comments); ok {
+			drops = append(drops, drop)
+			if inPlace {
+				return declared, drops
+			}
 			text, comments, mergedOwn = merged, "", added
 			names = declaredNames(parser.New(source.New(docName, []byte(merged))).ParseFile())
-			drops = append(drops, drop)
 		}
 		top := topLevelMembers(root)
 		kept := s.snippets[:0]
@@ -829,6 +850,7 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		byFile[i] = dropNotices(dropped)
 		drops = append(drops, dropped...)
 	}
+	s.recordDrops = drops
 	joined := s.joined()
 	offset := s.genOffset(joined)
 	// A merge rewrote a snippet that was already accepted, so only the text the

@@ -39,10 +39,12 @@ type edit struct {
 //
 // The returned spans locate the submitted text inside the merged result, so a
 // report still covers what was typed rather than the whole absorbed snippet.
-func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments string) (string, []source.Span, dropReport, bool) {
+// The last result reports the merge rewrote a snippet where it stands: the
+// submission's text is wholly inside it, so the caller appends nothing.
+func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments string) (string, []source.Span, dropReport, bool, bool) {
 	newDecl, ok := soleNamespace(src, root)
 	if !ok || len(newDecl.members) == 0 {
-		return "", nil, dropReport{}, false
+		return "", nil, dropReport{}, false, false
 	}
 	for i, sn := range s.snippets {
 		// Only what the prompt typed in an earlier submission merges: a loaded
@@ -50,8 +52,9 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		// two snippets of one submission are both part of that submission. A
 		// masked submission is not merged into either: its text is not analyzed,
 		// so folding it in would put what the parser could not read back into the
-		// buffer.
-		if sn.origin != "" || sn.gen == s.version || sn.open {
+		// buffer. A recorded run is the one exception: it merges into a loaded
+		// file's package, which keeps its file's identity on the result.
+		if sn.gen == s.version || sn.open || (sn.origin != "" && !s.recordMerge) {
 			continue
 		}
 		oldDecl, ok := namedNamespace(sn.src, newDecl.name)
@@ -70,10 +73,18 @@ func (s *Session) mergeSubmission(src string, root *ast.RootNamespace, comments 
 		// even when the body it re-typed added nothing new.
 		edits = append(edits, edit{start: oldDecl.start, end: oldDecl.start, own: true})
 		merged, own := applyEdits(sn.src, edits)
+		if sn.origin != "" {
+			// A file's text is updated where it is, its origin and key kept, so
+			// a later reload of the file still supersedes it; the submission's
+			// own text is wholly inside it and is not appended again.
+			names := declaredNames(parser.New(source.New(parseDocName(sn.origin), []byte(merged))).ParseFile())
+			s.snippets[i] = snippet{src: merged, names: names, origin: sn.origin, key: sn.key, gen: s.version, own: own}
+			return "", nil, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true, true
+		}
 		s.snippets = append(s.snippets[:i:i], s.snippets[i+1:]...)
-		return merged, own, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true
+		return merged, own, dropReport{merged: true, decl: newDecl.desc, lost: replaced, gone: gone}, true, false
 	}
-	return "", nil, dropReport{}, false
+	return "", nil, dropReport{}, false, false
 }
 
 // reopenedNamespaces reports the namespaces a loaded file opens that another

@@ -1,0 +1,504 @@
+package repl
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/record"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
+
+const recordUsage = "usage: %record <name>[(<args>)] [<object>] [into <package>]"
+
+// doRecord carries out %record at the prompt: the run %analysis would make,
+// recorded into the model beside the case or into the package `into` names.
+func (s *Session) doRecord(tail string) ([]string, bool, error) {
+	inv, into, err := splitRecordArgs(tail)
+	if err != nil {
+		return []string{errPrefix + err.Error(), recordUsage}, false, nil
+	}
+	if inv.name == "" {
+		return []string{recordUsage}, false, nil
+	}
+	return s.withTrace(s.recordAnalysisInv(inv, into, "%record "+strings.TrimSpace(tail))).Lines, false, nil
+}
+
+// splitRecordArgs takes apart %record's tail: the invocation %analysis takes,
+// then `into <package>` written last when it is.
+func splitRecordArgs(tail string) (analysisInvocation, string, error) {
+	if i := strings.LastIndex(tail, " into "); i >= 0 {
+		into := strings.TrimSpace(tail[i+len(" into "):])
+		if _, ok := source.QualifiedNameSegments(into); !ok {
+			return analysisInvocation{}, "", fmt.Errorf("%q does not name a package", into)
+		}
+		inv, err := splitAnalysisArgs(tail[:i])
+		return inv, into, err
+	}
+	inv, err := splitAnalysisArgs(tail)
+	return inv, "", err
+}
+
+// RecordAnalysis runs the invocation as %analysis does and records the run
+// into the model as AnalysisRecords elements, into the package named or a
+// Records package beside the case's. command is the invocation text the
+// record's provenance carries.
+func (s *Session) RecordAnalysis(invocation, into, command string) Verdict {
+	defer s.enter()()
+	inv, err := splitAnalysisArgs(invocation)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(invocation, err.Error()))
+	}
+	return s.withTrace(s.recordAnalysisInv(inv, into, command))
+}
+
+// recordAnalysisInv is RecordAnalysis on an invocation already parsed.
+func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string) Verdict {
+	run, err := s.runAnalysis(inv)
+	verdict := s.caseVerdict(inv, run, err)
+	if err != nil {
+		return verdict
+	}
+	_, fqn, serr := s.analysisSymbol(inv)
+	if serr != nil {
+		return s.recordFailed(verdict, serr)
+	}
+	kind := record.KindRun
+	if len(run.result.Evaluations) > 0 {
+		kind = record.KindTrade
+	}
+	contexts := map[*runtime.Context]bool{}
+	if s.rtCtx != nil {
+		contexts[s.rtCtx] = true
+	}
+	inst := run.subject
+	if inst == nil {
+		inst = run.result.Subject
+	}
+	rec := record.Run{
+		Subject:     s.recordSubject(inst, run.label, contexts),
+		Inputs:      run.result.Inputs,
+		Outputs:     run.result.Outputs,
+		Verdicts:    run.result.Verdicts,
+		Evaluations: run.result.Evaluations,
+	}
+	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec}, contexts)
+	return s.recorded(verdict, res, rerr, 0)
+}
+
+// RecordSweep runs the invocation once per row of the ranges as RunSweep does
+// and records each completed row, numbered in table order.
+func (s *Session) RecordSweep(invocation string, ranges []string, into, command string) Verdict {
+	defer s.enter()()
+	inv, trailing, err := splitSweepTail(invocation)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(invocation, err.Error()))
+	}
+	specs := make([]sweepSpec, 0, len(ranges)+len(trailing))
+	specs = append(specs, trailing...)
+	for _, text := range ranges {
+		spec, err := parseSweepSpec(text)
+		if err != nil {
+			return s.withTrace(unresolvedVerdict(invocation, err.Error()))
+		}
+		specs = append(specs, spec)
+	}
+	return s.withTrace(s.recordSweepInv(inv, specs, into, command))
+}
+
+// recordSweepInv is RecordSweep on an invocation and its specs already parsed.
+func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into, command string) Verdict {
+	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
+		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,
+		symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
+	if err == nil && !runtime.IsRunnableCaseSymbol(sym) {
+		err = fmt.Errorf("%s is a calc, not a case", inv.name)
+	}
+	if err != nil {
+		return unresolvedVerdict(sweepLabel(inv, sweepDraws{}), err.Error())
+	}
+	table, plan, err := s.runSweep(inv, specs, sweepDraws{})
+	verdict := standing(s.sweepReport(inv, table, sweepDraws{}), plan)
+	if err != nil {
+		return verdict
+	}
+	var runs []record.Run
+	contexts := map[*runtime.Context]bool{}
+	skipped := 0
+	for i, row := range table.Rows {
+		if row.Err != nil {
+			skipped++
+			continue
+		}
+		contexts[row.Context] = true
+		runs = append(runs, record.Run{
+			Iteration:   i + 1,
+			Inputs:      row.Inputs,
+			Outputs:     row.Outputs,
+			Verdicts:    row.Verdicts,
+			Evaluations: row.Evaluations,
+		})
+	}
+	for i, row := range table.Rows {
+		if row.Err != nil {
+			continue
+		}
+		runs[recordedIndex(table, i)].Subject = s.recordSubject(row.Subject, inv.object, contexts)
+	}
+	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, runs, contexts)
+	return s.recorded(verdict, res, rerr, skipped)
+}
+
+// RecordMonteCarlo runs the invocation count times as RunMonteCarlo does and
+// records each completed run, numbered by its run number.
+func (s *Session) RecordMonteCarlo(invocation string, count int64, seed *uint64, into, command string) Verdict {
+	defer s.enter()()
+	inv, err := splitAnalysisArgs(invocation)
+	if err != nil {
+		return s.withTrace(unresolvedVerdict(invocation, err.Error()))
+	}
+	return s.withTrace(s.recordMonteCarloInv(inv, count, seed, into, command))
+}
+
+// recordMonteCarloInv is RecordMonteCarlo on an invocation already parsed.
+func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed *uint64, into, command string) Verdict {
+	sample, answered, err := s.monteCarloSample(inv, count, seed)
+	verdict := s.monteCarloReport(inv, sample, answered, err)
+	if err != nil || sample == nil {
+		return verdict
+	}
+	fqn := sampleRunsCase(sample)
+	var runs []record.Run
+	contexts := map[*runtime.Context]bool{}
+	for _, run := range sample.completed {
+		contexts[run.Context()] = true
+		runs = append(runs, record.Run{
+			Iteration: int(run.Number),
+			Subject:   s.recordSubject(run.Subject, inv.object, contexts),
+			Inputs:    run.Inputs,
+			Outputs:   run.Outputs,
+			Verdicts:  run.Verdicts,
+		})
+	}
+	skipped := len(sample.table.Rows) - len(runs)
+	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, runs, contexts)
+	return s.recorded(verdict, res, rerr, skipped)
+}
+
+// sampleRunsCase is the qualified name of the case a sample's runs were made
+// of, from any completed run's report.
+func sampleRunsCase(sample *monteCarloRuns) string {
+	for _, run := range sample.completed {
+		return run.Case
+	}
+	return ""
+}
+
+// recordSubject is how a run's object is recorded: its usage in the model when
+// that resolves to exactly one element, and its text for subjectName.
+func (s *Session) recordSubject(inst *runtime.Instance, label string, contexts map[*runtime.Context]bool) record.Subject {
+	if inst == nil {
+		return record.Subject{}
+	}
+	for ctx := range contexts {
+		if _, ok := ctx.Instance(inst.ID); ok {
+			if usage := ctx.OccurrenceUsage(inst); usage != "" && len(s.symbolIndex().LookupQualified(usage)) == 1 {
+				return record.Subject{Usage: usage, Text: usage}
+			}
+			return record.Subject{Text: objectText(ctx, runtime.Value{Kind: runtime.ValInstance, Instance: inst.ID})}
+		}
+	}
+	return record.Subject{Text: label}
+}
+
+// recordedIndex is a kept row's position among the rows recorded, for filling
+// its subject once every row's context is gathered.
+func recordedIndex(table runtime.SweepTable, row int) int {
+	n := 0
+	for i := 0; i < row; i++ {
+		if table.Rows[i].Err == nil {
+			n++
+		}
+	}
+	return n
+}
+
+// recordRuns generates the record declarations for runs of the case fqn names,
+// submits them, and returns what was generated.
+func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string, runs []record.Run, contexts map[*runtime.Context]bool) (record.Result, error) {
+	pkg, err := s.recordPackage(fqn, into)
+	if err != nil {
+		return record.Result{}, err
+	}
+	existing, err := s.recordExisting(fqn, pkg)
+	if err != nil {
+		return record.Result{}, err
+	}
+	res, err := record.Generate(record.Request{
+		Package: pkg,
+		Case:    fqn,
+		Provenance: record.Provenance{
+			RunAt:   s.now(),
+			Tool:    s.toolVersion,
+			Command: command,
+			Kind:    kind,
+		},
+		Runs:     runs,
+		Existing: existing,
+		Spell:    s.recordSpelling(contexts),
+	})
+	if err != nil {
+		return record.Result{}, err
+	}
+	if err := s.submitRecord(res.Source); err != nil {
+		return record.Result{}, err
+	}
+	return res, nil
+}
+
+// recordPackage is the package a case's records go into: the one into names,
+// or Records beside the package enclosing the case's own package.
+func (s *Session) recordPackage(fqn, into string) (string, error) {
+	if into != "" {
+		if _, ok := source.QualifiedNameSegments(into); !ok {
+			return "", fmt.Errorf("%q does not name a package", into)
+		}
+		for _, sym := range s.symbolIndex().LookupQualified(into) {
+			if sym.Kind != symbols.SymbolPackage {
+				return "", fmt.Errorf("%s names a %s, not a package", into, sym.Kind)
+			}
+		}
+		return into, nil
+	}
+	segs, ok := source.QualifiedNameSegments(fqn)
+	if !ok || len(segs) < 3 {
+		return "Records", nil
+	}
+	return strings.Join(segs[:len(segs)-2], "::") + "::Records", nil
+}
+
+// recordExisting is what the target package already declares of the shape
+// Generate must fit: the package itself, the case's record definition and the
+// record numbers already taken.
+func (s *Session) recordExisting(fqn, pkg string) (record.Existing, error) {
+	idx := s.symbolIndex()
+	var existing record.Existing
+	if len(idx.LookupQualified(pkg)) > 0 {
+		existing.Package = true
+	}
+	short := shortName(fqn)
+	def := pkg + "::" + upperFirst(short) + "Run"
+	defSyms := idx.LookupQualified(def)
+	if len(defSyms) > 0 {
+		runSyms := idx.LookupQualified("AnalysisRecords::AnalysisRun")
+		if len(runSyms) == 0 {
+			return existing, fmt.Errorf("the AnalysisRecords library is not loaded")
+		}
+		resolver := resolve.New(idx)
+		sem := semantics.NewModel(resolver)
+		resolver.SetModel(sem)
+		if !specializesOne(sem, defSyms[0], runSyms[0]) {
+			return existing, fmt.Errorf("%s is not an analysis record definition", def)
+		}
+		existing.Definition = true
+		existing.Attributes = recordAttributes(idx, sem, defSyms[0])
+	}
+	for n := 1; ; n++ {
+		if len(idx.LookupQualified(fmt.Sprintf("%s::%s_run%d", pkg, short, n))) == 0 {
+			existing.NextRun = n
+			break
+		}
+	}
+	return existing, nil
+}
+
+// specializesOne reports whether def specializes want among its supertypes.
+func specializesOne(sem *semantics.Model, def, want *symbols.Symbol) bool {
+	for _, sup := range sem.AllSupertypes(def) {
+		if sup == want {
+			return true
+		}
+	}
+	return def == want
+}
+
+// recordAttributes are the features a record definition declares, by name,
+// each with whether it is a reference and the name of its declared type.
+func recordAttributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Symbol) map[string]record.Feature {
+	attrs := map[string]record.Feature{}
+	if def.Scope == nil {
+		return attrs
+	}
+	for _, m := range def.Scope.Members() {
+		if m.Name == "" || !m.IsFeature() {
+			continue
+		}
+		f := record.Feature{}
+		if u, ok := m.Decl.(*ast.Usage); ok && u.IsReference {
+			f.Ref = true
+		}
+		if types := sem.DeclaredFeatureTypes(m); len(types) > 0 {
+			f.TypeFQN = idx.GetFQN(types[0])
+		}
+		attrs[m.Name] = f
+	}
+	return attrs
+}
+
+// recordSpelling renders the values the records cannot spell themselves, each
+// through the context it was made in.
+func (s *Session) recordSpelling(contexts map[*runtime.Context]bool) record.Spelling {
+	contextOf := func(v runtime.Value) *runtime.Context {
+		if v.Kind == runtime.ValInstance || v.Kind == runtime.ValVariant {
+			for ctx := range contexts {
+				if _, ok := ctx.Instance(v.Instance); ok {
+					return ctx
+				}
+			}
+		}
+		for ctx := range contexts {
+			return ctx
+		}
+		return s.rtCtx
+	}
+	return record.Spelling{
+		ObjectUsage: func(v runtime.Value) string {
+			ctx := contextOf(v)
+			if ctx == nil {
+				return ""
+			}
+			var usage string
+			if inst, ok := ctx.Instance(v.Instance); ok {
+				usage = ctx.OccurrenceUsage(inst)
+			} else if v.Kind == runtime.ValVariant {
+				usage = s.symbolIndex().GetFQN(v.Variant())
+			}
+			if usage == "" || len(s.symbolIndex().LookupQualified(usage)) != 1 {
+				return ""
+			}
+			return usage
+		},
+		Text: func(v runtime.Value) string {
+			if ctx := contextOf(v); ctx != nil {
+				return objectText(ctx, v)
+			}
+			return runtime.FormatValue(v)
+		},
+		Unset: func(v runtime.Value) bool {
+			if ctx := contextOf(v); ctx != nil {
+				return ctx.HoldsNoValue(v)
+			}
+			return v.Kind == runtime.ValNull
+		},
+	}
+}
+
+// recorded finishes a record verdict: the run's own report, then what the
+// model gained, the count of rows skipped, or the failure that left it
+// untouched.
+func (s *Session) recorded(verdict Verdict, res record.Result, err error, skipped int) Verdict {
+	if err != nil {
+		return s.recordFailed(verdict, err)
+	}
+	switch len(res.Records) {
+	case 0:
+		verdict.Lines = append(verdict.Lines, "  nothing was recorded")
+	case 1:
+		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  recorded %s (%s)", res.Records[0], res.Definition))
+	default:
+		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  recorded %d runs as %s … %s", len(res.Records), res.Records[0], shortName(res.Records[len(res.Records)-1])))
+	}
+	if skipped > 0 {
+		verdict.Lines = append(verdict.Lines, fmt.Sprintf("  %d failed run(s) were not recorded", skipped))
+	}
+	return verdict
+}
+
+// recordFailed fails a run's verdict with the reason its record was not made.
+func (s *Session) recordFailed(verdict Verdict, err error) Verdict {
+	verdict.Status = VerdictFails
+	verdict.Lines = append(verdict.Lines, errPrefix+"recording the run failed: "+err.Error())
+	return verdict
+}
+
+// shortName is the last segment of a qualified name.
+func shortName(fqn string) string {
+	segs, ok := source.QualifiedNameSegments(fqn)
+	if !ok || len(segs) == 0 {
+		return fqn
+	}
+	return segs[len(segs)-1]
+}
+
+// upperFirst capitalizes a name's leading letter.
+func upperFirst(name string) string {
+	if name == "" {
+		return name
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
+}
+
+// submitRecord applies generated declarations as one submission: the record
+// merge flag lets it fold into the package a loaded file declared, and any
+// loss or error the submission makes restores the buffer as it was.
+func (s *Session) submitRecord(src string) error {
+	before := append([]snippet{}, s.snippets...)
+	beforeErrors := s.errorSet()
+	s.recordMerge = true
+	res, _, _ := s.submitEach([]SourceFile{{Text: src}})
+	s.recordMerge = false
+
+	var problems []string
+	for _, d := range res.Diagnostics {
+		if d.Severity != diag.SeverityError {
+			continue
+		}
+		key := fmt.Sprintf("%d:%s", d.Span.Offset, d.Message)
+		if !beforeErrors[key] {
+			problems = append(problems, d.Message)
+		}
+	}
+	for _, drop := range s.recordDrops {
+		for _, name := range append(append([]string{}, drop.lost...), drop.gone...) {
+			problems = append(problems, fmt.Sprintf("recording would drop %s", name))
+		}
+	}
+	if len(problems) == 0 {
+		return nil
+	}
+	s.rollbackSubmit(before)
+	return fmt.Errorf("the model was left unchanged: %s", strings.Join(problems, "; "))
+}
+
+// errorSet keys the error diagnostics the buffer already reports.
+func (s *Session) errorSet() map[string]bool {
+	set := map[string]bool{}
+	for _, d := range s.diagnostics() {
+		if d.Severity == diag.SeverityError {
+			set[fmt.Sprintf("%d:%s", d.Span.Offset, d.Message)] = true
+		}
+	}
+	return set
+}
+
+// rollbackSubmit restores the snippets a failed record submission replaced,
+// reopening the buffer as it was so the next submission sees only it.
+func (s *Session) rollbackSubmit(before []snippet) {
+	s.snippets = before
+	s.version++
+	sysml, _ := s.joinedFor(docName)
+	s.ws.Open(docName, []byte(sysml), s.version)
+	if kerml, found := s.joinedFor(kermlDocName); found {
+		s.ws.Open(kermlDocName, []byte(kerml), s.version)
+	} else {
+		s.ws.Remove(kermlDocName)
+	}
+	s.rtCtx = nil
+	s.idxVersion = 0
+	s.names = nil
+}

@@ -43,11 +43,17 @@ func (s *Session) RunMonteCarlo(invocation string, count int64, seed *uint64) Ve
 // monteCarloVerdict reports the runs as an action's table with the concluded case after it;
 // a failed run or unsatisfied concluding check fails it, a failed in-run check only counts.
 func (s *Session) monteCarloVerdict(inv analysisInvocation, count int64, seed *uint64) Verdict {
+	sample, answered, err := s.monteCarloSample(inv, count, seed)
+	return s.monteCarloReport(inv, sample, answered, err)
+}
+
+// monteCarloReport is the verdict a Monte Carlo sample reports, sample already
+// made; err is the error the sample ended with, nil when it completed.
+func (s *Session) monteCarloReport(inv analysisInvocation, sample *monteCarloRuns, answered *analysis.Plan, err error) Verdict {
 	label := "runs " + inv.name
 	if inv.argText != "" {
 		label += "(" + strings.TrimSpace(inv.argText) + ")"
 	}
-	sample, answered, err := s.monteCarloSample(inv, count, seed)
 	if err != nil {
 		return standing(unresolvedVerdict(label, err.Error()), answered)
 	}
