@@ -119,8 +119,8 @@ func TestMonteCarloRunInputsAndIterationOutputs(t *testing.T) {
 	if !reflect.DeepEqual(names, want) {
 		t.Errorf("outputs %v, want %v", names, want)
 	}
-	if run.Unread["Mean"] == nil {
-		t.Errorf("the stat-bound return is not in Unread: %v", run.Unread)
+	if len(run.Unread) != 0 {
+		t.Errorf("the stat-bound return is the sample's, not unread: %v", run.Unread)
 	}
 }
 
@@ -235,9 +235,10 @@ func TestMonteCarloIterationOutputsMemoizeNothing(t *testing.T) {
 	}
 }
 
-// A return reading a statistic is unread on every run — the conclusion reads
-// it over the sample, the rows never carry it — even once concluded.
-func TestMonteCarloStatBoundReturnStaysUnread(t *testing.T) {
+// An output that reads a statistic is the sample's, as surely as the
+// statistic is: the rows carry neither it nor an error for it. An output that
+// fails for a reason of its own is in Unread.
+func TestMonteCarloStatBoundOutputsAreTheSamples(t *testing.T) {
 	ctx, scope := analysisFixture(t, `
 		package test {
 			private import ScalarValues::*;
@@ -252,6 +253,10 @@ func TestMonteCarloStatBoundReturnStaysUnread(t *testing.T) {
 				perform action run ::> analysed.settle;
 				attribute :>> observed : Real = analysed.t;
 				return Mean : Real = mean;
+				out Dev : Real = deviation + 1.0;
+				out Half : Real = Mean / 2.0;
+				out Bad : Real;
+				out Ratio : Real = 1.0 / (analysed.t - analysed.t);
 			}
 		}`)
 	sym := requirementNamed(t, scope, "Mc")
@@ -268,20 +273,22 @@ func TestMonteCarloStatBoundReturnStaysUnread(t *testing.T) {
 		}
 		runs = append(runs, run)
 	}
-	stats, err := MonteCarloSample(runs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ConcludeMonteCarlo(runs, stats); err != nil {
-		t.Fatal(err)
-	}
 	for _, run := range runs {
-		if run.Unread["Mean"] == nil {
-			t.Errorf("run %d's stat-bound return left Unread", run.Number)
-		}
 		for _, out := range run.Outputs {
-			if out.Name == "Mean" {
-				t.Errorf("run %d carries the sample's mean as its own", run.Number)
+			for _, statBound := range []string{"Mean", "Dev", "Half"} {
+				if out.Name == statBound {
+					t.Errorf("run %d carries the sample's %s as its own", run.Number, statBound)
+				}
+			}
+		}
+		for _, statBound := range []string{"Mean", "Dev", "Half"} {
+			if run.Unread[statBound] != nil {
+				t.Errorf("run %d's %s is the sample's, not unread: %v", run.Number, statBound, run.Unread[statBound])
+			}
+		}
+		for _, failed := range []string{"Bad", "Ratio"} {
+			if run.Unread[failed] == nil {
+				t.Errorf("run %d's %s failed for its own reason but is not in Unread", run.Number, failed)
 			}
 		}
 	}

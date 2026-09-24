@@ -180,7 +180,12 @@ func (r *MonteCarloRun) iterationOutputs() ([]CalcOutputValue, map[string]error)
 		}
 		value, err := r.run.output(ctx, out.Name)
 		if err != nil {
-			unread[out.Name] = err
+			var u *UnassignedOutputError
+			// Reading an unbound statistic through the binding leaves the
+			// output to the conclusion as much as the statistic itself.
+			if !(errors.As(err, &u) && stats[u.Output]) {
+				unread[out.Name] = err
+			}
 			continue
 		}
 		outputs = append(outputs, CalcOutputValue{Name: out.Name, Value: value})

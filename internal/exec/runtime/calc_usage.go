@@ -965,9 +965,7 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 		}
 	}
 	if out.Value == nil {
-		return Value{}, fmt.Errorf(
-			"%w: output %s of %s", ErrOutputNotAssigned, run.outputDescription(out), run.shape.Label,
-		)
+		return Value{}, &UnassignedOutputError{Output: run.outputDescription(out), Calc: run.shape.Label}
 	}
 	if run.computing[out.Name] {
 		return Value{}, fmt.Errorf(
