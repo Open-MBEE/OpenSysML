@@ -27,6 +27,9 @@ type Context struct {
 	// Roots are the objects the session holds directly, each under its label,
 	// in the order Objects enumerates them.
 	Roots []Root
+	// Related memoizes relationship edge tables across the executions sharing
+	// this context; nil builds them once per execution.
+	Related *RelationshipTables
 }
 
 // Root is one object a session holds directly, under its label (`Demo::car`, `#7`).
@@ -80,7 +83,7 @@ type executor struct {
 	program    map[string]queryplan.Definition
 	budget     *visitBudget
 	calls      *visitBudget
-	related    *relationshipTables
+	related    *RelationshipTables
 	derived    *derivedValues
 	depthLeft  int
 	stack      []string
@@ -118,6 +121,10 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 	for _, compiledDefinition := range definitions {
 		compiled[compiledDefinition.Name()] = compiledDefinition
 	}
+	related := context.Related
+	if related == nil {
+		related = NewRelationshipTables()
+	}
 	execution := &executor{
 		definition: definition,
 		context:    context,
@@ -126,7 +133,7 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		program:    compiled,
 		budget:     &visitBudget{remaining: budget},
 		calls:      &visitBudget{remaining: calls},
-		related:    newRelationshipTables(),
+		related:    related,
 		derived:    &derivedValues{},
 		depthLeft:  depth,
 		stack:      []string{definition.Name()},

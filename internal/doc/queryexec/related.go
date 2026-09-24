@@ -47,14 +47,28 @@ type relationshipEdges struct {
 	incoming map[symbols.ElementKey][]*symbols.Symbol
 }
 
-// relationshipTables caches the per-kind edge tables of one execution, shared
-// across invoked queries the way the visit budget is.
-type relationshipTables struct {
+// RelationshipTables memoizes one model's per-kind edge tables across the
+// executions whose Context shares them. Not safe for concurrent use.
+type RelationshipTables struct {
+	index   *symbols.Index
+	model   *semantics.Model
 	entries map[string]*relationshipEdges
 }
 
-func newRelationshipTables() *relationshipTables {
-	return &relationshipTables{entries: make(map[string]*relationshipEdges)}
+// NewRelationshipTables returns empty tables for a Context to carry.
+func NewRelationshipTables() *RelationshipTables {
+	return &RelationshipTables{entries: make(map[string]*relationshipEdges)}
+}
+
+// lookup returns the cached tables of one kind, discarding every entry built
+// against another index or model first.
+func (t *RelationshipTables) lookup(kind string, context Context) (*relationshipEdges, bool) {
+	if t.index != context.Index || t.model != context.Model {
+		t.index, t.model = context.Index, context.Model
+		t.entries = make(map[string]*relationshipEdges)
+	}
+	edges, ok := t.entries[kind]
+	return edges, ok
 }
 
 // relationshipWalk is the validated relationshipKind, direction and maxDepth
@@ -143,11 +157,7 @@ func (e *executor) traverseRelated(
 		if walk.maxDepth.reached(next.depth) {
 			continue
 		}
-		neighbors, err := e.relatedNeighbors(expression, walk.kind, walk.direction, next.sym)
-		if err != nil {
-			return err
-		}
-		for _, neighbor := range neighbors {
+		for _, neighbor := range e.relatedNeighbors(walk.kind, walk.direction, next.sym) {
 			key := symbols.KeyOf(neighbor)
 			if _, duplicate := seen[key]; duplicate {
 				continue
@@ -182,19 +192,16 @@ func supportedRelationship(kind string) bool {
 // sym in the given direction, in declaration order. Outgoing lineage reads
 // sym's own declared relationships; every other combination reads the edge
 // tables built from the workspace's declarations.
-func (e *executor) relatedNeighbors(expression queryplan.Expression, kind, direction string, sym *symbols.Symbol) ([]*symbols.Symbol, error) {
+func (e *executor) relatedNeighbors(kind, direction string, sym *symbols.Symbol) []*symbols.Symbol {
 	if relKind, lineage := lineageKinds[kind]; lineage && direction == directionOutgoing {
-		return e.lineageTargets(sym, relKind), nil
+		return e.lineageTargets(sym, relKind)
 	}
-	edges, err := e.relationshipEdges(expression, kind)
-	if err != nil {
-		return nil, err
-	}
+	edges := e.relationshipEdges(kind)
 	table := edges.outgoing
 	if direction == directionIncoming {
 		table = edges.incoming
 	}
-	return table[symbols.KeyOf(sym)], nil
+	return table[symbols.KeyOf(sym)]
 }
 
 // lineageTargets resolves the targets of sym's declared relationships of the
@@ -212,47 +219,36 @@ func (e *executor) lineageTargets(sym *symbols.Symbol, kind ast.RelationshipKind
 	return out
 }
 
-// relationshipEdges returns the edge tables for one relationship kind,
-// building them on first use by scanning the workspace's documents in sorted
-// name order and each document's symbols in declaration order. Every
-// declaration examined charges the shared visit budget; a built table is
-// cached, so later traversals of the same kind read it for free.
-func (e *executor) relationshipEdges(expression queryplan.Expression, kind string) (*relationshipEdges, error) {
-	if cached, ok := e.related.entries[kind]; ok {
-		return cached, nil
+// relationshipEdges returns one kind's edge tables, built on first use by scanning
+// the workspace's documents in name order. The scan is memoized and uncharged;
+// only the elements a traversal reaches pay the visit budget.
+func (e *executor) relationshipEdges(kind string) *relationshipEdges {
+	if cached, ok := e.related.lookup(kind, e.context); ok {
+		return cached
 	}
 	edges := &relationshipEdges{
 		outgoing: make(map[symbols.ElementKey][]*symbols.Symbol),
 		incoming: make(map[symbols.ElementKey][]*symbols.Symbol),
 	}
 	for _, document := range e.context.Index.WorkspaceDocuments() {
-		if err := e.scanScope(expression, edges, kind, e.context.Index.DocumentRoot(document)); err != nil {
-			return nil, err
-		}
+		e.scanScope(edges, kind, e.context.Index.DocumentRoot(document))
 	}
 	e.related.entries[kind] = edges
-	return edges, nil
+	return edges
 }
 
 // scanScope records the edges of one relationship kind that the declarations
-// in scope and its nested scopes state, charging the visit budget per
-// declaration examined.
-func (e *executor) scanScope(expression queryplan.Expression, edges *relationshipEdges, kind string, scope *symbols.Scope) error {
+// in scope and its nested scopes state.
+func (e *executor) scanScope(edges *relationshipEdges, kind string, scope *symbols.Scope) {
 	if scope == nil {
-		return nil
+		return
 	}
 	for _, member := range scope.AllMembers() {
-		if !e.consumeVisit() {
-			return e.budgetError(expression)
-		}
 		e.scanSymbol(edges, kind, member)
 	}
 	for _, child := range scope.Children() {
-		if err := e.scanScope(expression, edges, kind, child); err != nil {
-			return err
-		}
+		e.scanScope(edges, kind, child)
 	}
-	return nil
 }
 
 // scanSymbol records the edges the given symbol's declaration states: the

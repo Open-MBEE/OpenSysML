@@ -59,6 +59,7 @@ func EvaluateSet(
 		}
 		collectCrossAnchors(plan.Content(), external)
 	}
+	context = sharingRelationshipTables(context)
 	documents := make([]*Document, 0, len(plans))
 	for _, plan := range plans {
 		document, err := evaluate(plan, context, options, text, external[plan.Name()])
@@ -83,6 +84,7 @@ func evaluate(
 	if context.Index == nil || context.Resolver == nil || context.Model == nil {
 		return nil, &Error{Kind: ErrorInvalidContext, Document: plan.Name()}
 	}
+	context = sharingRelationshipTables(context)
 	referenced := referencedAnchors(plan.Content())
 	for anchor := range external {
 		referenced[anchor] = true
@@ -104,6 +106,16 @@ func evaluate(
 		content: content,
 		origin:  plan.Origin(),
 	}, nil
+}
+
+// sharingRelationshipTables gives a context without relationship tables its
+// own, so every query of the documents evaluated under it builds each kind's
+// edges once.
+func sharingRelationshipTables(context queryexec.Context) queryexec.Context {
+	if context.Related == nil {
+		context.Related = queryexec.NewRelationshipTables()
+	}
+	return context
 }
 
 // collectCrossAnchors records, per target document, the anchors that other
