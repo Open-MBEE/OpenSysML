@@ -642,7 +642,10 @@ and refuses the three, so `-doc-form markdown` writes the title as its first hea
 section tree as nested headings, unnumbered. The rendered figures are the migrated views: a
 block or internal block diagram drawn from its exposures, an activity or state machine diagram
 drawn from its graph, each positioned where the MTIP layout put it when `-layout` was given
-(see [Layout from an MTIP export](#layout-from-an-mtip-export)); a diagram the
+(see [Layout from an MTIP export](#layout-from-an-mtip-export)) — and showing, in every
+`-diagram-form`, the elements the layout placed: an exposed package the source diagram did not
+draw stays out of the figure rather than expanding into its whole contents, and
+`-render-unplaced strip` adds the unplaced elements; a diagram the
 migration left out of the document (empty, or rendered as textual notation) is absent from the
 render and the report says why, so a rendered document holds no empty figure. Styling beyond
 what the model carries — a cover image, a tool's fonts, its header and footer — is not

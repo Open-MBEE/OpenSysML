@@ -171,8 +171,8 @@ type HTMLOptions struct {
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
 
-	// Unplaced is where a DOT diagram some Layout positions puts the nodes
-	// none does: left undrawn when empty, or in a strip below the drawing.
+	// Unplaced is where a diagram some Layout positions puts the nodes none
+	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
 	// DiagramImages are images drawn ahead of the render, one per graph-shaped

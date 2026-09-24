@@ -255,9 +255,10 @@ okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
 viridis or cividis; default black and white
 .TP
 .BR \-render\-unplaced " \fIplacement\fP"
-Where the dot form of a view some Layout positions puts the nodes none does:
-omit (default) leaves them undrawn, strip draws them in rows below the
-drawing; applies to \-render, \-render\-all and document diagrams
+Where a graph form of a view some Layout positions puts the nodes none does:
+omit (default) leaves them undrawn in every form, strip draws them, in rows
+below the dot drawing; applies to \-render, \-render\-all and document
+diagrams
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -784,11 +785,13 @@ neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
 black\-and\-white style of the SysML v2 Pilot visualizer; \-render\-palette
 fills their nodes by keyword family from a colourblind\-safe palette
 (okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
-viridis or cividis), keeping black text legible on every fill. A DOT drawing
-of a view whose members carry DiagramLayout positions pins each at its stated
-place and leaves a member with no position undrawn, so nothing lands on a
-positioned box; \-render\-unplaced strip draws those members instead, in rows
-in a strip below the drawing. The same setting shapes the DOT diagrams of
+viridis or cividis), keeping black text legible on every fill. A view whose
+members carry DiagramLayout positions draws the placed members and the edges
+between them in every graph form, and leaves a member with no position
+undrawn: the DOT form pins each at its stated place, so nothing lands on a
+positioned box, while Mermaid and PlantUML lay the same members out
+themselves. \-render\-unplaced strip draws the unplaced members too, in rows
+in a strip below a DOT drawing. The same setting shapes the diagrams of
 \-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2

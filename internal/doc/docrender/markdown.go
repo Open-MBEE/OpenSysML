@@ -24,8 +24,8 @@ type MarkdownOptions struct {
 	// Mermaid when empty; a table-kind view is a pipe table whichever it is.
 	DiagramForm view.Form
 
-	// Unplaced is where a DOT diagram some Layout positions puts the nodes
-	// none does: left undrawn when empty, or in a strip below the drawing.
+	// Unplaced is where a diagram some Layout positions puts the nodes none
+	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 }
 

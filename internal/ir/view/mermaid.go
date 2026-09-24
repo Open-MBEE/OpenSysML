@@ -25,8 +25,11 @@ func (r *Rendering) Mermaid() string {
 // stated direction: a flowchart flows that way, and a state diagram states it
 // as a `direction` statement. The empty direction keeps each kind's default,
 // and a kind no direction applies to ignores it. A palette is not drawn,
-// Mermaid having no fill per node kind, and is noted as not represented.
+// Mermaid having no fill per node kind, and is noted as not represented. A
+// rendering some Layout positions draws the nodes the DOT form draws: the placed
+// ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
+	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
 	labels := labelsOf(r.Roots)

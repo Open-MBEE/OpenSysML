@@ -209,7 +209,7 @@ func renderOptions(width int) (view.Options, error) {
 }
 
 // unplacedOption is the placement -render-unplaced names for the nodes a
-// positioned DOT drawing leaves unplaced, which must be one there is; none
+// positioned drawing leaves unplaced, which must be one there is; none
 // named is the default, leaving them undrawn.
 func unplacedOption() (view.Unplaced, error) {
 	if renderUnplaced == "" {

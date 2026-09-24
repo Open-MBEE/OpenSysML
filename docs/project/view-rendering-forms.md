@@ -411,7 +411,14 @@ digraph "PlantViews::placedView" {
   keeps its place in the text — a member of a positioned cluster is written in that cluster,
   whose stated box is not stretched to it — so Graphviz draws it below the box it belongs to.
   A drawing with no positioned node is unchanged by either setting. An `Unplaced` that is
-  neither is refused (`UnknownUnplacedError`).
+  neither is refused (`UnknownUnplacedError`). The classification is one `placement`
+  (`placement.go`) every graph-shaped form draws by: the Mermaid and PlantUML forms of a partly
+  positioned rendering draw the placed nodes and the edges between them, an omitted tree node's
+  placed members detached from the node above as DOT draws them, under a `%% not represented:` or
+  `' not represented:` notice with DOT's wording; under `UnplacedStrip` they draw every node,
+  laid out by the tool that draws them, and say so. So the three forms draw one node set and one
+  edge set of a positioned view, and a view exposing a package its layout does not place does not
+  become a chart of the package's whole contents in Mermaid.
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
   given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is

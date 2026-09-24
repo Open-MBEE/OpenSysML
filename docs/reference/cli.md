@@ -221,7 +221,7 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-unplaced <placement>` | | Where the `dot` form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn; `strip` draws them in rows below the drawing, clear of the canvas and every positioned box. Applies to `--render`, `--render-all` and the `dot` diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
 | `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
 | `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
@@ -608,7 +608,10 @@ line is the only one printed. `TB`/`LR` become `top to bottom direction`/`left t
 PlantUML has no reversed direction, so `BT`/`RL` take the nearest forward one under a
 `' not represented:` notice. PlantUML pins no position either, so DiagramLayout geometry is kept as
 `' canvas:`, `' layout:` and `' route:` comments and noticed — `-render-form dot` is the form that
-honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)). Producing PlantUML
+honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)) — but the diagram
+draws the nodes the DOT form draws: in a view that positions some nodes, the placed ones and the
+edges between them, with the unplaced accounted for in a `' not represented:` notice, and every
+node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
 `-render-palette <name>` fills the DOT and PlantUML nodes with a colourblind-safe palette by **keyword
@@ -657,7 +660,12 @@ the edges at it — a migrated diagram shows what its source showed, and nothing
 placed box — and a `// not represented:` notice counts what was left out;
 `-render-unplaced strip` draws those nodes instead, in rows below the canvas or the positioned
 boxes, wrapped at the drawing's width and clear of it and of one another. Either way every node
-drawn is pinned, so `neato` is never left to place one.
+drawn is pinned, so `neato` is never left to place one. The Mermaid and PlantUML forms draw the
+same node set and edge set: the placed nodes alone by default, under a `%% not represented:` or
+`' not represented:` notice counting the unplaced, and every node under `-render-unplaced strip`,
+laid out by the tool that draws them since neither pins a position. So a positioned view's figure
+in a document shows the picture its layout describes in whichever `-diagram-form`, and an
+exposed package the layout does not place does not expand into a chart of its whole contents.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the
