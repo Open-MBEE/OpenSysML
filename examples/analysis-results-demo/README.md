@@ -144,6 +144,10 @@ burnTime | fuelUsed | wetMass | fuelLeft | verdict
 80.0     | 240.0    | 610.0   | 10.0     | reserveHeld: not satisfied
 ```
 
+The 80 s row leaves the objective unsatisfied, so the sweep exits `1`; the
+transcripts here and above show the result lines only, not the package
+loading and `standing` lines every run also prints.
+
 And the trade study, **as recorded** before the relay edit:
 
 ```bash
