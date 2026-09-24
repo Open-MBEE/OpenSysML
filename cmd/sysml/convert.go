@@ -141,25 +141,18 @@ func runConvert(files []string) (int, error) {
 // convertInput runs the conversion the input format asks for: a SysML v1 model
 // is migrated and its report written, anything else converted.
 func convertInput(name string, data []byte, from, to convert.Format) ([]byte, error) {
-	if idForm != "" && (from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON)) {
-		return nil, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
-	}
-	if from != convert.FormatXMI {
-		opts := convert.Options{}
-		if idForm != "" {
-			form, ok := export.ParseIDForm(idForm)
-			if !ok {
-				return nil, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
-			}
-			opts.ID = form
-		}
-		return convert.ConvertWith(name, data, from, to, opts)
-	}
-	opts, err := migrationOptions()
+	opts, err := convertOptions(from, to)
 	if err != nil {
 		return nil, err
 	}
-	migrated, err := convert.Migrate(name, data, to, opts)
+	if from != convert.FormatXMI {
+		return convert.ConvertWith(name, data, from, to, opts)
+	}
+	migOpts, err := migrationOptions()
+	if err != nil {
+		return nil, err
+	}
+	migrated, err := convert.Migrate(name, data, to, migOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +169,9 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, er
 // records join the session's buffer, and converts that text; a load that did
 // not analyse or a run that failed converts nothing.
 func convertRecorded(input string, to convert.Format) (int, error) {
+	if fromFormat != "" && fromFormat != "sysml" {
+		return 0, fmt.Errorf("-record-run records into SysML notation; -from %s does not apply", fromFormat)
+	}
 	sess := newSession()
 	report, err := sess.LoadPathsReport([]string{input})
 	if err != nil {
@@ -207,7 +203,11 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 			return 0, fmt.Errorf("%s: the run was not recorded; nothing was converted", invocation)
 		}
 	}
-	out, tolerated, err := convert.ConvertTolerant(repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to)
+	opts, err := convertOptions(convert.FormatSysML, to)
+	if err != nil {
+		return 0, err
+	}
+	out, tolerated, err := convert.ConvertTolerantWith(repl.SessionOrigin, []byte(sess.Text()), convert.FormatSysML, to, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -221,6 +221,24 @@ func convertRecorded(input string, to convert.Format) (int, error) {
 	}
 	_, err = os.Stdout.Write(out)
 	return exitHolds, err
+}
+
+// convertOptions are the conversion settings -id asks for, refusing it for a
+// direction it does not apply to.
+func convertOptions(from, to convert.Format) (convert.Options, error) {
+	opts := convert.Options{}
+	if idForm == "" {
+		return opts, nil
+	}
+	if from != convert.FormatSysML || (to != convert.FormatTurtle && to != convert.FormatAPIJSON) {
+		return opts, fmt.Errorf("-id applies to -convert ttl or api-json from SysML notation")
+	}
+	form, ok := export.ParseIDForm(idForm)
+	if !ok {
+		return opts, fmt.Errorf("-id wants qualified or uuid, not %q", idForm)
+	}
+	opts.ID = form
+	return opts, nil
 }
 
 // writeConversion writes converted output to a file and reports it.

@@ -210,7 +210,12 @@ func ConvertWith(name string, data []byte, from, to Format, opts Options) ([]byt
 // declarations the parser could not read would be silently missing, so a broken
 // model is still rejected.
 func ConvertTolerant(name string, data []byte, from, to Format) ([]byte, *SyntaxError, error) {
-	return convert(name, data, from, to, true, Options{})
+	return ConvertTolerantWith(name, data, from, to, Options{})
+}
+
+// ConvertTolerantWith is ConvertTolerant under non-default options.
+func ConvertTolerantWith(name string, data []byte, from, to Format, opts Options) ([]byte, *SyntaxError, error) {
+	return convert(name, data, from, to, true, opts)
 }
 
 // ErrNoNotation reports an element no notation can be written for: one the

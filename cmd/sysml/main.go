@@ -594,6 +594,12 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -convert, -render and -render-document each write a document out; ask for one per run")
 			return 2
 		}
+		if modelChecks.recordsOnly() {
+			if message := modelChecks.boundsMisuse(); message != "" {
+				fmt.Fprintf(os.Stderr, "sysml: %s\n", message)
+				return 2
+			}
+		}
 		return runConvertExit(args)
 	}
 
@@ -637,6 +643,9 @@ func runCLI() int {
 				"-render-document writes a document out and decides nothing about the model; check it in its own run")
 		case len(evalExprs) > 0 || fromFormat != "":
 			fmt.Fprintln(os.Stderr, "sysml: -render-document cannot be combined with -eval or -from")
+			return 2
+		case modelChecks.recordsOnly() && modelChecks.boundsMisuse() != "":
+			fmt.Fprintf(os.Stderr, "sysml: %s\n", modelChecks.boundsMisuse())
 			return 2
 		}
 		if status := resolveRunBounds(); status != 0 {

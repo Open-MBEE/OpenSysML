@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -221,5 +222,54 @@ func TestRecordIntoWithoutRecordRunRefused(t *testing.T) {
 		t.Fatalf("-record-into alone succeeded:\n%s", out)
 	} else if !strings.Contains(string(out), "-record-into accompanies -record-run") {
 		t.Errorf("unexpected refusal:\n%s", out)
+	}
+}
+
+// TestRecordRunConvertHonoursID converts the session a -record-run produced
+// with -id applied to it, as -convert honours it on a file.
+func TestRecordRunConvertHonoursID(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	out := run(t, binary, source, "-record-run", "Demo::timed", "-convert", "ttl", "-id", "uuid")
+	uuid := regexp.MustCompile(`[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+	if !uuid.MatchString(out) {
+		t.Errorf("no UUID ids in the converted records:\n%s", out)
+	}
+}
+
+// TestRecordRunConvertRefusesFrom refuses -from on a recorded conversion: the
+// input is still SysML notation.
+func TestRecordRunConvertRefusesFrom(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	cmd := exec.Command(binary, source, "-record-run", "Demo::timed", "-from", "kerml", "-convert", "sysml")
+	if out, err := cmd.CombinedOutput(); err == nil {
+		t.Fatalf("-record-run + -from kerml succeeded:\n%s", out)
+	} else if !strings.Contains(string(out), "-from") {
+		t.Errorf("unexpected refusal:\n%s", out)
+	}
+}
+
+// TestRecordRunBoundsApplyToConvert refuses the run bounds runChecks refuses
+// when -convert shares the run, exiting as the same misuse does.
+func TestRecordRunBoundsApplyToConvert(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	out, code := exitCode(t, exec.Command(binary, source,
+		"-record-run", "Demo::timed", "-sweep", "gain=1..3", "-samples", "2", "-seed", "7", "-convert", "sysml"))
+	if code != 2 || !strings.Contains(out, "-samples draws values for a sweep it does not run") {
+		t.Errorf("-samples with -record-run -convert: code %d:\n%s", code, out)
+	}
+}
+
+// TestRecordRunBoundsApplyToRenderDocument refuses a -runs/-sweep conflict on
+// a -render-document run the same as runChecks does.
+func TestRecordRunBoundsApplyToRenderDocument(t *testing.T) {
+	binary := buildCLI(t)
+	source := writeRecordModel(t)
+	out, code := exitCode(t, exec.Command(binary, source,
+		"-record-run", "Demo::timed", "-runs", "3", "-seed", "7", "-sweep", "gain=1..3", "-render-document", "Demo::Doc"))
+	if code != 2 || !strings.Contains(out, "-runs runs an action; -sweep and -samples run an analysis case or calc") {
+		t.Errorf("-runs + -sweep with -record-run -render-document: code %d:\n%s", code, out)
 	}
 }

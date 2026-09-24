@@ -459,6 +459,17 @@ func (c *checks) recordMisuse() string {
 	return ""
 }
 
+// boundsMisuse reports why the bounds a records run was asked for make no run:
+// the same refusal runChecks gives for them.
+func (c *checks) boundsMisuse() string {
+	for _, message := range []string{c.sweepMisuse(), c.runsMisuse(), c.recordMisuse()} {
+		if message != "" {
+			return message
+		}
+	}
+	return ""
+}
+
 // checksOnly reports whether anything was asked about the model itself, as
 // against how to report the answer.
 func (c *checks) checksOnly() bool {
