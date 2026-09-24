@@ -48,6 +48,9 @@ type Index struct {
 	directChildrenGeneration uint64
 	directChildrenCache      map[directChildrenKey][]*Symbol
 	directChildrenByName     map[directChildrenKey]map[string][]*Symbol
+	// shortNamedCache memoizes ShortNamed per segment, reset with the
+	// direct-children caches.
+	shortNamedCache map[string]bool
 
 	docRoots      *layer[string, *Scope]      // document name -> root scope
 	docOfRoot     *layer[*Scope, string]      // root scope -> document name
@@ -193,6 +196,7 @@ func NewIndex() *Index {
 		generation:           gen,
 		directChildrenCache:  make(map[directChildrenKey][]*Symbol),
 		directChildrenByName: make(map[directChildrenKey]map[string][]*Symbol),
+		shortNamedCache:      make(map[string]bool),
 		docRoots:             newLayer[string, *Scope](gen),
 		docOfRoot:            newLayer[*Scope, string](gen),
 		docKinds:             newLayer[string, source.Kind](gen),
@@ -311,6 +315,7 @@ func NewOverlay(base *Index) *Index {
 		generation:           gen,
 		directChildrenCache:  make(map[directChildrenKey][]*Symbol),
 		directChildrenByName: make(map[directChildrenKey]map[string][]*Symbol),
+		shortNamedCache:      make(map[string]bool),
 		docRoots:             overLayer(base.docRoots, gen),
 		docOfRoot:            overLayer(base.docOfRoot, gen),
 		docKinds:             overLayer(base.docKinds, gen),
@@ -1590,6 +1595,24 @@ func (idx *Index) ShortNamed(name string) bool {
 		return false
 	}
 	idx.readSegment(name)
+	generation := idx.generation.get()
+	idx.directChildrenMu.Lock()
+	idx.resetDirectChildrenCachesLocked(generation)
+	if v, ok := idx.shortNamedCache[name]; ok {
+		idx.directChildrenMu.Unlock()
+		return v
+	}
+	idx.directChildrenMu.Unlock()
+	v := idx.shortNamedScan(name)
+	idx.directChildrenMu.Lock()
+	if idx.generation.get() == generation {
+		idx.shortNamedCache[name] = v
+	}
+	idx.directChildrenMu.Unlock()
+	return v
+}
+
+func (idx *Index) shortNamedScan(name string) bool {
 	shortRegistered := func(fqn string) bool {
 		for _, sym := range idx.fqn.at(fqn) {
 			if LastSegment(sym.Name) != name {
@@ -1712,6 +1735,7 @@ func (idx *Index) resetDirectChildrenCachesLocked(generation uint64) {
 	if idx.directChildrenGeneration != generation {
 		idx.directChildrenCache = make(map[directChildrenKey][]*Symbol)
 		idx.directChildrenByName = make(map[directChildrenKey]map[string][]*Symbol)
+		idx.shortNamedCache = make(map[string]bool)
 		idx.directChildrenGeneration = generation
 	}
 }
