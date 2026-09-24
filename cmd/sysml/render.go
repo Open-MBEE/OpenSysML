@@ -189,7 +189,8 @@ func caseFolded(text string) string {
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
-// and the palette -render-palette names, which must be one there is.
+// the palette -render-palette names and the placement -render-unplaced names,
+// each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
 	if renderPalette != "" {
@@ -199,7 +200,26 @@ func renderOptions(width int) (view.Options, error) {
 		}
 		options.Palette = palette
 	}
+	unplaced, err := unplacedOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Unplaced = unplaced
 	return options, nil
+}
+
+// unplacedOption is the placement -render-unplaced names for the nodes a
+// positioned DOT drawing leaves unplaced, which must be one there is; none
+// named is the default, leaving them undrawn.
+func unplacedOption() (view.Unplaced, error) {
+	if renderUnplaced == "" {
+		return "", nil
+	}
+	unplaced, ok := view.ParseUnplaced(renderUnplaced)
+	if !ok {
+		return "", fmt.Errorf("-render-unplaced: %w", &view.UnknownUnplacedError{Name: renderUnplaced})
+	}
+	return unplaced, nil
 }
 
 // loadRenderingModel loads and reports a model whose stdout is reserved for

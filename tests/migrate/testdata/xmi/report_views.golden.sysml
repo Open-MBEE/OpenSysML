@@ -36,11 +36,13 @@ package Viewpoints {
             doc /* Which hazards does the pump control? */
         }
         action def 'Collect Guards';
+        metadata MigrationMetadata::SynthesizedName about 'safety Inspector', maintainer;
     }
     viewpoint 'Operations Viewpoint' {
         doc /* Show how the pump is run. */
         subject;
         stakeholder operator : Stakeholders::Operator;
+        metadata MigrationMetadata::SynthesizedName about operator;
     }
     part def 'Plain Block';
 }

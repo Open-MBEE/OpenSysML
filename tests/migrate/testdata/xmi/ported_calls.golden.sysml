@@ -48,6 +48,7 @@ part def Drive {
         action final terminate;
         flow thirty.result to 'spin over p'.rpm;
         flow forty.result to 'spin over cmd'.rpm;
+        metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
     }
     action def Stray {
         first start then 'fork';
@@ -66,5 +67,6 @@ part def Drive {
         action 'spin over split' : Motor::Spin;
         flow five.result to 'spin over loose'.rpm;
         flow six.result to 'spin over split'.rpm;
+        metadata MigrationMetadata::SynthesizedName about 'fork';
     }
 }

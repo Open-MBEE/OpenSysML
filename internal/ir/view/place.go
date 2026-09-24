@@ -53,7 +53,7 @@ func (r *Renderer) draws(kind Kind, sym *symbols.Symbol) (node, edge bool) {
 	}
 	switch kind {
 	case KindTree:
-		return containedKind(sym), false
+		return r.contentKind(sym), false
 	case KindInterconnection:
 		return featureLike(sym), r.drawsConnector(sym)
 	case KindState:

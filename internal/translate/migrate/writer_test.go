@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -71,5 +72,59 @@ func BenchmarkWriterSiblingBlocks(b *testing.B) {
 		for i := 0; i < 20000; i++ {
 			w.block("part def X", func() { w.line("attribute a;") })
 		}
+	}
+}
+
+// Each block marks the made-up names it declared as it closes, one marker line
+// per body: a nested block's names never leak to the block enclosing it, a
+// block marked early is not marked twice, and the root block is marked last.
+func TestWriterMarksMadeUpNamesPerBlock(t *testing.T) {
+	marker := func(names []string) string { return "metadata M about " + strings.Join(names, ", ") + ";" }
+	w := &writer{marker: marker}
+	w.block("part def A", func() {
+		w.line("part 'fork';")
+		w.madeUp("'fork'")
+		w.block("action def B", func() {
+			w.line("action final;")
+			w.madeUp("final")
+			w.line("action start;")
+			w.madeUp("start")
+		})
+		w.block("part def C", func() { w.line("attribute x;") })
+		w.line("part p;")
+		w.madeUp("p")
+	})
+	w.block("part def D", func() {
+		w.line("part q;")
+		w.madeUp("q")
+		w.markMadeUp(marker)
+		w.line("part r;")
+	})
+	w.line("part top;")
+	w.madeUp("top")
+	want := "part def A {\n" +
+		"    part 'fork';\n" +
+		"    action def B {\n        action final;\n        action start;\n        metadata M about final, start;\n    }\n" +
+		"    part def C {\n        attribute x;\n    }\n" +
+		"    part p;\n" +
+		"    metadata M about 'fork', p;\n}\n" +
+		"part def D {\n    part q;\n    metadata M about q;\n    part r;\n}\n" +
+		"part top;\nmetadata M about top;\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A block declaring no made-up names, and a writer with no marker, write none.
+func TestWriterMarksNothingWithoutMadeUpNames(t *testing.T) {
+	w := &writer{marker: func(names []string) string { return "metadata M about " + strings.Join(names, ", ") + ";" }}
+	w.block("part def A", func() { w.line("attribute x;") })
+	if got, want := w.String(), "part def A {\n    attribute x;\n}\n"; got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+	unmarked := &writer{}
+	unmarked.block("part def A", func() { unmarked.line("part p;"); unmarked.madeUp("p") })
+	if got, want := unmarked.String(), "part def A {\n    part p;\n}\n"; got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 }

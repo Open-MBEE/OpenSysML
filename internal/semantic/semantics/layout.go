@@ -143,6 +143,39 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 	return out
 }
 
+// IsLayoutAnnotation reports whether sym is a metadata usage typed by one of
+// the DiagramLayout definitions: a statement about a picture, not model content.
+func (m *Model) IsLayoutAnnotation(sym *symbols.Symbol) bool {
+	switch m.annotationTypeFQN(sym) {
+	case LayoutFQN, RouteFQN, CanvasFQN:
+		return true
+	}
+	return false
+}
+
+// annotationTypeFQN is the qualified name of the metadata definition sym
+// states as a metadata usage or prefix metadata, "" for any other symbol.
+func (m *Model) annotationTypeFQN(sym *symbols.Symbol) string {
+	if m == nil || sym == nil || m.resolver == nil {
+		return ""
+	}
+	var a annotation
+	var ok bool
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		if decl.Kind != ast.UsageMetadata {
+			return ""
+		}
+		a, ok = m.usageAnnotation(sym.OwnerScope, decl)
+	case *ast.PrefixMetadata:
+		a, ok = m.prefixAnnotation(sym.OwnerScope, decl)
+	}
+	if !ok || a.typ == nil {
+		return ""
+	}
+	return m.fqnOf(a.typ)
+}
+
 // LayoutOf resolves the Layout of elem as drawn in view: the first Layout
 // annotation stated in the view's body, else the first one applying in every
 // view. With no view — a rendering of elements outside any view — only the

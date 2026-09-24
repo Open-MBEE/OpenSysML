@@ -21,7 +21,7 @@ const (
 func TestDiagramsListGraphShapedViews(t *testing.T) {
 	document := fixtureDocument(t, filepath.Join("testdata", telescopeFixture), "Observatory::MassReport")
 	for _, form := range []view.Form{"", view.FormMermaid, view.FormDot} {
-		diagrams, err := Diagrams(document, form)
+		diagrams, err := Diagrams(document, form, "")
 		if err != nil {
 			t.Fatalf("Diagrams(%q): %v", form, err)
 		}
@@ -42,11 +42,11 @@ func TestDiagramsListGraphShapedViews(t *testing.T) {
 
 func TestDiagramsErrors(t *testing.T) {
 	var typed *Error
-	if _, err := Diagrams(nil, ""); !errors.As(err, &typed) || typed.Kind != ErrorNilDocument {
+	if _, err := Diagrams(nil, "", ""); !errors.As(err, &typed) || typed.Kind != ErrorNilDocument {
 		t.Errorf("nil document: %v", err)
 	}
 	document := fixtureDocument(t, filepath.Join("testdata", telescopeFixture), "Observatory::MassReport")
-	if _, err := Diagrams(document, "svg"); !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm {
+	if _, err := Diagrams(document, "svg", ""); !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm {
 		t.Errorf("unknown form: %v", err)
 	}
 }

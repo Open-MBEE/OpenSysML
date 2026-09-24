@@ -41,12 +41,13 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 // nested nodes, the start of each body with the entry transitions out of it, and
 // its transitions as edges.
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
-	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), Type: declType(machine),
-		Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
+		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, decl ast.Node) *Node {
 		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
+		node.NameSynthesized = r.declaredNameSynthesized(machine, decl)
 		return node
 	}
 
@@ -155,11 +156,15 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 		}
 		doc := docOf(graph, transition.Decl, machine.DocName)
 		out.Edges = append(out.Edges, Edge{
-			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition), Kind: EdgeTransition,
-			Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition, r.declaredNameSynthesized(machine, transition.Decl)),
+			Kind: EdgeTransition, Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
 		})
 	}
 }
+
+// terminateKind is the Kind of a terminate action usage (`action final terminate;`),
+// the activity's final node, drawn as the final symbol when a box places it.
+const terminateKind = "terminate action"
 
 // startKind is the Kind of the node a body's entry transitions leave, which a
 // state diagram draws as its start marker.
@@ -235,8 +240,8 @@ func bodyOwning(graph *lower.StateGraph, state *ast.StateNode) ast.Node {
 }
 
 // transitionLabel is a transition edge's trigger, guard and effect, `after 5 [ok] /
-// effect`; a transition with none of those is labelled by its name.
-func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) string {
+// effect`; a transition with none of those is labelled by its name, unless synthesized.
+func (r *Renderer) transitionLabel(doc string, transition *lower.Transition, synthesized bool) string {
 	var parts []string
 	if trigger := r.triggerLabel(doc, transition.Trigger); trigger != "" {
 		parts = append(parts, trigger)
@@ -250,13 +255,14 @@ func (r *Renderer) transitionLabel(doc string, transition *lower.Transition) str
 	if len(transition.Effect) > 0 {
 		parts = append(parts, "/ "+behaviorNames(transition.Effect))
 	}
-	return edgeLabel(transition.Name, strings.Join(parts, " "))
+	return edgeLabel(transition.Name, strings.Join(parts, " "), synthesized)
 }
 
 // edgeLabel is text when the edge has any of its own, else its name: a name
-// only labels an edge that nothing else describes.
-func edgeLabel(name, text string) string {
-	if text != "" || name == "" {
+// only labels an edge that nothing else describes, and a name a migration made
+// up (synthesized) labels nothing, as the unnamed source edge it stands for.
+func edgeLabel(name, text string, synthesized bool) string {
+	if text != "" || name == "" || synthesized {
 		return text
 	}
 	return nameText(name)
@@ -411,14 +417,14 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
 		return nil, false
 	}
-	root := &Node{ID: ids.take(), Kind: kind, Name: name, Type: subject.typ, Origin: nodeOrigin(doc, decl),
-		Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
+	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
+		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
-			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
+			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
@@ -457,8 +463,9 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 				continue
 			}
 			edgeDoc := docOf(graph, edge.Decl, doc)
-			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: r.successionLabel(edge, edgeDoc, doc), Kind: EdgeSuccession,
-				Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
+			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, edge.Decl))
+			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
+				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -467,15 +474,16 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 					nameText(behaviorNodeName(src)), name))
 				continue
 			}
-			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow), Kind: EdgeFlow,
-				Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
+			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
+			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
+				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 }
 
 // successionLabel is the succession's guard in brackets, then its probability;
-// a succession with neither is labelled by its name.
-func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string) string {
+// a succession with neither is labelled by its name, unless synthesized.
+func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string, synthesized bool) string {
 	label := ""
 	if guard := edge.Guard; guard != nil {
 		if text := r.nodeText(edgeDoc, guard); text != "" {
@@ -487,17 +495,17 @@ func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string) s
 	if weight := edge.Probability; weight != nil {
 		label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
 	}
-	return edgeLabel(edge.Name, label)
+	return edgeLabel(edge.Name, label, synthesized)
 }
 
 // flowLabel is what an object flow carries: the pins it joins; a flow naming no
-// pins is labelled by its name.
-func flowLabel(flow lower.ObjectFlow) string {
+// pins is labelled by its name, unless synthesized.
+func flowLabel(flow lower.ObjectFlow, synthesized bool) string {
 	label := flow.SourcePin
 	if flow.TargetPin != "" {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
-	return edgeLabel(flow.Name, label)
+	return edgeLabel(flow.Name, label, synthesized)
 }
 
 // nestedAction is the declaration of an action node that performs a body of its
@@ -552,11 +560,24 @@ func actionNodeKind(node ast.Node, graph *lower.ActionGraph) string {
 	case *ast.StateNode:
 		return "state"
 	case *ast.Usage:
+		if lower.IsTerminateUsage(n) {
+			return terminateKind
+		}
 		return n.Kind.String()
 	case *ast.Definition:
 		return n.Kind.String() + " def"
 	}
 	return "node"
+}
+
+// languageNamed reports whether a graph node's name is the language's, not the
+// body's: the `start` an action's flow leaves and the `done` it ends at.
+func languageNamed(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.InitialNode, *ast.FinalNode:
+		return true
+	}
+	return false
 }
 
 // behaviorNodeName is the name a state or action graph node was declared with.

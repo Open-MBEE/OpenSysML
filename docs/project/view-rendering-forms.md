@@ -22,6 +22,19 @@ action kinds are produced from the model — the last two from the lowered `Stat
 `ActionGraph` the runtime executes — and nothing in the rendering is text of any diagram
 language.
 
+What a kind walks into nodes is model content. A view's own bookkeeping is left out of every
+kind, by the one member walk the kinds share (`contentKind` in `tree.go`): a
+[DiagramLayout](diagram-layout-annotations.md) annotation — a `Canvas`, `Layout` or `Route`,
+whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it is owned — and the
+`render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
+how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
+those views without the `metadata` and `render` nodes their annotations would add. The
+`MigrationMetadata::SynthesizedName` marker a migration leaves in a body is left out the same way:
+it records what the migration did, not what the model holds. Every other metadata usage — a
+user's `metadata Approved about errorCBE { by = "review"; }`, an annotation typed by any
+definition outside `DiagramLayout` and `MigrationMetadata` — is drawn as before, and a rendering
+usage owned by anything but a view (a `rendering` under a package) stays a node.
+
 A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
 | Form | Writer | Kinds | Role |
@@ -46,7 +59,11 @@ the element's name first, the kind after it. `label.go` composes the lines once,
 only joins them:
 
 1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
-   name; an anonymous element leads with its kind instead;
+   name; an anonymous element leads with its kind instead, or with ` : Type` alone when typed.
+   A name the model did not give is not shown and the node heads as an anonymous one: a name a
+   [v1 migration](../reference/sysml-v1-migration.md) made up for an element its source left
+   unnamed, which it marks with `MigrationMetadata::SynthesizedName`, and the language's own
+   `start` and `done` of an action's flow (`Node.NameSynthesized`, `shown` in `label.go`);
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
@@ -59,8 +76,15 @@ every named root shares — the longest run of leading qualifier names common to
 `Radio` beside `Braking::Brake`, and roots from unrelated packages keep their whole names — and
 a type is named by the name each of its references ends in, its `~` kept (`~Ports::FuelPort` is
 `~FuelPort`; `Pump, ~FuelPort` for a pair); a name the roots' namespace does not head, and a type
-that does not read as references, are shown whole. The DOT writer sizes a box from the same
-label it emits, so a Cameo-sized box holds what it is headed with.
+that does not read as references, are shown whole. A member drawn under a drawn owner — a child
+node, or a nested exposed element whose owner is a node of the same rendering — is headed by its
+name below the nearest such owner, as a compartment or a nested box in a diagram frame shows it:
+`'K-Mirror Offset'::'interpolation Error' : 'Interpolation Error'` under the `'K-Mirror Offset'`
+node heads `'interpolation Error' : 'Interpolation Error'`, and a name with a single segment is
+shown whole. Only the graphical heads change: `Node.Name`, the JSON and the text form keep the
+qualified name. The DOT writer sizes a box from the same label it emits, so a box a Layout does
+not size holds what it is headed with; a box a Layout sizes has its label fitted to it
+([Geometry](#geometry)).
 
 Mermaid joins the lines with `<br>` in every grammar it writes — a flowchart node label, a
 `state "…" as n` and a `participant n as …` — which the pinned `mermaid-cli` breaks at whether
@@ -92,8 +116,10 @@ binding — is labelled by its name, `'off then on'`. The rule holds for every k
 whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
 spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
 [temperature > 0]`, as the graphical notation draws it, since the name adds nothing a reader
-looks for and a migrated name would only repeat the ends. The rule is one place, so the text,
-Mermaid, DOT and PlantUML forms label an edge alike.
+looks for and a migrated name would only repeat the ends. A name the migration made up because
+the source had none (`MigrationMetadata::SynthesizedName`) never becomes a label: an edge with no
+text of its own and such a name is drawn unlabelled, as its source drew it. The rule is one place,
+so the text, Mermaid, DOT and PlantUML forms label an edge alike.
 
 ## Why DOT next to Mermaid
 
@@ -207,11 +233,12 @@ translation to DOT is:
 | `arrow { FontSize 13; LineThickness 1.0 }` | edge default `color="#181818", fontsize=13, penwidth=1` |
 | Pilot `caseConnectionUsage`, `caseConnector`: `-[thickness=3]-` | `EdgeConnection`: `arrowhead=none, penwidth=3` |
 | Pilot `caseFlow`, `caseSuccession`, `caseTransitionUsage`: `-->` | the `EdgeKind` table above, unchanged |
-| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the rendering names keeps its labelled ring. The `start` point is unchanged |
+| initial and final pseudo-states | the UML filled black dot: `shape=circle` (`doublecircle` for a final), `fillcolor=black`, `label=""`, `width=0.2` unless a Layout sizes it; a pseudo-state the model names keeps its labelled ring unless a Layout sizes it. An action's `start` and `done`, being the language's names and not the body's, and a name a migration made up (`Node.NameSynthesized`) are the dot and the ring, as the notation draws them. The `start` point is unchanged |
+| symbol kinds in a stated box | a node whose Layout states a size and whose kind has a notation symbol is drawn as the symbol with no text inside it: `decision`, `merge` and `choice` as `shape=diamond`; `fork` and `join` as the filled bar (the stated box, `fillcolor=black`); `initial` and `junction` as the filled dot; `final` and a terminate action as `shape=doublecircle, fillcolor=black`; a port (`port`, `ref port`, not a `port def`) as its stated square, filled by the palette when one is set. The head the node would have carried is set beside the symbol as `xlabel="…"`, a plain string, and left out when `Node.NameSynthesized` marks the name as one a migration made up |
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
-off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text), and the
-20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
+off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer
+wraps only a head it fits to a stated box), and the 20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
 sections — the DOT form draws no notes and a sequence rendering has no DOT form. The Pilot's
 `-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
 than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
@@ -277,7 +304,7 @@ preprocessing step:
 // kind: interconnection
 // stated: render asInterconnectionDiagram
 // canvas: unit=px w=1200 h=800
-// layout: neato
+// layout: neato -n2
 digraph "PlantViews::placedView" {
   graph [fontname="Helvetica", inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
@@ -288,9 +315,10 @@ digraph "PlantViews::placedView" {
     label=<<b>Loop</b><br/><font point-size="10"><i>«part def»</i></font>>;
     color=black;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    bb="292,692,628,768";
+    "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
     "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
-    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+    "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
 }
@@ -309,7 +337,31 @@ digraph "PlantViews::placedView" {
   node where it is. The names cannot collide with a rendering's `n<i>` node IDs.
 - **Nodes.** A `Layout` names the box's top-left corner; Graphviz positions a node's centre, so
   the writer pins `pos="x,y!"` at the centre of the box and `pin=true` keeps `neato` from
-  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`. Without one
+  moving it. A stated size is `width`/`height` in inches with `fixedsize=true`, and the label
+  is composed to fit it (`dotFittedLabel` in `dot.go`), never the box grown to the label: the
+  node's `margin=0` gives the whole box to the label (Graphviz's default pads it by 0.11 by
+  0.055 in, which a 14 px compartment row cannot spare), the head is word-wrapped at the box's
+  width and drawn at the largest whole font size from 14 pt down to 8 pt at which the wrapped
+  lines stack within the height with every word whole — a word wider than the box at every size
+  is broken where it overruns, at the largest size whose lines then fit; the keyword line (at
+  10/14 of the head's size) and each detail line follow only while height remains for them, so
+  a 449×14 px compartment row holds
+  `<font point-size="11"><b>errorReq : Real</b></font>` and nothing else; a head that overruns the
+  height even at 8 pt is cut to the lines that fit and its last line ellipsized. A stated box
+  that holds other stated boxes — a part whose members are drawn inside it, a definition over
+  its compartment rows — keeps its title clear of them: the label is fitted to the strip between
+  the box's top and the topmost box it encloses and set there with `labelloc=t`, so the title
+  reads as a diagram frame's header and the members below it stay where the Layout put them
+  (`headroom` in `dot.go`; a box that is only placed, and so sized to its own label, is not one
+  the title moves for). A stated box too short for one 8 pt line, or too narrow for one glyph —
+  whether the whole box or the strip its members leave it — holds no text: its head is set
+  outside as `xlabel`, as a symbol's is, and a box with only its kind to show is left bare
+  (`dotStatedLabel`). A stated node drawn as a cluster round its children has its label fitted the
+  same way, to the strip above its topmost stated child; a cluster's label has no outside to go
+  to, so a strip thinner than a line still gets one line at 8 pt. The estimate is
+  the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
+  particular to the tool that stated the box. A symbol kind in a stated box carries no label at
+  all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
   1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
   smaller than its 54×36 pt default box, a circle round the label for a
@@ -336,16 +388,30 @@ digraph "PlantViews::placedView" {
   kind draws takes a route: a connection, binding or flow of an interconnection, a transition
   of a state rendering, a succession or flow of an action rendering — the annotation names the
   member (`metadata DiagramLayout::Route about 'a to b'`), so only a named edge can carry one.
+- **Unplaced nodes.** A node counts as positioned however its box was found — by its
+  `Layout`, round its members, or from a route. When some nodes are positioned and others are
+  not, the drawing shows what its source showed: the unpositioned nodes are left undrawn, with
+  every edge at one of them and the containment edge a tree would draw to it, and a
+  `// not represented:` notice counts them (`2 node(s) without a position, left undrawn, and 1
+  edge(s) at them`), so nothing lands on a placed box — a migrated diagram's members the source
+  diagram never drew stay out of its picture. `Options.Unplaced = UnplacedStrip`
+  (`-render-unplaced strip` at the CLI, for `-render`, `-render-all` and the `dot` diagrams of a
+  document) keeps them instead: each unplaced node not under another unplaced node (every one, in
+  a tree) is boxed as an unpositioned node is — fitted to its label, or as a cluster round its
+  children — and the boxes are packed in rows, left to right, wrapped at the drawing's width,
+  24 px apart and 24 px below the drawing's extent (the canvas when it has one, else the
+  positioned boxes and routes), then pinned like any other; the notice says so. A strip node
+  keeps its place in the text — a member of a positioned cluster is written in that cluster,
+  whose stated box is not stretched to it — so Graphviz draws it below the box it belongs to.
+  A drawing with no positioned node is unchanged by either setting. An `Unplaced` that is
+  neither is refused (`UnknownUnplacedError`).
 - **Engine.** The `// layout:` header names the command that honours what is written:
-  `neato -n2` when every node is positioned and any edge is routed (the pinned nodes and the
-  written routes are taken as given, the other edges are drawn), `neato -n` when every node is
-  positioned and no edge is routed, `neato` when only some nodes are (pinned nodes stay, the
-  rest are placed around them), `dot` when none is. A node counts as positioned however its box
-  was found — by its `Layout`, round its members, or from a route — so a view whose every node
-  is placed or routed is written for `neato -n2`, which refuses a node with no position.
-  `neato` and `dot` redraw every edge, so when the header names either and a route was
-  written, a `// not represented:` notice says so. A rendering with no geometry is written byte
-  for byte as before.
+  `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
+  given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is
+  positioned. Every node a positioned drawing draws is pinned, so plain `neato` is never named
+  and `neato -n2`, which refuses a node with no position, always has one for each; a route of
+  two or more waypoints positions its ends, so a written route is always read by `neato -n2`.
+  A rendering with no geometry is written byte for byte as before.
 
 The writer is still text over the tree: no Graphviz binary is run to produce, check or test
 the output.
@@ -534,6 +600,21 @@ and did not change. A view-render RPC added later would take the form as a strin
   and the header's engine for none, some and all of the nodes positioned and all edges routed;
   the syntax check parses every `pos` and `bb` it meets, and reads an HTML-like label as one
   string whose tags balance and whose entities are known.
+- `internal/ir/view/dot_fit_test.go`: the label fitted to a stated box — a head wrapped at the
+  width, kept at 14 pt while it fits and shrunk to 8 pt when it does not, the keyword and detail
+  lines kept only while height remains, a compartment row's one line, a word broken across
+  lines only when no size keeps it whole, the ellipsis at the floor, the title of a box that
+  holds stated boxes fitted to the strip above them and set at the top, an only-placed box
+  leaving it be, a stated cluster's label fitted to its strip, a box or strip too short or
+  narrow for a line setting its head outside — and `dotFitHead`/`dotWrap`
+  on their own; the symbol every kind draws as in a stated box, its `xlabel` for a name and none
+  for a synthesized one, a `port def` and an unsized symbol kind still labelled; an unsized
+  node's label unchanged.
+- `internal/ir/view/label_test.go`: a member headed by its name below its drawn owner, at every
+  depth and for a nested exposed element, an unrelated root left whole, the text form unchanged.
+- `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their
+  `DiagramLayout` annotations, `SynthesizedName` markers or `render` members, while a user's
+  metadata usage and a rendering usage outside a view are still drawn.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every

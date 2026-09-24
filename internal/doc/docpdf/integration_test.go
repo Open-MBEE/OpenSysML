@@ -362,7 +362,7 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 		skipWithout(t, "Graphviz dot", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot)
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,7 +424,7 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 		skipWithout(t, "java", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML)
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,8 +475,9 @@ func TestRenderWideTableLandscapeWithInstalledEngines(t *testing.T) {
 
 // TestRenderTallFigureFitsThePageWithInstalledEngines renders a forty-step
 // action flow through each installed converter with mermaid-cli and reads back
-// that the figure is scaled onto one page, its first and last node and its
-// caption together, rather than cut at the page's foot.
+// that the figure is scaled onto one page, its first node (the language's
+// `start`, headed as `initial`) and last step and its caption together, rather
+// than cut at the page's foot.
 func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 	if _, err := mermaidTool.locate(""); err != nil {
 		skipWithout(t, "mmdc", err)
@@ -491,7 +492,7 @@ func TestRenderTallFigureFitsThePageWithInstalledEngines(t *testing.T) {
 				}
 			}
 			for _, page := range strings.Split(text, "\f") {
-				if strings.Contains(page, "start") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
+				if strings.Contains(page, "initial") && strings.Contains(page, "step40") && strings.Contains(page, "Forty steps in a column") {
 					return
 				}
 			}

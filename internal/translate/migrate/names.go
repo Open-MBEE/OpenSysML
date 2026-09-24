@@ -49,8 +49,30 @@ func (m *migration) nameFor(e *sysmlv1.Element) string {
 	for i := 2; m.nameTaken(e.Parent, name); i++ {
 		name = fmt.Sprintf("%s%d", base, i)
 	}
-	m.names[e] = name
+	m.names[e], m.synthesized[e] = name, true
 	return name
+}
+
+// madeUp records that the block being written declares e under name, a name
+// the migration made up when e's source left it unnamed: the block's
+// SynthesizedName marker lists it. written is the name as the notation writes it.
+func (m *migration) madeUp(e *sysmlv1.Element, written string) {
+	if m.synthesized[e] && written != "" {
+		m.w.madeUp(written)
+	}
+}
+
+// synthesizedNameFQN names the library metadata marking a made-up name.
+const synthesizedNameFQN = "MigrationMetadata::SynthesizedName"
+
+// synthesizedNames is the metadata usage marking the members of the current
+// scope written under made-up names, each as the notation wrote it.
+func (m *migration) synthesizedNames(written []string) string {
+	prefix := ""
+	if m.shadowsLibrary("MigrationMetadata", m.scope) {
+		prefix = "$::"
+	}
+	return "metadata " + prefix + synthesizedNameFQN + " about " + strings.Join(written, ", ") + ";"
 }
 
 // writtenName returns the name e's v2 declaration bears, as a query reads it back:

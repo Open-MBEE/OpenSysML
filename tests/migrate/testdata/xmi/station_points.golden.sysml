@@ -128,6 +128,7 @@ part def Station {
                 }
             }
             transition first regions then done;
+            metadata MigrationMetadata::SynthesizedName about regions;
         }
         transition first Idle accept Go
             do action {

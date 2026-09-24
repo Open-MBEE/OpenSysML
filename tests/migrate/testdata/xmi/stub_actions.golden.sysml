@@ -16,6 +16,7 @@ part def Rig {
         first 'set last' then final;
         action final terminate;
         bind 'set last'.value = value;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Sampling {
         out sample : ScalarValues::Real[0..1];
@@ -49,6 +50,7 @@ part def Rig {
         flow gain.result to measure.gain;
         flow measure.reading to record.value;
         bind sample = measure.reading;
+        metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
     }
 }
 allocate Rig::Sampling::measure to Rig::probe;

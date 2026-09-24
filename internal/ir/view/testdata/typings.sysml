@@ -36,6 +36,22 @@ package Spelled {
 	}
 }
 
+package Sites {
+	part def Control;
+
+	part def 'Summit Installation' {
+		part computer : Control;
+	}
+}
+
+package Physical {
+	private import Sites::*;
+
+	part def 'APS Physical' {
+		part 'summit Installation' : 'Summit Installation';
+	}
+}
+
 package SpelledViews {
 	private import Views::*;
 	private import StandardViewDefinitions::*;
@@ -51,5 +67,11 @@ package SpelledViews {
 
 	view exchangeView : SequenceView {
 		expose Spelled::Exchange;
+	}
+
+	view siteView {
+		expose Physical::'APS Physical'::'summit Installation';
+		expose Sites::'Summit Installation'::computer;
+		render asInterconnectionDiagram;
 	}
 }

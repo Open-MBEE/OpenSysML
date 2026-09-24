@@ -467,9 +467,20 @@ func (m *Model) featureTypesConform(a, b *symbols.Symbol) bool {
 
 // featureType returns the symbol a feature's typing relationship names, or nil.
 func (m *Model) featureType(sym *symbols.Symbol) *symbols.Symbol {
-	if sym == nil {
+	if types := m.DeclaredTypes(sym); len(types) > 0 {
+		return types[0]
+	}
+	return nil
+}
+
+// DeclaredTypes are the types sym's own typing relationships name, in
+// declaration order, each resolved in the scope that declares sym and followed
+// through any alias; a typing that does not resolve to an element is left out.
+func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || m.resolver == nil {
 		return nil
 	}
+	var types []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -482,11 +493,13 @@ func (m *Model) featureType(sym *symbols.Symbol) *symbols.Symbol {
 		if !isQN {
 			continue
 		}
-		if resolved, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn); ok {
-			if canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved); aliasOK {
-				return canonical
-			}
+		resolved, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn)
+		if !ok {
+			continue
+		}
+		if canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved); aliasOK {
+			types = append(types, canonical)
 		}
 	}
-	return nil
+	return types
 }

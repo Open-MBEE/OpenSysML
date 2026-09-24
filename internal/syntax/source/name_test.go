@@ -51,3 +51,27 @@ func TestReferenceEndNames(t *testing.T) {
 		}
 	}
 }
+
+func TestReferenceQualifiedNames(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want [][]string
+	}{
+		{"Pump", [][]string{{"Pump"}}},
+		{"Plant::Pumps::Pump", [][]string{{"Plant", "Pumps", "Pump"}}},
+		{"$::ISQ::LengthValue", [][]string{{"ISQ", "LengthValue"}}},
+		{"~Ports::FuelPort", [][]string{{"Ports", "FuelPort"}}},
+		{"Plant::Pumps::Pump, ~Ports::FuelPort", [][]string{{"Plant", "Pumps", "Pump"}, {"Ports", "FuelPort"}}},
+		{"'Sep::Pkg'::'x::y'", [][]string{{"Sep::Pkg", "x::y"}}},
+		{"vehicle.engine.Cylinder", nil},
+		{"Plant::pump.'fuel in', Pump", [][]string{{"Pump"}}},
+		{"", nil},
+		{"T<U>", nil},
+		{"A::", nil},
+		{"A,B", nil},
+	} {
+		if got := ReferenceQualifiedNames(tc.text); !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("ReferenceQualifiedNames(%q) = %q, want %q", tc.text, got, tc.want)
+		}
+	}
+}

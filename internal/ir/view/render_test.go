@@ -426,6 +426,20 @@ func TestDeclaredTypesAreSpelledAsWritten(t *testing.T) {
 			t.Errorf("Mermaid lacks %q:\n%s", want, mermaid)
 		}
 	}
+	// Beside the spelling, a node carries the qualified names its typings
+	// resolve to; a feature chain names no element and resolves to none.
+	typings := map[string][]string{
+		"plug":     {"Spelled::Link"},
+		"rail":     {"Spelled::'Frame *rail*'"},
+		"base":     {"Spelled::Mount", "Spelled::Cart"},
+		"root":     {"Spelled::Mount"},
+		"mirrored": nil,
+	}
+	for name, want := range typings {
+		if node := findNode(t, rendering.Roots, name); !slices.Equal(node.Typings, want) {
+			t.Errorf("node %s: typings %q, want %q", name, node.Typings, want)
+		}
+	}
 	// An anonymous connection or message is labeled by its type, spelled once.
 	if got := edgeLabels(render(t, "typings.sysml", "SpelledViews::rigConnections")); !got["Bolt, Weld"] {
 		t.Errorf("connection edge labels %v lack %q", slices.Sorted(maps.Keys(got)), "Bolt, Weld")

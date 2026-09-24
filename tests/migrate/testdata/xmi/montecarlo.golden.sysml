@@ -15,6 +15,7 @@ part def Timer {
         first 'set t' then final;
         action final terminate;
         flow three.result to 'set t'.value;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     perform action tick : Tick;
 }

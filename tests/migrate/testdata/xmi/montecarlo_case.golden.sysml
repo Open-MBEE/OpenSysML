@@ -19,6 +19,7 @@ part def Sensor {
         }
         first 'stop timer' then final;
         action final terminate;
+        metadata MigrationMetadata::SynthesizedName about wait, final;
     }
     perform action settle : Settle;
 }

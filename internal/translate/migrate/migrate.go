@@ -102,6 +102,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		results:      &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
 		w:            &writer{},
 		names:        map[*sysmlv1.Element]string{},
+		synthesized:  map[*sysmlv1.Element]bool{},
 		nodeNames:    map[*sysmlv1.Element]string{},
 		declared:     map[*sysmlv1.Element]bool{},
 		placeholders: map[*sysmlv1.Element]bool{},
@@ -166,6 +167,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		objectives:   map[*sysmlv1.Element]string{},
 		routeKinds:   routeKinds{},
 	}
+	m.w.marker = m.synthesizedNames
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
 			Source:       opts.LayoutSource,
@@ -260,6 +262,9 @@ type migration struct {
 	// activity nodes are written under, fixed by their writer or ahead of it.
 	names     map[*sysmlv1.Element]string
 	nodeNames map[*sysmlv1.Element]string
+	// synthesized marks the elements whose written name the migration made up,
+	// their source having left them unnamed; see madeUp.
+	synthesized map[*sysmlv1.Element]bool
 	// declared marks the activity nodes their graph's writer declared as members.
 	declared map[*sysmlv1.Element]bool
 	// placeholders are the activity nodes written as inert placeholders, and nodeEnds
@@ -831,6 +836,7 @@ func (m *migration) body(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	m.members(e)
+	m.w.markMadeUp(m.synthesizedNames)
 	m.scope = saved
 }
 
@@ -960,6 +966,7 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		verdict = Approximated
 		note = joinNotes(note, n)
 	}
+	m.madeUp(e, writeName(name))
 	if cat == catSimConfig {
 		m.simulationConfig(e, header, note)
 		return
@@ -1350,6 +1357,7 @@ func (m *migration) individualBody(e *sysmlv1.Element) {
 		for _, l := range lines {
 			m.w.line(l)
 		}
+		m.madeUp(f, writeName(m.nameFor(f)))
 		m.add(slot, verdictFor(note), m.v2Name(e)+"::"+writeName(m.nameFor(f)), note)
 	}
 	recorded()
@@ -1582,6 +1590,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 		decl := "objective"
 		if name := m.objectives[e]; name != "" {
 			decl += " " + writeName(name)
+			m.w.madeUp(writeName(name))
 		}
 		m.w.block(decl, func() {
 			for _, extra := range extras {
@@ -1599,6 +1608,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	}
 	m.views(e)
 	m.stereotypeAnnotations(e)
+	m.w.markMadeUp(m.synthesizedNames)
 	m.scope = saved
 }
 
@@ -1669,8 +1679,10 @@ func (m *migration) association(e *sysmlv1.Element) {
 		}
 		m.views(e)
 		m.stereotypeAnnotations(e)
+		m.w.markMadeUp(m.synthesizedNames)
 		m.scope = saved
 	})
+	m.madeUp(e, writeName(name))
 }
 
 // nameEnds settles the names the connection def written for association e
@@ -1718,6 +1730,7 @@ func (m *migration) associationEnd(e, end *sysmlv1.Element) {
 	decl += mult + collection(end) + ";"
 	tnote = joinNotes(tnote, mnote)
 	m.w.line(decl)
+	m.madeUp(end, writeName(endName))
 	if end.Parent == e {
 		m.add(end, verdictFor(tnote), m.v2Name(e)+"::"+writeName(endName), tnote)
 	}
@@ -1916,6 +1929,9 @@ func (m *migration) feature(p *sysmlv1.Element) {
 		m.scope = p
 		m.comments(p)
 		m.w.lines(bodyLines)
+		if payload != "" {
+			m.madeUp(p, writeName(m.nameFor(p)))
+		}
 		for _, c := range p.Children {
 			if c.Role != "defaultValue" {
 				m.member(c)
@@ -1925,8 +1941,12 @@ func (m *migration) feature(p *sysmlv1.Element) {
 			extra()
 		}
 		m.stereotypeAnnotations(p)
+		m.w.markMadeUp(m.synthesizedNames)
 		m.scope = saved
 	})
+	if name != "" {
+		m.madeUp(p, writeName(name))
+	}
 }
 
 // featureVisibility returns the visibility prefix written for a feature and
@@ -2479,6 +2499,7 @@ func (m *migration) connector(c *sysmlv1.Element) {
 	}
 	m.wroteEdge(c, m.scope, kw, m.nameOf(c))
 	m.w.block(decl, func() { m.metadataUsages(c) })
+	m.madeUp(c, writeName(m.nameOf(c)))
 	m.add(c, Mapped, target, note)
 	m.stereotypeComments(c)
 	for _, f := range m.flows[c] {
@@ -3000,6 +3021,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	decl := "dependency "
 	if name != "" {
 		decl += writeName(name) + " from "
+		m.madeUp(d, writeName(name))
 	}
 	decl += from + " to " + to
 	switch {
@@ -3059,6 +3081,7 @@ func (m *migration) satisfy(d, client, req *sysmlv1.Element, name string) (strin
 		decl := "satisfy requirement "
 		if name != "" {
 			decl += writeName(name) + " "
+			m.madeUp(d, writeName(name))
 		}
 		decl += ": " + m.ref(req, scope)
 		if by != "" {
@@ -3123,6 +3146,7 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 		decl := "verify requirement "
 		if name != "" {
 			decl += writeName(name) + " "
+			m.madeUp(d, writeName(name))
 		}
 		m.w.block(decl+": "+m.ref(req, client), func() { m.metadataUsages(d) })
 	})

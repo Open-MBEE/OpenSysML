@@ -360,6 +360,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -o view.mmd", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip", "unpositioned nodes in a strip below"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -384,7 +385,13 @@ func doc() usage.Doc {
 					"black-and-white style of the SysML v2 Pilot visualizer; -render-palette " +
 					"fills their nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
-					"viridis or cividis), keeping black text legible on every fill.",
+					"viridis or cividis), keeping black text legible on every fill. " +
+					"A DOT drawing of a view whose members carry DiagramLayout positions " +
+					"pins each at its stated place and leaves a member with no position " +
+					"undrawn, so nothing lands on a positioned box; -render-unplaced strip " +
+					"draws those members instead, in rows in a strip below the drawing. " +
+					"The same setting shapes the DOT diagrams of -render-document and " +
+					"-render-documents.",
 			},
 		}, {
 			Title: "Rendering a document",
@@ -586,6 +593,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where the dot form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn, strip draws them in rows below the drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory")
@@ -719,6 +727,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-all", "<dir>"),
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
+			usage.Opt("render-unplaced", "<placement>"),
 		},
 	}, {
 		Title: "Rendering documents",

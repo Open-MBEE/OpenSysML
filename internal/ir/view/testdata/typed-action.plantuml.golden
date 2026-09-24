@@ -42,9 +42,9 @@ skinparam wrapWidth 300
 hide stereotype
 hide empty description
 state "**run : Cycle**\n<size:10>//«action»//</size>" as n0 <<action>> <<usage>> {
-  state "**start**\n<size:10>//«initial»//</size>" as n1 <<start>>
+  state "**initial**" as n1 <<start>>
   state "**warm : Warm**\n<size:10>//«action»//</size>" as n2 <<action>> <<usage>>
-  state "**done**\n<size:10>//«final»//</size>" as n3 <<end>>
+  state "**final**" as n3 <<end>>
 }
 n1 --> n2
 n2 --> n3
