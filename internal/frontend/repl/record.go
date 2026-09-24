@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -210,11 +211,26 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	var runs []record.Run
 	var reasons []string
 	skipped := 0
+	// The conclusion adjudicates an unread output: one it supplies is the
+	// sample's and the row leaves it out; anything else failed the iteration.
+	concluded, cerr := sample.conclusion()
+	concludedNames := map[string]bool{}
+	if cerr == nil {
+		for _, out := range concluded.Outputs {
+			concludedNames[out.Name] = true
+		}
+	}
 	for _, run := range sample.completed {
-		outputs, oerr := run.IterationOutputs()
-		if oerr != nil {
+		var missing []string
+		for name := range run.Unread {
+			if !concludedNames[name] {
+				missing = append(missing, name)
+			}
+		}
+		if len(missing) > 0 {
+			sort.Strings(missing)
 			skipped++
-			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, oerr))
+			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, run.Unread[missing[0]]))
 			continue
 		}
 		own := map[*runtime.Context]bool{run.Context(): true}
@@ -222,14 +238,14 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Iteration: int(run.Number),
 			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
-			Outputs:   outputs,
+			Outputs:   run.Outputs,
 			Verdicts:  run.Verdicts,
 			Spell:     s.recordSpelling(own),
 		})
 	}
 	// The sample's own record carries what the run rows cannot: the statistics,
 	// the result and the sample's checks of the case's conclusion.
-	switch concluded, cerr := sample.conclusion(); {
+	switch {
 	case cerr != nil:
 		reasons = append(reasons, fmt.Sprintf("sample not recorded: %s", cerr))
 	case len(sample.completed) > 0:

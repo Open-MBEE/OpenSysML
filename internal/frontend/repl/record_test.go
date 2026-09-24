@@ -499,3 +499,23 @@ func TestRecordRunPrefixesASiblingsDefinition(t *testing.T) {
 	wants(t, run(t, fresh, "%record Demo::B::check"),
 		"recorded Demo::Records::B_check_run2")
 }
+
+// A second record settles a member the first left ScalarValue: the existing
+// definition is reused and the new record carries the concrete value.
+func TestRecordSettlesAnEarlierUnsetMember(t *testing.T) {
+	s := recordSession(t)
+	if errs := errorDiagnostics(s.Submit(`package Demo {
+	analysis def Settle { subject s : Probe; in m : Real[0..1]; out x : Real[0..1] = m; }
+	analysis settle : Settle { subject s = probe; }
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::settle"), "recorded Records::settle_run1")
+	if !strings.Contains(s.text(), "attribute x : ScalarValues::ScalarValue") {
+		t.Fatalf("the unset member is not ScalarValue:\n%s", s.text())
+	}
+	wants(t, run(t, s, "%record Demo::settle(2.0)"), "recorded Records::settle_run2")
+	if !strings.Contains(s.text(), "attribute :>> x = 2.0;") {
+		t.Errorf("the settled run did not record:\n%s", s.text())
+	}
+}
