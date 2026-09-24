@@ -285,6 +285,18 @@ func TestMarkdownQuantityReportGolden(t *testing.T) {
 	}
 }
 
+// TestMarkdownCollectionCells checks a `[0..*]` column: a row holding two values
+// renders them comma-joined in order and a row holding none renders empty.
+func TestMarkdownCollectionCells(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "collection_report.sysml"),
+		"Calibration::TimingReport")
+	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("rendering does not contain %q\n%s", want, got)
+	}
+}
+
 // TestMarkdownDerivedReportGolden locks a document whose table, list and
 // definitions read attributes derived from other features: sums of sibling
 // masses through type- and usage-level redefinitions, chains into owned parts,

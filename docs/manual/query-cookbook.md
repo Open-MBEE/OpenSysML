@@ -739,10 +739,14 @@ for the two connections in its results. Computed names join the projection:
 Every built-in property is reachable the same way — `Element::shortName`,
 `Element::declaredShortName` and `Element::documentation` included — so
 `(Element::shortName ?? "—") + ": " + Element::name` labels a row by its
-identifier. A column is one value per row: an element carrying two `doc`
-bodies fails a column over `Element::documentation` with a typed
-`column-cardinality` error, where the plain `"documentation"` projection
-above carries both.
+identifier. A column holds as many values as the feature it reads declares:
+`Element::documentation` is `[0..*]`, so an element carrying two `doc` bodies
+fills the cell with both in order (comma-joined in a document table) and one
+carrying none leaves it empty, while a feature declared without a multiplicity
+is one value per row — a row binding two fails the column with a typed
+`column-cardinality` error naming the declared bound, and a row binding none
+with `column-absent` unless `??` supplies a default. Operators always take one
+value per operand, so `Element::documentation + "."` over two bodies fails.
 
 Quantities take part in column arithmetic with the runtime's rules, so a
 column keeps its unit: `Stage::mass * 2` is `4580000 [kg]`, `Stage::mass /
