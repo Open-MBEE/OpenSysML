@@ -42,6 +42,19 @@
   color: var(--md-accent-fg-color);
 }
 
+/* An aside is set smaller and lighter than the sections it follows. */
+.osml-menu__list a.osml-menu__aside,
+.osml-footer-menu a.osml-menu__aside {
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+.osml-menu__list a.osml-menu__aside:focus,
+.osml-menu__list a.osml-menu__aside:hover,
+.osml-footer-menu a.osml-menu__aside:focus,
+.osml-footer-menu a.osml-menu__aside:hover {
+  opacity: 1;
+}
+
 .osml-menu__list hr {
   height: 1px;
   margin: 0.3rem 0;
