@@ -261,13 +261,19 @@ func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string,
 	if err != nil {
 		return record.Result{}, err
 	}
-	existing, err := s.recordExisting(fqn, pkg)
+	caseSym := s.recordCaseSymbol(fqn)
+	existing, err := s.recordExisting(caseSym, fqn, pkg)
 	if err != nil {
 		return record.Result{}, err
 	}
+	caseName := fqn
+	if caseSym != nil {
+		caseName = caseSym.Name
+	}
 	res, err := record.Generate(record.Request{
-		Package: pkg,
-		Case:    fqn,
+		Package:  pkg,
+		Case:     fqn,
+		CaseName: caseName,
 		Provenance: record.Provenance{
 			RunAt:   s.now(),
 			Tool:    s.toolVersion,
@@ -330,38 +336,86 @@ func enclosingPackage(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// recordCaseSymbol is the analysis case symbol fqn names, nil when the index
+// names none or several.
+func (s *Session) recordCaseSymbol(fqn string) *symbols.Symbol {
+	syms := s.symbolIndex().LookupQualified(fqn)
+	if len(syms) == 1 {
+		return syms[0]
+	}
+	return nil
+}
+
 // recordExisting is what the target package already declares of the shape
 // Generate must fit: the package itself, the case's record definition and the
-// record numbers already taken.
-func (s *Session) recordExisting(fqn, pkg string) (record.Existing, error) {
+// record numbers already taken. The stem the records are named from is the
+// case's name, owner-prefixed when a definition of the same name belongs to a
+// sibling case.
+func (s *Session) recordExisting(caseSym *symbols.Symbol, fqn, pkg string) (record.Existing, error) {
 	idx := s.symbolIndex()
 	var existing record.Existing
 	if len(idx.LookupQualified(pkg)) > 0 {
 		existing.Package = true
 	}
 	short := shortName(fqn)
-	def := pkg + "::" + upperFirst(short) + "Run"
-	defSyms := idx.LookupQualified(def)
-	if len(defSyms) > 0 {
+	if caseSym != nil {
+		short = caseSym.Name
+	}
+	// Candidate stems: the case's name, then each owner up the chain prefixed.
+	stems := []string{short}
+	if caseSym != nil {
+		var owners []string
+		for cur := caseSym.Owner(); cur != nil && cur.Name != ""; cur = cur.Owner() {
+			owners = append([]string{cur.Name}, owners...)
+			stems = append(stems, strings.Join(append(append([]string{}, owners...), short), "_"))
+		}
+	}
+	var sem *semantics.Model
+	for _, stem := range stems {
+		def := pkg + "::" + upperFirst(stem) + "Run"
+		defSyms := idx.LookupQualified(def)
+		if len(defSyms) == 0 {
+			existing.Stem = stem
+			break
+		}
 		runSyms := idx.LookupQualified("AnalysisRecords::AnalysisRun")
 		if len(runSyms) == 0 {
 			return existing, fmt.Errorf("the AnalysisRecords library is not loaded")
 		}
-		resolver := resolve.New(idx)
-		sem := semantics.NewModel(resolver)
-		resolver.SetModel(sem)
+		if sem == nil {
+			resolver := resolve.New(idx)
+			sem = semantics.NewModel(resolver)
+			resolver.SetModel(sem)
+		}
 		if !specializesOne(sem, defSyms[0], runSyms[0]) {
 			return existing, fmt.Errorf("%s is not an analysis record definition", def)
 		}
-		existing.Definition = true
-		existing.Attributes = recordAttributes(idx, sem, defSyms[0])
+		owner := recordDefOwner(defSyms[0])
+		switch {
+		case owner == "" || owner == fqn:
+			// Unowned or this case's own: reused.
+			existing.Definition = true
+			existing.Attributes = recordAttributes(idx, sem, defSyms[0])
+			existing.Stem = stem
+		default:
+			if stem == stems[len(stems)-1] {
+				return existing, fmt.Errorf("record definition %s belongs to %s; record into another package with `into`", def, owner)
+			}
+		}
+		if existing.Stem != "" {
+			break
+		}
+	}
+	stem := existing.Stem
+	if stem == "" {
+		stem = short
 	}
 	existing.Taken = map[int]bool{}
 	for _, sym := range idx.LookupQualified(pkg) {
 		if sym.Scope == nil {
 			continue
 		}
-		prefix := short + "_run"
+		prefix := stem + "_run"
 		for _, m := range sym.Scope.Members() {
 			tail, ok := strings.CutPrefix(m.Name, prefix)
 			if !ok {
@@ -373,6 +427,31 @@ func (s *Session) recordExisting(fqn, pkg string) (record.Existing, error) {
 		}
 	}
 	return existing, nil
+}
+
+// recordDefOwner is the case a record definition's caseName marks it for,
+// "" when it carries none (a hand-written definition, reused by any case).
+func recordDefOwner(def *symbols.Symbol) string {
+	if def.Scope == nil {
+		return ""
+	}
+	m, ok := def.Scope.LookupLocal("caseName")
+	if !ok {
+		return ""
+	}
+	u, ok := m.Decl.(*ast.Usage)
+	if !ok {
+		return ""
+	}
+	lit, ok := u.Value.(*ast.LiteralString)
+	if !ok {
+		return ""
+	}
+	owner, err := strconv.Unquote(lit.Value)
+	if err != nil {
+		return ""
+	}
+	return owner
 }
 
 // specializesOne reports whether def specializes want among its supertypes.

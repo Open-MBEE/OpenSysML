@@ -344,3 +344,81 @@ func TestRecordMonteCarloSkipsOutputErrors(t *testing.T) {
 		t.Errorf("the model holds a record of an unreadable run:\n%s", s.text())
 	}
 }
+
+// A case whose name needs quoting records under quoted names; the saved model
+// numbers the next record on.
+func TestRecordRunQuotesNames(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	const model = `package Demo {
+		private import ScalarValues::*;
+		analysis def Bound { out y : Real = 3.0; }
+		analysis 'fuel budget' : Bound;
+	}`
+	if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::'fuel budget'"),
+		"recorded Records::fuel budget_run1 (Records::Fuel budgetRun)")
+	for _, want := range []string{
+		"part def 'Fuel budgetRun' :> AnalysisRecords::AnalysisRun",
+		`attribute :>> caseName default = "Demo::fuel budget";`,
+		"part 'fuel budget_run1' : 'Fuel budgetRun'",
+	} {
+		if !strings.Contains(s.text(), want) {
+			t.Errorf("session text is missing %q:\n%s", want, s.text())
+		}
+	}
+
+	path := filepath.Join(t.TempDir(), "model.sysml")
+	if _, _, err := s.runMeta("%save " + path); err != nil {
+		t.Fatal(err)
+	}
+	fresh := recordSession(t)
+	res := fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}})
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("saved model has errors: %v", errs)
+	}
+	fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}})
+	wants(t, run(t, fresh, "%record Demo::'fuel budget'"),
+		"recorded Records::fuel budget_run2")
+}
+
+// A sibling case of the same short name does not take over the first case's
+// record definition: its own definition is named from its owner, in the model
+// and again after a save.
+func TestRecordRunPrefixesASiblingsDefinition(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	const model = `package Demo {
+		private import ScalarValues::*;
+		package A {
+			analysis def Check { out x : Real = 1.0; }
+			analysis check : Check;
+		}
+		package B {
+			analysis def Check { out x : Real = 2.0; }
+			analysis check : Check;
+		}
+	}`
+	if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	wants(t, run(t, s, "%record Demo::A::check"),
+		"recorded Demo::Records::check_run1 (Demo::Records::CheckRun)")
+	wants(t, run(t, s, "%record Demo::B::check"),
+		"recorded Demo::Records::B_check_run1 (Demo::Records::B_checkRun)")
+
+	path := filepath.Join(t.TempDir(), "model.sysml")
+	if _, _, err := s.runMeta("%save " + path); err != nil {
+		t.Fatal(err)
+	}
+	fresh := recordSession(t)
+	res := fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}})
+	if errs := errorDiagnostics(res.Diagnostics); len(errs) > 0 {
+		t.Fatalf("saved model has errors: %v", errs)
+	}
+	fresh.SubmitFiles([]SourceFile{{Name: path, Text: mustRead(t, path)}})
+	wants(t, run(t, fresh, "%record Demo::B::check"),
+		"recorded Demo::Records::B_check_run2")
+}
