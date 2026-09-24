@@ -270,7 +270,9 @@ workspace's own files declare.
 Renders one document definition to Markdown: the document is compiled to a plan,
 its queries are executed against the workspace model, and the result is written
 the way the REPL's `%render-document` and `sysml -render-document` write it. It is
-the same pipeline, run against the same workspace the diagnostics are computed from.
+the same pipeline, run against the same workspace the diagnostics are computed from,
+so a cross-document reference links the file name `sysml -render-documents <dir>`
+gives its target, tagged where the set would tag it.
 
 ```json
 { "name": "Observatory::MassReport" }

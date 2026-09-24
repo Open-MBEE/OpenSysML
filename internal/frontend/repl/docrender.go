@@ -1,7 +1,6 @@
 package repl
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -14,7 +13,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -97,7 +95,7 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 		for _, sibling := range s.documentSymbols(idx, sem) {
 			names = append(names, symbols.FQNOf(sibling))
 		}
-		if files, err = documentFiles(names, extension); err != nil {
+		if files, err = model.DocumentFiles(names, extension); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -160,7 +158,7 @@ func (s *Session) renderDocumentSet(
 	for _, sym := range syms {
 		names = append(names, symbols.FQNOf(sym))
 	}
-	files, err := documentFiles(names, extension)
+	files, err := model.DocumentFiles(names, extension)
 	if err != nil {
 		return nil, err
 	}
@@ -220,23 +218,6 @@ func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*s
 		return symbols.FQNOf(syms[i]) < symbols.FQNOf(syms[j])
 	})
 	return syms
-}
-
-// documentFiles plans the file each named document is written to in the form of
-// extension: its stem cut to fit, and tagged with a hash of the whole where two
-// would meet letter case aside. Two documents of one name cannot be told apart.
-func documentFiles(names []string, extension string) (map[string]string, error) {
-	files, err := filename.Plan(names, func(name string, tagged bool) string {
-		return filename.Fit(docrender.DocumentFileStem(name), extension, '.', tagged)
-	})
-	var collision *filename.CollisionError
-	if errors.As(err, &collision) {
-		if collision.Names[0] == collision.Names[1] {
-			return nil, fmt.Errorf("%s names more than one document; rename one so the name is unambiguous", notationName(collision.Names[0]))
-		}
-		return nil, fmt.Errorf("%s and %s render to one file name %s; rename one so both files can coexist", notationName(collision.Names[0]), notationName(collision.Names[1]), collision.File)
-	}
-	return files, err
 }
 
 // doRenderDocument carries out %render-document, printing the rendered
