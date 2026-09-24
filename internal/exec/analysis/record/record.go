@@ -378,7 +378,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 			// Integer and Real are one numeric family for the record
 			// definition: either way the member settles to Real, an Integer
 			// literal remaining valid under it.
-			if numericPair(cur.typ, sh.typ) {
+			if cur.kind != kindQuantity && sh.kind != kindQuantity && numericPair(cur.typ, sh.typ) {
 				cur = shape{kind: kindReal, typ: "ScalarValues::Real"}
 				shapes[m.name] = cur
 				continue
@@ -411,7 +411,8 @@ func buildFeatures(req *Request) ([]feature, error) {
 		f := feature{name: owner}
 		applyShape(&f, shapes[owner])
 		if err := compatible(&f, shapes[companion]); err != nil {
-			if !numericPair(shapes[owner].typ, shapes[companion].typ) {
+			if shapes[owner].kind == kindQuantity || shapes[companion].kind == kindQuantity ||
+				!numericPair(shapes[owner].typ, shapes[companion].typ) {
 				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
 			}
 			shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
