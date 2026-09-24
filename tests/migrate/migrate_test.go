@@ -331,6 +331,7 @@ var constructFixtures = []string{
 	"documents",
 	"figures",
 	"collectors",
+	"stereotype_filters",
 	"type_modifiers",
 	"table_homonyms",
 	"relation_subtypes",

@@ -83,6 +83,26 @@ func TestReadSymbolsRejectsOtherContent(t *testing.T) {
 	}
 }
 
+// A stream cut short is not read as a partial diagram: the symbols after the
+// cut are unknown, so the whole is unreadable.
+func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
+	whole := `<mdOwnedViews><mdElement elementClass="Class" xmi:id="_s1"><elementID xmi:idref="_a"/><mdOwnedViews><mdElement elementClass="Part" xmi:id="_s2"><elementID xmi:idref="_a_b"/></mdElement></mdOwnedViews></mdElement><mdElement elementClass="TextBox" xmi:id="_s3"/></mdOwnedViews>`
+	if _, err := readSymbols([]byte(whole), "_diag"); err != nil {
+		t.Fatalf("the whole stream: %v", err)
+	}
+	for name, stream := range map[string]string{
+		"root open":       `<mdOwnedViews>`,
+		"after a symbol":  whole[:strings.Index(whole, `<mdElement elementClass="TextBox"`)],
+		"inside a symbol": whole[:strings.Index(whole, `</mdOwnedViews></mdElement>`)],
+		"inside a tag":    whole[:len(whole)-3],
+		"mismatched end":  strings.Replace(whole, `</mdElement><mdElement elementClass="TextBox"`, `</mdOwnedViews><mdElement elementClass="TextBox"`, 1),
+	} {
+		if syms, err := readSymbols([]byte(stream), "_diag"); err == nil {
+			t.Errorf("%s: read as symbols %q", name, syms.shown)
+		}
+	}
+}
+
 // A diagram whose tool lists no used element is read from its stream in the
 // archive; one whose list names elements keeps the list; one whose stream is
 // absent or unreadable stays unread.
@@ -120,6 +140,17 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
           </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_cut" name="Cut" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmi:id="_d_cut_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents xmi:id="_d_cut_contents">
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-cut"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
         </ownedDiagram>`)),
 		`xmlns:diagram=`, `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diagram=`, 1)
 	m, err := Parse(archive(t, "", map[string][]byte{
@@ -128,6 +159,7 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 		"BINARY-empty":                          []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_empty"/></mdElement><mdElement elementClass="ImageShape"/></mdOwnedViews>`),
 		"BINARY-drawn":                          []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/><mdOwnedViews><mdElement elementClass="Part"><elementID xmi:idref="_a_b"/></mdElement></mdOwnedViews></mdElement></mdOwnedViews>`),
 		"BINARY-lost":                           []byte("\xff\xfe not a stream"),
+		"BINARY-cut":                            []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +187,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())
+	}
+	if d := byID["_d_cut"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
+		t.Errorf("truncated stream: drawn %v, shown %q, represented %v; want the diagram unread, not read in part", d.Drawn, shown(d), d.Represented())
 	}
 }
 

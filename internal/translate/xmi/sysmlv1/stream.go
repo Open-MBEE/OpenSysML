@@ -19,10 +19,14 @@ type symbols struct {
 // errNotSymbols reports a stream that is not a serialized diagram.
 var errNotSymbols = errors.New("the stream is not a serialized diagram: expected an mdOwnedViews root")
 
+// errTornSymbols reports a serialized diagram that ends before its symbols close.
+var errTornSymbols = errors.New("the serialized diagram is cut short: its symbols are not all closed")
+
 // readSymbols reads a MagicDraw diagram stream: each mdElement symbol, nested
 // to any depth, names in its elementID the element it stands for. A top-level
 // symbol naming none is free content, a pasted image or text box, counted by
 // class; the frame and property symbols name the diagram itself and are neither.
+// A stream that ends with a symbol open is torn, and what it drew is unknown.
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
@@ -70,8 +74,8 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 			}
 			stack = append(stack, f)
 		case xml.EndElement:
-			if len(stack) == 0 {
-				continue
+			if len(stack) == 0 || stack[len(stack)-1].tag != t.Name.Local {
+				return nil, errTornSymbols
 			}
 			f := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
@@ -82,6 +86,9 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	}
 	if !rooted {
 		return nil, errNotSymbols
+	}
+	if len(stack) > 0 {
+		return nil, errTornSymbols
 	}
 	return syms, nil
 }

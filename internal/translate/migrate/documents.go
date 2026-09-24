@@ -295,6 +295,9 @@ type chain struct {
 	holders []*sysmlv1.Element
 	// vague says which step left the holders, and so the diagrams, unknown.
 	vague string
+	// hazy says which step left only the holders unknown, the diagrams still
+	// known: a collect over the holders may add diagrams, and turns vague.
+	hazy string
 	// self says the chain started on the view itself, which exposes nothing.
 	self string
 	// dropped names the filter that kept none of the diagrams, while none is current.
@@ -353,7 +356,7 @@ func contains(ss []string, s string) bool {
 // a ref that resolves to no written element breaks the chain, though the
 // source elements stay followed for the diagrams they own.
 func (c *chain) roots(refs []sysmlv1.ElementRef, role string) {
-	c.ctx, c.diagrams, c.holders, c.vague, c.self, c.dropped, c.none, c.broken = qx{}, nil, nil, "", "", "", "", ""
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.self, c.dropped, c.none, c.broken = qx{}, nil, nil, "", "", "", "", "", ""
 	var names []string
 	for _, ref := range refs {
 		if d := c.m.model.Diagram(ref.ID); d != nil {
@@ -414,14 +417,23 @@ func (c *chain) empty() bool { return c.ctx.op == "" && c.ctx.lit == "" }
 
 // idle reports whether a query step has nothing at all to transform.
 func (c *chain) idle() bool {
-	return c.empty() && len(c.diagrams) == 0 && len(c.holders) == 0 && c.vague == ""
+	return c.empty() && len(c.diagrams) == 0 && len(c.holders) == 0 && c.vague == "" && c.hazy == ""
 }
 
-// blur records that a step left the source elements unknown, so the diagrams
-// a later collect would gather from them are unknown too.
+// blur records that a step left the source elements, diagrams among them,
+// unknown, so the diagrams a later collect would gather are unknown too.
 func (c *chain) blur(s *sysmlv1.DocGenStep, why string) {
 	if c.vague == "" {
 		c.vague = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " " + why
+	}
+	c.holders, c.hazy = nil, ""
+}
+
+// haze records that a step left the holders unknown while the diagrams, which
+// it decided, stay known: no diagram hides among the unknown until a collect.
+func (c *chain) haze(s *sysmlv1.DocGenStep, why string) {
+	if c.vague == "" && c.hazy == "" {
+		c.hazy = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " " + why
 	}
 	c.holders = nil
 }
@@ -574,7 +586,7 @@ func (c *chain) nothing(s *sysmlv1.DocGenStep) {
 
 // clear empties the chain for a known reason, which what follows reports.
 func (c *chain) clear(why string) {
-	c.ctx, c.diagrams, c.holders, c.vague = qx{}, nil, nil, ""
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy = qx{}, nil, nil, "", ""
 	c.dropped, c.none = why, why
 }
 
@@ -646,6 +658,10 @@ func (c *chain) collect(s *sysmlv1.DocGenStep, op string) {
 func (c *chain) collectHolders(op string, depth int) {
 	holders, diagrams := c.holders, c.diagrams
 	c.diagrams, c.dropped, c.none = nil, "", ""
+	// Unknown holders own unknown diagrams; their owners are elements only.
+	if c.hazy != "" && op != "Ancestors" {
+		c.vague, c.hazy = c.hazy, ""
+	}
 	if c.vague != "" {
 		c.holders = nil
 		return
@@ -705,7 +721,7 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 		return
 	}
 	diagrams, holders := c.diagrams, c.holders
-	c.ctx, c.diagrams, c.holders, c.dropped, c.none = qx{}, nil, nil, "", ""
+	c.ctx, c.diagrams, c.holders, c.dropped, c.none, c.hazy = qx{}, nil, nil, "", "", ""
 	if c.vague != "" {
 		c.fail(s, "the diagrams it reads are known only when the query runs, and no query operation reads what a diagram shows")
 		return
@@ -812,7 +828,7 @@ func (c *chain) collectAssociated(s *sysmlv1.DocGenStep) {
 	kind := c.aggregation(s)
 	// A diagram is no classifier, so it has no attributes to follow.
 	c.diagrams, c.dropped, c.none = nil, "", ""
-	if c.vague != "" {
+	if c.vague != "" || c.hazy != "" {
 		c.fail(s, "the elements it starts from are known only when the query runs, and no query operation tells a "+kind+" feature from the others")
 		return
 	}
@@ -903,8 +919,8 @@ func (c *chain) collectRelated(s *sysmlv1.DocGenStep) {
 	}
 	// A migrated diagram is a view, which is the end of no relationship.
 	c.diagrams, c.dropped, c.none = nil, "", ""
-	if len(c.holders) > 0 || !c.empty() {
-		c.blur(s, "follows relationships to elements only the query finds")
+	if len(c.holders) > 0 || c.hazy != "" || !c.empty() {
+		c.haze(s, "follows relationships to elements only the query finds")
 	}
 	if c.empty() {
 		return
@@ -1027,8 +1043,8 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 		return
 	}
 	types := c.diagramTypes(s)
-	holders, diagrams := c.holders, c.diagrams
-	c.ctx, c.holders, c.diagrams = qx{}, nil, nil
+	holders, diagrams, hazy := c.holders, c.diagrams, c.hazy
+	c.ctx, c.holders, c.diagrams, c.hazy = qx{}, nil, nil, ""
 	for _, d := range diagrams {
 		if d.Kind == "" {
 			c.blur(s, "keeps or drops the diagram '"+d.Name+"', whose diagram type the archive does not record")
@@ -1042,6 +1058,8 @@ func (c *chain) filterDiagramTypes(s *sysmlv1.DocGenStep) {
 	}
 	step := "«" + c.kind(s) + "» " + qualifiedName(s.Node)
 	switch {
+	case len(diagrams) == 0 && hazy != "":
+		c.none = step + " drops all the elements collected, whichever they are, and it keeps only diagrams: " + hazy
 	case len(diagrams) == 0 && len(holders) == 0:
 		return
 	case len(diagrams) == 0:
@@ -1092,7 +1110,7 @@ func (c *chain) keepHolders(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Element) (
 	for _, e := range c.holders {
 		ok, known := keep(e)
 		if !known {
-			c.blur(s, "keeps or drops the "+kindOf(e)+" "+qualifiedName(e)+", which cannot be told before the query runs")
+			c.haze(s, "keeps or drops the "+kindOf(e)+" "+qualifiedName(e)+", which cannot be told before the query runs")
 			return
 		}
 		if ok == include {
@@ -1301,7 +1319,7 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 	var results []qx
 	var diagrams []*sysmlv1.Diagram
 	var holders []*sysmlv1.Element
-	dropped, vague, none := c.dropped, c.vague, c.none
+	dropped, vague, hazy, none := c.dropped, c.vague, c.hazy, c.none
 	for _, branch := range s.Branches {
 		sub := c.sub()
 		sub.run(branch)
@@ -1330,16 +1348,22 @@ func (c *chain) join(s *sysmlv1.DocGenStep) {
 		if vague == "" {
 			vague = sub.vague
 		}
+		if hazy == "" {
+			hazy = sub.hazy
+		}
 	}
 	if s.Kind != "Union" {
 		c.abort(s, "its branches rejoin by "+strings.ToLower(s.Kind)+", which only a Union spelling exists for")
 		return
 	}
-	c.diagrams, c.dropped, c.holders, c.vague, c.none = diagrams, dropped, holders, vague, none
+	c.diagrams, c.dropped, c.holders, c.vague, c.hazy, c.none = diagrams, dropped, holders, vague, hazy, none
+	if vague != "" {
+		c.hazy = ""
+	}
 	if len(diagrams) > 0 {
 		c.dropped = ""
 	}
-	if len(diagrams) > 0 || len(holders) > 0 || len(results) > 0 || vague != "" {
+	if len(diagrams) > 0 || len(holders) > 0 || len(results) > 0 || vague != "" || hazy != "" {
 		c.none = ""
 	}
 	if len(results) == 0 {
@@ -1371,7 +1395,7 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	if !flows {
 		return
 	}
-	c.ctx, c.diagrams, c.holders, c.vague, c.broken = sub.ctx, sub.diagrams, sub.holders, sub.vague, sub.broken
+	c.ctx, c.diagrams, c.holders, c.vague, c.hazy, c.broken = sub.ctx, sub.diagrams, sub.holders, sub.vague, sub.hazy, sub.broken
 	c.dropped, c.none = sub.dropped, sub.none
 	for _, n := range sub.notes {
 		c.note(n)
@@ -1678,6 +1702,8 @@ func (c *chain) noDiagrams() string {
 	switch {
 	case c.dropped != "":
 		why = c.dropped
+	case c.hazy != "":
+		why = "no diagram is among the elements collected, whichever they are: " + c.hazy
 	case len(c.holders) == 0:
 		why = "nothing is collected for it to draw"
 	case len(c.holders) == 1:

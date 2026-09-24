@@ -1,6 +1,8 @@
 package migrate
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -154,45 +156,161 @@ func (m *migration) holderOfType(ref sysmlv1.ElementRef, e *sysmlv1.Element, der
 	if doc, name, ok := standardHref(t.Href); ok && doc == "UML" {
 		return umlIsA(e.Type, name)
 	}
-	name, id := m.stereotypeName(ref), ref.ID
-	if name == "" {
+	want := m.wantedStereotype(ref)
+	if want.name == "" {
 		return false, false
 	}
 	known = true
 	for _, s := range e.Stereotypes {
-		if s.Name == name {
+		same, told := want.same(appliedStereotype(s))
+		if same {
 			return true, true
 		}
+		known = known && told
 		if !derived {
 			continue
 		}
 		for _, g := range s.Generals {
-			if g.Name == name || g.ID == id || (t.ID != "" && g.ID == t.ID) {
+			if g == want.def || g.ID == ref.ID || (t.ID != "" && g.ID == t.ID) || (t.Href != "" && g.Href == t.Href) {
 				return true, true
 			}
+			same, told := want.same(m.generalStereotype(g))
+			if same {
+				return true, true
+			}
+			known = known && told
 		}
-		// Without the definition, what the application specializes is unknown.
-		if s.Definition == nil {
+		// Without the definition, what the application specializes is unknown,
+		// unless it comes from a standard or tool profile and the stereotype
+		// wanted is the user's: those profiles do not specialize the user's.
+		if s.Definition == nil && !(m.userWanted(want) && (isStandardNamespace(s.Namespace) || toolProfile(s.Namespace) != "")) {
 			known = false
 		}
 	}
 	return false, known
 }
 
-// stereotypeName is the local name of the stereotype ref names, "" when unknown.
-func (m *migration) stereotypeName(ref sysmlv1.ElementRef) string {
-	if s := m.model.StereotypeRef(ref.ID); s.Name != "" {
-		return s.Name
+// userWanted reports whether the stereotype wanted is defined in a user profile.
+func (m *migration) userWanted(want stereotypeID) bool {
+	return want.def != nil && m.userStereotype(want.def)
+}
+
+// stereotypeID identifies a stereotype as far as the documents tell: its
+// bundled definition, and the profile it belongs to by namespace or, for a
+// standard profile, by document.
+type stereotypeID struct {
+	name       string
+	def        *sysmlv1.Element
+	namespaces []string
+	doc        string
+}
+
+// same tells whether two stereotypes are one: the same definition, else the
+// same name in the same profile. told is false when the names agree but no
+// definition or profile is known on both sides to tell them apart.
+func (a stereotypeID) same(b stereotypeID) (same, told bool) {
+	if a.name == "" || b.name == "" {
+		return false, false
 	}
-	if t := ref.Element; t != nil {
-		if _, name, ok := standardHref(t.Href); ok {
-			return name
+	if !sysmlv1.SameName(a.name, b.name) {
+		return false, true
+	}
+	if a.def != nil && b.def != nil {
+		return a.def == b.def, true
+	}
+	if len(a.namespaces) > 0 && len(b.namespaces) > 0 {
+		for _, ns := range a.namespaces {
+			if slices.Contains(b.namespaces, ns) {
+				return true, true
+			}
 		}
-		if t.Type == "Stereotype" || t.IsProxy() {
-			return t.Name
+		return false, true
+	}
+	if a.doc != "" && b.doc != "" {
+		return fold(a.doc) == fold(b.doc), true
+	}
+	return false, false
+}
+
+// wantedStereotype identifies the stereotype a filter's element type ref
+// names: through the tool's stereotype table, a bundled definition, or the
+// standard document an href points into.
+func (m *migration) wantedStereotype(ref sysmlv1.ElementRef) stereotypeID {
+	sref := m.model.StereotypeRef(ref.ID)
+	id := stereotypeID{name: sref.Name}
+	if sref.Namespace != "" {
+		id.namespaces = []string{sref.Namespace}
+	}
+	for _, e := range []*sysmlv1.Element{sref.Element, ref.Element} {
+		if e != nil && e.Type == "Stereotype" && !e.IsProxy() {
+			id.def = e
+			break
 		}
 	}
-	return ""
+	if id.def != nil {
+		id.namespaces = append(id.namespaces, m.definitionNamespaces(id.def)...)
+		if id.name == "" {
+			id.name = id.def.Name
+		}
+	}
+	if t := ref.Element; t != nil && t.IsProxy() {
+		if doc, name, ok := standardHref(t.Href); ok {
+			id.doc = doc
+			if id.name == "" {
+				id.name = name
+			}
+		}
+		if id.name == "" {
+			id.name = t.Name
+		}
+	}
+	return id
+}
+
+// appliedStereotype identifies the stereotype an application instantiates.
+func appliedStereotype(s *sysmlv1.Stereotype) stereotypeID {
+	id := stereotypeID{name: s.Name, def: s.Definition}
+	if s.Namespace != "" {
+		id.namespaces = []string{s.Namespace}
+		if isStandardNamespace(s.Namespace) {
+			id.doc = hrefDocument(s.Namespace)
+		}
+	}
+	return id
+}
+
+// generalStereotype identifies a stereotype an application's definition
+// specializes: bundled, or a proxy into another document.
+func (m *migration) generalStereotype(g *sysmlv1.Element) stereotypeID {
+	id := stereotypeID{name: g.Name}
+	if !g.IsProxy() {
+		id.def = g
+		id.namespaces = m.definitionNamespaces(g)
+		return id
+	}
+	sref := m.model.StereotypeRef(g.Href)
+	if sref.Namespace != "" {
+		id.namespaces = []string{sref.Namespace}
+	}
+	if doc, name, ok := standardHref(g.Href); ok {
+		id.doc = doc
+		if id.name == "" {
+			id.name = name
+		}
+	}
+	if id.name == "" {
+		id.name = sref.Name
+	}
+	return id
+}
+
+// definitionNamespaces lists the XML namespaces the profile of a bundled
+// stereotype definition is applied under.
+func (m *migration) definitionNamespaces(def *sysmlv1.Element) []string {
+	if p := enclosingProfile(def); p != nil {
+		return m.profileNamespaces(p)
+	}
+	return nil
 }
 
 // diagramOwner is the element that owns d: the one it names, else the one

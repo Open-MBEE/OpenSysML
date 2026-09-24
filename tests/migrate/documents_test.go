@@ -654,3 +654,63 @@ func TestTableHomonymsAndMalformedTables(t *testing.T) {
 	wantInOrder(t, "Catalog Map Markdown", markdown(t, s, "Shop::'Catalog Map Document'"),
 		"# Catalog Map", "| qualifiedName | @type |", "| Shop::SeasonalCatalog | PartDefinition |", "| Shop::c1 | PartDefinition |")
 }
+
+// A stereotype filter tells stereotypes apart by the profile that defines
+// them, not by their local name: two «Critical» of different profiles differ,
+// a derived stereotype of the same profile matches, and an application of a
+// profile the document does not define leaves the filter undecided.
+func TestMigratedStereotypeFilters(t *testing.T) {
+	r := migrateFixtureFile(t, "stereotype_filters")
+	wantClean(t, "stereotype_filters.sysml", r)
+	notation := string(r.Notation)
+
+	section := func(name, next string) string {
+		from := strings.Index(notation, "part '"+name+"' : DocumentQueries::Section")
+		to := strings.Index(notation, "part '"+next+"' : DocumentQueries::Section")
+		if from < 0 || to < from {
+			t.Fatalf("no section %q before %q:\n%s", name, next, notation)
+		}
+		return notation[from:to]
+	}
+	// The Pump is «Safety Profile::Critical», the Valve «Cost Profile::Critical»,
+	// the Tank «Safety Profile::Vital» deriving from the former.
+	if body := section("Exact Critical Layouts", "Critical Figures"); strings.Count(body, "DocumentQueries::Diagram") != 1 || !strings.Contains(body, `caption = "Pump Layout"`) {
+		t.Errorf("Exact Critical Layouts draws other than the Pump's diagram:\n%s", body)
+	}
+	if body := section("Critical Layouts", "Satisfier Figures"); strings.Count(body, "DocumentQueries::Diagram") != 2 ||
+		!strings.Contains(body, `caption = "Pump Layout"`) || !strings.Contains(body, `caption = "Tank Layout"`) {
+		t.Errorf("Critical Layouts draws other than the Pump's and the Tank's diagrams:\n%s", body)
+	}
+	if body := section("Uncritical Figures", "Critical Layouts"); strings.Count(body, "DocumentQueries::Diagram") != 4 {
+		t.Errorf("Uncritical Figures does not keep every diagram, none being «Critical»:\n%s", body)
+	}
+	wantInOrder(t, "Critical Items query", notation,
+		"calc def 'Depot Handbook Critical Items Rows'",
+		`'metadata' = ("Safety Profile::Critical")`)
+
+	// The Hose's «Vendor::Critical» is of no profile the document defines, so
+	// whether it is the «Critical» wanted is not known before the query runs.
+	undecided := "«FilterByStereotypes» Depot Viewpoints::Owned Figures Viewpoint::Owned Figures Method::Filter By Stereotypes keeps or drops the «Block» Class Spares::Hose, which cannot be told before the query runs"
+	wantNote(t, r, "_st_owned_image", migrate.Unmapped, "the diagrams it shows are not known: "+undecided)
+	// A diagram-type filter drops whatever the undecided holders are, since
+	// none is a diagram: the Image after it knowingly draws nothing.
+	wantNote(t, r, "_st_figures_image", migrate.Mapped,
+		"it draws nothing: «FilterByDiagramType» Depot Viewpoints::Critical Figures Viewpoint::Critical Figures Method::Filter By Diagram Type drops all the elements collected, whichever they are, and it keeps only diagrams: "+
+			strings.Replace(undecided, "Owned Figures Viewpoint::Owned Figures Method", "Critical Figures Viewpoint::Critical Figures Method", 1)+"; an Image draws only diagrams")
+	if body := section("Critical Figures", "Uncritical Figures"); strings.Contains(body, "DocumentQueries::Diagram") {
+		t.Errorf("Critical Figures draws a diagram:\n%s", body)
+	}
+
+	// Elements found by following relationships are known only when the
+	// query runs, yet none is a diagram: a diagram-type filter leaves nothing,
+	// while collecting what they own may reach diagrams, so an Image after
+	// that is refused.
+	wantNote(t, r, "_st_sat_image", migrate.Mapped,
+		"it draws nothing: «FilterByDiagramType» Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Filter By Diagram Type drops all the elements collected, whichever they are, and it keeps only diagrams: «CollectByDirectedRelationshipStereotypes» Depot Viewpoints::Satisfier Figures Viewpoint::Satisfier Figures Method::Collect Satisfiers follows relationships to elements only the query finds; an Image draws only diagrams")
+	wantNote(t, r, "_st_satown_image", migrate.Unmapped,
+		"the diagrams it shows are not known: «CollectByDirectedRelationshipStereotypes» Depot Viewpoints::Satisfier Layouts Viewpoint::Satisfier Layouts Method::Collect Satisfiers follows relationships to elements only the query finds")
+
+	s := session(t, r)
+	wantInOrder(t, "Critical Items rows", rows(t, s, "'Depot Handbook'::'Depot Handbook Critical Items Rows'"),
+		"returned 2 rows", "Pump", "Tank")
+}
