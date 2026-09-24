@@ -1700,7 +1700,7 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
 	metaclass := crossFeatureMetaclass(false)
 	if end.port {
-		metaclass = "PortUsage"
+		metaclass = mPortUsage
 	}
 	e.typed(feature, metaclass)
 	e.graph.Add(feature, e.sysml(pElementID), rdf.String(rdf.LocalName(feature.Value)))
@@ -2055,14 +2055,13 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 			if rel == nil || rel.Target == nil || rel.Kind != kind {
 				continue
 			}
-			// A name is mapped as a reference, which links it when this document
-			// declares it; a feature chain is the chain Feature the materialized
-			// relationship owns, other expressions the text they were written as.
+			// A name is a reference; a feature chain is the chain Feature the
+			// materialized relationship owns, other expressions written text.
+			if k, chained := chains[rel]; chained {
+				e.graph.Add(subject, e.sysml(property), e.headChain(subject, rel.Target, k))
+				continue
+			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				if k, chained := chains[rel]; chained {
-					e.graph.Add(subject, e.sysml(property), e.headChain(subject, name, k))
-					continue
-				}
 				e.graph.Add(subject, e.sysml(property), e.reference(name))
 				continue
 			}
@@ -2072,9 +2071,7 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 }
 
 // chainTargets indexes the qualified-name relationship targets written as a
-// feature chain (`:>> a.b`), by order among the chains the head states. Only
-// the kinds a relationship element materializes for can own the chain; other
-// collapsed targets stay the text they were written as.
+// feature chain (`:>> a.b`), for the kinds a relationship element owns it for.
 func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 	chained := map[ast.RelationshipKind]bool{
 		ast.RelSpecializes: true, ast.RelSubsets: true,
@@ -2085,7 +2082,12 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 		if rel == nil || rel.Target == nil || !chained[rel.Kind] {
 			continue
 		}
-		if name, ok := rel.Target.(*ast.QualifiedName); ok && qualifiedNameHasChain(name) {
+		switch target := rel.Target.(type) {
+		case *ast.QualifiedName:
+			if qualifiedNameHasChain(target) {
+				chains[rel] = len(chains)
+			}
+		case *ast.FeatureChainExpr:
 			chains[rel] = len(chains)
 		}
 	}
@@ -2093,14 +2095,22 @@ func chainTargets(rels []*ast.Relationship) map[*ast.Relationship]int {
 }
 
 // headChain mints the chain Feature a head relationship's chain target stands
-// for (`:>> a.b`), which the materialized relationship owns as its
-// OwnedFeatureChain.
-func (e *encoder) headChain(subject rdf.Term, name *ast.QualifiedName, k int) rdf.Term {
+// for (`:>> a.b`), which the materialized relationship owns.
+func (e *encoder) headChain(subject rdf.Term, target ast.Node, k int) rdf.Term {
+	var links []rdf.Term
+	switch target := target.(type) {
+	case *ast.QualifiedName:
+		links = e.qualifiedChainReferences(target)
+	case *ast.FeatureChainExpr:
+		for _, segment := range featureChainSegments(target) {
+			links = append(links, e.reference(segment))
+		}
+	}
 	slot := fmt.Sprintf("chain%d", k)
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
-	e.featureChainings(chain, e.qualifiedChainReferences(name))
+	e.featureChainings(chain, links)
 	return chain
 }
 

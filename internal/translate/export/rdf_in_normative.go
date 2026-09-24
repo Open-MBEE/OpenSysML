@@ -565,9 +565,8 @@ func (d *decoder) verifyNormativeNodes() error {
 	return nil
 }
 
-// verifyChainFeature checks a chain feature stating both shapes — the
-// FeatureChaining relationships it owns and the derived chainingFeature list —
-// agrees with itself: a different order or set would leave two spellings.
+// verifyChainFeature checks a chain feature stating both shapes — owned
+// FeatureChainings and the derived chainingFeature list — agrees with itself.
 func (d *decoder) verifyChainFeature(subject rdf.Term) error {
 	stated := d.graph.Objects(subject, rdf.SysML+pChainingFeature)
 	owned := d.chainLinks(subject)

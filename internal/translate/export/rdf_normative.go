@@ -222,9 +222,7 @@ func (e *encoder) emitRelationship(subject, target rdf.Term, spec normativeRelat
 }
 
 // emitRelationshipAt is emitRelationship with the relationship element's IRI
-// already minted: a chain's FeatureChaining is an expression node, named by
-// position under the chain rather than a `_`-suffixed id, which a `_fc` escape
-// could not spell.
+// already minted: a chain's FeatureChaining is an expression node.
 func (e *encoder) emitRelationshipAt(subject, target rdf.Term, spec normativeRelationship, relation rdf.Term) {
 	if prior, taken := e.claim(relation.Value, "the "+spec.metaclass+" of "+relation.Value); taken && e.idErr == nil {
 		e.idErr = &UnsupportedError{
@@ -273,8 +271,7 @@ func (e *encoder) hasFeatureChaining(subject rdf.Term) bool {
 }
 
 // featureChainings relates a chain feature to its ordered links: one
-// FeatureChaining relationship per link (KerML Feature::ownedFeatureChaining),
-// plus the derived chainingFeature list this mapping also states.
+// FeatureChaining per link, beside the derived chainingFeature list.
 func (e *encoder) featureChainings(chain rdf.Term, links []rdf.Term) {
 	spec := normativeRelationship{
 		metaclass:  mFeatureChaining,

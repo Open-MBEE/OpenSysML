@@ -656,7 +656,7 @@ var expressionMetaclasses = map[string]bool{
 func isExpressionRoot(metaclass string) bool {
 	return expressionMetaclasses[metaclass] || metaclass == mReferenceSubsetting ||
 		metaclass == crossFeatureMetaclass(true) ||
-		metaclass == crossFeatureMetaclass(false) || metaclass == "PortUsage"
+		metaclass == crossFeatureMetaclass(false) || metaclass == mPortUsage
 }
 
 // isExpressionNode reports whether a subject is part of a declaration (an expression

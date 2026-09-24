@@ -579,6 +579,28 @@ above — `sysx:Alias`, `sysx:FilterMember`, `sysx:MultiplicityDeclaration`,
 `sysx:InitialNode`, `sysx:FinalNode`, `sysx:IfBranch` — are still accepted and
 written back as the standard element on the next hop.
 
+The qualified usages spell their qualifier from the metaclass alone, so a graph
+that carries no `sysx:declaredKeyword`/`sysx:declaredPrefix` still writes the
+keyword the grammar qualified it with (SysML.xtext `PerformActionUsage`,
+`ExhibitStateUsage`, `IncludeUseCaseUsage`, `AssertConstraintUsage`,
+`SatisfyRequirementUsage`):
+
+| Metaclass | Named | Unnamed reference form |
+|-----------|-------|------------------------|
+| `sysml:PerformActionUsage` | `perform action pa : A` | `perform a1;`, `perform sub.sa :>> a2;` |
+| `sysml:ExhibitStateUsage` | `exhibit state es : S` | `exhibit s1;`, `exhibit sub.ss :>> s2;` |
+| `sysml:IncludeUseCaseUsage` | `include use case iu : U` | `include u1;` |
+| `sysml:AssertConstraintUsage` | `assert constraint ac : C` | `assert c1;` |
+| `sysml:SatisfyRequirementUsage` | `satisfy requirement sr : R` | `satisfy r1;` |
+
+An unnamed one reads its target from `sysml:references` (or `includes`/`subsets`
+where another writer collapses it there) — a chain target comes back as the
+`a.b` text its chain feature states. An unnamed `assert` that owns members or a
+`not` stays the anonymous declaration `assert constraint references c1`, which
+the reference form cannot say. A `sysx:declaredKeyword`/`sysx:declaredPrefix`
+that contradicts the metaclass (`perform` on a plain `sysml:ActionUsage`) is
+refused rather than one of the two written.
+
 The rest of the membership-side metaclasses the notation implies are
 standard: the mapping materializes each as the relationship element the OMG
 metamodel defines for it, so a consumer reading elements rather than notation
@@ -1390,12 +1412,19 @@ expr:P__Car___402_pend0_om
 ```
 
 `sysml:connectorEnd` is ordered by its `json:connectorEnd` annotation. Each end
-is a `ReferenceUsage` with `sysml:isEnd`, an `EndFeatureMembership`, and an
+is a `ReferenceUsage` with `sysml:isEnd` — a `PortUsage` for an `interface`'s
+end, whose grammar declares `InterfaceEnd returns SysML::PortUsage`
+(SysML.xtext) against `ConnectorEnd returns ReferenceUsage` — an
+`EndFeatureMembership`, and an
 owned `ReferenceSubsetting` whose `sysml:referencedFeature` names the linked
 feature (or a literal when the name is not resolved). Named ends carry `sysml:declaredName` and `sysml:name`; multiplicity
 bounds are on the end. A qualified target such as `rover.telemetry` is an
-owned `sysml:Feature` whose ordered `sysml:chainingFeature` values are the
-segments, and the end references that chain feature:
+owned `sysml:Feature` — a *chain feature* — that owns one `sysml:FeatureChaining`
+relationship per link, in order, and keeps the derived `sysml:chainingFeature`
+list beside it; the end's `ReferenceSubsetting` owns the chain as its
+`sysml:ownedRelatedElement` (KerML `OwnedReferenceSubsetting`:
+`ownedRelatedElement += OwnedFeatureChain`) and names it as its
+`referencedFeature`:
 
 ```turtle
 expr:P__Car___402_pend0
@@ -1405,14 +1434,55 @@ expr:P__Car___402_pend0
     sysml:name "bead" ;
     sysml:ownedReferenceSubsetting expr:P__Car___402_pend0_prs .
 
-expr:P__Car___402_pend0_chain
+expr:P__Car___402_pend0_pchain
     a sysml:Feature ;
-    sysml:chainingFeature elmt:P__rover, elmt:P__telemetry .
+    sysml:chainingFeature elmt:P__rover, elmt:P__telemetry ;
+    sysml:owningRelationship expr:P__Car___402_pend0_prs ;
+    sysml:owner expr:P__Car___402_pend0 ;
+    sysml:ownedRelationship expr:P__Car___402_pend0_pchain_pfc0,
+        expr:P__Car___402_pend0_pchain_pfc1 .
+
+expr:P__Car___402_pend0_pchain_pfc0
+    a sysml:FeatureChaining ;
+    sysml:chainingFeature elmt:P__rover ;
+    sysml:featureChained expr:P__Car___402_pend0_pchain ;
+    sysml:source expr:P__Car___402_pend0_pchain ;
+    sysml:target elmt:P__rover ;
+    sysml:relatedElement expr:P__Car___402_pend0_pchain, elmt:P__rover ;
+    sysml:owningRelatedElement expr:P__Car___402_pend0_pchain .
+
+expr:P__Car___402_pend0_pchain_pfc1
+    a sysml:FeatureChaining ;
+    sysml:chainingFeature elmt:P__telemetry ;
+    sysml:featureChained expr:P__Car___402_pend0_pchain ;
+    sysml:source expr:P__Car___402_pend0_pchain ;
+    sysml:target elmt:P__telemetry ;
+    sysml:relatedElement expr:P__Car___402_pend0_pchain, elmt:P__telemetry ;
+    sysml:owningRelatedElement expr:P__Car___402_pend0_pchain .
 
 expr:P__Car___402_pend0_prs
     a sysml:ReferenceSubsetting ;
-    sysml:referencedFeature expr:P__Car___402_pend0_chain .
+    sysml:referencedFeature expr:P__Car___402_pend0_pchain ;
+    sysml:ownedRelatedElement expr:P__Car___402_pend0_pchain .
 ```
+
+The same chain feature carries a chain target a head relationship states
+(`redefines a.b`, `:>> a.b`, `references a.b`): the chain's `sysml:chainingFeature`
+property of the head names the chain element, and the materialized
+`Redefinition`, `Subsetting` or `ReferenceSubsetting` owns it the same way
+(KerML `OwnedRedefinition`/`OwnedSubsetting`/`OwnedReferenceSubsetting`). A chain
+link that resolves to a graph element is written as its IRI, and one that does
+not as `{"@ref": "<name>"}` in the JSON element form — a `sysx:Expression` typed
+literal in Turtle — never a bare string; in a `FeatureChaining` the link is the
+single-valued `sysml:chainingFeature`, in the derived list it is one entry.
+Reading a graph back accepts three shapes of the same chain: the normative
+`FeatureChaining` elements alone (which is what other tools write), the derived
+`sysml:chainingFeature` list alone (what earlier releases of this one wrote),
+and both together — where the ordered links disagree, the graph is refused
+rather than read one way. A chain reached in an expression
+(`attribute x = a.b.c;`) is the nested `sysml:FeatureChainExpression` tree, and
+the chain a `a.b()` invocation reaches is a chain feature an `sysml:OwningMembership`
+owns (KerML `OwnedFeatureChainMember`), the same element an end's carries.
 
 For a binary connector, `sysml:sourceFeature` and `sysml:targetFeature`
 identify the two related features; `sysml:relatedFeature` remains the
@@ -1521,7 +1591,12 @@ proves the second hop loses nothing. `TestBindingEndsAreStatedAsStructure` cover
 **A succession carries its two ends.** Every succession is one node naming
 the members it sequences, whether it was written as its own member
 (`succession first a then b;`) or attached to one (`then action b : B;`, which
-the parser desugars to the same edge), so the order a model declares survives
+the parser desugars to the same edge). Its ends are the two `sysml:ReferenceUsage`
+elements an `sysml:EndFeatureMembership` each owns (SysML.xtext `TargetSuccession`):
+the `then` form's first end is the *empty source end* — a `ReferenceUsage` with
+`sysml:isEnd` and no `ReferenceSubsetting`, since the notation names no feature
+for it — and the second reference-subsets the member the `then` sequences to,
+so the order a model declares survives
 the hop:
 
 ```turtle

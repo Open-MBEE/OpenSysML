@@ -189,9 +189,8 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 				Note: fmt.Sprintf("its literal is not JSON: %v", err),
 			}
 		}
-		// The members agree with the triples (ReconcileCollections), so they are
-		// spelled the way a scalar is — an unresolved name on an object property
-		// as {"@ref": <name>}, not the bare string the annotation stores.
+		// The members spell the way a scalar does: an unresolved name on an
+		// object property as {"@ref": <name>}, not the bare string stored.
 		values := make([]any, 0, len(objects))
 		for _, object := range objects {
 			value, err := apiJSONScalar(subject, key, object, objectProperty)
