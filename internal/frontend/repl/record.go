@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/record"
@@ -118,9 +119,10 @@ func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string
 		Outputs:     run.result.Outputs,
 		Verdicts:    run.result.Verdicts,
 		Evaluations: run.result.Evaluations,
+		Spell:       s.recordSpelling(contexts),
 	}
-	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec}, contexts)
-	return s.recorded(verdict, res, rerr, 0)
+	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec})
+	return s.recorded(verdict, res, rerr, 0, nil)
 }
 
 // RecordSweep runs the invocation once per row of the ranges as RunSweep does
@@ -160,30 +162,27 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 	}
 	verdict := standing(s.sweepReport(inv, table, sweepDraws{}), plan)
 	var runs []record.Run
-	contexts := map[*runtime.Context]bool{}
 	skipped := 0
 	for i, row := range table.Rows {
 		if row.Err != nil {
 			skipped++
 			continue
 		}
-		contexts[row.Context] = true
+		// Each row's values spell in its own context: instance ids restart per
+		// row, so a value means nothing read through another row's.
+		own := map[*runtime.Context]bool{row.Context: true}
 		runs = append(runs, record.Run{
 			Iteration:   i + 1,
+			Subject:     s.recordSubject(row.Subject, inv.object, own),
 			Inputs:      row.Inputs,
 			Outputs:     row.Outputs,
 			Verdicts:    row.Verdicts,
 			Evaluations: row.Evaluations,
+			Spell:       s.recordSpelling(own),
 		})
 	}
-	for i, row := range table.Rows {
-		if row.Err != nil {
-			continue
-		}
-		runs[recordedIndex(table, i)].Subject = s.recordSubject(row.Subject, inv.object, contexts)
-	}
-	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, runs, contexts)
-	return s.recorded(verdict, res, rerr, skipped)
+	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, runs)
+	return s.recorded(verdict, res, rerr, skipped, nil)
 }
 
 // RecordMonteCarlo runs the invocation count times as RunMonteCarlo does and
@@ -206,20 +205,27 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	}
 	fqn := sampleRunsCase(sample)
 	var runs []record.Run
-	contexts := map[*runtime.Context]bool{}
+	var reasons []string
+	skipped := 0
 	for _, run := range sample.completed {
-		contexts[run.Context()] = true
+		if run.OutputErr != nil {
+			skipped++
+			reasons = append(reasons, fmt.Sprintf("run %d not recorded: %s", run.Number, run.OutputErr))
+			continue
+		}
+		own := map[*runtime.Context]bool{run.Context(): true}
 		runs = append(runs, record.Run{
 			Iteration: int(run.Number),
-			Subject:   s.recordSubject(run.Subject, inv.object, contexts),
+			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
 			Outputs:   run.Outputs,
 			Verdicts:  run.Verdicts,
+			Spell:     s.recordSpelling(own),
 		})
 	}
-	skipped := len(sample.table.Rows) - len(runs)
-	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, runs, contexts)
-	return s.recorded(verdict, res, rerr, skipped)
+	skipped += len(sample.table.Rows) - len(sample.completed)
+	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, runs)
+	return s.recorded(verdict, res, rerr, skipped, reasons)
 }
 
 // sampleRunsCase is the qualified name of the case a sample's runs were made
@@ -248,21 +254,9 @@ func (s *Session) recordSubject(inst *runtime.Instance, label string, contexts m
 	return record.Subject{Text: label}
 }
 
-// recordedIndex is a kept row's position among the rows recorded, for filling
-// its subject once every row's context is gathered.
-func recordedIndex(table runtime.SweepTable, row int) int {
-	n := 0
-	for i := 0; i < row; i++ {
-		if table.Rows[i].Err == nil {
-			n++
-		}
-	}
-	return n
-}
-
 // recordRuns generates the record declarations for runs of the case fqn names,
 // submits them, and returns what was generated.
-func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string, runs []record.Run, contexts map[*runtime.Context]bool) (record.Result, error) {
+func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string, runs []record.Run) (record.Result, error) {
 	pkg, err := s.recordPackage(fqn, into)
 	if err != nil {
 		return record.Result{}, err
@@ -282,7 +276,6 @@ func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string,
 		},
 		Runs:     runs,
 		Existing: existing,
-		Spell:    s.recordSpelling(contexts),
 	})
 	if err != nil {
 		return record.Result{}, err
@@ -363,10 +356,20 @@ func (s *Session) recordExisting(fqn, pkg string) (record.Existing, error) {
 		existing.Definition = true
 		existing.Attributes = recordAttributes(idx, sem, defSyms[0])
 	}
-	for n := 1; ; n++ {
-		if len(idx.LookupQualified(fmt.Sprintf("%s::%s_run%d", pkg, short, n))) == 0 {
-			existing.NextRun = n
-			break
+	existing.Taken = map[int]bool{}
+	for _, sym := range idx.LookupQualified(pkg) {
+		if sym.Scope == nil {
+			continue
+		}
+		prefix := short + "_run"
+		for _, m := range sym.Scope.Members() {
+			tail, ok := strings.CutPrefix(m.Name, prefix)
+			if !ok {
+				continue
+			}
+			if n, err := strconv.Atoi(tail); err == nil {
+				existing.Taken[n] = true
+			}
 		}
 	}
 	return existing, nil
@@ -456,7 +459,10 @@ func (s *Session) recordSpelling(contexts map[*runtime.Context]bool) record.Spel
 // recorded finishes a record verdict: the run's own report, then what the
 // model gained, the count of rows skipped, or the failure that left it
 // untouched.
-func (s *Session) recorded(verdict Verdict, res record.Result, err error, skipped int) Verdict {
+func (s *Session) recorded(verdict Verdict, res record.Result, err error, skipped int, reasons []string) Verdict {
+	for _, reason := range reasons {
+		verdict.Lines = append(verdict.Lines, "  "+reason)
+	}
 	if err != nil {
 		return s.recordFailed(verdict, err)
 	}

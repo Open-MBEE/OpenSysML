@@ -256,3 +256,91 @@ func TestSplitRecordArgsLeavesIntoInNames(t *testing.T) {
 		t.Errorf(`c("go into it") into P: inv %+v, into %q, err %v`, inv, into, err)
 	}
 }
+
+// Each sweep row's values spell in its own context: instance ids restart per
+// row, so one row's object means nothing read through another row's.
+func TestRecordSweepSpellsObjectsInTheirOwnContext(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	if errs := errorDiagnostics(s.Submit(`package Demo {
+	private import ScalarValues::*;
+	private import ControlFunctions::*;
+	part def Probe { attribute t : Real = 1.0; }
+	part a : Probe;
+	part b : Probe;
+	analysis def Pick {
+		subject s : Probe;
+		in n : Real;
+		out chosen : Probe = 'if'(n < 2.0, a, b);
+	}
+	analysis pick : Pick { subject s = a; in n = 1.0; }
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	v := s.RecordSweep("Demo::pick", []string{"n=1..2"}, "", "%record Demo::pick")
+	if v.Status != VerdictHolds {
+		t.Fatalf("record sweep: %v", v.Lines)
+	}
+	text := s.text()
+	for _, want := range []string{"ref :>> chosen = Demo::a;", "ref :>> chosen = Demo::b;"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("recorded model is missing %q:\n%s", want, text)
+		}
+	}
+}
+
+// Record numbers fill the gaps a package's earlier records leave rather than
+// renumbering on from the first free prefix.
+func TestRecordNumbersIntoTheGaps(t *testing.T) {
+	s := recordSession(t)
+	if errs := errorDiagnostics(s.Submit(`package Records { part timed_run2 : Demo::Probe; }`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	v := s.RecordSweep("Demo::timed", []string{"gain=1..2"}, "", "%record Demo::timed")
+	if v.Status != VerdictHolds {
+		t.Fatalf("record sweep: %v", v.Lines)
+	}
+	for _, want := range []string{"part timed_run1 :", "part timed_run3 :"} {
+		if !strings.Contains(s.text(), want) {
+			t.Errorf("recorded model is missing %q:\n%s", want, s.text())
+		}
+	}
+}
+
+// A Monte Carlo run whose declared output errors is not recorded; the report
+// says which run and why.
+func TestRecordMonteCarloSkipsOutputErrors(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	if errs := errorDiagnostics(s.Submit(`package MC {
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	part def Probe {
+		attribute t : Real;
+		action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+	}
+	individual def probe :> Probe;
+	analysis def Mc :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		return Mean : Real = mean;
+		out Bad : Real = 1.0 / 0.0;
+	}
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	run(t, s, "%instantiate MC::probe")
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Mc MC::probe", 1, &seed, "", "%record MC::Mc")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "run 1 not recorded:") {
+		t.Errorf("the skipped run is not reported:\n%s", out)
+	}
+	if strings.Contains(out, "recorded MC::Mc") && !strings.Contains(out, "nothing was recorded") {
+		t.Errorf("a run whose output errored was recorded anyway:\n%s", out)
+	}
+	if strings.Contains(s.text(), "Mc_run1") {
+		t.Errorf("the model holds a record of an unreadable run:\n%s", s.text())
+	}
+}
