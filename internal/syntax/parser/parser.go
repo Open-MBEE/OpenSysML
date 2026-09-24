@@ -36,6 +36,10 @@ type Parser struct {
 	// as a declaration name.
 	Warnings []Diagnostic
 
+	// undefinedOps are the `~` operator expressions the parse built, in source
+	// order; ParseFile hands them to the root.
+	undefinedOps []*ast.OperatorExpr
+
 	// calcBodyDepth counts the calculation bodies being parsed, so a `return`
 	// reached in a statement position inside one is read as the result
 	// parameter it declares rather than as an unknown action keyword.
@@ -117,9 +121,10 @@ func (p *Parser) bodyContext() bodyContext {
 
 // parseCheckpoint captures parser state for backtracking.
 type parseCheckpoint struct {
-	pos           int
-	diagnosticLen int
-	warningLen    int
+	pos            int
+	diagnosticLen  int
+	warningLen     int
+	undefinedOpLen int
 	// triv is a copy of the pending trivia at the checkpoint; trivLogLen is
 	// how much of trivLog was already lexed then.
 	triv        []ast.Trivia
@@ -489,6 +494,7 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 		}
 	}
 	root.NodeSpan = p.spanFrom(start)
+	root.UndefinedOperators = p.undefinedOps
 	return root
 }
 
@@ -497,13 +503,14 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 func (p *Parser) checkpoint() parseCheckpoint {
 	p.checkpoints++
 	return parseCheckpoint{
-		pos:           p.pos,
-		diagnosticLen: len(p.Diagnostics),
-		warningLen:    len(p.Warnings),
-		triv:          slices.Clone(p.triv),
-		trivLogLen:    len(p.trivLog),
-		pendingSpan:   p.pendingComment,
-		hadPending:    p.hasPendingComment,
+		pos:            p.pos,
+		diagnosticLen:  len(p.Diagnostics),
+		warningLen:     len(p.Warnings),
+		undefinedOpLen: len(p.undefinedOps),
+		triv:           slices.Clone(p.triv),
+		trivLogLen:     len(p.trivLog),
+		pendingSpan:    p.pendingComment,
+		hadPending:     p.hasPendingComment,
 	}
 }
 
@@ -515,6 +522,7 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.pos = cp.pos
 	p.Diagnostics = p.Diagnostics[:cp.diagnosticLen]
 	p.Warnings = p.Warnings[:cp.warningLen]
+	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
 	p.pendingComment = cp.pendingSpan
 	p.hasPendingComment = cp.hadPending
 	p.triv = append(cp.triv, p.trivLog[cp.trivLogLen:]...)

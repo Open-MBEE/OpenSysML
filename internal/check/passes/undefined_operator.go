@@ -19,25 +19,22 @@ type UndefinedOperatorPass struct{}
 // later-tier failure never hides the warning.
 func (UndefinedOperatorPass) Level() PassLevel { return LevelSyntax }
 
-// Run walks the parsed tree and warns at each `~` operator expression. It stays
-// a warning in every conformance mode: the specification asks for a warning,
-// not a rejection.
+// Run warns at each `~` operator expression the parser recorded on the root.
+// It stays a warning in every conformance mode: the specification asks for a
+// warning, not a rejection.
 func (UndefinedOperatorPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if root == nil {
 		return nil
 	}
-	var diags []diag.Diagnostic
-	ast.Inspect(root, func(n ast.Node) bool {
-		if e, ok := n.(*ast.OperatorExpr); ok && e.Operator == ast.OpBitNot {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.SeverityWarning,
-				Span:     e.Span(),
-				Message:  msgUndefinedOperator,
-				Code:     codeUndefinedOperator,
-				Source:   "syntax",
-			})
-		}
-		return true
-	})
+	diags := make([]diag.Diagnostic, 0, len(root.UndefinedOperators))
+	for _, e := range root.UndefinedOperators {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.SeverityWarning,
+			Span:     e.Span(),
+			Message:  msgUndefinedOperator,
+			Code:     codeUndefinedOperator,
+			Source:   "syntax",
+		})
+	}
 	return diags
 }

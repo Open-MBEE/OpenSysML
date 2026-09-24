@@ -188,6 +188,9 @@ func (p *Parser) parseUnary() ast.Node {
 	operand := p.parseUnary()
 	e := &ast.OperatorExpr{Operator: op, Operands: []ast.Node{operand}}
 	e.NodeSpan = p.spanFrom(start)
+	if op == ast.OpBitNot {
+		p.undefinedOps = append(p.undefinedOps, e)
+	}
 	return e
 }
 
