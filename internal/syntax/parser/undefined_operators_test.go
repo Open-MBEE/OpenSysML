@@ -49,12 +49,22 @@ func TestUndefinedOperatorsRecordsNestedTildes(t *testing.T) {
 
 // A checkpoint restore drops the `~` sites the abandoned attempt recorded.
 func TestUndefinedOperatorsFollowsRestore(t *testing.T) {
-	// `attribute a = ~1` inside the first package parses; a second top-level
-	// member cannot start mid-expression, so anything the abandoned try-parse
-	// of a mistaken shape recorded must not leak into the root list.
-	src := "package p { attribute a = ~1; } package q { attribute b = ~2; }"
-	root := New(source.New("t.sysml", []byte(src))).ParseFile()
-	if len(root.UndefinedOperators) != 2 {
-		t.Fatalf("UndefinedOperators len = %d, want 2", len(root.UndefinedOperators))
+	p := newParser("~x + ~y")
+	if p.parseUnary(); len(p.undefinedOps) != 1 {
+		t.Fatalf("after ~x: len = %d, want 1", len(p.undefinedOps))
+	}
+	cp := p.checkpoint()
+	p.advance() // '+'
+	if p.parseUnary(); len(p.undefinedOps) != 2 {
+		t.Fatalf("after ~y: len = %d, want 2", len(p.undefinedOps))
+	}
+	p.restore(cp)
+	p.release()
+	if len(p.undefinedOps) != 1 || p.undefinedOps[0].Span().Offset != 0 {
+		t.Fatalf("after restore: %d ops, want only the ~ at offset 0", len(p.undefinedOps))
+	}
+	p.advance() // '+'
+	if p.parseUnary(); len(p.undefinedOps) != 2 || p.undefinedOps[1].Span().Offset != 5 {
+		t.Fatalf("after reparse: %d ops, want the ~ at offset 5 second", len(p.undefinedOps))
 	}
 }
