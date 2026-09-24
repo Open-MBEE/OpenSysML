@@ -247,6 +247,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 			Verdicts:    result.Verdicts,
 			Subject:     result.Subject,
 			Evaluations: result.Evaluations,
+			Inputs:      result.Inputs,
 		}, err
 	}
 

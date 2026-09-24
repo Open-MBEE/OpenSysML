@@ -453,6 +453,29 @@ type calcRun struct {
 	// perf is the case's performance, whose steps an output binding reads by name
 	// (`step.pin`); nil for a calc, which performs none.
 	perf *actionFrame
+	// boundInputs are the values the run's input parameters were bound to.
+	boundInputs []InputBinding
+}
+
+// boundInputs are the values each non-subject input parameter of shape was
+// bound to in env, in declaration order.
+func boundInputs(shape *calcShape, env frame) []InputBinding {
+	var inputs []InputBinding
+	for i := range shape.Params {
+		param := &shape.Params[i]
+		if param.IsSubject {
+			continue
+		}
+		if value, ok := env.lookup(param.Name); ok {
+			inputs = append(inputs, InputBinding{Name: param.Name, Value: value})
+		}
+	}
+	return inputs
+}
+
+// inputs are the values the run's input parameters were bound to.
+func (run *calcRun) inputs() []InputBinding {
+	return run.boundInputs
 }
 
 // newCalcRun holds the environment one evaluation of a calc computed.
@@ -574,6 +597,9 @@ type calcUsageStart struct {
 	// deferResults leaves the results ending the steps unrun, for a Monte Carlo to
 	// evaluate over its sample once the run's observation is in.
 	deferResults bool
+	// inputs are the values each input parameter was bound to, captured before the
+	// body runs so a body's assignments cannot rewrite what it was given.
+	inputs []InputBinding
 }
 
 // beginCalcUsage binds the usage's inputs and makes ready to run its body; the
@@ -630,6 +656,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 	if err != nil {
 		return nil, err
 	}
+	start.inputs = boundInputs(shape, start.env)
 	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
 	// A usage nested in a behavior body computes over that body's bindings, as
 	// an invocation of it does.
@@ -885,7 +912,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer, run.result, run.returned = nested, result, returned
-	run.activation, run.perf = engine.activation, host.performance()
+	run.activation, run.perf, run.boundInputs = engine.activation, host.performance(), start.inputs
 	// The returned value is the result parameter's, read under its name or as
 	// `result`; every other output states its own value, never the returned one.
 	if returned {

@@ -75,6 +75,12 @@ type MonteCarloRun struct {
 	// Observed is the value the run's `observed` came to, null when the run left it unbound.
 	Observed Value
 
+	// Inputs are the values the run bound the case's input parameters to, in
+	// declaration order; Outputs are every declared output of this iteration,
+	// the observed feature appended when it declares no output of its own.
+	Inputs  []InputBinding
+	Outputs []CalcOutputValue
+
 	// Verdicts are the case's checks over this run: on its own until ConcludeMonteCarlo
 	// settles them over the sample, which keeps the checks that are the sample's alone.
 	Verdicts []AnalysisVerdict
@@ -130,13 +136,47 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 		Case:     shape.Name,
 		Subject:  run.boundSubject(ctx),
 		Observed: observed,
+		Inputs:   run.inputs(),
 	}
+	r.Outputs = r.iterationOutputs()
 	r.Verdicts = r.checks()
 	r.left = make([]bool, len(r.Verdicts))
 	for i, v := range r.Verdicts {
 		r.left[i] = v.Status == VerdictUndecided
 	}
 	return r, nil
+}
+
+// iterationOutputs are the values this run's declared outputs came to, with the
+// observed feature appended when it is not among them. An output that cannot
+// be read — the statistics the sample has not supplied yet — is left out.
+func (r *MonteCarloRun) iterationOutputs() []CalcOutputValue {
+	ctx := r.ctx
+	defer ctx.beginRun()()
+	var outputs []CalcOutputValue
+	for _, out := range r.run.shape.Outputs {
+		if out.Name == "" {
+			continue
+		}
+		value, err := r.run.output(ctx, out.Name)
+		if err != nil {
+			continue
+		}
+		outputs = append(outputs, CalcOutputValue{Name: out.Name, Value: value})
+	}
+	if name, ok := ctx.monteCarloMember(r.run.shape, monteCarloObserved); ok {
+		seen := false
+		for _, out := range outputs {
+			if out.Name == name {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			outputs = append(outputs, CalcOutputValue{Name: name, Value: r.Observed})
+		}
+	}
+	return outputs
 }
 
 // checks decides the case's checks over the run as it stands. The outputs they read are
