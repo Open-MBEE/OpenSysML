@@ -161,6 +161,24 @@ func apiJSONElement(graph *rdf.Graph, subject rdf.Term) (apiJSONObject, error) {
 	return element, nil
 }
 
+// collectionObject is the triple a collection member states: the object whose
+// JSON spelling matches, so its datatype decides the scalar the member emits.
+func collectionObject(subject rdf.Term, objects []rdf.Term, member rdf.CollectionMember) (rdf.Term, error) {
+	spelling, err := member.JSON()
+	if err != nil {
+		return rdf.Term{}, err
+	}
+	for _, object := range objects {
+		if have, err := rdf.ValueJSON(subject, object); err == nil && have == spelling {
+			return object, nil
+		}
+	}
+	return rdf.Term{}, &UnsupportedError{
+		What: fmt.Sprintf("the annotation json member %s of <%s>", spelling, subject.Value),
+		Note: "it states no triple of the collection",
+	}
+}
+
 // apiJSONType is the "@type" spelling of a metaclass IRI: the bare name in
 // the sysml: vocabulary, the sysx: CURIE in the extension namespace.
 func apiJSONType(typ rdf.Term) string {
@@ -182,17 +200,26 @@ func apiJSONSysMLValue(graph *rdf.Graph, subject rdf.Term, predicate, key, metac
 				Note: fmt.Sprintf("its object %s is not the JSON literal a collection is stated by", annotation),
 			}
 		}
-		var raw json.RawMessage
-		if err := json.Unmarshal([]byte(annotation.Value), &raw); err != nil {
+		members, err := rdf.ParseCollectionJSON(annotation.Value)
+		if err != nil {
 			return nil, &UnsupportedError{
 				What: fmt.Sprintf("the annotation json:%s of <%s>", key, subject.Value),
-				Note: fmt.Sprintf("its literal is not JSON: %v", err),
+				Note: err.Error(),
 			}
 		}
-		// The members spell the way a scalar does: an unresolved name on an
-		// object property as {"@ref": <name>}, not the bare string stored.
-		values := make([]any, 0, len(objects))
-		for _, object := range objects {
+		// The members emit in the annotation's order: a reference its {"@id"},
+		// a literal its triple's scalar — the datatype the reader restores it
+		// to, so an unresolved name on an object property becomes {"@ref": n}.
+		values := make([]any, 0, len(members))
+		for _, member := range members {
+			if member.ID != "" {
+				values = append(values, apiJSONReference{ID: member.ID})
+				continue
+			}
+			object, err := collectionObject(subject, objects, member)
+			if err != nil {
+				return nil, err
+			}
 			value, err := apiJSONScalar(subject, key, object, objectProperty)
 			if err != nil {
 				return nil, err

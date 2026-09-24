@@ -378,3 +378,36 @@ func TestToolkitFeatureChainsDecode(t *testing.T) {
 		}
 	}
 }
+
+// A FeatureChaining owned by a chain feature but stating no chainingFeature
+// link is malformed, not a shorter chain: the read refuses it by name.
+func TestFeatureChainMissingLinkRefused(t *testing.T) {
+	path := filepath.Join("testdata", "convert", "feature_chains.sysml")
+	elements := apiJSON(t, path)
+	victim := ""
+	for i, el := range elements {
+		if el["@type"] == "FeatureChaining" {
+			if _, ok := el["chainingFeature"]; !ok {
+				t.Fatal("the fixture's FeatureChaining states no chainingFeature")
+			}
+			delete(elements[i], "chainingFeature")
+			victim = el["@id"].(string)
+			break
+		}
+	}
+	if victim == "" {
+		t.Fatal("the fixture has no FeatureChaining")
+	}
+	document, err := json.Marshal(elements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = convert.Convert("m.json", document, convert.FormatAPIJSON, convert.FormatSysML)
+	var unsupported *export.UnsupportedError
+	if !errors.As(err, &unsupported) {
+		t.Fatalf("expected an UnsupportedError, got %v", err)
+	}
+	if !strings.Contains(err.Error(), victim) || !strings.Contains(err.Error(), "chainingFeature") {
+		t.Errorf("the error should name %s and chainingFeature:\n%s", victim, err)
+	}
+}

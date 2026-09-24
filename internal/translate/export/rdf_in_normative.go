@@ -569,7 +569,10 @@ func (d *decoder) verifyNormativeNodes() error {
 // FeatureChainings and the derived chainingFeature list — agrees with itself.
 func (d *decoder) verifyChainFeature(subject rdf.Term) error {
 	stated := d.graph.Objects(subject, rdf.SysML+pChainingFeature)
-	owned := d.chainLinks(subject)
+	owned, err := d.chainLinks(subject)
+	if err != nil {
+		return err
+	}
 	if len(stated) == 0 || len(owned) == 0 {
 		return nil
 	}

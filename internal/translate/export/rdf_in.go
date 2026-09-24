@@ -101,7 +101,10 @@ func ToSysML(graph *rdf.Graph) ([]byte, error) {
 	// A graph in the normative element form — the toolkit's interchange JSON —
 	// mints what this mapping collapses; complete it with the collapsed
 	// properties and qualified names the decoder reads before anything else.
-	graph = deriveNormativeGraph(graph, metaclasses)
+	graph, err = deriveNormativeGraph(graph, metaclasses)
+	if err != nil {
+		return nil, err
+	}
 	graph, err = rdf.ReconcileCollections(graph)
 	if err != nil {
 		var malformed *rdf.AnnotationError
@@ -1068,7 +1071,11 @@ func (d *decoder) checkReferences() error {
 			// A relationship inside an expression graph ends on its own nodes.
 			continue
 		}
-		if d.chainFeatureTerm(triple.Object) {
+		isChain, err := d.chainFeatureTerm(triple.Object)
+		if err != nil {
+			return err
+		}
+		if isChain {
 			// A chain is written as its `a.b.c` text wherever it is reached.
 			continue
 		}
@@ -1086,19 +1093,23 @@ func (d *decoder) checkReferences() error {
 
 // chainFeatureTerm reports whether term is a chain feature of the graph: an
 // unnamed Feature stating chainingFeature links or owning FeatureChainings.
-func (d *decoder) chainFeatureTerm(term rdf.Term) bool {
+func (d *decoder) chainFeatureTerm(term rdf.Term) (bool, error) {
 	if !term.IsIRI() || d.metaclass(term) != mFeature {
-		return false
+		return false, nil
 	}
 	if d.graph.HasProperty(term, rdf.SysML+pChainingFeature) {
-		return true
+		return true, nil
 	}
-	return len(d.chainLinks(term)) > 0
+	links, err := d.chainLinks(term)
+	if err != nil {
+		return false, err
+	}
+	return len(links) > 0, nil
 }
 
 // chainLinks is the ordered link list the FeatureChaining elements a chain
 // feature owns state, indexed over the graph on first use.
-func (d *decoder) chainLinks(chain rdf.Term) []rdf.Term {
+func (d *decoder) chainLinks(chain rdf.Term) ([]rdf.Term, error) {
 	if d.chainOwned == nil {
 		d.chainOwned = chainOwnerIndex(d.graph, d.metaclass)
 	}
@@ -1107,9 +1118,9 @@ func (d *decoder) chainLinks(chain rdf.Term) []rdf.Term {
 
 // chainSegments is the ordered link list of a chain feature: the derived
 // chainingFeature list where it is stated, else the FeatureChaining links.
-func (d *decoder) chainSegments(chain rdf.Term) []rdf.Term {
+func (d *decoder) chainSegments(chain rdf.Term) ([]rdf.Term, error) {
 	if segments := d.graph.Objects(chain, rdf.SysML+pChainingFeature); len(segments) > 0 {
-		return segments
+		return segments, nil
 	}
 	return d.chainLinks(chain)
 }
@@ -3395,7 +3406,11 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	if name, ok := d.bodyLocalName(term); ok {
 		return nameText(name), nil
 	}
-	if d.chainFeatureTerm(term) {
+	isChain, err := d.chainFeatureTerm(term)
+	if err != nil {
+		return "", err
+	}
+	if isChain {
 		parts, err := d.standardChainText(term, el)
 		if err != nil {
 			return "", err
@@ -3510,7 +3525,11 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 		if naming.IsLiteral() {
 			return literalTargetName(naming)
 		}
-		if d.chainFeatureTerm(naming) {
+		isChain, err := d.chainFeatureTerm(naming)
+		if err != nil {
+			return "", false
+		}
+		if isChain {
 			parts, err := d.standardChainText(naming, el)
 			if err != nil || len(parts) == 0 {
 				return "", false
@@ -3537,7 +3556,10 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 		return refs[0], true
 	}
 	redefs := d.graph.Objects(subject, rdf.SysML+relationshipProperty[ast.RelRedefines])
-	if len(redefs) == 0 || ast.IsFeatureChain(literalTarget(redefs[0])) || d.chainFeatureTerm(redefs[0]) {
+	if len(redefs) == 0 || ast.IsFeatureChain(literalTarget(redefs[0])) {
+		return rdf.Term{}, false
+	}
+	if isChain, err := d.chainFeatureTerm(redefs[0]); err != nil || isChain {
 		return rdf.Term{}, false
 	}
 	return redefs[0], true

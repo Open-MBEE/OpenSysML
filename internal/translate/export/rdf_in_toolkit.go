@@ -1,6 +1,7 @@
 package export
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -138,48 +139,66 @@ func chainOwnerIndex(graph *rdf.Graph, meta func(rdf.Term) string) map[string][]
 
 // chainLinksOf is the ordered link list the FeatureChaining elements a chain
 // feature owns state: ownedRelationship order first, then indexed leftovers.
-func chainLinksOf(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, chain rdf.Term) []rdf.Term {
+func chainLinksOf(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, chain rdf.Term) ([]rdf.Term, error) {
 	var links []rdf.Term
 	seen := map[string]bool{}
-	appendLink := func(chaining rdf.Term) {
+	appendLink := func(chaining rdf.Term) error {
 		if seen[chaining.Value] {
-			return
+			return nil
 		}
-		if link, ok := graph.Object(chaining, rdf.SysML+pChainingFeature); ok {
-			seen[chaining.Value] = true
-			links = append(links, link)
+		objects := graph.Objects(chaining, rdf.SysML+pChainingFeature)
+		if len(objects) != 1 {
+			note := "it states no chainingFeature"
+			if len(objects) > 1 {
+				note = "it states more than one chainingFeature"
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the FeatureChaining <%s>", chaining.Value),
+				Note: note,
+			}
 		}
+		seen[chaining.Value] = true
+		links = append(links, objects[0])
+		return nil
 	}
 	for _, chaining := range graph.Objects(chain, rdf.SysML+pOwnedRelationship) {
 		if meta(chaining) == mFeatureChaining {
-			appendLink(chaining)
+			if err := appendLink(chaining); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, chaining := range index[chain.Value] {
-		appendLink(chaining)
+		if err := appendLink(chaining); err != nil {
+			return nil, err
+		}
 	}
-	return links
+	return links, nil
 }
 
 // chainFeatureIn reports whether subject is an unnamed Feature owning
 // FeatureChainings: the feature chain `a.b` an expression reaches or invokes.
-func chainFeatureIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, subject rdf.Term) bool {
-	_, ok := chainTextIn(graph, meta, index, nil, subject)
-	return ok
+func chainFeatureIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, subject rdf.Term) (bool, error) {
+	_, ok, err := chainTextIn(graph, meta, index, nil, subject)
+	return ok, err
 }
 
 // chainTextIn writes the chain `a.b.c` an unnamed Feature's FeatureChainings
 // spell, as notation: each segment its declared name or, through unresolved,
 // the name the writer could not resolve to an element of the document.
-func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, unresolved map[string]string, subject rdf.Term) (string, bool) {
+func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string][]rdf.Term, unresolved map[string]string, subject rdf.Term) (string, bool, error) {
 	if meta(subject) == "" || !ontology.IsAncestorOrSelf(meta(subject), mFeature) {
-		return "", false
+		return "", false, nil
 	}
 	if _, named := graph.Lexical(subject, rdf.SysML+pDeclaredName); named {
-		return "", false
+		return "", false, nil
+	}
+	features, err := chainLinksOf(graph, meta, index, subject)
+	if err != nil {
+		return "", false, err
 	}
 	var segments []string
-	for _, feature := range chainLinksOf(graph, meta, index, subject) {
+	for _, feature := range features {
 		if feature.IsIRI() {
 			if name, ok := graph.Lexical(feature, rdf.SysML+pDeclaredName); ok {
 				segments = append(segments, nameText(name))
@@ -197,7 +216,7 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 			segments = append(segments, qualifiedNameText(canonicalName(feature.Value)))
 		}
 	}
-	return strings.Join(segments, "."), len(segments) > 0
+	return strings.Join(segments, "."), len(segments) > 0, nil
 }
 
 // lastSegmentText writes the last segment of a qualified name as notation.
@@ -213,10 +232,10 @@ func lastSegmentText(qname string) string {
 // returns the completed graph: a copy first, since the sparse form also
 // states defaults this mapping never writes, and a stated default would
 // print the keyword a graph carrying none reads the same way.
-func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rdf.Graph {
+func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*rdf.Graph, error) {
 	meta := func(t rdf.Term) string { return rdf.LocalName(metaclasses[t]) }
 	chainIndex := chainOwnerIndex(graph, meta)
-	chainFeature := func(graph *rdf.Graph, t rdf.Term) bool { return chainFeatureIn(graph, meta, chainIndex, t) }
+	chainFeature := func(graph *rdf.Graph, t rdf.Term) (bool, error) { return chainFeatureIn(graph, meta, chainIndex, t) }
 	// A graph written in the API element form spells every default, so its
 	// stated defaults are dropped and its collapsed properties derived; a
 	// graph minted to this mapping states only what it means.
@@ -227,9 +246,12 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			break
 		}
 	}
-	graph = dropStatedDefaults(graph, meta, elementForm, chainIndex)
+	graph, err := dropStatedDefaults(graph, meta, elementForm, chainIndex)
+	if err != nil {
+		return nil, err
+	}
 	if !elementForm {
-		return graph
+		return graph, nil
 	}
 
 	// Index the owning memberships: member -> owner, and which memberships own
@@ -434,10 +456,18 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 	// A chain feature's collapsed chainingFeature list is derived from the
 	// FeatureChainings it owns, in ownedRelationship order.
 	for _, subject := range graph.Subjects() {
-		if !chainFeature(graph, subject) || graph.HasProperty(subject, rdf.SysML+pChainingFeature) {
+		isChain, err := chainFeature(graph, subject)
+		if err != nil {
+			return nil, err
+		}
+		if !isChain || graph.HasProperty(subject, rdf.SysML+pChainingFeature) {
 			continue
 		}
-		for _, link := range chainLinksOf(graph, meta, chainIndex, subject) {
+		links, err := chainLinksOf(graph, meta, chainIndex, subject)
+		if err != nil {
+			return nil, err
+		}
+		for _, link := range links {
 			graph.Add(subject, rdf.SysMLTerm(pChainingFeature), link)
 		}
 	}
@@ -464,7 +494,10 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			property = pFunction
 		}
 		if meta(subject) == mOwningMembership {
-			text, chain := chainTextIn(graph, meta, chainIndex, unresolvedID, member)
+			text, chain, err := chainTextIn(graph, meta, chainIndex, unresolvedID, member)
+			if err != nil {
+				return nil, err
+			}
 			if !chain || property == pFunction {
 				continue
 			}
@@ -846,7 +879,7 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) *rd
 			graph.Add(subject, rdf.OpenSysMLTerm(xImplicitKind), rdf.Bool(true))
 		}
 	}
-	return graph
+	return graph, nil
 }
 
 // deriveTransitionHeads states a TransitionUsage's collapsed head from the
@@ -973,11 +1006,11 @@ func acceptTriggerText(graph *rdf.Graph, meta func(rdf.Term) string, accept rdf.
 // dropStatedDefaults copies the graph without the triples the sparse form
 // writes where this mapping writes nothing: a stated default reads identically
 // to an absent one, and a printed keyword would declare it twice.
-func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementForm bool, chainIndex map[string][]rdf.Term) *rdf.Graph {
+func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementForm bool, chainIndex map[string][]rdf.Term) (*rdf.Graph, error) {
 	if !elementForm {
 		// Only the element form states defaults and implied restatements; a
 		// graph minted to this mapping means every triple it writes.
-		return graph
+		return graph, nil
 	}
 	// An element owned by a membership — an annotation of the membership, or
 	// an implied-include membership nested under one — is no member of the
@@ -1119,7 +1152,11 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	// reference to it is written as that chain's text, not as the element.
 	chainSegment := map[string]string{}
 	for _, subject := range graph.Subjects() {
-		if text, ok := chainTextIn(graph, meta, chainIndex, unresolvedID, subject); ok {
+		text, ok, err := chainTextIn(graph, meta, chainIndex, unresolvedID, subject)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			chainSegment[subject.Value] = text
 		}
 	}
@@ -1313,7 +1350,7 @@ func dropStatedDefaults(graph *rdf.Graph, meta func(rdf.Term) string, elementFor
 	for member, name := range unresolvedRef {
 		out.Add(rdf.IRI(member), rdf.SysMLTerm(pMemberElement), rdf.String(name))
 	}
-	return out
+	return out, nil
 }
 
 // ownsParameterMembership reports whether subject owns a ParameterMembership.

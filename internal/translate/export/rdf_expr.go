@@ -806,7 +806,11 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	if !d.isExpressionNode(triple.Object) {
 		return nil
 	}
-	if d.chainFeatureTerm(triple.Object) {
+	isChain, err := d.chainFeatureTerm(triple.Object)
+	if err != nil {
+		return err
+	}
+	if isChain {
 		// A chain feature is written as its `a.b.c` reference wherever the
 		// property that names it is written, not as an expression.
 		parents[triple.Object.Value] = append(parents[triple.Object.Value], triple.Subject)
@@ -871,7 +875,10 @@ func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 
 // noteSegment records every feature chain segment node reaches in wanted.
 func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) error {
-	segments := d.chainSegments(node)
+	segments, err := d.chainSegments(node)
+	if err != nil {
+		return err
+	}
 	if d.metaclass(node) != mFeatureChain && len(segments) == 0 {
 		return nil
 	}
@@ -1668,14 +1675,21 @@ func (d *decoder) calleeText(node rdf.Term, in *element) (string, bool, error) {
 				member = m
 			}
 		case mOwningMembership:
-			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok && d.chainFeatureTerm(m) {
-				chain = m
+			if m, ok := d.graph.Object(relationship, rdf.SysML+pMemberElement); ok {
+				if isChain, err := d.chainFeatureTerm(m); err != nil {
+					return "", false, err
+				} else if isChain {
+					chain = m
+				}
 			}
 		}
 	}
 	switch {
 	case chain.Value != "":
-		segments := d.chainSegments(chain)
+		segments, err := d.chainSegments(chain)
+		if err != nil {
+			return "", false, err
+		}
 		var parts, spelled []string
 		for _, segment := range segments {
 			name, err := d.referenceName(segment, in)
