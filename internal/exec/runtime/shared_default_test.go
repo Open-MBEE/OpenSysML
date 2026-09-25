@@ -790,3 +790,31 @@ func TestClockReadsAreNotShared(t *testing.T) {
 		t.Errorf("shared verdicts taken = %d over a check that reads the clock, want 0", taken)
 	}
 }
+
+// A part destroyed before its holder first reads through it is refused by the
+// eligibility walk, so the holder derives for itself and finds the part destroyed.
+func TestDestroyedPartIsNotReadThroughSharedDefault(t *testing.T) {
+	for _, on := range []bool{true, false} {
+		ctx, idx := contextForSource(t, subtreeSrc)
+		ctx.SetSharedDefaults(on)
+		fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+		if err != nil {
+			t.Fatalf("instantiate: %v", err)
+		}
+		expect(t, ctx, fleet, "sats[1]", "total", "7")
+		if err := ctx.destroy(at(t, ctx, fleet, "sats[2].c1")); err != nil {
+			t.Fatalf("destroy sats[2].c1: %v", err)
+		}
+		_, err = at(t, ctx, fleet, "sats[2]").GetFeatureValue(ctx, "total")
+		if !errors.Is(err, ErrOccurrenceDestroyed) {
+			t.Errorf("sharing=%v: sats[2].total over a destroyed c1: %v, want ErrOccurrenceDestroyed", on, err)
+		}
+		expect(t, ctx, fleet, "sats[3]", "total", "7")
+		if err := ctx.destroy(at(t, ctx, fleet, "sats[3]")); err != nil {
+			t.Fatalf("destroy sats[3]: %v", err)
+		}
+		if _, err := at(t, ctx, fleet, "sats[3]").GetFeatureValue(ctx, "total"); !errors.Is(err, ErrOccurrenceDestroyed) {
+			t.Errorf("sharing=%v: destroyed sats[3].total: %v, want ErrOccurrenceDestroyed", on, err)
+		}
+	}
+}

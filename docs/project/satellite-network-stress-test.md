@@ -299,7 +299,9 @@ definition, many occurrences):
   redefinition anywhere the derivation read makes the occurrence derive on
   its own, as does a random draw, a clock read or a lifetime read in the
   derivation — all three are the run's, not the shape's — and a write under
-  an occurrence invalidates what it took. Only scalars held by value —
+  an occurrence invalidates what it took. An occurrence with a destroyed
+  object along a read path takes nothing either: its read reports the
+  object destroyed, as it does without sharing. Only scalars held by value —
   numbers, strings, quantities, complex numbers, enumeration literals, null —
   are shared; a value naming an object or a
   sequence is derived per occurrence. Every occurrence still has a feature

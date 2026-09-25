@@ -393,3 +393,52 @@ func TestExtentAfterSharedVerdictsCountsEveryOccurrence(t *testing.T) {
 		t.Errorf("shared %d verdicts over three occurrences, want 2", shared)
 	}
 }
+
+// A verdict on record for a shape is not taken by an object whose part along a read
+// path was destroyed: that object's check reads the part and reports it destroyed.
+func TestDestroyedPartIsNotCheckedThroughSharedVerdict(t *testing.T) {
+	const src = `package test {
+		requirement def Light {
+			subject s : Sat;
+			require constraint { s.comp.mass < 10 }
+		}
+		part def Comp { attribute mass : ScalarValues::Integer = 3; }
+		part def Sat { part comp : Comp; }
+		part def Fleet { part sats : Sat[3]; }
+		part fleet : Fleet { satisfy Light by sats; }
+	}`
+	var got [2][]string
+	for i, on := range []bool{true, false} {
+		ctx, idx := contextForSource(t, src)
+		ctx.SetSharedDefaults(on)
+		fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+		if err != nil {
+			t.Fatalf("instantiate: %v", err)
+		}
+		done := ctx.ShareVerdicts()
+		defer done()
+		scopes := []*symbols.Scope{idx.DocumentRoot("<test>")}
+		if _, err := ctx.ValidateObject(fleet, scopes); err != nil {
+			t.Fatalf("validate: %v", err)
+		}
+		if err := ctx.destroy(at(t, ctx, fleet, "sats[2].comp")); err != nil {
+			t.Fatalf("destroy sats[2].comp: %v", err)
+		}
+		report, err := ctx.ValidateObject(fleet, scopes)
+		if err != nil {
+			t.Fatalf("validate: %v", err)
+		}
+		for _, v := range report.Verdicts {
+			if v.Kind == "satisfaction" {
+				line := fmt.Sprintf("%s on %q: %s %v", v.Kind, strings.Join(v.Path, "."), v.Status, v.Err)
+				got[i] = append(got[i], line[:strings.LastIndex(line, " at ")+1])
+			}
+		}
+	}
+	if strings.Join(got[0], "\n") != strings.Join(got[1], "\n") {
+		t.Errorf("verdicts with sharing:\n%s\nwithout:\n%s", strings.Join(got[0], "\n"), strings.Join(got[1], "\n"))
+	}
+	if len(got[1]) != 3 || !strings.Contains(got[1][1], "undecided") || !strings.Contains(got[1][1], "was destroyed") {
+		t.Errorf("verdicts over a destroyed part:\n%s", strings.Join(got[1], "\n"))
+	}
+}

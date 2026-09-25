@@ -460,7 +460,11 @@ func (ctx *Context) takeShared(inst *Instance, fv *FeatureValue) bool {
 
 // declaredAlong follows path from inst, appending to sources every feature value on
 // the way; eligible while each is as declared, stopping at one not yet materialized.
+// A destroyed object on the way holds nothing to read, so nothing along it is eligible.
 func (ctx *Context) declaredAlong(inst *Instance, path []string, sources []*FeatureValue) ([]*FeatureValue, bool) {
+	if _, destroyed := ctx.Destroyed(inst); destroyed {
+		return sources, false
+	}
 	fv, ok := inst.FeatureValues[path[0]]
 	if !ok {
 		return sources, false
