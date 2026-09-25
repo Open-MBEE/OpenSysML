@@ -396,3 +396,60 @@ package Tools {
 		t.Errorf("a refused argument still previewed:\n%s", out)
 	}
 }
+
+// %tool performs the case to its tool call and discards what it did: an
+// attribute the body assigned on the subject is unchanged afterwards.
+func TestToolLeavesTheSessionAsItFoundIt(t *testing.T) {
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	action def Heating {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in mass : Real = 12.5 { @ToolVariable { name = "mass"; } }
+		out tMax : Real      { @ToolVariable { name = "tMax"; } }
+	}
+	part def Probe {
+		attribute t : Real = 3.0;
+	}
+	analysis def CheckProbe {
+		subject analysed : Probe;
+		action prep { assign analysed.t := 9.9; }
+		action h : Heating;
+		first prep;
+		then h;
+	}
+}`)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+	run(t, s, "%instantiate Tools::Probe")
+
+	wants(t, run(t, s, "%tool Tools::CheckProbe Probe"), "the process was not started")
+	wants(t, run(t, s, "%eval in Probe : t"), "3.0")
+	// A following run starts the case over — the preview left nothing performed.
+	wants(t, run(t, s, "%analysis Tools::CheckProbe Probe"), "analysis run failed")
+	wants(t, run(t, s, "%eval in Probe : t"), "9.9")
+}
+
+// A value bound in the session before %tool is what the preview substitutes.
+func TestToolPreviewsTheSessionsCurrentValues(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	wants(t, run(t, s, "%tool Tools::Heating"), "mass = 12.5")
+}
+
+// %tool makes and abandons objects the run created: the session's object
+// listing reads the same afterwards.
+func TestToolLeavesNoObjectsBehind(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+	before := run(t, s, "%instances")
+
+	wants(t, run(t, s, "%tool Tools::Heating"), "the process was not started")
+	if got := run(t, s, "%instances"); got != before {
+		t.Errorf("%%instances after %%tool = %q, want %q (the preview left its objects)", got, before)
+	}
+}

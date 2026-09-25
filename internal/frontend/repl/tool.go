@@ -60,6 +60,13 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if err != nil {
 		return unresolvedVerdict(label, fmt.Errorf("%w: %w", errRuntimeInit, err).Error())
 	}
+	// The preview performs the case to its first tool call and leaves nothing
+	// of it: the run's writes are restored and the snapshot released.
+	snap, err := ctx.Snapshot()
+	if err != nil {
+		return unresolvedVerdict(label, err.Error())
+	}
+	defer func() { snap.Restore(); snap.Release() }()
 	ctx.SetToolRunner(s.engines.DryRunner(s.engine))
 	defer s.attachTools(ctx)
 

@@ -76,7 +76,8 @@ tool:ThermalSolver  tool  argv+none/csv  observed  compute  ready (ThermalSolver
 
 `-tool-dry-run` at the CLI, `%tool` in the REPL, runs the case or action as
 `-analysis` would until the performance first reaches a tool — then prints
-what the call would have been given, without starting the process:
+what the call would have been given, without starting the process. What the
+preview performed is discarded: the session is as it found it.
 
 ```text
 ✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::Solve
