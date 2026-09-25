@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -90,20 +91,31 @@ func (e *PreviewUndecidedError) Error() string {
 
 // DryRunner is a runtime.ToolRunner that previews the first tool call the
 // selection's engines reach and fails the performance with ToolDryRunError.
-func (r *Registry) DryRunner(selection Selection) runtime.ToolRunner {
-	return &dryRunner{registry: r, selection: selection}
+func (r *Registry) DryRunner(selection Selection) *DryRunner {
+	return &DryRunner{registry: r, selection: selection}
 }
 
-// dryRunner answers every call with the call's preview instead of the tool's run.
-type dryRunner struct {
+// DryRunner answers every call with the call's preview instead of the tool's
+// run, remembering the first preview it made for the surfaces to read.
+type DryRunner struct {
 	registry  *Registry
 	selection Selection
+	mu        sync.Mutex
+	first     *ToolDryRunError
+}
+
+// Reached is the first preview RunTool made, when a call reached the tool: a
+// call an objective's condition made ends the run with no error to read.
+func (d *DryRunner) Reached() (*ToolDryRunError, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.first, d.first != nil
 }
 
 // RunTool walks the selection's candidates in the order the real runner consults
 // them, probing only tool entries: a non-tool candidate ahead of the tool's own is
 // undecided under auto/all, refusing or not a tool entry under a named selection.
-func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
+func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
 	candidates, err := d.registry.candidates(Compute, d.selection)
@@ -148,7 +160,13 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			if err != nil {
 				return runtime.ToolAnswer{}, err
 			}
-			return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
+			dry := &ToolDryRunError{Preview: preview, Action: fqn}
+			d.mu.Lock()
+			if d.first == nil {
+				d.first = dry
+			}
+			d.mu.Unlock()
+			return runtime.ToolAnswer{}, dry
 		}
 	}
 	if own != nil {

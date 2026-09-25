@@ -60,6 +60,9 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if err != nil {
 		return unresolvedVerdict(label, fmt.Errorf("%w: %w", errRuntimeInit, err).Error())
 	}
+	if policy, ok := s.exploring(); ok {
+		return unresolvedVerdict(label, (&ExplorePreviewError{Policy: policy}).Error())
+	}
 	// The preview performs the case to its first tool call and leaves nothing
 	// of it: the run's writes are restored and the snapshot released.
 	snap, err := ctx.Snapshot()
@@ -67,7 +70,8 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 		return unresolvedVerdict(label, err.Error())
 	}
 	defer func() { snap.Restore(); snap.Release() }()
-	ctx.SetToolRunner(s.engines.DryRunner(s.engine))
+	runner := s.engines.DryRunner(s.engine)
+	ctx.SetToolRunner(runner)
 	defer s.attachTools(ctx)
 
 	isAction := sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
@@ -75,6 +79,14 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 		err = s.runActionToCompletion(ctx, inv, sym)
 	} else {
 		_, err = s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, heldObjects{s})
+	}
+	// A call a condition reached ends the run with no error: read the runner.
+	if dry, ok := runner.Reached(); ok {
+		v := toolPreviewVerdict(label, dry)
+		if err != nil && !errors.Is(err, runtime.ErrToolDryRun) {
+			v.Lines = append(v.Lines, errPrefix+err.Error())
+		}
+		return v
 	}
 	return toolDryVerdict(label, err)
 }
@@ -130,13 +142,19 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 func toolDryVerdict(label string, err error) Verdict {
 	var dry *analysis.ToolDryRunError
 	if errors.As(err, &dry) {
-		lines := append([]string{fmt.Sprintf("%s %s: dry run of tool '%s' for %s",
-			statusMark(VerdictHolds), label, dry.Preview.Tool, dry.Action)},
-			indent(dry.Preview.Lines())...)
-		return Verdict{Subject: label, Status: VerdictHolds, Lines: lines}
+		return toolPreviewVerdict(label, dry)
 	}
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
 	}
 	return unresolvedVerdict(label, "no ToolExecution-annotated action was reached; nothing to preview")
+}
+
+// toolPreviewVerdict reports the preview a tool call reached: the call's spelling
+// under the dry run of the tool it names.
+func toolPreviewVerdict(label string, dry *analysis.ToolDryRunError) Verdict {
+	lines := append([]string{fmt.Sprintf("%s %s: dry run of tool '%s' for %s",
+		statusMark(VerdictHolds), label, dry.Preview.Tool, dry.Action)},
+		indent(dry.Preview.Lines())...)
+	return Verdict{Subject: label, Status: VerdictHolds, Lines: lines}
 }

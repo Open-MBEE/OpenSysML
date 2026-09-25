@@ -453,3 +453,49 @@ func TestToolLeavesNoObjectsBehind(t *testing.T) {
 		t.Errorf("%%instances after %%tool = %q, want %q (the preview left its objects)", got, before)
 	}
 }
+
+// A tool call an objective's condition reaches ends the run undecided, with no
+// error to read — %tool still prints the preview the runner recorded.
+func TestToolPreviewsACallAnObjectiveReached(t *testing.T) {
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	calc def Solve {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in mass : Real { @ToolVariable { name = "mass"; } }
+		return : Real { @ToolVariable { name = "out"; } }
+	}
+	analysis def CheckSolve {
+		attribute mass : Real = 12.5;
+		out x : Real = 1.0;
+		objective { require constraint { Solve(mass) >= 0.0 } }
+	}
+}`)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","out"]}`
+	toolManifest(t, s, entry)
+
+	out := run(t, s, "%tool Tools::CheckSolve")
+	wants(t, out, "dry run of tool 'Solver'", "mass = 12.5", "the process was not started")
+}
+
+// Under an exploring schedule %tool refuses: a preview shows one run's first
+// call while exploration runs every linearization.
+func TestToolRefusesAnExploringSchedule(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+	if err := s.SetSchedule(mustSchedule(t, "explore")); err != nil {
+		t.Fatalf("SetSchedule: %v", err)
+	}
+
+	out := run(t, s, "%tool Tools::CheckHeating")
+	wants(t, out, "explores every linearization", "%schedule declared")
+	if strings.Contains(out, "the process was not started") {
+		t.Errorf("an exploring schedule still previewed:\n%s", out)
+	}
+	if err := s.SetSchedule(mustSchedule(t, "declared")); err != nil {
+		t.Fatalf("SetSchedule: %v", err)
+	}
+	wants(t, run(t, s, "%tool Tools::CheckHeating"), "the process was not started")
+}
