@@ -3,6 +3,8 @@ package analysis
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -22,6 +24,41 @@ type toolRunner struct {
 	mu sync.Mutex
 	// answered is the outputs each request, by its bytes, was first answered with.
 	answered map[string]string
+	// uses is every tool call the plan's runs made, in call order.
+	uses []ToolUse
+}
+
+// ToolUse is one tool call a plan made: the entry it went to and what was run.
+type ToolUse struct {
+	Tool, Version, File, Executable string
+	// Args are the argv entries after the executable, nil for an entry without an
+	// invocation block.
+	Args []string
+	// Stdin is the request an entry without an invocation block read.
+	Stdin []byte
+}
+
+// String spells the call as one line: `ThermalSolver 2.3 from
+// /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5`.
+func (u ToolUse) String() string {
+	head := u.Tool
+	if u.Version != "" {
+		head += " " + u.Version
+	}
+	if u.File != "" {
+		head += " from " + u.File
+	}
+	text := head + ": " + u.Executable
+	if u.Args == nil {
+		return text + " < " + string(u.Stdin)
+	}
+	for _, arg := range u.Args {
+		if arg == "" || strings.ContainsAny(arg, " \t\r\n\"'") {
+			arg = strconv.Quote(arg)
+		}
+		text += " " + arg
+	}
+	return text
 }
 
 // newToolRunner is the runner of one plan over the held model, putting each computation to
@@ -52,6 +89,11 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	}
 	if plan.Refused() != nil {
 		return runtime.ToolAnswer{}, refusalOf(plan, call.ToolName)
+	}
+	if plan.Result.Tool != nil {
+		t.mu.Lock()
+		t.uses = append(t.uses, *plan.Result.Tool)
+		t.mu.Unlock()
 	}
 	outputs := make(map[string]runtime.Value, len(plan.Result.Values))
 	for _, v := range plan.Result.Values {
@@ -96,4 +138,11 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 		return false, nil
 	}
 	return earlier != answer, nil
+}
+
+// used is every tool call the runner's runs made, in call order.
+func (t *toolRunner) used() []ToolUse {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]ToolUse(nil), t.uses...)
 }

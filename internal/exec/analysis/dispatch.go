@@ -24,10 +24,21 @@ type Plan struct {
 	// Disagreements are the contradictions the composition under all resolved,
 	// each in the interpreter's favor; empty under auto or a named engine.
 	Disagreements []Disagreement
+	// Tools is every tool call the plan's runs made, in call order.
+	Tools []ToolUse
 	// Workers is how many workers the plan built over every fleet its engines ran on, and
 	// Warming the time building them took, summed.
 	Workers int
 	Warming time.Duration
+}
+
+// ToolTexts is what every tool call the plan made ran, as ToolUse spells it.
+func (p Plan) ToolTexts() []string {
+	texts := make([]string, 0, len(p.Tools))
+	for _, use := range p.Tools {
+		texts = append(texts, use.String())
+	}
+	return texts
 }
 
 // Step is one engine's part in a plan: a refusal before running, the result it
@@ -162,9 +173,12 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 		defer cancel()
 	}
 	held := model.plan()
-	held.compute(r.newToolRunner(ctx, held, budget, selection))
+	tools := r.newToolRunner(ctx, held, budget, selection)
+	held.compute(tools)
 	defer held.release()
-	return r.answer(ctx, held, q, budget, selection)
+	plan, err := r.answer(ctx, held, q, budget, selection)
+	plan.Tools = tools.used()
+	return plan, err
 }
 
 // answer answers q on the plan's copy of the model, whose tool runner puts every

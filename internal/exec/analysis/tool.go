@@ -184,6 +184,11 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		values = append(values, Evaluation{Name: name, Value: value})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Name < values[j].Name })
+	use := &ToolUse{Tool: e.entry.ToolName, Version: e.entry.Version, File: e.entry.File,
+		Executable: path, Args: process.args}
+	if e.entry.Invocation == nil {
+		use.Stdin = request
+	}
 	return Result{
 		Question: q,
 		Engine:   e.Name(),
@@ -191,6 +196,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Strength: Observed,
 		Values:   values,
 		Reply:    renderReply(reply),
+		Tool:     use,
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil
