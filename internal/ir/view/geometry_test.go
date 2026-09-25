@@ -455,7 +455,8 @@ func TestViewLocalStyleOverridesTheInlineOne(t *testing.T) {
 }
 
 // Notes reach the rendering anchored to the node they annotate, the inline one
-// with the view's own, and a Note about the view itself is free on the canvas.
+// with the view's own, a Note about a connection anchored to its edge by its
+// ends, and a Note about the view itself is free on the canvas.
 func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
 	rendering := render(t, "layout.sysml", "PlantViews::placedView")
 	pump := findNode(t, rendering.Roots, "pump")
@@ -463,10 +464,24 @@ func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
 	want := []Note{
 		{Text: "always", Anchor: pump.ID, X: 10, Y: 90},
 		{Text: "anchored", Anchor: tank.ID, X: 650, Y: 40, Width: 100, Height: 30, HasSize: true},
+		{Text: "check pressure", EdgeFrom: pump.ID, EdgeTo: tank.ID, X: 420, Y: 140},
 		{Text: "free", X: 0, Y: 700},
 	}
 	if !reflect.DeepEqual(rendering.Notes, want) {
 		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	// The routed edge's note anchors to a point at the middle of its longest segment.
+	if !strings.Contains(dot, `"note:2:on" [shape=point, width=0, height=0, style=invis, pos="425,705!", pin=true]`) ||
+		!strings.Contains(dot, `"note:2" -> "note:2:on" [style=dashed`) {
+		t.Errorf("the connector's note is not anchored on its route:\n%s", dot)
+	}
+	text := rendering.Text()
+	if !strings.Contains(text, `"check pressure" on pump -> tank at (420, 140)`) {
+		t.Errorf("the connector's note is not listed on its edge:\n%s", text)
 	}
 }
 
@@ -490,10 +505,11 @@ func TestStateStyleAndNoteReachTheStateRendering(t *testing.T) {
 	if want := (&Style{Fill: "#EBEBD7"}); !reflect.DeepEqual(on.Style, want) {
 		t.Errorf("on style = %+v, want %+v", on.Style, want)
 	}
-	if want := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100}}; !reflect.DeepEqual(rendering.Notes, want) {
+	off := findNode(t, rendering.Roots, "off")
+	if want := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100},
+		{Text: "on demand", EdgeFrom: off.ID, EdgeTo: on.ID, X: 70, Y: 40}}; !reflect.DeepEqual(rendering.Notes, want) {
 		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
 	}
-	off := findNode(t, rendering.Roots, "off")
 	var styled []Edge
 	for _, edge := range rendering.Edges {
 		if edge.Style != nil {

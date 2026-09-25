@@ -635,3 +635,94 @@ func TestConvertImageSidecarCollision(t *testing.T) {
 		t.Error("the input model was overwritten")
 	}
 }
+
+// TestConvertModelFailureKeepsImages a migration whose model cannot be saved
+// leaves the images beside the previous model as they were: the model and its
+// images are committed only once every one of them is written.
+func TestConvertModelFailureKeepsImages(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := []byte("the previous model's image")
+	if err := os.WriteFile(filepath.Join(images, "fleet.png"), old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(outDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(outDir, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("saving into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(filepath.Join(images, "fleet.png")); err != nil || !bytes.Equal(got, old) {
+		t.Errorf("the failed model save replaced the previous model's image (%v)", err)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced (%v)", err)
+	}
+	entries, err := os.ReadDir(images)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("staged files were left behind in %s: %v", images, entries)
+	}
+}
+
+// TestConvertImageFailureKeepsModel an image that cannot be written leaves the
+// previous model in place too, rather than a model referring to an image that
+// was never saved.
+func TestConvertImageFailureKeepsModel(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(images, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(images, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("writing an image into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced although its image was not written (%v)", err)
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("staged files were left behind in %s: %v", outDir, entries)
+	}
+}

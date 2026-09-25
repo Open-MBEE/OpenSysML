@@ -778,11 +778,11 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			unexposed++
 			continue
 		}
+		refOf[p.ID] = ref
 		if seen[ref] {
 			continue
 		}
 		seen[ref] = true
-		refOf[p.ID] = ref
 		s.PlacementsWritten++
 		written++
 		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { x = %s; y = %s; width = %s; height = %s; }",
@@ -808,6 +808,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		case !m.draws(x, form, el, refs[0]):
 			why = routeNotExposed
 		case pinned[ref]:
+			refOf[c.ID] = ref
 			why = routeDuplicate
 		}
 		if why != "" {
@@ -847,7 +848,12 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	}
 	geo.lines = append(geo.lines, placements...)
 	geo.lines = append(geo.lines, routes...)
-	dress := m.viewDressing(v, prefix, refOf)
+	dress := m.viewDressing(v, prefix, func(id string) string {
+		if ref, ok := refOf[id]; ok {
+			return ref
+		}
+		return m.drawnRef(x, form, v.host, id)
+	})
 	geo.lines = append(geo.lines, dress.lines...)
 	if len(rec.Placements)+len(rec.Connectors) > 0 {
 		clauses := append([]string{layoutClause(written, unexposed, dangling, len(rec.Placements)), routeClause(reasons, len(rec.Connectors))}, dress.notes...)
@@ -856,6 +862,23 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
 	}
 	return geo
+}
+
+// drawnRef names the element id as the view of form f exposing x draws it, as a
+// node or an edge, or "" when the rendering does not draw it.
+func (m *migration) drawnRef(x exposures, f viewForm, host *sysmlv1.Element, id string) string {
+	el := m.model.Lookup(id)
+	if el == nil {
+		return ""
+	}
+	if ref := m.exposure(el, host); ref != "" && m.places(x, f, el, ref) {
+		return ref
+	}
+	refs, why := m.routeTarget(el, host, f)
+	if why != "" || !m.draws(x, f, el, refs[0]) {
+		return ""
+	}
+	return strings.Join(refs, ", ")
 }
 
 // layoutClause words the placements of the layout note: how many of the

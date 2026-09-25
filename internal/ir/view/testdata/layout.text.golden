@@ -12,6 +12,7 @@ connections:
 notes:
   "always" on pump at (10, 90)
   "anchored" on tank at (650, 40) size 100×30
+  "check pressure" on pump -> tank at (420, 140)
   "free" at (0, 700)
 
 not represented:

@@ -143,6 +143,15 @@ var figureStreams = map[string]string{
     <linkSecondEndID xmi:idref="_sym_idle"/>
     <geometry>100, 200; 100, 150; </geometry>
   </mdElement>
+  <mdElement elementClass="Note" xmi:id="_sym_note_start">
+    <elementID xmi:idref="_cmt_start"/>
+    <geometry>180, 40, 100, 30</geometry>
+  </mdElement>
+  <mdElement elementClass="NoteAnchor" xmi:id="_sym_anchor_start">
+    <linkFirstEndID xmi:idref="_sym_note_start"/>
+    <linkSecondEndID xmi:idref="_sym_t_start"/>
+    <geometry>210, 70; 210, 125; </geometry>
+  </mdElement>
   <mdElement elementClass="TextBox" xmi:id="_sym_draft">
     <geometry>600, 20, 80, 12</geometry>
     <text>Draft only</text>

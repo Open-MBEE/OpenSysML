@@ -56,6 +56,7 @@ package PlantViews {
 		metadata Style about Plant::Loop::pump { fill = "#FFE8BD"; line = "#333333"; font = "Arial"; fontSize = 11; bold = true; }
 		metadata Style about Plant::Loop::supply { line = "#0000FF"; }
 		metadata Note about Plant::Loop::tank { text = "anchored"; x = 650; y = 40; width = 100; height = 30; }
+		metadata Note about Plant::Loop::supply { text = "check pressure"; x = 420; y = 140; }
 		@Note { text = "free"; x = 0; y = 700; }
 	}
 
@@ -79,6 +80,7 @@ package PlantViews {
 		metadata Style about Plant::Machine::on { fill = "#EBEBD7"; }
 		metadata Style about Plant::Machine::off_on { line = "#FF0000"; }
 		metadata Note about Plant::Machine::on { text = "resting"; x = 100; y = 100; }
+		metadata Note about Plant::Machine::off_on { text = "on demand"; x = 70; y = 40; }
 	}
 
 	view badStyleView : StateTransitionView {

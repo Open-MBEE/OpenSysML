@@ -158,10 +158,13 @@ func runConvert(files []string) (int, error) {
 			}
 		}
 	}
-	if err := writeMigrationFiles(filepath.Dir(target), imageFiles); err != nil {
-		return 0, err
+	if len(imageFiles) == 0 {
+		if err := writeConversion(outputPath, out, to); err != nil {
+			return 0, err
+		}
+		return exitHolds, nil
 	}
-	if err := writeConversion(outputPath, out, to); err != nil {
+	if err := writeMigrationFiles(outputPath, out, to, info != nil, filepath.Dir(target), imageFiles); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil
@@ -197,19 +200,55 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, ma
 	return migrated.Output, migrated.Files, nil
 }
 
-// writeMigrationFiles writes the image files a migration produced under dir,
-// each at the relative path it was planned for.
-func writeMigrationFiles(dir string, files map[string][]byte) error {
+// writeMigrationFiles writes the model a migration produced to path and its
+// image files under dir, each at the relative path it was planned for, as one
+// set: every file is staged beside its destination before any replaces what is
+// there, so a model that cannot be saved leaves the images the previous model
+// refers to untouched.
+func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bool, dir string, files map[string][]byte) error {
+	var staged []*export.Staged
+	discard := func() {
+		for _, s := range staged {
+			s.Discard()
+		}
+	}
+	model, err := export.Stage(path, out)
+	if err != nil {
+		return err
+	}
+	staged = append(staged, model)
 	names := slices.Sorted(maps.Keys(files))
-	for _, name := range names {
-		path := filepath.Join(dir, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	paths := make([]string, len(names))
+	for i, name := range names {
+		paths[i] = filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(paths[i]), 0o750); err != nil {
+			discard()
 			return err
 		}
-		if _, err := export.WriteFile(path, files[name]); err != nil {
+		s, err := export.Stage(paths[i], files[name])
+		if err != nil {
+			discard()
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "wrote %s (image file, %d bytes)\n", path, len(files[name]))
+		staged = append(staged, s)
+	}
+	if err := model.Commit(); err != nil {
+		discard()
+		return err
+	}
+	what := ""
+	if replaced {
+		what = ", replaced the existing file"
+	}
+	fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, to, len(out), what)
+	for i, name := range names {
+		if err := staged[i+1].Commit(); err != nil {
+			for _, s := range staged[i+2:] {
+				s.Discard()
+			}
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "wrote %s (image file, %d bytes)\n", paths[i], len(files[name]))
 	}
 	return nil
 }

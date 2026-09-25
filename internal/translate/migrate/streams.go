@@ -124,10 +124,11 @@ type viewDressing struct {
 }
 
 // viewDressing plans the Style of every symbol drawn in its own colours or font
-// whose element the view lays out, the Note of every comment and text box, each
-// anchored to the element its anchor reaches when the view lays that out and
-// free on the view otherwise, and counts the free symbols nothing represents.
-func (m *migration) viewDressing(v *view, prefix string, refOf map[string]string) viewDressing {
+// whose element the view draws (refOf naming it, positioned or not), the Note of
+// every comment and text box, each anchored to the element its anchor reaches
+// when the view draws that and free on the view otherwise, and counts the free
+// symbols nothing represents.
+func (m *migration) viewDressing(v *view, prefix string, refOf func(string) string) viewDressing {
 	d := v.d
 	if !d.Drawn {
 		return viewDressing{}
@@ -174,7 +175,7 @@ func (m *migration) viewDressing(v *view, prefix string, refOf map[string]string
 			notes++
 			var refs []string
 			for _, id := range anchors[sym] {
-				if ref := refOf[id]; ref != "" {
+				if ref := refOf(id); ref != "" {
 					refs = append(refs, ref)
 				}
 			}
@@ -199,7 +200,7 @@ func (m *migration) viewDressing(v *view, prefix string, refOf map[string]string
 				continue
 			}
 			styles++
-			ref := refOf[sym.ElementID]
+			ref := refOf(sym.ElementID)
 			if ref == "" || styledRefs[ref] {
 				continue
 			}

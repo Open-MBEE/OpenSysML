@@ -1,12 +1,12 @@
 # SysML v1 to v2 migration report: figures.mdzip
 # exported by Example UML Tool
-# migrated 86 element(s): 71 mapped, 15 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 8 diagrams from the diagrams' own symbol streams: 6 elements positioned, 1 connectors routed, 2 styled, 3 notes
+# migrated 86 element(s): 71 mapped, 15 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 8 diagrams from the diagrams' own symbol streams: 6 elements positioned, 1 connectors routed, 2 styled, 4 notes
 
 ## layout
 # source: the diagrams' own symbol streams
 # 6 views laid out from their own symbol stream, 2 without layout
 # placements: 6 of 7 written (1 not exposed, 0 resolving to no element); routes: 1 of 2 written (1 not pinned, 0 resolving to no element); malformed: 0
-# styles: 2 of 2 written; notes: 3 written (1 anchored, 0 freed of an anchor the view does not lay out)
+# styles: 2 of 2 written; notes: 4 written (2 anchored, 0 freed of an anchor the view does not lay out)
 # routes of Transition: 1 no v2 member
 # routes of Transition: 1 written
 # free symbols dropped: ImageShape (2)
@@ -90,7 +90,7 @@ Transition	Plant::Pump::Modes::<Region>::<Transition>	_t_start	-> Plant::Pump::M
 Trigger	Plant::Pump::Modes::<Region>::<Transition>::<Trigger>	_tr_start
 State	Plant::Pump::Modes::<Region>::Idle	_st_idle	-> Idle
 State	Plant::Pump::Modes::<Region>::Running	_st_running	-> Running
-Diagram	Plant::Pump::Modes::Pump Modes	_diag_modes	-> Plant::Pump::Modes::'Pump Modes'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Plant::Pump::Modes, whose graph the rendering draws with the 5 shown nodes and edges of it; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 2 notes written, 1 anchored, free symbols not represented: 1 ImageShape)
+Diagram	Plant::Pump::Modes::Pump Modes	_diag_modes	-> Plant::Pump::Modes::'Pump Modes'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Plant::Pump::Modes, whose graph the rendering draws with the 5 shown nodes and edges of it; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 1 ImageShape)
 Activity	Plant::Pump::Prime	_act_prime	-> Plant::Pump::Prime
 ActivityFinalNode	Plant::Pump::Prime::<ActivityFinalNode>	_prime_final	-> final
 ControlFlow	Plant::Pump::Prime::<ControlFlow>	_prime_e2

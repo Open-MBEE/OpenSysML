@@ -231,14 +231,14 @@ func TestNotesAcrossForms(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"note:0" [shape=note, label="always", pos="43.5,692!", pin=true, width=0.9305555555555556, height=0.5];`,
-		`"note:2" [shape=note, label="free", pos="27,82!", pin=true, width=0.75, height=0.5];`,
+		`"note:3" [shape=note, label="free", pos="27,82!", pin=true, width=0.75, height=0.5];`,
 		`"note:0" -> "n1" [style=dashed, arrowhead=none];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	notice := "not represented: 3 note(s); the dot form draws notes"
+	notice := "not represented: 4 note(s); the dot form draws notes"
 	mermaid, plantuml := rendering.Mermaid(), rendering.Text()
 	if !strings.Contains(mermaid, "%% "+notice) {
 		t.Errorf("Mermaid drops the notes silently:\n%s", mermaid)
@@ -246,7 +246,7 @@ func TestNotesAcrossForms(t *testing.T) {
 	if puml, _ := rendering.PlantUML(); !strings.Contains(puml, "' "+notice) {
 		t.Errorf("PlantUML drops the notes silently:\n%s", puml)
 	}
-	if !strings.Contains(plantuml, "notes:\n  \"always\" on pump at (10, 90)\n  \"anchored\" on tank at (650, 40) size 100×30\n  \"free\" at (0, 700)\n") {
+	if !strings.Contains(plantuml, "notes:\n  \"always\" on pump at (10, 90)\n  \"anchored\" on tank at (650, 40) size 100×30\n  \"check pressure\" on pump -> tank at (420, 140)\n  \"free\" at (0, 700)\n") {
 		t.Errorf("text lacks the notes:\n%s", plantuml)
 	}
 	for _, form := range []Form{FormMermaid, FormPlantUML} {

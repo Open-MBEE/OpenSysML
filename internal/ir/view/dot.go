@@ -137,7 +137,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	for _, edge := range edges {
 		w.writeEdge(edge.From, edge.To, w.dotEdgeAttributes(edge))
 	}
-	w.writeAnchors(r.Notes)
+	w.writeAnchors(r.Notes, edges)
 	b.WriteString("}\n")
 	return b.String(), nil
 }
@@ -1489,15 +1489,9 @@ const dotLabelGap = 4
 // of the route's longest segment, clear of it by the label's half-extent and a
 // gap — right of a segment going down, above one going right — not on a box.
 func (w *dotWriter) dotLabelPoint(edge Edge) Point {
-	route := edge.Route
-	best, length := 0, -1.0
-	for i := 1; i < len(route); i++ {
-		if d := math.Hypot(route[i].X-route[i-1].X, route[i].Y-route[i-1].Y); d > length {
-			best, length = i, d
-		}
-	}
-	from, to := route[best-1], route[best]
+	from, to := longestSegment(edge.Route)
 	mid := Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
+	length := math.Hypot(to.X-from.X, to.Y-from.Y)
 	if length == 0 {
 		return mid
 	}
@@ -1574,14 +1568,59 @@ func (w *dotWriter) writeNotes(notes []Note, depth int) {
 }
 
 // writeAnchors writes each anchored note's anchor: a dashed line with no
-// arrowhead, clipped at the anchor's cluster when that is one.
-func (w *dotWriter) writeAnchors(notes []Note) {
+// arrowhead, clipped at the anchor's cluster when that is one. A note on an
+// edge anchors to a sizeless point on the edge's route; on an unrouted edge, to
+// the edge's tail end, the nearest Graphviz can draw.
+func (w *dotWriter) writeAnchors(notes []Note, edges []Edge) {
+	attrs := []string{"style=dashed", dotArrowheadNone}
 	for i, note := range notes {
-		if note.Anchor == "" || w.omitted[note.Anchor] {
-			continue
+		switch {
+		case note.Anchor != "":
+			if !w.omitted[note.Anchor] {
+				w.writeEdge(dotNoteID(i), note.Anchor, attrs)
+			}
+		case note.EdgeFrom != "":
+			if w.omitted[note.EdgeFrom] || w.omitted[note.EdgeTo] {
+				continue
+			}
+			route := edgeRoute(edges, note.EdgeFrom, note.EdgeTo)
+			if len(route) < 2 || w.placement.count == 0 {
+				w.writeEdge(dotNoteID(i), note.EdgeFrom, attrs)
+				continue
+			}
+			point := dotNoteID(i) + ":on"
+			fmt.Fprintf(&w.b, "  %s [shape=point, width=0, height=0, style=invis, %s];\n", dotQuote(point), w.dotPin(routeMidpoint(route)))
+			w.writeEdge(dotNoteID(i), point, attrs)
 		}
-		w.writeEdge(dotNoteID(i), note.Anchor, []string{"style=dashed", dotArrowheadNone})
 	}
+}
+
+// edgeRoute is the stated route of the first edge from one node to another,
+// nil when none is routed.
+func edgeRoute(edges []Edge, from, to string) []Point {
+	for _, edge := range edges {
+		if edge.From == from && edge.To == to && len(edge.Route) >= 2 {
+			return edge.Route
+		}
+	}
+	return nil
+}
+
+// longestSegment is the ends of a route's longest segment.
+func longestSegment(route []Point) (from, to Point) {
+	best, length := 1, -1.0
+	for i := 1; i < len(route); i++ {
+		if d := math.Hypot(route[i].X-route[i-1].X, route[i].Y-route[i-1].Y); d > length {
+			best, length = i, d
+		}
+	}
+	return route[best-1], route[best]
+}
+
+// routeMidpoint is the middle of a route's longest segment.
+func routeMidpoint(route []Point) Point {
+	from, to := longestSegment(route)
+	return Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
 }
 
 // dotKeywordPointSize is the font size of the guillemet keyword line, under the

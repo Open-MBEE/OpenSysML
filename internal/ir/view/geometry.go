@@ -44,11 +44,13 @@ type Style struct {
 }
 
 // Note is a note box drawn on the canvas, from a DiagramLayout::Note: its text,
-// the node it is anchored to (empty for one free on the surface), the top-left
-// corner of its box and its size when HasSize.
+// the node it is anchored to (or the edge, by its end nodes; neither for one
+// free on the surface), the top-left corner of its box and its size when HasSize.
 type Note struct {
 	Text          string
 	Anchor        string
+	EdgeFrom      string
+	EdgeTo        string
 	X, Y          float64
 	Width, Height float64
 	HasSize       bool
@@ -69,16 +71,6 @@ func (r *Renderer) styleOf(view, elem *symbols.Symbol, out *Rendering) *Style {
 	return &Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
 }
 
-// declaredStyleOf is the Style of the node or edge lowered from decl, declared
-// under elem; nil when decl declares no element.
-func (r *Renderer) declaredStyleOf(view, elem *symbols.Symbol, decl ast.Node, out *Rendering) *Style {
-	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
-	if !ok {
-		return nil
-	}
-	return r.styleOf(view, sym, out)
-}
-
 // notesOf adds to out the Notes annotating elem in view, anchored to the node
 // with ID anchor (empty: free on the canvas); one that does not read is noticed.
 func (r *Renderer) notesOf(view, elem *symbols.Symbol, anchor string, out *Rendering) {
@@ -90,6 +82,32 @@ func (r *Renderer) notesOf(view, elem *symbols.Symbol, anchor string, out *Rende
 		n := site.Note
 		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize})
 	}
+}
+
+// edgeNotesOf adds to out the Notes annotating elem in view, anchored to the
+// edge from one node to another.
+func (r *Renderer) edgeNotesOf(view, elem *symbols.Symbol, from, to string, out *Rendering) {
+	before := len(out.Notes)
+	r.notesOf(view, elem, "", out)
+	for i := before; i < len(out.Notes); i++ {
+		out.Notes[i].EdgeFrom, out.Notes[i].EdgeTo = from, to
+	}
+}
+
+// edgeDress is the Style of the edge elem from one node to another in view,
+// adding the Notes anchored to it.
+func (r *Renderer) edgeDress(view, elem *symbols.Symbol, from, to string, out *Rendering) *Style {
+	r.edgeNotesOf(view, elem, from, to, out)
+	return r.styleOf(view, elem, out)
+}
+
+// declaredEdgeDress is edgeDress for the edge lowered from decl, declared under elem.
+func (r *Renderer) declaredEdgeDress(view, elem *symbols.Symbol, decl ast.Node, from, to string, out *Rendering) *Style {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return nil
+	}
+	return r.edgeDress(view, sym, from, to, out)
 }
 
 // dress gives node the Style of elem in view and adds the Notes anchored to it.

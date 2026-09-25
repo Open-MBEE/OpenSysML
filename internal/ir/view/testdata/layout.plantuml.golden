@@ -2,7 +2,7 @@
 ' PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 ' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does
 ' not represented: 1 styled node(s) and 1 styled edge(s); a node's font and an edge's Style are not drawn; the dot form draws every Style
-' not represented: 3 note(s); the dot form draws notes
+' not represented: 4 note(s); the dot form draws notes
 <style>
 root {
   BackGroundColor white

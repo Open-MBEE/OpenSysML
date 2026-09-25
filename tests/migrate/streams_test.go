@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 )
@@ -55,6 +56,7 @@ func TestStreamLaysOutView(t *testing.T) {
 		"metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }",
 		`metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }`,
 		`metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }`,
+		`metadata DiagramLayout::Note about 'Idle accept Start then Running' { text = "On demand."; x = 180; y = 40; width = 100; height = 30; }`,
 		`@DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }`,
 		"render Views::asInterconnectionDiagram;")
 	if strings.Contains(string(r.Notation), "logo.png") {
@@ -70,14 +72,71 @@ func TestStreamLaysOutView(t *testing.T) {
 	if s.StreamDiagrams != 6 || s.DiagramsJoined != 0 {
 		t.Errorf("stream diagrams = %d, joined = %d; want 6 and 0", s.StreamDiagrams, s.DiagramsJoined)
 	}
-	if s.StylesWritten != 2 || s.Notes != 3 || s.NotesAnchored != 1 {
-		t.Errorf("styles written = %d, notes = %d, anchored = %d; want 2, 3 and 1", s.StylesWritten, s.Notes, s.NotesAnchored)
+	if s.StylesWritten != 2 || s.Notes != 4 || s.NotesAnchored != 2 {
+		t.Errorf("styles written = %d, notes = %d, anchored = %d; want 2, 4 and 2", s.StylesWritten, s.Notes, s.NotesAnchored)
 	}
 	if s.Dropped["ImageShape"] != 2 {
 		t.Errorf("dropped = %v; want 2 ImageShape", s.Dropped)
 	}
 	wantInOrder(t, "modes entry", reportText(t, r),
-		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 2 notes written, 1 anchored, free symbols not represented: 1 ImageShape")
+		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 1 ImageShape")
+}
+
+// A symbol drawn in its own colours but without usable geometry — a shape the
+// stream leaves unsized — still dresses the element the view draws: its Style is
+// written and the notes anchored to it stay anchored, only its Layout missing.
+func TestStyleSurvivesMissingGeometry(t *testing.T) {
+	streams := map[string]string{}
+	for k, v := range figureStreams {
+		streams[k] = v
+	}
+	streams["BINARY-modes"] = strings.Replace(streams["BINARY-modes"],
+		"<geometry>40, 100, 120, 50</geometry>", "", 1)
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	notation := string(r.Notation)
+	if strings.Contains(notation, "Layout about Plant::Pump::Modes::Idle") {
+		t.Errorf("an unsized symbol is positioned:\n%s", notation)
+	}
+	wantInOrder(t, "dressing without geometry", notation,
+		`metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }`,
+		`metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }`)
+	s := r.Report.Layout
+	if s.StylesWritten != 2 || s.NotesAnchored != 2 || s.NotesFreed != 0 {
+		t.Errorf("styles written = %d, notes anchored = %d, freed = %d; want 2, 2 and 0", s.StylesWritten, s.NotesAnchored, s.NotesFreed)
+	}
+}
+
+// A migrated note anchored on a transition reaches the view's rendering on its
+// edge and is drawn in DOT anchored to the transition's route.
+func TestMigratedConnectorNoteIsDrawn(t *testing.T) {
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, figureStreams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	rendering, err := session(t, r).ViewRendering("Plant::Pump::Modes::'Pump Modes'")
+	if err != nil {
+		t.Fatalf("ViewRendering: %v", err)
+	}
+	var onEdge []view.Note
+	for _, note := range rendering.Notes {
+		if note.EdgeFrom != "" {
+			onEdge = append(onEdge, note)
+		}
+	}
+	if len(onEdge) != 1 || onEdge[0].Text != "On demand." || onEdge[0].EdgeFrom == onEdge[0].EdgeTo {
+		t.Fatalf("notes on edges = %+v; want the transition's alone", onEdge)
+	}
+	dot, err := rendering.DOTWith(view.Options{Style: view.StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	if !strings.Contains(dot, "On demand.") || !strings.Contains(dot, `:on" [shape=point`) {
+		t.Errorf("the transition's note is not drawn anchored on its route:\n%s", dot)
+	}
 }
 
 // reportText renders r's report as text.

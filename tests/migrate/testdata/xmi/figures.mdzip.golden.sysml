@@ -11,6 +11,7 @@ package Plant {
                 metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
                 metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }
                 metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }
+                metadata DiagramLayout::Note about 'Idle accept Start then Running' { text = "On demand."; x = 180; y = 40; width = 100; height = 30; }
                 @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
                 render Views::asInterconnectionDiagram;
             }

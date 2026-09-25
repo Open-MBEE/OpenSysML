@@ -106,7 +106,7 @@ func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*s
 		}
 		resolved = append(resolved, node)
 	}
-	route, style := r.routeOf(view, connector, out), r.styleOf(view, connector, out)
+	route, style := r.routeOf(view, connector, out), r.edgeDress(view, connector, resolved[0].ID, resolved[1].ID, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{

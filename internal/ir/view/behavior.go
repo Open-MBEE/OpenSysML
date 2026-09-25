@@ -141,7 +141,7 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 		out.Edges = append(out.Edges, Edge{
 			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
 			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
-			Style: r.declaredStyleOf(view, machine, entry.Decl, out),
+			Style: r.declaredEdgeDress(view, machine, entry.Decl, start.ID, target.ID, out),
 		})
 	}
 }
@@ -161,7 +161,7 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 		out.Edges = append(out.Edges, Edge{
 			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition, r.declaredNameSynthesized(machine, transition.Decl)),
 			Kind: EdgeTransition, Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
-			Style: r.declaredStyleOf(view, machine, transition.Decl, out),
+			Style: r.declaredEdgeDress(view, machine, transition.Decl, nodes[src].ID, target.ID, out),
 		})
 	}
 }
@@ -532,7 +532,7 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, edge.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
 				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out),
-				Style: r.declaredStyleOf(subject.view, subject.elem, edge.Decl, out)})
+				Style: r.declaredEdgeDress(subject.view, subject.elem, edge.Decl, nodes[src].ID, to.ID, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -544,7 +544,7 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
 				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
-				Style: r.declaredStyleOf(subject.view, subject.elem, flow.Decl, out)})
+				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
 		}
 	}
 }

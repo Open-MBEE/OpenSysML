@@ -80,11 +80,9 @@ func (r *Rendering) TextWidth(width int) string {
 func noteText(note Note, labels map[string]string) string {
 	line := "  " + strconv.Quote(note.Text)
 	if note.Anchor != "" {
-		anchor := labels[note.Anchor]
-		if anchor == "" {
-			anchor = note.Anchor
-		}
-		line += " on " + anchor
+		line += " on " + labelOr(labels, note.Anchor)
+	} else if note.EdgeFrom != "" {
+		line += " on " + labelOr(labels, note.EdgeFrom) + " -> " + labelOr(labels, note.EdgeTo)
 	}
 	if note.HasSize {
 		line += fmt.Sprintf(" at (%s, %s) size %s×%s", formatCoord(note.X), formatCoord(note.Y), formatCoord(note.Width), formatCoord(note.Height))
@@ -288,6 +286,14 @@ func canvasText(c *Canvas) string {
 		line += " in " + c.Unit
 	}
 	return line
+}
+
+// labelOr is the label of the node with the given ID, else the ID itself.
+func labelOr(labels map[string]string, id string) string {
+	if label := labels[id]; label != "" {
+		return label
+	}
+	return id
 }
 
 // nodeLabel names a node where an edge refers to it: its name, else its kind
