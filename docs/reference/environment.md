@@ -178,7 +178,7 @@ CSV, `key = value` lines or its exit status:
 | `delimiter` | `csv`: the field separator, one character (default `,`) |
 | `regex` | `lines`: an RE2 expression whose named groups are the outputs, each named exactly once; exclusive with `key` and `errorKey` |
 | `success` | `exitcode`: the exit statuses that render `true` (default `[0]`) |
-| `errorPath`, `errorColumn`, `errorKey` | `json`, `csv`, `lines`: where the tool's own refusal message is; a non-empty value there fails the performance with the tool's message, checked before any output |
+| `errorPath`, `errorColumn`, `errorKey` | `json`, `csv`, `lines`: where the tool's own refusal message is; a non-empty value there fails the performance with the tool's message, checked before any output; may not be an output's own selector |
 
 Each member of `outputs` is a selector:
 

@@ -10,6 +10,7 @@ import (
 	"math"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -553,6 +554,14 @@ func checkReplyJSON(r *Reply, variables []string, compiled *compiledReply) error
 			return fmt.Errorf("reply.errorPath: %v", err)
 		}
 		compiled.errorPath = p
+		for _, variable := range r.outputsOrdered(variables) {
+			if slices.Equal(p, compiled.paths[variable]) {
+				return fmt.Errorf("reply.errorPath %s is also reply.outputs.%s's path", r.ErrorPath, variable)
+			}
+			if slices.Equal(p, compiled.unitPaths[variable]) {
+				return fmt.Errorf("reply.errorPath %s is also reply.outputs.%s's unitPath", r.ErrorPath, variable)
+			}
+		}
 	}
 	return nil
 }
@@ -583,6 +592,17 @@ func checkReplyCSV(r *Reply, variables []string, compiled *compiledReply) error 
 			return fmt.Errorf("reply.errorColumn %q names a column but header is false", r.ErrorColumn.Name)
 		}
 	}
+	if r.ErrorColumn != nil {
+		for _, variable := range r.outputsOrdered(variables) {
+			o := r.Outputs[variable]
+			if o.Column != nil && *r.ErrorColumn == *o.Column {
+				return fmt.Errorf("reply.errorColumn %s is also reply.outputs.%s's column", r.ErrorColumn, variable)
+			}
+			if o.UnitColumn != nil && *r.ErrorColumn == *o.UnitColumn {
+				return fmt.Errorf("reply.errorColumn %s is also reply.outputs.%s's unitColumn", r.ErrorColumn, variable)
+			}
+		}
+	}
 	return nil
 }
 
@@ -593,7 +613,7 @@ func validDelimiter(d rune) bool {
 
 // checkReplyLines compiles the regex and checks the key forms against it: with a regex
 // every named group is an output and every output a group, and no key or errorKey is read;
-// without one no two outputs may share a key.
+// without one no two outputs may share a key nor errorKey an output's.
 func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) error {
 	if r.Regex == "" {
 		byKey := make(map[string]string, len(r.Outputs))
@@ -604,6 +624,9 @@ func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) erro
 			}
 			if other, taken := byKey[o.Key]; taken {
 				return fmt.Errorf("reply.outputs.%s and reply.outputs.%s share the key %q", other, variable, o.Key)
+			}
+			if r.ErrorKey == o.Key {
+				return fmt.Errorf("reply.errorKey %q is also reply.outputs.%s's key", r.ErrorKey, variable)
 			}
 			byKey[o.Key] = variable
 		}
@@ -1063,7 +1086,8 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 	return outputs, faults, nil
 }
 
-// readLinesRegex reads each output from the named group matching it on exactly one line.
+// readLinesRegex reads each output from the named group matching it exactly once, every
+// match on every line counted.
 func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	re := r.compiled.regex
@@ -1076,17 +1100,21 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runt
 		matched, at := 0, 0
 		double := false
 		for i, line := range lines {
-			m := re.FindStringSubmatchIndex(line)
-			if m == nil || m[2*group] < 0 {
-				continue
+			for _, m := range re.FindAllStringSubmatchIndex(line, -1) {
+				if m[2*group] < 0 {
+					continue
+				}
+				if matched == 0 {
+					text, at = line[m[2*group]:m[2*group+1]], i+1
+				}
+				matched++
+				if matched == 2 {
+					faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
+					double = true
+					break
+				}
 			}
-			if matched == 0 {
-				text, at = line[m[2*group]:m[2*group+1]], i+1
-			}
-			matched++
-			if matched == 2 {
-				faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
-				double = true
+			if double {
 				break
 			}
 		}

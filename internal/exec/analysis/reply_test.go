@@ -80,6 +80,12 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"null output":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": null}}`), `the entry sets reply.outputs.T_max to null`},
 		"null outputs":          {replyEntryText(`{"format": "object", "outputs": null}`), `the entry sets reply.outputs to null`},
 		"null header":           {replyEntryText(`{"format": "csv", "header": null, "outputs": {"T_max": {"column": 0}}}`), `the entry sets reply.header to null`},
+		"errorKey also an output's key": {replyEntryText(`{"format": "lines", "errorKey": "T_max", "outputs": {"T_max": {}}}`),
+			`reply.errorKey "T_max" is also reply.outputs.T_max's key`},
+		"errorColumn also an output's unitColumn": {replyEntryText(`{"format": "csv", "errorColumn": "U", "outputs": {"T_max": {"column": "T_max", "unitColumn": "U"}}}`),
+			`reply.errorColumn U is also reply.outputs.T_max's unitColumn`},
+		"errorPath also an output's path": {replyEntryText(`{"format": "json", "errorPath": "/a~1b", "outputs": {"T_max": {"path": "/a~1b"}}}`),
+			`reply.errorPath /a~1b is also reply.outputs.T_max's path`},
 		"duplicate regex group": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)|code=(?P<code>\\d+)", "outputs": {"code": {}}}`), `reply.regex names group "code" twice`},
 		"key naming the variable": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)", "outputs": {"code": {"key": "code"}}}`),
 			`reply.outputs.code.key is not read beside regex`},
@@ -469,6 +475,18 @@ func TestReplyReadsLinesRegex(t *testing.T) {
 	}
 	if _, err := readReply(t, r, entry, "nothing\n"); replyKind(err) != runtime.ToolMissingOutput {
 		t.Errorf("no match: %v, want missing", err)
+	}
+
+	r, entry = replyOf(t, &Reply{Format: ReplyLines, Regex: `x=(?P<code>\d+)`, Outputs: map[string]*ReplyOutput{
+		"code": {Type: TypeInteger}}})
+	if _, err := readReply(t, r, entry, "x=1 x=2\n"); replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "lines 1 and 1") {
+		t.Errorf("two matches on one line: %v, want malformed", err)
+	}
+	r, entry = replyOf(t, &Reply{Format: ReplyLines, Regex: `x=(?P<code>\d+)|y=\d+`, Outputs: map[string]*ReplyOutput{
+		"code": {Type: TypeInteger}}})
+	out, err = readReply(t, r, entry, "x=1 y=2\n")
+	if err != nil || out["code"].Value.Int != 1 {
+		t.Errorf("a match the group sits out of: %v, %+v; want code = 1", err, out)
 	}
 }
 
