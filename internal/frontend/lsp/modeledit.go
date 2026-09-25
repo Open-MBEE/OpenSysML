@@ -36,6 +36,7 @@ const (
 	EditSetLayout     = "setLayout"
 	EditSetRoute      = "setRoute"
 	EditSetCanvas     = "setCanvas"
+	EditSetStyle      = "setStyle"
 )
 
 // applyModelEditParams asks for the operations to be applied to the document as
@@ -52,7 +53,8 @@ type applyModelEditParams struct {
 //
 // The DiagramLayout kinds place what a rendering draws: setLayout writes the
 // Layout of the node Target, setRoute the Route of the edge Target, setCanvas
-// the Canvas of the view Target. A setLayout or setRoute may give Declaration
+// the Canvas of the view Target, setStyle the Style of the node or edge Target.
+// A setLayout, setRoute or setStyle may give Declaration
 // instead of Target, the range a rendering reports for a node or edge no
 // qualified name reaches. DeclaredIn names the document declaring the target —
 // the document the range is one of, the one Target must be declared in — or is
@@ -61,8 +63,8 @@ type applyModelEditParams struct {
 // changed since it was rendered. View names the view whose body states a
 // Layout or Route, so it applies in that view alone; left empty, the annotation
 // goes inline into Target's declaration and applies in every view. A setLayout
-// with no Layout, a setRoute with no or an empty Route and a setCanvas with no
-// Canvas clear the annotation.
+// with no Layout, a setRoute with no or an empty Route, a setCanvas with no
+// Canvas and a setStyle with no Style clear the annotation.
 type modelEditOperation struct {
 	Kind         string               `json:"kind"`
 	Target       string               `json:"target,omitempty"`
@@ -84,6 +86,7 @@ type modelEditOperation struct {
 	Layout       *modelEditLayout     `json:"layout,omitempty"`
 	Route        []renderPoint        `json:"route,omitempty"`
 	Canvas       *renderCanvas        `json:"canvas,omitempty"`
+	Style        *renderStyle         `json:"style,omitempty"`
 }
 
 // modelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -320,14 +323,15 @@ func (s *Server) operation(doc *model.Document, op modelEditOperation) (modeledi
 // operation reads the wire operation as the edit operation it names; content
 // is the document a Declaration range is a range of.
 func (op modelEditOperation) operation(content []byte) (modeledit.Operation, error) {
-	if op.Declaration != nil && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
-		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s or %s alone", EditSetLayout, EditSetRoute)
+	byDeclaration := op.Kind == EditSetLayout || op.Kind == EditSetRoute || op.Kind == EditSetStyle
+	if op.Declaration != nil && !byDeclaration {
+		return modeledit.Operation{}, fmt.Errorf("a declaration stands in for the target of a %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle)
 	}
 	if op.Declaration != nil && op.Target != "" {
 		return modeledit.Operation{}, errors.New("an operation targets its element by name or by declaration, not both")
 	}
-	if op.DeclaredIn != "" && op.Kind != EditSetLayout && op.Kind != EditSetRoute {
-		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s or %s alone", EditSetLayout, EditSetRoute)
+	if op.DeclaredIn != "" && !byDeclaration {
+		return modeledit.Operation{}, fmt.Errorf("declaredIn names the document declaring the target of a %s, %s or %s alone", EditSetLayout, EditSetRoute, EditSetStyle)
 	}
 	switch op.Kind {
 	case EditSetValue:
@@ -373,9 +377,23 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 			return modeledit.Operation{}, err
 		}
 		return modeledit.SetCanvas(op.Target, canvas), nil
+	case EditSetStyle:
+		style := op.Style.style()
+		if op.Declaration != nil {
+			return modeledit.SetStyleAt(rangeToSpan(content, *op.Declaration), op.View, style), nil
+		}
+		return modeledit.SetStyle(op.Target, op.View, style), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
+}
+
+// style reads the wire style as the edit layer writes it; nil clears.
+func (s *renderStyle) style() *semantics.Style {
+	if s == nil {
+		return nil
+	}
+	return &semantics.Style{Fill: s.Fill, Line: s.Line, Text: s.Text, Font: s.Font, FontSize: s.FontSize, Bold: s.Bold, Italic: s.Italic}
 }
 
 // layout reads the wire geometry as the edit layer writes it; nil clears.

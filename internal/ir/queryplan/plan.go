@@ -41,7 +41,10 @@ const (
 	OperationProject         Operation = "project"
 	OperationColumn          Operation = "column"
 	OperationRowProperty     Operation = "row-property"
-	OperationColumnOperator  Operation = "column-operator"
+	// OperationRowMember reads a feature reached through a member path nested
+	// in the row element — a feature chain like `stat.runs`.
+	OperationRowMember      Operation = "row-member"
+	OperationColumnOperator Operation = "column-operator"
 	// OperationRelatedColumn projects the elements a relationship reaches from each row.
 	OperationRelatedColumn Operation = "related-column"
 	// OperationWhereRelated keeps the source rows by whether a related element exists.

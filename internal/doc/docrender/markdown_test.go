@@ -449,3 +449,25 @@ func TestMarkdownRollupReport(t *testing.T) {
 		t.Errorf("rendered Markdown = \n%s\nwant:\n%s", got, want)
 	}
 }
+
+// TestMarkdownImageReportGolden locks the image block's Markdown: the file
+// reference under its caption, alt text falling back to the caption.
+func TestMarkdownImageReportGolden(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "image_report.sysml"),
+		"Pictures::ImageReport")
+	golden := filepath.Join("testdata", "image_report.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
+	}
+}

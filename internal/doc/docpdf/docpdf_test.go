@@ -531,7 +531,7 @@ func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
 // a drawn figure by the page's height as well as its width and keep it whole,
 // so a tall graph is scaled onto one page with its caption rather than cut.
 func TestStylesheetsKeepFiguresWithinThePage(t *testing.T) {
-	opts, err := htmlOptions(Options{}, t.TempDir(), nil, formulas{})
+	opts, err := htmlOptions(Options{}, false, t.TempDir(), nil, formulas{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,7 +566,7 @@ func stripCSSComments(css string) string {
 // pageOptions is htmlOptions for options a test knows to be well-formed.
 func pageOptions(t *testing.T, opts Options, dir string, images []string, math formulas) docrender.HTMLOptions {
 	t.Helper()
-	htmlOpts, err := htmlOptions(opts, dir, images, math)
+	htmlOpts, err := htmlOptions(opts, false, dir, images, math)
 	if err != nil {
 		t.Fatalf("htmlOptions: %v", err)
 	}
@@ -772,7 +772,7 @@ func TestRenderForPandoc(t *testing.T) {
 		t.Fatal(err)
 	}
 	images := fileRefs(work, []string{"diagram-1.svg", "diagram-2.svg"})
-	for _, want := range []string{`local form = "mermaid"`, `local images = {"` + images[0] + `", "` + images[1] + `"}`, "local math = {\n}"} {
+	for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"` + images[0] + `", "` + images[1] + `"}`, "local math = {\n}"} {
 		if !strings.Contains(string(filter), want) {
 			t.Fatalf("filter lacks %q:\n%s", want, filter)
 		}
@@ -829,7 +829,7 @@ func TestRenderForPandocKeepsOtherFormsUnderNotice(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, want := range []string{`local form = "` + string(form) + `"`, `local images = {"", ""}`, luaString(notice)} {
+		for _, want := range []string{`local forms = {mermaid = true, dot = true, plantuml = true}`, `local images = {"", ""}`, luaString(notice)} {
 			if !strings.Contains(string(filter), want) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}

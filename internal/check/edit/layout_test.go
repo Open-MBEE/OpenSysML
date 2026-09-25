@@ -358,6 +358,50 @@ func TestSetCanvas(t *testing.T) {
 	}
 }
 
+func TestSetStyle(t *testing.T) {
+	style := &semantics.Style{Fill: "#ffe8bd", Line: "#336699", Font: "Arial", FontSize: 11, Bold: true}
+	got := applyLayout(t, plantModel, SetStyle("Plant::Loop::pump", "", style))
+	requireReplaced(t, plantModel, "        part pump : Pump;\n",
+		"        part pump : Pump {\n            @DiagramLayout::Style { fill = \"#FFE8BD\"; line = \"#336699\"; font = \"Arial\"; fontSize = 11; bold = true; }\n        }\n", got)
+	styled := got
+	got = applyLayout(t, styled, SetStyle("Plant::Loop::pump", "", &semantics.Style{Fill: "#FFFFFF", Italic: true}))
+	requireReplaced(t, styled,
+		`{ fill = "#FFE8BD"; line = "#336699"; font = "Arial"; fontSize = 11; bold = true; }`,
+		`{ fill = "#FFFFFF"; italic = true; }`, got)
+	got = applyLayout(t, styled, SetStyle("Plant::Loop::pump", "", nil))
+	if got != plantModel {
+		t.Fatalf("clearing the style did not restore the model:\n%s", got)
+	}
+	got = applyLayout(t, plantModel, SetStyle("Plant::Loop::supply", "PlantViews::loopView", &semantics.Style{Line: "#FF0000"}))
+	requireReplaced(t, plantModel,
+		"        render asInterconnectionDiagram;\n    }\n",
+		"        render asInterconnectionDiagram;\n        metadata DiagramLayout::Style about Plant::Loop::supply { line = \"#FF0000\"; }\n    }\n",
+		got)
+}
+
+func TestSetStyleRefusals(t *testing.T) {
+	cases := []struct {
+		name    string
+		op      Operation
+		failure Failure
+		message string
+	}{
+		{"malformed colour", SetStyle("Plant::Loop::pump", "", &semantics.Style{Fill: "orange"}), FailureInvalidValue, "not a colour written #RRGGBB"},
+		{"negative size", SetStyle("Plant::Loop::pump", "", &semantics.Style{FontSize: -1}), FailureInvalidValue, "negative"},
+		{"empty style", SetStyle("Plant::Loop::pump", "", &semantics.Style{}), FailureInvalidValue, "states nothing"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadContent(t, "plant.sysml", plantModel)
+			_, err := Apply(m, []Operation{tc.op})
+			e := editError(t, err)
+			if e.Failure != tc.failure || !strings.Contains(e.Message, tc.message) {
+				t.Fatalf("err = %v, want %s containing %q", err, tc.failure, tc.message)
+			}
+		})
+	}
+}
+
 // engineParts and engineViews are a workspace of two documents: one declares
 // the parts, the other a view exposing them.
 const engineParts = "package Machinery {\n    part def Engine {\n        part rotor;\n        part stator;\n        connection connect rotor to stator;\n    }\n}\n"

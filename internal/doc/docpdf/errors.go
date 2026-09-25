@@ -21,6 +21,9 @@ const (
 	// ErrorUnsupportedOption reports a stylesheet option the selected
 	// converter cannot apply, as it writes its own HTML.
 	ErrorUnsupportedOption ErrorKind = "unsupported-option"
+	// ErrorImageMissing reports an image block whose file cannot be found
+	// where its location resolves.
+	ErrorImageMissing ErrorKind = "missing-image"
 )
 
 // Error is a typed PDF-rendering failure.
@@ -77,6 +80,8 @@ func (e *Error) Error() string {
 			msg += ": " + e.Detail
 		}
 		return msg
+	case ErrorImageMissing:
+		return fmt.Sprintf("image %s: no file at %s", e.Tool, e.Detail)
 	case ErrorNoPDF:
 		return fmt.Sprintf("%s reported success but wrote no PDF", e.Tool)
 	case ErrorUnsupportedOption:

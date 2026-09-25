@@ -38,6 +38,17 @@ declaration does not spell out is not there — a `WhereFeature` on `mass`
 reads the declared or redefined `mass`, not an expression's result — unless
 a `Column` computes it or the row is an [object row](#object-rows-and-verdict-rows).
 
+A feature the element does not declare itself but a member nested in it does
+is still reachable: a `properties`/`property` string or a `Column` expression
+spells it as a member path — `stat.runs`, `'Monte Carlo'.runs` — each segment
+a member of the element reached so far, own members first. A feature whose own
+name contains a period is read by that name first; the path is only the
+fallback. A row lacking a
+segment makes the path absent on that row alone, and a member holding more
+values than its multiplicity admits fails the column as a direct feature
+column does. See
+[Computed columns](query-cookbook.md#computed-columns).
+
 Rows live in one place: a document's `Table` or `List` renders them, and
 `%run-query`/`-run-query` print them. The [query cookbook](query-cookbook.md)
 is the recipe book; the [command reference](../reference/cli.md#command-reference)

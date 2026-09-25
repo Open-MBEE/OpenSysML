@@ -824,7 +824,7 @@ func (m *Model) annotationFeatureValue(cand *symbols.Symbol, p *symbols.FilterPr
 		if !m.annotationConforms(a, typ, p.TypeFQN) {
 			continue
 		}
-		v, ok := a.values[p.Feature]
+		v, ok := a.value(p.Feature)
 		if !ok {
 			continue
 		}
