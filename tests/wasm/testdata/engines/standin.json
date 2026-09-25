@@ -1,0 +1,10 @@
+{
+  "kind": "engine",
+  "name": "standin",
+  "version": "1.0.0",
+  "command": ["/bin/echo", "--serve"],
+  "transport": "stdio",
+  "protocol": 1,
+  "answers": ["holds"],
+  "authority": "bounded"
+}
