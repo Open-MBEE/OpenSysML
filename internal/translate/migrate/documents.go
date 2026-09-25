@@ -2121,7 +2121,7 @@ func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titl
 	}
 	cp.name = c.sec.names.claim("image")
 	c.sec.content = append(c.sec.content, cp)
-	if text := commentText(d.Documentation); text != "" && !sameFigureText(text, cp.caption) {
+	if text := commentText(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
 		c.captionParagraph(s, "the paragraph is the note the figure's image carries", text)
 	}
 	if text := c.captionText(s, i); text != "" {
@@ -2132,12 +2132,12 @@ func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titl
 	return true
 }
 
-// sameFigureText reports two texts equal after whitespace normalization, or one
-// a prefix of the other, as a figure's note and its title read the same.
-func sameFigureText(a, b string) bool {
-	a = strings.Join(strings.Fields(a), " ")
-	b = strings.Join(strings.Fields(b), " ")
-	return a == b || strings.HasPrefix(a, b) || strings.HasPrefix(b, a)
+// captionCovers reports whether a figure's caption says everything its note
+// does: the note, whitespace-normalized, is the caption or a prefix of it.
+func captionCovers(caption, note string) bool {
+	caption = strings.Join(strings.Fields(caption), " ")
+	note = strings.Join(strings.Fields(note), " ")
+	return strings.HasPrefix(caption, note)
 }
 
 // noDiagrams says why no diagram is current for an Image, as DocGen would

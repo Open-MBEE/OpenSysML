@@ -232,7 +232,7 @@ func IsDocGenProfile(ns string) bool {
 // the aggregation rule view follows.
 func (m *Model) viewTree(root *Element) map[string]bool {
 	tree := map[string]bool{}
-	seen := map[*Element]bool{root: true}
+	entered := map[*Element]bool{root: true}
 	var walk func(class *Element)
 	walk = func(class *Element) {
 		for _, p := range class.Owned("ownedAttribute") {
@@ -241,11 +241,8 @@ func (m *Model) viewTree(root *Element) map[string]bool {
 				continue
 			}
 			tree[t.ID] = true
-			if seen[t] {
-				continue
-			}
-			seen[t] = true
-			if aggregation := p.Attrs["aggregation"]; aggregation != "" && aggregation != "none" {
+			if aggregation := p.Attrs["aggregation"]; aggregation != "" && aggregation != "none" && !entered[t] {
+				entered[t] = true
 				walk(t)
 			}
 		}

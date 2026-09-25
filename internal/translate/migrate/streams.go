@@ -72,6 +72,7 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 type layoutSources struct {
 	export bool // the export's record covers the diagram
 	stream bool // the diagram's own stream placed or routed something
+	frame  bool // the diagram's own stream sizes the canvas by its frame
 }
 
 // layoutRecord is the layout record laying out v: the export's record for v's
@@ -83,9 +84,10 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	if m.layout != nil {
 		export = m.layoutByID[v.d.ID]
 	}
+	frame := stream != nil && v.d.Frame != nil
 	switch {
 	case export == nil:
-		return stream, layoutSources{stream: stream != nil}
+		return stream, layoutSources{stream: stream != nil, frame: frame}
 	case stream == nil:
 		return export, layoutSources{export: true}
 	}
@@ -100,7 +102,7 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	for _, c := range export.Connectors {
 		routed[c.ID] = true
 	}
-	src := layoutSources{export: true}
+	src := layoutSources{export: true, frame: frame}
 	for _, p := range stream.Placements {
 		if !placed[p.ID] {
 			merged.Placements = append(merged.Placements, p)

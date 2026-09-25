@@ -758,7 +758,8 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			maxY = h
 		}
 	}
-	if f := v.d.Frame; f != nil && src.stream {
+	if src.frame {
+		f := v.d.Frame
 		grow(f.X+f.Width, f.Y+f.Height)
 	}
 	var written, unexposed, dangling int

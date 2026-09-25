@@ -2,6 +2,7 @@ package migrate_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -187,4 +188,58 @@ func TestExportPrecedesStream(t *testing.T) {
 		"1 joined views supplemented from their own symbol stream",
 		"_diag_partial", "laid out from the diagram's own symbol stream",
 		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 2 of 3 shown elements positioned")
+}
+
+// An MTIP export placing and routing everything the Pump Modes stream draws
+// leaves the stream nothing to supplement, yet its frame still sizes the canvas.
+func TestFrameSurvivesCompleteExport(t *testing.T) {
+	place := func(key, id string, top, bottom, left, right int) string {
+		return fmt.Sprintf(`<element _dtype="dict" key="%s">
+               <relationship_metadata _dtype="dict">
+                  <top _dtype="int">%d</top><bottom _dtype="int">%d</bottom>
+                  <left _dtype="int">%d</left><right _dtype="int">%d</right>
+               </relationship_metadata>
+               <id _dtype="str">%s</id><type _dtype="str">sysml.State</type>
+            </element>`, key, top, bottom, left, right, id)
+	}
+	route := func(key, id string, cx, cy, sx, sy int) string {
+		return fmt.Sprintf(`<diagramConnector _dtype="dict" key="%s">
+               <relationship_metadata _dtype="dict">
+                  <clientPoint _dtype="dict"><xCoordinate _dtype="int">%d</xCoordinate><yCoordinate _dtype="int">%d</yCoordinate></clientPoint>
+                  <supplierPoint _dtype="dict"><xCoordinate _dtype="int">%d</xCoordinate><yCoordinate _dtype="int">%d</yCoordinate></supplierPoint>
+               </relationship_metadata>
+               <id _dtype="str">%s</id><type _dtype="str">sysml.Transition</type>
+            </diagramConnector>`, key, cx, cy, sx, sy, id)
+	}
+	export := strings.Replace(modesExport, `<element _dtype="dict" key="0">`,
+		place("1", "_st_running", -100, -150, 260, 380)+place("2", "_sm_init", -40, -56, 60, 76)+
+			`<element _dtype="dict" key="0">`, 1)
+	export = strings.Replace(export, `</element>
+      </relationships>`, `</element>
+         <diagramConnector _dtype="list">`+route("0", "_t_init", 68, 56, 68, 100)+route("1", "_t_start", 160, 125, 260, 130)+`
+         </diagramConnector>
+      </relationships>`, 1)
+	if export == modesExport {
+		t.Fatal("the export fixture did not take the added records")
+	}
+	layout, err := mtip.Parse([]byte(export))
+	if err != nil {
+		t.Fatalf("mtip.Parse: %v", err)
+	}
+	if d := layout.Diagrams[0]; len(d.Placements) != 3 || len(d.Connectors) != 2 || len(d.Malformed) != 0 {
+		t.Fatalf("export record = %+v; want 3 placements and 2 connectors", d)
+	}
+	r, err := migrate.MigrateOptions("figures.mdzip", mdzip(t, figureStreams),
+		migrate.Options{Layout: layout, LayoutSource: "modes.layout.xml"})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	wantInOrder(t, "framed canvas", string(r.Notation),
+		"view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {",
+		`@DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }`,
+		"metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 500; y = 300; width = 120; height = 50; }")
+	if s := r.Report.Layout; s == nil || s.DiagramsJoined != 1 || s.StreamSupplemented != 0 {
+		t.Fatalf("layout summary = %+v; want 1 diagram joined, none supplemented", s)
+	}
 }

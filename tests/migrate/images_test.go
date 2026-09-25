@@ -444,3 +444,34 @@ func TestImageNameStaysInsideImages(t *testing.T) {
 		}
 	}
 }
+
+// TestFigureNoteImageKeepsALongerNote keeps a note that begins with the
+// figure's title but says more as the caption paragraph, and drops one the
+// title already says.
+func TestFigureNoteImageKeepsALongerNote(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/figures.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		note string
+		kept bool
+	}{
+		{"Unlisted", false},
+		{"Unlisted plant, as installed", true},
+	} {
+		doc := strings.Replace(string(data),
+			`<ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unlisted" name="Unlisted" ownerOfDiagram="_pkg_plant">`,
+			`<ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_unlisted" name="Unlisted" ownerOfDiagram="_pkg_plant">
+			<ownedComment xmi:type="uml:Comment" xmi:id="_cmt_unlisted" body="&lt;p&gt;&lt;img alt=&quot;&quot; src=&quot;/projects/z/png&quot;&gt;&lt;/p&gt;&lt;p&gt;`+tc.note+`&lt;/p&gt;"/>`,
+			1)
+		r, err := migrate.MigrateOptions("figures.xmi", []byte(doc), migrate.Options{ImageBaseURL: "https://mms.example.org"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantLine(t, r.Notation, `attribute redefines caption = "Unlisted";`)
+		if got := bytes.Contains(r.Notation, []byte(`attribute redefines text = "`+tc.note+`";`)); got != tc.kept {
+			t.Errorf("note %q kept as a paragraph = %v, want %v:\n%s", tc.note, got, tc.kept, r.Notation)
+		}
+	}
+}

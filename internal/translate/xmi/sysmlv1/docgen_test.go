@@ -290,3 +290,46 @@ func TestDocGenParagraphsTopViewId(t *testing.T) {
 		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
 	}
 }
+
+// A view referred to first without aggregation and then as composite still has
+// its children in the document's view tree, so their paragraphs are placed.
+func TestDocGenViewTreeEntersACompositeAfterAReference(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Document_View_Collaborator_Profile="http://www.magicdraw.com/schemas/manual/Document_View_Collaborator_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_preview" name="preview" type="_a"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_chapter" name="chapter" type="_a" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_b" name="b" type="_b" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c" body="note"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <sysml:View xmi:id="_st_a" base_Class="_a"/>
+  <sysml:View xmi:id="_st_b" base_Class="_b"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_p" base_Element="_c" documentId="mms-1" viewId="_b" sectionId="_b"/>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Documents) != 1 || len(m.Documents[0].Root.Children) != 2 {
+		t.Fatalf("documents = %+v, want one with two top views", m.Documents)
+	}
+	chapter := m.Documents[0].Root.Children[1]
+	if len(chapter.Children) != 1 {
+		t.Fatalf("the chapter has %d children, want B", len(chapter.Children))
+	}
+	if b := chapter.Children[0]; len(b.Paragraphs) != 1 || b.Paragraphs[0].Comment.ID != "_c" {
+		t.Errorf("B's paragraphs = %+v, want _c", b.Paragraphs)
+	}
+	if len(m.StrayParagraphs) != 0 {
+		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
+	}
+}
