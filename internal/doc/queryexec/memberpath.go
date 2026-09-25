@@ -12,12 +12,6 @@ func parseMemberPath(property string) ([]string, bool) {
 	return segments, ok && len(segments) >= 2
 }
 
-// memberPathString writes a member path back in canonical form for trackers
-// and errors.
-func memberPathString(segments []string) string {
-	return source.MemberPathOf(segments)
-}
-
 // memberPathValues walks a member path from the row element, own members
 // first; a segment naming no member makes the path absent on this row.
 func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, error) {
