@@ -10,7 +10,14 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   register against, one scale for the strength of an answer (proved, bounded, witnessed,
   observed, not covered), dispatch by question with fallback, and runs isolated so they can be
   parallel; the contract, the registry and the four engines over existing code are
-  implemented (`internal/core/analysis`), the rest is a proposal
+  implemented (`internal/exec/analysis`), the rest is a proposal
+- **[A Cameo Systems Modeler plugin](cameo-plugin.md)** — a proposal: a plugin for Cameo
+  2026x Refresh1 that exports the selection, runs `Convert(xmi→sysml)` and `ParseSources` over
+  the Java client, executes and verifies on `sysml-grpc`, and lands each verdict on the Cameo
+  element it came from through the migration report's `xmi:id → target` accounting; the vendor
+  plugin mechanics, UI contribution points, export routes, Simulation Toolkit positioning and
+  SysML v2 status answered from public documentation with every unverified claim marked, a
+  migration benchmark over twenty public v1 models, a phased plan and the risks
 - **[Bring your own engine](bring-your-own-engines.md)** — a proposal: a manifest and a
   protocol under which a user's own engine, scheduling policy, sampler or tool registers with
   the analysis framework as a process, a WebAssembly module or Go over the public package; every
@@ -31,12 +38,13 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   resolves what the library leaves unordered, reports each such choice without changing the
   run, takes another linearization under `declared` or `seed:<n>`, and enumerates every one
   within a budget under `explore`
-- **[Recording the order of orthogonal regions](region-order-scheduling.md)** — a design, not
-  yet implemented: the entry and exit of a composite state's regions, the units of the firings
-  one occurrence selects across regions, and a do step against a dispatch as recorded choice
-  points, with the kinds, the trace and witness lines, what each policy does at each, the
-  rollback of a refused replay, the choice-point budget, the alignment row on firing
-  granularity, and the two decisions left to the maintainers
+- **[Recording the order of orthogonal regions](region-order-scheduling.md)** — the entry and
+  exit of a composite state's regions and the units of the firings one occurrence selects
+  across regions as recorded choice points drawn on one front, with the kinds, the trace and
+  witness lines, what each policy does at each, the rollback of a refused replay, the
+  choice-point budget and the alignment row on firing granularity; and the designs, not yet
+  implemented, of a do step against a dispatch and of a completion's firing inside the entry
+  front
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
   `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
   the semantics
@@ -58,6 +66,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   operations the wire lacks (satisfiability, checker options, replay, views, search), design a
   session API for the debuggers apart from the stateless calls, and make the agreement a
   conformance protocol rather than a claim
+- **[A SysON plugin](syson-plugin.md)** — a discovery and design: how Eclipse SysON's Sirius
+  Web backend and React frontend take contributions, its textual exporter and SysIDE importer,
+  its partial SysML v2 REST API and normative library ids, the mapping between a qualified-name
+  `Symbol.id` and an EMF element, `sysml -validate` over SysON's textual models, then the layout
+  of `editors/syson/`, the "Run with OpenSysML" sequence and a four-phase plan; nothing is
+  implemented
 - **[Transport evaluation](transport-evaluation.md)** — Connect and stdio measured beside gRPC,
   with the lifecycle-code delta and a recommendation
 - **[Visual modeling in VS Code](vscode-visual-modeling.md)** — the live diagram panel, the

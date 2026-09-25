@@ -184,7 +184,7 @@ func TestEngineCheckWitnessOfNoChoiceReplays(t *testing.T) {
 		"-action", "Plant::Tank::overfill Plant::tank", "-check-property", "Plant::Tank::low", "-check-witness", dir)
 	witness := filepath.Join(dir, "Plant.Tank.overfill@Plant.tank.violation-1.witness")
 	wantReport(t, got, 1, "✗ Action Plant::Tank::overfill: violation",
-		"violation: Plant::Tank::low is false after 2 moves (witness "+witness+")",
+		"violation: Plant::Tank::low is false after 2 moves (probability 1) (witness "+witness+")",
 		"standing: violated (witnessed:")
 	content, err := os.ReadFile(witness)
 	if err != nil {
@@ -333,7 +333,7 @@ func TestEngineCheckBindsWitnessObjectsAcrossRuns(t *testing.T) {
 // replay:<file>: the token order is drawn at the retry, where both branches are due.
 func TestEngineReplaysAnOrderDrawnAfterTheClockRetriesAStep(t *testing.T) {
 	binary := buildCLI(t)
-	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	model, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)
@@ -456,7 +456,7 @@ func TestEngineCheckRefusesMisuse(t *testing.T) {
 // sibling accept falls due with it — is a state the search holds and resumes.
 func TestEngineCheckSearchesAPausedBody(t *testing.T) {
 	binary := buildCLI(t)
-	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "runtime", "testdata", "conformance",
+	paused, err := os.ReadFile(filepath.Join("..", "..", "internal", "exec", "runtime", "testdata", "conformance",
 		"action_explore_performed_and_accept_due_together.sysml"))
 	if err != nil {
 		t.Fatal(err)

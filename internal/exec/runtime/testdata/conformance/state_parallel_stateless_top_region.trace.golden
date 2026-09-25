@@ -1,0 +1,3 @@
+exit: wstart
+enter: done
+transition: wstart -> done (event: accept Go)

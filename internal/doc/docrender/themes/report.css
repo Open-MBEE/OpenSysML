@@ -1,0 +1,97 @@
+/* report: a formal technical report. Serif body, generous measure, thin
+   rules instead of boxed tables, captions set above their table as in a
+   printed standard. Written against the default sheet's tokens, in the
+   same layer, so unlayered reader CSS still overrides it. */
+@layer opensysml {
+  .sysml-document {
+    --sysml-font-body: Charter, "Bitstream Charter", "Source Serif Pro", Georgia, "Times New Roman", "Liberation Serif", serif;
+    --sysml-font-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sysml-font-size: 1.0625rem;
+    --sysml-line-height: 1.6;
+    --sysml-measure: 46rem;
+    --sysml-space: 1.25rem;
+    --sysml-text: #1a1a1a;
+    --sysml-muted: #555555;
+    --sysml-accent: #1a1a1a;
+    --sysml-rule: #1a1a1a;
+    --sysml-surface: transparent;
+    --sysml-cell-padding: 0.45rem 0.75rem;
+    --sysml-caption-font-size: 0.95em;
+    --sysml-title-page-height: 70vh;
+    --sysml-group-heading-weight: 700;
+  }
+
+  .sysml-document h1,
+  .sysml-document h2,
+  .sysml-document h3,
+  .sysml-document h4 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .sysml-document .sysml-title {
+    font-size: 2.25em;
+    margin-bottom: 0.25em;
+    padding-bottom: 0.35em;
+    border-bottom: 2px solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-title-page .sysml-title {
+    border-bottom: none;
+  }
+
+  .sysml-document h2 {
+    font-size: 1.5em;
+    margin-top: 2em;
+  }
+
+  .sysml-document h3 {
+    font-size: 1.2em;
+    margin-top: 1.6em;
+  }
+
+  .sysml-document .sysml-paragraph {
+    text-align: justify;
+    hyphens: auto;
+  }
+
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    border: none;
+    border-bottom: var(--sysml-border-width) solid #bbbbbb;
+  }
+
+  .sysml-document .sysml-table thead th {
+    border-top: 2px solid var(--sysml-rule);
+    border-bottom: var(--sysml-border-width) solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-table tbody tr:last-child td {
+    border-bottom: 2px solid var(--sysml-rule);
+  }
+
+  .sysml-document .sysml-caption {
+    caption-side: top;
+    font-style: italic;
+    padding-bottom: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-diagram {
+    text-align: center;
+  }
+
+  .sysml-document .sysml-diagram pre {
+    text-align: left;
+    padding: var(--sysml-space-tight) 0;
+    border-top: var(--sysml-border-width) solid #bbbbbb;
+    border-bottom: var(--sysml-border-width) solid #bbbbbb;
+  }
+
+  .sysml-document .sysml-link,
+  .sysml-document .sysml-ref {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+}

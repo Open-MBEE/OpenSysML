@@ -1,7 +1,0 @@
-{
-    "type": "state",
-    "finalState": "ldone+rdone",
-    "outputs": {
-        "seq": { "type": "Integer", "value": 123456 }
-    }
-}

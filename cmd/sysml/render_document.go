@@ -9,12 +9,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
-	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // runRenderDocument renders the document -render-document names of the model
@@ -43,38 +43,88 @@ func runRenderDocument(files []string) error {
 		}
 		return writeArtifact(rendered, formHTML)
 	}
-	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
-	if err != nil {
-		return err
-	}
 	if form == docFormPDF {
-		pdf, err := docpdf.Render(markdown, pdfEngine, docpdf.Options{
-			TitlePage:      pdfTitlePage,
-			TOC:            pdfTOC,
-			NumberSections: pdfNumbering,
-		})
+		opts, err := pdfOptions()
+		if err != nil {
+			return err
+		}
+		document, err := sess.EvaluateDocument(renderDoc)
+		if err != nil {
+			return err
+		}
+		pdf, err := docpdf.Render(document, pdfEngine, opts)
 		if err != nil {
 			return err
 		}
 		return writePDFArtifact(pdf)
 	}
+	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
+	if err != nil {
+		return err
+	}
 	return writeArtifact(markdown, view.FormMarkdown)
 }
 
-// runRenderDocuments renders every document definition of the model named on
-// the command line as linked files in the directory -render-documents names,
-// so cross-document references resolve on disk.
-func runRenderDocuments(files []string) error {
+// pdfOptions resolves the PDF flags: the deliverable options and the
+// stylesheet options, which reach the PDF as they reach an HTML page, their
+// relative references resolving against the PDF's directory.
+func pdfOptions() (docpdf.Options, error) {
+	page, err := htmlOptions()
+	if err != nil {
+		return docpdf.Options{}, err
+	}
+	return docpdf.Options{
+		TitlePage:           pdfTitlePage,
+		TOC:                 pdfTOC,
+		NumberSections:      pdfNumbering,
+		Theme:               page.Theme,
+		NoDefaultStylesheet: page.NoDefaultStylesheet,
+		Stylesheets:         page.Stylesheets,
+		BaseDir:             filepath.Dir(outputPath),
+		DiagramForm:         page.DiagramForm,
+		Unplaced:            page.Unplaced,
+		Style:               page.Style,
+	}, nil
+}
+
+// runRenderDocuments renders every document of the model named on the command
+// line into -render-documents as a linked set, writing the pages of the
+// documents that render and, for each that does not, a page stating why; it
+// returns the status of the run and, when nothing was written, what stopped it.
+func runRenderDocuments(files []string) (int, error) {
+	documents, form, err := renderDocumentSet(files)
+	if err != nil {
+		return exitUnevaluable, err
+	}
+	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
+		return exitUnevaluable, fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
+	}
+	if err := commitDocumentSet(documents, form); err != nil {
+		return exitUnevaluable, err
+	}
+	status := exitHolds
+	for _, document := range documents {
+		if document.Err != nil {
+			fmt.Fprintf(os.Stderr, "%sdocument %s could not be rendered: %v\n", commandPrefix, source.QualifiedNameText(document.Name), document.Err)
+			status = exitPartial
+		}
+	}
+	return status, nil
+}
+
+// renderDocumentSet renders the model's documents in the form -doc-form names,
+// the stylesheets of an HTML set among them, without writing anything.
+func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) {
 	form, err := documentSetForm()
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	if len(files) == 0 {
-		return errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
+		return nil, "", errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
 	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	// A set links its stylesheets as files beside the pages, so a reader
 	// downloads each once and edits it in one place.
@@ -83,7 +133,7 @@ func runRenderDocuments(files []string) error {
 	if form == docFormHTML {
 		links, assets, err := setStylesheets()
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 		sheets = assets
 		opts := documentOptions()
@@ -92,22 +142,18 @@ func runRenderDocuments(files []string) error {
 		opts.NoDefaultStylesheet = true
 		documents, err = sess.RenderDocumentSetHTML(opts)
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	} else {
 		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions())
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	}
 	if len(documents) == 0 {
-		return errors.New("the model declares no documents; nothing was rendered")
+		return nil, "", errors.New("the model declares no documents; nothing was rendered")
 	}
-	documents = append(documents, sheets...)
-	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
-		return fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
-	}
-	return commitDocumentSet(documents, form)
+	return append(documents, sheets...), form, nil
 }
 
 // documentOptions carries the flags shaping the document itself, leaving its
@@ -123,16 +169,29 @@ func documentOptions() docrender.HTMLOptions {
 		MermaidScript:       mermaidScriptURL(),
 		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
+		Unplaced:            view.Unplaced(renderUnplaced),
+		Style:               view.DrawingStyle(renderStyle),
+		Drawer:              docpdf.Graphviz{},
 	}
 }
 
 // markdownOptions carries the flags shaping a Markdown document.
 func markdownOptions() docrender.MarkdownOptions {
-	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm)}
+	return docrender.MarkdownOptions{
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Drawer: docpdf.Graphviz{},
+	}
 }
 
-// checkDiagramForm rejects a -diagram-form value naming no diagram form.
+// checkDiagramForm rejects a -diagram-form value naming no diagram form, a
+// -render-unplaced value naming no placement and a -render-style value naming
+// no drawing style.
 func checkDiagramForm() error {
+	if _, err := unplacedOption(); err != nil {
+		return err
+	}
+	if _, err := styleOption(); err != nil {
+		return err
+	}
 	if diagramForm == "" || slices.Contains(view.DiagramForms(), view.Form(diagramForm)) {
 		return nil
 	}
@@ -369,7 +428,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 			}
 			switch {
 			case committed[i] && backups[i] != "":
-				_ = fsutil.Replace(backups[i], targets[i])
+				_ = source.ReplaceFile(backups[i], targets[i])
 			case committed[i]:
 				_ = os.Remove(targets[i])
 			case backups[i] != "":
@@ -404,7 +463,7 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		if direct[i] {
 			continue
 		}
-		if err := fsutil.Replace(staged[i], targets[i]); err != nil {
+		if err := source.ReplaceFile(staged[i], targets[i]); err != nil {
 			rollback()
 			return fmt.Errorf("write %s: %w", targets[i], err)
 		}
@@ -438,8 +497,11 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		}
 		path := filepath.Join(renderDocsDir, document.FileName)
 		what := ""
+		if document.Err != nil {
+			what = ", a page stating why the document could not be rendered"
+		}
 		if replaced[i] {
-			what = ", replaced the existing file"
+			what += ", replaced the existing file"
 		}
 		fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, setForm(document, form), len(documentBytes(document)), what)
 	}
@@ -690,53 +752,89 @@ func documentForm() (string, error) {
 	}
 	switch form := docFormOrDefault(); form {
 	case docFormMarkdown:
-		if htmlFlagsGiven() {
-			return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
-		}
-		if pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering {
-			return "", errors.New("-pdf-engine and the title page, contents and numbering options shape HTML and PDF output; ask for one with -doc-form html or -doc-form pdf")
-		}
-		return form, nil
+		return checkMarkdownForm(form)
 	case docFormHTML:
-		if pdfEngine != "" {
-			return "", errors.New("-pdf-engine shapes PDF output; -doc-form html needs no external converter")
-		}
-		if htmlFragment && htmlNoCSS {
-			return "", errors.New("-html-fragment already writes no stylesheet; -html-no-default-css leaves the default sheet out of a whole page")
-		}
-		if htmlFragment && len(htmlCSS) > 0 {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; style the page you embed it in")
-		}
-		if htmlFragment && htmlMermaid != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load Mermaid in the page you embed it in")
-		}
-		if htmlFragment && htmlMath != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a script; load MathJax in the page you embed it in")
-		}
-		if err := checkMermaidScript(); err != nil {
-			return "", err
-		}
-		if err := checkMathScript(); err != nil {
-			return "", err
-		}
-		if htmlFragment && htmlTheme != "" {
-			return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; -html-theme styles a whole page")
-		}
-		if err := checkThemeUse(); err != nil {
-			return "", err
-		}
-		return form, nil
+		return checkHTMLForm(form)
 	case docFormPDF:
-		if htmlFlagsGiven() {
-			return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
-		}
-		if outputPath == "" {
-			return "", errors.New("-doc-form pdf writes a binary artifact; name the file to write with -o")
-		}
-		return form, nil
+		return checkPDFForm(form)
 	default:
 		return "", unknownDocumentForm(form)
 	}
+}
+
+// checkMarkdownForm refuses the HTML and PDF options, which do not apply.
+func checkMarkdownForm(form string) (string, error) {
+	if htmlFlagsGiven() {
+		return "", errors.New("the -html- options shape HTML output; ask for it with -doc-form html")
+	}
+	if pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering {
+		return "", errors.New("-pdf-engine and the title page, contents and numbering options shape HTML and PDF output; ask for one with -doc-form html or -doc-form pdf")
+	}
+	return form, nil
+}
+
+// checkHTMLForm checks the HTML option combination and the scripts and theme it names.
+func checkHTMLForm(form string) (string, error) {
+	if pdfEngine != "" {
+		return "", errors.New("-pdf-engine shapes PDF output; -doc-form html needs no external converter")
+	}
+	if err := checkFragmentOptions(); err != nil {
+		return "", err
+	}
+	if err := checkMermaidScript(); err != nil {
+		return "", err
+	}
+	if err := checkMathScript(); err != nil {
+		return "", err
+	}
+	if htmlFragment && htmlTheme != "" {
+		return "", errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; -html-theme styles a whole page")
+	}
+	if err := checkThemeUse(); err != nil {
+		return "", err
+	}
+	return form, nil
+}
+
+// checkFragmentOptions refuses the stylesheet, script and theme options a
+// fragment has no place for.
+func checkFragmentOptions() error {
+	if !htmlFragment {
+		return nil
+	}
+	if htmlNoCSS {
+		return errors.New("-html-fragment already writes no stylesheet; -html-no-default-css leaves the default sheet out of a whole page")
+	}
+	if len(htmlCSS) > 0 {
+		return errors.New("-html-fragment writes the document element alone, with no place for a stylesheet; style the page you embed it in")
+	}
+	if htmlMermaid != "" {
+		return errors.New("-html-fragment writes the document element alone, with no place for a script; load Mermaid in the page you embed it in")
+	}
+	if htmlMath != "" {
+		return errors.New("-html-fragment writes the document element alone, with no place for a script; load MathJax in the page you embed it in")
+	}
+	return nil
+}
+
+// checkPDFForm refuses the HTML options a PDF does not use and requires -o.
+func checkPDFForm(form string) (string, error) {
+	if htmlFragment {
+		return "", errors.New("-html-fragment writes the document element alone for embedding in a page; a PDF is laid out from a whole page")
+	}
+	if htmlMermaid != "" {
+		return "", errors.New("-html-mermaid loads a script into an HTML page; a PDF draws its diagrams with mermaid-cli ahead of the converter")
+	}
+	if htmlMath != "" {
+		return "", errors.New("-html-math loads a script into an HTML page; a PDF typesets its formulas with KaTeX ahead of the converter")
+	}
+	if err := checkThemeUse(); err != nil {
+		return "", err
+	}
+	if outputPath == "" {
+		return "", errors.New("-doc-form pdf writes a binary artifact; name the file to write with -o")
+	}
+	return form, nil
 }
 
 // writePDFArtifact writes the PDF bytes to -o, byte-exact.

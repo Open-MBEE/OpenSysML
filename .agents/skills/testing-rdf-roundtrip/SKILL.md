@@ -1,9 +1,9 @@
 ---
 name: testing-rdf-roundtrip
-description: How to end-to-end test the `internal/core/export` RDF mapping (`sysml -convert ttl|sysml`) so the test is load-bearing — stripping `sysx:sourceText` to force the structural predicates to carry the round trip, proving `.ttl` idempotence, and the negative controls that distinguish a working mapping from a decorative one.
+description: How to end-to-end test the `internal/translate/export` RDF mapping (`sysml -convert ttl|sysml`) so the test is load-bearing — stripping `sysx:sourceText` to force the structural predicates to carry the round trip, proving `.ttl` idempotence, and the negative controls that distinguish a working mapping from a decorative one.
 ---
 
-# Testing the SysML ↔ RDF Turtle round trip (`internal/core/export`)
+# Testing the SysML ↔ RDF Turtle round trip (`internal/translate/export`)
 
 ## Normative library identity checks
 
@@ -15,8 +15,11 @@ description: How to end-to-end test the `internal/core/export` RDF mapping (`sys
 - The outermost package has no owner or owning membership in this mapping. Check
   the package element ID and a child datatype's owning membership; do not demand
   the root package's membership UUID in a standalone document.
-- External library type references remain qualified-name literals, e.g.
-  `sysml:type "ScalarValues::Real"`; this is not an encoded element identity.
+- A reference to a library element is its normative IRI, e.g. `sysml:type
+  <urn:sysmlv2:element:14c0aa22-5489-59b5-b438-ded26e83ba31>` for `ScalarValues::Real`,
+  whether or not the library is in the graph; only a name that resolves to nothing
+  (`Missing::Kind`) stays a literal. A metadata prefix written by short name (`#moe`)
+  comes back by the element's name (`#MeasureOfEffectiveness`) without source text.
 - Test both source-backed and source-text-stripped imports. Normative IDs must
   not become ElementId annotations; a user-declared `abc-123` must remain an
   annotation. A declaration without an enclosing ProjectRef can still exercise
@@ -51,7 +54,7 @@ long as the broken predicate is missing from both graphs alike.
 
 To make the test load-bearing, strip `sysx:sourceText` and `sysx:sourceTail` from the intermediate
 `.ttl` first (the same thing the `withoutTriples` test helper in
-`internal/core/export/export_test.go` does in-process) and only then convert back. Every literal is
+`tests/export/export_test.go` does in-process) and only then convert back. Every literal is
 written on one line, newlines escaped, so a small Python filter is enough — drop any line containing
 the predicate, and when the dropped line ended the triple block with ` .`, turn the previous line's
 trailing `;` into ` .`:
@@ -104,7 +107,7 @@ a failed structural mapping, without weakening the graph comparison.
 ### Heads that are *not* expected to survive without sourceText (as of this writing)
 
 - **Any end-binding head that says more than its ends.** `endForm` in
-  `internal/core/export/end_forms.go` is only emitted when rebuilding the head reproduces its
+  `internal/translate/export/end_forms.go` is only emitted when rebuilding the head reproduces its
   *tokens* (layout and comments aside, so a line break inside `connect a\n to b;` is fine), so an
   unsupported inline payload declaration or a head with a body may carry no
   `sysx:endForm`, and the sourceText-free hop is refused with `it has no sysx:endForm, and the ends
@@ -120,7 +123,7 @@ a failed structural mapping, without weakening the graph comparison.
 ## Negative controls that prove each predicate is load-bearing
 
 Strip the structural predicates the same way and re-convert. The four notation predicates below are
-defined in `internal/core/export/rdf_out.go` (`xEndForm`, `xEndVerb`, `xSourceMember`,
+defined in `internal/translate/export/rdf_out.go` (`xEndForm`, `xEndVerb`, `xSourceMember`,
 `xTargetMember`) and are *additional* to the older end triples `sysx:endIndex`, `sysx:endRole` and
 `sysx:relatedFeature`, which carry the participants rather than the notation — stripping the
 notation ones is what makes the participants insufficient. Confirm the vocabulary before trusting
@@ -143,7 +146,7 @@ degraded output still validates clean, so judge it by the *text*, not by the exi
 
 Use `make build-sysml` and `bin/sysml FILE -convert kerml -o BACK` for KerML.
 `connector eng to tanks.main;` is anonymous; only `connector link from eng to tanks.main;`
-declares the connector name. `internal/core/export/testdata/convert/connector_ends.kerml`
+declares the connector name. `tests/export/testdata/convert/connector_ends.kerml`
 covers named ends, per-end multiplicities, `from`, `all`, and n-ary connectors.
 
 For `connector a ::> a.x to b;`, the connector's `sysx:relatedFeature` selects an
@@ -169,7 +172,7 @@ graph through the same serializer and require identical reconstructed notation; 
 mutation refusal is vacuous. Check the graph delta is exactly the intended triple.
 
 A corpus file that `-convert ttl` refuses is not automatically an "unrelated" refusal: check
-its verdict in `internal/core/export/testdata/corpus_roundtrip_expected.txt` first. A file
+its verdict in `tests/corpus/testdata/corpus_roundtrip_expected.txt` first. A file
 pinned `stable` there that now refuses is a regression to fix, not a failure to preserve.
 Only when the baseline itself records the refusal may you isolate your feature in a modified
 copy — and label that as modified-copy evidence, never as a pass for the original file.
@@ -207,12 +210,12 @@ before converting; a fixture that does not analyse cleanly makes every later res
 test fixture. Grep before claiming coverage:
 
 ```bash
-grep -rn "targetMember" internal/core/export/testdata/ internal/core/export/*_test.go
+grep -rn "targetMember" internal/translate/export/testdata/ internal/translate/export/*_test.go
 ```
 
 If it is still absent, say so — the predicate is decoder-only and its encoder branch is untested.
 
-## Flag / import / succession-end predicates (fixtures under `internal/core/export/testdata/convert/`)
+## Flag / import / succession-end predicates (fixtures under `tests/export/testdata/convert/`)
 
 Each of these degrades visibly (exit 0, judge by text) or is refused when stripped together with
 `sysx:sourceText`; if the notation comes back unchanged the predicate has become decorative:
@@ -259,7 +262,7 @@ Every `@M;`, `@M { … }`, `metadata m : M about a, b;` and `#M part def P;` is 
 `sysml:MetadataUsage` with `sysml:type`, one `sysml:annotatedElement` per `about` target,
 `sysx:hasBody`, `sysx:declaredKeyword` `"@"`/`"#"` (absent for the `metadata` keyword) and body
 members as owned members ordered by `sysx:memberIndex`. Fixtures:
-`internal/core/export/testdata/convert/metadata_bodies.sysml` and `metadata_prefixes.sysml`
+`tests/export/testdata/convert/metadata_bodies.sysml` and `metadata_prefixes.sysml`
 (neither validates clean on its own — unqualified `Integer`/`Real` and a `variant` outside a
 `variation` — so judge semantic equality by identical `-validate` diagnostics, or add
 `private import ScalarValues::*;` to a copy). Hand-edit the stripped `.ttl` for the controls:
@@ -284,16 +287,16 @@ directory alone matches nothing and `sysml` then complains about a missing exten
 
 ## The corpus round-trip ratchet (run it before and after any writer/encoder change)
 
-`TestCorpusRoundTrip` (`internal/core/export/corpus_roundtrip_test.go`) runs the three-hop trip
+`TestCorpusRoundTrip` (`tests/corpus/roundtrip_test.go`) runs the three-hop trip
 over **every** `.sysml`/`.kerml` under `examples/` — the 32 committed models, the 100-file
 training corpus and the three pilot corpora (213 files) — and pins one verdict per file in
-`internal/core/export/testdata/corpus_roundtrip_expected.txt`. It runs in about two seconds.
+`tests/corpus/testdata/corpus_roundtrip_expected.txt`. It runs in about two seconds.
 Record: `docs/project/rdf-corpus-roundtrip.md`.
 
 ```bash
 ./scripts/download-training-examples.sh && ./scripts/download-pilot-corpora.sh   # once
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
-  go test -count=1 -v ./internal/core/export -run TestCorpusRoundTrip
+  go test -count=1 -v ./tests/corpus -run TestCorpusRoundTrip
 ```
 
 Without the require variables an absent corpus **skips** the gate with a `GATE NOT RUN` banner on
@@ -318,8 +321,8 @@ regression does, so every movement is adjudicated. When your change moves files:
    record.
 3. Regenerate and commit the expectation file in the same PR:
    ```bash
-   go test ./internal/core/export -run TestCorpusRoundTrip -update-corpus-roundtrip
-   git diff --stat internal/core/export/testdata/corpus_roundtrip_expected.txt
+   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip
+   git diff --stat tests/corpus/testdata/corpus_roundtrip_expected.txt
    ```
    Run the update twice and confirm the second run leaves the file unchanged; the run is
    deterministic (a worker pool, results indexed by sorted path) and a diff between two runs is a

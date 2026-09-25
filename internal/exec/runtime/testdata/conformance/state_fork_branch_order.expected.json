@@ -1,0 +1,48 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "a+b",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "T1.1(effect) T1.2(effect) work(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "a+b",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "T1.1(effect) work(entry) T1.2(effect) "
+				}
+			}
+		},
+		{
+			"finalState": "a+b",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "T1.2(effect) T1.1(effect) work(entry) "
+				}
+			}
+		},
+		{
+			"finalState": "a+b",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "T1.2(effect) work(entry) T1.1(effect) "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open"
+}

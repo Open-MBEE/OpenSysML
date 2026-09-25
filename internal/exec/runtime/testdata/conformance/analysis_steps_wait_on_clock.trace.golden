@@ -1,0 +1,38 @@
+enter analysis test::voyage
+materialize: ship #1
+  eval feature ship -> instance#1
+  bind boat = instance#1 [default]
+  eval literal 60.0 -> 60.0
+  bind leg = 60.0 [default]
+  stmt action body
+enter action node: analysis test::voyage
+    stmt assign boat.log
+          eval feature boat -> instance#1
+        eval chain log -> 0.0
+        eval literal 1.0 -> 1.0
+      eval operator + -> 1.0
+      eval feature boat -> instance#1
+      eval feature leg -> 60.0
+    eval index -> 60.0 [s]
+    stmt assign boat.log
+          eval feature boat -> instance#1
+        eval chain log -> 1.0
+        eval literal 1.0 -> 1.0
+      eval operator + -> 2.0
+      eval feature boat -> instance#1
+    stmt assign boat.arrived
+materialize: universalClock #2
+          eval feature universalClock -> instance#2
+        eval feature localClock -> instance#2
+      eval chain currentTime -> 60.0
+      eval feature boat -> instance#1
+      eval literal 30.0 -> 30.0
+    eval index -> 30.0 [s]
+leave action node: analysis test::voyage
+  stmt return
+      eval feature boat -> instance#1
+    eval chain log -> 2.0
+exit analysis test::voyage -> 2.0
+  eval feature boat -> instance#1
+eval chain arrived -> 60.0
+output test::voyage.arrival = 60.0

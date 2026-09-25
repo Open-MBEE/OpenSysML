@@ -1,0 +1,126 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {
+      "signal": "Go"
+    },
+    {
+      "signal": "Pause"
+    },
+    {
+      "signal": "Resume"
+    }
+  ],
+  "outcomes": [
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "did r2(entry) l2(exit) r2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "did r2(entry) l2(exit) r2(exit) r2(entry) did "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "did r2(entry) r2(exit) l2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "did r2(entry) r2(exit) l2(exit) r2(entry) did "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) did l2(exit) r2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) did l2(exit) r2(exit) r2(entry) did "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) did r2(exit) l2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) did r2(exit) l2(exit) r2(entry) did "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) l2(exit) r2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) l2(exit) r2(exit) r2(entry) did "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) r2(exit) l2(exit) did r2(entry) "
+        }
+      }
+    },
+    {
+      "finalState": "l2+r2",
+      "outputs": {
+        "log": {
+          "type": "String",
+          "value": "r2(entry) r2(exit) l2(exit) r2(entry) did "
+        }
+      }
+    }
+  ],
+  "admissible": "A do step and a sibling region's entry due inside one entry: which goes first is open"
+}

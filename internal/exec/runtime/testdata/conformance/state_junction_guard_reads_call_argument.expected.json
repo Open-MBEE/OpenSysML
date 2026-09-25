@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "events": [
+    {"call": "setSpeed", "args": {"value": {"type": "Integer", "value": 55}}}
+  ],
+  "finalState": "done",
+  "stateVisits": ["idle", "cruising", "done"],
+  "outputs": {
+    "speed": {"type": "Integer", "value": 55}
+  }
+}

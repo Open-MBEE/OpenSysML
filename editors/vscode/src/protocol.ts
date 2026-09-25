@@ -1,5 +1,7 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
-// payloads they carry. They mirror internal/lsp/render.go.
+// payloads they carry. They mirror internal/frontend/lsp/render.go.
+
+import type { DiagramStyle } from "./style";
 
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
@@ -10,19 +12,31 @@ export const RENDER_DOCUMENT_METHOD = "opensysml/renderDocument";
 /** The capability the server advertises when it serves the render methods. */
 export const RENDER_CAPABILITY = "openSysmlRender";
 
+/** The capability whose value lists the forms `opensysml/render` writes; a server without it writes the documented five. */
+export const RENDER_FORMS_CAPABILITY = "openSysmlRenderForms";
+
 /** The capability the server advertises when it serves document rendering. */
 export const RENDER_DOCUMENT_CAPABILITY = "openSysmlRenderDocument";
 
-/** Turns diagram actions into a WorkspaceEdit; mirrors internal/lsp/modeledit.go. */
+/** Turns diagram actions into a WorkspaceEdit; mirrors internal/frontend/lsp/modeledit.go. */
 export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
 
 /** The capability the server advertises when it serves model edits. */
 export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
 
+/** The capability each side advertises when it speaks the cross-document diagram contract: renderings naming other documents' declarations, `declaredHere`, and layouts pinned with `declaredIn`. */
+export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
+
+/** The capability the server advertises when a render request's `palette` colours each node with `fill` and `border`. */
+export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
+
+/** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
+export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
-/** Serves the text of a `sysml-stdlib:` document; mirrors internal/lsp/stdlib.go. */
+/** Serves the text of a `sysml-stdlib:` document; mirrors internal/frontend/lsp/stdlib.go. */
 export const STDLIB_CONTENT_METHOD = "opensysml/stdlibContent";
 
 /** The capability the server advertises when it serves the content request. */
@@ -48,12 +62,15 @@ export interface Range {
 
 /**
  * Where an element was declared: `range` is the whole declaration, `selectionRange`
- * the declared identifier alone, which is where clicking a node goes.
+ * the declared identifier alone, which is where clicking a node goes. `digest`
+ * fingerprints the text the ranges are of; an operation naming a range of another
+ * document hands it back, and is answered stale once that text has changed.
  */
 export interface RenderOrigin {
   uri: string;
   range: Range;
   selectionRange?: Range;
+  digest: string;
 }
 
 export interface RenderNode {
@@ -63,14 +80,17 @@ export interface RenderNode {
   type: string;
   detail: string;
   parent?: string;
-  /** The qualified name a model edit targets the declaration by; absent for a node with none in this document. */
+  /** The qualified name a model edit targets the declaration by, in whichever workspace document declares it; absent for a node with none, and for a library's. */
   fqn?: string;
+  /** The requested document declares the node, so every edit reaches it; absent, only a layout does. */
+  declaredHere?: boolean;
   /** The keyword the declaration was written with (`part def`, `port`); with `fqn`. A move asks its new owner to admit it. */
   notation?: string;
   /** The namespaces declaring the node, nearest first, drawn or not; absent with `fqn`, and for a top-level declaration. */
   owners?: RenderOwner[];
-  /** The range of the node's declaration when the document declares it but no qualified name reaches it; a layout edit targets that instead of `fqn`. */
+  /** The range of the node's declaration, in the document `origin` names, when no qualified name reaches it; a layout edit targets that instead of `fqn`. */
   declaration?: Range;
+  /** Where the node was declared; absent for one drawn from no workspace document. */
   origin?: RenderOrigin;
   /** Where a `DiagramLayout::Layout` puts the node, in pixels, y down; absent when the model does not place it. */
   x?: number;
@@ -80,6 +100,22 @@ export interface RenderNode {
   height?: number;
   /** The node is drawn closed, its children hidden. */
   collapsed?: boolean;
+  /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
+  fill?: string;
+  border?: string;
+  /** The node's own Style annotation, which wins over the palette and the drawing style; `fill` and `border` already carry its colours. */
+  style?: RenderStyle;
+}
+
+/** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */
+export interface RenderStyle {
+  fill?: string;
+  line?: string;
+  text?: string;
+  font?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 /** One waypoint or corner, in the canvas's pixels, y down. */
@@ -106,10 +142,13 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
-  /** The qualified name a model edit targets the declaring connection by; absent for one not declared in this document. */
+  /** The edge's own Style annotation. */
+  style?: RenderStyle;
+  /** The qualified name a model edit targets the declaring connection by, in whichever workspace document declares it; absent for one with none. */
   fqn?: string;
-  /** The range of the connection's declaration when no qualified name reaches it, as on a node. */
+  /** The range of the connection's declaration, in the document `origin` names, when no qualified name reaches it, as on a node. */
   declaration?: Range;
+  /** Where the connection was declared; absent for one drawn from no workspace document. */
   origin?: RenderOrigin;
   /** The waypoints a `DiagramLayout::Route` steers the edge through, source to target. */
   route?: RenderPoint[];
@@ -124,11 +163,17 @@ export interface RenderParams {
   textDocument: { uri: string };
   view?: string;
   form?: string;
+  /** The palette the nodes are coloured from, by keyword family; absent draws in black and white. */
+  palette?: string;
+  /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
+  style?: string;
 }
 
 export interface RenderResult {
   view: string;
   kind: string;
+  /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
+  style?: string;
   stated: string;
   form: string;
   artifact: string;
@@ -162,10 +207,35 @@ export interface EditPalette {
   owners?: Record<string, string[]>;
 }
 
+/** normalizeRender fills in what an older server omits (a node's `type`, empty lists), so no label spells a missing value. */
+export function normalizeRender(result: RenderResult): RenderResult {
+  return {
+    ...result,
+    nodes: (result.nodes ?? []).map((node) => ({
+      ...node,
+      name: node.name ?? "",
+      type: node.type ?? "",
+      detail: node.detail ?? "",
+    })),
+    edges: (result.edges ?? []).map((edge) => ({ ...edge, label: edge.label ?? "" })),
+    notices: result.notices ?? [],
+  };
+}
+
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
 export function admits(palette: EditPalette | undefined, memberKind: string, node: RenderNode): boolean {
   const owners = palette?.owners?.[memberKind];
   return owners ? owners.includes(node.id) : true;
+}
+
+/** declaredHere: whether the requested document declares a node, which every edit reaches; another document's takes a layout alone. */
+export function declaredHere(node: RenderNode): node is RenderNode & { fqn: string } {
+  return node.declaredHere === true && node.fqn !== undefined;
+}
+
+/** ownDeclarations: nodes as a server predating `declaredHere` means them — every named one is the requested document's own. */
+export function ownDeclarations(nodes: RenderNode[]): RenderNode[] {
+  return nodes.map((node) => (node.fqn === undefined ? node : { ...node, declaredHere: true }));
 }
 
 /** reachable: whether a layout edit can reach a node or edge — by qualified name, or by declaration when none reaches it. */
@@ -181,14 +251,14 @@ export type ModelEditOperation =
   | { kind: "addConnection"; owner: string; memberKind: string; from: string; to: string; name?: string; type?: string }
   | { kind: "delete"; target: string; cascade?: boolean }
   | { kind: "move"; target: string; owner: string }
-  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. */
-  | { kind: "setLayout"; target: string; view?: string; layout?: LayoutGeometry }
-  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. */
-  | { kind: "setLayout"; declaration: Range; layout?: LayoutGeometry }
+  /** Places `target` in `view`'s body, or inline in its own declaration without a view; no `layout` clears the annotation. `declaredIn` names the document declaring `target`, whose text `digest` fingerprints as its origin reported, so that a namesake declared since is answered stale rather than placed. */
+  | { kind: "setLayout"; target: string; declaredIn?: string; digest?: string; view?: string; layout?: LayoutGeometry }
+  /** Places the node declared at `declaration`, which no qualified name reaches, inline: a view body cannot name it. The range is one of the document `declaredIn` names — whose text `digest` fingerprints, as its origin reported — or of the edited document without it. */
+  | { kind: "setLayout"; declaration: Range; declaredIn?: string; digest?: string; layout?: LayoutGeometry }
   /** Steers the connection `target` through `route`, per view or inline as above; an empty or absent route clears it. */
-  | { kind: "setRoute"; target: string; view?: string; route?: RenderPoint[] }
+  | { kind: "setRoute"; target: string; declaredIn?: string; digest?: string; view?: string; route?: RenderPoint[] }
   /** Steers the connection declared at `declaration` inline, as `setLayout` by declaration places a node. */
-  | { kind: "setRoute"; declaration: Range; route?: RenderPoint[] }
+  | { kind: "setRoute"; declaration: Range; declaredIn?: string; digest?: string; route?: RenderPoint[] }
   /** Sizes the drawing surface of the view `target`; no `canvas` clears it. */
   | { kind: "setCanvas"; target: string; canvas?: RenderCanvas };
 
@@ -249,6 +319,9 @@ export interface ViewInfo {
   kind: string;
   supported: boolean;
   reason?: string;
+  /** The declaration and its name; absent from servers that do not locate views. */
+  range?: Range;
+  selectionRange?: Range;
 }
 
 export interface ViewsResult {
@@ -290,12 +363,16 @@ export interface PickerEntry {
   reason?: string;
 }
 
-/** A message the extension sends the webview. */
+/** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string }
+  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string }
   | { type: "views"; views: PickerEntry[]; selected: string }
+  /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
+  | { type: "style"; style: DiagramStyle }
   | { type: "error"; message: string }
-  | { type: "highlight"; id: string | undefined };
+  | { type: "highlight"; id: string | undefined }
+  /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */
+  | { type: "revert"; message?: string };
 
 /** A diagram action naming nodes by rendering id; the extension asks for the rest. */
 export type EditAction =
@@ -317,12 +394,18 @@ export interface EdgePlacement {
   route?: RenderPoint[];
 }
 
-/** A message the webview sends the extension; `version` is the rendering an action's ids name. */
+/** A message the webview sends the extension; `drawn` is the drawing a message's ids name. */
 export type FromWebview =
   | { type: "ready" }
-  | { type: "reveal"; id: string }
+  | { type: "reveal"; id: string; drawn: number }
+  /** A located table row opens its element; `row` indexes the drawing's rows. */
+  | { type: "revealRow"; row: number; drawn: number }
   | { type: "pick"; view: string }
-  | { type: "edit"; action: EditAction; version: number }
+  /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
+  | { type: "style"; style: DiagramStyle }
+  | { type: "edit"; action: EditAction; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
-  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; version: number }
+  | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
+  /** A node dropped on another: moved into it as a declaration, and placed where it was released. */
+  | { type: "reparent"; id: string; owner: string; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }
   | { type: "failed"; message: string };

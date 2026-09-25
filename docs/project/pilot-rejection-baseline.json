@@ -1,13 +1,13 @@
 {
   "pilot": "2026-08 (jupyter-sysml-kernel 0.62.0)",
   "validator": "build/pilot-sysml-validator/validate-sysml-batch",
-  "corpus": "cmd/pilot-reject/testdata/negative",
+  "corpus": "tools/referee/reject/testdata/negative",
   "conformance": "auto",
   "provenance": {
     "pilotTag": "2026-08",
     "pilotCommit": "692170b71867353b8f90341e61556f49a5beb0e5",
     "pilotArtifact": "0.62.0",
-    "errataRegistry": "sha256:2e5a631caa524d6e04675e0c8ff6cb310e020adb4d614e65c3e3d0f0016dea50",
+    "errataRegistry": "sha256:d8d6e72f9e47d9579fed32b6daf79ac960bd52d0bc71f18deeca733beced139c",
     "tools": [
       {
         "name": "pilot-sysml-validator",
@@ -25,13 +25,13 @@
     "inputs": [
       {
         "name": "negative-corpus",
-        "dir": "cmd/pilot-reject/testdata/negative",
+        "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
         "files": 306,
         "digest": "sha256:b163959570c53c32063a871623b654c8879676374dcdf0856244edeac0ee85f2"
       }
     ],
-    "recorded": "2026-09-12"
+    "recorded": "2026-09-19"
   },
   "totals": {
     "cases": 306,
@@ -2878,9 +2878,9 @@
     }
   ],
   "errata": {
-    "registryEntries": 3,
-    "corrections": 1,
-    "documentedWithoutCorrection": 2,
+    "registryEntries": 12,
+    "corrections": 4,
+    "documentedWithoutCorrection": 8,
     "correctionsApplied": 0,
     "entries": [
       {
@@ -2906,6 +2906,78 @@
         "citation": "KerML 7.4.9",
         "corrected": false,
         "derivation": "tp is a PowerValue (L^2·M·T^-3) and dt a TimeValue (T), so the expression the return feature takes its value from has dimension L^4·M^2·T^-5 while AccelerationValue is measured in L·T^-2; no repair follows from the parameters the calculation declares, so the defect is documented without a correction."
+      },
+      {
+        "id": "SI-137",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 137,
+        "citation": "KerML 7.4.9",
+        "corrected": true,
+        "derivation": "ISO 80000-10 item 10-55 defines mass stopping power as energy × area per mass, L^4·T^-2, which is the dimension TotalMassStoppingPowerUnit declares and the dimension of the file's own `J*m^2/kg` (line 147); `eV*m^-2/kg` is T^-2, and `eV*m^2/kg` is the only reading of an electronvolt spelling with that dimension. The name stays as published so the element's identity does."
+      },
+      {
+        "id": "SI-149",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 149,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`J*s` and `eV*s` are each an angular momentum (L^2·M·T^-1, ISO 80000-10 item 10-11), and their product is L^4·M^2·T^-2; the two are different units, so which one the line means cannot be inferred and the defect is documented without a correction."
+      },
+      {
+        "id": "SI-163",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 163,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`J^-1*m^-3` and `eV^-1*m^-3` are each an energy density of states (L^-5·M^-1·T^2, ISO 80000-12 item 12-16), and their product is L^-10·M^-2·T^4; the two are different units, so the defect is documented without a correction."
+      },
+      {
+        "id": "SI-233",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 233,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`ISQ::*` re-exports two MagneticDipoleMomentUnits, the electromagnetic one (L^3·M·T^-2·I^-1, IEC 80000-6 item 6-30) and the atomic one (L^2·I, ISO 80000-10 item 10-9.1); `m^2*A` is the atomic unit, the unqualified name resolves to the electromagnetic one, and the ISQ library rather than this line is where the name clash is fixed, so the defect is documented without a correction."
+      },
+      {
+        "id": "SI-239",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 239,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`m^2*s^-3` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; ISQAtomicNuclear declares no rate unit to retype the line by, so the defect is documented without a correction."
+      },
+      {
+        "id": "SI-247",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 247,
+        "citation": "KerML 7.4.9",
+        "corrected": true,
+        "derivation": "`m^3/C` and `m^3*s^-1*A^-1` are one coherent unit spelled twice (`C = A*s` in the same file), each the Hall coefficient of ISO 80000-12 item 12-19 (L^3·T^-1·I^-1) that HallCoefficientUnit declares; their product is L^6·T^-2·I^-2, and either spelling alone is the same unit, so `m^3/C` is substituted. The name stays as published so the element's identity does."
+      },
+      {
+        "id": "SI-286",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 286,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`Sv/s` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction."
+      },
+      {
+        "id": "SI-299",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/SI.sysml",
+        "line": 299,
+        "citation": "KerML 7.4.9",
+        "corrected": false,
+        "derivation": "`W/kg` is L^2·T^-3, a dose-equivalent rate (ISO 80000-10 item 10-83.2), while DoseEquivalentUnit is L^2·T^-2; as at line 239, no rate unit exists to retype the line by, so the defect is documented without a correction."
+      },
+      {
+        "id": "USCustomaryUnits-255",
+        "path": "internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/USCustomaryUnits.sysml",
+        "line": 255,
+        "citation": "SysML v2 §9.8.9.1",
+        "corrected": true,
+        "derivation": "the unit postfix binds to PrimaryExpression (KerMLExpressions.xtext:308), below MultiplicativeExpression, so `[K]` qualifies 900 alone and the value is Θ^-1 where ThermodynamicTemperatureValue is Θ; the evident intent, 0 °F as a temperature in kelvin, is `(229835/900) [K]`."
       }
     ],
     "totals": {
@@ -2915,6 +2987,6 @@
       "oursOnlyRejects": 9,
       "bothAccept": 0
     },
-    "note": "no declared correction lies under cmd/pilot-reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"
+    "note": "no declared correction lies under tools/referee/reject/testdata/negative, so the errata-applied corpus is byte-identical to the published one and both figures coincide"
   }
 }

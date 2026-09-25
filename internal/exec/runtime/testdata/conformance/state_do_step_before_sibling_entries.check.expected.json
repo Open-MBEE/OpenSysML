@@ -1,0 +1,16 @@
+{
+	"verdict": "divergent",
+	"divergent": {
+		"log": [
+			"\"did m1(entry) r1(entry) \"",
+			"\"did r1(entry) m1(entry) \"",
+			"\"m1(entry) did r1(entry) \"",
+			"\"m1(entry) r1(entry) did \"",
+			"\"r1(entry) did m1(entry) \"",
+			"\"r1(entry) m1(entry) did \""
+		]
+	},
+	"agreed": {
+		"finalState": "l1+m1+r1"
+	}
+}

@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "trace": true,
+  "finalState": "seen",
+  "stateVisits": ["outer", "l", "r", "seen"],
+  "outputs": {
+    "x": {"type": "Integer", "value": 1},
+    "picked": {"type": "Integer", "value": 1}
+  }
+}

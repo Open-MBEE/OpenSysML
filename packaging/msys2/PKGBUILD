@@ -44,7 +44,7 @@ check() {
   export GOROOT=${MINGW_PREFIX}/lib/go
   export CGO_ENABLED=0
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
-  go test -short ./internal/core/lexer/... ./internal/core/parser/...
+  go test -short ./internal/syntax/lexer/... ./internal/syntax/parser/...
 }
 
 package() {
@@ -53,5 +53,5 @@ package() {
   install -Dm755 sysml-lsp.exe "${pkgdir}${MINGW_PREFIX}/bin/sysml-lsp.exe"
   install -Dm644 LICENSE "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE"
   install -Dm644 README.md "${pkgdir}${MINGW_PREFIX}/share/doc/${_realname}/README.md"
-  install -Dm644 man/man1/sysml.1 man/man1/sysml-lsp.1 -t "${pkgdir}${MINGW_PREFIX}/share/man/man1/"
+  install -Dm644 packaging/man/man1/sysml.1 packaging/man/man1/sysml-lsp.1 -t "${pkgdir}${MINGW_PREFIX}/share/man/man1/"
 }

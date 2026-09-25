@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_timer" name="Timer" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_u" name="u">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p" name="p">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_pv" value="0.5"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Tick">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_three" name="three">
+          <value xmi:type="uml:LiteralReal" xmi:id="_threeV" value="3.0"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_threeOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set t" structuralFeature="_t" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_three"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_of" source="_threeOut" target="_setVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_set" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Timer Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_timer"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g2">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindT" role="_t"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMean">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_a0" name="timer analysis" classifier="_analysis"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_unbound" name="Unbound Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g3" general="_timer"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g4">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+    </packagedElement>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_u0" name="unbound analysis" classifier="_unbound"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_g0" name="Group 0"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g5" name="Group 1"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_g6" name="Group 2"/>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_raw" name="run 1" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_rawT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rawTv" value="2.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rawP" definingFeature="_p">
+          <value xmi:type="uml:LiteralReal" xmi:id="_rawPv" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rawN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_rawNv"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_rawMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rawMeanv"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_sum" name="analysis of 4 runs" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_sumT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_sumTv" value="3.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sumN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_sumNv" value="4"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sumMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_sumMeanv" value="3.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sumDev">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_sumDevv" value="0.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_sumOut">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcOutOfSpec">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::OutOfSpec" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_sumOutv" value="1"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_foreign" name="analysis of u" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_forU" definingFeature="_u">
+          <value xmi:type="uml:LiteralReal" xmi:id="_forUv" value="9.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_forN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_forNv" value="2"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_forMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_forMeanv" value="9.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_half" name="half an analysis" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_halfT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_halfTv" value="6.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_halfN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_halfNv" value="3"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_lean" name="analysis without a deviation" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_leanT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_leanTv" value="7.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_leanN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_leanNv" value="2"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_leanMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_leanMeanv" value="7.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_odd" name="analysis of two and a half runs" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_oddT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_oddTv" value="4.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_oddN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_oddNv" value="2.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_oddMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_oddMeanv" value="4.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_vast" name="analysis of more runs than a count holds" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_vastT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastTv" value="4.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_vastN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastNv" value="9223372036854775808"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_vastMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_vastMeanv" value="4.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_stray" name="analysis of nothing held" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_strayN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_strayNv" value="7"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_strayMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_strayMeanv" value="7.0"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_garbled" name="analysis with a garbled mean" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_garbledT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_garbledTv" value="3.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_garbledN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_garbledNv" value="3"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_garbledMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralString" xmi:id="_garbledMeanv" value="n/a"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_garbledDev">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcDeviation">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Deviation" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_garbledDevv" value="NaN"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_blank" name="analysis left blank" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_blankT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_blankTv" value="5.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_blankN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_blankNv"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_blankMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_blankMeanv"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_twice" name="analysis counted twice" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_twiceT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_twiceTv" value="8.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twiceNv" value="5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceN2">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twiceN2v" value="10"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_twiceMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_twiceMeanv" value="8.0"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_empty" name="Empty"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_unboundResults" name="Unbound Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_ub1" name="run 1" classifier="_unbound">
+        <slot xmi:type="uml:Slot" xmi:id="_ub1T" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_ub1Tv" value="1.0"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_ub1N">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralInteger" xmi:id="_ub1Nv" value="5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stats" name="Statistics Table" ownerOfDiagram="_results">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_sum</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_stats" base_Diagram="_diag_stats" scope="_results" includeSubtypesOfRowTypes="false" showScopeAsRoot="false">
+    <classifiers xmi:idref="_analysis"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>IColumn:_t</columnIds>
+    <columnIds>IColumn:_mcN</columnIds>
+    <columnIds>IColumn:_mcMean</columnIds>
+    <columnIds>IColumn:_mcDeviation</columnIds>
+    <sort>IColumn:_mcN^Desc</sort>
+  </MagicDraw_Profile:InstanceTable>
+
+  <sysml:Block xmi:id="_s1" base_Class="_timer"/>
+  <sysml:Block xmi:id="_s2" base_Class="_analysis"/>
+  <sysml:Block xmi:id="_s3" base_Class="_unbound"/>
+  <sysml:BindingConnector xmi:id="_s4" base_Connector="_bind"/>
+  <SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_c0" base_Class="_g0"
+      executionTarget="_a0" resultLocation="_results" numberOfRuns="3" durationSimulationMode="average"/>
+  <SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_c1" base_Class="_g5"
+      executionTarget="_a0" resultLocation="_empty" durationSimulationMode="average"/>
+  <SimulationProfile:SimulationConfig xmlns:SimulationProfile="http://www.magicdraw.com/schemas/SimulationProfile.xmi" xmi:id="_c2" base_Class="_g6"
+      executionTarget="_u0" resultLocation="_unboundResults" numberOfRuns="1" durationSimulationMode="average"/>
+</xmi:XMI>

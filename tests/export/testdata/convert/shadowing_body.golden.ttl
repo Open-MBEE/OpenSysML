@@ -1,0 +1,691 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ShadowBody
+    a sysml:Package ;
+    sysml:qualifiedName "ShadowBody" ;
+    sysml:elementId "ShadowBody" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ShadowBody" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:ShadowBody___400, elmt:ShadowBody__Speed_om, elmt:ShadowBody__Sensor_om ;
+    sysml:ownedImport elmt:ShadowBody___400 ;
+    sysml:ownedMember elmt:ShadowBody__Speed, elmt:ShadowBody__Sensor ;
+    sysml:ownedMembership elmt:ShadowBody__Speed_om, elmt:ShadowBody__Sensor_om ;
+    sysx:sourceText "package ShadowBody {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody___400\"},{\"@id\":\"ShadowBody__Speed_om\"},{\"@id\":\"ShadowBody__Sensor_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"ShadowBody__Speed\"},{\"@id\":\"ShadowBody__Sensor\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Speed_om\"},{\"@id\":\"ShadowBody__Sensor_om\"}]" .
+
+elmt:ShadowBody___400
+    a sysml:NamespaceImport ;
+    sysml:qualifiedName "ShadowBody::@0" ;
+    sysml:elementId "ShadowBody___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody ;
+    sysml:owner elmt:ShadowBody ;
+    sysml:owningRelatedElement elmt:ShadowBody ;
+    sysml:importOwningNamespace elmt:ShadowBody ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace <urn:sysmlv2:element:1ed3f10f-1391-5a27-a5bd-233a70b01328> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ControlFunctions::*;\n" .
+
+elmt:ShadowBody__Speed
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "ShadowBody::Speed" ;
+    sysml:elementId "ShadowBody__Speed" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody ;
+    sysml:owner elmt:ShadowBody ;
+    sysml:owningRelationship elmt:ShadowBody__Speed_om ;
+    sysml:owningMembership elmt:ShadowBody__Speed_om ;
+    sysml:declaredName "Speed" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    attribute def Speed;\n" .
+
+elmt:ShadowBody__Speed_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ShadowBody__Speed_om" ;
+    sysml:owner elmt:ShadowBody ;
+    sysml:memberElement elmt:ShadowBody__Speed ;
+    sysml:ownedMemberElement elmt:ShadowBody__Speed ;
+    sysml:ownedRelatedElement elmt:ShadowBody__Speed ;
+    sysml:owningRelatedElement elmt:ShadowBody ;
+    sysml:membershipOwningNamespace elmt:ShadowBody .
+
+elmt:ShadowBody__Sensor
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ShadowBody::Sensor" ;
+    sysml:elementId "ShadowBody__Sensor" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody ;
+    sysml:owner elmt:ShadowBody ;
+    sysml:owningRelationship elmt:ShadowBody__Sensor_om ;
+    sysml:owningMembership elmt:ShadowBody__Sensor_om ;
+    sysml:declaredName "Sensor" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ShadowBody__Sensor__value, elmt:ShadowBody__Sensor__readings, elmt:ShadowBody__Sensor__highs ;
+    sysml:ownedMembership elmt:ShadowBody__Sensor__value_om, elmt:ShadowBody__Sensor__readings_om, elmt:ShadowBody__Sensor__highs_om ;
+    sysml:ownedRelationship elmt:ShadowBody__Sensor__value_om, elmt:ShadowBody__Sensor__readings_om, elmt:ShadowBody__Sensor__highs_om ;
+    sysml:ownedFeature elmt:ShadowBody__Sensor__value, elmt:ShadowBody__Sensor__readings, elmt:ShadowBody__Sensor__highs ;
+    sysml:ownedFeatureMembership elmt:ShadowBody__Sensor__value_om, elmt:ShadowBody__Sensor__readings_om, elmt:ShadowBody__Sensor__highs_om ;
+    sysx:sourceText "    part def Sensor {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"ShadowBody__Sensor__value\"},{\"@id\":\"ShadowBody__Sensor__readings\"},{\"@id\":\"ShadowBody__Sensor__highs\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__value_om\"},{\"@id\":\"ShadowBody__Sensor__readings_om\"},{\"@id\":\"ShadowBody__Sensor__highs_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__value_om\"},{\"@id\":\"ShadowBody__Sensor__readings_om\"},{\"@id\":\"ShadowBody__Sensor__highs_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__value\"},{\"@id\":\"ShadowBody__Sensor__readings\"},{\"@id\":\"ShadowBody__Sensor__highs\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__value_om\"},{\"@id\":\"ShadowBody__Sensor__readings_om\"},{\"@id\":\"ShadowBody__Sensor__highs_om\"}]" .
+
+elmt:ShadowBody__Sensor_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ShadowBody__Sensor_om" ;
+    sysml:owner elmt:ShadowBody ;
+    sysml:memberElement elmt:ShadowBody__Sensor ;
+    sysml:ownedMemberElement elmt:ShadowBody__Sensor ;
+    sysml:ownedRelatedElement elmt:ShadowBody__Sensor ;
+    sysml:owningRelatedElement elmt:ShadowBody ;
+    sysml:membershipOwningNamespace elmt:ShadowBody .
+
+elmt:ShadowBody__Sensor__value
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ShadowBody::Sensor::value" ;
+    sysml:elementId "ShadowBody__Sensor__value" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody__Sensor ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:owningRelationship elmt:ShadowBody__Sensor__value_om ;
+    sysml:owningMembership elmt:ShadowBody__Sensor__value_om ;
+    sysml:declaredName "value" ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ShadowBody__Sensor__value_ft0 ;
+    sysml:ownedSpecialization elmt:ShadowBody__Sensor__value_ft0 ;
+    sysml:ownedRelationship elmt:ShadowBody__Sensor__value_ft0 ;
+    sysx:sourceText "        attribute value : Speed;\n" .
+
+elmt:ShadowBody__Sensor__value_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ShadowBody__Sensor__value_om" ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:memberElement elmt:ShadowBody__Sensor__value ;
+    sysml:ownedMemberElement elmt:ShadowBody__Sensor__value ;
+    sysml:ownedRelatedElement elmt:ShadowBody__Sensor__value ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor ;
+    sysml:ownedMemberFeature elmt:ShadowBody__Sensor__value ;
+    sysml:owningType elmt:ShadowBody__Sensor .
+
+elmt:ShadowBody__Sensor__readings
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ShadowBody::Sensor::readings" ;
+    sysml:elementId "ShadowBody__Sensor__readings" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody__Sensor ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:owningRelationship elmt:ShadowBody__Sensor__readings_om ;
+    sysml:owningMembership elmt:ShadowBody__Sensor__readings_om ;
+    sysml:declaredName "readings" ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysml:multiplicity expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om, elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
+    sysml:upperBound expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysml:ownedSpecialization elmt:ShadowBody__Sensor__readings_ft0 ;
+    sysx:sourceText "        attribute readings : Speed[*];\n" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__readings_pmultiplicity_om\"},{\"@id\":\"ShadowBody__Sensor__readings_ft0\"}]" .
+
+elmt:ShadowBody__Sensor__readings_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ShadowBody__Sensor__readings_om" ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:memberElement elmt:ShadowBody__Sensor__readings ;
+    sysml:ownedMemberElement elmt:ShadowBody__Sensor__readings ;
+    sysml:ownedRelatedElement elmt:ShadowBody__Sensor__readings ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor ;
+    sysml:ownedMemberFeature elmt:ShadowBody__Sensor__readings ;
+    sysml:owningType elmt:ShadowBody__Sensor .
+
+expr:ShadowBody__Sensor__readings_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "ShadowBody__Sensor__readings_pmultiplicity" ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__readings_pmultiplicity_om ;
+    sysml:upperBound expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__readings_pupperBound_om .
+
+expr:ShadowBody__Sensor__readings_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ShadowBody__Sensor__readings_pmultiplicity_om" ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:memberElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__readings ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor__readings .
+
+expr:ShadowBody__Sensor__readings_pupperBound
+    a sysml:LiteralInfinity ;
+    sysx:sourceText "*" ;
+    sysml:elementId "ShadowBody__Sensor__readings_pupperBound" ;
+    sysml:owner expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__readings_pupperBound_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__readings_pupperBound_om .
+
+expr:ShadowBody__Sensor__readings_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ShadowBody__Sensor__readings_pupperBound_om" ;
+    sysml:owner expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:memberElement expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__readings_pupperBound ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__readings_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__readings_pmultiplicity .
+
+elmt:ShadowBody__Sensor__highs
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "ShadowBody::Sensor::highs" ;
+    sysml:elementId "ShadowBody__Sensor__highs" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ShadowBody__Sensor ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:owningRelationship elmt:ShadowBody__Sensor__highs_om ;
+    sysml:owningMembership elmt:ShadowBody__Sensor__highs_om ;
+    sysml:declaredName "highs" ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute highs = readings->select { in value; value > 5 };\n" .
+
+elmt:ShadowBody__Sensor__highs_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_om" ;
+    sysml:owner elmt:ShadowBody__Sensor ;
+    sysml:memberElement elmt:ShadowBody__Sensor__highs ;
+    sysml:ownedMemberElement elmt:ShadowBody__Sensor__highs ;
+    sysml:ownedRelatedElement elmt:ShadowBody__Sensor__highs ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor ;
+    sysml:ownedMemberFeature elmt:ShadowBody__Sensor__highs ;
+    sysml:owningType elmt:ShadowBody__Sensor .
+
+expr:ShadowBody__Sensor__highs_pvalue
+    a sysml:InvocationExpression ;
+    sysx:sourceText "readings->select { in value; value > 5 }" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue" ;
+    sysml:function elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56 ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pfunction, expr:ShadowBody__Sensor__highs_pvalue_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pout_om ;
+    sysml:operand expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pout_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pout_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pin0, expr:ShadowBody__Sensor__highs_pvalue_pin1, expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_pin0, expr:ShadowBody__Sensor__highs_pvalue_pin1, expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:input expr:ShadowBody__Sensor__highs_pvalue_pin0, expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:argument expr:ShadowBody__Sensor__highs_pvalue_poperand, expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:result expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:owner elmt:ShadowBody__Sensor__highs ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_om ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pfunction\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pout\"}]" ;
+    json:input "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1\"}]" ;
+    json:argument "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_poperand\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_pfunction
+    a sysml:Membership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pfunction" ;
+    sysml:memberElement elmt:d2b84130-4d51-5e96-9ce6-150b5bd9ff56 ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "readings" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand" ;
+    sysml:referent elmt:ShadowBody__Sensor__readings ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om, expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:result expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_om ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_poperand_pout_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_poperand_preferent\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand_pout
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_pout_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_poperand_pout ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_poperand_pout .
+
+expr:ShadowBody__Sensor__highs_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pin0_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_poperand_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_poperand_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin0_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pin0 .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:featureWithValue expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue_poperand .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "{ in value; value > 5 }" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0" ;
+    sysml:referent expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody, expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:result expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pbody\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pout\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody
+    a sysml:Expression ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pbody" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysx:bodyParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysx:resultExpression expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_om\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pbody_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0
+    a sysml:ReferenceUsage ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pin0" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:direction "in" ;
+    sysml:declaredName "value" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pin0_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pin0 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult
+    a sysml:OperatorExpression ;
+    sysx:sourceText "value > 5" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult" ;
+    sysml:operator ">" ;
+    sysml:argument expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:input expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:result expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om ;
+    json:argument "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pout\"}]" ;
+    json:parameter "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pout\"}]" ;
+    json:input "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "value" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0" ;
+    sysml:referent "value" ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om ;
+    sysml:ownedFeatureMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om ;
+    sysml:ownedFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:parameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:result expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om ;
+    json:ownedRelationship "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_pout .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:featureWithValue expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1
+    a sysml:LiteralInteger ;
+    sysx:sourceText "5" ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1" ;
+    sysml:value "5"^^xsd:integer ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:featureWithValue expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa1 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pout_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pout .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_om
+    a sysml:ResultExpressionMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0_pbody ;
+    sysml:ownedResultExpression expr:ShadowBody__Sensor__highs_pvalue_pa0_presult .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pout
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_pout_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_pout ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_pout .
+
+expr:ShadowBody__Sensor__highs_pvalue_pin1
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pin1_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pin1_om ;
+    sysml:ownedRelationship expr:ShadowBody__Sensor__highs_pvalue_pa0_om ;
+    sysml:ownedMembership expr:ShadowBody__Sensor__highs_pvalue_pa0_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pin1_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pin1 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:featureWithValue expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue_pa0 .
+
+expr:ShadowBody__Sensor__highs_pvalue_pout
+    a sysml:Feature ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:owningRelationship expr:ShadowBody__Sensor__highs_pvalue_pout_om ;
+    sysml:owningMembership expr:ShadowBody__Sensor__highs_pvalue_pout_om .
+
+expr:ShadowBody__Sensor__highs_pvalue_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pout_om" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:membershipOwningNamespace expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pout ;
+    sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pout .
+
+expr:ShadowBody__Sensor__highs_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_om" ;
+    sysml:owner elmt:ShadowBody__Sensor__highs ;
+    sysml:memberElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedMemberElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:ownedRelatedElement expr:ShadowBody__Sensor__highs_pvalue ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__highs ;
+    sysml:membershipOwningNamespace elmt:ShadowBody__Sensor__highs ;
+    sysml:featureWithValue elmt:ShadowBody__Sensor__highs ;
+    sysml:value expr:ShadowBody__Sensor__highs_pvalue .
+
+elmt:ShadowBody__Sensor__value_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ShadowBody__Sensor__value_ft0" ;
+    sysml:typedFeature elmt:ShadowBody__Sensor__value ;
+    sysml:owningFeature elmt:ShadowBody__Sensor__value ;
+    sysml:specific elmt:ShadowBody__Sensor__value ;
+    sysml:source elmt:ShadowBody__Sensor__value ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__value ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysml:general elmt:ShadowBody__Speed ;
+    sysml:target elmt:ShadowBody__Speed ;
+    sysml:owner elmt:ShadowBody__Sensor__value ;
+    sysml:relatedElement elmt:ShadowBody__Sensor__value, elmt:ShadowBody__Speed ;
+    json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__value\"},{\"@id\":\"ShadowBody__Speed\"}]" .
+
+elmt:ShadowBody__Sensor__readings_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ShadowBody__Sensor__readings_ft0" ;
+    sysml:typedFeature elmt:ShadowBody__Sensor__readings ;
+    sysml:owningFeature elmt:ShadowBody__Sensor__readings ;
+    sysml:specific elmt:ShadowBody__Sensor__readings ;
+    sysml:source elmt:ShadowBody__Sensor__readings ;
+    sysml:owningRelatedElement elmt:ShadowBody__Sensor__readings ;
+    sysml:type elmt:ShadowBody__Speed ;
+    sysml:general elmt:ShadowBody__Speed ;
+    sysml:target elmt:ShadowBody__Speed ;
+    sysml:owner elmt:ShadowBody__Sensor__readings ;
+    sysml:relatedElement elmt:ShadowBody__Sensor__readings, elmt:ShadowBody__Speed ;
+    json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__readings\"},{\"@id\":\"ShadowBody__Speed\"}]" .
+
+expr:ShadowBody__Sensor__highs_pvalue_poperand_preferent
+    a sysml:Membership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_poperand_preferent" ;
+    sysml:memberElement elmt:ShadowBody__Sensor__readings ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_poperand ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_poperand .
+
+expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0_preferent" ;
+    sysml:memberElement "value" ;
+    sysml:owner expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 ;
+    sysml:owningRelatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pa0 .

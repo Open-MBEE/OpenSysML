@@ -1,0 +1,368 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Conjugation
+    a sysml:Package ;
+    sysml:qualifiedName "Conjugation" ;
+    sysml:elementId "Conjugation" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Conjugation" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Conjugation__CommunicationPort, elmt:Conjugation__Ground, elmt:Conjugation__Link ;
+    sysml:ownedMembership elmt:Conjugation__CommunicationPort_om, elmt:Conjugation__Ground_om, elmt:Conjugation__Link_om ;
+    sysml:ownedRelationship elmt:Conjugation__CommunicationPort_om, elmt:Conjugation__Ground_om, elmt:Conjugation__Link_om ;
+    sysx:sourceText "package Conjugation {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__Ground\"},{\"@id\":\"Conjugation__Link\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Conjugation__CommunicationPort_om\"},{\"@id\":\"Conjugation__Ground_om\"},{\"@id\":\"Conjugation__Link_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__CommunicationPort_om\"},{\"@id\":\"Conjugation__Ground_om\"},{\"@id\":\"Conjugation__Link_om\"}]" .
+
+elmt:Conjugation__CommunicationPort
+    a sysml:PortDefinition ;
+    sysml:qualifiedName "Conjugation::CommunicationPort" ;
+    sysml:elementId "Conjugation__CommunicationPort" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation ;
+    sysml:owner elmt:Conjugation ;
+    sysml:owningRelationship elmt:Conjugation__CommunicationPort_om ;
+    sysml:owningMembership elmt:Conjugation__CommunicationPort_om ;
+    sysml:declaredName "CommunicationPort" ;
+    sysml:ownedRelationship elmt:Conjugation__CommunicationPort_conjugated_om, elmt:Conjugation__CommunicationPort__signal_om ;
+    sysml:ownedMember elmt:Conjugation__CommunicationPort_conjugated, elmt:Conjugation__CommunicationPort__signal ;
+    sysml:ownedMembership elmt:Conjugation__CommunicationPort_conjugated_om, elmt:Conjugation__CommunicationPort__signal_om ;
+    sysml:conjugatedPortDefinition elmt:Conjugation__CommunicationPort_conjugated ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedFeature elmt:Conjugation__CommunicationPort__signal ;
+    sysml:ownedFeatureMembership elmt:Conjugation__CommunicationPort__signal_om ;
+    sysx:sourceText "    port def CommunicationPort {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__CommunicationPort_conjugated_om\"},{\"@id\":\"Conjugation__CommunicationPort__signal_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Conjugation__CommunicationPort_conjugated\"},{\"@id\":\"Conjugation__CommunicationPort__signal\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Conjugation__CommunicationPort_conjugated_om\"},{\"@id\":\"Conjugation__CommunicationPort__signal_om\"}]" .
+
+elmt:Conjugation__CommunicationPort_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__CommunicationPort_om" ;
+    sysml:owner elmt:Conjugation ;
+    sysml:memberElement elmt:Conjugation__CommunicationPort ;
+    sysml:ownedMemberElement elmt:Conjugation__CommunicationPort ;
+    sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort ;
+    sysml:owningRelatedElement elmt:Conjugation ;
+    sysml:membershipOwningNamespace elmt:Conjugation .
+
+elmt:Conjugation__CommunicationPort_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "Conjugation__CommunicationPort_conjugated" ;
+    sysml:qualifiedName "Conjugation::CommunicationPort::'~CommunicationPort'" ;
+    sysml:declaredName "~CommunicationPort" ;
+    sysml:owner elmt:Conjugation__CommunicationPort ;
+    sysml:owningRelationship elmt:Conjugation__CommunicationPort_conjugated_om ;
+    sysml:owningMembership elmt:Conjugation__CommunicationPort_conjugated_om ;
+    sysml:ownedRelationship elmt:Conjugation__CommunicationPort_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:Conjugation__CommunicationPort_conjugated_pc .
+
+elmt:Conjugation__CommunicationPort_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__CommunicationPort_conjugated_om" ;
+    sysml:owner elmt:Conjugation__CommunicationPort ;
+    sysml:memberElement elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:ownedMemberElement elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:owningRelatedElement elmt:Conjugation__CommunicationPort ;
+    sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort .
+
+elmt:Conjugation__CommunicationPort_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "Conjugation__CommunicationPort_conjugated_pc" ;
+    sysml:conjugatedType elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:originalType elmt:Conjugation__CommunicationPort ;
+    sysml:originalPortDefinition elmt:Conjugation__CommunicationPort ;
+    sysml:owner elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:owningRelatedElement elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort_conjugated, elmt:Conjugation__CommunicationPort ;
+    sysml:source elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:target elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort_conjugated\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
+
+elmt:Conjugation__CommunicationPort__signal
+    a sysml:ItemUsage ;
+    sysml:qualifiedName "Conjugation::CommunicationPort::signal" ;
+    sysml:elementId "Conjugation__CommunicationPort__signal" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation__CommunicationPort ;
+    sysml:owner elmt:Conjugation__CommunicationPort ;
+    sysml:owningRelationship elmt:Conjugation__CommunicationPort__signal_om ;
+    sysml:owningMembership elmt:Conjugation__CommunicationPort__signal_om ;
+    sysml:declaredName "signal" ;
+    sysml:direction "out" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        out item signal;\n" .
+
+elmt:Conjugation__CommunicationPort__signal_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Conjugation__CommunicationPort__signal_om" ;
+    sysml:owner elmt:Conjugation__CommunicationPort ;
+    sysml:memberElement elmt:Conjugation__CommunicationPort__signal ;
+    sysml:ownedMemberElement elmt:Conjugation__CommunicationPort__signal ;
+    sysml:ownedRelatedElement elmt:Conjugation__CommunicationPort__signal ;
+    sysml:owningRelatedElement elmt:Conjugation__CommunicationPort ;
+    sysml:membershipOwningNamespace elmt:Conjugation__CommunicationPort ;
+    sysml:ownedMemberFeature elmt:Conjugation__CommunicationPort__signal ;
+    sysml:owningType elmt:Conjugation__CommunicationPort .
+
+elmt:Conjugation__Ground
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Conjugation::Ground" ;
+    sysml:elementId "Conjugation__Ground" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation ;
+    sysml:owner elmt:Conjugation ;
+    sysml:owningRelationship elmt:Conjugation__Ground_om ;
+    sysml:owningMembership elmt:Conjugation__Ground_om ;
+    sysml:declaredName "Ground" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Conjugation__Ground__groundPort, elmt:Conjugation__Ground__spacePort ;
+    sysml:ownedMembership elmt:Conjugation__Ground__groundPort_om, elmt:Conjugation__Ground__spacePort_om ;
+    sysml:ownedRelationship elmt:Conjugation__Ground__groundPort_om, elmt:Conjugation__Ground__spacePort_om ;
+    sysml:ownedFeature elmt:Conjugation__Ground__groundPort, elmt:Conjugation__Ground__spacePort ;
+    sysml:ownedFeatureMembership elmt:Conjugation__Ground__groundPort_om, elmt:Conjugation__Ground__spacePort_om ;
+    sysx:sourceText "    part def Ground {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Conjugation__Ground__groundPort\"},{\"@id\":\"Conjugation__Ground__spacePort\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Conjugation__Ground__groundPort_om\"},{\"@id\":\"Conjugation__Ground__spacePort_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Ground__groundPort_om\"},{\"@id\":\"Conjugation__Ground__spacePort_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Conjugation__Ground__groundPort\"},{\"@id\":\"Conjugation__Ground__spacePort\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Conjugation__Ground__groundPort_om\"},{\"@id\":\"Conjugation__Ground__spacePort_om\"}]" .
+
+elmt:Conjugation__Ground_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Ground_om" ;
+    sysml:owner elmt:Conjugation ;
+    sysml:memberElement elmt:Conjugation__Ground ;
+    sysml:ownedMemberElement elmt:Conjugation__Ground ;
+    sysml:ownedRelatedElement elmt:Conjugation__Ground ;
+    sysml:owningRelatedElement elmt:Conjugation ;
+    sysml:membershipOwningNamespace elmt:Conjugation .
+
+elmt:Conjugation__Ground__groundPort
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Conjugation::Ground::groundPort" ;
+    sysml:elementId "Conjugation__Ground__groundPort" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation__Ground ;
+    sysml:owner elmt:Conjugation__Ground ;
+    sysml:owningRelationship elmt:Conjugation__Ground__groundPort_om ;
+    sysml:owningMembership elmt:Conjugation__Ground__groundPort_om ;
+    sysml:declaredName "groundPort" ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Conjugation__Ground__groundPort_ft0 ;
+    sysml:ownedSpecialization elmt:Conjugation__Ground__groundPort_ft0 ;
+    sysml:ownedRelationship elmt:Conjugation__Ground__groundPort_ft0 ;
+    sysx:sourceText "        port groundPort : CommunicationPort;\n" .
+
+elmt:Conjugation__Ground__groundPort_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Conjugation__Ground__groundPort_om" ;
+    sysml:owner elmt:Conjugation__Ground ;
+    sysml:memberElement elmt:Conjugation__Ground__groundPort ;
+    sysml:ownedMemberElement elmt:Conjugation__Ground__groundPort ;
+    sysml:ownedRelatedElement elmt:Conjugation__Ground__groundPort ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Ground ;
+    sysml:ownedMemberFeature elmt:Conjugation__Ground__groundPort ;
+    sysml:owningType elmt:Conjugation__Ground .
+
+elmt:Conjugation__Ground__spacePort
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Conjugation::Ground::spacePort" ;
+    sysml:elementId "Conjugation__Ground__spacePort" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation__Ground ;
+    sysml:owner elmt:Conjugation__Ground ;
+    sysml:owningRelationship elmt:Conjugation__Ground__spacePort_om ;
+    sysml:owningMembership elmt:Conjugation__Ground__spacePort_om ;
+    sysml:declaredName "spacePort" ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Conjugation__Ground__spacePort_ft0 ;
+    sysml:ownedSpecialization elmt:Conjugation__Ground__spacePort_ft0 ;
+    sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0 ;
+    sysx:sourceText "        port spacePort : ~CommunicationPort;\n" .
+
+elmt:Conjugation__Ground__spacePort_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Conjugation__Ground__spacePort_om" ;
+    sysml:owner elmt:Conjugation__Ground ;
+    sysml:memberElement elmt:Conjugation__Ground__spacePort ;
+    sysml:ownedMemberElement elmt:Conjugation__Ground__spacePort ;
+    sysml:ownedRelatedElement elmt:Conjugation__Ground__spacePort ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Ground ;
+    sysml:ownedMemberFeature elmt:Conjugation__Ground__spacePort ;
+    sysml:owningType elmt:Conjugation__Ground .
+
+elmt:Conjugation__Link
+    a sysml:InterfaceDefinition ;
+    sysml:qualifiedName "Conjugation::Link" ;
+    sysml:elementId "Conjugation__Link" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation ;
+    sysml:owner elmt:Conjugation ;
+    sysml:owningRelationship elmt:Conjugation__Link_om ;
+    sysml:owningMembership elmt:Conjugation__Link_om ;
+    sysml:declaredName "Link" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Conjugation__Link__a, elmt:Conjugation__Link__b ;
+    sysml:ownedMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
+    sysml:ownedRelationship elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
+    sysml:ownedFeature elmt:Conjugation__Link__a, elmt:Conjugation__Link__b ;
+    sysml:ownedFeatureMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
+    sysx:sourceText "    interface def Link {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__Link__b\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__Link__b\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" .
+
+elmt:Conjugation__Link_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Conjugation__Link_om" ;
+    sysml:owner elmt:Conjugation ;
+    sysml:memberElement elmt:Conjugation__Link ;
+    sysml:ownedMemberElement elmt:Conjugation__Link ;
+    sysml:ownedRelatedElement elmt:Conjugation__Link ;
+    sysml:owningRelatedElement elmt:Conjugation ;
+    sysml:membershipOwningNamespace elmt:Conjugation .
+
+elmt:Conjugation__Link__a
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Conjugation::Link::a" ;
+    sysml:elementId "Conjugation__Link__a" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation__Link ;
+    sysml:owner elmt:Conjugation__Link ;
+    sysml:owningRelationship elmt:Conjugation__Link__a_om ;
+    sysml:owningMembership elmt:Conjugation__Link__a_om ;
+    sysml:declaredName "a" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Conjugation__Link__a_ft0 ;
+    sysml:ownedSpecialization elmt:Conjugation__Link__a_ft0 ;
+    sysml:ownedRelationship elmt:Conjugation__Link__a_ft0 ;
+    sysx:sourceText "        end port a : CommunicationPort;\n" .
+
+elmt:Conjugation__Link__a_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Conjugation__Link__a_om" ;
+    sysml:owner elmt:Conjugation__Link ;
+    sysml:memberElement elmt:Conjugation__Link__a ;
+    sysml:ownedMemberElement elmt:Conjugation__Link__a ;
+    sysml:ownedRelatedElement elmt:Conjugation__Link__a ;
+    sysml:owningRelatedElement elmt:Conjugation__Link ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Link ;
+    sysml:ownedMemberFeature elmt:Conjugation__Link__a ;
+    sysml:owningType elmt:Conjugation__Link .
+
+elmt:Conjugation__Link__b
+    a sysml:PortUsage ;
+    sysml:qualifiedName "Conjugation::Link::b" ;
+    sysml:elementId "Conjugation__Link__b" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Conjugation__Link ;
+    sysml:owner elmt:Conjugation__Link ;
+    sysml:owningRelationship elmt:Conjugation__Link__b_om ;
+    sysml:owningMembership elmt:Conjugation__Link__b_om ;
+    sysml:declaredName "b" ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysx:conjugatedTyping "true"^^xsd:boolean ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Conjugation__Link__b_ft0 ;
+    sysml:ownedSpecialization elmt:Conjugation__Link__b_ft0 ;
+    sysml:ownedRelationship elmt:Conjugation__Link__b_ft0 ;
+    sysx:sourceText "        end port b : ~CommunicationPort;\n" .
+
+elmt:Conjugation__Link__b_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Conjugation__Link__b_om" ;
+    sysml:owner elmt:Conjugation__Link ;
+    sysml:memberElement elmt:Conjugation__Link__b ;
+    sysml:ownedMemberElement elmt:Conjugation__Link__b ;
+    sysml:ownedRelatedElement elmt:Conjugation__Link__b ;
+    sysml:owningRelatedElement elmt:Conjugation__Link ;
+    sysml:membershipOwningNamespace elmt:Conjugation__Link ;
+    sysml:ownedMemberFeature elmt:Conjugation__Link__b ;
+    sysml:owningType elmt:Conjugation__Link .
+
+elmt:Conjugation__Ground__groundPort_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Conjugation__Ground__groundPort_ft0" ;
+    sysml:typedFeature elmt:Conjugation__Ground__groundPort ;
+    sysml:owningFeature elmt:Conjugation__Ground__groundPort ;
+    sysml:specific elmt:Conjugation__Ground__groundPort ;
+    sysml:source elmt:Conjugation__Ground__groundPort ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground__groundPort ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:general elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort ;
+    sysml:owner elmt:Conjugation__Ground__groundPort ;
+    sysml:relatedElement elmt:Conjugation__Ground__groundPort, elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground__groundPort\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
+
+elmt:Conjugation__Ground__spacePort_ft0
+    a sysml:ConjugatedPortTyping ;
+    sysml:elementId "Conjugation__Ground__spacePort_ft0" ;
+    sysml:typedFeature elmt:Conjugation__Ground__spacePort ;
+    sysml:owningFeature elmt:Conjugation__Ground__spacePort ;
+    sysml:specific elmt:Conjugation__Ground__spacePort ;
+    sysml:source elmt:Conjugation__Ground__spacePort ;
+    sysml:owningRelatedElement elmt:Conjugation__Ground__spacePort ;
+    sysml:conjugatedPortDefinition elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:general elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:owner elmt:Conjugation__Ground__spacePort ;
+    sysml:relatedElement elmt:Conjugation__Ground__spacePort, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:portDefinition elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Ground__spacePort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .
+
+elmt:Conjugation__Link__a_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Conjugation__Link__a_ft0" ;
+    sysml:typedFeature elmt:Conjugation__Link__a ;
+    sysml:owningFeature elmt:Conjugation__Link__a ;
+    sysml:specific elmt:Conjugation__Link__a ;
+    sysml:source elmt:Conjugation__Link__a ;
+    sysml:owningRelatedElement elmt:Conjugation__Link__a ;
+    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:general elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort ;
+    sysml:owner elmt:Conjugation__Link__a ;
+    sysml:relatedElement elmt:Conjugation__Link__a, elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__CommunicationPort\"}]" .
+
+elmt:Conjugation__Link__b_ft0
+    a sysml:ConjugatedPortTyping ;
+    sysml:elementId "Conjugation__Link__b_ft0" ;
+    sysml:typedFeature elmt:Conjugation__Link__b ;
+    sysml:owningFeature elmt:Conjugation__Link__b ;
+    sysml:specific elmt:Conjugation__Link__b ;
+    sysml:source elmt:Conjugation__Link__b ;
+    sysml:owningRelatedElement elmt:Conjugation__Link__b ;
+    sysml:conjugatedPortDefinition elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:general elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:owner elmt:Conjugation__Link__b ;
+    sysml:relatedElement elmt:Conjugation__Link__b, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:portDefinition elmt:Conjugation__CommunicationPort ;
+    json:relatedElement "[{\"@id\":\"Conjugation__Link__b\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" .

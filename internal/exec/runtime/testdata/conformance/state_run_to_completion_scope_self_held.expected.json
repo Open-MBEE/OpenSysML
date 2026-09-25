@@ -1,0 +1,8 @@
+{
+  "type": "state",
+  "events": [{"signal": "Ping"}],
+  "finalState": "done",
+  "stateVisits": ["start", "work", "step", "done"],
+  "outputs": {"hits": {"type": "Integer", "value": 1}},
+  "trace": true
+}

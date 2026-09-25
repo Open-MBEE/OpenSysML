@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/fsutil"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 )
 
 // linkedModel declares two documents referencing each other's content, so the
@@ -98,8 +99,8 @@ func TestRenderDocumentsFlag(t *testing.T) {
 // document of a set, in Markdown and in HTML.
 func TestRenderDocumentsDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
-	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.dot.golden.md"))
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.dot.golden.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,15 +431,15 @@ func TestRestoreBackupRevivesRemovedDestination(t *testing.T) {
 // an existing committed file.
 func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	dir := t.TempDir()
-	source := filepath.Join(dir, "backup")
+	backup := filepath.Join(dir, "backup")
 	target := filepath.Join(dir, "Reports-Appendix.md")
-	if err := os.WriteFile(source, []byte("previous\n"), 0o644); err != nil {
+	if err := os.WriteFile(backup, []byte("previous\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("committed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := fsutil.Replace(source, target); err != nil {
+	if err := source.ReplaceFile(backup, target); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(target)
@@ -448,22 +449,29 @@ func TestReplaceFileReplacesExistingTarget(t *testing.T) {
 	if string(restored) != "previous\n" {
 		t.Errorf("target = %q", restored)
 	}
-	if _, err := os.Stat(source); !os.IsNotExist(err) {
+	if _, err := os.Stat(backup); !os.IsNotExist(err) {
 		t.Errorf("the backup remains after its restore: %v", err)
 	}
 }
 
-// TestRenderDocumentsCaseCollidingNames checks documents whose file names
-// differ only by letter case are rejected before anything is written, so a
-// set renders the same on case-sensitive and case-insensitive filesystems.
+// TestRenderDocumentsCaseCollidingNames checks two documents whose names meet
+// letter case aside are each written under a tagged name, so a set survives a
+// filesystem that folds case, and the links between them point at the tags.
 func TestRenderDocumentsCaseCollidingNames(t *testing.T) {
 	binary := buildCLI(t)
 	model := `package Reports {
 	private import DocumentQueries::*;
 	private import ScalarValues::*;
 
+	ref shouting : WEEKLY;
+
 	part def Weekly :> Document {
 		attribute redefines title = "Weekly";
+		part intro : Paragraph {
+			part see : Ref {
+				ref redefines target = shouting;
+			}
+		}
 	}
 	part def WEEKLY :> Document {
 		attribute redefines title = "WEEKLY";
@@ -472,11 +480,236 @@ func TestRenderDocumentsCaseCollidingNames(t *testing.T) {
 `
 	dir := filepath.Join(t.TempDir(), "rendered")
 	got := check(t, binary, model, "-render-documents", dir)
-	if got.status != 2 || !strings.Contains(got.stderr, "differ only by letter case") {
-		t.Fatalf("exit = %d stderr = %q", got.status, got.stderr)
+	wantReport(t, got, 0, "Reports-Weekly~", "Reports-WEEKLY~")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
-		t.Errorf("a rejected set created the directory: %v", err)
+	var weekly, shouting string
+	for _, entry := range entries {
+		switch {
+		case strings.HasPrefix(entry.Name(), "Reports-Weekly~"):
+			weekly = entry.Name()
+		case strings.HasPrefix(entry.Name(), "Reports-WEEKLY~"):
+			shouting = entry.Name()
+		default:
+			t.Errorf("unexpected file %s", entry.Name())
+		}
+	}
+	if weekly == "" || shouting == "" || filename.CaseFolded(weekly) == filename.CaseFolded(shouting) {
+		t.Fatalf("files = %q and %q, want two names distinct letter case aside", weekly, shouting)
+	}
+	page, err := os.ReadFile(filepath.Join(dir, weekly))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(page), "]("+shouting+")") {
+		t.Errorf("the link does not point at the tagged file %s:\n%s", shouting, page)
+	}
+}
+
+// TestRenderDocumentsSameShortName checks documents of one short name in
+// different packages each get their own file, and a link to one of them
+// lands on that one.
+func TestRenderDocumentsSameShortName(t *testing.T) {
+	binary := buildCLI(t)
+	model := `package Reports {
+	private import DocumentQueries::*;
+	private import ScalarValues::*;
+
+	package Alpha {
+		part def Summary :> Document {
+			attribute redefines title = "Alpha Summary";
+		}
+	}
+	package Beta {
+		part def Summary :> Document {
+			attribute redefines title = "Beta Summary";
+		}
+	}
+	ref beta : Beta::Summary;
+
+	part def Index :> Document {
+		attribute redefines title = "Index";
+		part intro : Paragraph {
+			part see : Ref {
+				ref redefines target = beta;
+			}
+		}
+	}
+}
+`
+	dir := filepath.Join(t.TempDir(), "rendered")
+	got := check(t, binary, model, "-render-documents", dir)
+	wantReport(t, got, 0, "Reports-Alpha-Summary.md", "Reports-Beta-Summary.md", "Reports-Index.md")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Errorf("wrote %d files, want 3", len(entries))
+	}
+	for file, title := range map[string]string{
+		"Reports-Alpha-Summary.md": "# Alpha Summary",
+		"Reports-Beta-Summary.md":  "# Beta Summary",
+	} {
+		page, err := os.ReadFile(filepath.Join(dir, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(page), title) {
+			t.Errorf("%s lacks %q:\n%s", file, title, page)
+		}
+	}
+	index, err := os.ReadFile(filepath.Join(dir, "Reports-Index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(index), "](Reports-Beta-Summary.md)") {
+		t.Errorf("the link does not name the Beta document's file:\n%s", index)
+	}
+}
+
+// partialModel declares three documents, one of which fails to evaluate: its
+// table reads a [1] attribute the row leaves unbound. Another links to it and
+// to its table.
+const partialModel = `package Reports {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Scenario {
+		attribute duration : Real;
+	}
+	part campaign {
+		part idle : Scenario;
+	}
+
+	calc def Timings :> Query {
+		in root : Element = campaign;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("name"),
+			columns = (Column(name = "duration", expression = Scenario::duration))
+		)
+	}
+
+	ref brokenDoc : Broken;
+
+	part def Broken :> Document {
+		attribute redefines title = "Broken Timings";
+		part timings : Table {
+			calc rows : Timings;
+		}
+	}
+
+	part def First :> Document {
+		attribute redefines title = "First";
+		part intro : Paragraph {
+			part see : Ref {
+				ref redefines target = brokenDoc;
+			}
+			part table : Ref {
+				ref redefines target = brokenDoc.timings;
+			}
+		}
+	}
+
+	part def Second :> Document {
+		attribute redefines title = "Second";
+		part intro : Paragraph {
+			attribute redefines text = "second";
+		}
+	}
+}
+`
+
+// TestRenderDocumentsPartialSet checks a set with one document that cannot be
+// rendered still writes the others, writes a page stating the error where the
+// failed document's links land — carrying the anchors links into its blocks
+// expect — names the failure on stderr, and exits 3.
+func TestRenderDocumentsPartialSet(t *testing.T) {
+	binary := buildCLI(t)
+	for _, form := range []struct {
+		name, ext string
+		args      []string
+		links     []string
+		anchor    string
+	}{
+		{"markdown", ".md", nil, []string{"](Reports-Broken.md)", "](Reports-Broken.md#timings)"}, `<a id="timings"></a>`},
+		{"html", ".html", []string{"-doc-form", "html"}, []string{`href="Reports-Broken.html"`, `href="Reports-Broken.html#timings"`}, `id="timings"`},
+	} {
+		t.Run(form.name, func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), "rendered")
+			got := check(t, binary, partialModel, append([]string{"-render-documents", dir}, form.args...)...)
+			wantReport(t, got, 3,
+				"Reports-First"+form.ext+" (",
+				"Reports-Second"+form.ext+" (",
+				"Reports-Broken"+form.ext+" (",
+				"a page stating why the document could not be rendered",
+				"sysml: document Reports::Broken could not be rendered: ",
+				"column duration", "duration")
+			if strings.Count(got.stderr, "could not be rendered:") != 1 {
+				t.Errorf("want the one failure named once:\n%s", got.stderr)
+			}
+			second, err := os.ReadFile(filepath.Join(dir, "Reports-Second"+form.ext))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(second), "second") {
+				t.Errorf("the rendered document lacks its text:\n%s", second)
+			}
+			first, err := os.ReadFile(filepath.Join(dir, "Reports-First"+form.ext))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range form.links {
+				if !strings.Contains(string(first), want) {
+					t.Errorf("the link to the failed document is not %s:\n%s", want, first)
+				}
+			}
+			broken, err := os.ReadFile(filepath.Join(dir, "Reports-Broken"+form.ext))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"Broken Timings", "This document could not be rendered.", "duration", form.anchor, "timings", "was not rendered with the rest of this document."} {
+				if !strings.Contains(string(broken), want) {
+					t.Errorf("the failed document's page lacks %q:\n%s", want, broken)
+				}
+			}
+		})
+	}
+}
+
+// TestRenderDocumentAmbiguousName checks a short name held by documents in
+// several packages is refused with every candidate's qualified name.
+func TestRenderDocumentAmbiguousName(t *testing.T) {
+	binary := buildCLI(t)
+	model := `package Reports {
+	private import DocumentQueries::*;
+	private import ScalarValues::*;
+
+	package Alpha {
+		part def Summary :> Document {
+			attribute redefines title = "Alpha Summary";
+		}
+	}
+	package Beta {
+		part def Summary :> Document {
+			attribute redefines title = "Beta Summary";
+		}
+	}
+}
+`
+	got := check(t, binary, model, "-render-document", "Summary")
+	wantReport(t, got, 2, `symbol "Summary" is ambiguous: Reports::Alpha::Summary, Reports::Beta::Summary`, "use a qualified name")
+	if got.stdout != "" {
+		t.Errorf("stdout = %q, want nothing", got.stdout)
+	}
+	got = check(t, binary, model, "-render-document", "Reports::Beta::Summary")
+	wantReport(t, got, 0)
+	if !strings.Contains(got.stdout, "# Beta Summary") {
+		t.Errorf("the qualified name did not render the Beta document:\n%s", got.stdout)
 	}
 }
 

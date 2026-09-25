@@ -94,7 +94,7 @@ about the result type. They are counted as agreement by the harness's category m
 are *not* wording-only agreement in the strict sense (same rule, same element, same offset), so
 they remain listed as an open wording divergence rather than a closed row.
 
-One category mapping moved with this: `cmd/pilot-diff/category.go` now maps `must have` to
+One category mapping moved with this: `tools/referee/diff/category.go` now maps `must have` to
 `kind-mismatch` on our side, as it already did on the pilot's. Before the change our own
 `Must have a Boolean result` was `unmapped` while the pilot's identical string was
 `kind-mismatch`, so the two could never agree. On the base tree the change is inert — no diagnostic

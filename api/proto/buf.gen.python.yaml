@@ -1,0 +1,14 @@
+version: v2
+# Python client stubs, importable as `opensysml.proto`. Run via `make python-proto`.
+# All three generators go through scripts/buf-plugin-python.py; see that file for why.
+# $PYTHON (exported by the Makefile) selects the interpreter that has grpcio-tools.
+plugins:
+  - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
+    opt: python
+    out: client/python/opensysml/proto
+  - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
+    opt: pyi
+    out: client/python/opensysml/proto
+  - local: ["sh", "-c", 'exec "${PYTHON:-python3}" scripts/buf-plugin-python.py']
+    opt: grpc_python
+    out: client/python/opensysml/proto

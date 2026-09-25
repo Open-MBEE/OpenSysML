@@ -136,6 +136,7 @@ exclude_docs: |
   project/training-examples.md
   project/pilot-corpora.md
   project/rdf-corpus-roundtrip.md
+  project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
@@ -150,6 +151,7 @@ exclude_docs: |
   project/view-rendering-forms.md
   project/adjudications.md
   project/element-scoped-tier-gating.md
+  project/protocol-state-machines.md
   project/lossless-library-records.md
   project/errata-overlay.md
   project/oosem-library.md
@@ -169,19 +171,28 @@ nav:
       - guide/08-editors.md
       - guide/09-clients.md
       - guide/10-troubleshooting.md
+      - guide/11-migrating-from-sysml-v1.md
       - guide/modeling-fleets.md
   - Document generation:
       - manual/README.md
       - Introduction and concepts: manual/introduction.md
       - Getting started: manual/getting-started.md
       - Query cookbook: manual/query-cookbook.md
+      - Which query is which: manual/query-kinds.md
       - Document authoring: manual/authoring.md
       - Outputs: manual/outputs.md
       - Interfaces: manual/interfaces.md
       - Worked example: manual/worked-example.md
+      - Requirements traceability examples: manual/traceability-examples.md
+      - Recording analysis runs: manual/recording-analysis-runs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
       - Requirements example output: manual/examples/requirements.md
+      - Traceability example output: manual/examples/traceability.md
+      - Traceability tier 1 output: manual/examples/trace-1-basic.md
+      - Traceability tier 2 output: manual/examples/trace-2-hierarchy.md
+      - Traceability tier 3 output: manual/examples/trace-3-derivation.md
+      - Traceability tier 4 output: manual/examples/trace-4-program.md
   - Reference:
       - reference/README.md
       - CLI: reference/cli.md
@@ -207,10 +218,14 @@ nav:
       - Architecture: internals/architecture.md
       - Testing: internals/testing.md
       - Performance: internals/performance.md
+      - Execution IR design: internals/execution-ir-design.md
   - Project:
       - project/README.md
       - Spec compliance: project/spec-compliance.md
       - Exact-rational evaluation: project/exact-rational-evaluation.md
+      - Expansion regions: project/expansion-regions.md
+      - Bitwise complement: project/bitwise-complement.md
+      - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md

@@ -1,0 +1,9 @@
+version: v2
+# TypeScript stubs for the npm client in client/node. Committed, like the Python
+# stubs, so `npm install` needs neither buf nor network. Run via `make proto-ts`
+# (which `make proto` includes). The plugin is the client's lockfile-pinned
+# devDependency, so it always matches the @bufbuild/protobuf runtime.
+plugins:
+  - local: client/node/node_modules/.bin/protoc-gen-es
+    out: client/node/src/generated
+    opt: target=ts,import_extension=.js

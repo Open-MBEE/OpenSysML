@@ -1,0 +1,536 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Machines
+    a sysml:Package ;
+    sysml:qualifiedName "Machines" ;
+    sysml:elementId "Machines" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Machines" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Machines__Lamp ;
+    sysml:ownedMembership elmt:Machines__Lamp_om ;
+    sysml:ownedRelationship elmt:Machines__Lamp_om ;
+    sysx:sourceText "package Machines {\n" ;
+    sysx:sourceTail "}\n" .
+
+elmt:Machines__Lamp
+    a sysml:StateDefinition ;
+    sysml:qualifiedName "Machines::Lamp" ;
+    sysml:elementId "Machines__Lamp" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines ;
+    sysml:owner elmt:Machines ;
+    sysml:owningRelationship elmt:Machines__Lamp_om ;
+    sysml:owningMembership elmt:Machines__Lamp_om ;
+    sysml:declaredName "Lamp" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Machines__Lamp___400, elmt:Machines__Lamp___401_om, elmt:Machines__Lamp__off_om, elmt:Machines__Lamp__on_om, elmt:Machines__Lamp___404_om, elmt:Machines__Lamp___405_om, elmt:Machines__Lamp___406_om ;
+    sysml:ownedMembership elmt:Machines__Lamp___400, elmt:Machines__Lamp___401_om, elmt:Machines__Lamp__off_om, elmt:Machines__Lamp__on_om, elmt:Machines__Lamp___404_om, elmt:Machines__Lamp___405_om, elmt:Machines__Lamp___406_om ;
+    sysml:ownedMember elmt:Machines__Lamp___401, elmt:Machines__Lamp__off, elmt:Machines__Lamp__on, elmt:Machines__Lamp___404, elmt:Machines__Lamp___405, elmt:Machines__Lamp___406 ;
+    sysml:ownedFeature elmt:Machines__Lamp___401, elmt:Machines__Lamp__off, elmt:Machines__Lamp__on, elmt:Machines__Lamp___404, elmt:Machines__Lamp___405, elmt:Machines__Lamp___406 ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp___401_om, elmt:Machines__Lamp__off_om, elmt:Machines__Lamp__on_om, elmt:Machines__Lamp___404_om, elmt:Machines__Lamp___405_om, elmt:Machines__Lamp___406_om ;
+    sysx:sourceText "    state def Lamp {\n        entry; then off;\n        state off;\n        state on parallel {\n            state heat {\n                entry; then warm;\n                state warm;\n                state hot;\n                transition warm then hot;\n            }\n            state light {\n                entry; then dim;\n                state dim;\n                state bright;\n                transition dim then bright;\n                transition bright then hot;\n            }\n        }\n        transition off then on;\n        transition on then bright;\n        transition hot then off;\n    }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp___400\"},{\"@id\":\"Machines__Lamp___401_om\"},{\"@id\":\"Machines__Lamp__off_om\"},{\"@id\":\"Machines__Lamp__on_om\"},{\"@id\":\"Machines__Lamp___404_om\"},{\"@id\":\"Machines__Lamp___405_om\"},{\"@id\":\"Machines__Lamp___406_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp___400\"},{\"@id\":\"Machines__Lamp___401_om\"},{\"@id\":\"Machines__Lamp__off_om\"},{\"@id\":\"Machines__Lamp__on_om\"},{\"@id\":\"Machines__Lamp___404_om\"},{\"@id\":\"Machines__Lamp___405_om\"},{\"@id\":\"Machines__Lamp___406_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp___401\"},{\"@id\":\"Machines__Lamp__off\"},{\"@id\":\"Machines__Lamp__on\"},{\"@id\":\"Machines__Lamp___404\"},{\"@id\":\"Machines__Lamp___405\"},{\"@id\":\"Machines__Lamp___406\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Machines__Lamp___401\"},{\"@id\":\"Machines__Lamp__off\"},{\"@id\":\"Machines__Lamp__on\"},{\"@id\":\"Machines__Lamp___404\"},{\"@id\":\"Machines__Lamp___405\"},{\"@id\":\"Machines__Lamp___406\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp___401_om\"},{\"@id\":\"Machines__Lamp__off_om\"},{\"@id\":\"Machines__Lamp__on_om\"},{\"@id\":\"Machines__Lamp___404_om\"},{\"@id\":\"Machines__Lamp___405_om\"},{\"@id\":\"Machines__Lamp___406_om\"}]" .
+
+elmt:Machines__Lamp_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Machines__Lamp_om" ;
+    sysml:owner elmt:Machines ;
+    sysml:memberElement elmt:Machines__Lamp ;
+    sysml:ownedMemberElement elmt:Machines__Lamp ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp ;
+    sysml:owningRelatedElement elmt:Machines ;
+    sysml:membershipOwningNamespace elmt:Machines .
+
+elmt:Machines__Lamp___400
+    a sysml:StateSubactionMembership ;
+    sysml:qualifiedName "Machines::Lamp::@0" ;
+    sysml:elementId "Machines__Lamp___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:kind "entry" ;
+    sysx:subactionKind "entry" .
+
+elmt:Machines__Lamp___401
+    a sysml:SuccessionAsUsage ;
+    sysml:qualifiedName "Machines::Lamp::@1" ;
+    sysml:elementId "Machines__Lamp___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp___401_om ;
+    sysml:owningMembership elmt:Machines__Lamp___401_om ;
+    sysx:sourceMember elmt:Machines__Lamp___400 ;
+    sysml:targetFeature elmt:Machines__Lamp__off .
+
+elmt:Machines__Lamp___401_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp___401_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp___401 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___401 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___401 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp___401 ;
+    sysml:owningType elmt:Machines__Lamp .
+
+elmt:Machines__Lamp__off
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::off" ;
+    sysml:elementId "Machines__Lamp__off" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp__off_om ;
+    sysml:owningMembership elmt:Machines__Lamp__off_om ;
+    sysml:declaredName "off" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Machines__Lamp__off_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__off_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp__off ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__off ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__off ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__off ;
+    sysml:owningType elmt:Machines__Lamp .
+
+elmt:Machines__Lamp__on
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on" ;
+    sysml:elementId "Machines__Lamp__on" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp__on_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on_om ;
+    sysml:declaredName "on" ;
+    sysml:isParallel "true"^^xsd:boolean ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Machines__Lamp__on__heat, elmt:Machines__Lamp__on__light ;
+    sysml:ownedMembership elmt:Machines__Lamp__on__heat_om, elmt:Machines__Lamp__on__light_om ;
+    sysml:ownedRelationship elmt:Machines__Lamp__on__heat_om, elmt:Machines__Lamp__on__light_om ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__heat, elmt:Machines__Lamp__on__light ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__heat_om, elmt:Machines__Lamp__on__light_om ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__heat\"},{\"@id\":\"Machines__Lamp__on__light\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat_om\"},{\"@id\":\"Machines__Lamp__on__light_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat_om\"},{\"@id\":\"Machines__Lamp__on__light_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__heat\"},{\"@id\":\"Machines__Lamp__on__light\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__heat_om\"},{\"@id\":\"Machines__Lamp__on__light_om\"}]" .
+
+elmt:Machines__Lamp__on_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp__on ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on ;
+    sysml:owningType elmt:Machines__Lamp .
+
+elmt:Machines__Lamp__on__heat
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::heat" ;
+    sysml:elementId "Machines__Lamp__on__heat" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on ;
+    sysml:owner elmt:Machines__Lamp__on ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat_om ;
+    sysml:declaredName "heat" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Machines__Lamp__on__heat___400, elmt:Machines__Lamp__on__heat___401_om, elmt:Machines__Lamp__on__heat__warm_om, elmt:Machines__Lamp__on__heat__hot_om, elmt:Machines__Lamp__on__heat___404_om ;
+    sysml:ownedMembership elmt:Machines__Lamp__on__heat___400, elmt:Machines__Lamp__on__heat___401_om, elmt:Machines__Lamp__on__heat__warm_om, elmt:Machines__Lamp__on__heat__hot_om, elmt:Machines__Lamp__on__heat___404_om ;
+    sysml:ownedMember elmt:Machines__Lamp__on__heat___401, elmt:Machines__Lamp__on__heat__warm, elmt:Machines__Lamp__on__heat__hot, elmt:Machines__Lamp__on__heat___404 ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__heat___401, elmt:Machines__Lamp__on__heat__warm, elmt:Machines__Lamp__on__heat__hot, elmt:Machines__Lamp__on__heat___404 ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__heat___401_om, elmt:Machines__Lamp__on__heat__warm_om, elmt:Machines__Lamp__on__heat__hot_om, elmt:Machines__Lamp__on__heat___404_om ;
+    sysx:sourceText "            state heat {\n                entry; then warm;\n                state warm;\n                state hot;\n                transition warm then hot;\n            }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__heat___400\"},{\"@id\":\"Machines__Lamp__on__heat___401_om\"},{\"@id\":\"Machines__Lamp__on__heat__warm_om\"},{\"@id\":\"Machines__Lamp__on__heat__hot_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__heat___400\"},{\"@id\":\"Machines__Lamp__on__heat___401_om\"},{\"@id\":\"Machines__Lamp__on__heat__warm_om\"},{\"@id\":\"Machines__Lamp__on__heat__hot_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__heat___401\"},{\"@id\":\"Machines__Lamp__on__heat__warm\"},{\"@id\":\"Machines__Lamp__on__heat__hot\"},{\"@id\":\"Machines__Lamp__on__heat___404\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__heat___401\"},{\"@id\":\"Machines__Lamp__on__heat__warm\"},{\"@id\":\"Machines__Lamp__on__heat__hot\"},{\"@id\":\"Machines__Lamp__on__heat___404\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__heat___401_om\"},{\"@id\":\"Machines__Lamp__on__heat__warm_om\"},{\"@id\":\"Machines__Lamp__on__heat__hot_om\"},{\"@id\":\"Machines__Lamp__on__heat___404_om\"}]" .
+
+elmt:Machines__Lamp__on__heat_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__heat_om" ;
+    sysml:owner elmt:Machines__Lamp__on ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat ;
+    sysml:owningType elmt:Machines__Lamp__on .
+
+elmt:Machines__Lamp__on__heat___400
+    a sysml:StateSubactionMembership ;
+    sysml:qualifiedName "Machines::Lamp::on::heat::@0" ;
+    sysml:elementId "Machines__Lamp__on__heat___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:kind "entry" ;
+    sysx:subactionKind "entry" .
+
+elmt:Machines__Lamp__on__heat___401
+    a sysml:SuccessionAsUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::heat::@1" ;
+    sysml:elementId "Machines__Lamp__on__heat___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat___401_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat___401_om ;
+    sysx:sourceMember elmt:Machines__Lamp__on__heat___400 ;
+    sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .
+
+elmt:Machines__Lamp__on__heat___401_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__heat___401_om" ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat___401 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat___401 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat___401 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat___401 ;
+    sysml:owningType elmt:Machines__Lamp__on__heat .
+
+elmt:Machines__Lamp__on__heat__warm
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::heat::warm" ;
+    sysml:elementId "Machines__Lamp__on__heat__warm" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat__warm_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat__warm_om ;
+    sysml:declaredName "warm" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Machines__Lamp__on__heat__warm_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__heat__warm_om" ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat__warm ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat__warm ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat__warm ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat__warm ;
+    sysml:owningType elmt:Machines__Lamp__on__heat .
+
+elmt:Machines__Lamp__on__heat__hot
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::heat::hot" ;
+    sysml:elementId "Machines__Lamp__on__heat__hot" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat__hot_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat__hot_om ;
+    sysml:declaredName "hot" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Machines__Lamp__on__heat__hot_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__heat__hot_om" ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat__hot ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat__hot ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat__hot ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat__hot ;
+    sysml:owningType elmt:Machines__Lamp__on__heat .
+
+elmt:Machines__Lamp__on__heat___404
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::heat::@4" ;
+    sysml:elementId "Machines__Lamp__on__heat___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__heat___404_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__heat___404_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__on__heat__warm ;
+    sysml:target elmt:Machines__Lamp__on__heat__hot .
+
+elmt:Machines__Lamp__on__heat___404_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__heat___404_om" ;
+    sysml:owner elmt:Machines__Lamp__on__heat ;
+    sysml:memberElement elmt:Machines__Lamp__on__heat___404 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__heat___404 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__heat___404 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__heat ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__heat ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__heat___404 ;
+    sysml:owningType elmt:Machines__Lamp__on__heat .
+
+elmt:Machines__Lamp__on__light
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light" ;
+    sysml:elementId "Machines__Lamp__on__light" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on ;
+    sysml:owner elmt:Machines__Lamp__on ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light_om ;
+    sysml:declaredName "light" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Machines__Lamp__on__light___400, elmt:Machines__Lamp__on__light___401_om, elmt:Machines__Lamp__on__light__dim_om, elmt:Machines__Lamp__on__light__bright_om, elmt:Machines__Lamp__on__light___404_om, elmt:Machines__Lamp__on__light___405_om ;
+    sysml:ownedMembership elmt:Machines__Lamp__on__light___400, elmt:Machines__Lamp__on__light___401_om, elmt:Machines__Lamp__on__light__dim_om, elmt:Machines__Lamp__on__light__bright_om, elmt:Machines__Lamp__on__light___404_om, elmt:Machines__Lamp__on__light___405_om ;
+    sysml:ownedMember elmt:Machines__Lamp__on__light___401, elmt:Machines__Lamp__on__light__dim, elmt:Machines__Lamp__on__light__bright, elmt:Machines__Lamp__on__light___404, elmt:Machines__Lamp__on__light___405 ;
+    sysml:ownedFeature elmt:Machines__Lamp__on__light___401, elmt:Machines__Lamp__on__light__dim, elmt:Machines__Lamp__on__light__bright, elmt:Machines__Lamp__on__light___404, elmt:Machines__Lamp__on__light___405 ;
+    sysml:ownedFeatureMembership elmt:Machines__Lamp__on__light___401_om, elmt:Machines__Lamp__on__light__dim_om, elmt:Machines__Lamp__on__light__bright_om, elmt:Machines__Lamp__on__light___404_om, elmt:Machines__Lamp__on__light___405_om ;
+    sysx:sourceText "            state light {\n                entry; then dim;\n                state dim;\n                state bright;\n                transition dim then bright;\n                transition bright then hot;\n            }\n" ;
+    json:ownedRelationship "[{\"@id\":\"Machines__Lamp__on__light___400\"},{\"@id\":\"Machines__Lamp__on__light___401_om\"},{\"@id\":\"Machines__Lamp__on__light__dim_om\"},{\"@id\":\"Machines__Lamp__on__light__bright_om\"},{\"@id\":\"Machines__Lamp__on__light___404_om\"},{\"@id\":\"Machines__Lamp__on__light___405_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Machines__Lamp__on__light___400\"},{\"@id\":\"Machines__Lamp__on__light___401_om\"},{\"@id\":\"Machines__Lamp__on__light__dim_om\"},{\"@id\":\"Machines__Lamp__on__light__bright_om\"},{\"@id\":\"Machines__Lamp__on__light___404_om\"},{\"@id\":\"Machines__Lamp__on__light___405_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Machines__Lamp__on__light___401\"},{\"@id\":\"Machines__Lamp__on__light__dim\"},{\"@id\":\"Machines__Lamp__on__light__bright\"},{\"@id\":\"Machines__Lamp__on__light___404\"},{\"@id\":\"Machines__Lamp__on__light___405\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Machines__Lamp__on__light___401\"},{\"@id\":\"Machines__Lamp__on__light__dim\"},{\"@id\":\"Machines__Lamp__on__light__bright\"},{\"@id\":\"Machines__Lamp__on__light___404\"},{\"@id\":\"Machines__Lamp__on__light___405\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Machines__Lamp__on__light___401_om\"},{\"@id\":\"Machines__Lamp__on__light__dim_om\"},{\"@id\":\"Machines__Lamp__on__light__bright_om\"},{\"@id\":\"Machines__Lamp__on__light___404_om\"},{\"@id\":\"Machines__Lamp__on__light___405_om\"}]" .
+
+elmt:Machines__Lamp__on__light_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light_om" ;
+    sysml:owner elmt:Machines__Lamp__on ;
+    sysml:memberElement elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light ;
+    sysml:owningType elmt:Machines__Lamp__on .
+
+elmt:Machines__Lamp__on__light___400
+    a sysml:StateSubactionMembership ;
+    sysml:qualifiedName "Machines::Lamp::on::light::@0" ;
+    sysml:elementId "Machines__Lamp__on__light___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:kind "entry" ;
+    sysx:subactionKind "entry" .
+
+elmt:Machines__Lamp__on__light___401
+    a sysml:SuccessionAsUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light::@1" ;
+    sysml:elementId "Machines__Lamp__on__light___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___401_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___401_om ;
+    sysx:sourceMember elmt:Machines__Lamp__on__light___400 ;
+    sysml:targetFeature elmt:Machines__Lamp__on__light__dim .
+
+elmt:Machines__Lamp__on__light___401_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light___401_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___401 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___401 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___401 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light___401 ;
+    sysml:owningType elmt:Machines__Lamp__on__light .
+
+elmt:Machines__Lamp__on__light__dim
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light::dim" ;
+    sysml:elementId "Machines__Lamp__on__light__dim" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light__dim_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light__dim_om ;
+    sysml:declaredName "dim" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Machines__Lamp__on__light__dim_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light__dim_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:memberElement elmt:Machines__Lamp__on__light__dim ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light__dim ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light__dim ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light__dim ;
+    sysml:owningType elmt:Machines__Lamp__on__light .
+
+elmt:Machines__Lamp__on__light__bright
+    a sysml:StateUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light::bright" ;
+    sysml:elementId "Machines__Lamp__on__light__bright" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light__bright_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light__bright_om ;
+    sysml:declaredName "bright" ;
+    sysx:hasBody "false"^^xsd:boolean .
+
+elmt:Machines__Lamp__on__light__bright_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light__bright_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:memberElement elmt:Machines__Lamp__on__light__bright ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light__bright ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light__bright ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light__bright ;
+    sysml:owningType elmt:Machines__Lamp__on__light .
+
+elmt:Machines__Lamp__on__light___404
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light::@4" ;
+    sysml:elementId "Machines__Lamp__on__light___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___404_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___404_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__on__light__dim ;
+    sysml:target elmt:Machines__Lamp__on__light__bright .
+
+elmt:Machines__Lamp__on__light___404_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light___404_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___404 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___404 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___404 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light___404 ;
+    sysml:owningType elmt:Machines__Lamp__on__light .
+
+elmt:Machines__Lamp__on__light___405
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::on::light::@5" ;
+    sysml:elementId "Machines__Lamp__on__light___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:owningRelationship elmt:Machines__Lamp__on__light___405_om ;
+    sysml:owningMembership elmt:Machines__Lamp__on__light___405_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__on__light__bright ;
+    sysml:target elmt:Machines__Lamp__on__heat__hot .
+
+elmt:Machines__Lamp__on__light___405_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp__on__light___405_om" ;
+    sysml:owner elmt:Machines__Lamp__on__light ;
+    sysml:memberElement elmt:Machines__Lamp__on__light___405 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp__on__light___405 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp__on__light___405 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp__on__light ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp__on__light ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp__on__light___405 ;
+    sysml:owningType elmt:Machines__Lamp__on__light .
+
+elmt:Machines__Lamp___404
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::@4" ;
+    sysml:elementId "Machines__Lamp___404" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp___404_om ;
+    sysml:owningMembership elmt:Machines__Lamp___404_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__off ;
+    sysml:target elmt:Machines__Lamp__on .
+
+elmt:Machines__Lamp___404_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp___404_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp___404 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___404 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___404 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp___404 ;
+    sysml:owningType elmt:Machines__Lamp .
+
+elmt:Machines__Lamp___405
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::@5" ;
+    sysml:elementId "Machines__Lamp___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp___405_om ;
+    sysml:owningMembership elmt:Machines__Lamp___405_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__on ;
+    sysml:target elmt:Machines__Lamp__on__light__bright .
+
+elmt:Machines__Lamp___405_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp___405_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp___405 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___405 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___405 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp___405 ;
+    sysml:owningType elmt:Machines__Lamp .
+
+elmt:Machines__Lamp___406
+    a sysml:TransitionUsage ;
+    sysml:qualifiedName "Machines::Lamp::@6" ;
+    sysml:elementId "Machines__Lamp___406" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines__Lamp ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:owningRelationship elmt:Machines__Lamp___406_om ;
+    sysml:owningMembership elmt:Machines__Lamp___406_om ;
+    sysx:transitionSyntax "source" ;
+    sysml:source elmt:Machines__Lamp__on__heat__hot ;
+    sysml:target elmt:Machines__Lamp__off .
+
+elmt:Machines__Lamp___406_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Machines__Lamp___406_om" ;
+    sysml:owner elmt:Machines__Lamp ;
+    sysml:memberElement elmt:Machines__Lamp___406 ;
+    sysml:ownedMemberElement elmt:Machines__Lamp___406 ;
+    sysml:ownedRelatedElement elmt:Machines__Lamp___406 ;
+    sysml:owningRelatedElement elmt:Machines__Lamp ;
+    sysml:membershipOwningNamespace elmt:Machines__Lamp ;
+    sysml:ownedMemberFeature elmt:Machines__Lamp___406 ;
+    sysml:owningType elmt:Machines__Lamp .

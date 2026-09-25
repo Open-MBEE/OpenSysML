@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Machine",
+  "objects": [
+    {
+      "finalState": "cooled",
+      "stateVisits": ["active", "cooled"],
+      "slots": {
+        "controller.cooled": {"type": "Boolean", "value": true},
+        "cooled": {"type": "Boolean", "value": false}
+      }
+    }
+  ]
+}

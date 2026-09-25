@@ -1,0 +1,32 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "SendAddressedViaBoundReference::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "",
+      "events": [{"signal": "Go"}],
+      "finalState": "fired",
+      "stateVisits": ["idle", "firing", "fired"]
+    },
+    {
+      "path": "device",
+      "behavior": "listener",
+      "finalState": "heard",
+      "stateVisits": ["idle", "heard"]
+    },
+    {
+      "path": "device",
+      "behavior": "other",
+      "finalState": "idle",
+      "stateVisits": ["idle"]
+    },
+    {
+      "path": "dev",
+      "behavior": "listener",
+      "finalState": "idle",
+      "stateVisits": ["idle"]
+    }
+  ]
+}

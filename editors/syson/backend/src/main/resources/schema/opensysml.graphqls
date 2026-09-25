@@ -1,0 +1,100 @@
+extend type Mutation {
+  runWithOpenSysML(input: RunWithOpenSysMLInput!): RunWithOpenSysMLPayload!
+}
+
+enum RunOperation {
+  INSTANTIATE
+  EXECUTE_ACTION
+  EXPLORE_ACTION
+  EXECUTE_STATE
+  EXPLORE_STATE
+  VERIFY_CONSTRAINT
+  VERIFY_REQUIREMENT
+  VERIFY_SATISFACTION
+  EVALUATE_CALC
+  RUN_ANALYSIS
+  VALIDATE_INSTANCE
+}
+
+input RunWithOpenSysMLInput {
+  id: ID!
+  editingContextId: ID!
+  objectId: ID!
+  operation: RunOperation!
+  inputs: [RunInputValue!]
+  events: [String!]
+  arguments: [String!]
+  schedule: String
+  subject: String
+}
+
+input RunInputValue {
+  name: String!
+  expression: String!
+}
+
+union RunWithOpenSysMLPayload = ErrorPayload | RunWithOpenSysMLSuccessPayload
+
+type RunWithOpenSysMLSuccessPayload {
+  id: ID!
+  messages: [Message]!
+  result: OpenSysMLRunResult!
+}
+
+type OpenSysMLRunResult {
+  modelHash: String!
+  operation: RunOperation!
+  target: String!
+  ok: Boolean!
+  verdict: String
+  schedule: String
+  finalTime: Float
+  outputs: [OpenSysMLNamedValue!]!
+  trace: [String!]!
+  outcomes: [OpenSysMLRunOutcome!]!
+  resultText: String
+  diagnostics: [OpenSysMLDiagnostic!]!
+  verdicts: [OpenSysMLVerdict!]!
+  instances: [OpenSysMLInstance!]!
+}
+
+type OpenSysMLRunOutcome {
+  outputs: [OpenSysMLNamedValue!]!
+  finalState: String
+  trace: [String!]!
+  error: String
+  linearizations: Int!
+  witness: [String!]!
+}
+
+type OpenSysMLNamedValue {
+  name: String!
+  value: String!
+}
+
+type OpenSysMLDiagnostic {
+  severity: String!
+  message: String!
+  code: String!
+  documentName: String
+  line: Int
+  qualifiedName: String
+  elementId: String
+  siriusId: String
+}
+
+type OpenSysMLVerdict {
+  subject: String!
+  kind: String!
+  holds: Boolean!
+  decided: Boolean!
+  detail: String
+  siriusId: String
+}
+
+type OpenSysMLInstance {
+  id: Int!
+  type: String!
+  typeSiriusId: String
+  featureValues: [OpenSysMLNamedValue!]!
+}

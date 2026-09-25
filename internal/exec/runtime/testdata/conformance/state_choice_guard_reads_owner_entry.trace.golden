@@ -1,0 +1,85 @@
+exit: idle
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "go(effect);" -> "go(effect);"
+    eval operator + -> "go(effect);"
+enter: work (entry action)
+stmt action body
+  stmt assign x
+    eval literal 1 -> 1
+  stmt assign log
+      eval feature log -> "go(effect);"
+      eval literal "work(entry);" -> "work(entry);"
+    eval operator + -> "go(effect);work(entry);"
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);"
+      eval literal "toW1(effect);" -> "toW1(effect);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);"
+enter: w1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);"
+      eval literal "w1(entry);" -> "w1(entry);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);"
+transition: idle -> w1 (event: accept Go)
+exit: w1
+exit: work (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);"
+      eval literal "work(exit);" -> "work(exit);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);"
+      eval literal "next(effect);" -> "next(effect);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);"
+enter: rest (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);"
+      eval literal "rest(entry);" -> "rest(entry);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);"
+      eval literal "h(effect);" -> "h(effect);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);"
+enter: inner (entry action)
+stmt action body
+  stmt assign y
+    eval literal 1 -> 1
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);"
+      eval literal "inner(entry);" -> "inner(entry);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);"
+  eval feature y -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);"
+      eval literal "toR1(effect);" -> "toR1(effect);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);"
+enter: r1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);"
+      eval literal "r1(entry);" -> "r1(entry);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);r1(entry);"
+transition: w1 -> r1 (event: accept Next)
+exit: r1
+exit: inner
+exit: rest (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);r1(entry);"
+      eval literal "rest(exit);" -> "rest(exit);"
+    eval operator + -> "go(effect);work(entry);toW1(effect);w1(entry);work(exit);next(effect);rest(entry);h(effect);inner(entry);toR1(effect);r1(entry);rest(exit);"
+enter: done
+transition: r1 -> done (event: accept Stop)

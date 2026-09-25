@@ -1,0 +1,61 @@
+{
+  "type": "instance",
+  "instantiate": "test::Crate",
+  "libraries": true,
+  "slots": {
+    "box.length": {"type": "Quantity", "value": 2, "unit": "m"},
+    "box.faces": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "box.tf.length": {"type": "Quantity", "value": 2, "unit": "m"},
+    "box.tf.width": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.ff.length": {"type": "Quantity", "value": 2, "unit": "m"},
+    "box.ff.width": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.slf.length": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.slf.width": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.tf.e1.length": {"type": "Quantity", "value": 2, "unit": "m"},
+    "box.tf.e2.length": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.tf.vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "box.tf.e1.vertices": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "box.srf.length": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.srf.width": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.height": {"type": "Quantity", "value": 1, "unit": "m"},
+    "box.tf.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "box.edges": {"type": "Sequence", "elements": [
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"},
+      {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}, {"type": "Instance"}
+    ]},
+    "box.tfe": {"error": "binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+    "box.tfe.length": {"error": "binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+    "box.tflv": {"error": "binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+    "box.vertices": {"error": "subsetting feature tflv of vertices: binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds"},
+    "box.isSolid": {"type": "Boolean", "value": true},
+    "box.voids": {"type": "Sequence", "elements": []},
+    "box.shape": {"type": "Sequence", "elements": []},
+    "box.subitems": {"type": "Sequence", "elements": []},
+    "box.self": {"error": "feature \"self\" not found"},
+    "box.timeSlices": {"error": "feature \"timeSlices\" not found"},
+    "box.startShot": {"error": "feature \"startShot\" not found"},
+    "box.start": {"error": "feature \"start\" not found"}
+  },
+  "identical": [
+    ["box.faces.1", "box.tf"],
+    ["box.edges.1", "box.tf.e1"],
+    ["box.edges.24", "box.srf.e4"]
+  ],
+  "distinct": [
+    ["box.edges.1", "box.edges.5"]
+  ]
+}

@@ -13,7 +13,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_ELEMENTS` | `1000000` | Collection elements one evaluation may hold — the bound on the memory a run holds rather than on the work it does |
 | `OPENSYSML_MAX_CALC_DEPTH` | `10000` (ceiling `25000`) | Nested `calc` invocations one run may hold on the stack, which is what a recursion spends |
 | `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
-| `OPENSYSML_JOBS` | the number of CPUs | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
+| `OPENSYSML_JOBS` | one per CPU, fewer where the memory available leaves less than 512 MiB per worker | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
 | `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable the `smt` and `solve` engines (`-engine smt`, `%engine smt`) and `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown`; a check's `-check-timeout` (`%check-bounds timeout=`) takes its place for the `smt` engine's queries |
@@ -25,6 +25,17 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_TOOL_MAX_OUTPUT` | `64M` | How much one external process may write before it is cut off: a tool's one reply and the whole of its standard error, an external engine's one protocol line and the whole of its standard error. Bytes, or bytes with a `K`, `M` or `G` suffix; a value that is not a positive size is the default |
 | `OPENSYSML_GRPC_INDEX_POOL` | `4` | Whether `sysml-grpc` builds the one shared standard library index ahead of the requests needing it; any positive value prewarms, `0` builds it on the first request instead |
 | `OPENSYSML_GRPC_MAX_HELD_OBJECTS` | `10000` | The most objects `sysml-grpc` keeps for one cached model, nested objects counted: `Instantiate` creates them and document queries bind and enumerate them for as long as the model stays cached. An `Instantiate`, query or render whose objects would pass the bound fails whole with `RESOURCE_EXHAUSTED`, leaving none of them, until the model leaves the cache, which releases them together; nothing is evicted behind an id a client holds. Read at startup |
+| `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_PRINCE` | unset (look on `PATH`) | Executable of the HTML-to-PDF converter `-render-document -doc-form pdf` drives under `-pdf-engine weasyprint` (the default; `pandoc` also needs it), `pandoc` or `prince`; the selected one absent is a typed `tool-missing` error naming its variable |
+| `OPENSYSML_MMDC`, `OPENSYSML_MMDC_PUPPETEER` | unset (look for `mmdc` on `PATH`) | Mermaid CLI, which draws a PDF's Mermaid diagrams, and a Puppeteer configuration file for its browser (`--no-sandbox` in a container). Required as soon as a PDF has a Mermaid diagram; a document without one needs neither |
+| `OPENSYSML_KATEX`, `OPENSYSML_KATEX_CSS` | unset (look for `katex` on `PATH`, its stylesheet beside it) | KaTeX, which typesets a PDF's formulas, and its stylesheet when it is not installed beside the command. Required as soon as a PDF has a formula |
+| `OPENSYSML_DOT` | unset (look for `dot` on `PATH`) | Graphviz, which draws a PDF's diagrams under `-diagram-form dot` — `-Tsvg`, under the engine each block's `// layout:` header names (`dot`, `neato`, `neato -n`), so positioned views are drawn where the model put them. Optional: without it every DOT block stays in the PDF as source under a notice naming this variable |
+| `OPENSYSML_PLANTUML_JAR`, `OPENSYSML_JAVA` | unset; unset (look for `java` on `PATH`) | The PlantUML jar that draws a PDF's diagrams under `-diagram-form plantuml` (`java -jar <jar> -tsvg -pipe`) and the Java that runs it. Optional: without the jar or a Java every PlantUML block stays in the PDF as source under a notice naming the variable to set. `go test ./internal/ir/view` also passes its PlantUML goldens through the jar's `-checkonly` when the jar is named |
+| `OPENSYSML_GRPC_MAX_HELD_EVENTS` | `100000` | The most trace records `sysml-grpc` keeps for one cached model's population, which is traced from its first `Instantiate` so `DocumentQueries::Events` can read the run. Past the bound the oldest records are dropped; an `Events` query whose interval reaches back to a dropped record fails as a typed `trace-truncated` error (`FAILED_PRECONDITION`) naming the instant history is kept from, so `since` can be bound later, rather than answering an incomplete relation. Read at startup |
+
+The PDF tools are external, not bundled: `scripts/download-doc-pdf-toolchain.sh` fetches pinned
+copies of every one but Java and prints the exports above. A tool that is present and fails is a
+typed `tool-failed` error carrying its standard error, whichever variable found it; see
+[Rendering a document as PDF](cli.md#rendering-a-document-as-pdf).
 
 Every variable above uses the `OPENSYSML_` prefix. The eight that predate it
 (`OPENSYSML_LIBRARY_PATH`, the six `OPENSYSML_MAX_*` budgets and
@@ -295,9 +306,11 @@ download script first (each is idempotent and refuses to report success over an 
 
 | Variable | Download | Gate |
 |----------|----------|------|
-| `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `internal/core/model` |
-| `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `internal/core/model` |
-| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/core/identity` |
+| `OPENSYSML_REQUIRE_TRAINING_CORPUS` | `./scripts/download-training-examples.sh` → `examples/sysml-v2-training/` | `TestTrainingExamples*` in `tests/corpus` |
+| `OPENSYSML_REQUIRE_PILOT_CORPORA` | `./scripts/download-pilot-corpora.sh` → `examples/pilot-corpora/` | `TestPilotCorpora*` in `tests/corpus` |
+| `OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI` | `./scripts/download-pilot-library-xmi.sh` → `build/pilot-library-xmi/` | `TestPilotLibraryXMI` in `internal/semantic/identity` |
+| `OPENSYSML_REQUIRE_PSSM_SUITE` | `./scripts/download-pssm-suite.sh` → `build/pssm/` | `TestPSSMSuiteMigration` in `tests/corpus`, and the referee's gates in `tools/referee/pssm` |
+| `OPENSYSML_REQUIRE_PDF_TOOLCHAIN` | `./scripts/download-doc-pdf-toolchain.sh` → `build/doc-pdf/` (WeasyPrint, pandoc, Mermaid CLI, KaTeX, Graphviz, the PlantUML jar; Java from the host) | `Test*Installed*` in `internal/doc/docpdf`, which draw a real PDF through each tool |
 
-CI sets all three; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
+CI sets all five — the PDF one in its `pdf-toolchain` job, with the script's exports set; see [pilot-corpora.md](../project/pilot-corpora.md) for the pin the downloads
 share and what the gates measure.

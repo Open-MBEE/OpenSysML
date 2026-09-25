@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"n": {"type": "Integer", "value": 2},
+		"y": {"type": "Integer", "value": 2},
+		"late": {"type": "Integer", "value": 0}
+	}
+}

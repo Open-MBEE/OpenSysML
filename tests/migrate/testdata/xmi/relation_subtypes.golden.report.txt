@@ -1,0 +1,28 @@
+# SysML v1 to v2 migration report: relation_subtypes.xmi
+# exported by Example UML Tool
+# migrated 21 element(s): 19 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+«DependencyMatrix» Diagram	Plant::Requirements::Exact Satisfaction Matrix	_mx_exact	-> part def Plant::Requirements::'Exact Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Exact Satisfaction Matrix Rows'; the criterion Satisfied by excludes subtypes of «Satisfy», but the «Fulfil» relationships are walked too: they are written as the same relationship)
+«RelationMap» Diagram	Plant::Structure::Valve Requirement Map	_map_valve	-> part def Plant::Structure::'Valve Requirement Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Valve Requirement Map Rows'; the criterion Satisfy excludes subtypes of «Satisfy», but the «Fulfil» relationships are walked too: they are written as the same relationship)
+
+## mapped (19)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Plant	_pkg_plant	-> Plant
+Package	Plant::Requirements	_pkg_reqs	-> Plant::Requirements
+«Satisfy» Abstraction	Plant::Requirements::<Abstraction>	_dep_satisfy	-> Plant::Structure::Pump
+«Fulfil» Abstraction	Plant::Requirements::<Abstraction>	_dep_fulfil	-> Plant::Structure::Valve
+«DeriveReqt» Abstraction	Plant::Requirements::<Abstraction>	_dep_derive	-> Plant::Requirements::'Derive SealRequirement'
+Diagram	Plant::Requirements::Exact Satisfaction Matrix	_diag_exact	-> Plant::Requirements::'Exact Satisfaction Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+«Requirement» Class	Plant::Requirements::FlowRequirement	_req_flow	-> Plant::Requirements::FlowRequirement
+«RelationMap» Diagram	Plant::Requirements::Seal Derivation Map	_map_derived	-> part def Plant::Requirements::'Seal Derivation Map Document'	(the «RelationMap» is written as a Document holding a Table over the query 'Seal Derivation Map Rows')
+Diagram	Plant::Requirements::Seal Derivation Map	_diag_derived	-> Plant::Requirements::'Seal Derivation Map'	(a Relation Map written as a view rendered asTreeDiagram)
+«Requirement» Class	Plant::Requirements::SealRequirement	_req_seal	-> Plant::Requirements::SealRequirement
+«DependencyMatrix» Diagram	Plant::Requirements::Wide Satisfaction Matrix	_mx_wide	-> part def Plant::Requirements::'Wide Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Wide Satisfaction Matrix Rows')
+Diagram	Plant::Requirements::Wide Satisfaction Matrix	_diag_wide	-> Plant::Requirements::'Wide Satisfaction Matrix'	(a Dependency Matrix written as a view rendered asElementTable)
+Package	Plant::Structure	_pkg_structure	-> Plant::Structure
+«Block» Class	Plant::Structure::Pump	_blk_pump	-> Plant::Structure::Pump
+«Block» Class	Plant::Structure::Valve	_blk_valve	-> Plant::Structure::Valve
+Diagram	Plant::Structure::Valve Requirement Map	_diag_map	-> Plant::Structure::'Valve Requirement Map'	(a Relation Map written as a view rendered asTreeDiagram)
+Profile	Traceability	_traceability	-> Traceability
+Stereotype	Traceability::Fulfil	_st_fulfil	-> Traceability::Fulfil

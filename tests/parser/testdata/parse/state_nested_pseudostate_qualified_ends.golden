@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="state" abstract=false variation=false name="Line"
+      (EntryMember)
+      (SuccessionEdge source="@entry" target="Idle")
+      (SubstateMember name="Idle")
+      (Membership visibility="default"
+        (Usage kind="state" name="Work" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (EntryMember
+            (Membership visibility="default"
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry")))
+          (SuccessionEdge source="@entry" target="Prep")
+          (PseudostateNode kind="junction" name="start")
+          (PseudostateNode kind="junction" name="leave")
+          (PseudostateNode kind="fork" name="spread")
+          (PseudostateNode kind="join" name="gather")
+          (SubstateMember name="Prep")
+          (Membership visibility="default"
+            (Usage kind="state" name="Run" ref=false direction="none" composite=false derived=false ordered=false nonunique=false parallel=true
+              (Membership visibility="default"
+                (Usage kind="state" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="a1")
+                  (SubstateMember name="a1")
+                  (TransitionMember source="a1" target="gather")))
+              (Membership visibility="default"
+                (Usage kind="state" name="b" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (EntryMember)
+                  (SuccessionEdge source="@entry" target="b1")
+                  (SubstateMember name="b1")
+                  (TransitionMember source="b1" target="gather")))))
+          (TransitionMember source="start" target="Run")
+          (TransitionMember source="spread" target="Run::a::a1")
+          (TransitionMember source="spread" target="Run::b::b1")
+          (TransitionMember source="Prep" target="leave" trigger="Next")))
+      (TransitionMember source="Idle" target="Work::start" trigger="Go")
+      (TransitionMember source="Idle" target="Work::spread" trigger="Split")
+      (TransitionMember source="Work::leave" target="Idle"
+        (Membership visibility="default"
+          (Usage kind="action" name="effect" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)))
+      (TransitionMember source="Work::gather" target="Idle"))))

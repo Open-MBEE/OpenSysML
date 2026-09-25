@@ -1,0 +1,26 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Test" library=false standard=false
+      (Membership visibility="default"
+        (Usage kind="state" name="Machine" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="log" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))
+              (LiteralInteger value="0")))
+          (EntryMember)
+          (SuccessionEdge source="@entry" target="s")
+          (Membership visibility="default"
+            (Usage kind="state" name="s" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (*ast.AssignmentActionNode))))
+              (ExitMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (*ast.AssignmentActionNode))))))
+          (TransitionMember source="s" target="s" trigger="again"
+            (*ast.AssignmentActionNode))
+          (Membership visibility="default"
+            (TransitionMember source="s" target="s" name="sameEnds" trigger="stay")))))))

@@ -67,7 +67,7 @@ class SpliceTest(unittest.TestCase):
         text = (HERE.parent / "docs" / "project" / "spec-compliance.md").read_text(encoding="utf-8")
         out = figures.splice(text, "project/spec-compliance.md", rendered["docs/project/spec-compliance.md"])
         self.assertRegex(out, r"- Runtime robustness: [1-9][0-9,]* runtime robustness cases \(first-level subtests across the `TestRuntimeRobustness\*` functions\)")
-        self.assertRegex(out, r"\*\*Measured coverage:\*\* [1-9][0-9,]* top-level `Test` functions in `internal/lsp`")
+        self.assertRegex(out, r"\*\*Measured coverage:\*\* [1-9][0-9,]* top-level `Test` functions in `internal/frontend/lsp`")
         self.assertNotIn("doc-counts:begin inventory-", out)
         self.assertNotIn("doc-counts:begin lsp-tests", out)
         self.assertIn("<!-- doc-counts:begin census -->", out)

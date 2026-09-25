@@ -1,0 +1,11 @@
+{
+  "type": "state",
+  "evaluate": "SendViaThisPort::Node::Machine",
+  "performers": [
+    {
+      "object": "SendViaThisPort::solo",
+      "finalState": "heard",
+      "stateVisits": ["begin", "sending", "heard"]
+    }
+  ]
+}

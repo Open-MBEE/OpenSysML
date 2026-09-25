@@ -1,0 +1,27 @@
+choice exiting work: next l(exit), r(exit) (unordered; took l(exit) first)
+exit: l (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "l(exit) " -> "l(exit) "
+    eval operator + -> "l(exit) "
+exit: r (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l(exit) "
+      eval literal "r(exit) " -> "r(exit) "
+    eval operator + -> "l(exit) r(exit) "
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l(exit) r(exit) "
+      eval literal "outer(exit) " -> "outer(exit) "
+    eval operator + -> "l(exit) r(exit) outer(exit) "
+exit: work (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "l(exit) r(exit) outer(exit) "
+      eval literal "work(exit) " -> "work(exit) "
+    eval operator + -> "l(exit) r(exit) outer(exit) work(exit) "
+enter: rest
+transition: work -> rest (event: accept Go)

@@ -1,0 +1,440 @@
+package lower
+
+import (
+	"errors"
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+// weightedActionGraph lowers action def A of a model importing Stochastic through
+// the name-resolution tier, the way the runtime does.
+func weightedActionGraph(t *testing.T, body string) (*ActionGraph, error) {
+	t.Helper()
+	src := "package M {\n import Stochastic::*;\n action def A {\n" + body + "\n }\n}\n"
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	a, ok := pkg.Scope.LookupLocal("A")
+	if !ok {
+		t.Fatal("action def A not indexed")
+	}
+	return ToActionGraphWith(a.Decl, a.Scope, resolve.New(idx))
+}
+
+func TestProbability_ReadOnEverySuccessionForm(t *testing.T) {
+	graph, err := weightedActionGraph(t, `
+		decide d;
+		first d then fast { @Probability { p = 0.7; } }
+		succession first d then slow { @Probability { p = 0.2; } }
+		first d then other { metadata Probability { p = 0.1; } }
+		action fast; action slow; action other;
+	`)
+	if err != nil {
+		t.Fatalf("ToActionGraphWith: %v", err)
+	}
+	d := namedActionNode(t, graph, "d")
+	edges := graph.Edges[d]
+	if len(edges) != 3 {
+		t.Fatalf("decision has %d edges, want 3", len(edges))
+	}
+	for i, want := range []float64{0.7, 0.2, 0.1} {
+		if edges[i].Probability == nil {
+			t.Fatalf("edge %d carries no probability", i)
+		}
+		got, ok := edges[i].Probability.Constant()
+		if !ok || got != want {
+			t.Errorf("edge %d weight = %v, %v; want %v", i, got, ok, want)
+		}
+	}
+}
+
+func TestProbability_ArithmeticOverLiteralsIsAConstantWeight(t *testing.T) {
+	graph, err := weightedActionGraph(t, `
+		decide d;
+		first d then fast { @Probability { p = 1 - 0.3; } }
+		first d then slow { @Probability { p = 3 / 10; } }
+		action fast; action slow;
+	`)
+	if err != nil {
+		t.Fatalf("ToActionGraphWith: %v", err)
+	}
+	for i, want := range []float64{0.7, 0.3} {
+		got, ok := graph.Edges[namedActionNode(t, graph, "d")][i].Probability.Constant()
+		if !ok || math.Abs(got-want) > ProbabilityTolerance {
+			t.Errorf("edge %d weight = %v, %v; want the arithmetic folded to %v", i, got, ok, want)
+		}
+	}
+}
+
+func TestProbability_NonConstantWeightIsKeptAsExpression(t *testing.T) {
+	graph, err := weightedActionGraph(t, `
+		attribute w : Real = 0.4;
+		decide d;
+		first d then fast { @Probability { p = w; } }
+		first d then slow { @Probability { p = 1.0 - w; } }
+		action fast; action slow;
+	`)
+	if err != nil {
+		t.Fatalf("ToActionGraphWith: %v", err)
+	}
+	edges := graph.Edges[namedActionNode(t, graph, "d")]
+	if _, ok := edges[0].Probability.Constant(); ok {
+		t.Error("a weight naming a feature was folded to a constant")
+	}
+	if _, ok := edges[0].Probability.Expr.(*ast.FeatureReference); !ok {
+		t.Errorf("weight expression = %T, want the feature reference as written", edges[0].Probability.Expr)
+	}
+}
+
+func TestProbability_WithoutResolverReadsNone(t *testing.T) {
+	graph := actionGraphFor(t, `
+		action a {
+			decide d;
+			first d then fast { @Probability { p = 0.7; } }
+			first d then slow { @Probability { p = 0.3; } }
+			action fast; action slow;
+		}
+	`)
+	for _, edge := range graph.Edges[namedActionNode(t, graph, "d")] {
+		if edge.Probability != nil {
+			t.Fatal("a lowering with no resolver read a Probability annotation")
+		}
+	}
+}
+
+func TestProbability_Refusals(t *testing.T) {
+	cases := []struct{ name, body, want string }{
+		{"mixed", `
+			decide d;
+			first d then fast { @Probability { p = 0.7; } }
+			first d then slow;
+			action fast; action slow;`, "weights 1 of its 2 successions"},
+		{"sum", `
+			decide d;
+			first d then fast { @Probability { p = 0.7; } }
+			first d then slow { @Probability { p = 0.7; } }
+			action fast; action slow;`, "sum to 1.4, not 1.0"},
+		{"arithmetic sum", `
+			decide d;
+			first d then fast { @Probability { p = 0.3 + 0.3; } }
+			first d then slow { @Probability { p = 0.2; } }
+			action fast; action slow;`, "sum to 0.8, not 1.0"},
+		{"range", `
+			decide d;
+			first d then fast { @Probability { p = 1.5; } }
+			first d then slow { @Probability { p = -0.5; } }
+			action fast; action slow;`, "p = 1.5 lies outside 0.0..1.0"},
+		{"arithmetic range", `
+			decide d;
+			first d then fast { @Probability { p = 2 * 0.6; } }
+			first d then slow { @Probability { p = -0.2; } }
+			action fast; action slow;`, "p = 2 * 0.6 lies outside 0.0..1.0"},
+		{"not a number", `
+			decide d;
+			first d then fast { @Probability { p = true; } }
+			first d then slow { @Probability { p = 0.5; } }
+			action fast; action slow;`, "p = true is not a number"},
+		{"not a decision", `
+			action fast;
+			first fast then slow { @Probability { p = 1.0; } }
+			action slow;`, "only a succession out of a decision node can be"},
+		{"twice", `
+			decide d;
+			first d then fast { @Probability { p = 0.5; } @Probability { p = 0.5; } }
+			first d then slow { @Probability { p = 0.5; } }
+			action fast; action slow;`, "states it twice"},
+		{"no p", `
+			decide d;
+			first d then fast { @Probability {} }
+			first d then slow { @Probability { p = 0.5; } }
+			action fast; action slow;`, "binds no p"},
+		{"other feature", `
+			decide d;
+			first d then fast { @Probability { q = 0.5; } }
+			first d then slow { @Probability { p = 0.5; } }
+			action fast; action slow;`, `nothing named "q"`},
+		{"stray", `
+			decide d;
+			@Probability { p = 0.5; } first d then fast;
+			@Probability { p = 0.5; } first d then slow;
+			action fast; action slow;`, "annotates the action here, not a succession"},
+		{"stray in a leaf action", `
+			decide d;
+			first d then fast; first d then slow;
+			action fast { @Probability { p = 1.0; } }
+			action slow;`, "annotates the action here, not a succession"},
+		{"stray as an action prefix", `
+			decide d;
+			first d then fast; first d then slow;
+			#Probability action fast;
+			action slow;`, "annotates the action here, not a succession"},
+		{"stray in a control node", `
+			decide d { @Probability { p = 1.0; } }
+			first d then fast; first d then slow;
+			action fast; action slow;`, "annotates the action here, not a succession"},
+		{"stray in a start node", `
+			first start { @Probability { p = 1.0; } }
+			then fast;
+			action fast;`, "annotates the action here, not a succession"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := weightedActionGraph(t, tc.body)
+			if err == nil {
+				t.Fatal("lowering accepted the model")
+			}
+			if !errors.Is(err, ErrProbability) {
+				t.Fatalf("error %v is not an ErrProbability", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// Two differently-spelled invocation timers are different groups — the key is a
+// lossless rendering, not writtenValue's "an expression" — while identical
+// spellings group together, and `via this.p` does not collide with `via p`.
+func TestTriggerKeyDistinguishesInvocations(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		state d;
+		transition t1 first a accept after uniform(1, 2) then b;
+		transition t2 first a accept after normal(10, 1) then c;
+		transition t3 first a accept after uniform(1, 2) then d;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 3 {
+		t.Fatalf("a has %d transitions, want 3", len(transitions))
+	}
+	if TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("uniform(1, 2) and normal(10, 1) share a key %q", TriggerKey(transitions[0]))
+	}
+	if TriggerKey(transitions[0]) != TriggerKey(transitions[2]) {
+		t.Errorf("identical spellings differ: %q vs %q", TriggerKey(transitions[0]), TriggerKey(transitions[2]))
+	}
+	groups := TransitionGroups(stateNamed(graph, "a"), transitions)
+	if len(groups) != 2 {
+		t.Errorf("groups = %v, want two (the uniform pair and normal alone)", groups)
+	}
+
+	viaGraph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute p;
+		entry; then a;
+		state a;
+		state b;
+		transition t1 first a accept go via p then b;
+		transition t2 first a accept go via this.p then b;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(via): %v", err)
+	}
+	viaTransitions := viaGraph.Transitions[stateNamed(viaGraph, "a")]
+	if len(viaTransitions) != 2 || TriggerKey(viaTransitions[0]) == TriggerKey(viaTransitions[1]) {
+		t.Errorf("via p and via this.p keyed alike: %v", viaTransitions)
+	}
+}
+
+// A cast keeps its operand in the key, and a trigger whose expression has an
+// unrenderable part falls back to a key unique to its own spelling rather than
+// collapsing with another.
+func TestTriggerKeyCastAndUnrenderableFallback(t *testing.T) {
+	graph, err := ToStateGraph(stateUsageIn(t, `state m {
+		attribute width;
+		attribute height;
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after (width as ScalarValues::Real) then b;
+		transition t2 first a accept after (height as ScalarValues::Real) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	transitions := graph.Transitions[stateNamed(graph, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Errorf("casts of different operands keyed alike: %v", transitions)
+	}
+
+	unkeyed, err := ToStateGraph(stateUsageIn(t, `state m {
+		entry; then a;
+		state a;
+		state b;
+		state c;
+		transition t1 first a accept after f(n = { in x : Real; x }) then b;
+		transition t2 first a accept after f(n = { in x : Real; x }) then c;
+	}`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph(unkeyed): %v", err)
+	}
+	unkeyedTransitions := unkeyed.Transitions[stateNamed(unkeyed, "a")]
+	if len(unkeyedTransitions) != 2 ||
+		TriggerKey(unkeyedTransitions[0]) == TriggerKey(unkeyedTransitions[1]) {
+		t.Errorf("unrenderable named-arg values keyed alike: %v", unkeyedTransitions)
+	}
+}
+
+// weightedStateGraph lowers state usage m of a model importing Stochastic
+// through the name-resolution tier, the way the runtime does.
+func weightedStateGraph(t *testing.T, body string) (*StateGraph, error) {
+	t.Helper()
+	src := "package M {\n import Stochastic::*;\n state m {\n" + body + "\n }\n}\n"
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	u, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(u.Decl, u.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// A weight on a branch no pick draws among — out of a fork, a join or a
+// history — is refused outright: Probability weights the branches of a choice
+// or junction only.
+func TestProbabilityOnPseudostateBranchRefused(t *testing.T) {
+	cases := []struct {
+		name, body, want string
+	}{
+		{"fork", `
+			state work parallel {
+				state left { state x; }
+				state right { state y; }
+			}
+			fork split;
+			transition first a then split;
+			transition first split then x { @Probability { p = 0.5; } }
+			transition first split then y { @Probability { p = 0.5; } }`, "out of a fork cannot be weighted"},
+		{"join", `
+			state work parallel {
+				state left { entry; then x; state x; }
+				state right { entry; then y; state y; }
+			}
+			join meet;
+			transition first x then meet;
+			transition first y then meet;
+			transition first meet then b { @Probability { p = 1.0; } }
+			state b;`, "out of a join cannot be weighted"},
+		{"history", `
+			state work {
+				state x;
+				state y;
+				entry; then x;
+				history back;
+			}
+			transition first back then b { @Probability { p = 1.0; } }
+			state b;`, "out of a shallow history cannot be weighted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := weightedStateGraph(t, `
+				entry; then a;
+				state a;
+			`+tc.body)
+			if err == nil {
+				t.Fatal("lowering accepted the model")
+			}
+			if !errors.Is(err, ErrProbability) {
+				t.Fatalf("error %v is not an ErrProbability", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
+
+// resolvedStateGraph lowers state usage `m` of src through the name-resolution
+// tier, so trigger names resolve to their definitions.
+func resolvedStateGraph(t *testing.T, src string) (*StateGraph, error) {
+	t.Helper()
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	usage, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	return ToStateGraphWithEndpoints(usage.Decl, usage.Scope, NewLibraryStateTypes(resolve.New(idx)))
+}
+
+// Two accept triggers whose names spell the same simple name but resolve to
+// different definitions are different groups; two spellings of one definition
+// are one group.
+func TestTriggerKeyResolvesSignalDefinitions(t *testing.T) {
+	apart, err := resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		package B { item def Go; }
+		state m {
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept A::Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept B::Go then c;
+		}
+	}`)
+	if err != nil {
+		t.Fatalf("A::Go weighted, B::Go not — different groups, so accepted: %v", err)
+	}
+	transitions := apart.Transitions[stateNamed(apart, "a")]
+	if len(transitions) != 2 || TriggerKey(transitions[0]) == TriggerKey(transitions[1]) {
+		t.Fatalf("A::Go and B::Go keyed alike: %v", transitions)
+	}
+
+	_, err = resolvedStateGraph(t, `package M {
+		import Stochastic::*;
+		package A { item def Go; }
+		state m {
+			import A::*;
+			entry; then a;
+			state a; state b; state c;
+			transition t1 first a accept Go then b { @Probability { p = 1.0; } }
+			transition t2 first a accept A::Go then c;
+		}
+	}`)
+	if err == nil || !errors.Is(err, ErrProbability) {
+		t.Fatalf("Go and A::Go resolve to one def — one group, mixed weights refused; got %v", err)
+	}
+}

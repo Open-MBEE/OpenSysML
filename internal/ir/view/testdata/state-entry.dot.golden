@@ -1,0 +1,62 @@
+// view: MachineViews::thermostat
+// kind: state
+// stated: view def StateTransitionView
+// layout: dot
+digraph "MachineViews::thermostat" {
+  graph [fontname="Helvetica", compound=true];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_n0" {
+    label=<<b>Thermostat</b><br/><font point-size="10"><i>«state def»</i></font>>;
+    color=black;
+    penwidth=0.5;
+    "n0" [shape=point, style=invis, width=0, height=0, label=""];
+    "n12" [shape=point, fillcolor=black, label=""];
+    "n1" [style="rounded,filled", label=<<b>heating</b><br/><font point-size="10"><i>«state»</i></font>>];
+    subgraph "cluster_n2" {
+      label=<<b>idle</b><br/><font point-size="10"><i>«state»</i></font>>;
+      color=black;
+      penwidth=0.5;
+      "n2" [shape=point, style=invis, width=0, height=0, label=""];
+      "n13" [shape=point, fillcolor=black, label=""];
+      "n3" [style="rounded,filled", label=<<b>drying</b><br/><font point-size="10"><i>«state»</i></font>>];
+      "n4" [style="rounded,filled", label=<<b>resting</b><br/><font point-size="10"><i>«state»</i></font>>];
+    }
+    subgraph "cluster_n5" {
+      label=<<b>monitoring</b><br/><font point-size="10"><i>«state»</i></font>>;
+      color=black;
+      penwidth=0.5;
+      "n5" [shape=point, style=invis, width=0, height=0, label=""];
+      subgraph "cluster_n6" {
+        label=<<b>lights</b><br/><font point-size="10"><i>«region»</i></font>>;
+        style=dashed;
+        color=black;
+        penwidth=0.5;
+        "n6" [shape=point, style=invis, width=0, height=0, label=""];
+        "n14" [shape=point, fillcolor=black, label=""];
+        "n8" [style="rounded,filled", label=<<b>lit</b><br/><font point-size="10"><i>«state»</i></font>>];
+        "n9" [style="rounded,filled", label=<<b>unlit</b><br/><font point-size="10"><i>«state»</i></font>>];
+      }
+      subgraph "cluster_n7" {
+        label=<<b>fans</b><br/><font point-size="10"><i>«region»</i></font>>;
+        style=dashed;
+        color=black;
+        penwidth=0.5;
+        "n7" [shape=point, style=invis, width=0, height=0, label=""];
+        "n15" [shape=point, fillcolor=black, label=""];
+        "n10" [style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>];
+        "n11" [style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>];
+      }
+    }
+  }
+  "n12" -> "n1" [label="[cold]"];
+  "n12" -> "n2" [label="[not cold]", lhead="cluster_n2"];
+  "n13" -> "n3" [label="[wet]"];
+  "n13" -> "n4";
+  "n14" -> "n8" [label="[dark]"];
+  "n14" -> "n9" [label="[not dark]"];
+  "n15" -> "n10";
+  "n1" -> "n2" [lhead="cluster_n2"];
+  "n2" -> "n5" [ltail="cluster_n2", lhead="cluster_n5"];
+  "n10" -> "n11";
+}

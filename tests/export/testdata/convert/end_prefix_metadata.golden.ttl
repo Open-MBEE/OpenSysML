@@ -1,0 +1,975 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:EndPrefixMetadata
+    a sysml:Package ;
+    sysml:qualifiedName "EndPrefixMetadata" ;
+    sysml:elementId "EndPrefixMetadata" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "EndPrefixMetadata" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:EndPrefixMetadata__original, elmt:EndPrefixMetadata__derive, elmt:EndPrefixMetadata__Req1, elmt:EndPrefixMetadata__Req1_5f1, elmt:EndPrefixMetadata__Derivation, elmt:EndPrefixMetadata__context ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__original_om, elmt:EndPrefixMetadata__derive_om, elmt:EndPrefixMetadata__Req1_om, elmt:EndPrefixMetadata__Req1_5f1_om, elmt:EndPrefixMetadata__Derivation_om, elmt:EndPrefixMetadata__context_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__original_om, elmt:EndPrefixMetadata__derive_om, elmt:EndPrefixMetadata__Req1_om, elmt:EndPrefixMetadata__Req1_5f1_om, elmt:EndPrefixMetadata__Derivation_om, elmt:EndPrefixMetadata__context_om ;
+    sysx:sourceText "package EndPrefixMetadata {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"EndPrefixMetadata__original\"},{\"@id\":\"EndPrefixMetadata__derive\"},{\"@id\":\"EndPrefixMetadata__Req1\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"},{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__context\"}]" ;
+    json:ownedMembership "[{\"@id\":\"EndPrefixMetadata__original_om\"},{\"@id\":\"EndPrefixMetadata__derive_om\"},{\"@id\":\"EndPrefixMetadata__Req1_om\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation_om\"},{\"@id\":\"EndPrefixMetadata__context_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__original_om\"},{\"@id\":\"EndPrefixMetadata__derive_om\"},{\"@id\":\"EndPrefixMetadata__Req1_om\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation_om\"},{\"@id\":\"EndPrefixMetadata__context_om\"}]" .
+
+elmt:EndPrefixMetadata__original
+    a sysml:MetadataDefinition ;
+    sysml:qualifiedName "EndPrefixMetadata::original" ;
+    sysml:elementId "EndPrefixMetadata__original" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__original_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__original_om ;
+    sysml:declaredName "original" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    metadata def original;\n" .
+
+elmt:EndPrefixMetadata__original_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__original_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__original ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__original ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__original ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__derive
+    a sysml:MetadataDefinition ;
+    sysml:qualifiedName "EndPrefixMetadata::derive" ;
+    sysml:elementId "EndPrefixMetadata__derive" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__derive_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__derive_om ;
+    sysml:declaredName "derive" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    metadata def derive;\n" .
+
+elmt:EndPrefixMetadata__derive_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__derive_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__derive ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__derive ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__derive ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__Req1
+    a sysml:RequirementDefinition ;
+    sysml:qualifiedName "EndPrefixMetadata::Req1" ;
+    sysml:elementId "EndPrefixMetadata__Req1" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Req1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Req1_om ;
+    sysml:declaredName "Req1" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    requirement def Req1;\n" .
+
+elmt:EndPrefixMetadata__Req1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Req1_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__Req1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Req1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Req1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__Req1_5f1
+    a sysml:RequirementDefinition ;
+    sysml:qualifiedName "EndPrefixMetadata::Req1_1" ;
+    sysml:elementId "EndPrefixMetadata__Req1_5f1" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Req1_5f1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Req1_5f1_om ;
+    sysml:declaredName "Req1_1" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    requirement def Req1_1;\n" .
+
+elmt:EndPrefixMetadata__Req1_5f1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Req1_5f1_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__Derivation
+    a sysml:ConnectionDefinition ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation" ;
+    sysml:elementId "EndPrefixMetadata__Derivation" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation_om ;
+    sysml:declaredName "Derivation" ;
+    sysml:ownedMember elmt:EndPrefixMetadata__Derivation___405, elmt:EndPrefixMetadata__Derivation__r1, elmt:EndPrefixMetadata__Derivation__r1_5f1, elmt:EndPrefixMetadata__Derivation__r1_5f2, elmt:EndPrefixMetadata__Derivation__cause, elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__Derivation___405_om, elmt:EndPrefixMetadata__Derivation__r1_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_om, elmt:EndPrefixMetadata__Derivation__cause_om, elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation___405_om, elmt:EndPrefixMetadata__Derivation__r1_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_om, elmt:EndPrefixMetadata__Derivation__cause_om, elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedFeature elmt:EndPrefixMetadata__Derivation__r1, elmt:EndPrefixMetadata__Derivation__r1_5f1, elmt:EndPrefixMetadata__Derivation__r1_5f2, elmt:EndPrefixMetadata__Derivation__cause, elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:ownedFeatureMembership elmt:EndPrefixMetadata__Derivation__r1_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_om, elmt:EndPrefixMetadata__Derivation__cause_om, elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysx:sourceText "    #derive connection def Derivation {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"EndPrefixMetadata__Derivation___405\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect\"}]" ;
+    json:ownedMembership "[{\"@id\":\"EndPrefixMetadata__Derivation___405_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation___405_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"EndPrefixMetadata__Derivation__r1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_om\"}]" .
+
+elmt:EndPrefixMetadata__Derivation_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__Derivation___405
+    a sysml:MetadataUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::@5" ;
+    sysml:elementId "EndPrefixMetadata__Derivation___405" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation___405_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation___405_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation___405_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation___405_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation___405_ft0 .
+
+elmt:EndPrefixMetadata__Derivation___405_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation___405_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation .
+
+elmt:EndPrefixMetadata__Derivation__r1
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_om ;
+    sysml:declaredName "r1" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1___400_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1___400_om, elmt:EndPrefixMetadata__Derivation__r1_ft0 ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1_ft0 ;
+    sysx:sourceText "        end #original r1 : Req1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation__r1___400_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_ft0\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+
+elmt:EndPrefixMetadata__Derivation__r1___400
+    a sysml:MetadataUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1::@0" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1___400_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1___400_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:EndPrefixMetadata__original ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1___400_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1___400_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1___400_ft0 .
+
+elmt:EndPrefixMetadata__Derivation__r1___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1___400_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1 .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f1_om ;
+    sysml:declaredName "r1_1" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om, elmt:EndPrefixMetadata__Derivation__r1_5f1_ft0 ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1_5f1_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1_5f1_ft0 ;
+    sysx:sourceText "        end #derive r1_1 : Req1_1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1___400_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1_ft0\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1___400
+    a sysml:MetadataUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1::@0" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1_5f1___400_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1_5f1___400_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f1___400_ft0 .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1___400_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f1 .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f2_om ;
+    sysml:declaredName "r1_2" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om, elmt:EndPrefixMetadata__Derivation__r1_5f2_ft0 ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1_5f2_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1_5f2_ft0 ;
+    sysx:sourceText "        #derive end r1_2 : Req1_1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2___400_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2_ft0\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2___400
+    a sysml:MetadataUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2::@0" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__r1_5f2___400_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__r1_5f2___400_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__r1_5f2___400_ft0 .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2___400_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__r1_5f2 .
+
+elmt:EndPrefixMetadata__Derivation__cause
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::cause" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__cause_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__cause_om ;
+    sysml:declaredName "cause" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysml:ownedMember elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__Derivation__cause___400_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__Derivation__cause___400_om, elmt:EndPrefixMetadata__Derivation__cause_ft0 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__cause_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__cause_ft0 ;
+    sysx:sourceText "        end [*] ref cause : Req1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation__cause___400_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__cause_ft0\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__cause_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+
+elmt:EndPrefixMetadata__Derivation__cause___400
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::cause::@0" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__cause___400_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__cause___400_om ;
+    sysml:multiplicity expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
+    sysml:ownedMembership expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
+    sysml:upperBound expr:EndPrefixMetadata__Derivation__cause___400_pupperBound .
+
+elmt:EndPrefixMetadata__Derivation__cause___400_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause .
+
+expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pmultiplicity" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:owningRelationship expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
+    sysml:owningMembership expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om ;
+    sysml:upperBound expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om ;
+    sysml:ownedMembership expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om .
+
+expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pmultiplicity_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:memberElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__cause___400 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__cause___400 .
+
+expr:EndPrefixMetadata__Derivation__cause___400_pupperBound
+    a sysml:LiteralInfinity ;
+    sysx:sourceText "*" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pupperBound" ;
+    sysml:owner expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:owningRelationship expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om ;
+    sysml:owningMembership expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om .
+
+expr:EndPrefixMetadata__Derivation__cause___400_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause___400_pupperBound_om" ;
+    sysml:owner expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:memberElement expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pupperBound ;
+    sysml:owningRelatedElement expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__cause___400_pmultiplicity .
+
+elmt:EndPrefixMetadata__Derivation__effect
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::Derivation::effect" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__Derivation__effect_om ;
+    sysml:declaredName "effect" ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:multiplicity expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om, elmt:EndPrefixMetadata__Derivation__effect_ft0 ;
+    sysml:ownedMembership expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om ;
+    sysml:upperBound expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__Derivation__effect_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__Derivation__effect_ft0 ;
+    sysx:sourceText "        end ref attribute effect : Req1_1[*];\n" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__Derivation__effect_pmultiplicity_om\"},{\"@id\":\"EndPrefixMetadata__Derivation__effect_ft0\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__effect_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation ;
+    sysml:memberElement elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:owningType elmt:EndPrefixMetadata__Derivation .
+
+expr:EndPrefixMetadata__Derivation__effect_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_pmultiplicity" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:owningRelationship expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om ;
+    sysml:owningMembership expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om ;
+    sysml:upperBound expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__Derivation__effect_pupperBound_om ;
+    sysml:ownedMembership expr:EndPrefixMetadata__Derivation__effect_pupperBound_om .
+
+expr:EndPrefixMetadata__Derivation__effect_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_pmultiplicity_om" ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:memberElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__Derivation__effect .
+
+expr:EndPrefixMetadata__Derivation__effect_pupperBound
+    a sysml:LiteralInfinity ;
+    sysx:sourceText "*" ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_pupperBound" ;
+    sysml:owner expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:owningRelationship expr:EndPrefixMetadata__Derivation__effect_pupperBound_om ;
+    sysml:owningMembership expr:EndPrefixMetadata__Derivation__effect_pupperBound_om .
+
+expr:EndPrefixMetadata__Derivation__effect_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_pupperBound_om" ;
+    sysml:owner expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:memberElement expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysml:ownedMemberElement expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysml:ownedRelatedElement expr:EndPrefixMetadata__Derivation__effect_pupperBound ;
+    sysml:owningRelatedElement expr:EndPrefixMetadata__Derivation__effect_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:EndPrefixMetadata__Derivation__effect_pmultiplicity .
+
+elmt:EndPrefixMetadata__context
+    a sysml:PartUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context" ;
+    sysml:elementId "EndPrefixMetadata__context" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context_om ;
+    sysml:declaredName "context" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:EndPrefixMetadata__context__req1, elmt:EndPrefixMetadata__context__req1_5f1, elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__context__req1_om, elmt:EndPrefixMetadata__context__req1_5f1_om, elmt:EndPrefixMetadata__context___402_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__context__req1_om, elmt:EndPrefixMetadata__context__req1_5f1_om, elmt:EndPrefixMetadata__context___402_om ;
+    sysml:ownedFeature elmt:EndPrefixMetadata__context__req1, elmt:EndPrefixMetadata__context__req1_5f1, elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedFeatureMembership elmt:EndPrefixMetadata__context__req1_om, elmt:EndPrefixMetadata__context__req1_5f1_om, elmt:EndPrefixMetadata__context___402_om ;
+    sysx:sourceText "    part context {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"EndPrefixMetadata__context__req1\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"},{\"@id\":\"EndPrefixMetadata__context___402\"}]" ;
+    json:ownedMembership "[{\"@id\":\"EndPrefixMetadata__context__req1_om\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__context___402_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__context__req1_om\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__context___402_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"EndPrefixMetadata__context__req1\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"},{\"@id\":\"EndPrefixMetadata__context___402\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"EndPrefixMetadata__context__req1_om\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__context___402_om\"}]" .
+
+elmt:EndPrefixMetadata__context_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__context_om" ;
+    sysml:owner elmt:EndPrefixMetadata ;
+    sysml:memberElement elmt:EndPrefixMetadata__context ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata .
+
+elmt:EndPrefixMetadata__context__req1
+    a sysml:RequirementUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::req1" ;
+    sysml:elementId "EndPrefixMetadata__context__req1" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context__req1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context__req1_om ;
+    sysml:declaredName "req1" ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__context__req1_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__context__req1_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__context__req1_ft0 ;
+    sysx:sourceText "        requirement req1 : Req1;\n" .
+
+elmt:EndPrefixMetadata__context__req1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__context__req1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:memberElement elmt:EndPrefixMetadata__context__req1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context__req1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context .
+
+elmt:EndPrefixMetadata__context__req1_5f1
+    a sysml:RequirementUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::req1_1" ;
+    sysml:elementId "EndPrefixMetadata__context__req1_5f1" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context__req1_5f1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context__req1_5f1_om ;
+    sysml:declaredName "req1_1" ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__context__req1_5f1_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__context__req1_5f1_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__context__req1_5f1_ft0 ;
+    sysx:sourceText "        requirement req1_1 : Req1_1;\n" .
+
+elmt:EndPrefixMetadata__context__req1_5f1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__context__req1_5f1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:memberElement elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context .
+
+elmt:EndPrefixMetadata__context___402
+    a sysml:ConnectionUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::@2" ;
+    sysml:elementId "EndPrefixMetadata__context___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context___402_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context___402_om ;
+    sysml:ownedMember elmt:EndPrefixMetadata__context___402___402, elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:ownedMembership elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__context___402___402_om, elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om, elmt:EndPrefixMetadata__context___402_ft0 ;
+    sysml:type elmt:EndPrefixMetadata__Derivation ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedFeature elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:ownedFeatureMembership elmt:EndPrefixMetadata__context___402__r1_om, elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__context___402_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__context___402_ft0 ;
+    sysx:sourceText "        #derive connection : Derivation {\n" ;
+    sysx:sourceTail "        }\n" ;
+    json:ownedMember "[{\"@id\":\"EndPrefixMetadata__context___402___402\"},{\"@id\":\"EndPrefixMetadata__context___402__r1\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1\"}]" ;
+    json:ownedMembership "[{\"@id\":\"EndPrefixMetadata__context___402___402_om\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_om\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"EndPrefixMetadata__context___402___402_om\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_om\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1_om\"},{\"@id\":\"EndPrefixMetadata__context___402_ft0\"}]" ;
+    json:ownedFeature "[{\"@id\":\"EndPrefixMetadata__context___402__r1\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"EndPrefixMetadata__context___402__r1_om\"},{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1_om\"}]" .
+
+elmt:EndPrefixMetadata__context___402_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__context___402_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context ;
+    sysml:memberElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningType elmt:EndPrefixMetadata__context .
+
+elmt:EndPrefixMetadata__context___402___402
+    a sysml:MetadataUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::@2::@2" ;
+    sysml:elementId "EndPrefixMetadata__context___402___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context___402___402_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context___402___402_om ;
+    sysx:declaredKeyword "#" ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:EndPrefixMetadata__context___402___402_ft0 ;
+    sysml:ownedSpecialization elmt:EndPrefixMetadata__context___402___402_ft0 ;
+    sysml:ownedRelationship elmt:EndPrefixMetadata__context___402___402_ft0 .
+
+elmt:EndPrefixMetadata__context___402___402_om
+    a sysml:OwningMembership ;
+    sysml:elementId "EndPrefixMetadata__context___402___402_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:memberElement elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 .
+
+elmt:EndPrefixMetadata__context___402__r1
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1" ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context___402__r1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context___402__r1_om ;
+    sysml:declaredName "r1" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__context___402__r1_prs ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "            end r1 ::> req1;\n" .
+
+elmt:EndPrefixMetadata__context___402__r1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:memberElement elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402 .
+
+expr:EndPrefixMetadata__context___402__r1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_prs" ;
+    sysml:referencingFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:subsettingFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:source elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:referencedFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:subsettedFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:general elmt:EndPrefixMetadata__context__req1 ;
+    sysml:target elmt:EndPrefixMetadata__context__req1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402__r1, elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402__r1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402__r1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402__r1\"},{\"@id\":\"EndPrefixMetadata__context__req1\"}]" .
+
+elmt:EndPrefixMetadata__context___402__r1_5f1
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "EndPrefixMetadata::context::@2::r1_1" ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_5f1" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningRelationship elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
+    sysml:owningMembership elmt:EndPrefixMetadata__context___402__r1_5f1_om ;
+    sysml:declaredName "r1_1" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isEnd "true"^^xsd:boolean ;
+    sysml:ownedReferenceSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedSubsetting expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedSpecialization expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysml:ownedRelationship expr:EndPrefixMetadata__context___402__r1_5f1_prs ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "            end r1_1 references req1_1;\n" .
+
+elmt:EndPrefixMetadata__context___402__r1_5f1_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_5f1_om" ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:memberElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:ownedMemberElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:ownedRelatedElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:membershipOwningNamespace elmt:EndPrefixMetadata__context___402 ;
+    sysml:ownedMemberFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402 .
+
+expr:EndPrefixMetadata__context___402__r1_5f1_prs
+    a sysml:ReferenceSubsetting ;
+    sysml:elementId "EndPrefixMetadata__context___402__r1_5f1_prs" ;
+    sysml:referencingFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:subsettingFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:source elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningType elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:referencedFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:subsettedFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402__r1_5f1, elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402__r1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"}]" .
+
+elmt:EndPrefixMetadata__Derivation___405_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation___405_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysml:general elmt:EndPrefixMetadata__derive ;
+    sysml:target elmt:EndPrefixMetadata__derive ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation___405 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation___405, elmt:EndPrefixMetadata__derive ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation___405\"},{\"@id\":\"EndPrefixMetadata__derive\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1, elmt:EndPrefixMetadata__Req1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1\"},{\"@id\":\"EndPrefixMetadata__Req1\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1___400_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1___400_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:type elmt:EndPrefixMetadata__original ;
+    sysml:general elmt:EndPrefixMetadata__original ;
+    sysml:target elmt:EndPrefixMetadata__original ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1___400, elmt:EndPrefixMetadata__original ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1___400\"},{\"@id\":\"EndPrefixMetadata__original\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1, elmt:EndPrefixMetadata__Req1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f1___400_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f1___400_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysml:general elmt:EndPrefixMetadata__derive ;
+    sysml:target elmt:EndPrefixMetadata__derive ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f1___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f1___400, elmt:EndPrefixMetadata__derive ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1___400\"},{\"@id\":\"EndPrefixMetadata__derive\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f2 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2, elmt:EndPrefixMetadata__Req1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__r1_5f2___400_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__r1_5f2___400_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysml:general elmt:EndPrefixMetadata__derive ;
+    sysml:target elmt:EndPrefixMetadata__derive ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__r1_5f2___400 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__r1_5f2___400, elmt:EndPrefixMetadata__derive ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f2___400\"},{\"@id\":\"EndPrefixMetadata__derive\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__cause_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__cause_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__cause ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__cause, elmt:EndPrefixMetadata__Req1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__cause\"},{\"@id\":\"EndPrefixMetadata__Req1\"}]" .
+
+elmt:EndPrefixMetadata__Derivation__effect_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__Derivation__effect_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:owningFeature elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:specific elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:source elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__Derivation__effect ;
+    sysml:relatedElement elmt:EndPrefixMetadata__Derivation__effect, elmt:EndPrefixMetadata__Req1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__effect\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"}]" .
+
+elmt:EndPrefixMetadata__context__req1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__context__req1_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context__req1 ;
+    sysml:specific elmt:EndPrefixMetadata__context__req1 ;
+    sysml:source elmt:EndPrefixMetadata__context__req1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context__req1 ;
+    sysml:type elmt:EndPrefixMetadata__Req1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1 ;
+    sysml:owner elmt:EndPrefixMetadata__context__req1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context__req1, elmt:EndPrefixMetadata__Req1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context__req1\"},{\"@id\":\"EndPrefixMetadata__Req1\"}]" .
+
+elmt:EndPrefixMetadata__context__req1_5f1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__context__req1_5f1_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:specific elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:source elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:type elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:general elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:target elmt:EndPrefixMetadata__Req1_5f1 ;
+    sysml:owner elmt:EndPrefixMetadata__context__req1_5f1 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context__req1_5f1, elmt:EndPrefixMetadata__Req1_5f1 ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context__req1_5f1\"},{\"@id\":\"EndPrefixMetadata__Req1_5f1\"}]" .
+
+elmt:EndPrefixMetadata__context___402_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__context___402_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402 ;
+    sysml:source elmt:EndPrefixMetadata__context___402 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402 ;
+    sysml:type elmt:EndPrefixMetadata__Derivation ;
+    sysml:general elmt:EndPrefixMetadata__Derivation ;
+    sysml:target elmt:EndPrefixMetadata__Derivation ;
+    sysml:owner elmt:EndPrefixMetadata__context___402 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402, elmt:EndPrefixMetadata__Derivation ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402\"},{\"@id\":\"EndPrefixMetadata__Derivation\"}]" .
+
+elmt:EndPrefixMetadata__context___402___402_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "EndPrefixMetadata__context___402___402_ft0" ;
+    sysml:typedFeature elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:owningFeature elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:specific elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:source elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:owningRelatedElement elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:type elmt:EndPrefixMetadata__derive ;
+    sysml:general elmt:EndPrefixMetadata__derive ;
+    sysml:target elmt:EndPrefixMetadata__derive ;
+    sysml:owner elmt:EndPrefixMetadata__context___402___402 ;
+    sysml:relatedElement elmt:EndPrefixMetadata__context___402___402, elmt:EndPrefixMetadata__derive ;
+    json:relatedElement "[{\"@id\":\"EndPrefixMetadata__context___402___402\"},{\"@id\":\"EndPrefixMetadata__derive\"}]" .

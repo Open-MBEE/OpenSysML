@@ -309,7 +309,6 @@ This report is *generated* from the model by `sysml -render-document` [(OpenSysM
 
 ## Subsystem Masses
 
-<!-- caption -->
 *All subsystems by mass*
 
 | name | mass |
@@ -318,7 +317,6 @@ This report is *generated* from the model by `sysml -render-document` [(OpenSysM
 | optics | 8.5 |
 | segmentControl | 20 |
 
-<!-- caption -->
 *Subsystems grouped by zone*
 
 **zone: support**
@@ -343,14 +341,12 @@ Subsystems at or above 10 kg:
 
 ## Mass Requirement
 
-<!-- caption -->
 *Parts satisfying the mass requirement*
 
 | name | qualifiedName |
 | --- | --- |
 | telescope | Observatory::telescope |
 
-<!-- caption -->
 *Verifications of the mass requirement*
 
 | qualifiedName |
@@ -359,7 +355,6 @@ Subsystems at or above 10 kg:
 
 ## Diagrams
 
-<!-- caption -->
 *Imaging chain interconnection*
 
 ```mermaid
@@ -371,7 +366,7 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+  subgraph n0 ["imagingChain<br>«part»"]
     direction LR
     n1["camera : Camera<br>«part»"]
     n2["recorder : Recorder<br>«part»"]
@@ -379,13 +374,12 @@ flowchart LR
   n1 ---|"link"| n2
 ```
 
-<!-- caption -->
 *Telescope part tree, left to right*
 
 ```mermaid
 %% tree rendering (the diagram states kind "tree")
 flowchart LR
-  n0["Observatory::telescope<br>«part»"]
+  n0["telescope<br>«part»"]
   n1["optics : Subsystem<br>«part»"]
   n2["mass<br>«attribute»"]
   n1 --- n2
@@ -424,4 +418,8 @@ A few details worth pausing on:
   notation.
 - **The traversal queries feed tables.** `SatisfyingParts` and
   `VerifyingElements` are the cookbook's satisfy/verify recipes with a
-  `Project` on the end, which is all a traceability table is.
+  `Project` on the end — one table per requirement, with `req` bound. A
+  single matrix over every requirement is a `Project` whose `columns` are
+  `RelatedColumn(...)` entries; see the cookbook's
+  [traceability matrix](query-cookbook.md#traceability-matrix) recipe and
+  the [traceability example](examples/traceability.md) built on it.

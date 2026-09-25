@@ -1,0 +1,16 @@
+{
+	"type": "instance",
+	"libraries": true,
+	"trace": true,
+	"instantiate": "test::Worker",
+	"objects": [
+		{
+			"terminated": true,
+			"stateVisits": ["busy"],
+			"slots": {
+				"count": {"type": "Integer", "value": 1},
+				"exits": {"type": "Integer", "value": 0}
+			}
+		}
+	]
+}

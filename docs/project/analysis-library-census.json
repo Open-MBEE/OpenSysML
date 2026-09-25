@@ -1,5 +1,5 @@
 {
-  "command": "go test ./internal/core/runtime -run TestAnalysisLibraryCensus -update-library-census",
+  "command": "go test ./internal/exec/runtime -run TestAnalysisLibraryCensus -update-library-census",
   "packages": [
     {
       "name": "AnalysisTooling",
@@ -296,13 +296,13 @@
       "refused": [
         {
           "declaration": "OccurrenceFunctions::removeOld",
-          "error": "ErrActionPerformanceOccurrence",
-          "message": "action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOld is not an action"
+          "error": "ErrNotABehavior",
+          "message": "performed action go of object #1: action node work: not a behavior: removeOld is not an action (kermlType)"
         },
         {
           "declaration": "OccurrenceFunctions::removeOldAt",
-          "error": "ErrActionPerformanceOccurrence",
-          "message": "action performance occurrence unavailable: materialize go of object #1: performed action clean of work: symbol removeOldAt is not an action"
+          "error": "ErrNotABehavior",
+          "message": "performed action go of object #1: action node work: not a behavior: removeOldAt is not an action (kermlType)"
         }
       ],
       "wrong": []

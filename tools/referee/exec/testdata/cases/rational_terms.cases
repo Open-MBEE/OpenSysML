@@ -1,0 +1,20 @@
+model: tools/referee/exec/testdata/models/rational_terms.sysml
+
+# RationalFunctions::rat, numer and denom over the binary64 Rational
+# (docs/project/exact-rational-evaluation.md). The pinned pilot leaves every
+# one of these calls unevaluated, so they land in pilot-unevaluated; only the
+# operator quotient is refereeable, and it agrees.
+rat-third ::  :: RationalTerms::third
+rat-six-quarters ::  :: RationalTerms::sixQuarters
+rat-zero-denominator ::  :: RationalTerms::undefined
+numer-three-quarters ::  :: RationalTerms::numerOfThreeQuarters
+denom-three-quarters ::  :: RationalTerms::denomOfThreeQuarters
+numer-of-rat ::  :: RationalTerms::numerOfSixQuarters
+denom-of-quotient ::  :: RationalTerms::denomOfThird
+numer-integer ::  :: RationalTerms::numerOfTwo
+denom-integer ::  :: RationalTerms::denomOfTwo
+numer-tenth ::  :: RationalTerms::numerOfTenth
+denom-tenth ::  :: RationalTerms::denomOfTenth
+rat-third-qualified ::  :: RationalFunctions::rat(1, 3)
+numer-tenth-qualified ::  :: RationalFunctions::numer(0.1)
+quotient-by-operator ::  :: RationalTerms::sixQuartersByOperator

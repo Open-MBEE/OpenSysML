@@ -1,0 +1,13 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "trace": true,
+  "events": [
+    {"signal": "Up", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);outer(exit);completion(effect);"}
+  }
+}

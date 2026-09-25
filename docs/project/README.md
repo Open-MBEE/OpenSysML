@@ -15,6 +15,8 @@ within these records and means nothing outside this repository.
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
+  suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
   pilot implementation, advisory
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
@@ -38,6 +40,9 @@ within these records and means nothing outside this repository.
   with a violating model as evidence; the figures and the name list are gated in CI
 - **[Adjudications](adjudications.md)** — the divergences from the pinned pilot implementation we
   keep, the rows still open against it, and the reading behind each one
+- **[Protocol state machines](protocol-state-machines.md)** — whether SysML v2 has a construct for
+  UML's protocol state machine, which of its guarantees an exhibited state machine on a port or
+  part already gives at run time, and the runtime follow-up that is left
 - **[Element-scoped tier gating](element-scoped-tier-gating.md)** — how a pass opts out of
   document-wide skipping and gates itself per subject, and what that measured
 - **[Declared errata overlay](errata-overlay.md)** — how a defect in the published reference
@@ -45,6 +50,18 @@ within these records and means nothing outside this repository.
 - **[Lossless library records](lossless-library-records.md)** — the record format
   and version-compatibility surface roadmap L3 needs, the measurements that chose it, and the rows
   it leaves open
+- **[Expansion regions](expansion-regions.md)** — whether a multiplicity on a performed action
+  usage fed by a `flow` is SysML v2's spelling of concurrent per-element performance, adjudicated
+  against the specifications, the library, the corpora and the pilot, and closed: the iterative
+  form is `for`, the parallel form is not SysML v2
+- **[Bitwise complement](bitwise-complement.md)** — whether the unary `~` has a meaning a runtime
+  can give it, adjudicated against the specification, the Kernel Function Library, the corpora
+  and the pinned pilot, and closed abstract-only: the runtime keeps its typed refusal and the
+  checker warns on every use
+- **[Exception handlers](exception-handlers.md)** — whether SysML v2 spells an exception handler
+  or exception propagation, adjudicated against the specifications, the library, the corpora and
+  the pilot, and closed as not a SysML v2 construct, with the idiom that covers the need — a
+  result routed by `decide`, or a failure signal accepted beside the work and a `terminate`
 - **[Exact-rational evaluation](exact-rational-evaluation.md)** — whether the evaluator should
   compute `Real`/`Rational` arithmetic exactly rather than in binary64, adjudicated against the
   pinned pilot and the specification text, and declined

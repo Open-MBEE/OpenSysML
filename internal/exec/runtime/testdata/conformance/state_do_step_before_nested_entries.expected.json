@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "outcomes": [
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "did a1(entry) b1(entry) "}}},
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "did b1(entry) a1(entry) "}}},
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "a1(entry) did b1(entry) "}}},
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "b1(entry) did a1(entry) "}}},
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "a1(entry) b1(entry) did "}}},
+    {"finalState": "l1+a1+b1+r1", "outputs": {"log": {"type": "String", "value": "b1(entry) a1(entry) did "}}}
+  ],
+  "admissible": "A do step and a sibling region's entry due inside one entry: which goes first is open"
+}

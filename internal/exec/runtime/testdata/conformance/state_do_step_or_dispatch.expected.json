@@ -1,0 +1,22 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Stop"}
+  ],
+  "outcomes": [
+    {
+      "finalState": "idle",
+      "outputs": {
+        "log": {"type": "String", "value": "did stop "}
+      }
+    },
+    {
+      "finalState": "idle",
+      "outputs": {
+        "log": {"type": "String", "value": "stop "}
+      }
+    }
+  ],
+  "admissible": "A do step and a dispatch due at one instant: which goes first is open"
+}

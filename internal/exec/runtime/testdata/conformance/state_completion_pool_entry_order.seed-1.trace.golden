@@ -1,0 +1,20 @@
+exit: idle
+enter: work
+choice entering work: next l1(entry), r1(entry) (unordered; took r1(entry) first)
+enter: r1
+enter: l1
+transition: idle -> work (event: accept Go)
+exit: r1
+stmt assign log
+    eval feature log -> ""
+    eval literal "r " -> "r "
+  eval operator + -> "r "
+enter: r2
+transition: r1 -> r2
+exit: l1
+stmt assign log
+    eval feature log -> "r "
+    eval literal "l " -> "l "
+  eval operator + -> "r l "
+enter: l2
+transition: l1 -> l2
