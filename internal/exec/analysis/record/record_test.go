@@ -793,11 +793,38 @@ func TestGenerateSequenceRun(t *testing.T) {
 				{Name: "mixed", Value: seqOf(integer(1), realValue(2.5))},
 				{Name: "labels", Value: seqOf(runtime.NewStringValue("a"), runtime.NewStringValue("b"))},
 				{Name: "peak", Value: seqOf(realValue(300.0))},
+				{Name: "dupes", Value: seqOf(realValue(1.0), realValue(1.0))},
 			},
 		}},
 	})
 	if res.Definition != "Records::ProfileRun" {
 		t.Errorf("definition %q", res.Definition)
+	}
+}
+
+// A member nonunique by `ordered nonunique` keeps a repeated element the reply
+// answered — a recorded sequence is the log of what ran, order and repeats included.
+func TestGenerateSequenceWithARepeatedElement(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Spell:   spell(),
+			Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(1))}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute x : ScalarValues::Real[0..*] ordered nonunique;",
+		"attribute :>> x = (1.0, 1.0);",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
 	}
 }
 
@@ -815,7 +842,7 @@ func TestGenerateEmptySequence(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 	for _, want := range []string{
-		"attribute xs : ScalarValues::ScalarValue[0..*];",
+		"attribute xs : ScalarValues::ScalarValue[0..*] ordered nonunique;",
 		"attribute :>> xs = ();",
 	} {
 		if !strings.Contains(res.Source, want) {
@@ -838,7 +865,7 @@ func TestGenerateEmptySequenceSettlesToReal(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 	for _, want := range []string{
-		"attribute x : ScalarValues::Real[0..*];",
+		"attribute x : ScalarValues::Real[0..*] ordered nonunique;",
 		"attribute :>> x = ();",
 		"attribute :>> x = (1.0, 2.0);",
 	} {
