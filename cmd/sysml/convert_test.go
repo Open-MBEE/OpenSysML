@@ -589,15 +589,19 @@ func documentsMdzip(t *testing.T) []byte {
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
-	for name, content := range map[string][]byte{
-		"com.nomagic.magicdraw.uml_model.model": data,
-		"attachments/fleet.png":                 []byte("\x89PNG\r\n\x1a\n fleet bytes"),
+	// Entries in a fixed order so two calls yield byte-identical archives.
+	for _, entry := range []struct {
+		name    string
+		content []byte
+	}{
+		{"com.nomagic.magicdraw.uml_model.model", data},
+		{"attachments/fleet.png", []byte("\x89PNG\r\n\x1a\n fleet bytes")},
 	} {
-		w, err := zw.Create(name)
+		w, err := zw.Create(entry.name)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := w.Write(content); err != nil {
+		if _, err := w.Write(entry.content); err != nil {
 			t.Fatal(err)
 		}
 	}
