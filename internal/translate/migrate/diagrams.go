@@ -360,7 +360,23 @@ func (m *migration) graphPins(f viewForm, el *sysmlv1.Element) bool {
 // graphDraws reports whether the graph a view of form f draws shows el for the
 // view: a node or edge of the subject it pins, or an action a state's node lists.
 func (m *migration) graphDraws(f viewForm, el *sysmlv1.Element) bool {
-	return m.graphPins(f, el) || inGraph(f, el) && m.drawsInNode(el, f)
+	return m.graphPins(f, el) || inGraph(f, el) && (m.drawsInNode(el, f) || m.drawsEntry(f, el))
+}
+
+// drawsEntry reports whether the graph of form f draws el as the edge from its start:
+// an initial transition or flow written into its region or activity, not as a member.
+func (m *migration) drawsEntry(f viewForm, el *sysmlv1.Element) bool {
+	em, ok := m.edgeMembers[el]
+	if !ok || !em.none {
+		return false
+	}
+	switch f.definition {
+	case "StateTransitionView":
+		return el.Type == "Transition"
+	case "ActionFlowView":
+		return el.Role == "edge"
+	}
+	return false
 }
 
 // draws reports whether a view of form f exposing x shows el, which ref names, where
@@ -569,6 +585,8 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 		switch {
 		case m.graphDraws(form, shown.Element):
 			x.drawn++
+		case m.notesShown(d, shown.Element):
+			// written as a Note the view's dressing lays out
 		case ref == "":
 			x.unwritten++
 		default:
@@ -691,30 +709,36 @@ func (m *migration) diagrams() {
 	m.unplacedTables()
 }
 
-// viewGeometry is the layout a matched MTIP diagram record writes into a view:
+// viewGeometry is the layout a diagram's layout record writes into a view:
 // the annotation lines and the report clause describing them.
 type viewGeometry struct {
 	lines []string
 	note  string
 }
 
-// viewGeometry plans the DiagramLayout annotations of the diagram record the
-// export holds for v's diagram: a Canvas sized by the bounding box of what is
-// written, a Layout per shown element the view exposes, and a Route per
-// connector whose element does, tallied by the connector's v1 kind and why it
-// is or is not pinned. nil geometry when there is no layout export.
+// viewGeometry plans the DiagramLayout annotations of v's layout record, the
+// export's or the diagram's own stream's: a Canvas sized by the frame or the
+// bounding box of what is written, a Layout per shown element the view exposes,
+// a Route per connector whose element does, tallied by the connector's v1 kind
+// and why it is or is not pinned, then the Styles and Notes the stream carries.
 func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeometry {
-	if m.layout == nil {
+	s := m.layoutSummary
+	if s == nil {
 		return viewGeometry{}
 	}
-	rec := m.layoutByID[v.d.ID]
-	s := m.layoutSummary
+	rec, fromStream := m.layoutRecord(v)
 	if rec == nil {
 		s.ViewsWithoutLayout++
 		return viewGeometry{}
 	}
-	s.DiagramsJoined++
-	m.layoutJoined[rec.ID] = true
+	source := m.layoutSource
+	if fromStream {
+		s.StreamDiagrams++
+		source = streamSource
+	} else {
+		s.DiagramsJoined++
+		m.layoutJoined[rec.ID] = true
+	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {
 		prefix = globalDiagramLayoutPrefix
@@ -731,8 +755,12 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			maxY = h
 		}
 	}
+	if f := v.d.Frame; f != nil && fromStream {
+		grow(f.X+f.Width, f.Y+f.Height)
+	}
 	var written, unexposed, dangling int
 	seen := map[string]bool{}
+	refOf := map[string]string{}
 	for _, p := range rec.Placements {
 		s.Placements++
 		el := m.model.Lookup(p.ID)
@@ -751,6 +779,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			continue
 		}
 		seen[ref] = true
+		refOf[p.ID] = ref
 		s.PlacementsWritten++
 		written++
 		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { x = %s; y = %s; width = %s; height = %s; }",
@@ -785,6 +814,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			continue
 		}
 		pinned[ref] = true
+		refOf[c.ID] = ref
 		s.RoutesWritten++
 		reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
@@ -814,8 +844,13 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	}
 	geo.lines = append(geo.lines, placements...)
 	geo.lines = append(geo.lines, routes...)
+	dress := m.viewDressing(v, prefix, refOf)
+	geo.lines = append(geo.lines, dress.lines...)
 	if len(rec.Placements)+len(rec.Connectors) > 0 {
-		geo.note = fmt.Sprintf("laid out from %s: %s", m.layoutSource, layoutClause(written, unexposed, dangling, len(rec.Placements))+", "+routeClause(reasons, len(rec.Connectors)))
+		clauses := append([]string{layoutClause(written, unexposed, dangling, len(rec.Placements)), routeClause(reasons, len(rec.Connectors))}, dress.notes...)
+		geo.note = fmt.Sprintf("laid out from %s: %s", source, strings.Join(clauses, ", "))
+	} else if len(dress.notes) > 0 {
+		geo.note = fmt.Sprintf("dressed from %s: %s", streamSource, strings.Join(dress.notes, ", "))
 	}
 	return geo
 }
@@ -867,11 +902,11 @@ func layoutNumber(v float64) string {
 // that matched no written view — no diagram of the model, or one the migration
 // does not write a view for — and per malformed record, then the summary itself.
 func (m *migration) layoutReport() {
-	if m.layout == nil {
+	s := m.layoutSummary
+	if s == nil {
 		return
 	}
-	s := m.layoutSummary
-	for i := range m.layout.Diagrams {
+	for i := 0; m.layout != nil && i < len(m.layout.Diagrams); i++ {
 		rec := &m.layout.Diagrams[i]
 		switch {
 		case !m.diagramIDs[rec.ID]:

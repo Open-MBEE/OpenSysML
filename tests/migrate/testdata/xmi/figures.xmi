@@ -109,6 +109,7 @@
                   <usedElements>_st_idle</usedElements>
                   <usedElements>_st_running</usedElements>
                   <usedElements>_t_start</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-modes"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>

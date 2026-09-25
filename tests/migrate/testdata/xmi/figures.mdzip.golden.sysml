@@ -5,6 +5,13 @@ package Plant {
         state def Modes {
             view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {
                 expose Modes;
+                @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+                metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
+                metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
+                metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
+                metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }
+                metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }
+                @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
                 render Views::asInterconnectionDiagram;
             }
             entry; then Idle;
@@ -33,14 +40,19 @@ package Plant {
     }
     part def Tank;
     view Blank {
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
         render Views::asTreeDiagram;
     }
     view Poster {
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        @DiagramLayout::Note { text = "The plant from the north"; x = 40; y = 260; width = 300; height = 40; }
         render Views::asTreeDiagram;
     }
     view Unlisted {
         expose Tank;
         expose Pump;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
     view Silent {
@@ -48,11 +60,16 @@ package Plant {
     }
     view Stale {
         expose Tank;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
     view Partial {
         expose Tank;
         expose Pump;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
+        metadata DiagramLayout::Layout about Pump { x = 300; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
 }

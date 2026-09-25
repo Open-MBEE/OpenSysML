@@ -191,6 +191,12 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		for i := range opts.Layout.Diagrams {
 			m.layoutSummary.Malformed += len(opts.Layout.Diagrams[i].Malformed)
 		}
+	} else if drawsAny(model) {
+		m.layoutSource = streamsSource
+		m.layoutSummary = &LayoutSummary{Source: streamsSource, Unsupported: map[string]int{}}
+	}
+	if m.layoutSummary != nil {
+		m.layoutSummary.Dropped = map[string]int{}
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -394,7 +400,7 @@ type migration struct {
 	// layout is the MTIP export augmenting the migration, nil without one;
 	// layoutByID indexes its diagram records by id, diagramIDs the model's
 	// diagrams, layoutJoined the records a written view laid out, and
-	// layoutSummary the report's layout account.
+	// layoutSummary the report's layout account, nil when no diagram is drawn either.
 	layout        *mtip.Export
 	layoutSource  string
 	layoutByID    map[string]*mtip.Diagram
