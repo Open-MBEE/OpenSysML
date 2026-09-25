@@ -1087,7 +1087,7 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 }
 
 // readLinesRegex reads each output from the named group matching it exactly once, every
-// match on every line counted.
+// match on every line counted, paged in growing batches so a dense line stays bounded.
 func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	re := r.compiled.regex
@@ -1100,17 +1100,25 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runt
 		matched, at := 0, 0
 		double := false
 		for i, line := range lines {
-			for _, m := range re.FindAllStringSubmatchIndex(line, -1) {
-				if m[2*group] < 0 {
-					continue
+			seen := 0
+			for n := 2; ; n *= 2 {
+				ms := re.FindAllStringSubmatchIndex(line, n)
+				for ; seen < len(ms); seen++ {
+					m := ms[seen]
+					if m[2*group] < 0 {
+						continue
+					}
+					if matched == 0 {
+						text, at = line[m[2*group]:m[2*group+1]], i+1
+					}
+					matched++
+					if matched == 2 {
+						faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
+						double = true
+						break
+					}
 				}
-				if matched == 0 {
-					text, at = line[m[2*group]:m[2*group+1]], i+1
-				}
-				matched++
-				if matched == 2 {
-					faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
-					double = true
+				if double || len(ms) < n {
 					break
 				}
 			}

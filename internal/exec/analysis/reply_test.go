@@ -488,6 +488,16 @@ func TestReplyReadsLinesRegex(t *testing.T) {
 	if err != nil || out["code"].Value.Int != 1 {
 		t.Errorf("a match the group sits out of: %v, %+v; want code = 1", err, out)
 	}
+	if _, err := readReply(t, r, entry, "y=0 y=0 y=0 x=1 y=0 x=2\n"); replyKind(err) != runtime.ToolMalformed {
+		t.Errorf("a second match past the first batch: %v, want malformed", err)
+	}
+	if out, err := readReply(t, r, entry, "y=0 x=1 y=0\n"); err != nil || out["code"].Value.Int != 1 {
+		t.Errorf("one match among others: %v, %+v; want code = 1", err, out)
+	}
+	if _, err := readReply(t, r, entry, strings.Repeat("x=1 ", 1<<16)+"\n"); replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "lines 1 and 1") {
+		t.Errorf("a dense line of matches: %v, want malformed", err)
+	}
 }
 
 func TestReplyReadsExitCode(t *testing.T) {
