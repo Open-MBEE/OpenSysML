@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Document_View_Collaborator_Profile="http://www.magicdraw.com/schemas/manual/Document_View_Collaborator_Profile.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="DocGen Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindT" role="_t"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMean">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_resultsA" name="ResultsA">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_run" name="analysis of 6 runs" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_runT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_runTv" value="2.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_runMean">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_runMeanv" value="2.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_resultsB" name="ResultsB">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_blank" name="analysis unrecorded" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_blankT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_blankTv" value="1.25"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_viewpoints" name="Viewpoints">
+      <packagedElement xmi:type="uml:Class" xmi:id="_vp_stats" name="Statistics Viewpoint" classifierBehavior="_act_stats">
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_stats" name="Statistics Method">
+          <node xmi:type="uml:InitialNode" xmi:id="_stats_init"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_stats_collect" name="Collect Owned Elements">
+            <result xmi:type="uml:OutputPin" xmi:id="_stats_collect_out" name="result"/>
+          </node>
+          <node xmi:type="uml:StructuredActivityNode" xmi:id="_stats_table" name="Statistics">
+            <node xmi:type="uml:InitialNode" xmi:id="_stats_table_init"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_stats_col_name" name="Name"/>
+            <node xmi:type="uml:CallBehaviorAction" xmi:id="_stats_col_mean" name="Mean"/>
+            <node xmi:type="uml:FlowFinalNode" xmi:id="_stats_table_final"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_stats_table_e1" source="_stats_table_init" target="_stats_col_name"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_stats_table_e2" source="_stats_col_name" target="_stats_col_mean"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_stats_table_e3" source="_stats_col_mean" target="_stats_table_final"/>
+          </node>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_stats_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_stats_e1" source="_stats_init" target="_stats_collect"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_stats_e2" source="_stats_collect" target="_stats_table"/>
+          <edge xmi:type="uml:ObjectFlow" xmi:id="_stats_o1" source="_stats_collect_out" target="_stats_table"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_stats_e3" source="_stats_table" target="_stats_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views">
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_scoped" name="Scoped Statistics">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_scoped" general="_vp_stats"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_scoped" client="_view_scoped" supplier="_resultsB"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_recorded" name="Recorded Statistics">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_recorded" general="_vp_stats"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_recorded" client="_view_recorded" supplier="_resultsA"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_docs" name="Documents">
+      <packagedElement xmi:type="uml:Class" xmi:id="_doc_report" name="Statistics Report">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_scoped" name="scoped" type="_view_scoped" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_recorded" name="recorded" type="_view_recorded" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_analysis"/>
+  <sysml:BindingConnector xmi:id="_s2" base_Connector="_bind"/>
+  <sysml:Viewpoint xmi:id="_s3" base_Class="_vp_stats" purpose="List the statistics."/>
+  <sysml:View xmi:id="_s4" base_Class="_view_scoped"/>
+  <sysml:View xmi:id="_s5" base_Class="_view_recorded"/>
+  <sysml:Conform xmi:id="_s9" base_Generalization="_gen_scoped"/>
+  <sysml:Conform xmi:id="_s10" base_Generalization="_gen_recorded"/>
+  <sysml:Expose xmi:id="_s6" base_Dependency="_expose_scoped"/>
+  <sysml:Expose xmi:id="_s7" base_Dependency="_expose_recorded"/>
+  <Document_View_Collaborator_Profile:Document xmi:id="_s8" base_Class="_doc_report"/>
+
+  <Document_Profile_:CollectOwnedElements xmi:id="_d1" base_CallBehaviorAction="_stats_collect" depth="1"/>
+  <Document_Profile_:TableStructure xmi:id="_d2" base_StructuredActivityNode="_stats_table" includeDoc="true" loop="false" numberedRows="false">
+    <titles>Statistics</titles>
+  </Document_Profile_:TableStructure>
+  <Document_Profile_:TableAttributeColumn xmi:id="_d3" base_CallBehaviorAction="_stats_col_name" desiredAttribute="Name"/>
+  <Document_Profile_:TablePropertyColumn xmi:id="_d4" base_CallBehaviorAction="_stats_col_mean">
+    <desiredProperty href="MD_customization_for_SysML.mdzip#_mcMean">
+      <xmi:Extension extender="MagicDraw UML 2024x">
+        <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+      </xmi:Extension>
+    </desiredProperty>
+  </Document_Profile_:TablePropertyColumn>
+</xmi:XMI>
