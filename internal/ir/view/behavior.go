@@ -467,7 +467,9 @@ type actionSubject struct {
 
 // actionNode renders one lowered action: its nodes as nested nodes, its
 // successions and object flows as edges. A nested action declaring a body of its
-// own is lowered in turn, so the rendering shows the flow within it as well.
+// own is lowered in turn, so the rendering shows the flow within it as well; its
+// own root is discarded, so the node standing for it in the caller carries its
+// geometry and notes.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, depth int) (*Node, bool) {
 	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
@@ -482,8 +484,11 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		return nil, false
 	}
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
-		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
-	r.declaredDress(subject.view, subject.elem, decl, root, out)
+		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited())}
+	if depth == 0 {
+		root.Geometry = r.declaredGeometryOf(subject.view, subject.elem, decl, out)
+		r.declaredDress(subject.view, subject.elem, decl, root, out)
+	}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {

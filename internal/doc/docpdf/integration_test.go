@@ -510,6 +510,32 @@ func TestRenderPositionedDiagramByDefaultWithInstalledGraphviz(t *testing.T) {
 	}
 }
 
+// TestRenderNestedActionNotesWithInstalledGraphviz renders the nested-action
+// report, whose notes anchor to a nested action's drawn node: the automatic
+// choice picks DOT, and Graphviz draws it — an anchor to a node the drawing
+// does not declare would make `dot -n` fail — with the note text in the SVG.
+func TestRenderNestedActionNotesWithInstalledGraphviz(t *testing.T) {
+	if !(Graphviz{}).Available() {
+		_, err := graphvizTool.locate("")
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "nested_notes_report.sysml"), "Nested::NestedNotesReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || diagrams[0].Form != view.FormDot || diagrams[0].Fallback != "" {
+		t.Fatalf("automatic choice for a positioned view = %+v, want dot without fallback", diagrams)
+	}
+	svgs, err := Graphviz{}.Draw(diagrams)
+	if err != nil {
+		t.Fatalf("Graphviz.Draw: %v", err)
+	}
+	if len(svgs) != 1 || !strings.Contains(svgs[0], "<svg") || !strings.Contains(svgs[0], "these values") {
+		t.Fatalf("Graphviz.Draw SVG = %q", svgs)
+	}
+}
+
 // TestRenderPositionedDiagramFallsBackWithInstalledMermaid renders the Cameo
 // report with Graphviz pointed nowhere: the positioned view falls back to a
 // Mermaid drawing, the notice saying so and the caption both reach the PDF,
