@@ -16,6 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -98,6 +99,7 @@ type Session struct {
 	idx        *symbols.Index               // index over the session document, shared by lookup and runtime
 	libSource  libs.Source                  // the library files idx holds, for their spans' text
 	idxVersion int                          // document version idx holds, 0 when it holds none
+	about      *semantics.AboutIndex        // the `about` annotations of idx, renewed with it and shared by every runtime model over it
 	names      *nameTable                   // simple names of the documents, rebuilt when their scope trees change
 	instances  map[string]*runtime.Instance // FQN -> instance for %instantiate tracking
 	unnamed    []unnamedObject              // objects a later %instantiate of their name displaced, still addressed by id
@@ -1163,7 +1165,7 @@ func (s *Session) clear() []string {
 		// Drop the documents, keep the library the index was built with.
 		s.idx.RemoveDocument(docName)
 		s.idx.RemoveDocument(kermlDocName)
-		s.idxVersion = 0
+		s.idxVersion, s.about = 0, semantics.NewAboutIndex()
 	}
 	s.instances = make(map[string]*runtime.Instance)
 	s.unnamed, s.given = nil, nil
@@ -1229,6 +1231,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
+	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	// Give the runtime the buffer's text, so an error about a declaration reports
@@ -1271,6 +1274,7 @@ func (s *Session) symbolIndex() *symbols.Index {
 	}
 	if s.idx == nil {
 		s.idx, s.libSource = model.NewIndexWithStdlib()
+		s.about = semantics.NewAboutIndex()
 	} else if s.idxVersion == doc.Version {
 		return s.idx
 	}
@@ -1281,7 +1285,7 @@ func (s *Session) symbolIndex() *symbols.Index {
 		s.idx.RemoveDocument(kermlDocName)
 	}
 	s.idx.ExpandWildcardImports()
-	s.idxVersion = doc.Version
+	s.idxVersion, s.about = doc.Version, semantics.NewAboutIndex()
 	return s.idx
 }
 

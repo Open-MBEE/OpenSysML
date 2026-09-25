@@ -663,9 +663,7 @@ func runChecks(files []string, exprs []string, c checks) int {
 			rep.failed(err.Error())
 			return rep.finish()
 		}
-		for _, v := range sess.CompareResults(results, c.compareOptions()) {
-			rep.verdict(v)
-		}
+		sess.CompareResultsEach(results, c.compareOptions(), rep.verdict)
 		return rep.finish()
 	}
 

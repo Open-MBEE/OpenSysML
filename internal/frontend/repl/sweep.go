@@ -131,7 +131,10 @@ func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, 
 func sweepTraces(table runtime.SweepTable) []string {
 	var lines []string
 	for _, row := range table.Rows {
-		for _, e := range recordedTrace(row.Context) {
+		if row.Trace == nil {
+			continue
+		}
+		for _, e := range row.Trace.Entries() {
 			lines = append(lines, tracePrefix+e)
 		}
 	}

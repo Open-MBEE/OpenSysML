@@ -138,7 +138,8 @@ through it; needs \-seed
 .TP
 .BR \-jobs " \fIn\fP"
 Runs of one check that may go concurrently, each on a worker of its own;
-default OPENSYSML_JOBS, else the number of CPUs
+default OPENSYSML_JOBS, else one per CPU, fewer where the memory available
+leaves less than 512 MiB per worker
 .SS Analysis engines
 .TP
 .B \-engines
@@ -480,7 +481,8 @@ its connectors.
 \-jobs is how many runs of one check may go concurrently \(em the
 linearizations of an exploration, the engines \-engine all consults \(em each
 on a worker of its own over the shared model; the result is the same at any
-count.
+count. By default one per CPU, fewer where the memory available leaves less
+than 512 MiB per worker.
 .SH ANALYSIS ENGINES
 .RS 2
 .nf
@@ -975,8 +977,8 @@ of its own with its own budgets. Default 1000.
 .B OPENSYSML_JOBS
 Runs of one check that may go concurrently \(em the linearizations of an
 exploration, the engines \-engine all consults \(em each on a worker of its
-own over the shared model; \-jobs and %jobs override it. Default the number of
-CPUs.
+own over the shared model; \-jobs and %jobs override it. Default one per CPU,
+fewer where the memory available leaves less than 512 MiB per worker.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,
