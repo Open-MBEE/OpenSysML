@@ -26,18 +26,32 @@ type Plan struct {
 	// Disagreements are the contradictions the composition under all resolved,
 	// each in the interpreter's favor; empty under auto or a named engine.
 	Disagreements []Disagreement
-	// Tools is every tool call the plan's runs made, in call order.
+	// Tools is every tool call the plan's runs made when the plan ended, in call order.
 	Tools []ToolUse
+	// tools is the runner the calls were made through, kept so calls a run's
+	// context makes after the plan ended — a Monte Carlo conclusion's — are read too.
+	tools *toolRunner
 	// Workers is how many workers the plan built over every fleet its engines ran on, and
 	// Warming the time building them took, summed.
 	Workers int
 	Warming time.Duration
 }
 
-// ToolTexts is what every tool call the plan made ran, as ToolUse spells it.
+// uses is every tool call the plan's runs made, including the calls a run's
+// context made after the plan ended.
+func (p Plan) uses() []ToolUse {
+	if p.tools != nil {
+		return p.tools.used()
+	}
+	return p.Tools
+}
+
+// ToolTexts is what every tool call the plan made ran, as ToolUse spells it,
+// including calls a run's context made after the plan ended.
 func (p Plan) ToolTexts() []string {
-	texts := make([]string, 0, len(p.Tools))
-	for _, use := range p.Tools {
+	uses := p.uses()
+	texts := make([]string, 0, len(uses))
+	for _, use := range uses {
 		texts = append(texts, use.String())
 	}
 	return texts
@@ -49,7 +63,7 @@ func (p Plan) ToolTextsIn(ctx *runtime.Context) []string {
 		return nil
 	}
 	var texts []string
-	for _, use := range p.Tools {
+	for _, use := range p.uses() {
 		if use.in == ctx {
 			texts = append(texts, use.String())
 		}
@@ -194,6 +208,7 @@ func (r *Registry) AnswerWith(ctx context.Context, model *Model, q Question, bud
 	defer held.release()
 	plan, err := r.answer(ctx, held, q, budget, selection)
 	plan.Tools = tools.used()
+	plan.tools = tools
 	return plan, err
 }
 

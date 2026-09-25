@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
@@ -721,5 +722,61 @@ func TestRecordMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
 		if !strings.Contains(s.text(), want) {
 			t.Errorf("recorded model is missing %q:\n%s", want, s.text())
 		}
+	}
+}
+
+// A Monte Carlo conclusion's tool call — the deferred result invokes a
+// tool-computed calc in the last run's context — joins the sample record's tools.
+func TestRecordMonteCarloRecordsTheConclusionsToolCall(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	if errs := errorDiagnostics(s.Submit(`package MC {
+	private import ScalarValues::*;
+	private import RandomFunctions::*;
+	private import AnalysisTooling::*;
+	private import ISQ::*;
+	part def Probe {
+		attribute t : Real;
+		action settle { first start; then assign t := uniform(1.0, 5.0); then done; }
+	}
+	individual def probe :> Probe;
+	calc def Warm {
+		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://local"; }
+		in x : Real { @ToolVariable { name = "mass"; } }
+		in p : Real { @ToolVariable { name = "power"; } }
+		out warn : Boolean { @ToolVariable { name = "warn"; } }
+		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+	}
+	analysis def Mc :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : Real = analysed.t;
+		return Mean : TemperatureValue = Warm(mean, 250.0);
+	}
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	t.Setenv(analysis.ToolsEnv, toolCalcManifest(t))
+	engines, err := analysis.DefaultFromEnv()
+	if err != nil {
+		t.Fatalf("DefaultFromEnv: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+	run(t, s, "%instantiate MC::probe")
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Mc MC::probe", 2, &seed, "", "%record MC::Mc")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "recorded 3 runs") {
+		t.Fatalf("the sample and its runs were not recorded:\n%s", out)
+	}
+	text := s.text()
+	i := strings.Index(text, `kind = "sample";`)
+	if i < 0 {
+		t.Fatalf("the model holds no sample record:\n%s", text)
+	}
+	if !strings.Contains(text[i:min(i+800, len(text))], `"Thermo 1.0.0 from`) {
+		t.Errorf("the sample record's tools does not name the conclusion's call:\n%s", text[max(0, i-1200):])
 	}
 }

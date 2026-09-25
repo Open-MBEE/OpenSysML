@@ -779,8 +779,14 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 	}
 	if len(r.Tools) > 0 {
 		tools := make([]string, 0, len(r.Tools))
+		seen := make(map[string]bool, len(r.Tools))
 		for _, tool := range r.Tools {
-			tools = append(tools, source.StringText(tool))
+			// One text is one call's spelling; identical calls collapse, as the
+			// tools feature they record into is unique.
+			if !seen[tool] {
+				seen[tool] = true
+				tools = append(tools, source.StringText(tool))
+			}
 		}
 		writeIndent(src, depth+2)
 		src.WriteString("tools = (")
