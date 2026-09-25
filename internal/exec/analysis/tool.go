@@ -261,13 +261,19 @@ func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.T
 		return ToolReplyOf(tool, source)
 	}
 	if r.Format == ReplyExitCode {
-		return r.read(e.entry, ex, nil)
+		return r.readExitCode(ex), nil
 	}
 	source, err := e.replySource(ex, process)
 	if err != nil {
 		return nil, err
 	}
-	return r.read(e.entry, ex, source)
+	if r.Format == ReplyJSON {
+		return r.readJSON(e.entry, source)
+	}
+	if r.Format == ReplyCSV {
+		return r.readCSV(e.entry, source)
+	}
+	return r.readLines(e.entry, source)
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —

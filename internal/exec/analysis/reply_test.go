@@ -2,6 +2,8 @@ package analysis
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -166,7 +168,14 @@ func replyOf(t *testing.T, r *Reply) (*Reply, ToolEntry) {
 // readReply parses source with a compiled reply; the kind of a fault is checked by callers.
 func readReply(t *testing.T, r *Reply, entry ToolEntry, source string) (map[string]runtime.ToolValue, error) {
 	t.Helper()
-	return r.read(entry, &execution{stdout: []byte(source)}, []byte(source))
+	switch r.Format {
+	case ReplyJSON:
+		return r.readJSON(entry, []byte(source))
+	case ReplyCSV:
+		return r.readCSV(entry, []byte(source))
+	default:
+		return r.readLines(entry, []byte(source))
+	}
 }
 
 func replyKind(err error) runtime.ToolErrorKind {
@@ -417,19 +426,19 @@ func TestReplyReadsLinesRegex(t *testing.T) {
 }
 
 func TestReplyReadsExitCode(t *testing.T) {
-	r, entry := replyOf(t, &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{
+	r, _ := replyOf(t, &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{
 		"done": {Type: TypeBoolean}}})
 	for code, want := range map[int]bool{0: true, 3: true, 1: false} {
-		out, err := r.read(entry, &execution{exit: code}, nil)
-		if err != nil || out["done"].Value.Bool != want {
-			t.Errorf("exit %d = %+v, %v; want %v", code, out["done"], err, want)
+		out := r.readExitCode(&execution{exit: code})
+		if out["done"].Value.Bool != want {
+			t.Errorf("exit %d = %+v; want %v", code, out["done"], want)
 		}
 	}
-	r, entry = replyOf(t, &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{
+	r, _ = replyOf(t, &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{
 		"code": {Type: TypeInteger}}})
-	out, err := r.read(entry, &execution{exit: 3}, nil)
-	if err != nil || out["code"].Value.Int != 3 {
-		t.Errorf("exit 3 as integer = %+v, %v", out["code"], err)
+	out := r.readExitCode(&execution{exit: 3})
+	if out["code"].Value.Int != 3 {
+		t.Errorf("exit 3 as integer = %+v", out["code"])
 	}
 }
 
@@ -465,5 +474,49 @@ func TestTypeText(t *testing.T) {
 	}
 	if _, err := typeText("1e400", TypeNumber); err == nil {
 		t.Error("1e400 read as a number, want a non-finite refusal")
+	}
+}
+
+// With two outputs offending, the load refusal is the earlier variable's, always.
+func TestManifestReplyRefusalsAreDeterministic(t *testing.T) {
+	dir := writeManifest(t, map[string]string{"thermal.json": replyEntryText(
+		`{"format": "json", "outputs": {"a": {"path": "x/y"}, "b": {"path": "x/y"}}}`)})
+	_, err := LoadManifest(dir)
+	if err == nil || !strings.Contains(err.Error(), "reply.outputs.a.path") {
+		t.Fatalf("load: %v, want the refusal for a, the earlier variable", err)
+	}
+}
+
+// A `file:` source reads only a regular file within OPENSYSML_TOOL_MAX_OUTPUT.
+func TestReplySourceRefusals(t *testing.T) {
+	source, err := parseTemplate("{outputDir}/result.json")
+	if err != nil {
+		t.Fatalf("parseTemplate: %v", err)
+	}
+	dir := t.TempDir()
+	entry := ToolEntry{ToolName: "Thermal", Reply: &Reply{compiled: &compiledReply{source: source}}}
+	e := toolEngine{entry: entry}
+	process := &composed{tempDir: dir}
+	path := filepath.Join(dir, "result.json")
+
+	t.Setenv(OutputLimitEnv, "8")
+	if err := os.WriteFile(path, []byte(strings.Repeat("x", 64)), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	_, err = e.replySource(&execution{}, process)
+	if replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "wrote more than 8 bytes to result.json ("+OutputLimitEnv+")") {
+		t.Errorf("over the limit: %v", err)
+	}
+
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	_, err = e.replySource(&execution{}, process)
+	if replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "result.json is not a regular file") {
+		t.Errorf("a directory: %v", err)
 	}
 }
