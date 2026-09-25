@@ -195,9 +195,10 @@ library package DocumentQueries {
 	 * resolved against the members of the element reached so far —
 	 * own members before inherited ones; a row lacking a segment is
 	 * absent on that row, a member declaring no value is an empty
-	 * cell, and a multi-valued member fills the cell. A property
-	 * string of Project's properties or OrderBy's property may hold
-	 * the same path ("stat.runs").
+	 * cell, and a member holding more values than its multiplicity
+	 * admits fails the column as a direct feature column does. A
+	 * property string of Project's properties or OrderBy's property
+	 * may hold the same path ("stat.runs").
 	 * A row not conforming to the feature's declaring type reads it as
 	 * absent; a failing expression, an absent result not defaulted
 	 * with ??, or a multi-valued result fails the query with a typed

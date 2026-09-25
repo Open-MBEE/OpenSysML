@@ -758,7 +758,8 @@ is quoted, as in the notation. A row lacking a segment entirely makes the
 path absent on that row — an empty cell, or a `??` default — and the path is
 an unknown-property error only when no row reaches it; a member the path
 finds that declares no value is an empty cell, and a multi-valued member
-fills the cell with all of its values. The same path works as a `properties`
+fills the cell with all of its values — more than its multiplicity admits
+fails the column as a direct feature column does. The same path works as a `properties`
 or `property` string (`"stat.runs"`), and `OrderBy` sorts by it. This is how
 an individual's nested usage — an analysis the migrator writes, for instance —
 contributes a column:

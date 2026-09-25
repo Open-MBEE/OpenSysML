@@ -324,3 +324,54 @@ calc def Deep :> Query {
 		t.Fatalf("N cells = %v, want {9}, {0}, {0}", got)
 	}
 }
+
+// A nested member holding more values than its multiplicity admits fails the
+// column as a direct feature column does; a member declared [0..*] holds them.
+func TestExecuteComputedMemberPathCardinality(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+attribute def Bounded { attribute runs : Integer; }
+attribute def Unbounded { attribute counts : Integer[0..*]; }
+part def Row;
+package Results {
+	individual part def Over :> Row {
+		attribute stat : Bounded {
+			attribute redefines runs = (1, 2);
+		}
+	}
+	individual part def Plenty :> Row {
+		attribute stat : Unbounded {
+			attribute redefines counts = (1, 2);
+		}
+	}
+}
+calc def Over :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "N", expression = stat.runs))
+	)
+}
+calc def Plenty :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "C", expression = stat.counts))
+	)
+}
+`)
+	_, err := fixture.execute(t, "Over", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
+		t.Fatalf("error = %v, want %v", err, ErrorColumnCardinality)
+	}
+	if executionError.Expected != "1..1" {
+		t.Fatalf("Expected = %q, want %q", executionError.Expected, "1..1")
+	}
+	result := memberPathRows(t, fixture, "Plenty")
+	got := cellNumbers(t, result, "C")
+	if !slices.EqualFunc(got, [][]float64{nil, {1, 2}}, slices.Equal) {
+		t.Fatalf("C cells = %v, want empty, {1,2}", got)
+	}
+}

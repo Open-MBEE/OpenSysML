@@ -42,7 +42,9 @@ A feature the element does not declare itself but a member nested in it does
 is still reachable: a `properties`/`property` string or a `Column` expression
 spells it as a member path — `stat.runs`, `'Monte Carlo'.runs` — each segment
 a member of the element reached so far, own members first. A row lacking a
-segment makes the path absent on that row alone. See
+segment makes the path absent on that row alone, and a member holding more
+values than its multiplicity admits fails the column as a direct feature
+column does. See
 [Computed columns](query-cookbook.md#computed-columns).
 
 Rows live in one place: a document's `Table` or `List` renders them, and

@@ -166,7 +166,7 @@ func (e *executor) evaluateColumnExpression(
 	case queryplan.OperationRowProperty:
 		return e.rowPropertyValues(expression, row, tracker)
 	case queryplan.OperationRowMember:
-		return e.rowMemberValues(expression, row, tracker)
+		return e.rowMemberValues(expression, column, row, tracker)
 	case queryplan.OperationLiteral:
 		value, err := e.evaluateLiteral(expression)
 		if err != nil {
@@ -243,6 +243,7 @@ func (e *executor) rowPropertyValues(
 // rows carry members, so other rows and nonconforming ones read it as absent.
 func (e *executor) rowMemberValues(
 	expression queryplan.Expression,
+	column string,
 	row Value,
 	tracker *propertyTracker,
 ) ([]Value, error) {
@@ -260,11 +261,25 @@ func (e *executor) rowMemberValues(
 	if !ok {
 		return nil, e.unevaluable(expression, path, row, nil)
 	}
-	values, present, err := e.memberPathValues(sym, segments)
+	values, present, member, err := e.memberPathValues(sym, segments)
 	if err != nil {
 		return nil, e.unevaluable(expression, path, row, err)
 	}
 	tracker.record(path, present)
+	if member != nil {
+		rng := e.context.Model.GoverningMultiplicityOf(member)
+		if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
+			failure := e.columnError(
+				ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(len(values)))
+			failure.Expected = multiplicityString(queryplan.Multiplicity{
+				Lower:         rng.Lower.Value,
+				Upper:         rng.Upper.Value,
+				UpperInfinite: rng.Upper.Infinite,
+				Known:         rng.Lower.Known && rng.Upper.Known,
+			})
+			return nil, failure
+		}
+	}
 	return values, nil
 }
 
