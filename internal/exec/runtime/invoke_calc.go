@@ -256,7 +256,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
-	// Annotating cases is deferred; only a calc computes by tool.
+	// Only a calc computes by tool; a case always runs its body.
 	if kind == "calc" {
 		tool, err := ctx.toolExecutionOf(sym)
 		if err != nil {
