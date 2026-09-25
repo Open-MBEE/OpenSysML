@@ -161,11 +161,15 @@ func TestNewToolChecksAProgrammaticInvocation(t *testing.T) {
 	for name, inv := range map[string]*Invocation{
 		"undeclared variable": {Args: []string{"{speed}"}},
 		"relative cwd":        {Cwd: "work"},
+		"unknown stdin":       {Stdin: StdinSpec{Format: "yaml"}},
 	} {
 		faulty := NewTool(echoEntry(echo(t), inv))
 		c := faulty.Covers(nil, question)
 		if c.Covered || !errors.Is(c.Refusal, ErrManifest) || !strings.Contains(c.Refusal.Error(), "tool:Echo") {
 			t.Errorf("%s: %+v, want the refusal a ManifestError naming tool:Echo", name, c)
+		}
+		if _, err := faulty.Process(); !errors.Is(err, ErrManifest) {
+			t.Errorf("%s: process %v, want the ManifestError, so listings show the tool unavailable", name, err)
 		}
 		if _, err := faulty.Run(context.Background(), nil, question, Budget{}); !errors.Is(err, ErrManifest) {
 			t.Errorf("%s: run %v, want the ManifestError", name, err)

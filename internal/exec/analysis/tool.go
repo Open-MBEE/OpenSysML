@@ -77,8 +77,12 @@ func (e toolEngine) Origin() Origin {
 	return Origin{Kind: KindTool, Version: e.entry.Version, File: e.entry.File, Command: e.entry.Executable, Exchange: e.entry.Protocol()}
 }
 
-// Process names the executable found, with the tool's version, or reports its absence.
+// Process names the executable found, with the tool's version, or reports its absence or
+// the entry's fault.
 func (e toolEngine) Process() (string, error) {
+	if e.fault != nil {
+		return "", e.fault
+	}
 	path, err := e.look(e.entry)
 	if err != nil {
 		return "", &ProcessAbsentError{Engine: e.Name(), Process: e.Describe().Process, Err: err}
@@ -104,9 +108,6 @@ func (e toolEngine) Covers(_ *Model, q Question) Coverage {
 	}
 	if unknown := e.unaccepted(call); len(unknown) > 0 {
 		return refused(&ToolVariableError{Tool: e.entry.ToolName, Variables: unknown})
-	}
-	if e.fault != nil {
-		return refused(e.fault)
 	}
 	if _, err := e.Process(); err != nil {
 		return refused(err)

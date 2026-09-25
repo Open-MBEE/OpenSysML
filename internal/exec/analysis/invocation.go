@@ -333,8 +333,12 @@ func checkInvocation(entry *ToolEntry, dir string) error {
 			return fmt.Errorf("variables names %q; with an invocation block a variable name has no period, brace or space", v)
 		}
 	}
-	if inv.Stdin.Format == "" {
+	switch inv.Stdin.Format {
+	case "":
 		inv.Stdin.Format = StdinJSON
+	case StdinJSON, StdinNone, StdinCSV, StdinTemplate:
+	default:
+		return fmt.Errorf("stdin %q is not one of json, none, csv and template", inv.Stdin.Format)
 	}
 	for name := range inv.Env {
 		switch {
