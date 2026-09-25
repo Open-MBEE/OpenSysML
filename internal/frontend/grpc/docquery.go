@@ -37,7 +37,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
-	defer held.lock()()
+	defer held.lock(ctx)()
 	qctx := held.queryContext()
 	sym, err := documentSymbol(qctx.Index, req.QueryId)
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	// A document reads the objects the model holds, as -render-document reads
 	// the ones -instantiate created beside it.
 	held := s.objects(cached)
-	defer held.lock()()
+	defer held.lock(ctx)()
 	qctx := held.queryContext()
 	sym, err := documentSymbol(qctx.Index, req.DocumentId)
 	if err != nil {

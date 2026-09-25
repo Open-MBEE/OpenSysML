@@ -178,6 +178,9 @@ type calcShape struct {
 	// Uncomputed says why the calc computes nothing (no body, no bound output);
 	// the calc is still a function value, and invoking it reports this.
 	Uncomputed error
+	// Tool is the ToolExecution the calc carries, when it is computed by an
+	// external tool rather than by a body it need not state.
+	Tool *toolExecution
 	// compiled is the body in the compiled tier once compileState says it is
 	// eligible; a shape found ineligible keeps the evaluator for good.
 	compiled     *compiledCalc
@@ -253,6 +256,14 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
+	// Only a calc computes by tool; a case always runs its body.
+	if kind == "calc" {
+		tool, err := ctx.toolExecutionOf(sym)
+		if err != nil {
+			return nil, err
+		}
+		shape.Tool = tool
+	}
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
@@ -260,7 +271,7 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	_, native := ctx.libraryFunctionFor(sym)
 	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
 	switch {
-	case computes:
+	case computes || shape.Tool != nil:
 	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
 			ErrNoResultExpression, label, shape.outputNames())
@@ -646,7 +657,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	// sub-expression, an argument is not a scalar, a bound object may answer
 	// a library constant the body reads before the library does, or the body
 	// reads the bindings enclosing it.
-	if ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
+	if shape.Tool == nil && ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
 		if compiled := ctx.compiledCalcOf(shape); compiled != nil && (self == nil || !compiled.readsLibrary) {
 			if result, ran, err := compiled.invokeBoxed(ctx, args); ran {
 				return result, err
@@ -691,7 +702,18 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		return Value{}, err
 	}
 
-	result, err := ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
+	var result Value
+	var err error
+	if shape.Tool != nil {
+		var returned bool
+		var outputs map[string]Value
+		result, returned, outputs, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
+		if err == nil && !returned {
+			result, err = shape.toolCalcResult(outputs)
+		}
+	} else {
+		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
+	}
 	if ec.trace != nil {
 		if err != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
@@ -807,6 +829,60 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// The invocation already holds this evaluation's nesting feature value.
 	run.onStack = true
 	return run.value(ctx, out)
+}
+
+// toolCalcResult resolves what an invocation of a tool-computed calc yields when
+// the calc declares no result parameter: the value the tool bound to the output
+// it designates, as runCalcBody resolves a body that returned nothing — a result
+// parameter the tool answered wins outright, the one output the tool bound wins
+// alone, and several or none fail as designatedOutput fails. The tool's answers
+// are the whole computation; no body binding is evaluated.
+func (shape *calcShape) toolCalcResult(outputs map[string]Value) (Value, error) {
+	out, err := shape.designatedToolOutput(outputs)
+	if err != nil {
+		return Value{}, err
+	}
+	key := out.Name
+	if key == "" {
+		key = resultOutputName
+	}
+	return outputs[key], nil
+}
+
+// designatedToolOutput returns the output an invocation of a tool-computed calc
+// yields, in the spirit of designatedOutput: the candidates are the outputs the
+// tool answered, a result parameter winning outright over the rest.
+func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutput, error) {
+	var valued []calcOutput
+	for _, out := range shape.Outputs {
+		key := out.Name
+		if out.IsResult && key == "" {
+			key = resultOutputName
+		}
+		if _, answered := outputs[key]; !answered {
+			continue
+		}
+		if out.IsResult {
+			return out, nil
+		}
+		valued = append(valued, out)
+	}
+
+	switch len(valued) {
+	case 0:
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrCalcNoReturn, shape.Label)
+	case 1:
+		return valued[0], nil
+	default:
+		names := make([]string, 0, len(valued))
+		for _, out := range valued {
+			names = append(names, out.Name)
+		}
+		return calcOutput{}, fmt.Errorf(
+			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
+			ErrAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+		)
+	}
 }
 
 // runCalcSteps runs the calc's lowered steps on engine, whose data holds the
@@ -986,6 +1062,11 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	}
 	chain := ctx.calcChain(sym)
 	if ctx.calcComputes(chain) {
+		return nil
+	}
+	// A tool-computed calc answers from its tool, not the library's implementation;
+	// a failed annotation read computes too, so the error surfaces on the shape path.
+	if tool, err := ctx.toolExecutionOf(sym); err != nil || tool != nil {
 		return nil
 	}
 	lib := ctx.implementedLibraryCalc(sym)

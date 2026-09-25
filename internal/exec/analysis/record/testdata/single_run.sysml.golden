@@ -11,7 +11,7 @@ package Records {
         ref part target;
         attribute fuelUsed : ScalarValues::Real;
         attribute memo : ScalarValues::ScalarValue;
-        attribute plan : ScalarValues::String;
+        attribute plan : ScalarValues::ScalarValue[0..*];
     }
     part scoutBudget_run1 : ScoutBudgetRun {
         @AnalysisRecords::RecordedRun {
@@ -34,7 +34,7 @@ package Records {
         attribute :>> tankUnit = "kg";
         ref :>> target = P::scout;
         attribute :>> fuelUsed = 12.5;
-        attribute :>> plan = "[]";
+        attribute :>> plan = ();
         part verdict1 : AnalysisRecords::VerdictRecord :> verdicts {
             attribute :>> kind = "objective";
             attribute :>> name = "fuelFits";

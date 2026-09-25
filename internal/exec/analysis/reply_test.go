@@ -19,14 +19,15 @@ func replyEntryText(reply string) string {
 
 func TestManifestReplyAcceptedShapes(t *testing.T) {
 	cases := map[string]string{
-		"json":        `{"format": "json", "outputs": {"T_max": {"path": "/results/0/T_max", "unitPath": "/units/T_max"}}, "errorPath": "/error"}`,
-		"csv":         `{"format": "csv", "header": true, "delimiter": ";", "outputs": {"T_max": {"column": "T_max", "row": "first", "unitColumn": "U"}}, "errorColumn": "error"}`,
-		"csv index":   `{"format": "csv", "header": false, "delimiter": "\t", "outputs": {"T_max": {"column": 2, "row": 3}}}`,
-		"lines":       `{"format": "lines", "outputs": {"T_max": {"key": "Tmax"}, "done": {"type": "boolean"}}, "errorKey": "error"}`,
-		"lines regex": `{"format": "lines", "regex": "T=(?P<T_max>[0-9.]+)", "outputs": {"T_max": {"type": "real"}}}`,
-		"exitcode":    `{"format": "exitcode", "success": [0, 3], "outputs": {"done": {"type": "boolean"}}}`,
-		"object":      `{"format": "object"}`,
-		"stdout":      `{"format": "csv", "source": "stdout", "outputs": {"T_max": {"column": 0}}}`,
+		"json":         `{"format": "json", "outputs": {"T_max": {"path": "/results/0/T_max", "unitPath": "/units/T_max"}}, "errorPath": "/error"}`,
+		"csv":          `{"format": "csv", "header": true, "delimiter": ";", "outputs": {"T_max": {"column": "T_max", "row": "first", "unitColumn": "U"}}, "errorColumn": "error"}`,
+		"csv index":    `{"format": "csv", "header": false, "delimiter": "\t", "outputs": {"T_max": {"column": 2, "row": 3}}}`,
+		"lines":        `{"format": "lines", "outputs": {"T_max": {"key": "Tmax"}, "done": {"type": "boolean"}}, "errorKey": "error"}`,
+		"lines regex":  `{"format": "lines", "regex": "T=(?P<T_max>[0-9.]+)", "outputs": {"T_max": {"type": "real"}}}`,
+		"exitcode":     `{"format": "exitcode", "success": [0, 3], "outputs": {"done": {"type": "boolean"}}}`,
+		"object":       `{"format": "object"}`,
+		"stdout":       `{"format": "csv", "source": "stdout", "outputs": {"T_max": {"column": 0}}}`,
+		"csv all rows": `{"format": "csv", "outputs": {"T_max": {"column": 0, "row": "all", "unitColumn": 1}}}`,
 	}
 	for name, reply := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -86,7 +87,6 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"unit on boolean":           {replyEntryText(`{"format": "csv", "outputs": {"done": {"column": 0, "type": "boolean", "unit": "s"}}}`), `a boolean has no unit`},
 		"unit on string":            {replyEntryText(`{"format": "csv", "outputs": {"note": {"column": 0, "type": "string", "unit": "s"}}}`), `a string has no unit`},
 		"unit with unitColumn":      {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "unit": "K", "unitColumn": "U"}}}`), `names both unit and a unit selector`},
-		"row all":                   {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "row": "all"}}}`), `reply.outputs.T_max.row: all is not supported yet`},
 		"row negative":              {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "row": -1}}}`), `row -1 is not`},
 		"column negative":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": -2}}}`), `column -2 is not`},
 		"headerless name":           {replyEntryText(`{"format": "csv", "header": false, "outputs": {"T_max": {"column": "T_max"}}}`), `names a column but header is false`},
@@ -111,6 +111,7 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"object with empty outputs": {replyEntryText(`{"format": "object", "outputs": {}}`), `reply.outputs is not an object member`},
 		"object with header":        {replyEntryText(`{"format": "object", "header": false}`), `reply.header is not an object member`},
 		"source unknown":            {replyEntryText(`{"format": "csv", "source": "stderr", "outputs": {"T_max": {"column": 0}}}`), `is not stdout or file:<template>`},
+
 		"file without outputDir": {`{"toolName": "T", "executable": "solve", "variables": ["T_max"],
 			"reply": {"format": "csv", "source": "file:result.csv", "outputs": {"T_max": {"column": 0}}}}`, `does not use {outputDir}`},
 		"file with a variable": {`{"toolName": "T", "executable": "solve", "variables": ["mass", "T_max"],
@@ -247,7 +248,7 @@ func TestReplyReadsJSON(t *testing.T) {
 		"trailing value":     {`{"results":[]} {"x":1}`, runtime.ToolMalformed, "more than one JSON value"},
 		"repeated key":       {`{"results":[],"results":[]}`, runtime.ToolMalformed, "names results twice"},
 		"missing pointer":    {`{"results":[{}],"units":{}}`, runtime.ToolMissingOutput, "T_max at /results/0/T_max: nothing there"},
-		"array value":        {`{"results":[{"T_max":[1,2]}],"units":{}}`, runtime.ToolMalformed, "an array is not supported yet"},
+		"nested array":       {`{"results":[{"T_max":[[1,2]]}],"units":{}}`, runtime.ToolMalformed, "element 0 is an array"},
 		"object value":       {`{"results":[{"T_max":{"x":1}}],"units":{}}`, runtime.ToolMalformed, "an object is not"},
 		"null value":         {`{"results":[{"T_max":null}],"units":{}}`, runtime.ToolMalformed, "null is not"},
 		"kind disagreement":  {`{"results":[{"T_max":"hot"}],"units":{}}`, runtime.ToolMalformed, "string where number expected"},

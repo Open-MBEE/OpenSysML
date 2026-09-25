@@ -111,6 +111,10 @@ type Feature struct {
 
 	// TypeFQN is the qualified name of the feature's declared type.
 	TypeFQN string
+
+	// Multi marks a feature whose declared multiplicity admits more than one
+	// value.
+	Multi bool
 }
 
 // Existing is what Generate must fit the records it makes into.
@@ -183,6 +187,7 @@ type feature struct {
 	ref    bool   // object-valued
 	typ    string // declared type as written, "" for a ref
 	unitOf string // nonempty: this feature is the unit companion of the named one
+	multi  bool   // declares [0..*]
 }
 
 // valueKind classifies how a value is spelled: its declared type and, for a
@@ -209,16 +214,22 @@ const (
 )
 
 // shape is how a value is recorded: its feature kind, the literal spelling,
-// and — for a quantity — the unit text its companion feature records.
+// whether the member is multi-valued, and — for a quantity — the unit text its
+// companion feature records.
 type shape struct {
 	kind    valueKind
 	literal string
 	typ     string
 	unit    string
+	multi   bool
 }
 
 // classify decides the feature shape a value asks for.
 func classify(v runtime.Value, r *Run) shape {
+	// A sequence is multi-valued even when it holds nothing, so no unset hook.
+	if v.Kind == runtime.ValSequence {
+		return classifySequence(v, r)
+	}
 	if r.Spell.Unset != nil && r.Spell.Unset(v) {
 		return shape{kind: kindUnset}
 	}
@@ -253,6 +264,45 @@ func classify(v runtime.Value, r *Run) shape {
 	// Everything else — a structured value, or an object naming no usage — is
 	// recorded by its text.
 	return shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
+}
+
+// classifySequence spells a sequence as a list literal of its elements' shapes: every
+// element the same kind — Integer and Real settling to Real, quantities sharing one unit.
+// An element that is unset, an object, an enum literal or itself a sequence has no literal
+// spelling beside its kind, so the whole value falls back to its text. The empty sequence
+// is unset but multi-valued: it settles a member to [0..*] and spells `()`.
+func classifySequence(v runtime.Value, r *Run) shape {
+	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
+	seq := v.Sequence()
+	var elements []runtime.Value
+	if seq != nil {
+		elements = seq.Elements()
+	}
+	if len(elements) == 0 {
+		return shape{kind: kindUnset, multi: true, literal: "()"}
+	}
+	literals := make([]string, 0, len(elements))
+	var settled shape
+	for i, element := range elements {
+		es := classify(element, r)
+		if es.multi || es.kind == kindUnset || es.kind == kindRef || es.kind == kindEnum {
+			return fallback
+		}
+		switch {
+		case i == 0:
+			settled = es
+		case es.kind == settled.kind && es.unit == settled.unit:
+			// Same kind; for a quantity es.unit == settled.unit holds the share.
+		case numericPair(es.typ, settled.typ):
+			settled = shape{kind: kindReal, typ: scalarValuesReal}
+		default:
+			return fallback
+		}
+		literals = append(literals, es.literal)
+	}
+	settled.multi = true
+	settled.literal = "(" + strings.Join(literals, ", ") + ")"
+	return settled
 }
 
 // constScalar is the feature kind and ScalarValues type a scalar literal's
@@ -379,12 +429,31 @@ func buildFeatures(req *Request) ([]feature, error) {
 				shapes[m.name] = sh
 				continue
 			}
-			if sh.kind == kindUnset {
+			if sh.kind == kindUnset && !sh.multi {
 				continue
 			}
+			if cur.kind == kindUnset && cur.multi && !sh.multi {
+				// An empty sequence claimed the member multi-valued; a single
+				// value cannot settle it.
+				f := feature{name: m.name}
+				applyShape(&f, cur)
+				if err := compatible(&f, sh); err != nil {
+					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
+				}
+			}
 			if cur.kind == kindUnset {
+				// An unset member takes the settling value's shape; a run's empty
+				// sequence keeps the member multi-valued whichever settles it.
+				sh.multi = sh.multi || cur.multi
 				shapes[m.name] = sh
 				continue
+			}
+			if cur.multi != sh.multi {
+				f := feature{name: m.name}
+				applyShape(&f, cur)
+				if err := compatible(&f, sh); err != nil {
+					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
+				}
 			}
 			// A quantity member takes a plain-number row either order: the
 			// row keeps its literal and takes no unit.
@@ -399,7 +468,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 			// definition: either way the member settles to Real, an Integer
 			// literal remaining valid under it.
 			if numericPair(cur.typ, sh.typ) {
-				cur = shape{kind: kindReal, typ: scalarValuesReal}
+				cur = shape{kind: kindReal, typ: scalarValuesReal, multi: cur.multi}
 				shapes[m.name] = cur
 				continue
 			}
@@ -415,14 +484,20 @@ func buildFeatures(req *Request) ([]feature, error) {
 	for companion, owner := range companionOf {
 		o, c := shapes[owner], shapes[companion]
 		switch {
+		case o.multi != c.multi:
+			f := feature{name: owner}
+			applyShape(&f, o)
+			if err := compatible(&f, c); err != nil {
+				return nil, fmt.Errorf("case %s: inout %q: %w", req.Case, owner, err)
+			}
 		case o.kind == kindUnset || c.kind == kindUnset:
 		case o.kind == kindQuantity && (c.kind == kindInteger || c.kind == kindReal):
 			shapes[companion] = o
 		case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
 			shapes[owner] = c
 		case numericPair(o.typ, c.typ):
-			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal}
-			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal}
+			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal, multi: o.multi}
+			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal, multi: c.multi}
 		default:
 			f := feature{name: owner}
 			applyShape(&f, o)
@@ -464,6 +539,7 @@ func numericPair(a, b string) bool {
 // applyShape gives a feature the declared shape a value's first supply asks for.
 func applyShape(f *feature, sh shape) {
 	f.ref = sh.kind == kindRef
+	f.multi = sh.multi
 	switch sh.kind {
 	case kindUnset:
 		f.typ = scalarValuesScalarValue
@@ -476,6 +552,16 @@ func applyShape(f *feature, sh shape) {
 
 // compatible checks a later run's value against the shape a feature took.
 func compatible(f *feature, sh shape) error {
+	if f.multi != sh.multi {
+		if sh.multi {
+			return fmt.Errorf("a sequence cannot be recorded in a single-valued member")
+		}
+		return fmt.Errorf("a single value cannot be recorded in a sequence member")
+	}
+	if sh.kind == kindUnset {
+		// An empty sequence fits any multi-valued member; nothing records nothing.
+		return nil
+	}
 	switch {
 	case f.ref && sh.kind != kindRef:
 		return fmt.Errorf("an object value cannot be recorded in the value member")
@@ -606,6 +692,17 @@ func checkExisting(req *Request, feats []feature, defName string) error {
 			}
 			return fmt.Errorf("record definition %s declares %s as %s but the run values need %s; record into another package with `into`", def, f.name, kind, want)
 		}
+		if decl.Multi != f.multi {
+			kind := "single-valued"
+			if decl.Multi {
+				kind = "a sequence"
+			}
+			want := "a sequence"
+			if !f.multi {
+				want = "single-valued"
+			}
+			return fmt.Errorf("record definition %s declares %s as %s but the run values need %s; record into another package with `into`", def, f.name, kind, want)
+		}
 		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ &&
 			f.typ != scalarValuesScalarValue && decl.TypeFQN != scalarValuesScalarValue {
 			// An Integer literal is valid under a declared Real; the
@@ -647,6 +744,9 @@ func writeDefinition(src *strings.Builder, depth int, name string, feats []featu
 			src.WriteString(source.NameText(f.name))
 			src.WriteString(" : ")
 			src.WriteString(f.typ)
+			if f.multi {
+				src.WriteString("[0..*]")
+			}
 			src.WriteString(";\n")
 		}
 	}
@@ -720,7 +820,7 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 	}
 	for _, m := range members(*r) {
 		sh := classify(m.value, r)
-		if sh.kind == kindUnset {
+		if sh.kind == kindUnset && !sh.multi {
 			continue
 		}
 		writeIndent(src, depth+1)

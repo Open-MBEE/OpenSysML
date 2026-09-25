@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +16,7 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -72,6 +74,9 @@ type heldObjects struct {
 	// displaced are objects a later Instantiate of their name displaced, still
 	// roots of their own reached by id.
 	displaced []*runtime.Instance
+	// runner binds the cached runtime's tool runner to the request under lock,
+	// so a request's end ends the tool it started through a held feature value.
+	runner func(context.Context) runtime.ToolRunner
 }
 
 // objects is the population held for cached, built by the first Instantiate
@@ -81,23 +86,34 @@ func (s *Service) objects(cached *CachedModel) *heldObjects {
 	defer cached.objectsMu.Unlock()
 	if cached.objects == nil {
 		model, _ := cached.Semantics()
-		rt := s.newRuntimeContext(model)
+		// The held runtime outlives any one call: lock rebinds the runner to the
+		// request holding the lock.
+		rt := s.newRuntimeContext(context.Background(), model)
 		rt.SetMaxInstances(s.maxHeldObjects)
 		// Events reads the population's run, so its records are kept from the start.
 		rt.SetTrace(runtime.NewEventRecorder(s.maxHeldEvents))
+		schedule := rt.Schedule()
+		if schedule == (runtime.SchedulePolicy{}) {
+			schedule = runtime.DefaultSchedulePolicy
+		}
 		cached.objects = &heldObjects{
 			rt:    rt,
 			idx:   cached.Index,
 			named: make(map[string]*runtime.Instance),
+			runner: func(ctx context.Context) runtime.ToolRunner {
+				return s.engines.ToolRunner(ctx, rt, analysis.BudgetOf(s.budgets, schedule, analysis.Compute, s.jobs), analysis.Auto())
+			},
 		}
 	}
 	return cached.objects
 }
 
-// lock takes exclusive use of the population and its runtime, and returns the
+// lock takes exclusive use of the population and its runtime, binding the
+// runtime's tool runner to the request holding the lock, and returns the
 // function releasing it.
-func (h *heldObjects) lock() func() {
+func (h *heldObjects) lock(ctx context.Context) func() {
 	h.mu.Lock()
+	h.rt.SetToolRunner(h.runner(ctx))
 	return h.mu.Unlock
 }
 
