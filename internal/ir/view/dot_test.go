@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -191,6 +192,23 @@ func TestDOTLabelShape(t *testing.T) {
 		if got := (labeller{}).dotLabel(tc.node); got != "label="+tc.want {
 			t.Errorf("%s: dotLabel = %s, want %s", tc.name, got, tc.want)
 		}
+	}
+}
+
+// The extent estimate measures every line of a head that breaks across lines
+// in bold, and takes the keyword line to be the one after the last of them.
+func TestDOTLabelExtentMultilineHead(t *testing.T) {
+	l := labeller{}
+	long := strings.Repeat("W", 60)
+	broken := &Node{Kind: "action def", Name: `'x\n` + long + `'`}
+	whole := &Node{Kind: "action def", Name: `'x` + long + `'`}
+	brokenWidth, brokenHeight := l.dotLabelExtent(broken)
+	wholeWidth, wholeHeight := l.dotLabelExtent(whole)
+	if want := wholeWidth - 2*l.size()*dotBoldGlyphEm; math.Abs(brokenWidth-want) > 1e-9 {
+		t.Errorf("width = %g, want %g: the second line is not measured in bold", brokenWidth, want)
+	}
+	if want := wholeHeight + l.size()*dotLineEm; brokenHeight != want {
+		t.Errorf("height = %g, want %g: the second line is one head line, not the keyword", brokenHeight, want)
 	}
 }
 

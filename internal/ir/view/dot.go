@@ -1146,12 +1146,13 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 // dotLabelExtent is a label's text extent in points: its widest line by its
 // lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
 func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
+	head := len(l.headLines(node))
 	for i, line := range l.lines(node) {
 		size, glyph := l.size(), dotGlyphEm
 		switch {
-		case i == 0:
+		case i < head:
 			glyph = dotBoldGlyphEm
-		case i == 1 && keyworded(node):
+		case i == head && keyworded(node):
 			size = l.keywordSize()
 		}
 		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
