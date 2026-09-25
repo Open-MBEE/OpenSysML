@@ -76,7 +76,7 @@ func TestGoldenDOTCameo(t *testing.T) {
 	cases := []struct {
 		name, file, view, header, fill string
 	}{
-		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicles::Vehicle [ vehicleView ]", cameoBlockFill},
+		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill},
 		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill},
 		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill},

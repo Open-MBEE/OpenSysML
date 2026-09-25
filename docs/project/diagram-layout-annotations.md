@@ -106,8 +106,10 @@ as `"#RRGGBB"`, the font by family name, its size in points — each attribute o
 symbol coloured by hand states its fill and nothing else, and the drawing style supplies the
 rest. A `Note` is a comment box: its text, the top-left corner of its box and an optional size,
 in the units of `Layout`; `metadata Note about X { … }` in a view anchors it to `X` with a dashed
-line, a `@Note { … }` on the view itself is free on the drawing surface. A `Picture` is an image
-pasted onto the drawing surface: the file it is read from, relative to the file the view is
+line, a `@Note { … }` on the view itself is free on the drawing surface. A note stated in a
+view's body — `about` a member or free on the view — is drawn in that view alone, its corner in
+that view's canvas; a note stated outside every view applies in every view. A `Picture` is an
+image pasted onto the drawing surface: the file it is read from, relative to the file the view is
 written in (an absolute path or a URL as given), the box it fills, an optional alternative text,
 and `above` when it lies over the element symbols it overlaps rather than under them, which is
 the default — a background picture with the boxes drawn on top. A `Picture` belongs to a view

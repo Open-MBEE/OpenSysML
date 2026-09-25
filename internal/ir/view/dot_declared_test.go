@@ -98,8 +98,12 @@ func TestDOTDeclaresEveryEdgeEnd(t *testing.T) {
 		if undeclared := dotUndeclaredEnds(t, source); len(undeclared) != 0 {
 			t.Errorf("%s: edge ends with no declaration: %v\n%s", style, undeclared, source)
 		}
-		if !strings.Contains(source, `"note:0" [`) {
-			t.Errorf("%s: the note on an undrawn anchor is not drawn free:\n%s", style, source)
+		unwrapped := strings.ReplaceAll(source, "<br/>", " ")
+		if !strings.Contains(unwrapped, "anchored away") {
+			t.Errorf("%s: the note on an undeclared anchor is not drawn free:\n%s", style, source)
+		}
+		if !strings.Contains(unwrapped, "on an undrawn edge") {
+			t.Errorf("%s: the note on an edge with an undeclared end is not drawn free:\n%s", style, source)
 		}
 		if strings.Contains(source, `"note:0" ->`) || strings.Contains(source, `"note:1" ->`) {
 			t.Errorf("%s: an anchor edge to an undeclared node is drawn:\n%s", style, source)
@@ -109,6 +113,40 @@ func TestDOTDeclaresEveryEdgeEnd(t *testing.T) {
 		}
 		requireDotAccepts(t, source)
 	}
+}
+
+// A note anchored to a node the drawing declares but omits, or to an edge with
+// such an end, is dropped with a notice rather than drawn free: its box is the
+// omitted node's to carry. Neither inflates the canvas.
+func TestDOTDropsNotesOnOmittedNodes(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindInterconnection,
+		Roots: []*Node{
+			{ID: "n0", Kind: "part", Name: "placed", Geometry: &Geometry{X: 0, Y: 0, Width: 100, Height: 40, HasSize: true}},
+			{ID: "n1", Kind: "part", Name: "loose"},
+		},
+		Edges: []Edge{{From: "n0", To: "n1", Kind: EdgeConnection}},
+		Notes: []Note{
+			{Text: "stray anchored", Anchor: "n1", X: 0, Y: 0, Width: 60, Height: 20, HasSize: true},
+			{Text: "stray edge", EdgeFrom: "n0", EdgeTo: "n1", X: 5000, Y: 0, Width: 80, Height: 20, HasSize: true},
+		}}
+	source, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	for _, stale := range []string{"stray anchored", "stray edge", "5000"} {
+		if strings.Contains(source, stale) {
+			t.Errorf("DOT holds %q, which a dropped note stated:\n%s", stale, source)
+		}
+	}
+	for _, want := range []string{
+		"note on n1, a node the rendering draws no box for; no note is drawn",
+		"note on edge n0->n1, an edge the rendering draws no node for; no note is drawn",
+	} {
+		if !strings.Contains(source, want) {
+			t.Errorf("DOT lacks the notice %q:\n%s", want, source)
+		}
+	}
+	requireDotAccepts(t, source)
 }
 
 // A nested action's notes anchor to the node drawn for it, once each: the root
