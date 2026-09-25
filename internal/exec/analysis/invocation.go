@@ -134,7 +134,11 @@ func (e ToolEntry) Protocol() string {
 	if e.Invocation == nil {
 		return "object"
 	}
-	return "argv+" + string(e.Invocation.Stdin.Format)
+	format := e.Invocation.Stdin.Format
+	if format == "" {
+		format = StdinJSON
+	}
+	return "argv+" + string(format)
 }
 
 // reserved placeholders of a template, which no variable may be named like.

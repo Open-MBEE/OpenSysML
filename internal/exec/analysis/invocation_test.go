@@ -149,7 +149,11 @@ func TestNewToolChecksAProgrammaticInvocation(t *testing.T) {
 	call := &runtime.ToolCall{ToolName: "Echo", Inputs: []runtime.ToolInput{{Variable: "mass"}}}
 	question := Question{Kind: Compute, Compute: &ComputeAsk{Call: call}}
 
-	sound := NewTool(echoEntry(echo(t), &Invocation{Args: []string{"{mass}", "{outputDir}"}}))
+	entry := echoEntry(echo(t), &Invocation{Args: []string{"{mass}", "{outputDir}"}})
+	if got := entry.Protocol(); got != "argv+json" {
+		t.Errorf("protocol of an unchecked block %q, want argv+json", got)
+	}
+	sound := NewTool(entry)
 	if c := sound.Covers(nil, question); !c.Covered {
 		t.Fatalf("sound block: %+v, want covered", c)
 	}
