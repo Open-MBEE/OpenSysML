@@ -132,6 +132,8 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
 		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.unplaced), w.form)
+	case docir.ContentImage:
+		return renderImage(node), nil
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -296,6 +298,17 @@ const mathFence = "$$"
 func renderFormula(node docir.Content) []string {
 	blocks := captionBlock(node.Caption())
 	return append(blocks, mathFence+"\n"+displayMath(node.Source())+"\n"+mathFence)
+}
+
+// renderImage writes one image under its caption in emphasis, as Markdown's
+// own image syntax; alt defaults to the caption.
+func renderImage(node docir.Content) []string {
+	blocks := captionBlock(node.Caption())
+	alt := node.Alt()
+	if alt == "" {
+		alt = node.Caption()
+	}
+	return append(blocks, "!["+inline(alt)+"]("+node.Location()+")")
 }
 
 // displayMath prepares LaTeX for a $$ block: lines keep their breaks, blank

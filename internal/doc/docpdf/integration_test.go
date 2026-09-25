@@ -864,3 +864,33 @@ func dominantSize(sizes map[float64]int) float64 {
 	}
 	return best
 }
+
+// TestRenderImageBlocksWithInstalledEngines renders a document whose image
+// blocks name a file beside the output through each installed converter, and
+// reads back that the image was drawn: pdfimages lists it.
+func TestRenderImageBlocksWithInstalledEngines(t *testing.T) {
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	mark, err := os.ReadFile(filepath.Join("testdata", "mark.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "images", "mark.png"), mark, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	document := imageDocSource(t, `"images/mark.png"`)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{BaseDir: base})
+			if !strings.Contains(text, "The survey mark") {
+				t.Errorf("caption missing:\n%s", text)
+			}
+			images := pdfImages(t, pdf)
+			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+`).MatchString(images) {
+				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
+			}
+		})
+	}
+}

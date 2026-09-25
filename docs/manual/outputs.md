@@ -25,6 +25,7 @@ What the renderer emits:
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
+- Images as `![alt](location)` under the caption, the location verbatim.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
@@ -91,7 +92,7 @@ The model rides alongside the structure. A small `sysml-` class vocabulary
 names each part of the document (`sysml-document`, `sysml-section`,
 `sysml-table`, `sysml-row`, `sysml-cell`, `sysml-value`, `sysml-list`,
 `sysml-item`, `sysml-definitions`, `sysml-entry`, `sysml-term`,
-`sysml-description`, `sysml-diagram`, `sysml-caption`, `sysml-link`,
+`sysml-description`, `sysml-diagram`, `sysml-image`, `sysml-caption`, `sysml-link`,
 `sysml-ref` and their kin), and `data-` attributes carry the facts behind
 it: the content kind and name, the query behind a table, list or
 definitions block, the group-by column, each row's, item's or entry's
@@ -153,6 +154,11 @@ script, so a page embedding one loads Mermaid itself. Rendered with
 embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
+
+An `Image` block is a `<figure class="sysml-image">` whose `<img>` carries its
+`location` verbatim — a relative path stays relative, so a page reads an
+image beside it, as a relative link does — and its `alt` the text
+alternative, the caption its `<figcaption>`.
 
 Formulas work the same way. A math span becomes `<span class="sysml-math">`
 and a `Formula` block a `<figure class="sysml-formula">` with its caption,

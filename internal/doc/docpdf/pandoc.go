@@ -109,14 +109,21 @@ local function isRenderingComment(block)
   return block.t == "RawBlock" and block.format == "html" and block.text:sub(1, 4) == "<!--"
 end
 
+-- An image block is a Para holding the image alone, as the Markdown
+-- backend writes it.
+local function isImage(block)
+  return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Image"
+end
+
 -- A caption heads a table (or a grouped table's first group key), a diagram
--- fence, a table-kind diagram's rendering comment or a formula block.
+-- fence, a table-kind diagram's rendering comment, a formula block or an
+-- image.
 local function isCaptioned(blocks, i)
   local block = blocks[i]
   if block == nil then
     return false
   end
-  return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block)
+  return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block) or isImage(block)
     or (block.t == "CodeBlock" and block.classes:includes(form))
     or (isGroupKey(block) and blocks[i + 1] ~= nil and blocks[i + 1].t == "Table")
 end
