@@ -85,6 +85,10 @@ type ToolRunner interface {
 // ErrToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
 var ErrToolNotRegistered = errors.New("tool is not registered")
 
+// ErrToolDryRun is the error a dry run stops the performance with at its first
+// tool call; it passes through unchanged.
+var ErrToolDryRun = errors.New("tool dry run")
+
 // ToolNotRegisteredError reports the tool a performance named and nothing answers to.
 type ToolNotRegisteredError struct {
 	Tool string

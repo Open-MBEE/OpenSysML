@@ -267,3 +267,47 @@ func TestRecordSweepWritesEachRowsOwnTools(t *testing.T) {
 		t.Errorf("row 2's tools %q, want its own --mass 11 only", toolLines[1])
 	}
 }
+
+// %tool on a verification case previews the tool call its body reached: the dry
+// run's error passes the case's verdict handling through unchanged.
+func TestToolPreviewsAVerificationCasesCall(t *testing.T) {
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	part def Board { attribute mass : Real; }
+	part block : Board { attribute :>> mass = 12.5; }
+	action def Heating {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in mass : Real { @ToolVariable { name = "mass"; } }
+		out tMax : Real { @ToolVariable { name = "tMax"; } }
+	}
+	verification def HeatedCheck {
+		subject p : Board;
+		action h : Heating { in mass = p.mass; }
+		VerificationCases::PassIf(h.tMax <= 400.0)
+	}
+	verification heated : HeatedCheck { subject p = block; }
+}`)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	wantsInOrder(t, run(t, s, "%tool Tools::heated"),
+		"✓ Tools::heated: dry run of tool 'Solver' for Tools::Heating",
+		"inputs:", "  mass = 12.5",
+		"the process was not started")
+}
+
+// A preview releases the executor it ran: another attaches and finishes the same
+// way, and the session clock parks nothing of either's.
+func TestToolReleasesThePreviewExecutor(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	wants(t, run(t, s, "%tool Tools::Heating"), "the process was not started")
+	wants(t, run(t, s, "%tool Tools::Heating"), "the process was not started")
+	if waits := s.rtCtx.Clock().Waits(); len(waits) != 0 {
+		t.Fatalf("the clock parks %v after two previews, want none", waits)
+	}
+}

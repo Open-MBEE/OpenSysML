@@ -1,7 +1,6 @@
 package analysis
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -45,9 +44,6 @@ type DryRunFile struct {
 	Data   []byte
 }
 
-// ErrToolDryRun is the typed error a dry run fails its performance with.
-var ErrToolDryRun = errors.New("tool dry run")
-
 // ToolDryRunError fails the performance a dry run reached a tool call in; surfaces
 // read the preview from it.
 type ToolDryRunError struct {
@@ -63,7 +59,7 @@ func (e *ToolDryRunError) Error() string {
 }
 
 // Is matches ErrToolDryRun.
-func (e *ToolDryRunError) Is(target error) bool { return target == ErrToolDryRun }
+func (e *ToolDryRunError) Is(target error) bool { return target == runtime.ErrToolDryRun }
 
 // NotAToolEntryError is the dry runner's refusal of a call whose engine answers
 // Compute questions but is no tool manifest entry.
