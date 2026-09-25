@@ -3,7 +3,11 @@ package sysmlv1
 import (
 	"archive/zip"
 	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -439,5 +443,109 @@ func TestParseArchiveSurvivesTornDiagramStream(t *testing.T) {
 	}
 	if m.Lookup("_b") == nil {
 		t.Error("the model beside the torn stream was not read")
+	}
+}
+
+// pngHex writes a small PNG the way MagicDraw serializes a pasted image's
+// bytes: lowercase hexadecimal octets without zero padding, space-separated.
+func pngHex(t *testing.T) ([]byte, string) {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	img.Set(0, 0, color.NRGBA{R: 255, A: 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	octets := make([]string, 0, buf.Len())
+	for _, b := range buf.Bytes() {
+		octets = append(octets, strconv.FormatUint(uint64(b), 16))
+	}
+	return buf.Bytes(), strings.Join(octets, " ")
+}
+
+// A pasted image's bytes are read from its image tag, unpadded and padded
+// octets alike, apart from the file name it was pasted from; a symbol with the
+// name alone carries no bytes, and one whose octets do not read is noted in
+// the stream's image errors and read without its bytes, never failing the
+// stream.
+func TestReadSymbolsDecodesPastedImages(t *testing.T) {
+	data, hex := pngHex(t)
+	stream := `<?xml version='1.0' encoding='UTF-8'?>
+<mdOwnedViews>
+  <mdElement elementClass='ImageShape' xmi:id='_img'>
+    <properties>
+      <mdElement elementClass='FileProperty'>
+        <propertyID>IMAGE</propertyID>
+        <value>Screen Shot 2013-12-08 at 9.46.18 PM.png</value>
+      </mdElement>
+    </properties>
+    <geometry>0, 0, 823, 577</geometry>
+    <mdOwnedViews/>
+    <image>` + hex + `</image>
+    <symbolStyleID>_style</symbolStyleID>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_padded'>
+    <geometry>10, 10, 20, 20</geometry>
+    <image>
+      89 50 4E 47 0D 0A 1A 0A
+    </image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_named'>
+    <properties>
+      <mdElement elementClass='FileProperty'>
+        <propertyID>IMAGE</propertyID>
+        <value>bench.png</value>
+      </mdElement>
+    </properties>
+    <geometry>10, 200, 300, 200</geometry>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_bad'>
+    <geometry>10, 400, 300, 200</geometry>
+    <image>89 50 4e 47 zz 1a a</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_long'>
+    <geometry>10, 600, 300, 200</geometry>
+    <image>895 0</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_name_as_bytes'>
+    <geometry>10, 800, 300, 200</geometry>
+    <image>bench.png</image>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		byID[s.ID] = s
+	}
+	if img := byID["_img"]; !bytes.Equal(img.Image, data) || img.Attachment != "Screen Shot 2013-12-08 at 9.46.18 PM.png" || img.ImageType() != "image/png" || !reflect.DeepEqual(img.Bounds, &Bounds{0, 0, 823, 577}) {
+		t.Errorf("image symbol = %+v (%d bytes, type %q)", img, len(img.Image), img.ImageType())
+	}
+	if p := byID["_padded"]; !bytes.Equal(p.Image, []byte("\x89PNG\r\n\x1a\n")) || p.Attachment != "" {
+		t.Errorf("padded image symbol = %+v", p)
+	}
+	if n := byID["_named"]; n.Image != nil || n.Attachment != "bench.png" || n.ImageType() != "" {
+		t.Errorf("named image symbol = %+v", n)
+	}
+	for _, id := range []string{"_bad", "_long", "_name_as_bytes"} {
+		if s := byID[id]; s.Image != nil || s.Attachment != "" || s.Bounds == nil {
+			t.Errorf("%s = %+v; want bounds and neither bytes nor a name", id, s)
+		}
+	}
+	want := []*ImageError{
+		{Diagram: "_diag", Symbol: "_bad", Offset: 4, Octet: "zz"},
+		{Diagram: "_diag", Symbol: "_long", Offset: 0, Octet: "895"},
+		{Diagram: "_diag", Symbol: "_name_as_bytes", Offset: 0, Octet: "bench.png"},
+	}
+	if !reflect.DeepEqual(syms.images, want) {
+		t.Errorf("image errors = %v, want %v", syms.images, want)
+	}
+	if got := syms.images[0].Error(); got != `the pasted image's bytes do not read: octet 4 is "zz", not a hexadecimal byte` {
+		t.Errorf("error = %q", got)
+	}
+	if want := map[string]int{"ImageShape": 6}; !reflect.DeepEqual(syms.free, want) {
+		t.Errorf("free = %v, want %v", syms.free, want)
 	}
 }

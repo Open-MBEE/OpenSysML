@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html"
-	"net/http"
 	"net/url"
 	"path"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
@@ -478,63 +478,11 @@ func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason
 	if !ok {
 		return "", named + " is not in the archive"
 	}
-	ct := imageContent(data)
+	ct := imagefile.ContentType(data)
 	if ct == "" {
-		return "", named + " is not an image (content type " + http.DetectContentType(data) + ")"
+		return "", named + " is not an image (content type " + imagefile.Described(data) + ")"
 	}
-	return m.addFile(imageFileName(name, entry, ct), data), ""
-}
-
-// imageContent reports the archive bytes hold an image: an image/* content
-// type, or an SVG, which DetectContentType reads as text.
-func imageContent(data []byte) string {
-	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
-		return ct
-	}
-	t := bytes.TrimSpace(data)
-	if (bytes.HasPrefix(t, []byte("<?xml")) || bytes.HasPrefix(t, []byte("<svg"))) && bytes.Contains(t, []byte("<svg")) {
-		return "image/svg+xml"
-	}
-	return ""
-}
-
-// imageExtensions are the file suffixes each image content type is written
-// under, the first being the canonical one.
-var imageExtensions = map[string][]string{
-	"image/png":     {".png"},
-	"image/jpeg":    {".jpg", ".jpeg"},
-	"image/gif":     {".gif"},
-	"image/webp":    {".webp"},
-	"image/bmp":     {".bmp"},
-	"image/svg+xml": {".svg"},
-}
-
-// plainFileName reports base names a file can be written under.
-func plainFileName(base string) bool {
-	return base != "" && base != "." && base != ".." && base != "/"
-}
-
-// imageFileName names the written image: the base of the tag's file name when
-// it states one, else the stream id, with a suffix that matches the content
-// type ct the bytes read as; a stated suffix of another type is replaced.
-func imageFileName(name, entry, ct string) string {
-	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
-	if !plainFileName(base) {
-		base = path.Base(entry)
-	}
-	if !plainFileName(base) {
-		base = "image"
-	}
-	exts := imageExtensions[ct]
-	if len(exts) == 0 {
-		return base
-	}
-	if ext := path.Ext(base); slices.Contains(exts, strings.ToLower(ext)) {
-		return base
-	} else if base != ext {
-		base = strings.TrimSuffix(base, ext)
-	}
-	return base + exts[0]
+	return m.addFile(imagefile.Name(name, entry, ct), data), ""
 }
 
 // findEntry names the archive entry holding the attachment name names: the

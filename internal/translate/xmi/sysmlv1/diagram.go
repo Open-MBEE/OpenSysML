@@ -51,6 +51,9 @@ type Diagram struct {
 	Symbols []*Symbol
 	// Frame is the diagram frame's rectangle, when the stream draws one.
 	Frame *Bounds
+	// ImageErrors lists the pasted images of the stream whose bytes do not
+	// read, in serialized order; their symbols carry no Image.
+	ImageErrors []*ImageError
 }
 
 // SymbolByID finds the symbol with the given xmi:id; nil when none has it.

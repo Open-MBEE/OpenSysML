@@ -9,6 +9,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 )
 
 // Symbol is one symbol of a tool's own serialization of a diagram: what it
@@ -39,6 +41,9 @@ type Symbol struct {
 	// Attachment names the file a pasted image was taken from, when the tool
 	// wrote one; "" otherwise.
 	Attachment string
+	// Image holds a pasted image's own bytes when the tool serialized them in
+	// the stream; nil when it wrote only the file's name or they do not read.
+	Image []byte
 }
 
 // Bounds is a rectangle in diagram pixels: its top-left corner and size.
@@ -72,6 +77,25 @@ type Font struct {
 // Free reports whether the symbol stands for no model element.
 func (s *Symbol) Free() bool { return s.ElementID == "" }
 
+// ImageType is the content type of the symbol's inline image bytes, "" when
+// it carries none or they are of no image kind.
+func (s *Symbol) ImageType() string { return imagefile.ContentType(s.Image) }
+
+// ImageError reports a pasted image whose inline bytes do not read: the
+// octet of its text that is not hexadecimal.
+type ImageError struct {
+	// Diagram and Symbol are the ids of the diagram and the symbol carrying it.
+	Diagram, Symbol string
+	// Offset is the position of the offending octet, counting from 0; Octet
+	// is what stands there.
+	Offset int
+	Octet  string
+}
+
+func (e *ImageError) Error() string {
+	return fmt.Sprintf("the pasted image's bytes do not read: octet %d is %q, not a hexadecimal byte", e.Offset, e.Octet)
+}
+
 // IsPath reports whether the symbol is drawn as a line between two others.
 func (s *Symbol) IsPath() bool {
 	return s.Ends[0] != "" || s.Ends[1] != "" || len(s.Points) > 0 && s.Bounds == nil
@@ -80,10 +104,11 @@ func (s *Symbol) IsPath() bool {
 // symbols is what a stream draws: its symbols in serialized order, the model
 // elements they stand for, and the top-level symbols standing for none by class.
 type symbols struct {
-	list  []*Symbol
-	frame *Bounds
-	shown []string
-	free  map[string]int
+	list   []*Symbol
+	frame  *Bounds
+	shown  []string
+	free   map[string]int
+	images []*ImageError
 }
 
 // errNotSymbols reports a stream that is not a serialized diagram.
@@ -92,9 +117,10 @@ var errNotSymbols = errors.New("the stream is not a serialized diagram: expected
 // errTornSymbols reports a serialized diagram that ends before its symbols close.
 var errTornSymbols = errors.New("the serialized diagram is cut short: its symbols are not all closed")
 
-// attachmentTags are the child tags a pasted image symbol may name its file in.
+// attachmentTags are the child tags a pasted image symbol may name its file in;
+// its image tag holds the bytes themselves, not a name.
 var attachmentTags = map[string]bool{
-	"image": true, "imagePath": true, "imageFile": true, "fileName": true,
+	"imagePath": true, "imageFile": true, "fileName": true,
 	"file": true, "path": true, "url": true, "attachedFile": true, "attachment": true,
 }
 
@@ -102,10 +128,11 @@ var attachmentTags = map[string]bool{
 // mdOwnedViews, nested to any depth, names in its elementID the element it
 // stands for, in its geometry where it is drawn, in its linkFirstEndID and
 // linkSecondEndID what a path joins, and in its properties the colours and font
-// it is drawn with. A top-level symbol naming no element is free content, a
-// pasted image or text box, counted by class; the frame symbol names the
-// diagram itself and is neither. A stream that ends with a symbol open is
-// torn, and what it drew is unknown.
+// it is drawn with, and in its image the bytes of a pasted picture. A top-level
+// symbol naming no element is free content, a pasted image or text box,
+// counted by class; the frame symbol names the diagram itself and is neither.
+// A stream that ends with a symbol open is torn, and what it drew is unknown;
+// an image whose bytes do not read is noted and the symbol read without them.
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
@@ -221,7 +248,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 					f.prop.apply(sym)
 				}
 			case len(stack) > 0 && stack[len(stack)-1].sym != nil:
-				readSymbolField(stack[len(stack)-1].sym, f.tag, text)
+				syms.readSymbolField(stack[len(stack)-1].sym, f.tag, text, diagramID)
 			case len(stack) > 0 && stack[len(stack)-1].prop != nil:
 				p := stack[len(stack)-1].prop
 				switch {
@@ -243,16 +270,74 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 }
 
 // readSymbolField reads a symbol's own child element: its geometry, the text of
-// a text box or the file of an image.
-func readSymbolField(sym *Symbol, tag, text string) {
+// a text box, the bytes of a pasted image or the file it was pasted from.
+func (syms *symbols) readSymbolField(sym *Symbol, tag, text, diagramID string) {
 	switch {
 	case tag == "geometry":
 		sym.Bounds, sym.Points = parseGeometry(text)
 	case tag == "text":
 		sym.Text = text
+	case tag == "image" && text != "":
+		data, offset, octet := decodeOctets(text)
+		if octet != "" {
+			syms.images = append(syms.images, &ImageError{Diagram: diagramID, Symbol: sym.ID, Offset: offset, Octet: octet})
+			return
+		}
+		sym.Image = data
 	case attachmentTags[tag] && text != "" && sym.Attachment == "":
 		sym.Attachment = text
 	}
+}
+
+// decodeOctets reads bytes written as whitespace-separated hexadecimal octets
+// of one or two digits, as MagicDraw writes them ("d a" for 0x0D 0x0A). The
+// first token that is no such octet is returned with its position; "" when
+// every token reads.
+func decodeOctets(text string) (data []byte, offset int, octet string) {
+	data = make([]byte, 0, len(text)/3+1)
+	for i := 0; i < len(text); {
+		if isSpace(text[i]) {
+			i++
+			continue
+		}
+		j := i
+		for j < len(text) && !isSpace(text[j]) {
+			j++
+		}
+		b, ok := hexOctet(text[i:j])
+		if !ok {
+			return nil, len(data), text[i:j]
+		}
+		data = append(data, b)
+		i = j
+	}
+	return data, 0, ""
+}
+
+// isSpace reports XML white space.
+func isSpace(c byte) bool { return c == ' ' || c == '\n' || c == '\r' || c == '\t' }
+
+// hexOctet reads one or two hexadecimal digits as a byte.
+func hexOctet(tok string) (byte, bool) {
+	if len(tok) == 0 || len(tok) > 2 {
+		return 0, false
+	}
+	var b byte
+	for i := 0; i < len(tok); i++ {
+		var d byte
+		switch c := tok[i]; {
+		case '0' <= c && c <= '9':
+			d = c - '0'
+		case 'a' <= c && c <= 'f':
+			d = c - 'a' + 10
+		case 'A' <= c && c <= 'F':
+			d = c - 'A' + 10
+		default:
+			return 0, false
+		}
+		b = b<<4 | d
+	}
+	return b, true
 }
 
 // property is one presentation property serialized under a symbol: a colour,
@@ -411,6 +496,7 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		d.Free = syms.free
 		d.Symbols = syms.list
 		d.Frame = syms.frame
+		d.ImageErrors = syms.images
 		stood := map[*Element]bool{}
 		for _, id := range syms.shown {
 			if e := m.shown(id); e != nil {
