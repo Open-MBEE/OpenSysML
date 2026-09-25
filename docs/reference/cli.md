@@ -1248,7 +1248,11 @@ model. `-convert sysml` writes the session text the records joined, so
 `-record-run ... -convert sysml -o saved.sysml` is how a recorded model is
 saved; `-render-document` composes the same way, the records made before the
 document's queries run. A run that fails, or a record submission that produces
-diagnostics, records nothing and leaves the model untouched. See
+diagnostics, records nothing and leaves the model untouched; the submission
+re-checks the whole model, but only errors the records introduce refuse them —
+errors the model had before the run are not counted against the records, and
+a migrated SysML v1 model whose transitions declare `accept s3 : s3` parameters
+re-checks as clean as it loaded. See
 [Recording analysis runs](../manual/recording-analysis-runs.md).
 
 ## Comparing a migrated configuration with the tool's results
