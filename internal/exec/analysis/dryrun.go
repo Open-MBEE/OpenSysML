@@ -313,8 +313,8 @@ func replySelector(r *Reply, variable string, o *ReplyOutput) string {
 	var parts []string
 	switch r.Format {
 	case ReplyJSON:
-		if o.Path != "" {
-			parts = append(parts, fmt.Sprintf("path %q", o.Path))
+		if o.Path != nil {
+			parts = append(parts, fmt.Sprintf("path %q", *o.Path))
 		}
 		if o.UnitPath != "" {
 			parts = append(parts, fmt.Sprintf("unitPath %q", o.UnitPath))

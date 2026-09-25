@@ -84,6 +84,31 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 			t.Fatalf("CalcUsageOutput = %v, want ToolMissingOutput", err)
 		}
 	})
+	t.Run("direct_result_unanswered", func(t *testing.T) {
+		// A runner answering the outputs and not the result, never passing
+		// Bind, is refused on the missing output: the direct invocation binds
+		// no zero value for what the tool left unanswered.
+		ctx, scope := analysisFixture(t, toolCalcRobustnessModel)
+		ctx.SetToolRunner(partialCalcRunner{outputs: map[string]Value{
+			"warn": {Kind: ValConst, Const: semanticsBool(true)},
+		}})
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Tw"), nil, scope)
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMissingOutput {
+			t.Fatalf("InvokeCalc = %v, want ToolMissingOutput", err)
+		}
+	})
+	t.Run("compiled_caller_no_runner", func(t *testing.T) {
+		// Under the compiled tier a caller of a tool calc settles to the
+		// evaluator, which refuses for want of a runner rather than running
+		// the compiled body it never made.
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetCalcCompile(true)
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered", err)
+		}
+	})
 }
 
 // dodgyCalcRunner answers the call's outputs except one, bypassing Bind's check,

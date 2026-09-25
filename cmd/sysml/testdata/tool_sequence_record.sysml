@@ -11,12 +11,12 @@ package Profiles {
 			toolName = "Thermal";
 			uri = "thermal://host/profile";
 		}
-		out temps : TemperatureValue[0..*] { @ToolVariable { name = "temps"; } }
+		out temps : TemperatureValue[0..*] nonunique { @ToolVariable { name = "temps"; } }
 	}
 
 	analysis def ProfileCase {
 		action step : ThermalProfile;
-		out temps : TemperatureValue[0..*] = step.temps;
+		out temps : TemperatureValue[0..*] nonunique = step.temps;
 	}
 	analysis Case : ProfileCase;
 }

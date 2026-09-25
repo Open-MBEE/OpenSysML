@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
@@ -780,5 +782,31 @@ func TestRecordMonteCarloRecordsTheConclusionsToolCall(t *testing.T) {
 	// evaluates it again in the last row's context: three calls, one text each.
 	if n := strings.Count(text[i:min(i+1600, len(text))], `"Thermo 1.0.0 from`); n != 3 {
 		t.Errorf("the sample record's tools names the calls made %d time(s), not the 3 it made:\n%s", n, text[max(0, i-1200):])
+	}
+}
+
+// An attribute redefined with no bound of its own keeps its general's
+// multiplicity in the record's view of an existing definition.
+func TestRecordAttributesFollowsAnInheritedBound(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package Records {
+		private import ScalarValues::*;
+		private import AnalysisRecords::*;
+		part def Base { attribute temps : Real[0..*]; }
+		part def Rec :> Base, AnalysisRecords::AnalysisRun { attribute :>> temps; }
+	}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	idx := s.symbolIndex()
+	defs := idx.LookupQualified("Records::Rec")
+	if len(defs) != 1 {
+		t.Fatalf("Records::Rec resolves to %d symbols", len(defs))
+	}
+	resolver := resolve.New(idx)
+	sem := semantics.NewModel(resolver)
+	resolver.SetModel(sem)
+	f, ok := recordAttributes(idx, sem, defs[0])["temps"]
+	if !ok || !f.Multi {
+		t.Errorf("temps = %+v (present %v), want a multi-valued feature", f, ok)
 	}
 }

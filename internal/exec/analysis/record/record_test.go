@@ -820,11 +820,38 @@ func TestGenerateSequenceRun(t *testing.T) {
 				{Name: "mixed", Value: seqOf(integer(1), realValue(2.5))},
 				{Name: "labels", Value: seqOf(runtime.NewStringValue("a"), runtime.NewStringValue("b"))},
 				{Name: "peak", Value: seqOf(realValue(300.0))},
+				{Name: "dupes", Value: seqOf(realValue(1.0), realValue(1.0))},
 			},
 		}},
 	})
 	if res.Definition != "Records::ProfileRun" {
 		t.Errorf("definition %q", res.Definition)
+	}
+}
+
+// A member nonunique by `ordered nonunique` keeps a repeated element the reply
+// answered — a recorded sequence is the log of what ran, order and repeats included.
+func TestGenerateSequenceWithARepeatedElement(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Spell:   spell(),
+			Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(1))}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute x : ScalarValues::Real[0..*] ordered nonunique;",
+		"attribute :>> x = (1.0, 1.0);",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
 	}
 }
 
@@ -842,7 +869,7 @@ func TestGenerateEmptySequence(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 	for _, want := range []string{
-		"attribute xs : ScalarValues::ScalarValue[0..*];",
+		"attribute xs : ScalarValues::ScalarValue[0..*] ordered nonunique;",
 		"attribute :>> xs = ();",
 	} {
 		if !strings.Contains(res.Source, want) {
@@ -865,7 +892,7 @@ func TestGenerateEmptySequenceSettlesToReal(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 	for _, want := range []string{
-		"attribute x : ScalarValues::Real[0..*];",
+		"attribute x : ScalarValues::Real[0..*] ordered nonunique;",
 		"attribute :>> x = ();",
 		"attribute :>> x = (1.0, 2.0);",
 	} {
@@ -921,5 +948,50 @@ func TestGenerateSequenceAgainstASingleValuedDefinition(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "single-valued") {
 		t.Fatalf("Generate = %v, want the single-valued refusal", err)
+	}
+}
+
+// A sequence of literals of the one enum spells its list under the enum-typed member;
+// literals of different enums fall back to the string of the whole value.
+func TestGenerateSequenceOfEnumerationLiterals(t *testing.T) {
+	file := parser.New(source.New("<test>", []byte(
+		`package P {
+			enum def Grade { enum high = 3; enum low = 1; }
+			enum def Scale { enum big = 4; enum small = 2; }
+		}`))).ParseFile()
+	scope := symbols.Build(file)
+	p, _ := scope.LookupLocal("P")
+	grade, _ := p.Scope.LookupLocal("Grade")
+	scale, _ := p.Scope.LookupLocal("Scale")
+	high, _ := grade.Scope.LookupLocal("high")
+	low, _ := grade.Scope.LookupLocal("low")
+	big, ok := scale.Scope.LookupLocal("big")
+	if !ok {
+		t.Fatal("enum literal not built")
+	}
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Outputs: []runtime.CalcOutputValue{
+				{Name: "grades", Value: seqOf(runtime.EnumeratedValue(high, integer(3)), runtime.EnumeratedValue(low, integer(1)))},
+				{Name: "mixed", Value: seqOf(runtime.EnumeratedValue(high, integer(3)), runtime.EnumeratedValue(big, integer(4)))},
+			},
+			Spell: spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute grades : P::Grade[0..*] ordered nonunique;",
+		"attribute :>> grades = (P::Grade::high, P::Grade::low);",
+		"attribute mixed : ScalarValues::String;",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
 	}
 }
