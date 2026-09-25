@@ -267,11 +267,9 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	return v
 }
 
-// paragraphs reads the collaborator paragraphs placed in a view of the
-// current document (viewId, when set, names the document class; a paragraph
-// tagged the 2022x way carries a sectionId, which the view it belongs to
-// already placed it under, so the viewId need not be checked further): in
-// application order, each moved behind the paragraph its predecessor names.
+// paragraphs reads the collaborator paragraphs placed in a view of the current
+// document (an old-schema viewId must name the document class), each moved
+// behind the paragraph its predecessor names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
