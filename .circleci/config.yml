@@ -1595,7 +1595,9 @@ jobs:
             done
             # build-python-package named the Python distribution after the tag's
             # version (SemVer 'v0.9.0-rc1' is PEP 440 '0.9.0rc1'); one of each is due.
-            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-*.tar.gz"; do
+            # The sdist is the one opensysml-*.tar.gz whose name continues with a digit;
+            # the platform archives (opensysml-linux-amd64.tar.gz, ...) continue with a letter.
+            for pattern in "dist/opensysml-*-py3-none-any.whl" "dist/opensysml-[0-9]*.tar.gz"; do
               set -- $pattern
               if [ ! -f "$1" ]; then
                 fail "$pattern" "build-python-package did not produce it"
