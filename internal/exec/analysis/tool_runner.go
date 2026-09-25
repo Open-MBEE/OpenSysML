@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +25,9 @@ type toolRunner struct {
 	mu sync.Mutex
 	// answered is the outputs each request, by its bytes, was first answered with.
 	answered map[string]string
-	// uses is every tool call the plan's runs made, in call order.
+	// uses is every tool call the plan's runs made; seq orders them.
 	uses []ToolUse
+	next uint64
 }
 
 // ToolUse is one tool call a plan made: the entry it went to and what was run.
@@ -40,6 +42,8 @@ type ToolUse struct {
 	Failed string
 	// in is the context the call was made from.
 	in *runtime.Context
+	// seq is the call's order among the runner's calls.
+	seq uint64
 }
 
 // String spells the call as one line: `ThermalSolver 2.3 from
@@ -100,10 +104,14 @@ func (r *Registry) ToolRunner(ctx context.Context, held *runtime.Context, budget
 // is runtime.ToolNotRegisteredError; the refusal of the tool's own engine, or the fault of
 // its run, fails the performance as is.
 func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
+	t.mu.Lock()
+	t.next++
+	seq := t.next
+	t.mu.Unlock()
 	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
 	plan, err := t.registry.answer(t.ctx, t.model, q, t.budget, t.selection)
 	if err != nil {
-		t.noteUse(call, err)
+		t.noteUse(call, seq, err)
 		if errors.Is(err, ErrNoEngine) {
 			return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 		}
@@ -111,16 +119,25 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	}
 	if plan.Refused() != nil {
 		err := refusalOf(plan, call.ToolName)
-		t.noteUse(call, err)
+		t.noteUse(call, seq, err)
 		return runtime.ToolAnswer{}, err
 	}
-	if plan.Result.Tool != nil {
-		t.mu.Lock()
-		use := *plan.Result.Tool
-		use.in = call.Context()
-		t.uses = append(t.uses, use)
-		t.mu.Unlock()
+	// A composed answer keeps no Tool of its own: the uses each engine's result
+	// carried, and any a failed engine carried, join the provenance by call order.
+	t.mu.Lock()
+	for i := range plan.Steps {
+		step := &plan.Steps[i]
+		if step.Result != nil && step.Result.Tool != nil {
+			use := *step.Result.Tool
+			use.in = call.Context()
+			use.seq = seq
+			t.uses = append(t.uses, use)
+		}
+		if step.Err != nil {
+			t.noteUseLocked(call, seq, step.Err)
+		}
 	}
+	t.mu.Unlock()
 	outputs := make(map[string]runtime.Value, len(plan.Result.Values))
 	for _, v := range plan.Result.Values {
 		outputs[v.Name] = v.Value
@@ -168,20 +185,27 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 
 // noteUse keeps the call's use when a ToolUseError carried one, attributed to the
 // context the call was made from.
-func (t *toolRunner) noteUse(call *runtime.ToolCall, err error) {
+func (t *toolRunner) noteUse(call *runtime.ToolCall, seq uint64, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.noteUseLocked(call, seq, err)
+}
+
+func (t *toolRunner) noteUseLocked(call *runtime.ToolCall, seq uint64, err error) {
 	var useErr *ToolUseError
 	if !errors.As(err, &useErr) {
 		return
 	}
-	t.mu.Lock()
 	useErr.Use.in = call.Context()
+	useErr.Use.seq = seq
 	t.uses = append(t.uses, useErr.Use)
-	t.mu.Unlock()
 }
 
 // used is every tool call the runner's runs made, in call order.
 func (t *toolRunner) used() []ToolUse {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return append([]ToolUse(nil), t.uses...)
+	uses := append([]ToolUse(nil), t.uses...)
+	sort.SliceStable(uses, func(i, j int) bool { return uses[i].seq < uses[j].seq })
+	return uses
 }

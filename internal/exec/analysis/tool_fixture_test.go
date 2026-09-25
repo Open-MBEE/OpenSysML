@@ -775,3 +775,36 @@ func TestAFailedToolCallJoinsTheProvenance(t *testing.T) {
 		t.Errorf("String() = %q, want the failure spelled", got)
 	}
 }
+
+// Under all the composed answer carries no Tool of its own: the use the answering
+// engine's result carried joins the provenance from the plan's steps.
+func TestTheAllSelectionKeepsTheToolsProvenance(t *testing.T) {
+	p := parsePilot(t)
+	t.Setenv(standinRecord, filepath.Join(t.TempDir(), "requests.jsonl"))
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	_, plan, err := Perform(context.Background(), r, selected(p.context(), All()), call, answer)
+	if err != nil {
+		t.Fatalf("all: %v, plan %+v", err, plan.Steps)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the one ModelCenter call", texts)
+	}
+}
+
+// used reports the calls made, in the order they were made rather than the order
+// their results arrived.
+func TestUsedReportsTheCallsInCallOrder(t *testing.T) {
+	r := &toolRunner{uses: []ToolUse{{Tool: "second", seq: 2}, {Tool: "first", seq: 1}}}
+	uses := r.used()
+	if len(uses) != 2 || uses[0].Tool != "first" || uses[1].Tool != "second" {
+		t.Fatalf("used %v, want first before second", uses)
+	}
+}
