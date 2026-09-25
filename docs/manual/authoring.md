@@ -590,8 +590,16 @@ part plate : Image {
 
 `location` is required and cannot be blank: it is a path relative to the
 document's source file — resolved the same way a relative link or stylesheet
-is, against the output file's directory — or an `http(s)` or `file` URL.
-Markdown writes it as `![alt](location)` under its caption; HTML a
+is, against the output file's directory — or an `http(s)` or `file` URL. The
+block above renders as:
+
+```markdown
+*Plate 1: the survey mark*
+
+![a brass survey mark](images/mark.png)
+```
+
+Markdown writes the CommonMark image of the location under its caption; HTML a
 `<figure class="sysml-image">` whose `<img>` carries the location verbatim,
 with `alt` the declared text alternative (the caption when none is declared)
 and the caption its `<figcaption>`; a PDF draws the file — a missing local

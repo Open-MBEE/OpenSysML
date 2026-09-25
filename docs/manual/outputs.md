@@ -25,7 +25,8 @@ What the renderer emits:
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
-- Images as `![alt](location)` under the caption, the location verbatim.
+- Images as a CommonMark image of the location under the caption, the
+  location verbatim.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
