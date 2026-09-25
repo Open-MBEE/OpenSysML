@@ -1,1 +1,0 @@
-- **The migration and referee XMI readers now share one parser.** The generic element tree in `internal/core/xmi` feeds both the SysML v1 migration reader and the fUML/PSSM referees, and the referees now accept the schema.omg.org and unversioned XMI namespace forms.

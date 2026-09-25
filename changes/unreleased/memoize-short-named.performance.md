@@ -1,1 +1,0 @@
-- Validating a model rich in membership imports no longer re-scans the names registered under a segment on every lookup: `ShortNamed` is memoized per index generation, undoing a ~25% whole-model validate slowdown introduced with the import-prune fix.

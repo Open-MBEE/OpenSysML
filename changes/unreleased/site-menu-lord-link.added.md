@@ -1,1 +1,0 @@
-- The site's header menu (and its footer row on narrow screens) links to lord.opensysml.org.

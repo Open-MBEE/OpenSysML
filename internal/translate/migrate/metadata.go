@@ -122,7 +122,7 @@ func (m *migration) metadataFeature(p *sysmlv1.Element) (kw, typ, note string) {
 		}
 		return "attribute", "", ""
 	}
-	if sv := m.scalarValue(t); sv != "" {
+	if m.scalarValue(t) != "" {
 		typ, note = m.typeRef(t, m.scope)
 		return "attribute", typ, note
 	}
@@ -251,10 +251,10 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 				return m.ref(lit, m.scope), ""
 			}
 		}
-		return "", "the value " + v + " is not a literal of " + qualifiedName(t)
+		return "", theValue + v + " is not a literal of " + qualifiedName(t)
 	}
 	if m.structuredValueType(t) {
-		return "", "the value " + v + " has no literal form: " + qualifiedName(t) + " is a structured value type"
+		return "", theValue + v + " has no literal form: " + qualifiedName(t) + " is a structured value type"
 	}
 	sv := m.scalarBase(t)
 	text := strings.TrimSpace(v)
@@ -266,19 +266,19 @@ func (m *migration) tagLiteral(t *sysmlv1.Element, v string) (string, string) {
 		case "true", "false":
 			return text, ""
 		}
-		return "", "the value " + v + " is not a boolean"
+		return "", theValue + v + " is not a boolean"
 	case "Integer", "Natural":
 		n, ok := new(big.Int).SetString(text, 10)
 		if !ok || (sv == "Natural" && n.Sign() < 0) {
-			return "", "the value " + v + " is not an integer"
+			return "", theValue + v + " is not an integer"
 		}
 		return n.String(), ""
 	}
 	if !decimal(text) {
-		return "", "the value " + v + " is not a number"
+		return "", theValue + v + " is not a number"
 	}
 	if _, ok := new(big.Rat).SetString(text); !ok {
-		return "", "the value " + v + " is not a number"
+		return "", theValue + v + " is not a number"
 	}
 	if !strings.ContainsAny(text, ".eE") {
 		text += ".0"

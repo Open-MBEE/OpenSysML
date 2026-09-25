@@ -651,7 +651,7 @@ func TestRecordMergesIntoTheFileHoldingTheTargetPackage(t *testing.T) {
 		t.Fatalf("model has errors: %v", errs)
 	}
 	wants(t, run(t, s, "%record A::Cases::check"), "recorded A::Records::check_run1")
-	if n := strings.Count(s.text(), "package Records"); n != 1 {
+	if strings.Count(s.text(), "package Records") != 1 {
 		t.Fatalf("the record made a second A::Records:\n%s", s.text())
 	}
 	if errs := errorDiagnostics(s.diagnostics()); len(errs) > 0 {

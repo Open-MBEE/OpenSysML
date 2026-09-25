@@ -1,1 +1,0 @@
-- **Diagrams and diagnostics of a large document no longer stall the language server.** Byte offsets are mapped to editor positions through the document's line index instead of a scan from the start of the text on every span, so `opensysml/render` on a multi-megabyte model answers in seconds rather than minutes.

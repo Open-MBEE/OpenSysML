@@ -1,1 +1,0 @@
-- The language server no longer scans the filesystem root for sibling files when a document at the root is opened outside every workspace folder; the walk could take minutes.

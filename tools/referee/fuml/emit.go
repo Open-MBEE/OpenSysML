@@ -68,7 +68,7 @@ func Emit(a *Activity) (*Emitted, error) {
 	}
 	for _, o := range cl.objects {
 		if names[o.name] {
-			return nil, &TranslateError{a.Name, "class " + o.name, "shares its name with an activity in the call closure"}
+			return nil, &TranslateError{a.Name, classKeyword + o.name, "shares its name with an activity in the call closure"}
 		}
 		names[o.name] = true
 	}
@@ -222,6 +222,13 @@ func (cl *closure) startsBehavior(o *objectDef) bool {
 // startMember is the usage of a part definition that binds its classifier
 // behavior; a start performs `object.classifierBehavior.start`.
 const startMember = "classifierBehavior"
+
+const (
+	classKeyword       = "class "
+	noClassOfModel     = ", which is no class of the model"
+	noSignalOfModel    = ", which is no signal of the model"
+	scalarValuesPrefix = "ScalarValues::"
+)
 
 // closureOf collects everything the activity's translation declares. An
 // activity is an object's classifier when something creates an object of it or
@@ -412,7 +419,7 @@ func (cl *closure) classifiers() error {
 		seen[c] = true
 		for _, g := range c.Generals {
 			if m.ClassOf(g) == nil {
-				return &TranslateError{root.Name, "class " + c.Name, "generalizes " + g.String() + ", which is no class of the model"}
+				return &TranslateError{root.Name, classKeyword + c.Name, "generalizes " + g.String() + noClassOfModel}
 			}
 			if err := visit(g); err != nil {
 				return err
@@ -466,19 +473,19 @@ func (cl *closure) addObject(o *objectDef) error {
 	members := map[string]bool{startMember: o.classifier != nil}
 	for _, p := range o.attributes {
 		if members[p.Name] {
-			return &TranslateError{cl.root.Name, "class " + o.name, "has an attribute named " + p.Name + ", as the usage binding its classifier behavior is"}
+			return &TranslateError{cl.root.Name, classKeyword + o.name, "has an attribute named " + p.Name + ", as the usage binding its classifier behavior is"}
 		}
 		members[p.Name] = true
 	}
 	for _, b := range o.behaviors {
 		name := o.behaviorName(b)
 		if members[name] {
-			return &TranslateError{cl.root.Name, "class " + o.name, "has an attribute named " + name + ", as its owned behavior is"}
+			return &TranslateError{cl.root.Name, classKeyword + o.name, "has an attribute named " + name + ", as its owned behavior is"}
 		}
 		members[name] = true
 		for _, p := range b.Parameters {
 			if members[p.Name] {
-				return &TranslateError{cl.root.Name, "class " + o.name, "has a member named " + p.Name + ", as a parameter of its behavior " + name + " is"}
+				return &TranslateError{cl.root.Name, classKeyword + o.name, "has a member named " + p.Name + ", as a parameter of its behavior " + name + " is"}
 			}
 		}
 		cl.owner[b] = o
@@ -512,7 +519,7 @@ func (cl *closure) signalDefs() error {
 		seen[sg] = true
 		for _, g := range sg.Generals {
 			if m.SignalOf(g) == nil {
-				return &TranslateError{root.Name, "signal " + sg.Name, "generalizes " + g.String() + ", which is no signal of the model"}
+				return &TranslateError{root.Name, "signal " + sg.Name, "generalizes " + g.String() + noSignalOfModel}
 			}
 			if err := visit(g); err != nil {
 				return err
@@ -758,17 +765,17 @@ func (m *Model) scalar(name string) string {
 	}
 	for _, c := range m.Classes {
 		if c.Name == name {
-			return "ScalarValues::" + name
+			return scalarValuesPrefix + name
 		}
 	}
 	for _, sg := range m.Signals {
 		if sg.Name == name {
-			return "ScalarValues::" + name
+			return scalarValuesPrefix + name
 		}
 	}
 	for _, a := range m.Activities {
 		if a.Name == name {
-			return "ScalarValues::" + name
+			return scalarValuesPrefix + name
 		}
 	}
 	return name
@@ -1321,7 +1328,7 @@ func (s *scope) createNode(n *Node) error {
 	}
 	o := e.cl.objectOf(n.Classifier)
 	if o == nil {
-		return e.fail(n.Label(), "creates a "+n.Classifier.String()+", which is no class of the model")
+		return e.fail(n.Label(), "creates a "+n.Classifier.String()+noClassOfModel)
 	}
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
@@ -1379,7 +1386,7 @@ func (s *scope) startNode(n *Node) error {
 	t := orType(object.Type, flowedType(object, map[*Node]bool{}))
 	o := e.cl.objectOf(t)
 	if o == nil {
-		return e.fail(n.Label(), "starts a "+t.String()+", which is no class of the model")
+		return e.fail(n.Label(), "starts a "+t.String()+noClassOfModel)
 	}
 	if !e.cl.startsBehavior(o) {
 		return e.fail(n.Label(), "starts an object of "+o.name+", which has no classifier behavior")
@@ -1404,7 +1411,7 @@ func (s *scope) featureNode(n *Node) error {
 		return e.fail(n.Label(), untranslated("an association end"))
 	}
 	if e.cl.objectOf(f.Owner) == nil && !e.performance(f.Owner) {
-		return e.fail(n.Label(), "touches a feature of "+f.Owner.String()+", which is no class of the model")
+		return e.fail(n.Label(), "touches a feature of "+f.Owner.String()+noClassOfModel)
 	}
 	pins := map[string]*Node{}
 	for _, p := range n.Pins {
@@ -1481,7 +1488,7 @@ func (s *scope) sendNode(n *Node) error {
 	e := s.e
 	sg := e.a.Model.SignalOf(n.Signal)
 	if sg == nil {
-		return e.fail(n.Label(), "sends "+n.Signal.String()+", which is no signal of the model")
+		return e.fail(n.Label(), "sends "+n.Signal.String()+noSignalOfModel)
 	}
 	if len(n.Outputs()) != 0 {
 		return e.fail(n.Label(), "a send signal action has no result pin")
@@ -1550,7 +1557,7 @@ func (s *scope) acceptNode(n *Node) error {
 	}
 	sg := e.a.Model.SignalOf(tr.Signal)
 	if sg == nil {
-		return e.fail(n.Label(), "accepts "+tr.Signal.String()+", which is no signal of the model")
+		return e.fail(n.Label(), "accepts "+tr.Signal.String()+noSignalOfModel)
 	}
 	if len(n.Inputs()) != 0 {
 		return e.fail(n.Label(), "an accept event action has no input pin")

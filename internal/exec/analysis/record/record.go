@@ -197,6 +197,14 @@ const (
 	kindQuantity
 )
 
+const (
+	scalarValuesString      = "ScalarValues::String"
+	scalarValuesReal        = "ScalarValues::Real"
+	scalarValuesInteger     = "ScalarValues::Integer"
+	scalarValuesBoolean     = "ScalarValues::Boolean"
+	scalarValuesScalarValue = "ScalarValues::ScalarValue"
+)
+
 // shape is how a value is recorded: its feature kind, the literal spelling,
 // and — for a quantity — the unit text its companion feature records.
 type shape struct {
@@ -226,12 +234,12 @@ func classify(v runtime.Value, r *Run) shape {
 		}
 		// A constant without a literal spelling, Infinity included, is
 		// recorded as a string of its text.
-		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(semantics.FormatConst(v.Const))}
+		return shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(semantics.FormatConst(v.Const))}
 	case runtime.ValString:
-		return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(v.Str())}
+		return shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(v.Str())}
 	case runtime.ValQuantity:
 		q := v.Quantity()
-		return shape{kind: kindQuantity, typ: "ScalarValues::Real", literal: semantics.FormatConst(q.Num), unit: q.Unit.String()}
+		return shape{kind: kindQuantity, typ: scalarValuesReal, literal: semantics.FormatConst(q.Num), unit: q.Unit.String()}
 	case runtime.ValInstance, runtime.ValVariant:
 		if r.Spell.ObjectUsage != nil {
 			if usage := r.Spell.ObjectUsage(v); usage != "" {
@@ -241,7 +249,7 @@ func classify(v runtime.Value, r *Run) shape {
 	}
 	// Everything else — a structured value, or an object naming no usage — is
 	// recorded by its text.
-	return shape{kind: kindString, typ: "ScalarValues::String", literal: source.StringText(spellText(v, r))}
+	return shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
 }
 
 // constScalar is the feature kind and ScalarValues type a scalar literal's
@@ -250,11 +258,11 @@ func classify(v runtime.Value, r *Run) shape {
 func constScalar(k semantics.ValueKind) (valueKind, string, bool) {
 	switch k {
 	case semantics.ValInt:
-		return kindInteger, "ScalarValues::Integer", true
+		return kindInteger, scalarValuesInteger, true
 	case semantics.ValReal:
-		return kindReal, "ScalarValues::Real", true
+		return kindReal, scalarValuesReal, true
 	case semantics.ValBool:
-		return kindBoolean, "ScalarValues::Boolean", true
+		return kindBoolean, scalarValuesBoolean, true
 	}
 	return 0, "", false
 }
@@ -388,7 +396,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 			// definition: either way the member settles to Real, an Integer
 			// literal remaining valid under it.
 			if numericPair(cur.typ, sh.typ) {
-				cur = shape{kind: kindReal, typ: "ScalarValues::Real"}
+				cur = shape{kind: kindReal, typ: scalarValuesReal}
 				shapes[m.name] = cur
 				continue
 			}
@@ -410,8 +418,8 @@ func buildFeatures(req *Request) ([]feature, error) {
 		case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
 			shapes[owner] = c
 		case numericPair(o.typ, c.typ):
-			shapes[owner] = shape{kind: kindReal, typ: "ScalarValues::Real"}
-			shapes[companion] = shape{kind: kindReal, typ: "ScalarValues::Real"}
+			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal}
+			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal}
 		default:
 			f := feature{name: owner}
 			applyShape(&f, o)
@@ -437,7 +445,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 		applyShape(&f, shapes[name])
 		feats = append(feats, f)
 		if shapes[name].kind == kindQuantity {
-			feats = append(feats, feature{name: name + "Unit", typ: "ScalarValues::String", unitOf: name})
+			feats = append(feats, feature{name: name + "Unit", typ: scalarValuesString, unitOf: name})
 		}
 	}
 	return feats, nil
@@ -446,8 +454,8 @@ func buildFeatures(req *Request) ([]feature, error) {
 // numericPair reports whether the types are Integer and Real in either order:
 // one numeric family for the record definition, settling to Real.
 func numericPair(a, b string) bool {
-	return (a == "ScalarValues::Integer" && b == "ScalarValues::Real") ||
-		(a == "ScalarValues::Real" && b == "ScalarValues::Integer")
+	return (a == scalarValuesInteger && b == scalarValuesReal) ||
+		(a == scalarValuesReal && b == scalarValuesInteger)
 }
 
 // applyShape gives a feature the declared shape a value's first supply asks for.
@@ -455,7 +463,7 @@ func applyShape(f *feature, sh shape) {
 	f.ref = sh.kind == kindRef
 	switch sh.kind {
 	case kindUnset:
-		f.typ = "ScalarValues::ScalarValue"
+		f.typ = scalarValuesScalarValue
 	case kindRef:
 		f.typ = ""
 	default:
@@ -474,7 +482,7 @@ func compatible(f *feature, sh shape) error {
 	if f.ref || sh.kind == kindRef {
 		return nil
 	}
-	if f.typ == "ScalarValues::ScalarValue" {
+	if f.typ == scalarValuesScalarValue {
 		// The first supply was unset; a settled value gives the member its type.
 		f.typ = source.QualifiedNameText(sh.typ)
 		return nil
@@ -596,11 +604,11 @@ func checkExisting(req *Request, feats []feature, defName string) error {
 			return fmt.Errorf("record definition %s declares %s as %s but the run values need %s; record into another package with `into`", def, f.name, kind, want)
 		}
 		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ &&
-			f.typ != "ScalarValues::ScalarValue" && decl.TypeFQN != "ScalarValues::ScalarValue" {
+			f.typ != scalarValuesScalarValue && decl.TypeFQN != scalarValuesScalarValue {
 			// An Integer literal is valid under a declared Real; the
 			// reverse would widen a definition the model owns, so it stays
 			// refused.
-			if decl.TypeFQN == "ScalarValues::Real" && f.typ == "ScalarValues::Integer" {
+			if decl.TypeFQN == scalarValuesReal && f.typ == scalarValuesInteger {
 				continue
 			}
 			return fmt.Errorf("record definition %s declares %s : %s but the run values need %s : %s; record into another package with `into`", def, f.name, decl.TypeFQN, f.name, f.typ)

@@ -89,6 +89,13 @@ type contentPlan struct {
 // docSuffix names a document's definition after its class.
 const docSuffix = " Document"
 
+const (
+	unmigrated           = " is not migrated: "
+	leavesOut            = "leaves out "
+	onlyElementCollected = "the only element collected, the "
+	titleRedefines       = "attribute redefines title = "
+)
+
 // planDocuments plans every DocGen document once views and tables are, so the
 // names reserved account for each other and Diagram blocks find their views.
 func (m *migration) planDocuments() {
@@ -207,7 +214,7 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	}
 	steps, end := m.model.DocGenChain(v.Method)
 	if end != "" {
-		sec.refused = "the method " + qualifiedName(v.Method) + " is not migrated: " + end
+		sec.refused = "the method " + qualifiedName(v.Method) + unmigrated + end
 		m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Method, v.Method.DocGen(), Unmapped, sec.refused))
 		return
 	}
@@ -526,7 +533,7 @@ func (c *chain) fail(s *sysmlv1.DocGenStep, why string) {
 		c.refuse(s, why)
 	default:
 		if c.broken == "" {
-			c.broken = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + " is not migrated: " + why
+			c.broken = "«" + c.kind(s) + "» " + qualifiedName(s.Node) + unmigrated + why
 		}
 		c.ctx = qx{}
 		c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, Unmapped, why))
@@ -773,13 +780,13 @@ func (c *chain) collectShown(s *sysmlv1.DocGenStep) {
 		}
 		shown := " shown on the " + diagramKind(d) + " '" + d.Name + "' "
 		if unknown > 0 {
-			c.note("leaves out " + plural(unknown, "element") + shown + "that the archive does not describe")
+			c.note(leavesOut + plural(unknown, "element") + shown + "that the archive does not describe")
 		}
 		if unwritten > 0 {
-			c.note("leaves out " + plural(unwritten, "element") + shown + "that the migration does not write")
+			c.note(leavesOut + plural(unwritten, "element") + shown + "that the migration does not write")
 		}
 		if folded > 0 {
-			c.note("leaves out " + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
+			c.note(leavesOut + plural(folded, "element") + shown + "written within the elements owning them, with no v2 element of their own")
 		}
 	}
 	if len(names) > 0 {
@@ -890,7 +897,7 @@ func (c *chain) noAssociated(holders []*sysmlv1.Element, kind string) string {
 	case 0:
 		return "no element is collected for it to follow"
 	case 1:
-		return "the only element collected, the " + kindOf(holders[0]) + " " + qualifiedName(holders[0]) + ", has no typed attribute of " + kind + " aggregation"
+		return onlyElementCollected + kindOf(holders[0]) + " " + qualifiedName(holders[0]) + ", has no typed attribute of " + kind + " aggregation"
 	}
 	return "none of the " + strconv.Itoa(len(holders)) + " elements collected has a typed attribute of " + kind + " aggregation"
 }
@@ -1133,7 +1140,7 @@ func (c *chain) keepHolders(s *sysmlv1.DocGenStep, keep func(*sysmlv1.Element) (
 // noneOf describes collected elements none of which is a diagram.
 func noneOf(es []*sysmlv1.Element) string {
 	if len(es) == 1 {
-		return "the only element collected, the " + kindOf(es[0]) + " " + qualifiedName(es[0]) + ", which is not a diagram"
+		return onlyElementCollected + kindOf(es[0]) + " " + qualifiedName(es[0]) + ", which is not a diagram"
 	}
 	return "all " + strconv.Itoa(len(es)) + " elements collected, none of them a diagram"
 }
@@ -1443,7 +1450,7 @@ func (c *chain) group(s *sysmlv1.DocGenStep, flows bool) {
 	}
 	steps, end := c.m.model.DocGenChain(body)
 	if end != "" {
-		c.abort(s, "its body "+qualifiedName(body)+" is not migrated: "+end)
+		c.abort(s, "its body "+qualifiedName(body)+unmigrated+end)
 		return
 	}
 	if s.Application != nil && s.Application.Tag("loop") == "true" {
@@ -1770,7 +1777,7 @@ func (c *chain) noDiagrams() string {
 	case len(c.holders) == 0:
 		why = "nothing is collected for it to draw"
 	case len(c.holders) == 1:
-		why = "the only element collected, the " + kindOf(c.holders[0]) + " " + qualifiedName(c.holders[0]) + ", is not a diagram"
+		why = onlyElementCollected + kindOf(c.holders[0]) + " " + qualifiedName(c.holders[0]) + ", is not a diagram"
 	default:
 		why = "none of the " + strconv.Itoa(len(c.holders)) + " elements collected is a diagram"
 	}
@@ -1798,7 +1805,7 @@ func (c *chain) dynamicView(s *sysmlv1.DocGenStep) {
 		var steps []*sysmlv1.DocGenStep
 		steps, why = c.m.model.DocGenChain(body)
 		if why != "" {
-			why = "its body " + qualifiedName(body) + " is not migrated: " + why
+			why = "its body " + qualifiedName(body) + unmigrated + why
 		} else {
 			sub := c.sub()
 			sub.sec = sec
@@ -1822,7 +1829,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 	target := m.qualified(append(m.segments(dp.host), dp.root.name))
 	m.inside(blockNames("Document", dp.root.names), func() {
 		m.w.block("part def "+writeName(dp.root.name)+" :> "+m.queryPrefix(dp.host)+"Document", func() {
-			m.w.line("attribute redefines title = " + stringLiteral(dp.root.title) + ";")
+			m.w.line(titleRedefines + stringLiteral(dp.root.title) + ";")
 			for _, a := range dp.anchors {
 				m.w.line("ref " + writeName(a.name) + " : " + m.memberRef(a.def, dp.host) + ";")
 			}
@@ -1913,7 +1920,7 @@ func (m *migration) writeSectionBody(dp *docPlan, sec *sectionPlan, path string)
 	}
 	for _, child := range sec.children {
 		m.blockPart(dp.host, child.name, "Section", child.names, func() {
-			m.w.line("attribute redefines title = " + stringLiteral(child.title) + ";")
+			m.w.line(titleRedefines + stringLiteral(child.title) + ";")
 			notes = append(notes, m.writeSectionBody(dp, child, path+"::"+writeName(child.name))...)
 		})
 	}
@@ -1931,7 +1938,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 	case "Section":
 		var notes []string
 		m.blockPart(dp.host, cp.name, "Section", cp.section.names, func() {
-			m.w.line("attribute redefines title = " + stringLiteral(cp.section.title) + ";")
+			m.w.line(titleRedefines + stringLiteral(cp.section.title) + ";")
 			notes = m.writeSectionBody(dp, cp.section, cp.target)
 		})
 		return notes

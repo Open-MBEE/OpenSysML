@@ -26,10 +26,14 @@ const (
 	classifierSubject = "the instance's classifier "
 	individualSubject = "the individual "
 	slotValueSubject  = "the slot's value "
+	columnSubject     = "the column "
+	sortBySubject     = "the sort by "
 )
 
 // scalarValuesPrefix qualifies a name from the standard ScalarValues package.
 const scalarValuesPrefix = "ScalarValues::"
+
+const fromKeyword = " from "
 
 // Result is a migration's output: the v2 notation, the report over it, and
 // the result snapshots of its run configurations.
@@ -2645,7 +2649,7 @@ func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths 
 			} else {
 				notes = append(notes, "no flow property typed by "+item.Name+" on both ends of the realizing connector")
 			}
-			m.w.lines(commentLines("item flow of " + item.Name + " from " + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
+			m.w.lines(commentLines("item flow of " + item.Name + fromKeyword + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
 			continue
 		}
 		m.w.line("flow " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
@@ -3020,7 +3024,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	}
 	decl := "dependency "
 	if name != "" {
-		decl += writeName(name) + " from "
+		decl += writeName(name) + fromKeyword
 		m.madeUp(d, writeName(name))
 	}
 	decl += from + " to " + to
@@ -3418,7 +3422,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 	}
 	var parts []string
 	for _, ns := range outside {
-		parts = append(parts, strings.Join(byNamespace[ns], " ")+" from "+ns)
+		parts = append(parts, strings.Join(byNamespace[ns], " ")+fromKeyword+ns)
 	}
 	verdict := " is applied from a profile the document does not define; the application is kept as a comment"
 	if len(outside) > 1 || len(byNamespace[outside[0]]) > 1 {

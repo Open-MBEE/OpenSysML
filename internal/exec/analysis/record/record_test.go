@@ -20,7 +20,7 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the golden files from the current generator")
 
-func real(f float64) runtime.Value {
+func realValue(f float64) runtime.Value {
 	return runtime.Value{Kind: runtime.ValConst, Const: semantics.Value{Kind: semantics.ValReal, Real: f}}
 }
 
@@ -108,7 +108,7 @@ func TestGenerateSingleRun(t *testing.T) {
 			Spell:   sp,
 			Subject: Subject{Usage: "P::scout", Text: "P::scout"},
 			Inputs: []runtime.InputBinding{
-				{Name: "burnTime", Value: real(3.0)},
+				{Name: "burnTime", Value: realValue(3.0)},
 				{Name: "trials", Value: integer(8)},
 				{Name: "crewOk", Value: boolean(true)},
 				{Name: "label", Value: runtime.NewStringValue(`a "b"`)},
@@ -120,7 +120,7 @@ func TestGenerateSingleRun(t *testing.T) {
 				{Name: "target", Value: obj},
 			},
 			Outputs: []runtime.CalcOutputValue{
-				{Name: "fuelUsed", Value: real(12.5)},
+				{Name: "fuelUsed", Value: realValue(12.5)},
 				{Name: "memo", Value: runtime.Value{Kind: runtime.ValNull}},
 				{Name: "plan", Value: runtime.NewSequenceValue(nil)},
 			},
@@ -146,11 +146,11 @@ func TestGenerateTradeRun(t *testing.T) {
 		Runs: []Run{{
 			Spell:   spell(),
 			Subject: Subject{Text: "P::fleet"},
-			Outputs: []runtime.CalcOutputValue{{Name: "best", Value: real(1.0)}},
+			Outputs: []runtime.CalcOutputValue{{Name: "best", Value: realValue(1.0)}},
 			Evaluations: []runtime.AnalysisEvaluation{
-				{Function: "P::score", Arguments: []runtime.Value{real(1.0)}, Result: real(0.75), Selected: true},
-				{Function: "P::score", Arguments: []runtime.Value{real(2.0)}, Result: real(0.75), Tied: true},
-				{Function: "P::score", Arguments: []runtime.Value{real(3.0)}, Result: runtime.Value{Kind: runtime.ValNull}, Error: failed},
+				{Function: "P::score", Arguments: []runtime.Value{realValue(1.0)}, Result: realValue(0.75), Selected: true},
+				{Function: "P::score", Arguments: []runtime.Value{realValue(2.0)}, Result: realValue(0.75), Tied: true},
+				{Function: "P::score", Arguments: []runtime.Value{realValue(3.0)}, Result: runtime.Value{Kind: runtime.ValNull}, Error: failed},
 			},
 		}},
 	})
@@ -171,9 +171,9 @@ func TestGenerateSweepRuns(t *testing.T) {
 			},
 		},
 		Runs: []Run{
-			{Iteration: 1, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(1.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
-			{Iteration: 2, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(3.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(false)}}},
-			{Iteration: 3, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: real(5.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
+			{Iteration: 1, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: realValue(1.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
+			{Iteration: 2, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: realValue(3.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(false)}}},
+			{Iteration: 3, Spell: spell(), Inputs: []runtime.InputBinding{{Name: "load", Value: realValue(5.0)}}, Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}}},
 		},
 	})
 	want := []string{"Records::check_run4", "Records::check_run5", "Records::check_run6"}
@@ -192,19 +192,19 @@ func TestGenerateErrors(t *testing.T) {
 		t.Error("no runs: want an error")
 	}
 	req := base()
-	req.Runs = []Run{{Spell: spell(), Inputs: []runtime.InputBinding{{Name: "x", Value: real(1)}}}}
+	req.Runs = []Run{{Spell: spell(), Inputs: []runtime.InputBinding{{Name: "x", Value: realValue(1)}}}}
 	if _, err := Generate(req); err == nil {
 		t.Error("a run with no outputs, verdicts or evaluations: want an error")
 	}
 	req = base()
-	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "kind", Value: real(1)}}}}
+	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "kind", Value: realValue(1)}}}}
 	if _, err := Generate(req); err == nil {
 		t.Error("member colliding with an AnalysisRun feature: want an error")
 	}
 	req = base()
 	req.Runs = []Run{{
 		Spell:   spell(),
-		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}, {Name: "x", Value: real(3)}},
+		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(2)}, {Name: "x", Value: realValue(3)}},
 	}}
 	if _, err := Generate(req); err == nil {
 		t.Error("one side of the run listing a name twice: want an error")
@@ -212,8 +212,8 @@ func TestGenerateErrors(t *testing.T) {
 	req = base()
 	req.Runs = []Run{{
 		Spell:   spell(),
-		Inputs:  []runtime.InputBinding{{Name: "x", Value: real(1)}, {Name: "xIn", Value: real(0)}},
-		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}},
+		Inputs:  []runtime.InputBinding{{Name: "x", Value: realValue(1)}, {Name: "xIn", Value: realValue(0)}},
+		Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(2)}},
 	}}
 	if _, err := Generate(req); err == nil {
 		t.Error("member colliding with an inout's in companion: want an error")
@@ -224,7 +224,7 @@ func TestGenerateErrors(t *testing.T) {
 	}}
 	req.Runs = []Run{{
 		Spell:   spell(),
-		Inputs:  []runtime.InputBinding{{Name: "load", Value: real(1)}},
+		Inputs:  []runtime.InputBinding{{Name: "load", Value: realValue(1)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}},
 	}}
 	if _, err := Generate(req); err == nil {
@@ -237,7 +237,7 @@ func TestGenerateErrors(t *testing.T) {
 	}}
 	req.Runs = []Run{{
 		Spell:   spell(),
-		Inputs:  []runtime.InputBinding{{Name: "load", Value: real(1)}},
+		Inputs:  []runtime.InputBinding{{Name: "load", Value: realValue(1)}},
 		Outputs: []runtime.CalcOutputValue{{Name: "done", Value: boolean(true)}},
 	}}
 	if _, err := Generate(req); err == nil {
@@ -250,14 +250,14 @@ func TestGenerateErrors(t *testing.T) {
 	req = base()
 	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{
 		{Name: "dose", Value: dose},
-		{Name: "doseUnit", Value: real(1)},
+		{Name: "doseUnit", Value: realValue(1)},
 	}}}
 	if _, err := Generate(req); err == nil {
 		t.Error("a member named as a quantity's unit companion: want an error")
 	}
 	req = base()
 	req.Runs = []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{
-		{Name: "doseUnit", Value: real(1)},
+		{Name: "doseUnit", Value: realValue(1)},
 		{Name: "dose", Value: dose},
 	}}}
 	if _, err := Generate(req); err == nil {
@@ -273,15 +273,15 @@ func TestGenerateSettlesAnUnsetMember(t *testing.T) {
 		Runs: []Run{
 			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: runtime.Value{Kind: runtime.ValNull}},
-				{Name: "a", Value: real(1)},
-				{Name: "b", Value: real(2)},
-				{Name: "c", Value: real(3)},
+				{Name: "a", Value: realValue(1)},
+				{Name: "b", Value: realValue(2)},
+				{Name: "c", Value: realValue(3)},
 			}},
 			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
-				{Name: "x", Value: real(3.0)},
-				{Name: "a", Value: real(1)},
-				{Name: "b", Value: real(2)},
-				{Name: "c", Value: real(3)},
+				{Name: "x", Value: realValue(3.0)},
+				{Name: "a", Value: realValue(1)},
+				{Name: "b", Value: realValue(2)},
+				{Name: "c", Value: realValue(3)},
 			}},
 		},
 	})
@@ -341,16 +341,16 @@ func TestGenerateSettlesAnUnsetMemberToQuantity(t *testing.T) {
 		Runs: []Run{
 			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: runtime.Value{Kind: runtime.ValNull}},
-				{Name: "a", Value: real(1)},
-				{Name: "b", Value: real(2)},
+				{Name: "a", Value: realValue(1)},
+				{Name: "b", Value: realValue(2)},
 			}},
 			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: runtime.NewQuantityValue(&runtime.Quantity{
 					Num:  semantics.Value{Kind: semantics.ValReal, Real: 2.0},
 					Unit: semantics.Unit{Text: "kg"},
 				})},
-				{Name: "a", Value: real(1)},
-				{Name: "b", Value: real(2)},
+				{Name: "a", Value: realValue(1)},
+				{Name: "b", Value: realValue(2)},
 			}},
 		},
 	})
@@ -378,7 +378,7 @@ func TestGenerateSettlesARealMemberToQuantity(t *testing.T) {
 	res, err := Generate(Request{
 		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
 		Runs: []Run{
-			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(1)}}},
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(1)}}},
 			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{
 				{Name: "x", Value: runtime.NewQuantityValue(&runtime.Quantity{
 					Num:  semantics.Value{Kind: semantics.ValReal, Real: 2.0},
@@ -417,8 +417,8 @@ func TestGenerateNumbersIntoTheGaps(t *testing.T) {
 			Attributes: map[string]Feature{"load": {TypeFQN: "ScalarValues::Real"}},
 		},
 		Runs: []Run{
-			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: real(1)}}},
-			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: real(2)}}},
+			{Iteration: 1, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: realValue(1)}}},
+			{Iteration: 2, Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "load", Value: realValue(2)}}},
 		},
 	})
 	if err != nil {
@@ -436,7 +436,7 @@ func TestGenerateQuotedName(t *testing.T) {
 	res, err := Generate(Request{
 		Package: "Records", Case: "Demo::fuel budget", CaseName: "fuel budget",
 		Provenance: provenance(KindRun),
-		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: real(3)}}}},
+		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: realValue(3)}}}},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
@@ -462,7 +462,7 @@ func TestGenerateOwnerStem(t *testing.T) {
 		Package: "Records", Case: "Demo::B::check",
 		Provenance: provenance(KindRun),
 		Existing:   Existing{Stem: "B_check"},
-		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: real(2)}}}},
+		Runs:       []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "y", Value: realValue(2)}}}},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
@@ -487,7 +487,7 @@ func TestGenerateExistingScalarValueAcceptsASettledType(t *testing.T) {
 			Attributes: map[string]Feature{"x": {TypeFQN: "ScalarValues::ScalarValue"}},
 			Stem:       "check",
 		},
-		Runs: []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: real(2)}}}},
+		Runs: []Run{{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(2)}}}},
 	})
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
@@ -503,7 +503,7 @@ func TestGenerateVerificationRun(t *testing.T) {
 	res, err := Generate(Request{
 		Package: "P::Records", Case: "P::fire", Provenance: provenance(KindRun),
 		Runs: []Run{{
-			Outputs:  []runtime.CalcOutputValue{{Name: "margin", Value: real(-200.0)}},
+			Outputs:  []runtime.CalcOutputValue{{Name: "margin", Value: realValue(-200.0)}},
 			Verdicts: []runtime.AnalysisVerdict{{Kind: "objective", Name: "thrust", Status: runtime.VerdictNotSatisfied}},
 			Verifications: []runtime.VerificationVerdict{
 				{Case: "P::fire", Kind: runtime.VerdictFail},
@@ -613,7 +613,7 @@ func TestGenerateScalarValuedEnumLiteral(t *testing.T) {
 		Runs: []Run{{
 			Outputs: []runtime.CalcOutputValue{
 				{Name: "g", Value: runtime.EnumeratedValue(high, integer(3))},
-				{Name: "half", Value: real(1.5)},
+				{Name: "half", Value: realValue(1.5)},
 			},
 			Spell: spell(),
 		}},
@@ -638,7 +638,7 @@ func TestGenerateNumericFamilySettlesToReal(t *testing.T) {
 		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindSweep),
 		Runs: []Run{
 			{Outputs: []runtime.CalcOutputValue{{Name: "half", Value: integer(3)}}, Spell: spell()},
-			{Outputs: []runtime.CalcOutputValue{{Name: "half", Value: real(3.5)}}, Spell: spell()},
+			{Outputs: []runtime.CalcOutputValue{{Name: "half", Value: realValue(3.5)}}, Spell: spell()},
 		},
 	})
 	if err != nil {
@@ -673,7 +673,7 @@ func TestGenerateExistingRealAcceptsAnInteger(t *testing.T) {
 		t.Fatalf("an Integer under a declared Real: %v", err)
 	}
 	req.Existing.Attributes["half"] = Feature{TypeFQN: "ScalarValues::Integer"}
-	req.Runs[0].Outputs[0].Value = real(3.5)
+	req.Runs[0].Outputs[0].Value = realValue(3.5)
 	if _, err := Generate(req); err == nil {
 		t.Error("a Real under a declared Integer: want an error")
 	}
@@ -730,9 +730,9 @@ func TestGenerateInoutQuantityAndPlainNumber(t *testing.T) {
 	})
 	sides := map[string][2]runtime.Value{
 		"integer out, quantity in": {integer(2), kg},
-		"real out, quantity in":    {real(2.5), kg},
+		"real out, quantity in":    {realValue(2.5), kg},
 		"quantity out, integer in": {kg, integer(2)},
-		"quantity out, real in":    {kg, real(2.5)},
+		"quantity out, real in":    {kg, realValue(2.5)},
 	}
 	for name, v := range sides {
 		res, err := Generate(Request{

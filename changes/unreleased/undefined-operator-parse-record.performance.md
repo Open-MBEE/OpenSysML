@@ -1,1 +1,0 @@
-- The `~` undefined-operator warning now reads the operator sites the parser records instead of walking every node of every document, removing about 8% from load and validation time.

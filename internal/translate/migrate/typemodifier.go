@@ -19,6 +19,8 @@ type typeModifier struct {
 	refused string
 }
 
+const typeModifierSubject = "the type modifier "
+
 // isTypeModifier matches the tool's exact «typeModifier» application.
 func isTypeModifier(s *sysmlv1.Stereotype) bool {
 	return s.Name == "typeModifier" && s.Namespace == sysmlv1.MagicDrawProfileNS
@@ -59,9 +61,9 @@ func (m *migration) typeModifier(p *sysmlv1.Element) *typeModifier {
 	case tm.text == "*", tm.text == "&":
 		tm.reference(m, p)
 	case !ok:
-		tm.refused = "the type modifier " + tm.text + " is not one the migrator reads"
+		tm.refused = typeModifierSubject + tm.text + " is not one the migrator reads"
 	case strings.Count(tm.text, "[") > 1, strings.ContainsAny(shape, "*,"):
-		tm.refused = "the type modifier " + tm.text + " has no v2 form: a multiplicity has one dimension"
+		tm.refused = typeModifierSubject + tm.text + " has no v2 form: a multiplicity has one dimension"
 	default:
 		tm.collection(m, p, strings.TrimSuffix(shape, "]"))
 	}
@@ -71,16 +73,16 @@ func (m *migration) typeModifier(p *sysmlv1.Element) *typeModifier {
 // collection maps [] and [n] to a multiplicity, on a declaration of one value.
 func (tm *typeModifier) collection(m *migration, p *sysmlv1.Element, n string) {
 	if !strings.HasSuffix(tm.text, "]") || (n != "" && !isNatural(n)) {
-		tm.refused = "the type modifier " + tm.text + " is not one the migrator reads"
+		tm.refused = typeModifierSubject + tm.text + " is not one the migrator reads"
 		return
 	}
 	mult, note := m.declaredMultiplicity(p)
 	if note != "" {
-		tm.refused = "the type modifier " + tm.text + " has no v2 form: the declared " + note
+		tm.refused = typeModifierSubject + tm.text + " has no v2 form: the declared " + note
 		return
 	}
 	if mult != "" {
-		tm.refused = "the type modifier " + tm.text + " has no v2 form: the declared multiplicity " + mult + " is already a collection, and a collection of collections has no multiplicity"
+		tm.refused = typeModifierSubject + tm.text + " has no v2 form: the declared multiplicity " + mult + " is already a collection, and a collection of collections has no multiplicity"
 		return
 	}
 	if n == "" {
@@ -93,7 +95,7 @@ func (tm *typeModifier) collection(m *migration, p *sysmlv1.Element, n string) {
 // reference maps * and & to a reference usage, on a property typed by a block.
 func (tm *typeModifier) reference(m *migration, p *sysmlv1.Element) {
 	if p.Type != "Property" || p.Parent == nil {
-		tm.refused = "the type modifier " + tm.text + " has no v2 form: a parameter is not held by reference"
+		tm.refused = typeModifierSubject + tm.text + " has no v2 form: a parameter is not held by reference"
 		return
 	}
 	cat, _ := m.classify(p.Parent)
@@ -101,7 +103,7 @@ func (tm *typeModifier) reference(m *migration, p *sysmlv1.Element) {
 	case "part", "item":
 		tm.ref = true
 	default:
-		tm.refused = "the type modifier " + tm.text + " has no v2 form: only a part or item is held by reference, not " + kwArticle(kw)
+		tm.refused = typeModifierSubject + tm.text + " has no v2 form: only a part or item is held by reference, not " + kwArticle(kw)
 	}
 }
 

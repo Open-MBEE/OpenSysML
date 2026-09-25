@@ -1,1 +1,0 @@
-- **Run-to-completion redefinitions now execute with their lowered values and scopes.** Entry cascades expose free-dispatch versus held-entry ordering to execution, checking, exploration and replay, while invalid scopes remain typed lowering errors.
