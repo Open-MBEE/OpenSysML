@@ -624,6 +624,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")
 	fs.BoolVar(&pdfTOC, "doc-toc", false, "Write a table of contents ahead of the content (html or pdf)")
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
+	fs.BoolVar(&docNumberFigures, "doc-number-figures", false, "Number the figures and tables in their captions, Figure 1. and Table 1. in document order (markdown, html or pdf)")
 	fs.StringVar(&pdfEngine, "pdf-engine", "", "Converter -doc-form pdf drives: weasyprint (default), pandoc or prince")
 
 	fs.StringVar(&htmlTheme, "html-theme", "", "Style the HTML page or PDF with a bundled theme layered over the default stylesheet: default, acm, ieee, modern, nasa, print or report")
@@ -763,6 +764,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("doc-title-page", ""),
 			usage.Opt("doc-toc", ""),
 			usage.Opt("doc-number-sections", ""),
+			usage.Opt("doc-number-figures", ""),
 			usage.Opt("pdf-engine", "<converter>"),
 		},
 	}, {

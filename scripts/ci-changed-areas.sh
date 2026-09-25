@@ -23,11 +23,13 @@ node_pattern='^client/node/'
 python_pattern='^client/python/'
 java_pattern='^client/java/'
 rust_pattern='^client/rust/'
+julia_pattern='^client/julia/'
+matlab_pattern='^client/matlab/'
 vscode_pattern='^editors/vscode/'
 cameo_pattern='^editors/cameo/'
 syson_pattern='^editors/syson/'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$vscode_pattern|$cameo_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$cameo_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
 matches() {
   local pattern=$1
@@ -53,6 +55,8 @@ emit node "$( { [[ "$service" = true ]] || matches "$node_pattern"; } && echo tr
 emit python "$( { [[ "$service" = true ]] || matches "$python_pattern"; } && echo true || echo false)"
 emit java "$( { [[ "$service" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$service" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
+emit julia "$( { [[ "$service" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
+emit matlab "$( { [[ "$service" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$service" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
 # The Cameo plugin builds on the Java client, so a client change re-runs it too.
 emit cameo "$( { [[ "$service" = true ]] || matches "$cameo_pattern" || matches "$java_pattern"; } && echo true || echo false)"

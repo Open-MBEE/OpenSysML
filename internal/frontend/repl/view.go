@@ -246,8 +246,19 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
+}
+
+// sessionSourceFile locates the file a span of the session buffer was loaded from, so a
+// location a declaration states relative to its file resolves against that file, not the buffer.
+func (s *Session) sessionSourceFile(doc string, span source.Span) string {
+	if doc != docName && doc != kermlDocName {
+		return source.FileNamed(doc, span)
+	}
+	sn, _ := s.snippetAt(span.Offset)
+	return source.FileNamed(sn.origin, span)
 }
 
 // sessionSourceText reads notation from the session's loaded documents, and
@@ -413,6 +424,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(r.session.sessionSourceText())
+	sem.SetSourceFile(r.session.sessionSourceFile)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {

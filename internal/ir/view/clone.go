@@ -15,6 +15,7 @@ func (r *Rendering) Clone() *Rendering {
 		out.Edges[i].Style = cloneStyle(r.Edges[i].Style)
 	}
 	out.Notes = append([]Note(nil), r.Notes...)
+	out.Pictures = append([]Picture(nil), r.Pictures...)
 	if r.Canvas != nil {
 		canvas := *r.Canvas
 		out.Canvas = &canvas
