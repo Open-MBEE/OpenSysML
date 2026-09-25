@@ -302,6 +302,7 @@ package 'Fleet Documents' {
         /* applied stereotype «Document» */
     }
     view Introduction {
+        doc /* The fleet, in brief. */
         satisfy 'Fleet Viewpoints'::'Parts Viewpoint';
         expose Fleet::Structure::**;
     }
@@ -312,6 +313,7 @@ package 'Fleet Documents' {
         expose Fleet::Requirements::**;
     }
     view Safety {
+        doc /* Safety comes first. */
         satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
         public import Fleet::*;
         /* applied stereotype «view» */
@@ -423,11 +425,14 @@ package 'Fleet Documents' {
         attribute redefines title = "Fleet Handbook";
         part Introduction : DocumentQueries::Section {
             attribute redefines title = "Introduction";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The fleet, in brief.";
+            }
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
             }
-            part paragraph : DocumentQueries::Paragraph {
+            part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
         }
@@ -445,6 +450,9 @@ package 'Fleet Documents' {
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Safety comes first.";
+                }
                 part table : DocumentQueries::Table {
                     attribute redefines caption = "Safety Requirements";
                     calc rows : 'Fleet Handbook Safety Requirements Rows';

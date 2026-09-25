@@ -48,11 +48,15 @@ func wantOneNote(t *testing.T, r *migrate.Result, id string, verdict migrate.Ver
 	t.Errorf("entries for %s = %+v, want a %v entry noting %q", id, es, verdict, note)
 }
 
-// notationSection is the written Section of the title up to the next Section,
-// or "" when the notation writes none.
+// notationSection is the written Section of the title (quoted when it needs
+// to be) up to the next Section, or "" when the notation writes none.
 func notationSection(notation, title string) string {
-	head := "part '" + title + "' : DocumentQueries::Section {"
+	head := "part " + title + " : DocumentQueries::Section {"
 	i := strings.Index(notation, head)
+	if i < 0 {
+		head = "part '" + title + "' : DocumentQueries::Section {"
+		i = strings.Index(notation, head)
+	}
 	if i < 0 {
 		return ""
 	}
@@ -425,6 +429,63 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
+	}
+}
+
+// A view's own documentation opens its section, before what its method
+// produces, as DocGen prints it: at every depth, tool HTML reduced to text,
+// once when the same comment is also one of the view's collaborator paragraphs,
+// and not at all for a view that has none.
+func TestViewDocumentationOpensItsSection(t *testing.T) {
+	r := migrateFixtureFile(t, "documents")
+	notation := string(r.Notation)
+	for id, target := range map[string]string{
+		"_intro_doc":  "part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
+		"_safety_doc": "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
+	} {
+		var paragraphs []migrate.Entry
+		for _, e := range entriesFor(r, id) {
+			if e.Target == target {
+				paragraphs = append(paragraphs, e)
+			}
+		}
+		if len(paragraphs) != 1 || paragraphs[0].Verdict != migrate.Mapped || !strings.Contains(paragraphs[0].Note, "the documentation of the view Fleet Documents::") {
+			t.Errorf("entries for %s = %+v, want one mapped entry -> %s noting the view's documentation", id, entriesFor(r, id), target)
+		}
+	}
+	wantInOrder(t, "Introduction section", notationSection(notation, "Introduction"),
+		`attribute redefines title = "Introduction";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "The fleet, in brief.";`,
+		`attribute redefines caption = "Fleet Parts";`,
+		"part 'paragraph 2' : DocumentQueries::Paragraph {",
+		`attribute redefines text = "The parts of the fleet, by name.";`)
+	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
+		`attribute redefines title = "Safety";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "Safety comes first.";`,
+		`attribute redefines caption = "Safety Requirements";`)
+	for _, text := range []string{"The fleet, in brief.", "Safety comes first.", "Second note."} {
+		if n := strings.Count(notation, `text = "`+text+`";`); n != 1 {
+			t.Errorf("%q is written as %d paragraph(s), want 1:\n%s", text, n, notation)
+		}
+	}
+	wantInOrder(t, "Requirements section", notationSection(notation, "Requirements"),
+		`attribute redefines title = "Requirements";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "Every truck of the fleet satisfies these requirements.";`)
+	if sec := notationSection(notation, "Figures"); strings.Count(sec, "DocumentQueries::Paragraph") != 1 {
+		t.Errorf("Figures, a view with no documentation, does not hold its caption paragraph alone:\n%s", sec)
+	}
+
+	md := markdown(t, session(t, r), "'Fleet Documents'::'Fleet Handbook Document'")
+	wantInOrder(t, "Fleet Handbook Markdown", md,
+		"## Introduction", "The fleet, in brief.", "*Fleet Parts*", "The parts of the fleet, by name.",
+		"## Requirements", "Every truck of the fleet satisfies these requirements.",
+		"### Safety", "Safety comes first.", "| Brake Distance |",
+		"## Notes", "First note.")
+	if n := strings.Count(md, "Second note."); n != 1 {
+		t.Errorf("a collaborator paragraph that is also its view's documentation is printed %d times, want 1:\n%s", n, md)
 	}
 }
 

@@ -524,7 +524,10 @@ collaborator profile beside it holds the paragraphs) — is a tree of «view» c
 conforming to a viewpoint whose method activity says what the view shows. It is written, beside
 the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose sections are
 the view tree in declaration order, and each view's method is lowered into the section's
-content, so `-render-document` produces the document DocGen would have. The tree is the one
+content, so `-render-document` produces the document DocGen would have. A section opens, as
+DocGen prints it, with the view's own documentation as a `Paragraph` — the same comment its
+`view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
+comment is one of the view's collaborator paragraphs, which is written once, in its place. The tree is the one
 DocGen walks: every property of a view typed by a view is a section, and a view is entered
 for its own sections only through a composite or shared property — a plain reference places
 the view as a section without its children, and the «Expose» dependencies of a property feed

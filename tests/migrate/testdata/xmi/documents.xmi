@@ -310,6 +310,7 @@
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_intro" name="Introduction">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_intro" general="_vp_parts"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_intro_doc" body="&lt;html&gt;&lt;body&gt;&lt;p&gt;The fleet, &lt;b&gt;in brief&lt;/b&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;" annotatedElement="_view_intro"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_reqs" name="Requirements">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_reqs" general="_vp_reqs"/>
@@ -317,6 +318,7 @@
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_safety" name="Safety">
         <generalization xmi:type="uml:Generalization" xmi:id="_gen_safety" general="_vp_safety"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_safety_doc" body="Safety comes first." annotatedElement="_view_safety"/>
         <packageImport xmi:type="uml:PackageImport" xmi:id="_imp_safety" importedPackage="_pkg_fleet"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Class" xmi:id="_view_figures" name="Figures">
