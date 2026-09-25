@@ -311,3 +311,30 @@ func TestToolReleasesThePreviewExecutor(t *testing.T) {
 		t.Fatalf("the clock parks %v after two previews, want none", waits)
 	}
 }
+
+// A lines reply with a regex prints each output's regex group as the variable
+// the group is named for — checkReplyLines reads no key beside a regex.
+func TestToolPreviewsALinesRegexReply(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"],` +
+		`"reply":{"format":"lines","regex":"T=(?P<tMax>[0-9.]+)K","outputs":{"tMax":{"type":"number","unit":"K"}}}}`
+	toolManifest(t, s, entry)
+
+	wantsInOrder(t, run(t, s, "%tool Tools::Heating"),
+		`reply: lines from stdout, regex "T=(?P<tMax>[0-9.]+)K"`,
+		`  tMax: regex group "tMax"`,
+		"the process was not started")
+}
+
+// %tool answers as the selected engine would: under %engine run the named
+// engine's refusal is reported, and the default selection previews again.
+func TestToolFollowsTheEngineSelection(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	wants(t, run(t, s, "%engine run"), "engine: run")
+	wants(t, run(t, s, "%tool Tools::Heating"), "run does not answer", "compute")
+	wants(t, run(t, s, "%engine auto"), "engine: auto")
+	wants(t, run(t, s, "%tool Tools::Heating"), "the process was not started")
+}

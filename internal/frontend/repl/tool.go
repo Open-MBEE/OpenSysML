@@ -60,7 +60,7 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if err != nil {
 		return unresolvedVerdict(label, fmt.Errorf("%w: %w", errRuntimeInit, err).Error())
 	}
-	ctx.SetToolRunner(s.engines.DryRunner())
+	ctx.SetToolRunner(s.engines.DryRunner(s.engine))
 	defer s.attachTools(ctx)
 
 	isAction := sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage

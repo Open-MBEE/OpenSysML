@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -72,31 +73,49 @@ func (e *NotAToolEntryError) Error() string {
 	return fmt.Sprintf("engine %s is not a tool manifest entry; nothing to preview", e.Engine)
 }
 
-// DryRunner is a runtime.ToolRunner that previews the first tool call reached and
-// fails the performance with ToolDryRunError.
-func (r *Registry) DryRunner() runtime.ToolRunner {
-	return &dryRunner{registry: r}
+// DryRunner is a runtime.ToolRunner that previews the first tool call the
+// selection's engines reach and fails the performance with ToolDryRunError.
+func (r *Registry) DryRunner(selection Selection) runtime.ToolRunner {
+	return &dryRunner{registry: r, selection: selection}
 }
 
 // dryRunner answers every call with the call's preview instead of the tool's run.
 type dryRunner struct {
-	registry *Registry
+	registry  *Registry
+	selection Selection
 }
 
 // RunTool composes the call for the entry registered for it, refusing as the real
 // runner does — no such engine, a refusal of the entry, an absent executable — and
 // answering ToolDryRunError with the preview otherwise.
 func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
-	engine, ok := d.registry.engines[ToolEngineName(call.ToolName)]
-	if !ok {
-		return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
-	}
-	e, ok := engine.(toolEngine)
-	if !ok {
-		return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: engine.Name()}
-	}
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
+	candidates, err := d.registry.candidates(Compute, d.selection)
+	if err != nil {
+		if errors.Is(err, ErrNoEngine) {
+			return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
+		}
+		return runtime.ToolAnswer{}, err
+	}
+	var e toolEngine
+	own := false
+	for _, c := range candidates {
+		if te, ok := c.(toolEngine); ok && te.entry.ToolName == call.ToolName {
+			e, own = te, true
+			break
+		}
+	}
+	if !own {
+		if d.selection.Mode == SelectNamed {
+			named := candidates[0]
+			if cov := named.Covers(nil, q); cov.Refusal != nil {
+				return runtime.ToolAnswer{}, cov.Refusal
+			}
+			return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: named.Name()}
+		}
+		return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
+	}
 	if cov := e.Covers(nil, q); cov.Refusal != nil {
 		return runtime.ToolAnswer{}, cov.Refusal
 	}
@@ -311,7 +330,7 @@ func replySelector(r *Reply, variable string, o *ReplyOutput) string {
 		}
 	case ReplyLines:
 		if r.Regex != "" {
-			parts = append(parts, fmt.Sprintf("regex group %q", o.Key))
+			parts = append(parts, fmt.Sprintf("regex group %q", variable))
 		} else {
 			key := o.Key
 			if key == "" {
