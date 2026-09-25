@@ -698,3 +698,28 @@ func TestRecordRunSettlesNumericFamilyAndKeepsLiterals(t *testing.T) {
 		t.Fatalf("recording left errors: %v", errs)
 	}
 }
+
+// %record of a Monte Carlo sample succeeds in a model with a trigger parameter
+// named after its type (`accept s3 : s3`): the re-check keeps them distinct.
+func TestRecordMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
+	model := mustRead(t, filepath.Join("..", "..", "..", "tests", "testdata", "record", "montecarlo_trigger_parameter.sysml"))
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	run(t, s, "%instantiate MC::probe")
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Mc MC::probe", 2, &seed, "", "%record MC::Mc")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "recorded 3 runs as Records::Mc_run1") {
+		t.Fatalf("the runs were not recorded:\n%s", out)
+	}
+	if errs := errorDiagnostics(s.diagnostics()); len(errs) > 0 {
+		t.Errorf("the recorded model has errors: %v", errs)
+	}
+	for _, want := range []string{`attribute :>> kind = "runs"`, "attribute :>> iteration = 2", `attribute :>> kind = "sample"`} {
+		if !strings.Contains(s.text(), want) {
+			t.Errorf("recorded model is missing %q:\n%s", want, s.text())
+		}
+	}
+}
