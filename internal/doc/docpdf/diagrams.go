@@ -2,11 +2,9 @@ package docpdf
 
 import (
 	"encoding/base64"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"html"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,9 +14,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 )
-
-// svgNamespace is the namespace the root element of a drawn diagram must be in.
-const svgNamespace = "http://www.w3.org/2000/svg"
 
 // rasterizer draws the diagrams of one form to SVG with an external tool.
 type rasterizer interface {
@@ -184,46 +179,14 @@ func embedImages(path, base string) error {
 	return os.WriteFile(path, out, 0o600)
 }
 
-// checkSVG requires the file a tool wrote to be well-formed XML with a single
-// root, `svg` in the SVG namespace, and no text outside it.
+// checkSVG requires the file a tool wrote to be one well-formed SVG document.
 func checkSVG(path string) error {
-	file, err := os.Open(path) // #nosec G304 -- the path is within the render directory
+	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
 	if err != nil {
 		return errors.New("wrote no SVG")
 	}
-	defer file.Close()
-	dec := xml.NewDecoder(file)
-	dec.Entity = xml.HTMLEntity
-	depth, roots := 0, 0
-	for {
-		tok, err := dec.Token()
-		if err == io.EOF {
-			if roots == 0 {
-				return errors.New("wrote no SVG")
-			}
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("wrote no SVG, %v", err)
-		}
-		switch node := tok.(type) {
-		case xml.StartElement:
-			if depth == 0 {
-				if roots > 0 {
-					return fmt.Errorf("wrote no SVG, a second root <%s> follows it", node.Name.Local)
-				}
-				if node.Name.Local != "svg" || node.Name.Space != svgNamespace {
-					return fmt.Errorf("wrote no SVG, a <%s> document", node.Name.Local)
-				}
-				roots++
-			}
-			depth++
-		case xml.EndElement:
-			depth--
-		case xml.CharData:
-			if depth == 0 && strings.TrimSpace(string(node)) != "" {
-				return errors.New("wrote no SVG, text outside the root element")
-			}
-		}
+	if err := imagefile.CheckSVG(svg); err != nil {
+		return fmt.Errorf("wrote no SVG, %v", err)
 	}
+	return nil
 }

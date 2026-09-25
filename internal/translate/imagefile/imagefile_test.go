@@ -1,6 +1,9 @@
 package imagefile
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestContentTypeReadsTheSignature(t *testing.T) {
 	cases := []struct {
@@ -14,8 +17,14 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 		{"bmp", "BM\x36\x00\x00\x00\x00\x00", "image/bmp"},
 		{"webp", "RIFF\x24\x00\x00\x00WEBPVP8 ", "image/webp"},
 		{"svg", `<svg xmlns="http://www.w3.org/2000/svg"/>`, "image/svg+xml"},
-		{"svg with prolog", "  <?xml version=\"1.0\"?>\n<svg/>", "image/svg+xml"},
+		{"svg with prolog", "  <?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\"><rect/></svg>", "image/svg+xml"},
+		{"svg with a comment first", `<!-- drawn --><svg xmlns="http://www.w3.org/2000/svg"/>`, "image/svg+xml"},
 		{"xml that is no svg", `<?xml version="1.0"?><doc/>`, ""},
+		{"svg outside its namespace", `<svg/>`, ""},
+		{"svg element inside html", `<html><body><svg xmlns="http://www.w3.org/2000/svg"/></body></html>`, ""},
+		{"unclosed svg", `<svg xmlns="http://www.w3.org/2000/svg"><rect>`, ""},
+		{"two roots", `<svg xmlns="http://www.w3.org/2000/svg"/><svg xmlns="http://www.w3.org/2000/svg"/>`, ""},
+		{"text after svg", `<svg xmlns="http://www.w3.org/2000/svg"/>trailing`, ""},
 		{"text", "Screen Shot 2013-12-08 at 9.46.18 PM.png", ""},
 		{"empty", "", ""},
 	}
@@ -26,6 +35,12 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 	}
 	if d := Described([]byte("just words")); d != "text/plain; charset=utf-8" {
 		t.Errorf("Described = %q", d)
+	}
+	if d := Described([]byte(`<?xml version="1.0"?><doc/>`)); d != "text/xml; charset=utf-8; no SVG document: a <doc> document" {
+		t.Errorf("Described xml = %q", d)
+	}
+	if d := Described([]byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect>`)); !strings.HasSuffix(d, "; no SVG document: XML syntax error on line 1: unexpected EOF") {
+		t.Errorf("Described unclosed = %q", d)
 	}
 }
 

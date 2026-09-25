@@ -190,8 +190,8 @@ func imagePathArg(t *testing.T) string {
 	return "-Gimagepath=" + cwd
 }
 
-// TestEmbedImagesInlinesThePicturesAnSVGRefers checks file references become
-// data URIs, relative to the given directory; URLs, data URIs and missing files stay.
+// File references become data URIs, relative to the given directory; URLs, data URIs,
+// missing files and files that are no image (never copied into the document) stay as written.
 func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	base := t.TempDir()
 	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
@@ -201,11 +201,15 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), png, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(base, "notes.txt"), []byte("secret=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	abs := filepath.Join(base, "images", "a&b.png")
 	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
 		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
 		`<image width="1px" href="` + abs + `"/>` +
 		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
 		`<image xlink:href="https://example.org/a.png"/>` +
 		`<image xlink:href="data:image/png;base64,AAAA"/>` +
 		`</svg>`
@@ -225,6 +229,7 @@ func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 		`<image xlink:href="` + uri + `" width="1px" height="1px"/>` +
 		`<image width="1px" href="` + uri + `"/>` +
 		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
 		`<image xlink:href="https://example.org/a.png"/>` +
 		`<image xlink:href="data:image/png;base64,AAAA"/>` +
 		`</svg>`

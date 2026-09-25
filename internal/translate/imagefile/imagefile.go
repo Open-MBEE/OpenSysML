@@ -4,29 +4,80 @@ package imagefile
 
 import (
 	"bytes"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"slices"
 	"strings"
 )
 
+// svgNamespace is the XML namespace an SVG document's root element is in.
+const svgNamespace = "http://www.w3.org/2000/svg"
+
 // ContentType is the image/* type data's signature gives (PNG, JPEG, GIF, BMP,
-// WebP), image/svg+xml for an SVG text, or "" when data is no image.
+// WebP), image/svg+xml for one well-formed SVG document, or "" when data is no image.
 func ContentType(data []byte) string {
 	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
 		return ct
 	}
-	t := bytes.TrimSpace(data)
-	if (bytes.HasPrefix(t, []byte("<?xml")) || bytes.HasPrefix(t, []byte("<svg"))) && bytes.Contains(t, []byte("<svg")) {
+	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) && CheckSVG(t) == nil {
 		return "image/svg+xml"
 	}
 	return ""
 }
 
+// CheckSVG is nil when data is one well-formed SVG document — a single root
+// element svg in the SVG namespace and no text outside it — else why it is not.
+func CheckSVG(data []byte) error {
+	dec := xml.NewDecoder(bytes.NewReader(data))
+	dec.Entity = xml.HTMLEntity
+	depth, roots := 0, 0
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			if roots == 0 {
+				return errors.New("no root element")
+			}
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		switch node := tok.(type) {
+		case xml.StartElement:
+			if depth == 0 {
+				if roots > 0 {
+					return fmt.Errorf("a second root <%s> follows it", node.Name.Local)
+				}
+				if node.Name.Local != "svg" || node.Name.Space != svgNamespace {
+					return fmt.Errorf("a <%s> document", node.Name.Local)
+				}
+				roots++
+			}
+			depth++
+		case xml.EndElement:
+			depth--
+		case xml.CharData:
+			if depth == 0 && strings.TrimSpace(string(node)) != "" {
+				return errors.New("text outside the root element")
+			}
+		}
+	}
+}
+
 // Described is what DetectContentType says of bytes that are no image, for
-// telling a reader what was found instead.
+// telling a reader what was found instead; a markup text says why it is no SVG.
 func Described(data []byte) string {
-	return http.DetectContentType(data)
+	ct := http.DetectContentType(data)
+	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) {
+		if err := CheckSVG(t); err != nil {
+			return ct + "; no SVG document: " + err.Error()
+		}
+	}
+	return ct
 }
 
 // extensions are the file suffixes each image content type is written
