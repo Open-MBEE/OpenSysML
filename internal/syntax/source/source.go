@@ -1,7 +1,11 @@
 // Package source owns file content and byte-offset span types.
 package source
 
-import "sync"
+import (
+	"path/filepath"
+	"strings"
+	"sync"
+)
 
 // Span is a byte range within a SourceFile: [Offset, Offset+Len).
 type Span struct {
@@ -65,6 +69,16 @@ func NewWithKind(name string, content []byte, kind Kind) *SourceFile {
 
 // Name returns the file name.
 func (sf *SourceFile) Name() string { return sf.name }
+
+// Dir is the directory of a source file's name when the name is a path on
+// disk; "" for a name that is no file: empty, a `<placeholder>` such as
+// standard input's or the REPL's, or a URI.
+func Dir(name string) string {
+	if name == "" || strings.HasPrefix(name, "<") || strings.Contains(name, "://") {
+		return ""
+	}
+	return filepath.Dir(name)
+}
 
 // Len returns the byte length of the content.
 func (sf *SourceFile) Len() int { return len(sf.content) }

@@ -128,10 +128,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		w.openFrame(r, edges)
 		depth = 2
 	}
+	w.writePictures(depth, false)
 	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, depth)
 	}
 	w.writeNotes(r.Notes, depth)
+	w.writePictures(depth, true)
 	if w.skin.cameo {
 		b.WriteString("  }\n")
 	}
@@ -152,7 +154,7 @@ func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 	for _, attr := range []string{"labeljust=l", "labelloc=t", "fontsize=" + formatCoord(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne, "margin=" + formatCoord(dotFrameMargin)} {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
 	}
-	if w.placement.count > 0 {
+	if w.placement.positioned() {
 		box := w.extent(edges)
 		if c := w.canvas; c == nil || !c.HasSize {
 			box = nodeBox{low: Point{X: box.low.X - dotFrameMargin, Y: box.low.Y - dotFrameMargin - dotFrameHeader},
@@ -209,7 +211,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots), skin: skin}
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots), skin: skin, pictures: r.Pictures}
 	w.collectDrawn(r.Roots)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
@@ -284,6 +286,9 @@ func (w *dotWriter) extent(edges []Edge) nodeBox {
 	}
 	for _, box := range w.noteBoxes {
 		add(box)
+	}
+	for _, picture := range w.pictures {
+		add(pictureBox(picture))
 	}
 	for _, edge := range edges {
 		for _, p := range edge.Route {
@@ -366,6 +371,7 @@ type dotWriter struct {
 	labels    labeller            // the node labels, headed relative to the roots' namespace
 	skin      dotSkin             // the drawing style's defaults
 	noteBoxes []nodeBox           // where each positioned note is drawn, by index in Rendering.Notes
+	pictures  []Picture           // the pictures drawn, each at its stated bounds
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -699,7 +705,7 @@ func dotReach(node *Node, width, height, ux, uy float64) float64 {
 // Every node drawn in a positioned drawing is pinned, so plain `neato` is never named.
 func (w *dotWriter) engine() string {
 	switch {
-	case w.placement.count == 0:
+	case !w.placement.positioned():
 		return "dot"
 	case w.routed > 0:
 		return "neato -n2"
@@ -770,7 +776,7 @@ func (w *dotWriter) graphAttributes(direction Direction) []string {
 	if w.compound {
 		attrs = append(attrs, "compound=true")
 	}
-	if w.placement.count > 0 {
+	if w.placement.positioned() {
 		attrs = append(attrs, "inputscale=72", "dpi=72")
 	}
 	return attrs
@@ -783,7 +789,7 @@ var dotCanvasCorners = [2]string{"canvas:0", "canvas:1"}
 // canvas, so the drawing's `bb` is the canvas; it needs an engine that keeps pins.
 func (w *dotWriter) writeCanvas() {
 	c := w.canvas
-	if c == nil || !c.HasSize || w.placement.count == 0 {
+	if c == nil || !c.HasSize || !w.placement.positioned() {
 		return
 	}
 	for i, corner := range [2]Point{{}, {X: c.Width, Y: c.Height}} {
@@ -1564,10 +1570,36 @@ func (s dotSkin) containmentAttributes() []string {
 // dotNoteID is the node ID of the i-th note of a rendering.
 func dotNoteID(i int) string { return fmt.Sprintf("note:%d", i) }
 
+// dotPictureID is the node ID of the i-th picture of a rendering.
+func dotPictureID(i int) string { return fmt.Sprintf("picture:%d", i) }
+
+// pictureBox is the box a picture fills, from its corner and size.
+func pictureBox(p Picture) nodeBox {
+	return nodeBox{low: Point{X: p.X, Y: p.Y}, high: Point{X: p.X + p.Width, Y: p.Y + p.Height}, stated: true}
+}
+
+// writePictures writes the pictures drawn under the nodes (above false) or
+// over them (above true), in stated order, each an image node pinned at its
+// bounds: Graphviz draws nodes in the order they are written, so the pictures
+// written first lie behind everything else.
+func (w *dotWriter) writePictures(depth int, above bool) {
+	for i, p := range w.pictures {
+		if p.Above != above {
+			continue
+		}
+		attrs := []string{"shape=none", `style=""`, `label=""`, "image=" + dotQuote(p.Path()), "imagescale=both", "fixedsize=true",
+			"width=" + dotInches(p.Width), "height=" + dotInches(p.Height), w.dotPin(pictureBox(p).centre())}
+		if p.Alt != "" {
+			attrs = append(attrs, "tooltip="+dotQuote(p.Alt))
+		}
+		fmt.Fprintf(&w.b, "%s%s [%s];\n", strings.Repeat("  ", depth), dotQuote(dotPictureID(i)), strings.Join(attrs, ", "))
+	}
+}
+
 // placeNotes boxes every note in a positioned drawing, at its corner in its
 // stated size or one fitted to its text; an unpositioned drawing lays notes out.
 func (w *dotWriter) placeNotes(notes []Note) {
-	if w.placement.count == 0 {
+	if !w.placement.positioned() {
 		return
 	}
 	w.noteBoxes = make([]nodeBox, len(notes))
@@ -1661,7 +1693,7 @@ func (w *dotWriter) writeAnchors(notes []Note, edges []Edge) {
 				continue
 			}
 			route := edgeRoute(edges, note.EdgeFrom, note.EdgeTo)
-			if len(route) < 2 || w.placement.count == 0 {
+			if len(route) < 2 || !w.placement.positioned() {
 				w.writeEdge(dotNoteID(i), note.EdgeFrom, attrs)
 				continue
 			}

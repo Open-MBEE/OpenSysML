@@ -3,23 +3,24 @@ package view
 import "fmt"
 
 // placement is what a positioned rendering has a place for: the nodes a Layout
-// positions, the clusters round a placed member, and the nodes a route meets.
-// Every graph-shaped form draws by it, so a drawing shows the same nodes and
-// edges whichever form writes it.
+// positions, the clusters round a placed member, the nodes a route meets, and
+// the pictures drawn at stated bounds. Every graph-shaped form draws by it, so
+// a drawing shows the same nodes and edges whichever form writes it.
 type placement struct {
-	placed  map[string]bool // node ID -> has a place
-	extent  map[string]bool // node ID -> its place has an extent, not a corner alone
-	derived map[string]bool // node ID -> placed beside the placed nodes its edges reach
-	nodes   int             // nodes in the rendering, and how many have a place
-	count   int
-	ends    []*Node // the unplaced start and final nodes, candidates for a derived place
+	placed   map[string]bool // node ID -> has a place
+	extent   map[string]bool // node ID -> its place has an extent, not a corner alone
+	derived  map[string]bool // node ID -> placed beside the placed nodes its edges reach
+	nodes    int             // nodes in the rendering, and how many have a place
+	count    int
+	pictures int     // pictures drawn, each at stated bounds
+	ends     []*Node // the unplaced start and final nodes, candidates for a derived place
 }
 
 // placeRendering classifies every node of r. A rendering no Layout or Route
 // positions places nothing, and every form draws all of it. A start or final
 // node nothing positions takes its place beside the placed nodes its edges reach.
 func placeRendering(r *Rendering) *placement {
-	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}, derived: map[string]bool{}}
+	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}, derived: map[string]bool{}, pictures: len(r.Pictures)}
 	routed := map[string]bool{}
 	for _, edge := range r.Edges {
 		if len(edge.Route) > 1 {
@@ -106,9 +107,13 @@ func (p *placement) place(node *Node, tree bool, routed map[string]bool) {
 	p.count++
 }
 
-// partial reports whether the rendering places some nodes and not others: the
-// case a form settles as its Options.Unplaced asks.
-func (p *placement) partial() bool { return p.count > 0 && p.count < p.nodes }
+// positioned reports whether anything in the rendering has a stated place, a
+// node or a picture, so the drawing is pinned where the diagram states.
+func (p *placement) positioned() bool { return p.count > 0 || p.pictures > 0 }
+
+// partial reports whether a positioned rendering leaves some nodes without a
+// place: the case a form settles as its Options.Unplaced asks.
+func (p *placement) partial() bool { return p.positioned() && p.count < p.nodes }
 
 // unplaced is how many nodes have no place.
 func (p *placement) unplaced() int { return p.nodes - p.count }

@@ -2,12 +2,15 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Point is one position on a rendering's canvas, in pixels from the top-left
@@ -54,6 +57,43 @@ type Note struct {
 	X, Y          float64
 	Width, Height float64
 	HasSize       bool
+}
+
+// Picture is a picture drawn on the canvas, from a DiagramLayout::Picture:
+// the file it is read from as the view states it (relative to the view's
+// file), the directory of that file ("" when the view is in no file), the box
+// it fills, an alternative text, and whether it is drawn over the nodes it
+// overlaps rather than under them.
+type Picture struct {
+	Location      string
+	Dir           string
+	X, Y          float64
+	Width, Height float64
+	Alt           string
+	Above         bool
+}
+
+// Path is the picture's file as a path from the working directory: Location
+// under Dir, or Location itself when it is absolute, a URL, or Dir is unknown.
+func (p Picture) Path() string {
+	if p.Dir == "" || filepath.IsAbs(p.Location) || strings.Contains(p.Location, "://") {
+		return p.Location
+	}
+	return filepath.Join(p.Dir, filepath.FromSlash(p.Location))
+}
+
+// picturesOf adds to out the Pictures drawn on view, in the order the view
+// states them; one that does not read is noticed.
+func (r *Renderer) picturesOf(view *symbols.Symbol, out *Rendering) {
+	dir := source.Dir(view.Origin().Doc)
+	for _, site := range r.model.PicturesOf(view) {
+		r.noteLayoutProblems(site, view, out)
+		if site.Picture == nil {
+			continue
+		}
+		p := site.Picture
+		out.Pictures = append(out.Pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+	}
 }
 
 // styleOf is the Style colouring elem in view (nil view: inline Style only),
