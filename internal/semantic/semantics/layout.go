@@ -96,8 +96,8 @@ type LayoutSite struct {
 	// About marks an annotation stated away from the element with an `about`
 	// clause.
 	About bool
-	// View is the view whose body states an `about` annotation, so the geometry
-	// applies in that view alone; nil for an inline annotation and for an `about`
+	// View is the view whose body states an `about` annotation or a Note, so
+	// the site applies in that view alone; nil for an inline annotation and for
 	// one stated outside every view, which apply in every view.
 	View *symbols.Symbol
 	// Exactly one of Layout, Route, Canvas, Style and Note is set when the
@@ -159,7 +159,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 			continue
 		}
 		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about}
-		if a.about {
+		if a.about || fqn == NoteFQN {
 			site.View = enclosingView(a.scope)
 		}
 		bindings := metadataBindings(valueScope(a.scope, a.node), metadataBody(a.node))

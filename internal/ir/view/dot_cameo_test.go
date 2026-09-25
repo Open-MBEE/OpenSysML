@@ -76,7 +76,7 @@ func TestGoldenDOTCameo(t *testing.T) {
 	cases := []struct {
 		name, file, view, header, fill string
 	}{
-		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicles::Vehicle [ vehicleView ]", cameoBlockFill},
+		{"tree", "tree.sysml", "VehicleViews::vehicleView", "<b>bdd</b> [Block] Vehicle [ vehicleView ]", cameoBlockFill},
 		{"interconnection", "interconnection.sysml", "PlantViews::loopView", "<b>ibd</b> [Block] Loop [ loopView ]", cameoBlockFill},
 		{"state", "state.sysml", "MachineViews::vehicleStates", "<b>stm</b> [State Machine] VehicleStates [ vehicleStates ]", cameoStateFill},
 		{"action", "action.sysml", "FlowViews::driveView", "<b>act</b> [Activity] Drive [ driveView ]", cameoActionFill},
@@ -195,7 +195,7 @@ func TestDOTCameoHonoursStylesAndPalettes(t *testing.T) {
 		"// layout: neato -n2\n",
 		`fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos=`,
 		`color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"`,
-		`"note:1" [shape=note, fillcolor="` + cameoNoteFill + `", color="` + cameoLineColor + `", label=<<font point-size="9">«comment»</font><br/>anchored>, pos="700,745!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];`,
+		`"note:1" [shape=note, fillcolor="` + cameoNoteFill + `", color="` + cameoLineColor + `", margin=0, label=<<font point-size="9">«comment»</font><br/>anchored>, pos="700,745!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];`,
 		`"note:1" -> "n2" [style=dashed, arrowhead=none];`,
 	} {
 		if !strings.Contains(cameo, want) {

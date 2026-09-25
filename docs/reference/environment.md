@@ -66,7 +66,11 @@ Nothing else in the toolchain reads these variables, and the concrete evaluator 
 
 An action of an analysis case carrying the `AnalysisTooling::ToolExecution` metadata (its
 `toolName` and `uri`), with `ToolVariable` on the parameters the tool knows by other names, is
-performed by that tool rather than by its body. The tools a `sysml` or `sysml-grpc` process may
+performed by that tool rather than by its body. A `calc def` or calc usage carrying the same
+metadata is computed the same way — its `in` parameters go to the tool, its result parameter
+and `out` parameters are bound from the reply, and its body is never evaluated — wherever a
+calc is invoked: `sysml -calc`, `%calc`, `EvaluateCalc`, a derived attribute (`attribute x =
+toolCalc(a, b)`) and the formulas a rendered document evaluates. The tools a `sysml` or `sysml-grpc` process may
 run are the entries of the directory `OPENSYSML_TOOLS` names, read once at startup; each
 becomes an engine `tool:<toolName>` that `-engines`, `%engines` and `ListEngines` list with its
 status, and a manifest that cannot be read is reported at startup, as a bad run bound is.
@@ -188,7 +192,7 @@ Each member of `outputs` is a selector:
 |---|---|---|
 | `path` | `json`, required | An [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer to the value (`/results/0/T_max`); `~0` spells `~`, `~1` spells `/` |
 | `column` | `csv`, required | The column: a header name, or a zero-based index as an integer |
-| `row` | `csv` | Which data record (the header is not one): `"first"`, `"last"` (the default) or a zero-based index |
+| `row` | `csv` | Which data records (the header is not one): `"first"`, `"last"` (the default), a zero-based index or `"all"` |
 | `key` | `lines` | The key on the left of the first `=` or `:` (default the variable's name); a line with neither is ignored |
 | `type` | all but `object` | What the text is read as: `"number"` (the default), `"integer"`, `"real"`, `"boolean"` or `"string"`. Under `exitcode` only `boolean` (the default) and `integer` are admitted |
 | `unit` | all but `object`, `exitcode` | The value's unit as a fixed expression (`K`, `km/h`) |
@@ -205,7 +209,23 @@ selector finding nothing names the variable and where it was looked
 the type cannot read is `malformed output` naming the variable and place (`T_max in column
 T_max, row 3: "n/a" is not a number`), a tool refusal is `tool error`, and a file the tool
 did not write, a non-zero exit (except under `exitcode`), oversize output or a timeout fail
-as they do today. Sequence-valued outputs (`row: "all"`, a JSON array) are refused for now.
+as they do today.
+
+Three selector forms answer a **sequence** rather than a single value: `row: "all"` reads every
+CSV data record in order (a reply with no data record answers the empty sequence), a `path`
+naming a JSON array reads its elements, and under the `object` protocol `"value": [..]` does
+the same. Every element is a scalar, and all elements of one answer are the same kind — all
+numbers, all Booleans or all Strings (integers and reals are one kind); a nested array, an
+object, `null` or a kind mixing is `malformed output` naming the element's index. A
+`unitColumn` under `row: "all"` is read on every record and all records must agree; the
+shared unit is the sequence's, converted once for every element.
+
+A sequence binds only to a parameter whose multiplicity admits more than one value
+(`[0..*]`, `[1..*]`, `[0..n]` with n > 1), and a scalar only to a single-valued one — neither
+is ever silently wrapped or truncated, and the multiplicity's bounds are enforced like any
+write (a scalar for `Real[0..*]`, a sequence for `Real`, and a fifth value for `Real[2..4]`
+are each `malformed output`). `lines` has no sequence form: every match or key there answers
+one value.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines
@@ -260,6 +280,15 @@ performing it; no default value is ever invented, and nothing falls back to the 
 The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool
 absent from it, the performance fails with `tool 'ModelCenter' is not registered; set
 OPENSYSML_TOOLS`.
+
+A calc computed by a tool follows the same exchange: `inputs` are the `in` and `inout`
+parameters carrying `ToolVariable`, `outputs` the `out` and `inout` parameters carrying it,
+together with the result parameter — keyed by its `ToolVariable` name when it carries one, else
+its declared name, else `result`. The result a `calc def` invocation returns is the value bound
+under that key; a calc usage invoked without arguments reports every output it names. The same
+typed errors, the same refusal to run the body and the same divergence reporting apply — the
+calculation fails as the tool failed, and no value is invented for an output the tool did not
+answer.
 
 A tool's answer stands as the value of that performance at strength *observed*: nothing in
 OpenSysML knows what the tool should have computed. Two invocations with equal inputs answering

@@ -134,17 +134,22 @@ type rprobe struct {
 
 func parseRProbe(t *testing.T) *rprobe {
 	t.Helper()
+	return parseReplyProbe(t, replyDriver, "ProbeR")
+}
+
+func parseReplyProbe(t *testing.T, src, pkgName string) *rprobe {
+	t.Helper()
 	idx := libs.NewModelIndex()
-	p := parser.New(source.New("rprobe.sysml", []byte(replyDriver)))
+	p := parser.New(source.New("rprobe.sysml", []byte(src)))
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)
 	}
 	idx.AddDocument("rprobe.sysml", file)
 	idx.ExpandWildcardImports()
-	pkg, ok := idx.DocumentRoot("rprobe.sysml").LookupLocal("ProbeR")
+	pkg, ok := idx.DocumentRoot("rprobe.sysml").LookupLocal(pkgName)
 	if !ok || pkg.Scope == nil {
-		t.Fatal("ProbeR package not indexed")
+		t.Fatalf("%s package not indexed", pkgName)
 	}
 	return &rprobe{idx: idx, pkg: pkg.Scope}
 }

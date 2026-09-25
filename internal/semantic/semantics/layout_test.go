@@ -311,6 +311,31 @@ func TestNotesOfListsEveryNoteInTheView(t *testing.T) {
 	}
 }
 
+// A note stated in a nested view's body belongs to that view's drawing alone:
+// it is listed for the view stating it, not for the view enclosing it.
+func TestNotesOfScopesANoteStatedInANestedViewToIt(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view outer {
+			expose engine;
+			view inner {
+				expose engine;
+				@Note { text = "inner"; x = 1; y = 2; }
+			}
+		}
+	`)
+	outer := sym(t, p, "outer")
+	inner := sym(t, outer.Scope, "inner")
+	notes := m.NotesOf(inner, inner)
+	if len(notes) != 1 || notes[0].Note == nil || notes[0].Note.Text != "inner" {
+		t.Fatalf("NotesOf(inner, inner) = %+v", notes)
+	}
+	if got := m.NotesOf(outer, inner); len(got) != 0 {
+		t.Fatalf("NotesOf(outer, inner) = %+v, want none", got)
+	}
+}
+
 func TestNotesOfReportsAnIncompleteNote(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

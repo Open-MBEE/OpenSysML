@@ -25,6 +25,17 @@ func NewDeclaredReader(model *semantics.Model, resolver *resolve.Resolver) *Decl
 	return &DeclaredReader{ctx: ctx, objects: make(map[*symbols.Symbol]*Instance)}
 }
 
+// NewDeclaredReaderIn creates a reader on a fresh declarative context seeded
+// from held: its tool runner, so tool-computed calcs a derived feature calls
+// answer through the same runner, and the parser reading the units they
+// answer in.
+func NewDeclaredReaderIn(held *Context) *DeclaredReader {
+	r := NewDeclaredReader(held.Semantics(), held.Resolver())
+	r.ctx.model.parse = held.model.parse
+	r.ctx.SetToolRunner(held.ToolRunner())
+	return r
+}
+
 // Read evaluates the named feature of the element sym denotes, resolving every
 // leaf through that element's redefinitions. An unbound leaf is a *NoValueError.
 func (r *DeclaredReader) Read(sym *symbols.Symbol, name string) (Value, error) {

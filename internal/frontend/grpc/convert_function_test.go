@@ -114,7 +114,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 			t.Errorf("%s = %v, want calc_id %q closing over no object", expr, fn, want)
 		}
 
-		rt, _ := srv.newRuntime(cached)
+		rt, _ := srv.newRuntime(context.Background(), cached)
 		back, err := protoconv.ProtoToRuntimeValue(rt, pv, idx, sem)
 		if err != nil {
 			t.Fatalf("protoconv.ProtoToRuntimeValue(%s): %v", expr, err)
@@ -141,7 +141,7 @@ func TestFunctionRoundTrip(t *testing.T) {
 		"set in sequence": sequenceOf(setOf(sqCube...)),
 		"sequence in set": setOf(sequenceOf(sqCube...)),
 	} {
-		rt, _ := srv.newRuntime(cached)
+		rt, _ := srv.newRuntime(context.Background(), cached)
 		back, err := protoconv.ProtoToRuntimeValue(rt, nested, idx, sem)
 		if err != nil {
 			t.Fatalf("protoconv.ProtoToRuntimeValue(functions in a %s): %v", name, err)
@@ -287,7 +287,7 @@ func TestMalformedFunctionsAreRejected(t *testing.T) {
 	modelHash := mustParse(t, srv, functionWireModel)
 	cached, _ := srv.cache.Get(modelHash)
 	idx, sem := cached.Index, NewSymbolContext(cached.Index).Semantics
-	rt, _ := srv.newRuntime(cached)
+	rt, _ := srv.newRuntime(context.Background(), cached)
 
 	cases := []struct {
 		name string

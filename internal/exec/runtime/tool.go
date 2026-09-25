@@ -23,18 +23,20 @@ const (
 	toolVariableName  = "name"
 )
 
-// ToolCall is one performance of an action annotated ToolExecution, as the external tool
-// sees it: the tool and URI the metadata names, the inputs read from the run keyed by
-// their ToolVariable names, and the outputs the tool is to answer.
+// ToolCall is one performance or calculation of an action or calc annotated
+// ToolExecution, as the external tool sees it: the tool and URI the metadata names,
+// the inputs read from the run keyed by their ToolVariable names, and the outputs
+// the tool is to answer.
 type ToolCall struct {
-	// Action is the annotated action definition or usage performed.
+	// Action is the annotated action or calc the tool computes.
 	Action   *symbols.Symbol
 	ToolName string
 	URI      string
 	Inputs   []ToolInput
 	Outputs  []ToolOutput
 
-	exec *ActionExecutor
+	ctx   *Context
+	scope *symbols.Scope
 }
 
 // ToolInput is one `in` or `inout` parameter's value, under its ToolVariable name.
@@ -62,10 +64,14 @@ func (c *ToolCall) Context() *Context {
 
 // ToolValue is one value as the tool protocol carries it: a number or truth in Value, or a
 // string in Text when Value is invalid, and for a quantity the unit expression it is measured in.
+// A non-nil Items makes the value a sequence: each item is a scalar (its own Value/Text, Unit
+// empty — the sequence's Unit is shared by every item); an empty sequence is a non-nil empty
+// slice. Readers always allocate Items non-nil.
 type ToolValue struct {
 	Value semantics.Value
 	Text  string
 	Unit  string
+	Items []ToolValue
 }
 
 // ToolAnswer is what one invocation established: the values bound to the call's outputs by
@@ -75,9 +81,9 @@ type ToolAnswer struct {
 	Diverged bool
 }
 
-// ToolRunner runs the tool a ToolExecution names for one performance of the action,
+// ToolRunner runs the tool a ToolExecution names for one performance or calculation,
 // binding the tool's outputs through ToolCall.Bind. A context with no runner attached
-// refuses every tool-computed action as not registered.
+// refuses every tool-computed action or calc as not registered.
 type ToolRunner interface {
 	RunTool(call *ToolCall) (ToolAnswer, error)
 }
@@ -169,8 +175,8 @@ func (e *ToolError) Is(target error) bool { return target == ErrTool }
 // ToolDivergenceCode is the diagnostic code of a ToolDivergence note.
 const ToolDivergenceCode = "tool-divergence"
 
-// ToolDivergence is a tool answering two invocations with equal inputs differently: the
-// outcome table over it is not reproducible, and the run says so without changing.
+// ToolDivergence is a tool answering two performances or calculations with equal inputs
+// differently: the outcome table over it is not reproducible, and the run says so without changing.
 type ToolDivergence struct {
 	Tool   string
 	Action string
@@ -188,7 +194,7 @@ func (d ToolDivergence) String() string {
 	return "tool divergence: " + d.Describe()
 }
 
-// Location is the annotated action's declaration.
+// Location is the annotated action's or calc's declaration.
 func (d ToolDivergence) Location() (string, source.Span) {
 	return d.File, d.Span
 }
@@ -205,7 +211,8 @@ func (d ToolDivergence) Diagnostic() diag.Diagnostic {
 	}
 }
 
-// SetToolRunner attaches the runner tool-computed actions of this context's runs invoke.
+// SetToolRunner attaches the runner tool-computed actions and calcs of this
+// context's runs invoke.
 func (ctx *Context) SetToolRunner(runner ToolRunner) {
 	ctx.tools = runner
 }
@@ -215,15 +222,16 @@ func (ctx *Context) ToolRunner() ToolRunner {
 	return ctx.tools
 }
 
-// toolExecution is the ToolExecution an action carries, as its performances read it:
-// the tool and URI its bindings state, and the action or supertype annotated.
+// toolExecution is the ToolExecution an action or calc carries, as its performances
+// read it: the tool and URI its bindings state, and the element or supertype annotated.
 type toolExecution struct {
 	tool, uri string
 	on        *symbols.Symbol
 }
 
-// toolExecutionOf reads the ToolExecution annotating an action, or the definition it is
-// typed by. Nil for an action carrying none; an annotation is one whatever its toolName.
+// toolExecutionOf reads the ToolExecution annotating an action or calc, or the
+// definition it is typed by. Nil for one carrying none; an annotation is one
+// whatever its toolName.
 func (ctx *Context) toolExecutionOf(action *symbols.Symbol) (*toolExecution, error) {
 	if ctx.model == nil || action == nil {
 		return nil, nil
@@ -382,7 +390,7 @@ func (e *ActionExecutor) performByTool(execution *toolExecution) error {
 // binds (e.action) names and types each parameter, and the performance holds it under that name.
 func (e *ActionExecutor) toolCall(execution *toolExecution) (*ToolCall, error) {
 	tool := execution.tool
-	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, exec: e}
+	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, ctx: e.ctx, scope: e.root.scope}
 	namedBy := make(map[string]string)
 	for _, param := range e.ctx.model.semantics.BehaviorParametersOf(e.action) {
 		if param.Symbol == nil || param.Symbol.Name == "" {
@@ -535,7 +543,7 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 			return nil, &ToolError{Tool: c.ToolName, Kind: ToolMissingOutput,
 				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Variable, out.Parameter, symbolText(c.Action))}
 		}
-		value, err := c.exec.toolOutput(c.ToolName, out, answered)
+		value, err := c.ctx.toolOutput(c.scope, c.ToolName, out, answered)
 		if err != nil {
 			return nil, err
 		}
@@ -544,22 +552,69 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 	return bound, nil
 }
 
-// toolOutput reads one answered value as the parameter's: a string or bare number as is,
+// toolOutput reads one answered value as the parameter's, the unit spellings read in
+// scope: a string or bare number as is,
 // a quantity converted to the coherent unit of the parameter's declared quantity kind,
-// spelt as the declared type prefers. A unit is refused unless the parameter is a quantity,
-// and a value the parameter's declaration cannot hold is malformed.
-func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolValue) (Value, error) {
+// spelt as the declared type prefers; a sequence answer binds each item likewise under the
+// shared unit. A unit is refused unless the parameter is a quantity, a sequence answered to
+// a single-valued parameter or a scalar to a multi-valued one is malformed, and a value the
+// parameter's declaration cannot hold — count included — is malformed.
+func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput, answered ToolValue) (Value, error) {
 	malformed := func(format string, args ...any) error {
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	value, err := e.toolOutputValue(malformed, out, answered)
-	if err != nil {
-		return Value{}, err
+	mult, _ := ctx.extractMultiplicity(out.Declared)
+	var value Value
+	if answered.Items != nil {
+		if mult.AtMostOne() {
+			return Value{}, malformed("%d values answered but %s holds at most one value (multiplicity %s)", len(answered.Items), out.Parameter, mult.Text())
+		}
+		if len(answered.Items) == 0 && answered.Unit != "" {
+			// An empty sequence has no element to carry the unit: it is
+			// measured in the parameter's coherent unit itself.
+			from, to, err := ctx.toolMeasuredUnits(scope, malformed, out, answered.Unit)
+			if err != nil {
+				return Value{}, err
+			}
+			// The unit is the only thing to check: a zero magnitude meets the
+			// same commensurability refusal an answered element would.
+			if _, err := semantics.ConvertQuantity(Quantity{Num: semantics.Value{Kind: semantics.ValReal}, Unit: from}, to); err != nil {
+				return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
+			}
+			value = NewEmptySequenceOf(to)
+		} else {
+			elements := make([]Value, 0, len(answered.Items))
+			for i, item := range answered.Items {
+				item.Unit = answered.Unit
+				// Items are named by their zero-based index, as JSON pointer indices are.
+				itemErr := func(format string, args ...any) error {
+					return malformed("element %d: "+format, append([]any{i}, args...)...)
+				}
+				element, err := ctx.toolOutputValue(scope, itemErr, out, item)
+				if err != nil {
+					return Value{}, err
+				}
+				elements = append(elements, element)
+			}
+			var err error
+			value, err = ctx.newSequence(elements)
+			if err != nil {
+				return Value{}, err
+			}
+		}
+	} else {
+		if !mult.AtMostOne() {
+			return Value{}, malformed("one value answered but %s holds a sequence (multiplicity %s)", out.Parameter, mult.Text())
+		}
+		var err error
+		value, err = ctx.toolOutputValue(scope, malformed, out, answered)
+		if err != nil {
+			return Value{}, err
+		}
 	}
-	mult, _ := e.ctx.extractMultiplicity(out.Declared)
-	target := &writeTarget{name: out.Parameter, typ: e.ctx.extractType(out.Declared), mult: mult}
-	if err := e.ctx.checkWrite(e.ctx.protocolScope(e.root.scope), out.Parameter, target, &value); err != nil {
+	target := &writeTarget{name: out.Parameter, typ: ctx.extractType(out.Declared), mult: mult}
+	if err := ctx.checkWrite(ctx.protocolScope(scope), out.Parameter, target, &value); err != nil {
 		return Value{}, malformed("%v", err)
 	}
 	return value, nil
@@ -576,7 +631,7 @@ func (ctx *Context) protocolScope(fallback *symbols.Scope) *symbols.Scope {
 
 // toolOutputValue converts one answered value to the run's, by its unit and the
 // parameter's declared quantity kind; malformed builds the refusal of one that cannot be.
-func (e *ActionExecutor) toolOutputValue(malformed func(string, ...any) error, out ToolOutput, answered ToolValue) (Value, error) {
+func (ctx *Context) toolOutputValue(scope *symbols.Scope, malformed func(string, ...any) error, out ToolOutput, answered ToolValue) (Value, error) {
 	if answered.Value.Kind == semantics.ValInvalid {
 		if answered.Unit != "" {
 			return Value{}, malformed("text %q is measured in %s", answered.Text, answered.Unit)
@@ -589,30 +644,40 @@ func (e *ActionExecutor) toolOutputValue(malformed func(string, ...any) error, o
 	if !answered.Value.IsNumeric() {
 		return Value{}, malformed("a truth is measured in %s", answered.Unit)
 	}
-	unit, err := e.toolUnit(answered.Unit)
-	switch {
-	case errors.Is(err, ErrNoExpressionParser):
+	from, to, err := ctx.toolMeasuredUnits(scope, malformed, out, answered.Unit)
+	if err != nil {
 		return Value{}, err
-	case err != nil:
-		return Value{}, malformed("%v", err)
 	}
-	q := Quantity{Num: answered.Value, Unit: unit}
-	dim, ok := e.ctx.model.semantics.DimensionOfFeature(out.Declared)
-	if !ok {
-		if !e.ctx.quantityTyped(out.Declared) {
-			return Value{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, answered.Unit)
-		}
-		return quantityResult(q, nil)
-	}
-	coherent, ok := e.ctx.model.semantics.CoherentUnitFor(dim, out.Declared)
-	if !ok {
-		return NewQuantityValue(&q), nil
-	}
-	converted, err := semantics.ConvertQuantity(q, coherent)
+	converted, err := semantics.ConvertQuantity(Quantity{Num: answered.Value, Unit: from}, to)
 	if err != nil {
 		return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
 	}
 	return quantityResult(converted, nil)
+}
+
+// toolMeasuredUnits reads a unit the answer spells and resolves the unit its
+// parameter measures in: from is the unit as spelled, to the coherent unit of
+// the declared parameter's dimension, or the unit as spelled when the parameter
+// declares none but a quantity anyway.
+func (ctx *Context) toolMeasuredUnits(scope *symbols.Scope, malformed func(string, ...any) error, out ToolOutput, text string) (from semantics.Unit, to semantics.Unit, err error) {
+	unit, err := ctx.UnitOf(scope, text)
+	switch {
+	case errors.Is(err, ErrNoExpressionParser):
+		return semantics.Unit{}, semantics.Unit{}, err
+	case err != nil:
+		return semantics.Unit{}, semantics.Unit{}, malformed("%v", err)
+	}
+	dim, ok := ctx.model.semantics.DimensionOfFeature(out.Declared)
+	if !ok {
+		if !ctx.quantityTyped(out.Declared) {
+			return semantics.Unit{}, semantics.Unit{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, text)
+		}
+		return unit, unit, nil
+	}
+	if coherent, ok := ctx.model.semantics.CoherentUnitFor(dim, out.Declared); ok {
+		return unit, coherent, nil
+	}
+	return unit, unit, nil
 }
 
 // quantityTyped reports a feature one of whose types is a scalar quantity value type, so it
@@ -634,13 +699,6 @@ func (ctx *Context) quantityTyped(feature *symbols.Symbol) bool {
 type toolUnitKey struct {
 	scope *symbols.Scope
 	text  string
-}
-
-// toolUnit reads a unit the protocol spells, in the action's scope, else in the library's
-// SI package so a tool's `m/s**2` reads whatever the model imports; the reading is
-// memoized per scope since resolution memoizes per parsed name.
-func (e *ActionExecutor) toolUnit(text string) (semantics.Unit, error) {
-	return e.ctx.UnitOf(e.root.scope, text)
 }
 
 // UnitOf reads a unit spelled as expression text in scope, else in the library's SI

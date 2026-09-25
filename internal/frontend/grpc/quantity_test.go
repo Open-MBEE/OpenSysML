@@ -205,7 +205,7 @@ func TestSetOfPointsReadForARuntime(t *testing.T) {
 		&pb.Value{Kind: &pb.Value_Quantity{Quantity: celsius}},
 	)
 
-	rt, _ := srv.newRuntime(cached)
+	rt, _ := srv.newRuntime(context.Background(), cached)
 	if _, err := protoconv.ProtoToRuntimeValue(rt, sent, idx, sem); !errors.Is(err, protoconv.ErrSetElementRepeated) {
 		t.Errorf("protoconv.ProtoToRuntimeValue({293.15 K, 20.0 °C_abs}) = %v, want %v", err, protoconv.ErrSetElementRepeated)
 	}

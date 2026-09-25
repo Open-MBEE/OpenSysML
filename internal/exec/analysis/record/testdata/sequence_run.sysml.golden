@@ -1,0 +1,28 @@
+package Records {
+    part def ProfileRun :> AnalysisRecords::AnalysisRun {
+        attribute :>> caseName default = "P::profile";
+        attribute profile : ScalarValues::Real[0..*];
+        attribute temps : ScalarValues::Real[0..*];
+        attribute tempsUnit : ScalarValues::String;
+        attribute mixed : ScalarValues::Real[0..*];
+        attribute labels : ScalarValues::String[0..*];
+        attribute peak : ScalarValues::Real[0..*];
+    }
+    part profile_run1 : ProfileRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "run";
+        }
+        attribute :>> caseName = "P::profile";
+        attribute :>> kind = "run";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> profile = (1.0, 2.5, 3.0);
+        attribute :>> temps = (300.0, 310.5);
+        attribute :>> tempsUnit = "K";
+        attribute :>> mixed = (1, 2.5);
+        attribute :>> labels = ("a", "b");
+        attribute :>> peak = (300.0);
+    }
+}

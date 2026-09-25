@@ -806,11 +806,11 @@ silent first-element would be an invented value. The bound value is the runtime'
 of the converted elements, each converted to the coherent unit as a scalar is, so the model
 reads `Tprofile` as it reads any `Real[0..*]`; the multiplicity's bounds are checked as the
 runtime checks any write (an empty sequence to `[1..*]` is refused there, not here). Recording
-today spells a sequence as a String of its text (`record.classify` falls through to
-`spellText`); it gains a sequence shape that records `attribute Tprofile : Real[0..*] = (300.0,
-310.5, 341.2);` with the element type the scalars share and the list literal in reply order, so
-a record reads as a model value and not as a quotation, and a document table cell holds it as
-it holds any sequence-valued attribute. `renderReply`
+spells a sequence as a list literal: `attribute Tprofile : Real[0..*]` declared on the run
+definition and `attribute :>> Tprofile = (300.0, 310.5, 341.2);` on each record, with the
+element type the scalars share and the items in reply order, so a record reads as a model
+value and not as a quotation, and a document table cell holds it as it holds any
+sequence-valued attribute. `renderReply`
 renders `Items` in the same form for divergence. `stdin: "csv"` and `{var}` render inputs only,
 and a sequence-valued **input** is out of scope for this note: a `ToolCall.Inputs` element is a
 scalar, and an action whose `in` parameter has an upper bound above 1 and a `ToolVariable` is
