@@ -1,6 +1,8 @@
 package analysis
 
 import (
+	"os"
+	"path/filepath"
 	goruntime "runtime"
 	"testing"
 )
@@ -57,5 +59,43 @@ func TestAvailableMemoryReadsTheKernelsFigures(t *testing.T) {
 		if got := cgroupHeadroom([]byte(tc.limit), []byte(tc.current)); got != tc.want {
 			t.Errorf("cgroupHeadroom(%q, %q) = %d, want %d", tc.limit, tc.current, got, tc.want)
 		}
+	}
+}
+
+// A limit on any ancestor cgroup binds the process, so the headroom is the least along
+// the process's cgroup path: an unlimited leaf under a limited parent is still limited.
+func TestCgroupHeadroomIsTheTightestAlongTheHierarchy(t *testing.T) {
+	root := t.TempDir()
+	write := func(dir, name, text string) {
+		t.Helper()
+		full := filepath.Join(root, filepath.FromSlash(dir))
+		if err := os.MkdirAll(full, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(full, name), []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("service", "memory.max", "1073741824\n")
+	write("service", "memory.current", "73741824\n")
+	write("service/app", "memory.max", "max\n")
+	write("service/app", "memory.current", "1000\n")
+	write("other", "memory.max", "4096\n")
+
+	leaf := []byte("0::/service/app\n")
+	if got := cgroupTreeHeadroom(root, leaf); got != 1000000000 {
+		t.Errorf("leaf under a limited parent: headroom %d, want 1000000000", got)
+	}
+	if got := cgroupTreeHeadroom(root, []byte("0::/other\n")); got != 4096 {
+		t.Errorf("limited leaf: headroom %d, want 4096", got)
+	}
+	if got := cgroupTreeHeadroom(root, []byte("0::/\n")); got != 0 {
+		t.Errorf("unlimited root: headroom %d, want 0", got)
+	}
+	if got := cgroupTreeHeadroom(root, nil); got != 0 {
+		t.Errorf("no unified hierarchy: headroom %d, want 0", got)
+	}
+	if got := cgroupV2Path([]byte("12:memory:/legacy\n0::/a/b\n")); got != "/a/b" {
+		t.Errorf("cgroupV2Path = %q, want /a/b", got)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -22,10 +24,10 @@ func jobsForMemory(available int64, cpus int) int {
 }
 
 // availableMemory is the memory the process may still take, in bytes: the lesser of the
-// host's MemAvailable and the cgroup's memory.max less its use; 0 where neither is known.
+// host's MemAvailable and the tightest cgroup memory.max less its use; 0 where neither is known.
 func availableMemory() int64 {
 	host := memAvailable(readFile("/proc/meminfo"))
-	limit := cgroupHeadroom(readFile("/sys/fs/cgroup/memory.max"), readFile("/sys/fs/cgroup/memory.current"))
+	limit := cgroupTreeHeadroom("/sys/fs/cgroup", readFile("/proc/self/cgroup"))
 	switch {
 	case host > 0 && limit > 0:
 		return min(host, limit)
@@ -37,8 +39,8 @@ func availableMemory() int64 {
 }
 
 // readFile is the file's bytes, nil when it cannot be read; the paths are the kernel's own.
-func readFile(path string) []byte {
-	data, err := os.ReadFile(path) // #nosec G304 -- fixed /proc and /sys paths
+func readFile(name string) []byte {
+	data, err := os.ReadFile(name) // #nosec G304 -- /proc and /sys files named by the kernel
 	if err != nil {
 		return nil
 	}
@@ -59,6 +61,34 @@ func memAvailable(meminfo []byte) int64 {
 		}
 	}
 	return 0
+}
+
+// cgroupTreeHeadroom is the least headroom of the process's cgroup v2 cgroup and its
+// ancestors under root, since a limit anywhere above applies; 0 when none is limited.
+func cgroupTreeHeadroom(root string, procCgroup []byte) int64 {
+	var least int64
+	for dir := cgroupV2Path(procCgroup); ; dir = path.Dir(dir) {
+		base := filepath.Join(root, filepath.FromSlash(dir))
+		room := cgroupHeadroom(readFile(filepath.Join(base, "memory.max")), readFile(filepath.Join(base, "memory.current")))
+		if room > 0 && (least == 0 || room < least) {
+			least = room
+		}
+		if dir == "/" {
+			return least
+		}
+	}
+}
+
+// cgroupV2Path is the process's cgroup on the unified hierarchy, the "0::/path" line of
+// /proc/self/cgroup; "/" when the file does not name one.
+func cgroupV2Path(procCgroup []byte) string {
+	sc := bufio.NewScanner(bytes.NewReader(procCgroup))
+	for sc.Scan() {
+		if rest, ok := strings.CutPrefix(sc.Text(), "0::"); ok {
+			return path.Clean("/" + strings.TrimSpace(rest))
+		}
+	}
+	return "/"
 }
 
 // cgroupHeadroom is what a cgroup v2 memory limit leaves over the memory already charged,

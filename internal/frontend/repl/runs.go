@@ -142,7 +142,7 @@ func (s *Session) runsTable(inv *freshInvocation, count int64, seed *uint64, obs
 		}
 		outcome, err := inv.run(rt)
 		if err != nil {
-			return runtime.SweepRunResult{}, err
+			return runtime.SweepRunResult{ReleaseContext: release}, err
 		}
 		return runtime.SweepRunResult{Outputs: observe(rt, outcome, observables), ReleaseContext: release}, nil
 	}
