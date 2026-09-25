@@ -215,7 +215,7 @@ func (e *queryEval) positionalNames(cached *CachedModel) {
 			if doc == nil || doc.Source == nil {
 				continue
 			}
-			file := source.New(doc.Source.Name(), doc.Source.Bytes())
+			file := source.NewWithKind(doc.Source.Name(), doc.Source.Bytes(), doc.Source.Kind())
 			p := parser.New(file)
 			root := p.ParseFile()
 			if len(p.Diagnostics) != 0 {

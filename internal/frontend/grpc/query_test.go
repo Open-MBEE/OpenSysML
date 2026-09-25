@@ -648,6 +648,50 @@ func TestQueryUsesPositionalIdentityForNamedChildOfUnnamedOwner(t *testing.T) {
 	}
 }
 
+func TestQueryInlineKerMLUsesPositionalIdentityAsScope(t *testing.T) {
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source:   &pb.ParseFileRequest_Content{Content: "type C specializes Base::Anything; feature : C;"},
+		Language: "kerml",
+	})
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	for _, diagnostic := range parsed.Diagnostics {
+		if diagnostic.Severity == "error" {
+			t.Fatalf("unexpected parse diagnostic: %s", diagnostic.Message)
+		}
+	}
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{},
+	})
+	if err != nil {
+		t.Fatalf("Query failed: %v", err)
+	}
+	var positionalID string
+	for _, element := range resp.Elements {
+		if isPositionalIdentity(element.Id) {
+			positionalID = element.Id
+			break
+		}
+	}
+	if positionalID == "" {
+		t.Fatalf("query returned no positional identity: %v", resp.Elements)
+	}
+
+	scoped, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     &pb.Query{Scope: []string{positionalID}},
+	})
+	if err != nil {
+		t.Fatalf("Query with positional scope %q failed: %v", positionalID, err)
+	}
+	if len(scoped.Elements) != 1 || scoped.Elements[0].Id != positionalID {
+		t.Fatalf("positional scope %q returned %v, want only that element", positionalID, scoped.Elements)
+	}
+}
+
 const satisfyQueryModel = `package Demo {
 	part def Toaster;
 	requirement def EnergyReq { subject t : Toaster; }
