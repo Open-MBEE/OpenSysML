@@ -76,6 +76,18 @@ func (e *NotAToolEntryError) Error() string {
 	return fmt.Sprintf("engine %s is not a tool manifest entry; nothing to preview", e.Engine)
 }
 
+// PreviewUndecidedError is the dry runner's answer when a higher-ranked engine
+// may answer the call first and cannot be probed without a model or a process.
+type PreviewUndecidedError struct {
+	Engine string
+	Tool   string
+}
+
+// Error names the engine consulted before the tool.
+func (e *PreviewUndecidedError) Error() string {
+	return fmt.Sprintf("engine %s is consulted before tool %s and may answer the call; preview cannot decide without asking it", e.Engine, e.Tool)
+}
+
 // DryRunner is a runtime.ToolRunner that previews the first tool call the
 // selection's engines reach and fails the performance with ToolDryRunError.
 func (r *Registry) DryRunner(selection Selection) runtime.ToolRunner {
@@ -88,9 +100,9 @@ type dryRunner struct {
 	selection Selection
 }
 
-// RunTool composes the call for the entry registered for it, refusing as the real
-// runner does — no such engine, a refusal of the entry, an absent executable — and
-// answering ToolDryRunError with the preview otherwise.
+// RunTool walks the selection's candidates in the order the real runner consults
+// them: a refusal moves on, a covered non-tool engine cannot be probed here, and the
+// tool's own entry previews its call and answers ToolDryRunError.
 func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
@@ -101,36 +113,31 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 		}
 		return runtime.ToolAnswer{}, err
 	}
-	var e toolEngine
-	own := false
 	for _, c := range candidates {
-		if te, ok := c.(toolEngine); ok && te.entry.ToolName == call.ToolName {
-			e, own = te, true
-			break
-		}
-	}
-	if !own {
-		if d.selection.Mode == SelectNamed {
-			named := candidates[0]
-			if cov := named.Covers(nil, q); cov.Refusal != nil {
+		cov := c.Covers(nil, q)
+		if cov.Refusal != nil {
+			if d.selection.Mode == SelectNamed {
 				return runtime.ToolAnswer{}, cov.Refusal
 			}
-			return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: named.Name()}
+			continue
 		}
-		return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
+		if te, ok := c.(toolEngine); ok && te.entry.ToolName == call.ToolName {
+			path, err := te.look(te.entry)
+			if err != nil {
+				return runtime.ToolAnswer{}, &ProcessAbsentError{Engine: te.Name(), Process: te.Describe().Process, Err: err}
+			}
+			preview, err := te.entry.Preview(call, path)
+			if err != nil {
+				return runtime.ToolAnswer{}, err
+			}
+			return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
+		}
+		if d.selection.Mode == SelectNamed {
+			return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
+		}
+		return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
 	}
-	if cov := e.Covers(nil, q); cov.Refusal != nil {
-		return runtime.ToolAnswer{}, cov.Refusal
-	}
-	path, err := e.look(e.entry)
-	if err != nil {
-		return runtime.ToolAnswer{}, &ProcessAbsentError{Engine: e.Name(), Process: e.Describe().Process, Err: err}
-	}
-	preview, err := e.entry.Preview(call, path)
-	if err != nil {
-		return runtime.ToolAnswer{}, err
-	}
-	return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
+	return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 }
 
 // Preview composes the call for the entry without making a temporary directory or
