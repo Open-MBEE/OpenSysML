@@ -1,7 +1,7 @@
 package org.openmbee.opensysml.cameo.tools;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -28,7 +28,7 @@ class BinaryStagerTest {
       Files.writeString(pin, json);
       Map<String, String> written =
           BinaryStager.stage("v1.2.3", Files.createTempDirectory("staged"), base(server), pin);
-      assertTrue(written.size() == 5);
+      assertEquals(5, written.size());
     } finally {
       server.stop(0);
     }
@@ -42,17 +42,19 @@ class BinaryStagerTest {
     try {
       Path pin = Files.createTempFile("digests", ".json");
       Files.writeString(pin, json);
-      assertThrows(Exception.class, () -> BinaryStager.stage("v1.2.3", Files.createTempDirectory("staged"), base(server), pin));
+      Path staged = Files.createTempDirectory("staged");
+      assertThrows(Exception.class, () -> BinaryStager.stage("v1.2.3", staged, base(server), pin));
     } finally {
       server.stop(0);
     }
   }
 
   @Test
-  void rejectsUnpinnedVersion() throws IOException, InterruptedException {
+  void rejectsUnpinnedVersion() throws IOException {
     Path pin = Files.createTempFile("digests", ".json");
     Files.writeString(pin, "{\"v1.2.3\":{}}");
-    assertThrows(IllegalArgumentException.class, () -> BinaryStager.stage("v9.9.9", Files.createTempDirectory("staged"), "http://127.0.0.1", pin));
+    Path staged = Files.createTempDirectory("staged");
+    assertThrows(IllegalArgumentException.class, () -> BinaryStager.stage("v9.9.9", staged, "http://127.0.0.1", pin));
   }
 
   private static HttpServer server(byte[] payload) throws IOException {

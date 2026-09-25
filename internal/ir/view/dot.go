@@ -279,9 +279,12 @@ type dotWriter struct {
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
 // white fills, thin #181818 lines, edge text a point smaller than node text.
 const (
-	dotFontName    = "Helvetica"
-	dotLineColor   = "#181818"
-	dotEdgeFontPts = 13
+	dotFontName      = "Helvetica"
+	dotLineColor     = "#181818"
+	dotEdgeFontPts   = 13
+	dotPenWidthOne   = "penwidth=1"
+	dotFillBlack     = "fillcolor=black"
+	dotArrowheadNone = "arrowhead=none"
 )
 
 // dotNodeDefaults and dotEdgeDefaults are the `node` and `edge` statements the
@@ -290,7 +293,7 @@ var (
 	dotNodeDefaults = []string{"shape=box", "style=filled", "fillcolor=white", dotColorAttr(dotLineColor),
 		dotFontAttr(dotFontName), fmt.Sprintf("fontsize=%d", dotFontSize), "penwidth=0.5"}
 	dotEdgeDefaults = []string{dotColorAttr(dotLineColor), dotFontAttr(dotFontName),
-		fmt.Sprintf("fontsize=%d", dotEdgeFontPts), "penwidth=1"}
+		fmt.Sprintf("fontsize=%d", dotEdgeFontPts), dotPenWidthOne}
 )
 
 // dotColorAttr and dotFontAttr are the quoted `color` and `fontname` attributes.
@@ -566,7 +569,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	stated := node.Geometry != nil && node.Geometry.HasSize
 	switch {
 	case node.Kind == startKind:
-		attrs = []string{"shape=point", "fillcolor=black", `label=""`}
+		attrs = []string{"shape=point", dotFillBlack, `label=""`}
 	case stated && isSymbolKind(node.Kind):
 		attrs = w.dotSymbolAttributes(node)
 	case node.Kind == "initial" || node.Kind == "final":
@@ -576,7 +579,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		if w.fills.filled(node) {
-			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
+			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), dotPenWidthOne)
 		}
 		if stated {
 			attrs = append(attrs, w.dotStatedLabel(node)...)
@@ -678,14 +681,14 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 	case "decision", "merge", "choice":
 		attrs = []string{"shape=diamond"}
 	case "fork", "join":
-		attrs = []string{"fillcolor=black"}
+		attrs = []string{dotFillBlack}
 	case "initial", "junction":
-		attrs = []string{"shape=circle", "fillcolor=black"}
+		attrs = []string{"shape=circle", dotFillBlack}
 	case "final", terminateKind:
-		attrs = []string{"shape=doublecircle", "fillcolor=black"}
+		attrs = []string{"shape=doublecircle", dotFillBlack}
 	default:
 		if w.fills.filled(node) {
-			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), "penwidth=1")
+			attrs = append(attrs, "fillcolor="+dotQuote(w.fills.fill(node)), dotColorAttr(w.fills.color(node)), dotPenWidthOne)
 		}
 	}
 	attrs = append(attrs, `label=""`)
@@ -710,7 +713,7 @@ func (w *dotWriter) dotPseudostateAttributes(node *Node) []string {
 	if shown(node) != "" {
 		return []string{shape, w.labels.dotLabel(node)}
 	}
-	attrs := []string{shape, "fillcolor=black", `label=""`}
+	attrs := []string{shape, dotFillBlack, `label=""`}
 	if _, ok := w.boxes[node.ID]; !ok {
 		attrs = append(attrs, "width="+dotInches(dotPseudostateSize))
 	}
@@ -1016,11 +1019,11 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	}
 	switch edge.Kind {
 	case EdgeConnection:
-		attrs = append(attrs, "arrowhead=none", "penwidth=3")
+		attrs = append(attrs, dotArrowheadNone, "penwidth=3")
 	case EdgeFlow:
 		attrs = append(attrs, "style=dashed")
 	case EdgeBinding:
-		attrs = append(attrs, "arrowhead=none")
+		attrs = append(attrs, dotArrowheadNone)
 	}
 	if len(edge.Route) > 1 {
 		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route)))
@@ -1041,7 +1044,7 @@ func (w *dotWriter) dotSpline(route []Point) string {
 
 // dotContainmentAttributes is a tree's containment edge, Mermaid's `---`.
 func dotContainmentAttributes() []string {
-	return []string{"arrowhead=none"}
+	return []string{dotArrowheadNone}
 }
 
 // dotKeywordPointSize is the font size of the guillemet keyword line, under the

@@ -1,1 +1,0 @@
-- **Binding and non-message flow usages now materialize as connector objects.** Their ends hold the connected feature values through the same connector path used by `connect` usages; message flows and one-ended bindings remain excluded.

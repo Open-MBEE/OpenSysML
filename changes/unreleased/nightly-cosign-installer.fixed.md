@@ -1,1 +1,0 @@
-- **The nightly snapshot signs again.** The cosign installer action was pinned at a v3 release that fetches a detached `.sig` for the requested cosign, but cosign v3.0.1+ ships `.sigstore.json` bundles instead, so the install step failed with a 404 before signing. The workflow now pins cosign-installer v4, which verifies those bundles.

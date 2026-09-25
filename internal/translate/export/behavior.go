@@ -1245,7 +1245,7 @@ func (d *decoder) sequencesFrom(el, from *element) bool {
 // it: the graph has to agree, or the order it states would not be written back.
 func (d *decoder) impliedSource(el, from *element) error {
 	if _, states := d.sourceEnd(el); !states {
-		return d.missing(el, "sysml:"+pSourceFeature, "a succession written as `then` sequences from the member before it")
+		return d.missing(el, sysmlPrefix+pSourceFeature, "a succession written as `then` sequences from the member before it")
 	}
 	if !d.sequencesFrom(el, from) {
 		return d.positionalError(el, "from", "before it")
@@ -1451,7 +1451,7 @@ func (d *decoder) subactionText(el *element, depth int) (string, error) {
 	case !ok && hasNormative:
 		kind = normative
 	case !ok:
-		return "", d.missing(el, "sysml:"+pKind+" or sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
+		return "", d.missing(el, sysmlPrefix+pKind+" or sysx:"+xSubactionKind, "a state subaction states whether it runs on entry, throughout or on exit")
 	}
 	keyword := d.keywordOr(el, kind)
 	// A braced block is one anonymous action; a graph that wrote it as the
@@ -1555,7 +1555,7 @@ func (d *decoder) transitionHead(el *element, syntax string) ([]string, error) {
 		return nil, err
 	}
 	if source == "" {
-		return nil, d.missing(el, "sysml:"+pSourceFeature, "a transition written with `transition` names the state it leaves")
+		return nil, d.missing(el, sysmlPrefix+pSourceFeature, "a transition written with `transition` names the state it leaves")
 	}
 	keyword := "transition"
 	if written, ok := d.stringOf(el, rdf.OpenSysML+xDeclaredKeyword); ok {

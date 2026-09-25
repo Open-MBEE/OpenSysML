@@ -1,1 +1,0 @@
-- **The npm platform packages and the nightly pipeline build statically linked binaries too.** `CGO_ENABLED=0` now governs the npm platform packages as well as `make build`, and `make static-check` runs in the nightly and npm pipelines beside the release and pull-request ones, so a dynamically linked binary fails those builds instead of shipping.

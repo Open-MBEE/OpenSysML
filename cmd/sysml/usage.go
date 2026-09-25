@@ -10,6 +10,7 @@ import (
 
 // The help-text placeholders and check flag names the help repeats.
 const (
+	callArg         = "<call>"
 	nameArg         = "<name>"
 	fileArg         = "<file>"
 	featureArg      = "<feature>"
@@ -664,9 +665,9 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("constraint", nameArg),
 			usage.Opt("requirement", nameArg),
 			usage.Opt("satisfy", "[=<name>]"),
-			usage.Opt("calc", "<call>"),
-			usage.Opt("analysis", "<call>"),
-			usage.Opt("record-run", "<call>"),
+			usage.Opt("calc", callArg),
+			usage.Opt("analysis", callArg),
+			usage.Opt("record-run", callArg),
 			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("instantiate", nameArg),

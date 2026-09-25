@@ -470,7 +470,7 @@ func (m *Model) flows(a *Element, from, to string) map[*Element][]*Element {
 
 // walk follows single control flows from cur until the chain ends or stop
 // is reached; it returns the steps and why the chain ended, "" when cleanly.
-func (w *chainWalker) walk(cur *Element, stop *Element) ([]*DocGenStep, string) {
+func (w *chainWalker) walk(cur, stop *Element) ([]*DocGenStep, string) {
 	if w.seen == nil {
 		w.seen = map[*Element]bool{}
 	}

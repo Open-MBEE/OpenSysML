@@ -1,1 +1,0 @@
-- The nightly snapshot's release notes no longer break mid-sentence: GitHub renders a release body with hard line breaks, so each paragraph is written as one line.
