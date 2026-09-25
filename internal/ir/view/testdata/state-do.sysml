@@ -21,9 +21,13 @@ package Instruments {
 			do action;
 			exit action wrap { }
 		}
+		state Booting {
+			do action : InitializePEAS;
+		}
 		transition first Init then Ready;
 		transition first Ready then Idle;
-		transition first Idle then done;
+		transition first Idle then Booting;
+		transition first Booting then done;
 	}
 }
 

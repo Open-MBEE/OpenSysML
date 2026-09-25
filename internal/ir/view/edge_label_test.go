@@ -1,6 +1,7 @@
 package view
 
 import (
+	"math"
 	"strings"
 	"testing"
 )
@@ -164,5 +165,36 @@ func TestEdgeLabelsYieldToTheEdgesOwnText(t *testing.T) {
 				t.Errorf("%s labels an edge with its name beside its own text %q:\n%s", tc.view, skip, text)
 			}
 		}
+	}
+}
+
+// A routed edge's label sits beside the midpoint of the route's longest
+// segment, clear of the line on the side its normal points to, whatever the
+// segment's direction; a bend's shorter leg is passed over for the longer one.
+func TestDOTLabelPointClearsTheRoute(t *testing.T) {
+	w := &dotWriter{skin: skinOf(StylePilot)}
+	width, height := dotTextExtent([]string{"go"}, w.skin.edgePts)
+	cases := []struct {
+		name  string
+		route []Point
+		want  Point
+	}{
+		{"down", []Point{{X: 50, Y: 0}, {X: 50, Y: 100}}, Point{X: halfPixel(50 + width/2 + dotLabelGap), Y: 50}},
+		{"up", []Point{{X: 50, Y: 100}, {X: 50, Y: 0}}, Point{X: halfPixel(50 - width/2 - dotLabelGap), Y: 50}},
+		{"right", []Point{{X: 0, Y: 50}, {X: 100, Y: 50}}, Point{X: 50, Y: halfPixel(50 - height/2 - dotLabelGap)}},
+		{"left", []Point{{X: 100, Y: 50}, {X: 0, Y: 50}}, Point{X: 50, Y: halfPixel(50 + height/2 + dotLabelGap)}},
+		{"bent", []Point{{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 10, Y: 200}}, Point{X: halfPixel(10 + width/2 + dotLabelGap), Y: 100}},
+	}
+	for _, c := range cases {
+		if got := w.dotLabelPoint(Edge{Label: "go", Route: c.route}); got != c.want {
+			t.Errorf("%s: label at %v, want %v", c.name, got, c.want)
+		}
+	}
+	diagonal := w.dotLabelPoint(Edge{Label: "go", Route: []Point{{X: 0, Y: 0}, {X: 100, Y: 100}}})
+	if !(diagonal.X > 50 && diagonal.Y < 50) {
+		t.Errorf("diagonal: label at %v, want it above-right of the line's midpoint (50,50)", diagonal)
+	}
+	if dx, dy := diagonal.X-50, 50-diagonal.Y; math.Abs(dx-dy) > 1 {
+		t.Errorf("diagonal: label at %v is not on the segment's normal", diagonal)
 	}
 }

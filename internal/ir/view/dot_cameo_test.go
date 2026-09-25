@@ -151,7 +151,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		t.Fatalf("pilot DOT: %v", err)
 	}
 	for _, want := range []string{
-		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap",
+		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
 	} {
 		for style, dot := range map[string]string{"cameo": cameo, "pilot": pilot} {
 			if !strings.Contains(dot, want) {
@@ -162,12 +162,13 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 	for _, want := range []string{
 		`fontname="Arial", fontsize=11,`,
 		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">initial, do / initialize</td></tr>`,
+		`<tr><td><b>Booting</b></td></tr><hr/><tr><td align="left">do / InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(cameo, want) {
 			t.Errorf("cameo DOT lacks %q:\n%s", want, cameo)
 		}
 	}
-	for _, unwanted := range []string{"Helvetica", "«state»", "fontsize=14"} {
+	for _, unwanted := range []string{"Helvetica", "«state»", "fontsize=14", "defers"} {
 		if strings.Contains(cameo, unwanted) {
 			t.Errorf("cameo DOT has %q:\n%s", unwanted, cameo)
 		}

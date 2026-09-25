@@ -1286,3 +1286,34 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 	}
 	return tokens, nil
 }
+
+// A pseudostate with a stated position keeps it: the route reaching it is not
+// followed to place it, and the box it stands in has that geometry.
+func TestDOTKeepsStatedPseudostatePositions(t *testing.T) {
+	rendering := &Rendering{View: "V", Kind: KindState, Canvas: &Canvas{Unit: "px", Width: 300, Height: 300, HasSize: true}, Roots: []*Node{
+		{ID: "i", Kind: "initial", Geometry: &Geometry{X: 60, Y: 40, Width: 16, Height: 16, HasSize: true}},
+		{ID: "s", Kind: "state", Name: "Idle", Geometry: &Geometry{X: 40, Y: 100, Width: 120, Height: 50, HasSize: true}},
+		{ID: "f", Kind: "final", Geometry: &Geometry{X: 200, Y: 100, Width: 20, Height: 20, HasSize: true}},
+	}, Edges: []Edge{
+		{From: "i", To: "s", Kind: EdgeTransition, Route: []Point{{X: 68, Y: 56}, {X: 68, Y: 100}}},
+		{From: "s", To: "f", Kind: EdgeTransition, Route: []Point{{X: 160, Y: 125}, {X: 200, Y: 110}}},
+	}}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	for _, want := range []string{
+		"// layout: neato -n2\n",
+		`"i" [shape=circle, fillcolor=black, label="", pos="68,252!", pin=true, width=0.2222222222222222, height=0.2222222222222222, fixedsize=true];`,
+		`"f" [shape=doublecircle, fillcolor=black, label="", pos="210,190!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
+		`"i" -> "s" [pos="e,68,200 68,244 68,244 68,210 68,210"];`,
+	} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, dot)
+		}
+	}
+	if strings.Contains(dot, "not represented") {
+		t.Errorf("DOT drops something:\n%s", dot)
+	}
+}
