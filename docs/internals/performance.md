@@ -323,15 +323,18 @@ with a private resolver and semantic model, over an index nothing writes while
 the pool runs. What resolving a document would otherwise link into the scope
 tree on first use — the owner of a metadata body — is linked for every document
 of the batch before the pool starts (`passes.PrepareBatch`), so the workers
-only read it. The batch carries the workspace's `passes.Gathers`
-(`passes.Batch.Gathers`), settled before the pool starts: the first context that
-runs a workspace-wide audit gathers every document's facts into it, under its
-lock, and every context reads the same union afterwards, so the audits gather
-each document once per batch rather than once per analysis. A private resolver
-records no dependencies, so the diagnostics a batch computes are cached with
-none — dropped on any change to the workspace (`Workspace.batched`) rather than
-per dependency — while the gathers themselves stay the workspace's, invalidated
-per document as the editor path does. Diagnostics come back in the order the
+only read it. The batch carries a `passes.Gathers` of its own
+(`passes.Batch.Gathers`): the first context that runs a workspace-wide audit
+gathers every document's facts into it, under its lock, and every context reads
+the same union afterwards, so the audits gather each document once per batch
+rather than once per analysis. A private resolver records no dependencies, so
+the diagnostics a batch computes are cached with none — dropped on any change
+to the workspace (`Workspace.batched`) rather than per dependency — and what
+its contexts gather never enters the workspace's own `passes.Gathers`, whose
+entries are invalidated per document as the editor path's resolver reports.
+The batch does settle the regathers an edit left pending before it consults
+the diagnostics cache, so a verdict the editor path cached is not served once a
+change to another document has undone it. Diagnostics come back in the order the
 files were given and are the same at any job count; `-jobs` and
 `OPENSYSML_JOBS`, the setting that bounds how many runs of one check go
 concurrently, set the pool, default one worker per CPU. The earlier cost of

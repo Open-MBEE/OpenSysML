@@ -98,9 +98,11 @@ func (w *Workspace) commitBatch(was map[string]uint64, docs []*Document) {
 // DiagnosticsAll returns the named documents' diagnostics in the order named (nil
 // for an unknown name), analyzing the uncached ones on the workers, then caching.
 // The workers share one gather of the workspace-wide audits, made on first use.
+// Pending regathers settle first, so no cached entry they would drop is served.
 func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.settleGathersLocked()
 	out := make([][]diag.Diagnostic, len(names))
 	var pending []string
 	queued := map[string]bool{}
