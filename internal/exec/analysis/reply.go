@@ -448,7 +448,7 @@ func checkReplyObject(r *Reply) error {
 		name string
 		set  bool
 	}{
-		{"outputs", len(r.Outputs) > 0},
+		{"outputs", r.Outputs != nil},
 		{"header", r.Header != nil},
 		{"delimiter", r.Delimiter != ""},
 		{"regex", r.Regex != ""},
