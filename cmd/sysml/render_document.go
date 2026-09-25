@@ -83,6 +83,7 @@ func pdfOptions() (docpdf.Options, error) {
 		BaseDir:             filepath.Dir(outputPath),
 		DiagramForm:         page.DiagramForm,
 		Unplaced:            page.Unplaced,
+		Style:               page.Style,
 	}, nil
 }
 
@@ -169,18 +170,23 @@ func documentOptions() docrender.HTMLOptions {
 		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
+		Style:               view.DrawingStyle(renderStyle),
 	}
 }
 
 // markdownOptions carries the flags shaping a Markdown document.
 func markdownOptions() docrender.MarkdownOptions {
-	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced)}
+	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle)}
 }
 
-// checkDiagramForm rejects a -diagram-form value naming no diagram form, and
-// a -render-unplaced value naming no placement.
+// checkDiagramForm rejects a -diagram-form value naming no diagram form, a
+// -render-unplaced value naming no placement and a -render-style value naming
+// no drawing style.
 func checkDiagramForm() error {
 	if _, err := unplacedOption(); err != nil {
+		return err
+	}
+	if _, err := styleOption(); err != nil {
 		return err
 	}
 	if diagramForm == "" || slices.Contains(view.DiagramForms(), view.Form(diagramForm)) {

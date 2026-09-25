@@ -365,7 +365,7 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 		skipWithout(t, "Graphviz dot", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +427,7 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 		skipWithout(t, "java", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

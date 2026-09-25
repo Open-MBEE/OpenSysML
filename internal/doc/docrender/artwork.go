@@ -23,12 +23,15 @@ type Diagram struct {
 // with the source the backends write for it in form (Mermaid when empty) with
 // unplaced nodes placed as unplaced says. A table-kind view is a table, not a
 // diagram, and is left out.
-func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced) ([]Diagram, error) {
+func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced, style view.DrawingStyle) ([]Diagram, error) {
 	if document == nil {
 		return nil, &Error{Kind: ErrorNilDocument}
 	}
 	resolved, err := diagramForm(form)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkStyle(style); err != nil {
 		return nil, err
 	}
 	var diagrams []Diagram
@@ -51,7 +54,7 @@ func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced) 
 			if !rendering.Kind.Supported() {
 				return &Error{Kind: ErrorUnrenderableDiagram, Content: node.Name(), Actual: string(rendering.Kind)}
 			}
-			source, err := diagramSource(node.Name(), rendering, figureOptions(node, unplaced), resolved)
+			source, err := diagramSource(node.Name(), rendering, figureOptions(node, unplaced, style), resolved)
 			if err != nil {
 				return err
 			}

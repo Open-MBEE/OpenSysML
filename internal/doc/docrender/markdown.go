@@ -30,6 +30,10 @@ type MarkdownOptions struct {
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty; the other forms draw one look.
+	Style view.DrawingStyle
+
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
 	// target's file here, or to DocumentFileName of its name when absent.
@@ -53,7 +57,10 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	w := &markdownWriter{form: form, unplaced: opts.Unplaced, files: opts.Files}
+	if err := checkStyle(opts.Style); err != nil {
+		return "", err
+	}
+	w := &markdownWriter{form: form, unplaced: opts.Unplaced, style: opts.Style, files: opts.Files}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
@@ -78,19 +85,30 @@ func diagramForm(form view.Form) (view.Form, error) {
 	return form, nil
 }
 
+// checkStyle rejects a drawing style there is none of; empty is the Pilot look.
+func checkStyle(style view.DrawingStyle) error {
+	if _, ok := view.ParseDrawingStyle(string(style)); !ok {
+		return &view.UnknownDrawingStyleError{Name: string(style)}
+	}
+	return nil
+}
+
 // markdownWriter carries the choices one Markdown render applies to every
 // node it writes.
 type markdownWriter struct {
 	form     view.Form
 	unplaced view.Unplaced
+	style    view.DrawingStyle
 	files    map[string]string
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
-// direction and palette, and the render's placement of unplaced nodes.
-func figureOptions(node docir.Content, unplaced view.Unplaced) view.Options {
+// direction and palette, and the render's placement of unplaced nodes and
+// drawing style.
+func figureOptions(node docir.Content, unplaced view.Unplaced, style view.DrawingStyle) view.Options {
 	options := node.Options()
 	options.Unplaced = unplaced
+	options.Style = style
 	return options
 }
 
@@ -131,7 +149,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentFormula:
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
-		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.unplaced), w.form)
+		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.unplaced, w.style), w.form)
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}

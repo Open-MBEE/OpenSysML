@@ -53,6 +53,10 @@ type Options struct {
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty.
+	Style view.DrawingStyle
 }
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
@@ -84,7 +88,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := converter.Available(); err != nil {
 		return nil, err
 	}
-	diagrams, err := docrender.Diagrams(document, opts.DiagramForm, opts.Unplaced)
+	diagrams, err := docrender.Diagrams(document, opts.DiagramForm, opts.Unplaced, opts.Style)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +114,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm, Unplaced: opts.Unplaced})
+		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style})
 		if err != nil {
 			return nil, err
 		}
@@ -191,6 +195,7 @@ func htmlOptions(opts Options, dir string, images []string, math formulas) (docr
 		Lang:                opts.Lang,
 		DiagramForm:         opts.DiagramForm,
 		Unplaced:            opts.Unplaced,
+		Style:               opts.Style,
 		DiagramImages:       images,
 		Math:                math.html,
 	}, nil

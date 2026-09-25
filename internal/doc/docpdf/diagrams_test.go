@@ -61,7 +61,7 @@ func fakeJar(t *testing.T, dir string) string {
 // telescopeDiagrams lists the telescope report's two diagrams written in form.
 func telescopeDiagrams(t *testing.T, form view.Form) []docrender.Diagram {
 	t.Helper()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), form, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), form, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -444,5 +444,41 @@ func TestRenderForPandocDrawsDOTAndPlantUML(t *testing.T) {
 				t.Fatalf("%s filter lacks %q:\n%s", form, want, filter)
 			}
 		}
+	}
+}
+
+// TestRenderDOTStyleReachesGraphviz checks the drawing style reaches the DOT
+// figures a PDF draws: the page states it on each figure and dot is run with
+// the Cameo source under `cameo`, with the Pilot look by default; a style
+// there is none of is refused before any tool runs.
+func TestRenderDOTStyleReachesGraphviz(t *testing.T) {
+	dir := t.TempDir()
+	withoutDiagramTools(t)
+	fakeSVGTool(t, dir, "dot", DotEnv)
+	capture := captureWeasyPrint(t, dir)
+	for _, style := range []view.DrawingStyle{"", view.StyleCameo} {
+		if _, err := Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: style}); err != nil {
+			t.Fatalf("Render(%q): %v", style, err)
+		}
+		page, _ := readCapture(t, capture)
+		if strings.Contains(page, `data-style="cameo"`) != (style == view.StyleCameo) || strings.Contains(page, `<pre class="dot">`) {
+			t.Fatalf("style %q page:\n%s", style, page)
+		}
+	}
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "", view.StyleCameo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	images, err := drawDiagrams(dir, diagrams, view.FormDot)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	source, err := os.ReadFile(filepath.Join(dir, strings.TrimSuffix(images[0], ".svg")+".dot"))
+	if err != nil || !strings.Contains(string(source), `subgraph "cluster_frame"`) || !strings.Contains(string(source), `fontname="Arial"`) {
+		t.Fatalf("dot input under cameo: %v\n%s", err, source)
+	}
+	_, err = Render(telescopeDocument(t), "weasyprint", Options{DiagramForm: view.FormDot, Style: "magicdraw"})
+	if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"`) {
+		t.Fatalf("an unknown drawing style: %v", err)
 	}
 }

@@ -17,8 +17,9 @@ import (
 )
 
 // renderDocumentUsage is what %render-document accepts: a document's name,
-// then optionally the form its graph-shaped diagrams are written in.
-const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml]"
+// then optionally the form its graph-shaped diagrams are written in and the
+// drawing style the dot form draws them in.
+const renderDocumentUsage = "usage: %render-document <name> [mermaid|dot|plantuml [pilot|cameo]]"
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
 // queries against the session's model, and renders the result as Markdown. A
@@ -222,19 +223,27 @@ func (s *Session) documentSymbols(idx *symbols.Index, sem *semantics.Model) []*s
 
 // doRenderDocument carries out %render-document, printing the rendered
 // Markdown or reporting a document that could not be rendered. A second
-// word names the form its graph-shaped diagrams are written in.
+// word names the form its graph-shaped diagrams are written in, a third the
+// drawing style.
 func (s *Session) doRenderDocument(invocation string) ([]string, bool, error) {
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
-	if len(fields) == 0 || len(fields) > 2 {
+	if len(fields) == 0 || len(fields) > 3 {
 		return []string{renderDocumentUsage}, false, nil
 	}
 	var opts docrender.MarkdownOptions
-	if len(fields) == 2 {
+	if len(fields) >= 2 {
 		opts.DiagramForm = view.Form(fields[1])
 		if !slices.Contains(view.DiagramForms(), opts.DiagramForm) {
 			return []string{errPrefix + fmt.Sprintf("%q is not a diagram form (%s); a document binds its queries' parameters in the model",
 				fields[1], view.FormNames(view.DiagramForms()))}, false, nil
 		}
+	}
+	if len(fields) == 3 {
+		style, ok := view.ParseDrawingStyle(fields[2])
+		if !ok {
+			return []string{errPrefix + (&view.UnknownDrawingStyleError{Name: fields[2]}).Error() + "; " + renderDocumentUsage}, false, nil
+		}
+		opts.Style = style
 	}
 	markdown, err := s.renderDocumentMarkdown(fields[0], opts)
 	if err != nil {

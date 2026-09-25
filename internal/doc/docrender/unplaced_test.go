@@ -47,7 +47,7 @@ func TestDocumentDiagramsSettleUnplacedNodes(t *testing.T) {
 			t.Fatalf("HTML(%q): %v", unplaced, err)
 		}
 		check(t, "html", html.UnescapeString(page), unplaced)
-		diagrams, err := Diagrams(document, view.FormDot, unplaced)
+		diagrams, err := Diagrams(document, view.FormDot, unplaced, "")
 		if err != nil {
 			t.Fatalf("Diagrams(%q): %v", unplaced, err)
 		}
@@ -64,7 +64,7 @@ func TestDocumentDiagramsSettleUnplacedNodes(t *testing.T) {
 		case "html":
 			_, err = HTML(document, HTMLOptions{DiagramForm: view.FormDot, Unplaced: "below"})
 		default:
-			_, err = Diagrams(document, view.FormDot, "below")
+			_, err = Diagrams(document, view.FormDot, "below", "")
 		}
 		if err == nil || !strings.Contains(err.Error(), `unknown placement "below"`) {
 			t.Errorf("%s: an unknown placement is not refused: %v", backend, err)

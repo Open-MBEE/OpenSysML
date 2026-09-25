@@ -175,6 +175,10 @@ type HTMLOptions struct {
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty; the other forms draw one look.
+	Style view.DrawingStyle
+
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
 	// target's file here, or to DocumentHTMLFileName of its name when absent.
@@ -227,6 +231,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	}
 	form, err := diagramForm(opts.DiagramForm)
 	if err != nil {
+		return "", err
+	}
+	if err := checkStyle(opts.Style); err != nil {
 		return "", err
 	}
 	var base string
@@ -662,7 +669,7 @@ func displayMathHTML(source string) string {
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts.Unplaced))
+	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts.Unplaced, w.opts.Style))
 }
 
 func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {
@@ -682,7 +689,8 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
 		attr(attrName, name) + attr("data-view", rendering.View) +
 		attr("data-diagram-kind", string(rendering.Kind)) +
-		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) + ">\n")
+		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) +
+		attr("data-style", string(options.Style)) + ">\n")
 	switch {
 	case rendering.Kind == view.KindTable:
 		w.writeRenderingTable(rendering)
