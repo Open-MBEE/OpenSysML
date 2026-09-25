@@ -2,6 +2,7 @@ package view
 
 import (
 	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -255,6 +256,65 @@ func TestNotesAcrossForms(t *testing.T) {
 		}
 		if !strings.Contains(out, "not represented: style cameo; only the DOT form draws a diagram in a style") {
 			t.Errorf("%s takes the cameo style silently:\n%s", form, out)
+		}
+	}
+}
+
+// A view exposing nothing but carrying a free note draws the note, in either
+// style, rather than the placeholder an empty rendering gets.
+func TestDOTNotesOnly(t *testing.T) {
+	rendering := &Rendering{View: "Remarks", Kind: KindInterconnection,
+		Notes: []Note{{Text: "Draft, not reviewed", X: 20, Y: 30, Width: 120, Height: 40, HasSize: true}}}
+	for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+		dot, err := rendering.DOTWith(Options{Style: style})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", style, err)
+		}
+		if !strings.Contains(dot, "Draft, not reviewed") || !strings.Contains(dot, "shape=note") {
+			t.Errorf("%s: the note is not drawn:\n%s", style, dot)
+		}
+		if strings.Contains(dot, `"empty"`) {
+			t.Errorf("%s: a notes-only view is drawn as empty:\n%s", style, dot)
+		}
+	}
+}
+
+// Markup in the model's own text is drawn as characters: HTML-like labels
+// escape it, quoted labels carry it literally, and Graphviz's SVG (checked
+// when `dot` is on the PATH) has no element or attribute that could run it.
+func TestDOTEscapesMarkup(t *testing.T) {
+	markup := `<script>alert(1)</script>`
+	rendering := &Rendering{View: markup, Kind: KindState,
+		Roots: []*Node{{ID: "s", Kind: "state", Name: markup, Geometry: &Geometry{X: 10, Y: 10, Width: 80, Height: 40, HasSize: true}}},
+		Edges: []Edge{{From: "s", To: "s", Label: markup, Kind: EdgeTransition}},
+		Notes: []Note{{Text: markup, Anchor: "s", X: 100, Y: 100, Width: 60, Height: 30, HasSize: true}}}
+	dot, dotErr := exec.LookPath("dot")
+	for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+		source, err := rendering.DOTWith(Options{Style: style})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", style, err)
+		}
+		for _, line := range strings.Split(source, "\n") {
+			if strings.Contains(line, "label=<") && strings.Contains(line, "<script") {
+				t.Errorf("%s: markup reaches an HTML-like label unescaped: %s", style, line)
+			}
+		}
+		if dotErr != nil {
+			continue
+		}
+		cmd := exec.Command(dot, "-Kneato", "-n", "-Tsvg")
+		cmd.Stdin = strings.NewReader(source)
+		svg, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("%s: dot: %v", style, err)
+		}
+		for _, bad := range []string{"<script", "<a ", " href=", " onload="} {
+			if strings.Contains(string(svg), bad) {
+				t.Errorf("%s: SVG carries %q:\n%s", style, bad, svg)
+			}
+		}
+		if !strings.Contains(string(svg), "&lt;script&gt;") {
+			t.Errorf("%s: SVG lost the text:\n%s", style, svg)
 		}
 	}
 }
