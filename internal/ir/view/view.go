@@ -125,6 +125,8 @@ type Renderer struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	text     SourceText
+	// treeDepthBound overrides the containment depth bound when set; tests only.
+	treeDepthBound int
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded

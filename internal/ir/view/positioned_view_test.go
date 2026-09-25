@@ -60,6 +60,35 @@ func TestExposedMemberIsNoSecondRoot(t *testing.T) {
 	}
 }
 
+// An exposed element contained only in suppressed containers' trees stands as
+// a root itself: a tree that cuts its walk short still draws it, once. The
+// depth bound is lowered so the chain need not nest to the real limit.
+func TestExposedDescendantsRestoresOrphanedElement(t *testing.T) {
+	r, idx := loadFixtures(t, "deep-tree.sysml")
+	r.treeDepthBound = 2
+	rendering, err := r.Render(lookup(t, idx, "ChainViews::deepView"))
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if len(rendering.Roots) != 2 {
+		t.Fatalf("roots = %d, want a's surviving tree and d as roots:\n%+v", len(rendering.Roots), rendering.Roots)
+	}
+	drawn := 0
+	var count func(nodes []*Node)
+	count = func(nodes []*Node) {
+		for _, node := range nodes {
+			if strings.HasSuffix(node.Name, "::d") || node.Name == "d" {
+				drawn++
+			}
+			count(node.Children)
+		}
+	}
+	count(rendering.Roots)
+	if drawn != 1 {
+		t.Errorf("d is drawn %d times, want once", drawn)
+	}
+}
+
 // A positioned or cameo drawing heads a node by the minimal suffix of its
 // qualified name that distinguishes it: scattered roots of unrelated
 // namespaces by their endings, not the whole name.

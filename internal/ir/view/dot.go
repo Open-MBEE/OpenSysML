@@ -230,19 +230,25 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	return w
 }
 
-// drawnNotes is notes without those anchored to a node the drawing declares no
-// box for, each noticed rather than written to an undeclared node.
+// drawnNotes drops the notes anchored to a node or edge end the drawing
+// declares but omits; an anchor it never declared keeps the note, drawn free.
 func (w *dotWriter) drawnNotes(notes []Note) []Note {
 	kept := make([]Note, 0, len(notes))
 	for _, note := range notes {
-		if note.Anchor == "" || w.draws(note.Anchor) {
+		switch {
+		case note.Anchor != "" && w.omits(note.Anchor):
+			w.notices = append(w.notices, fmt.Sprintf("note on %s, a node the rendering draws no box for; no note is drawn", note.Anchor))
+		case note.EdgeFrom != "" && (w.omits(note.EdgeFrom) || w.omits(note.EdgeTo)):
+			w.notices = append(w.notices, fmt.Sprintf("note on edge %s->%s, an edge the rendering draws no node for; no note is drawn", note.EdgeFrom, note.EdgeTo))
+		default:
 			kept = append(kept, note)
-			continue
 		}
-		w.notices = append(w.notices, fmt.Sprintf("note on %s, a node the rendering draws no box for; no note is drawn", note.Anchor))
 	}
 	return kept
 }
+
+// omits reports whether the node id is declared yet left undrawn.
+func (w *dotWriter) omits(id string) bool { return w.drawn[id] && w.omitted[id] }
 
 // settleUnplaced settles the nodes a positioned drawing leaves unplaced, as
 // asked: boxed in a strip below the drawing, or left undrawn with the edges

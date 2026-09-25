@@ -12,6 +12,15 @@ import (
 // members reach back into their own owner still renders.
 const maxTreeDepth = 16
 
+// treeDepth is the containment bound treeNode and treeDescendants share,
+// which a test may lower through Renderer.treeDepthBound.
+func (r *Renderer) treeDepth() int {
+	if r.treeDepthBound > 0 {
+		return r.treeDepthBound
+	}
+	return maxTreeDepth
+}
+
 // renderTree renders the exposed elements as a containment tree: each element
 // with its kind and name, the elements declared in it beneath it, and each view
 // nested in the rendered view as a subtree of its own. Each node is placed by
@@ -28,32 +37,42 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
 }
 
-// exposedDescendants is the key of each exposed element another exposed
-// element's containment tree already draws as a descendant, so it is not
-// appended a second time as a root of its own. The walk is a dry run of
-// treeNode's: the members containedMembers lists, under the same depth bound
-// and cycle guard.
+// exposedDescendants is the key of each exposed element a surviving root's
+// containment tree already draws — a fixpoint, since an element whose
+// containers are all suppressed must stand as a root itself.
 func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol) map[symbols.ElementKey]bool {
 	by := make([]map[symbols.ElementKey]bool, len(exposed))
-	counts := map[symbols.ElementKey]int{}
 	for i, elem := range exposed {
 		by[i] = r.treeDescendants(elem)
-		for key := range by[i] {
-			counts[key]++
+	}
+	suppressed := map[symbols.ElementKey]bool{}
+	for range exposed {
+		changed := false
+		for i, elem := range exposed {
+			key := symbols.KeyOf(elem)
+			contained := false
+			for j := range exposed {
+				if j == i || suppressed[symbols.KeyOf(exposed[j])] {
+					continue
+				}
+				if by[j][key] {
+					contained = true
+					break
+				}
+			}
+			if contained && !suppressed[key] {
+				suppressed[key] = true
+				changed = true
+			} else if !contained && suppressed[key] {
+				delete(suppressed, key)
+				changed = true
+			}
+		}
+		if !changed {
+			break
 		}
 	}
-	dup := map[symbols.ElementKey]bool{}
-	for i, elem := range exposed {
-		key := symbols.KeyOf(elem)
-		count := counts[key]
-		if by[i][key] {
-			count--
-		}
-		if count > 0 {
-			dup[key] = true
-		}
-	}
-	return dup
+	return suppressed
 }
 
 // treeDescendants is the set of element keys treeNode draws below sym, dry-run
@@ -62,7 +81,7 @@ func (r *Renderer) treeDescendants(sym *symbols.Symbol) map[symbols.ElementKey]b
 	out := map[symbols.ElementKey]bool{}
 	var walk func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int)
 	walk = func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int) {
-		if seen[sym] || depth >= maxTreeDepth {
+		if seen[sym] || depth >= r.treeDepth() {
 			return
 		}
 		seen[sym] = true
@@ -128,9 +147,9 @@ func (r *Renderer) treeNode(view, sym *symbols.Symbol, ids *nodeIDs, seen map[*s
 		return node
 	}
 	r.notesOf(view, sym, node.ID, out)
-	if depth >= maxTreeDepth {
+	if depth >= r.treeDepth() {
 		if len(r.containedMembers(sym)) > 0 {
-			node.Detail = detailWith(node.Detail, fmt.Sprintf("nested deeper than %d levels; not shown", maxTreeDepth))
+			node.Detail = detailWith(node.Detail, fmt.Sprintf("nested deeper than %d levels; not shown", r.treeDepth()))
 		}
 		return node
 	}
