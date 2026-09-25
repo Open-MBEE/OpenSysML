@@ -431,6 +431,10 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
+	// mcRecorded lazily lists the written individuals that record an analysis;
+	// mcRecordedDone marks the list computed.
+	mcRecorded     []*sysmlv1.Element
+	mcRecordedDone bool
 	// layout is the MTIP export augmenting the migration, nil without one;
 	// layoutByID indexes its diagram records by id, diagramIDs the model's
 	// diagrams, layoutJoined the records a written view laid out, and
