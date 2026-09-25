@@ -16,6 +16,7 @@ const toolCalcModel = `package test {
 	private import ScalarValues::*;
 	private import AnalysisTooling::*;
 	private import ISQ::*;
+	private import RealFunctions::abs;
 
 	calc def Thermal {
 		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://x"; }
@@ -71,6 +72,15 @@ const toolCalcModel = `package test {
 
 	calc p : Probe {
 		in a = 1;
+	}
+
+	calc def Custom :> abs {
+		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
+		in x :>> x { @ToolVariable { name = "x"; } }
+	}
+
+	calc def UsesCustom {
+		return : Real = Custom(-4);
 	}
 
 	part def Board {
@@ -434,6 +444,50 @@ func TestToolCalcNotesDivergence(t *testing.T) {
 	if !ok || d.Tool != "Thermo" || !strings.Contains(d.Describe(), "answered differently for equal inputs") {
 		t.Fatalf("note = %#v", notes[0])
 	}
+}
+
+// An annotated calc specializing a library function is computed by the tool,
+// never by the library's implementation of what it specializes — whether the
+// invocation goes through invokeCalc or an invocation expression — and a
+// context with no runner refuses rather than answering from the library.
+func TestToolCalcSpecializingALibraryFunctionComputesByTool(t *testing.T) {
+	t.Run("direct invocation", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"result": {Value: toolReal(7)}}}
+		ctx.SetToolRunner(runner)
+		result, err := ctx.InvokeCalc(calcNamed(t, scope, "Custom"), []Value{realOf(-4)}, scope)
+		if err != nil {
+			t.Fatalf("InvokeCalc: %v", err)
+		}
+		if got := FormatValue(result); got != "7.0" {
+			t.Fatalf("result = %s, want the tool's 7.0, not abs's 4.0", got)
+		}
+		if len(runner.calls) != 1 {
+			t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+		}
+		if len(runner.calls[0].Inputs) != 1 || runner.calls[0].Inputs[0].Variable != "x" ||
+			!nearly(runner.calls[0].Inputs[0].Value.Value, toolReal(-4)) {
+			t.Fatalf("inputs %+v, want x = -4", runner.calls[0].Inputs)
+		}
+	})
+	t.Run("no runner", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Custom"), []Value{realOf(-4)}, scope)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not abs's answer", err)
+		}
+	})
+	t.Run("invocation expression", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"result": {Value: toolReal(7)}}})
+		result, err := ctx.InvokeCalc(calcNamed(t, scope, "UsesCustom"), nil, scope)
+		if err != nil {
+			t.Fatalf("InvokeCalc: %v", err)
+		}
+		if got := FormatValue(result); got != "7.0" {
+			t.Fatalf("result = %s, want the tool's 7.0", got)
+		}
+	})
 }
 
 // divergingCalcRunner answers the calc's call and reports the answer as changed.

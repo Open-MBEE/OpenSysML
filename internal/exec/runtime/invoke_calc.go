@@ -1061,6 +1061,11 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	if ctx.calcComputes(chain) {
 		return nil
 	}
+	// A tool-computed calc answers from its tool, not the library's implementation;
+	// a failed annotation read computes too, so the error surfaces on the shape path.
+	if tool, err := ctx.toolExecutionOf(sym); err != nil || tool != nil {
+		return nil
+	}
 	lib := ctx.implementedLibraryCalc(sym)
 	if lib == nil {
 		return nil
