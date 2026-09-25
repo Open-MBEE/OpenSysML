@@ -59,11 +59,8 @@ type Note struct {
 	HasSize       bool
 }
 
-// Picture is a picture drawn on the canvas, from a DiagramLayout::Picture:
-// the file it is read from as the view states it (relative to the view's
-// file), the directory of that file ("" when the view is in no file), the box
-// it fills, an alternative text, and whether it is drawn over the nodes it
-// overlaps rather than under them.
+// Picture is a DiagramLayout::Picture drawn on the canvas: its file as the view
+// states it, the view's directory ("" in no file), its box, alt text, and z-order.
 type Picture struct {
 	Location      string
 	Dir           string

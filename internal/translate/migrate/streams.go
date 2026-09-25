@@ -121,9 +121,8 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	return &merged, src
 }
 
-// picture is a pasted image a diagram's stream carries and the view draws: the
-// symbol placing it, the file it is written as, and whether it lies over an
-// element symbol drawn before it, so the view draws it above the elements.
+// picture is a pasted image the view draws: its symbol, the file it is written
+// as, and whether it lies over an element symbol drawn before it.
 type picture struct {
 	sym      *sysmlv1.Symbol
 	location string
@@ -137,10 +136,8 @@ type pictures struct {
 	lost  []string
 }
 
-// pastedPictures writes the pasted images d's stream carries — their inline
-// bytes, else the archive entry the pasted file's name finds — under images/
-// and places each at its symbol's bounds; one with unreadable or no bytes, no
-// image bytes or no bounds is lost with the reason. Memoized per diagram.
+// pastedPictures writes d's pasted images (inline bytes, else the archive entry
+// the file name finds) under images/ at their bounds; the rest are lost with a reason.
 func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 	if p, ok := m.pictureOf[d]; ok {
 		return p
@@ -215,9 +212,8 @@ func overlapsAny(b *sysmlv1.Bounds, boxes []*sysmlv1.Bounds) bool {
 	return false
 }
 
-// pictureLine writes the Picture annotation drawing p on the view: the file,
-// the bounds, the pasted file's name as its alternative text, and above when
-// an element symbol drawn before it lies under it.
+// pictureLine writes p's Picture annotation: file, bounds, the pasted file's
+// name as alt text, and above when it lies over an element symbol.
 func pictureLine(prefix string, p picture) string {
 	b := p.sym.Bounds
 	var sb strings.Builder

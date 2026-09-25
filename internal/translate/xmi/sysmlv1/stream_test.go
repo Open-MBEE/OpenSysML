@@ -463,11 +463,8 @@ func pngHex(t *testing.T) ([]byte, string) {
 	return buf.Bytes(), strings.Join(octets, " ")
 }
 
-// A pasted image's bytes are read from its image tag, unpadded and padded
-// octets alike, apart from the file name it was pasted from; a symbol with the
-// name alone carries no bytes, and one whose octets do not read is noted in
-// the stream's image errors and read without its bytes, never failing the
-// stream.
+// A pasted image's bytes are read from its image tag, padded or not, apart from
+// its file name; unreadable octets are noted, never failing the stream.
 func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 	data, hex := pngHex(t)
 	stream := `<?xml version='1.0' encoding='UTF-8'?>

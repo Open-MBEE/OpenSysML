@@ -409,10 +409,8 @@ type migration struct {
 	indexed map[string]int
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
-	// files are the image files written beside the notation, the documents'
-	// attached images and the diagrams' pasted pictures, by the relative path
-	// they are written under; fileContents deduplicates by content, and
-	// imagesWritten counts them for the report's summary.
+	// files are the images written beside the notation by relative path;
+	// fileContents deduplicates them by content, imagesWritten counts them.
 	files         map[string][]byte
 	fileContents  map[string]string
 	imagesWritten int

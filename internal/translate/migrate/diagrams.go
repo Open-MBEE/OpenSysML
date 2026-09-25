@@ -722,9 +722,8 @@ func (m *migration) diagrams() {
 	m.unplacedTables()
 }
 
-// viewGeometry is the layout a diagram's layout record writes into a view: the
-// annotation lines, the report clause describing them, and how many pasted
-// images the view draws (pictures) and loses (lost).
+// viewGeometry is the layout a diagram writes into a view: the annotation lines,
+// their report clause, and the pasted images drawn (pictures) and lost.
 type viewGeometry struct {
 	lines    []string
 	note     string

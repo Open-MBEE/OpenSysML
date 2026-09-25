@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// A view's Picture metadata reaches the rendering with its bounds, and the DOT
-// form draws each as an image node pinned at them: those under the parts
-// before every node, those above after.
+// A view's Pictures reach the rendering with their bounds, and the DOT form
+// pins each as an image node: those under the parts first, those above last.
 func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 	rendering := render(t, "pictures.sysml", "Site::mixedView")
 	want := []Picture{

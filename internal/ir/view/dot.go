@@ -1578,10 +1578,8 @@ func pictureBox(p Picture) nodeBox {
 	return nodeBox{low: Point{X: p.X, Y: p.Y}, high: Point{X: p.X + p.Width, Y: p.Y + p.Height}, stated: true}
 }
 
-// writePictures writes the pictures drawn under the nodes (above false) or
-// over them (above true), in stated order, each an image node pinned at its
-// bounds: Graphviz draws nodes in the order they are written, so the pictures
-// written first lie behind everything else.
+// writePictures writes the pictures under (above false) or over the nodes as
+// image nodes pinned at their bounds; Graphviz draws nodes in written order.
 func (w *dotWriter) writePictures(depth int, above bool) {
 	for i, p := range w.pictures {
 		if p.Above != above {

@@ -474,9 +474,8 @@ func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason
 	return m.addFile(imagefile.Name(name, entry, ct), data), ""
 }
 
-// archivedImage finds the image bytes the attachment name names in the archive
-// (c's attached stream, the exact entry, or the unique base name) and their
-// content type; reason says, of named, why there are none.
+// archivedImage finds the image bytes an attachment name names in the archive
+// and their content type; reason says why there are none.
 func (m *migration) archivedImage(named, name string, c *sysmlv1.Element) (data []byte, entry, ct, reason string) {
 	entry, ambiguous := m.findEntry(name, c)
 	if ambiguous > 1 {

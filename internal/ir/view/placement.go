@@ -2,10 +2,8 @@ package view
 
 import "fmt"
 
-// placement is what a positioned rendering has a place for: the nodes a Layout
-// positions, the clusters round a placed member, the nodes a route meets, and
-// the pictures drawn at stated bounds. Every graph-shaped form draws by it, so
-// a drawing shows the same nodes and edges whichever form writes it.
+// placement is what a positioned rendering has a place for: positioned nodes,
+// their clusters, routed nodes and pictures; every graph-shaped form draws by it.
 type placement struct {
 	placed   map[string]bool // node ID -> has a place
 	extent   map[string]bool // node ID -> its place has an extent, not a corner alone

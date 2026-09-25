@@ -269,9 +269,8 @@ func TestDiagramLayoutStyleAndNoteAnnotations(t *testing.T) {
 		`fill of Style is "orange", not a colour written #RRGGBB`)
 }
 
-// A Picture is drawn on a view's surface: several on one view are all drawn,
-// one on anything but a view draws nothing, and one missing its bounds is a
-// value error.
+// Several Pictures on one view are all drawn; one on anything but a view draws
+// nothing, and one missing its bounds is a value error.
 func TestDiagramLayoutPictureAnnotations(t *testing.T) {
 	src := layoutModel(`	part def Pump {
 		@Picture { location = "images/pump.png"; x = 0; y = 0; width = 10; height = 10; }

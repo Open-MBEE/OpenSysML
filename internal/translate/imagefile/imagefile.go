@@ -10,9 +10,8 @@ import (
 	"strings"
 )
 
-// ContentType reports the image content type of data: an image/* type by its
-// signature (PNG, JPEG, GIF, BMP, WebP), or image/svg+xml for an SVG text,
-// which the signature sniffer reads as plain XML. "" when data is no image.
+// ContentType is the image/* type data's signature gives (PNG, JPEG, GIF, BMP,
+// WebP), image/svg+xml for an SVG text, or "" when data is no image.
 func ContentType(data []byte) string {
 	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
 		return ct
@@ -46,9 +45,8 @@ func plain(base string) bool {
 	return base != "" && base != "." && base != ".." && base != "/"
 }
 
-// Name is the base name to write an image of content type ct under: the base
-// of name (either path separator), else of fallback, else "image", given
-// the type's suffix unless it already carries one of the type's suffixes.
+// Name is the file name for an image of type ct: the base of name, else of
+// fallback, else "image", given the type's suffix unless it carries one already.
 func Name(name, fallback, ct string) string {
 	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
 	if !plain(base) {

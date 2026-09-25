@@ -79,10 +79,8 @@ type Note struct {
 	HasSize       bool
 }
 
-// Picture is one Picture annotation: a picture read from the file at Location,
-// relative to the file the annotation is written in, filling the box at X, Y
-// of Width by Height, with an alternative text and drawn over the elements it
-// overlaps when Above, else under them.
+// Picture is one Picture annotation: the file at Location (relative to the
+// annotation's file) filling the box at X, Y, drawn over the elements when Above.
 type Picture struct {
 	Location      string
 	X, Y          float64
@@ -264,10 +262,8 @@ func (m *Model) NotesOf(view, elem *symbols.Symbol) []*LayoutSite {
 	return out
 }
 
-// PicturesOf lists every Picture of view, in declaration order: those stated
-// in the view's body and those applying in every view. Every Picture is
-// drawn; a view may carry several. A Picture annotating anything but a view
-// draws nothing; the layout pass reports it.
+// PicturesOf lists every Picture of view in declaration order, those in its
+// body and those applying in every view; one on anything but a view draws nothing.
 func (m *Model) PicturesOf(view *symbols.Symbol) []*LayoutSite {
 	if view == nil {
 		return nil

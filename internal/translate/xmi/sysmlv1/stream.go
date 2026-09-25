@@ -294,10 +294,8 @@ func (syms *symbols) readSymbolField(sym *Symbol, tag, text, diagramID string) {
 	}
 }
 
-// decodeOctets reads bytes written as whitespace-separated hexadecimal octets
-// of one or two digits, as MagicDraw writes them ("d a" for 0x0D 0x0A). The
-// first token that is no such octet is returned with its position; "" when
-// every token reads.
+// decodeOctets reads whitespace-separated hexadecimal octets of one or two digits,
+// as MagicDraw writes them ("d a" for 0x0D 0x0A); the first bad token is returned.
 func decodeOctets(text string) (data []byte, offset int, octet string) {
 	data = make([]byte, 0, len(text)/3+1)
 	for i := 0; i < len(text); {
