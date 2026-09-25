@@ -223,6 +223,10 @@ type shape struct {
 
 // classify decides the feature shape a value asks for.
 func classify(v runtime.Value, r *Run) shape {
+	// A sequence is multi-valued even when it holds nothing, so no unset hook.
+	if v.Kind == runtime.ValSequence {
+		return classifySequence(v, r)
+	}
 	if r.Spell.Unset != nil && r.Spell.Unset(v) {
 		return shape{kind: kindUnset}
 	}
@@ -247,8 +251,6 @@ func classify(v runtime.Value, r *Run) shape {
 	case runtime.ValQuantity:
 		q := v.Quantity()
 		return shape{kind: kindQuantity, typ: scalarValuesReal, literal: semantics.FormatConst(q.Num), unit: q.Unit.String()}
-	case runtime.ValSequence:
-		return classifySequence(v, r)
 	case runtime.ValInstance, runtime.ValVariant:
 		if r.Spell.ObjectUsage != nil {
 			if usage := r.Spell.ObjectUsage(v); usage != "" {

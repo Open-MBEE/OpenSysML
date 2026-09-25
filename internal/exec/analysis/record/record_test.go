@@ -823,6 +823,30 @@ func TestGenerateEmptySequence(t *testing.T) {
 	}
 }
 
+// An empty-sequence run still claims the member as multi-valued: a later
+// non-empty run settles it to Real rather than meeting a single-valued member.
+func TestGenerateEmptySequenceSettlesToReal(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
+		Runs: []Run{
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf()}}},
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(2))}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute x : ScalarValues::Real[0..*];",
+		"attribute :>> x = ();",
+		"attribute :>> x = (1.0, 2.0);",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}
+
 // A sequence and a single value cannot share a member, whichever order the
 // runs supply them.
 func TestGenerateSequenceAgainstASingleValue(t *testing.T) {
