@@ -79,6 +79,13 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Refused before the service is built and before anything listens, so a build
+	// that cannot offer a reachable address says so instead of waiting on one.
+	if err := serveRefusal(opts.transport); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+
 	// Configure logging
 	var lvl slog.Level
 	switch opts.logLevel {
