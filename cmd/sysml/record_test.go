@@ -361,7 +361,7 @@ func TestRecordRunConvertRefusesIrrelevantFlags(t *testing.T) {
 // its type (`accept s3 : s3`), and a document over the saved file lists the runs.
 func TestRecordRunMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
 	binary := buildCLI(t)
-	source := filepath.Join("..", "..", "tests", "testdata", "record", "montecarlo_trigger_parameter.sysml")
+	source := filepath.Join("..", "..", "internal", "frontend", "repl", "testdata", "record_montecarlo_trigger_parameter.sysml")
 	out := filepath.Join(t.TempDir(), "runs.sysml")
 	cmd := exec.Command(binary, source, "-instantiate", "MC::probe", "-record-run", "MC::Mc MC::probe", "-runs", "3", "-seed", "7", "-convert", "sysml", "-o", out)
 	output, err := cmd.CombinedOutput()

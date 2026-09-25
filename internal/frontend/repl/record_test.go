@@ -702,7 +702,7 @@ func TestRecordRunSettlesNumericFamilyAndKeepsLiterals(t *testing.T) {
 // %record of a Monte Carlo sample succeeds in a model with a trigger parameter
 // named after its type (`accept s3 : s3`): the re-check keeps them distinct.
 func TestRecordMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
-	model := mustRead(t, filepath.Join("..", "..", "..", "tests", "testdata", "record", "montecarlo_trigger_parameter.sysml"))
+	model := mustRead(t, filepath.Join("testdata", "record_montecarlo_trigger_parameter.sysml"))
 	s := NewSession()
 	if errs := errorDiagnostics(s.Submit(model).Diagnostics); len(errs) > 0 {
 		t.Fatalf("model has errors: %v", errs)
