@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // maxBehaviorDepth bounds how deep a nested action usage is lowered, so a
@@ -43,12 +44,13 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
 		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+	r.dress(view, machine, root, out)
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, decl ast.Node) *Node {
 		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
-		node.NameSynthesized = r.declaredNameSynthesized(machine, decl)
-		return node
+		node.NameSynthesized = node.NameSynthesized || r.declaredNameSynthesized(machine, decl)
+		return r.declaredDress(view, machine, decl, node, out)
 	}
 
 	// Regions first: a state of an orthogonal region is nested in that region,
@@ -139,6 +141,7 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 		out.Edges = append(out.Edges, Edge{
 			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
 			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
+			Style: r.declaredEdgeDress(view, machine, entry.Decl, start.ID, target.ID, out),
 		})
 	}
 }
@@ -158,6 +161,7 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 		out.Edges = append(out.Edges, Edge{
 			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition, r.declaredNameSynthesized(machine, transition.Decl)),
 			Kind: EdgeTransition, Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+			Style: r.declaredEdgeDress(view, machine, transition.Decl, nodes[src].ID, target.ID, out),
 		})
 	}
 }
@@ -199,16 +203,18 @@ func (r *Renderer) regionNode(region *ast.StateRegion, graph *lower.StateGraph, 
 }
 
 // stateNode renders one state with what the machine says about it: whether its
-// body unconditionally starts in it, whether entering it completes, what it runs.
+// body unconditionally starts in it, what it runs as `do / Activity`, what it
+// defers. The `done` vertex a body's completion synthesizes is its final node.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, machine *symbols.Symbol, ids *nodeIDs) *Node {
 	node := &Node{ID: ids.take(), Kind: "state", Name: nameText(state.Name), Type: nodeType(graph.DeclOf(state)),
 		Origin: nodeOrigin(docOf(graph, state, machine.DocName), state)}
+	if graph.Completes(state) {
+		node.Kind, node.Name, node.Type, node.NameSynthesized = "final", ast.DoneFeature, "", true
+		return node
+	}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
-	}
-	if graph.Completes(state) {
-		detail = append(detail, "completes")
 	}
 	if behaviors := graph.Behaviors[state]; behaviors != nil {
 		for _, part := range []struct {
@@ -216,7 +222,7 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 			list []lower.StateBehavior
 		}{{"entry", behaviors.Entry}, {"do", behaviors.Do}, {"exit", behaviors.Exit}} {
 			if len(part.list) > 0 {
-				detail = append(detail, part.name)
+				detail = append(detail, stateBehaviorLabel(part.name, part.list))
 			}
 		}
 	}
@@ -294,13 +300,40 @@ func transitionName(transition *lower.Transition) string {
 func behaviorNames(behaviors []lower.StateBehavior) string {
 	names := make([]string, 0, len(behaviors))
 	for _, behavior := range behaviors {
-		if behavior.Name != "" {
-			names = append(names, nameText(behavior.Name))
+		if name := behaviorName(behavior); name != "" {
+			names = append(names, name)
 			continue
 		}
 		names = append(names, "effect")
 	}
 	return strings.Join(names, ", ")
+}
+
+// behaviorName is what a state behavior is drawn as: its name, else the
+// activity it performs by type (`do action : Reset` reads `Reset`), else "".
+func behaviorName(behavior lower.StateBehavior) string {
+	if behavior.Name != "" {
+		return nameText(behavior.Name)
+	}
+	if typ := nodeType(behavior.Node); typ != "" {
+		return source.ReferenceEndNames(typ)
+	}
+	return ""
+}
+
+// stateBehaviorLabel is a state's compartment line for one kind of behavior, as
+// UML writes it: `do / Activity`, or the kind alone when none is named.
+func stateBehaviorLabel(kind string, behaviors []lower.StateBehavior) string {
+	var names []string
+	for _, behavior := range behaviors {
+		if name := behaviorName(behavior); name != "" {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return kind
+	}
+	return kind + " / " + strings.Join(names, ", ")
 }
 
 // triggerLabel is the event a transition waits for: an accepted signal or called
@@ -450,6 +483,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	}
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
 		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
+	r.declaredDress(subject.view, subject.elem, decl, root, out)
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
@@ -457,6 +491,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+		r.declaredDress(subject.view, subject.elem, node, child, out)
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
@@ -496,7 +531,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			edgeDoc := docOf(graph, edge.Decl, doc)
 			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, edge.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
-				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
+				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out),
+				Style: r.declaredEdgeDress(subject.view, subject.elem, edge.Decl, nodes[src].ID, to.ID, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -507,7 +543,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			}
 			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
-				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
+				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
+				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
 		}
 	}
 }

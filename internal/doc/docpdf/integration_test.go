@@ -365,12 +365,12 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 		skipWithout(t, "Graphviz dot", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormDot})
 	if err != nil {
 		t.Fatal(err)
 	}
-	positioned := docrender.Diagram{Name: "placed", Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  node [shape=box];\n  Pump [pos=\"0,0\"];\n  Tank [pos=\"200,100\"];\n  Pump -- Tank [label=\"supply\"];\n}"}
-	images, err := drawDiagrams(dir, append(diagrams, positioned), view.FormDot)
+	positioned := docrender.Diagram{Name: "placed", Form: view.FormDot, Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  node [shape=box];\n  Pump [pos=\"0,0\"];\n  Tank [pos=\"200,100\"];\n  Pump -- Tank [label=\"supply\"];\n}"}
+	images, err := drawDiagrams(dir, append(diagrams, positioned))
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -416,6 +416,129 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 	}
 }
 
+// TestRenderCameoDiagramWithInstalledGraphviz draws a fully positioned state
+// machine in the cameo style through a real Graphviz: the pinned `neato -n2`
+// layout, Cameo's Arial text, the frame header, a Style's own colours, the
+// note with its anchor, and an arrowhead on a routed transition; then the PDF
+// carries the figure rather than its DOT source.
+func TestRenderCameoDiagramWithInstalledGraphviz(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{Form: view.FormDot, Style: view.StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || !strings.Contains(diagrams[0].Source, "// layout: neato -n2\n") {
+		t.Fatalf("cameo diagram is not pinned with neato -n2:\n%+v", diagrams)
+	}
+	dir := t.TempDir()
+	images, err := drawDiagrams(dir, diagrams)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 1 {
+		t.Fatalf("images = %q", images)
+	}
+	if err := checkSVG(filepath.Join(dir, images[0])); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, images[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := string(raw)
+	for _, want := range []string{
+		`font-family="Arial"`, "font-size=\"11.00\"",
+		">stm</text>", "State Machine",
+		"do / MonitorPEAS", "InitializePEAS",
+		"Runs once at power&#45;up.", `stroke-dasharray`,
+		`fill="#f2dcdb"`, `stroke="#9c0006"`,
+		"accept Start", "<polygon",
+	} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("cameo SVG lacks %q", want)
+		}
+	}
+	if strings.Contains(svg, "Helvetica") || strings.Contains(svg, "«state»") {
+		t.Errorf("cameo SVG carries the Pilot look")
+	}
+	if t.Failed() {
+		t.Log(svg)
+	}
+
+	_, text := renderInstalled(t, document, "", Options{DiagramForm: view.FormDot, Style: view.StyleCameo})
+	if strings.Contains(text, "digraph") || strings.Contains(text, dotNotice[:40]) {
+		t.Fatalf("DOT source or its notice reached the PDF:\n%s", text)
+	}
+	if !strings.Contains(text, "PEAS states, as Cameo drew them") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderPositionedDiagramByDefaultWithInstalledGraphviz renders the
+// positioned cameo fixture with no DiagramForm stated: the automatic choice
+// picks DOT, Graphviz draws it, and the PDF carries the figure with no Mermaid
+// fallback notice; Graphviz.Draw returns the same SVG for the inline backends.
+func TestRenderPositionedDiagramByDefaultWithInstalledGraphviz(t *testing.T) {
+	if !(Graphviz{}).Available() {
+		_, err := graphvizTool.locate("")
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{Style: view.StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || diagrams[0].Form != view.FormDot || diagrams[0].Fallback != "" {
+		t.Fatalf("automatic choice for a positioned view = %+v, want dot without fallback", diagrams)
+	}
+	svgs, err := Graphviz{}.Draw(diagrams)
+	if err != nil {
+		t.Fatalf("Graphviz.Draw: %v", err)
+	}
+	if len(svgs) != 1 || !strings.Contains(svgs[0], "<svg") || !strings.Contains(svgs[0], "do / MonitorPEAS") {
+		t.Fatalf("Graphviz.Draw SVG = %q", svgs)
+	}
+	_, text := renderInstalled(t, document, "", Options{Style: view.StyleCameo})
+	if strings.Contains(text, "digraph") || strings.Contains(text, "stateDiagram") || strings.Contains(text, "drawn as Mermaid") {
+		t.Fatalf("source or a fallback notice reached the PDF:\n%s", text)
+	}
+	if !strings.Contains(text, "PEAS states, as Cameo drew them") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderPositionedDiagramFallsBackWithInstalledMermaid renders the Cameo
+// report with Graphviz pointed nowhere: the positioned view falls back to a
+// Mermaid drawing, the notice saying so and the caption both reach the PDF,
+// through the default engine and through pandoc, whose filter marks the
+// caption past the notice.
+func TestRenderPositionedDiagramFallsBackWithInstalledMermaid(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	t.Setenv(DotEnv, filepath.Join(t.TempDir(), "no-dot"))
+	if (Graphviz{}).Available() {
+		t.Fatal("Graphviz is available with OPENSYSML_DOT pointed at nothing")
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	for _, engine := range []string{"", pandocTool.name} {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{})
+			for _, want := range []string{"PEAS states, as Cameo drew them", "drawn as Mermaid, not at its stated positions"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			if strings.Contains(text, "stateDiagram") || strings.Contains(text, "digraph") {
+				t.Fatalf("diagram source reached the PDF:\n%s", text)
+			}
+		})
+	}
+}
+
 // TestRenderDiagramsWithInstalledPlantUML draws the telescope report's
 // diagrams as PlantUML through a real jar when OPENSYSML_PLANTUML_JAR and java
 // are set, and skips otherwise.
@@ -427,11 +550,11 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 		skipWithout(t, "java", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormPlantUML})
 	if err != nil {
 		t.Fatal(err)
 	}
-	images, err := drawDiagrams(dir, diagrams, view.FormPlantUML)
+	images, err := drawDiagrams(dir, diagrams)
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -444,8 +567,8 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 	}
 
 	// A diagram the jar rejects is the typed failure, with what it said.
-	rejected := []docrender.Diagram{{Name: "bad", Source: "@startuml\nclass A\nA --> \n@enduml"}}
-	_, err = drawDiagrams(t.TempDir(), rejected, view.FormPlantUML)
+	rejected := []docrender.Diagram{{Name: "bad", Form: view.FormPlantUML, Source: "@startuml\nclass A\nA --> \n@enduml"}}
+	_, err = drawDiagrams(t.TempDir(), rejected)
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || !strings.Contains(docErr.Detail, "Syntax Error") {
 		t.Fatalf("rejected diagram: got %v, want ErrorToolFailed with the jar's message", err)
@@ -863,4 +986,34 @@ func dominantSize(sizes map[float64]int) float64 {
 		}
 	}
 	return best
+}
+
+// TestRenderImageBlocksWithInstalledEngines renders a document whose image
+// blocks name a file beside the output through each installed converter, and
+// reads back that the image was drawn: pdfimages lists it.
+func TestRenderImageBlocksWithInstalledEngines(t *testing.T) {
+	base := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	mark, err := os.ReadFile(filepath.Join("testdata", "mark.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "images", "mark.png"), mark, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	document := imageDocSource(t, `"images/mark.png"`)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{BaseDir: base})
+			if !strings.Contains(text, "The survey mark") {
+				t.Errorf("caption missing:\n%s", text)
+			}
+			images := pdfImages(t, pdf)
+			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+`).MatchString(images) {
+				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
+			}
+		})
+	}
 }

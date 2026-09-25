@@ -1,7 +1,12 @@
 package migrate
 
 import (
+	"bytes"
 	"fmt"
+	"html"
+	"net/http"
+	"net/url"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -75,6 +80,9 @@ type contentPlan struct {
 	// the query-backed kinds.
 	query string
 	rows  qx
+	// location and alt are what an Image block shows and says for it.
+	location string
+	alt      string
 	// source is the view a Diagram shows; anchor the Document's usage of the
 	// definition holding it, when one does.
 	source  *view
@@ -235,7 +243,8 @@ func (c *chain) start(v *sysmlv1.DocGenView) {
 }
 
 // collaboratorParagraph plans a paragraph the View Editor attached to a view:
-// its comment's body, verbatim, or a comment saying why not.
+// its comment's body, verbatim, or a comment saying why not; an image
+// paragraph becomes an Image block when the attached file can be located.
 func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenParagraph) *contentPlan {
 	cp := &contentPlan{kind: "Paragraph", node: p.Comment, label: "«Paragraph» Comment"}
 	if p.Image {
@@ -248,14 +257,13 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	}
 	switch {
 	case cp.refused != "":
-	case p.Image && cp.text == "":
-		cp.refused = "the attached image " + attachedFile(p.Comment) + " has no caption, and a Diagram shows a view, not an image file"
 	case p.Image:
-		cp.notes = append(cp.notes, "the attached image "+attachedFile(p.Comment)+" is not written, since a Diagram shows a view, not an image file; its caption stands as the paragraph")
+		m.planImage(sec, cp, p)
+	case m.imageInBody(sec, cp, p.Comment, commentRawBody(p.Comment)):
 	case cp.text == "":
 		cp.refused = "the paragraph's comment has no body"
 	}
-	if cp.refused == "" {
+	if cp.refused == "" && cp.name == "" {
 		cp.name = sec.names.claim("paragraph")
 	}
 	if cp.refused != "" {
@@ -264,17 +272,331 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	return cp
 }
 
-// attachedFile names the file the tool attached to comment c, quoted; "an
-// unnamed file" when the attachment names none.
-func attachedFile(c *sysmlv1.Element) string {
-	for _, s := range c.Stereotypes {
-		if s.Name == "AttachedFile" && s.Namespace == sysmlv1.MagicDrawProfileNS {
-			if f := strings.TrimSpace(s.Tag("file")); f != "" {
-				return strconv.Quote(f)
+// planImage turns an image paragraph's plan into an Image block: the comment's
+// <img src>, or its AttachedFile tag, names the file the archive holds; the
+// comment's body is the caption and the file name the alt text. An http(s)
+// source needs no bytes: the document renders it at view time.
+func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocGenParagraph) {
+	cp.kind = "Image"
+	cp.caption = cp.text
+	cp.text = ""
+	src, file := m.imageSource(p.Comment)
+	var location, reason string
+	switch {
+	case isRemoteImage(src):
+		location = src
+	case file != "" || p.Comment.AttachedStream != "":
+		location, reason = m.imageFile(file, p.Comment)
+	}
+	if location == "" && src != "" && !isRemoteImage(src) {
+		location, reason = m.imageFile(src, p.Comment)
+		if location == "" {
+			if loc, ok := m.imageLocation(src); ok {
+				location, reason = loc, ""
 			}
 		}
 	}
-	return "an unnamed file"
+	if location == "" {
+		if serverImagePath(src) && m.imageBase == nil {
+			reason = "the image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+		} else if reason == "" {
+			reason = "the image paragraph's comment names no attached file"
+		}
+		m.fallbackImageParagraph(sec, cp, reason)
+	} else {
+		cp.location = location
+	}
+	if cp.kind != "Image" {
+		return
+	}
+	cp.alt = file
+	if cp.alt == "" {
+		cp.alt = src
+	}
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	if _, _, n := firstImg(commentRawBody(p.Comment)); n > 1 {
+		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", n-1))
+	}
+	cp.name = sec.names.claim("image")
+}
+
+// fallbackImageParagraph leaves an image plan whose file cannot be located as
+// the paragraph its caption makes, noted with the reason; an empty caption
+// refuses the plan instead.
+func (m *migration) fallbackImageParagraph(sec *sectionPlan, cp *contentPlan, reason string) {
+	if cp.caption == "" {
+		cp.refused = reason
+		return
+	}
+	cp.notes = append(cp.notes, reason+"; its caption stands as the paragraph")
+	cp.kind = "Paragraph"
+	cp.text = cp.caption
+	cp.caption = ""
+	cp.name = sec.names.claim("paragraph")
+}
+
+// attachmentName is the raw file name the AttachedFile tag states.
+func attachmentName(c *sysmlv1.Element) string {
+	for _, s := range c.Stereotypes {
+		if s.Name == "AttachedFile" && s.Namespace == sysmlv1.MagicDrawProfileNS {
+			if f := strings.TrimSpace(s.Tag("file")); f != "" {
+				return f
+			}
+		}
+	}
+	return ""
+}
+
+var (
+	imgTagRe    = regexp.MustCompile(`(?i)<img[^>]*>`)
+	imgSourceRe = regexp.MustCompile(`(?i)<img[^>]+src\s*=\s*["']([^"']+)["']`)
+	imgAltRe    = regexp.MustCompile(`(?i)\balt\s*=\s*["']([^"']*)["']`)
+)
+
+// commentRawBody is the comment's body as written, tags and all.
+func commentRawBody(c *sysmlv1.Element) string {
+	if c == nil {
+		return ""
+	}
+	body := c.Attrs["body"]
+	if o := firstOwned(c, "body"); o != nil && strings.TrimSpace(body) == "" {
+		body = o.Text
+	}
+	return body
+}
+
+// imageSource reads the image an image-paragraph comment names: the first
+// <img src> in its body, and the AttachedFile tag's file name.
+func (m *migration) imageSource(c *sysmlv1.Element) (src, file string) {
+	if match := imgSourceRe.FindStringSubmatch(commentRawBody(c)); match != nil {
+		src = html.UnescapeString(match[1])
+	}
+	return src, attachmentName(c)
+}
+
+// isRemoteImage reports a location rendered where it stands: an http(s) URL
+// the archive need not hold.
+func isRemoteImage(src string) bool {
+	lower := strings.ToLower(src)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+}
+
+// serverImagePath reports a src the View Editor could serve: a root-relative
+// or relative path, not a URL or a Windows file path.
+func serverImagePath(src string) bool {
+	if src == "" || isRemoteImage(src) || strings.HasPrefix(src, `\\`) {
+		return false
+	}
+	u, err := url.Parse(src)
+	return err == nil && !u.IsAbs()
+}
+
+// imageLocation resolves an <img src> to a location the document renders where
+// it stands: the URL itself, or a server path resolved against the base URL.
+func (m *migration) imageLocation(src string) (string, bool) {
+	if isRemoteImage(src) {
+		return src, true
+	}
+	if m.imageBase == nil || !serverImagePath(src) {
+		return "", false
+	}
+	ref, err := url.Parse(src)
+	if err != nil {
+		return "", false
+	}
+	return m.imageBase.ResolveReference(ref).String(), true
+}
+
+// firstImg reads the first <img> of a raw body: its src and alt attributes,
+// and how many <img>s the body holds.
+func firstImg(body string) (src, alt string, n int) {
+	imgs := imgTagRe.FindAllString(body, -1)
+	for _, tag := range imgs {
+		if match := imgSourceRe.FindStringSubmatch(tag); match != nil {
+			src = html.UnescapeString(match[1])
+			if match := imgAltRe.FindStringSubmatch(tag); match != nil {
+				alt = html.UnescapeString(match[1])
+			}
+			break
+		}
+	}
+	return src, alt, len(imgs)
+}
+
+// imageInBody plans the first <img> of a paragraph body's as an Image block —
+// the body's text is its caption and the img's alt its alt — when the source
+// resolves in the archive or against the base URL; a body with several images
+// is noted for those left out.
+func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1.Element, body string) bool {
+	src, alt, n := firstImg(body)
+	if src == "" {
+		return false
+	}
+	location, _ := m.imageFile(src, node)
+	ok := location != ""
+	if !ok {
+		location, ok = m.imageLocation(src)
+	}
+	if !ok {
+		if serverImagePath(src) && m.imageBase == nil {
+			cp.notes = append(cp.notes, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
+		}
+		return false
+	}
+	cp.kind = "Image"
+	cp.location = location
+	cp.caption = cp.text
+	cp.text = ""
+	cp.alt = alt
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	if n > 1 {
+		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", n-1))
+	}
+	cp.name = sec.names.claim("image")
+	return true
+}
+
+// imageFile registers the image bytes the attachment names (stream, exact
+// entry, or unique base name) for writing under images/; reason says why not.
+func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason string) {
+	named := "the attached image " + strconv.Quote(name)
+	if name == "" {
+		named = "the attached image"
+	}
+	entry, ambiguous := m.findEntry(name, c)
+	if ambiguous > 1 {
+		return "", named + " matches " + strconv.Itoa(ambiguous) + " archive entries; the attachment names no stream"
+	}
+	if entry == "" {
+		return "", named + " is not in the archive"
+	}
+	data, ok := m.model.Attachment(entry)
+	if !ok {
+		return "", named + " is not in the archive"
+	}
+	ct := imageContent(data)
+	if ct == "" {
+		return "", named + " is not an image (content type " + http.DetectContentType(data) + ")"
+	}
+	return m.addFile(imageFileName(name, entry, ct), data), ""
+}
+
+// imageContent reports the archive bytes hold an image: an image/* content
+// type, or an SVG, which DetectContentType reads as text.
+func imageContent(data []byte) string {
+	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
+		return ct
+	}
+	t := bytes.TrimSpace(data)
+	if (bytes.HasPrefix(t, []byte("<?xml")) || bytes.HasPrefix(t, []byte("<svg"))) && bytes.Contains(t, []byte("<svg")) {
+		return "image/svg+xml"
+	}
+	return ""
+}
+
+// imageExtensions are the file suffixes each image content type is written
+// under, the first being the canonical one.
+var imageExtensions = map[string][]string{
+	"image/png":     {".png"},
+	"image/jpeg":    {".jpg", ".jpeg"},
+	"image/gif":     {".gif"},
+	"image/webp":    {".webp"},
+	"image/bmp":     {".bmp"},
+	"image/svg+xml": {".svg"},
+}
+
+// plainFileName reports base names a file can be written under.
+func plainFileName(base string) bool {
+	return base != "" && base != "." && base != ".." && base != "/"
+}
+
+// imageFileName names the written image: the base of the tag's file name when
+// it states one, else the stream id, with a suffix that matches the content
+// type ct the bytes read as; a stated suffix of another type is replaced.
+func imageFileName(name, entry, ct string) string {
+	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	if !plainFileName(base) {
+		base = path.Base(entry)
+	}
+	if !plainFileName(base) {
+		base = "image"
+	}
+	exts := imageExtensions[ct]
+	if len(exts) == 0 {
+		return base
+	}
+	if ext := path.Ext(base); slices.Contains(exts, strings.ToLower(ext)) {
+		return base
+	} else if base != ext {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base + exts[0]
+}
+
+// findEntry names the archive entry holding the attachment name names: the
+// comment's attached stream, the exact entry, or the unique entry with that
+// base name; ambiguous reports a base name several entries share.
+func (m *migration) findEntry(name string, c *sysmlv1.Element) (entry string, ambiguous int) {
+	names := m.model.AttachmentNames()
+	if len(names) == 0 {
+		return "", 0
+	}
+	if c != nil && slices.Contains(names, c.AttachedStream) {
+		return c.AttachedStream, 0
+	}
+	if name == "" {
+		return "", 0
+	}
+	if slices.Contains(names, name) {
+		return name, 0
+	}
+	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	for _, n := range names {
+		if path.Base(n) == base {
+			entry = n
+			ambiguous++
+		}
+	}
+	if ambiguous > 1 {
+		return "", ambiguous
+	}
+	return entry, 0
+}
+
+// unsafeFileChars are the bytes replaced in a written image file's name.
+var unsafeFileChars = strings.NewReplacer("\\", "_", "/", "_", ":", "_", " ", "_", "?", "_", "#", "_", "%", "_")
+
+// addFile registers data for writing beside the notation as images/<name>,
+// sanitized and deduplicated: identical bytes already registered reuse the
+// path, a colliding name gains a numeric suffix.
+func (m *migration) addFile(name string, data []byte) string {
+	base := unsafeFileChars.Replace(name)
+	if base == "" || base == "." || base == ".." {
+		base = "image"
+	}
+	if path, ok := m.fileContents[string(data)]; ok {
+		return path
+	}
+	ext := path.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	path := "images/" + base
+	for i := 2; ; i++ {
+		if have, taken := m.files[path]; !taken {
+			break
+		} else if !bytes.Equal(have, data) {
+			path = "images/" + stem + "-" + strconv.Itoa(i) + ext
+		} else {
+			break
+		}
+	}
+	m.files[path] = data
+	m.fileContents[string(data)] = path
+	m.imagesWritten++
+	return path
 }
 
 // strayParagraph reports a collaborator paragraph attached to no document view.
@@ -1677,11 +1999,15 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 		c.refuse(s, "it reads stereotype properties, which the query cannot")
 		return
 	}
-	if body := commentText(a.Tag("body")); body != "" {
-		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: body}
-		cp.name = c.sec.names.claim("paragraph")
-		c.sec.content = append(c.sec.content, cp)
-		return
+	if raw := a.Tag("body"); raw != "" {
+		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: commentText(raw)}
+		if c.m.imageInBody(c.sec, cp, s.Node, raw) || cp.text != "" {
+			if cp.name == "" {
+				cp.name = c.sec.names.claim("paragraph")
+			}
+			c.sec.content = append(c.sec.content, cp)
+			return
+		}
 	}
 	if c.broken == "" && c.empty() && len(s.Targets) == 0 && a.Tag("body") == "" {
 		c.refuse(s, "it has no body and shows no element")
@@ -1732,10 +2058,16 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			continue
 		}
 		if empty := c.m.emptyView(v, form); empty != "" {
+			if c.noteImage(s, i, d, titles) {
+				continue
+			}
 			note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
 			verdict := Approximated
 			if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
 				verdict = Mapped
+			}
+			if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && c.m.imageBase == nil {
+				note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
 			}
 			if text := c.captionText(s, i); text != "" {
 				note += "; its caption stands alone"
@@ -1764,6 +2096,52 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
 		}
 	}
+}
+
+// noteImage plans a figure's Image block when the empty diagram's note holds
+// an <img> whose source resolves in the archive or against the base URL: its
+// title is the caption and the img's alt the alt text, and a note saying more
+// than the title follows as the caption paragraph.
+func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titles []string) bool {
+	src, alt, _ := firstImg(d.Documentation)
+	if src == "" {
+		return false
+	}
+	location, _ := c.m.imageFile(src, nil)
+	if location == "" {
+		location, _ = c.m.imageLocation(src)
+	}
+	if location == "" {
+		return false
+	}
+	title := strings.TrimSpace(d.Name)
+	if i < len(titles) && strings.TrimSpace(titles[i]) != "" {
+		title = strings.TrimSpace(titles[i])
+	}
+	cp := &contentPlan{kind: "Image", node: s.Node, label: "«Image» " + s.Node.Type,
+		location: location, caption: c.title(s, title), alt: alt}
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	cp.name = c.sec.names.claim("image")
+	c.sec.content = append(c.sec.content, cp)
+	if text := commentText(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
+		c.captionParagraph(s, "the paragraph is the note the figure's image carries", text)
+	}
+	if text := c.captionText(s, i); text != "" {
+		c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
+	}
+	c.m.report.Entries = append(c.m.report.Entries,
+		*c.m.nodeEntry(s.Node, s.Application, Approximated, "the figure shows the image the diagram's note carries, "+location))
+	return true
+}
+
+// captionCovers reports whether a figure's caption says everything its note
+// does: the note, whitespace-normalized, is the caption or a prefix of it.
+func captionCovers(caption, note string) bool {
+	caption = strings.Join(strings.Fields(caption), " ")
+	note = strings.Join(strings.Fields(note), " ")
+	return strings.HasPrefix(caption, note)
 }
 
 // noDiagrams says why no diagram is current for an Image, as DocGen would
@@ -1886,6 +2264,7 @@ var libraryMembers = map[string][]string{
 	"Table":     {"caption", "groupBy", "rows"},
 	"List":      {"style", "items"},
 	"Diagram":   {"caption", "kind", "direction", "palette", "source"},
+	"Image":     {"location", "caption", "alt"},
 }
 
 // blockNames is the member set of a block of the library kind whose own
@@ -1965,6 +2344,16 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
 			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
 			m.w.line("ref redefines source = " + m.diagramSource(dp, cp) + ";")
+		})
+	case "Image":
+		m.blockPart(dp.host, cp.name, "Image", nil, func() {
+			m.w.line("attribute redefines location = " + stringLiteral(cp.location) + ";")
+			if cp.caption != "" {
+				m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
+			}
+			if cp.alt != "" {
+				m.w.line("attribute redefines alt = " + stringLiteral(cp.alt) + ";")
+			}
 		})
 	}
 	return cp.notes

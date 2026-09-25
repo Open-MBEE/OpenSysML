@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
@@ -28,17 +29,21 @@ const (
 // writeArtworkFilter writes the filter for a document with diagrams (drawn,
 // or kept as source under a notice), typeset formulas or captions, returning
 // its name; a document with none needs no filter, and "" is returned.
-func writeArtworkFilter(dir string, form view.Form, images []string, math formulas, captions []string) (string, error) {
+func writeArtworkFilter(dir string, images []string, math formulas, captions []string) (string, error) {
 	if len(images) == 0 && len(math.html) == 0 && len(captions) == 0 {
 		return "", nil
-	}
-	if form == "" {
-		form = view.FormMermaid
 	}
 	var b strings.Builder
 	b.WriteString("-- Marks the captions, swaps the diagram fences for the images drawn from\n")
 	b.WriteString("-- them and the formulas for their typeset HTML, in document order.\n")
-	b.WriteString("local form = " + luaString(string(form)) + "\n")
+	b.WriteString("local forms = {")
+	for i, form := range view.DiagramForms() {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(string(form) + " = true")
+	}
+	b.WriteString("}\n")
 	b.WriteString("local images = {")
 	for i, image := range images {
 		if i > 0 {
@@ -61,6 +66,7 @@ func writeArtworkFilter(dir string, form view.Form, images []string, math formul
 	}
 	b.WriteString("}\n")
 	b.WriteString("local notices = {dot = " + luaString(dotNotice) + ", plantuml = " + luaString(plantumlNotice) + "}\n")
+	b.WriteString("local fallbackNotice = " + luaString(docrender.GraphvizFallbackNotice) + "\n")
 	b.WriteString(artworkFilterBody)
 	if err := os.WriteFile(filepath.Join(dir, artworkFilterName), []byte(b.String()), 0o600); err != nil {
 		return "", err
@@ -99,31 +105,63 @@ local function isDisplayMath(block)
     and block.content[1].mathtype == "DisplayMath"
 end
 
+-- The diagram form a fenced code block is written in, nil for other code.
+local function formOf(block)
+  if block == nil or block.t ~= "CodeBlock" then
+    return nil
+  end
+  for _, class in ipairs(block.classes) do
+    if forms[class] then
+      return class
+    end
+  end
+  return nil
+end
+
 local function isGroupKey(block)
   return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Strong"
 end
 
--- The HTML comment a table-kind diagram's rendering opens with; the Markdown
--- backend writes no other, since prose escapes "<".
+-- The HTML comment a table-kind diagram's rendering opens with, or one
+-- stating a diagram's fallback form; the Markdown backend writes no other,
+-- since prose escapes "<".
 local function isRenderingComment(block)
   return block.t == "RawBlock" and block.format == "html" and block.text:sub(1, 4) == "<!--"
 end
 
+-- An image block is a Para holding the image alone, as the Markdown
+-- backend writes it.
+local function isImage(block)
+  return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Image"
+end
+
+local function isEmphasized(block)
+  return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Emph"
+end
+
+-- The notice the Markdown backend writes between a positioned diagram's
+-- caption and the Mermaid source it fell back to without Graphviz.
+local function isFallbackNotice(block)
+  return isEmphasized(block) and words(pandoc.utils.stringify(block)) == words(fallbackNotice)
+end
+
 -- A caption heads a table (or a grouped table's first group key), a diagram
--- fence, a table-kind diagram's rendering comment or a formula block.
+-- fence (or the fallback notice ahead of one), a table-kind diagram's
+-- rendering comment, a formula block or an image.
 local function isCaptioned(blocks, i)
   local block = blocks[i]
   if block == nil then
     return false
   end
-  return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block)
-    or (block.t == "CodeBlock" and block.classes:includes(form))
+  return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block) or isImage(block)
+    or formOf(block) ~= nil
+    or (isFallbackNotice(block) and formOf(blocks[i + 1]) ~= nil)
     or (isGroupKey(block) and blocks[i + 1] ~= nil and blocks[i + 1].t == "Table")
 end
 
 local function isCaption(blocks, i)
   local block = blocks[i]
-  if block.t ~= "Para" or #block.content ~= 1 or block.content[1].t ~= "Emph" then
+  if not isEmphasized(block) then
     return false
   end
   if not isCaptioned(blocks, i + 1) then
@@ -162,7 +200,8 @@ return {
       return nil
     end,
     CodeBlock = function(el)
-      if not el.classes:includes(form) then
+      local form = formOf(el)
+      if form == nil then
         return nil
       end
       drawn = drawn + 1
