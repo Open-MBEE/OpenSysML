@@ -168,10 +168,8 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 	return earlier != answer, nil
 }
 
-// keep joins the uses a plan's steps carried to the provenance: each result's
-// Tool, and each fault's ToolUseError — under all a composed answer keeps no
-// Tool of its own and a faulted plan keeps its earlier engines' steps. The
-// fault err's own use is appended unless a step already carried it.
+// keep joins the uses the plan's steps carried (each result's Tool, each fault's
+// ToolUseError) to the provenance, then err's own unless a step already carried it.
 func (t *toolRunner) keep(call *runtime.ToolCall, seq uint64, plan Plan, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -185,20 +183,16 @@ func (t *toolRunner) keep(call *runtime.ToolCall, seq uint64, plan Plan, err err
 			t.uses = append(t.uses, use)
 		}
 		var useErr *ToolUseError
-		if step.Err != nil && errors.As(step.Err, &useErr) {
-			useErr.Use.in = call.Context()
-			useErr.Use.seq = seq
-			t.uses = append(t.uses, useErr.Use)
+		if errors.As(step.Err, &useErr) {
 			seen[useErr] = true
 		}
+		t.noteUseLocked(call, seq, step.Err)
 	}
-	if err != nil {
-		var useErr *ToolUseError
-		if errors.As(err, &useErr) && seen[useErr] {
-			return
-		}
-		t.noteUseLocked(call, seq, err)
+	var useErr *ToolUseError
+	if errors.As(err, &useErr) && seen[useErr] {
+		return
 	}
+	t.noteUseLocked(call, seq, err)
 }
 
 // noteUse keeps the call's use when a ToolUseError carried one, attributed to the
