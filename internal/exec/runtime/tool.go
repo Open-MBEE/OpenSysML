@@ -547,7 +547,7 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	mult, _ := e.ctx.extractMultiplicity(out.Declared)
+	mult, _ := e.ctx.statedMultiplicity(out.Declared)
 	var value Value
 	if answered.Items != nil {
 		if mult.AtMostOne() {

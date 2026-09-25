@@ -512,7 +512,7 @@ func recordAttributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Sym
 		if types := sem.DeclaredFeatureTypes(m); len(types) > 0 {
 			f.TypeFQN = idx.GetFQN(types[0])
 		}
-		f.Multi = !sem.EffectiveMultiplicityOf(m).AtMostOne()
+		f.Multi = !sem.GoverningMultiplicityOf(m).AtMostOne()
 		attrs[m.Name] = f
 	}
 	return attrs
