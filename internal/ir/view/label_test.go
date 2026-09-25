@@ -59,7 +59,7 @@ func TestLabelsHeadRootsUnderTheirSharedNamespace(t *testing.T) {
 		{"unreadable type", []*Node{{Kind: "part", Name: "Rig::t", Type: "T<U>"}}, []string{"t : T<U>"}},
 	}
 	for _, tc := range cases {
-		labels := labelsOf(tc.roots)
+		labels := labelsOf(tc.roots, false)
 		var got []string
 		for _, root := range tc.roots {
 			got = append(got, labels.head(root))
@@ -68,7 +68,7 @@ func TestLabelsHeadRootsUnderTheirSharedNamespace(t *testing.T) {
 			t.Errorf("%s: heads = %q, want %q", tc.name, got, tc.want)
 		}
 	}
-	labels := labelsOf([]*Node{{Kind: "part def", Name: "Plant::Loop"}})
+	labels := labelsOf([]*Node{{Kind: "part def", Name: "Plant::Loop"}}, false)
 	if got := labels.head(&Node{Kind: "part", Name: "Other::pump", Type: "Plant::Pumps::Pump"}); got != "Other::pump : Pump" {
 		t.Errorf("a node named outside the roots' namespace is headed %q, want it whole", got)
 	}
@@ -95,7 +95,7 @@ func TestLabelsHeadMembersUnderTheirDrawnOwner(t *testing.T) {
 			{Kind: "attribute", Name: "TMT::Budget::Lens::focal"},
 		}},
 	}
-	labels := labelsOf(roots)
+	labels := labelsOf(roots, false)
 	want := []string{
 		"'K-Mirror Offset'",
 		"errorReq : Real",
@@ -154,7 +154,7 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 		"'APS Physical'::'summit Installation' : 'Summit Installation'",
 		"computer : Control",
 	}
-	labels := labelsOf(roots)
+	labels := labelsOf(roots, false)
 	var got []string
 	for _, root := range roots {
 		got = append(got, labels.head(root))
@@ -165,7 +165,7 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 	// From a model: the usage's type is written by its imported bare name and
 	// resolves to the element whose member is exposed beside it.
 	rendering := render(t, "typings.sysml", "SpelledViews::siteView")
-	labels = labelsOf(rendering.Roots)
+	labels = labelsOf(rendering.Roots, false)
 	got = got[:0]
 	for _, root := range rendering.Roots {
 		got = append(got, labels.head(root))

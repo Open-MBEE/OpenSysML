@@ -32,7 +32,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
-	labels := labelsOf(r.Roots)
+	labels := labelsOf(r.Roots, false)
 	r.writeFlowchartFrontmatter(&b, labels)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)

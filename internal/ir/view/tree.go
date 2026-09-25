@@ -18,10 +18,61 @@ const maxTreeDepth = 16
 // the Layout that positions its element in the view it is shown under.
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	descendants := r.exposedDescendants(exposed)
 	for _, elem := range exposed {
+		if descendants[symbols.KeyOf(elem)] {
+			continue
+		}
 		out.Roots = append(out.Roots, r.treeNode(view, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
+}
+
+// exposedDescendants is the key of each exposed element another exposed
+// element's containment tree already draws as a descendant, so it is not
+// appended a second time as a root of its own. The walk is a dry run of
+// treeNode's: the members containedMembers lists, under the same depth bound
+// and cycle guard.
+func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol) map[symbols.ElementKey]bool {
+	by := make([]map[symbols.ElementKey]bool, len(exposed))
+	counts := map[symbols.ElementKey]int{}
+	for i, elem := range exposed {
+		by[i] = r.treeDescendants(elem)
+		for key := range by[i] {
+			counts[key]++
+		}
+	}
+	dup := map[symbols.ElementKey]bool{}
+	for i, elem := range exposed {
+		key := symbols.KeyOf(elem)
+		count := counts[key]
+		if by[i][key] {
+			count--
+		}
+		if count > 0 {
+			dup[key] = true
+		}
+	}
+	return dup
+}
+
+// treeDescendants is the set of element keys treeNode draws below sym, dry-run
+// by the same walk: a member is drawn even when the guard stubs its node.
+func (r *Renderer) treeDescendants(sym *symbols.Symbol) map[symbols.ElementKey]bool {
+	out := map[symbols.ElementKey]bool{}
+	var walk func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int)
+	walk = func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int) {
+		if seen[sym] || depth >= maxTreeDepth {
+			return
+		}
+		seen[sym] = true
+		for _, member := range r.containedMembers(sym) {
+			out[symbols.KeyOf(member)] = true
+			walk(member, seen, depth+1)
+		}
+	}
+	walk(sym, map[*symbols.Symbol]bool{}, 0)
+	return out
 }
 
 // nestedViewNodes renders the views nested in view as subtrees, each holding
@@ -43,7 +94,11 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
+			descendants := r.exposedDescendants(exposed)
 			for _, elem := range exposed {
+				if descendants[symbols.KeyOf(elem)] {
+					continue
+				}
 				node.Children = append(node.Children, r.treeNode(sub, elem, ids, map[*symbols.Symbol]bool{}, 0, true, out))
 			}
 		}

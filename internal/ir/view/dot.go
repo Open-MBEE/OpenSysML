@@ -65,7 +65,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	}
 	direction := options.Direction
 	w := newDOTWriter(r, options)
-	for _, note := range r.Notes {
+	for _, note := range w.notes {
 		if note.Anchor != "" && w.draws(note.Anchor) && w.clipped(note.Anchor, "") {
 			w.compound = true
 		}
@@ -118,7 +118,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	fmt.Fprintf(b, "  node [%s];\n", strings.Join(w.skin.nodeDefaults(), ", "))
 	fmt.Fprintf(b, "  edge [%s];\n", strings.Join(w.skin.edgeDefaults(), ", "))
 	w.writeCanvas()
-	if r.Empty() && len(r.Notes) == 0 {
+	if r.Empty() && len(w.notes) == 0 {
 		fmt.Fprintf(b, "  \"empty\" [shape=plaintext, label=%s];\n", dotQuote(r.EmptyReason()))
 		b.WriteString("}\n")
 		return b.String(), nil
@@ -131,14 +131,14 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, depth)
 	}
-	w.writeNotes(r.Notes, depth)
+	w.writeNotes(w.notes, depth)
 	if w.skin.cameo {
 		b.WriteString("  }\n")
 	}
 	for _, edge := range edges {
 		w.writeEdge(edge.From, edge.To, w.dotEdgeAttributes(edge))
 	}
-	w.writeAnchors(r.Notes, edges)
+	w.writeAnchors(w.notes, edges)
 	b.WriteString("}\n")
 	return b.String(), nil
 }
@@ -204,16 +204,23 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 }
 
 // newDOTWriter is the writer for r with every node that has a box placed in
-// it, the clusters and the palette's families collected.
+// it, the clusters and the palette's families collected. A positioned drawing
+// omits the nodes it places nowhere before the labels are needed — under
+// UnplacedStrip none is — and keeps the notes of the nodes left drawn.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, omitted: map[string]bool{},
-		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots), skin: skin}
-	w.collectDrawn(r.Roots)
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin}
+	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.count > 0)
 	w.labels.skin = skin
+	w.collectDrawn(r.Roots)
 	w.placeNodes(r.Roots, r.Edges)
-	w.placeNotes(r.Notes)
+	if w.placement.partial() && options.Unplaced != UnplacedStrip {
+		w.omitUnplaced(r.Roots)
+	}
+	w.notes = w.drawnNotes(r.Notes)
+	w.placeNotes(w.notes)
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
@@ -221,6 +228,20 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		w.fills.collect(root)
 	}
 	return w
+}
+
+// drawnNotes is notes without those anchored to a node the drawing declares no
+// box for, each noticed rather than written to an undeclared node.
+func (w *dotWriter) drawnNotes(notes []Note) []Note {
+	kept := make([]Note, 0, len(notes))
+	for _, note := range notes {
+		if note.Anchor == "" || w.draws(note.Anchor) {
+			kept = append(kept, note)
+			continue
+		}
+		w.notices = append(w.notices, fmt.Sprintf("note on %s, a node the rendering draws no box for; no note is drawn", note.Anchor))
+	}
+	return kept
 }
 
 // settleUnplaced settles the nodes a positioned drawing leaves unplaced, as
@@ -233,7 +254,6 @@ func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplace
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the drawing", count))
 		return edges
 	}
-	w.omitUnplaced(roots)
 	kept, dropped := w.placement.keptEdges(edges)
 	w.notices = append(w.notices, w.placement.omitNotice(dropped))
 	return kept
@@ -365,7 +385,8 @@ type dotWriter struct {
 	fills     familyFills         // the palette fills, by keyword family
 	labels    labeller            // the node labels, headed relative to the roots' namespace
 	skin      dotSkin             // the drawing style's defaults
-	noteBoxes []nodeBox           // where each positioned note is drawn, by index in Rendering.Notes
+	notes     []Note              // the notes the drawing keeps, those of the nodes it draws
+	noteBoxes []nodeBox           // where each positioned note is drawn, by index in notes
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
