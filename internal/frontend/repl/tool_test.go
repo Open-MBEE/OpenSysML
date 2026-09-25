@@ -499,3 +499,23 @@ func TestToolRefusesAnExploringSchedule(t *testing.T) {
 	}
 	wants(t, run(t, s, "%tool Tools::CheckHeating"), "the process was not started")
 }
+
+// %tool gives the session's runner back when it ends: the runner keeps the
+// reply history its divergence detection reads.
+func TestToolRestoresTheSessionsToolRunner(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+	run(t, s, "%analysis Tools::CheckHeating")
+	prior := s.rtCtx.ToolRunner()
+	if prior == nil {
+		t.Fatal("the session's analysis attached no tool runner")
+	}
+	wants(t, run(t, s, "%tool Tools::CheckHeating"), "the process was not started")
+	if got := s.rtCtx.ToolRunner(); got != prior {
+		t.Errorf("the preview left a different tool runner %T, want the session's %T", got, prior)
+	}
+	if _, dry := s.rtCtx.ToolRunner().(*analysis.DryRunner); dry {
+		t.Error("the preview left the dry runner attached")
+	}
+}

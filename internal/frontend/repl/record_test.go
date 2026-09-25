@@ -783,6 +783,11 @@ func TestRecordMonteCarloRecordsTheConclusionsToolCall(t *testing.T) {
 	if n := strings.Count(text[i:min(i+1600, len(text))], `"Thermo 1.0.0 from`); n != 3 {
 		t.Errorf("the sample record's tools names the calls made %d time(s), not the 3 it made:\n%s", n, text[max(0, i-1200):])
 	}
+	// The conclusion's call runs in the last row's context but is not the
+	// row's: the two row records before it name one call each.
+	if n := strings.Count(text[:i], `"Thermo 1.0.0 from`); n != 2 {
+		t.Errorf("the row records name %d call(s) over 2 rows, want one each:\n%s", n, text[:i])
+	}
 }
 
 // An attribute redefined with no bound of its own keeps its general's

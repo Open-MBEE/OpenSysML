@@ -57,6 +57,32 @@ func (p Plan) ToolTexts() []string {
 	return texts
 }
 
+// ToolMark is the count of tool calls made so far: a mark taken before a
+// point — a Monte Carlo conclusion's run in a row's context — bounds the
+// calls before it.
+func (p Plan) ToolMark() int {
+	return len(p.uses())
+}
+
+// ToolTextsInBefore is the texts of the calls made from ctx before mark:
+// calls the same context made after it, a conclusion's, are not the run's.
+func (p Plan) ToolTextsInBefore(ctx *runtime.Context, mark int) []string {
+	if ctx == nil {
+		return nil
+	}
+	uses := p.uses()
+	if mark > len(uses) {
+		mark = len(uses)
+	}
+	var texts []string
+	for i := 0; i < mark; i++ {
+		if uses[i].in == ctx {
+			texts = append(texts, uses[i].String())
+		}
+	}
+	return texts
+}
+
 // ToolTextsIn is the texts of the calls made from ctx, nil for a nil ctx.
 func (p Plan) ToolTextsIn(ctx *runtime.Context) []string {
 	if ctx == nil {

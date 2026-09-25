@@ -71,8 +71,11 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	}
 	defer func() { snap.Restore(); snap.Release() }()
 	runner := s.engines.DryRunner(s.engine)
+	// The session's runner goes back on after the preview: a fresh one would
+	// lose the reply history its divergence detection keeps.
+	prior := ctx.ToolRunner()
 	ctx.SetToolRunner(runner)
-	defer s.attachTools(ctx)
+	defer ctx.SetToolRunner(prior)
 
 	isAction := sym.Kind == symbols.SymbolActionDef || sym.Kind == symbols.SymbolActionUsage
 	if isAction {

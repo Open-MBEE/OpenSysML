@@ -325,11 +325,23 @@ func describeObserved(value Value) string {
 // ConcludeMonteCarlo settles every run's checks over the sample's runs, mean and deviation,
 // counts outOfSpec over them, and concludes the case in the last run with the sample's checks.
 func ConcludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (AnalysisResult, error) {
+	sample, err := SettleMonteCarloRuns(runs, &stats)
+	if err != nil {
+		return AnalysisResult{}, err
+	}
+	return runs[len(runs)-1].Conclude(stats, sample)
+}
+
+// SettleMonteCarloRuns settles every run's checks over the sample's statistics and
+// counts outOfSpec into stats, returning the checks that are the sample's. The point
+// between it and the last run's Conclude is where a call boundary before the
+// conclusion is taken.
+func SettleMonteCarloRuns(runs []*MonteCarloRun, stats *MonteCarloStatistics) ([]bool, error) {
 	if len(runs) == 0 {
-		return AnalysisResult{}, fmt.Errorf("%w: no run to conclude", ErrMonteCarloObserved)
+		return nil, fmt.Errorf("%w: no run to conclude", ErrMonteCarloObserved)
 	}
 	for _, r := range runs {
-		r.settle(stats)
+		r.settle(*stats)
 	}
 	sample := sampleChecks(runs)
 	for _, r := range runs {
@@ -338,7 +350,7 @@ func ConcludeMonteCarlo(runs []*MonteCarloRun, stats MonteCarloStatistics) (Anal
 			stats.OutOfSpec++
 		}
 	}
-	return runs[len(runs)-1].conclude(stats, sample)
+	return sample, nil
 }
 
 // settle binds the statistics of the observations in the run and decides over them the
@@ -443,7 +455,9 @@ func verdictsWithin(verdicts []AnalysisVerdict, marked []bool) []AnalysisVerdict
 
 // conclude binds outOfSpec over the settled run, then reports the case's outputs and
 // the verdicts of the sample's checks, judged over the results and all four statistics.
-func (r *MonteCarloRun) conclude(stats MonteCarloStatistics, sample []bool) (AnalysisResult, error) {
+// Conclude concludes the case in the run's context with the sample's checks,
+// after SettleMonteCarloRuns settled the runs.
+func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics, sample []bool) (AnalysisResult, error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
 	r.log.enclosing = ctx.evaluations

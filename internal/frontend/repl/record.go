@@ -243,7 +243,9 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Spell:     s.recordSpelling(own),
 		}
 		if answered != nil {
-			rec.Tools = answered.ToolTextsIn(run.Context())
+			// The conclusion's calls ran in the last row's context: toolMark bounds
+			// each row's own.
+			rec.Tools = answered.ToolTextsInBefore(run.Context(), sample.toolMark)
 		}
 		runs = append(runs, rec)
 	}
