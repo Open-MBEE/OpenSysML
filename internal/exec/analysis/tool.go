@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -142,7 +144,12 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	timeout := e.timeout()
 	started := time.Now()
-	reply, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
+	ex, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
+	if err != nil {
+		process.remove()
+		return Result{}, err
+	}
+	reply, err := e.read(ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -196,10 +203,18 @@ func (e toolEngine) outputLimit() int {
 	return e.limit()
 }
 
-// invoke runs the executable once as composed, under the timeout, and reads its reply. Each
-// argument is one argv entry as rendered; no shell is involved. A nil env inherits this
-// process's, as an entry without an invocation block does.
-func (e toolEngine) invoke(ctx context.Context, path string, process *composed, timeout time.Duration, limit int) (map[string]runtime.ToolValue, error) {
+// execution is what one run of the executable produced: its captured standard streams and
+// its exit status.
+type execution struct {
+	stdout, stderr []byte
+	exit           int
+}
+
+// invoke runs the executable once as composed, under the timeout, and captures what it
+// produced. Each argument is one argv entry as rendered; no shell is involved. A nil env
+// inherits this process's, as an entry without an invocation block does. Under an `exitcode`
+// reply a real exit status is data, not a process failure; anything else failed is.
+func (e toolEngine) invoke(ctx context.Context, path string, process *composed, timeout time.Duration, limit int) (*execution, error) {
 	tool := e.entry.ToolName
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -224,9 +239,72 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolTimeout,
 			Detail: fmt.Sprintf("%s did not answer within %s (%s)", path, timeout, ToolTimeoutEnv)}
 	case err != nil:
+		var exitErr *exec.ExitError
+		if e.entry.Reply != nil && e.entry.Reply.Format == ReplyExitCode && errors.As(err, &exitErr) && exitErr.ExitCode() >= 0 {
+			return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes(), exit: exitErr.ExitCode()}, nil
+		}
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolProcessFailed, Detail: processDetail(path, err, stderr.Bytes())}
 	}
-	return ToolReplyOf(tool, stdout.Bytes())
+	return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes()}, nil
+}
+
+// read parses the execution's reply as the entry's reply block says, reading the file a
+// `file:` source names before the invocation's directory is removed.
+func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+	tool := e.entry.ToolName
+	r := e.entry.Reply
+	if r == nil || r.Format == "" || r.Format == ReplyObject {
+		source, err := e.replySource(ex, process)
+		if err != nil {
+			return nil, err
+		}
+		return ToolReplyOf(tool, source)
+	}
+	if r.Format == ReplyExitCode {
+		return r.read(e.entry, ex, nil)
+	}
+	source, err := e.replySource(ex, process)
+	if err != nil {
+		return nil, err
+	}
+	return r.read(e.entry, ex, source)
+}
+
+// replySource is the reply's bytes: standard output, or the file a `file:` source names —
+// confined to {outputDir}, a regular file the tool wrote, within the output bound.
+func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error) {
+	tool := e.entry.ToolName
+	r := e.entry.Reply
+	if r == nil || r.compiled == nil || r.compiled.source == nil {
+		return ex.stdout, nil
+	}
+	outputDir := filepath.Clean(process.tempDir)
+	path, err := r.compiled.source.render(scope{tool: tool, outputDir: outputDir})
+	if err != nil {
+		return nil, err
+	}
+	path = filepath.Clean(path)
+	if !within(outputDir, path) {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
+	}
+	rel, err := filepath.Rel(outputDir, path)
+	if err != nil {
+		rel = path
+	}
+	info, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
+	case err != nil:
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	case !info.Mode().IsRegular():
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: rel + " is not a regular file"}
+	case info.Size() > int64(e.outputLimit()):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", e.outputLimit(), rel, OutputLimitEnv)}
+	}
+	return os.ReadFile(path) // #nosec G304 -- a file under the invocation's own directory
 }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.

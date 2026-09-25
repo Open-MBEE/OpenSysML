@@ -1,0 +1,469 @@
+package analysis
+
+import (
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+)
+
+// replyEntryText is a tool entry with the reply block given, as a manifest file spells it.
+func replyEntryText(reply string) string {
+	return `{"toolName": "Thermal", "executable": "solve", "variables": ["mass", "T_max", "v_out", "done", "code", "note", "a", "b"], "reply": ` + reply + `}`
+}
+
+func TestManifestReplyAcceptedShapes(t *testing.T) {
+	cases := map[string]string{
+		"json":        `{"format": "json", "outputs": {"T_max": {"path": "/results/0/T_max", "unitPath": "/units/T_max"}}, "errorPath": "/error"}`,
+		"csv":         `{"format": "csv", "header": true, "delimiter": ";", "outputs": {"T_max": {"column": "T_max", "row": "first", "unitColumn": "U"}}, "errorColumn": "error"}`,
+		"csv index":   `{"format": "csv", "header": false, "delimiter": "\t", "outputs": {"T_max": {"column": 2, "row": 3}}}`,
+		"lines":       `{"format": "lines", "outputs": {"T_max": {"key": "Tmax"}, "done": {"type": "boolean"}}, "errorKey": "error"}`,
+		"lines regex": `{"format": "lines", "regex": "T=(?P<T_max>[0-9.]+)", "outputs": {"T_max": {"type": "real"}}}`,
+		"exitcode":    `{"format": "exitcode", "success": [0, 3], "outputs": {"done": {"type": "boolean"}}}`,
+		"object":      `{"format": "object"}`,
+		"stdout":      `{"format": "csv", "source": "stdout", "outputs": {"T_max": {"column": 0}}}`,
+	}
+	for name, reply := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := writeManifest(t, map[string]string{"thermal.json": replyEntryText(reply)})
+			entries, err := LoadManifest(dir)
+			if err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			if len(entries) != 1 || entries[0].Reply == nil || entries[0].Reply.compiled == nil {
+				t.Fatalf("entries %+v, want one with its reply compiled", entries)
+			}
+		})
+	}
+	// A file source is admitted beside an invocation that hands {outputDir} to the tool.
+	dir := writeManifest(t, map[string]string{"thermal.json": `{"toolName": "Thermal", "executable": "solve", "variables": ["T_max"],
+		"invocation": {"args": ["{outputDir}"]},
+		"reply": {"format": "json", "source": "file:{outputDir}/result.json", "outputs": {"T_max": {"path": "/T_max"}}}}`})
+	if _, err := LoadManifest(dir); err != nil {
+		t.Fatalf("file source beside an {outputDir} invocation: %v", err)
+	}
+	// The object protocol admits a file source too, for a tool writing the object to one.
+	dir = writeManifest(t, map[string]string{"thermal.json": `{"toolName": "Thermal", "executable": "solve", "variables": ["T_max"],
+		"invocation": {"args": ["{outputDir}"]},
+		"reply": {"format": "object", "source": "file:{outputDir}/result.json"}}`})
+	if _, err := LoadManifest(dir); err != nil {
+		t.Fatalf("object reply with a file source: %v", err)
+	}
+}
+
+func TestManifestReplyRefusedShapes(t *testing.T) {
+	cases := map[string]struct {
+		text   string
+		detail string
+	}{
+		"unknown key in reply":  {replyEntryText(`{"format": "csv", "shell": true, "outputs": {"T_max": {"column": 0}}}`), `unknown field "shell"`},
+		"unknown key in output": {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "page": 1}}}`), `unknown field "page"`},
+		"format unknown":        {replyEntryText(`{"format": "yaml", "outputs": {}}`), `reply.format "yaml" is not one of object, json, csv, lines and exitcode`},
+		"output not a variable": {replyEntryText(`{"format": "csv", "outputs": {"Tmax": {"column": 0}}}`), `reply.outputs names "Tmax", which variables does not list`},
+		"column under json":     {replyEntryText(`{"format": "json", "outputs": {"T_max": {"path": "/x", "column": 0}}}`), `reply.outputs.T_max.column is not a json member`},
+		"regex under csv":       {replyEntryText(`{"format": "csv", "regex": "x", "outputs": {"T_max": {"column": 0}}}`), `reply.regex is not a csv member`},
+		"success under json":    {replyEntryText(`{"format": "json", "success": [0], "outputs": {"T_max": {"path": "/x"}}}`), `reply.success is not a json member`},
+		"unit on boolean":       {replyEntryText(`{"format": "csv", "outputs": {"done": {"column": 0, "type": "boolean", "unit": "s"}}}`), `a boolean has no unit`},
+		"unit on string":        {replyEntryText(`{"format": "csv", "outputs": {"note": {"column": 0, "type": "string", "unit": "s"}}}`), `a string has no unit`},
+		"unit with unitColumn":  {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "unit": "K", "unitColumn": "U"}}}`), `names both unit and a unit selector`},
+		"row all":               {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "row": "all"}}}`), `reply.outputs.T_max.row: all is not supported yet`},
+		"row negative":          {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "row": -1}}}`), `row -1 is not`},
+		"column negative":       {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": -2}}}`), `column -2 is not`},
+		"headerless name":       {replyEntryText(`{"format": "csv", "header": false, "outputs": {"T_max": {"column": "T_max"}}}`), `names a column but header is false`},
+		"bad delimiter":         {replyEntryText(`{"format": "csv", "delimiter": ";;", "outputs": {"T_max": {"column": 0}}}`), `reply.delimiter ";;" is not a single valid delimiter`},
+		"quote delimiter":       {replyEntryText(`{"format": "csv", "delimiter": "\"", "outputs": {"T_max": {"column": 0}}}`), `is not a single valid delimiter`},
+		"malformed pointer":     {replyEntryText(`{"format": "json", "outputs": {"T_max": {"path": "T_max"}}}`), `does not start with /`},
+		"bad tilde escape":      {replyEntryText(`{"format": "json", "outputs": {"T_max": {"path": "/a~2"}}}`), `~ is escaped only as ~0 and ~1`},
+		"bad regex":             {replyEntryText(`{"format": "lines", "regex": "(", "outputs": {"T_max": {}}}`), `reply.regex`},
+		"group not an output":   {replyEntryText(`{"format": "lines", "regex": "(?P<x>.)", "outputs": {"T_max": {}}}`), `names group "x", which outputs does not list`},
+		"output without group":  {replyEntryText(`{"format": "lines", "regex": "(?P<T_max>.)", "outputs": {"T_max": {}, "done": {}}}`), `reply.outputs.done is named by no group`},
+		"key beside regex":      {replyEntryText(`{"format": "lines", "regex": "(?P<T_max>.)", "outputs": {"T_max": {"key": "t"}}}`), `key is not read beside regex`},
+		"errorKey beside regex": {replyEntryText(`{"format": "lines", "regex": "(?P<T_max>.)", "errorKey": "error", "outputs": {"T_max": {}}}`), `errorKey is not read under regex`},
+		"exitcode two outputs":  {replyEntryText(`{"format": "exitcode", "outputs": {"done": {}, "code": {}}}`), `exitcode reads exactly one`},
+		"exitcode real":         {replyEntryText(`{"format": "exitcode", "outputs": {"code": {"type": "real"}}}`), `not one of boolean and integer`},
+		"exitcode unit":         {replyEntryText(`{"format": "exitcode", "outputs": {"code": {"type": "integer", "unit": "s"}}}`), `unit is not a exitcode member`},
+		"exitcode source":       {replyEntryText(`{"format": "exitcode", "source": "stdout", "outputs": {"done": {}}}`), `not read under exitcode`},
+		"shared key":            {replyEntryText(`{"format": "lines", "outputs": {"a": {"key": "k"}, "b": {"key": "k"}}}`), `share the key "k"`},
+		"csv needs column":      {replyEntryText(`{"format": "csv", "outputs": {"T_max": {}}}`), `reply.outputs.T_max needs a column`},
+		"json needs path":       {replyEntryText(`{"format": "json", "outputs": {"T_max": {}}}`), `reply.outputs.T_max needs a path`},
+		"outputs empty":         {replyEntryText(`{"format": "csv", "outputs": {}}`), `reply.outputs is required`},
+		"object with outputs":   {replyEntryText(`{"format": "object", "outputs": {"T_max": {}}}`), `reply.outputs is not an object member`},
+		"object with header":    {replyEntryText(`{"format": "object", "header": false}`), `reply.header is not an object member`},
+		"source unknown":        {replyEntryText(`{"format": "csv", "source": "stderr", "outputs": {"T_max": {"column": 0}}}`), `is not stdout or file:<template>`},
+		"file without outputDir": {`{"toolName": "T", "executable": "solve", "variables": ["T_max"],
+			"reply": {"format": "csv", "source": "file:result.csv", "outputs": {"T_max": {"column": 0}}}}`, `does not use {outputDir}`},
+		"file with a variable": {`{"toolName": "T", "executable": "solve", "variables": ["mass", "T_max"],
+			"reply": {"format": "csv", "source": "file:{outputDir}/{mass}.csv", "outputs": {"T_max": {"column": 0}}}}`, `admits {outputDir} and no other placeholder`},
+		"file without invocation": {`{"toolName": "T", "executable": "solve", "variables": ["T_max"],
+			"reply": {"format": "csv", "source": "file:{outputDir}/r.csv", "outputs": {"T_max": {"column": 0}}}}`, `no invocation template hands it to the tool`},
+		"empty file": {`{"toolName": "T", "executable": "solve", "variables": ["T_max"],
+			"reply": {"format": "csv", "source": "file:", "outputs": {"T_max": {"column": 0}}}}`, `names no file after the file: prefix`},
+		"repeated key": {`{"toolName": "T", "executable": "solve", "variables": ["T_max"],
+			"reply": {"format": "csv", "outputs": {"T_max": {"column": 0}, "T_max": {"column": 1}}}}`, `names reply.outputs.T_max twice`},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := writeManifest(t, map[string]string{"entry.json": tc.text})
+			_, err := LoadManifest(dir)
+			var fault *ManifestError
+			if !errors.As(err, &fault) || !errors.Is(err, ErrManifest) {
+				t.Fatalf("load: %v, want a ManifestError", err)
+			}
+			if !strings.Contains(err.Error(), tc.detail) {
+				t.Errorf("error %q, want it to say %q", err, tc.detail)
+			}
+		})
+	}
+}
+
+func TestPointerParsesAndEscapes(t *testing.T) {
+	valid := map[string]pointer{
+		"":         {},
+		"/a":       {"a"},
+		"/a/b":     {"a", "b"},
+		"/a~0b":    {"a~b"},
+		"/a~1b":    {"a/b"},
+		"/a~0~1b":  {"a~/b"},
+		"/":        {""},
+		"/0/1/01x": {"0", "1", "01x"},
+	}
+	for text, want := range valid {
+		got, err := parsePointer(text)
+		if err != nil {
+			t.Errorf("%q: %v", text, err)
+			continue
+		}
+		if len(got) != len(want) {
+			t.Errorf("%q = %v, want %v", text, got, want)
+			continue
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("%q = %v, want %v", text, got, want)
+			}
+		}
+	}
+	for _, text := range []string{"a", "/a~", "/a~2", "x/y"} {
+		if _, err := parsePointer(text); err == nil {
+			t.Errorf("%q parsed, want malformed", text)
+		}
+	}
+}
+
+// replyOf compiles one block against the variables the driver declares, for a reader test.
+func replyOf(t *testing.T, r *Reply) (*Reply, ToolEntry) {
+	t.Helper()
+	entry := ToolEntry{ToolName: "Thermal", Executable: "solve",
+		Variables: []string{"mass", "T_max", "v_out", "done", "code", "note"}, Reply: r}
+	if err := checkReply(&entry); err != nil {
+		t.Fatalf("checkReply: %v", err)
+	}
+	return entry.Reply, entry
+}
+
+// readReply parses source with a compiled reply; the kind of a fault is checked by callers.
+func readReply(t *testing.T, r *Reply, entry ToolEntry, source string) (map[string]runtime.ToolValue, error) {
+	t.Helper()
+	return r.read(entry, &execution{stdout: []byte(source)}, []byte(source))
+}
+
+func replyKind(err error) runtime.ToolErrorKind {
+	var fault *runtime.ToolError
+	if errors.As(err, &fault) {
+		return fault.Kind
+	}
+	return -1
+}
+
+func TestReplyReadsJSON(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyJSON, ErrorPath: "/error", Outputs: map[string]*ReplyOutput{
+		"T_max": {Path: "/results/0/T_max", UnitPath: "/units/T_max"},
+		"v_out": {Path: "/results/0/v_out", UnitPath: "/units/v_out"},
+		"done":  {Path: "/results/0/done", Type: TypeBoolean},
+		"code":  {Path: "/results/0/code", Type: TypeInteger},
+		"note":  {Path: "/results/0/note", Type: TypeString},
+	}})
+	source := `{"results":[{"T_max":341.2,"v_out":36,"done":true,"code":7,"note":"it ran"}],
+		"units":{"T_max":"K","v_out":"km/h"},"error":""}`
+	out, err := readReply(t, r, entry, source)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got := out["T_max"]; got.Value.Kind != semantics.ValReal || got.Value.Real != 341.2 || got.Unit != "K" {
+		t.Errorf("T_max = %+v", got)
+	}
+	if got := out["code"]; got.Value.Kind != semantics.ValInt || got.Value.Int != 7 {
+		t.Errorf("code = %+v", got)
+	}
+	if got := out["done"]; got.Value.Kind != semantics.ValBool || !got.Value.Bool {
+		t.Errorf("done = %+v", got)
+	}
+	if got := out["note"]; got.Text != "it ran" {
+		t.Errorf("note = %+v", got)
+	}
+
+	cases := map[string]struct {
+		source string
+		kind   runtime.ToolErrorKind
+		detail string
+	}{
+		"empty":              {"", runtime.ToolMalformed, "wrote nothing"},
+		"trailing value":     {`{"results":[]} {"x":1}`, runtime.ToolMalformed, "more than one JSON value"},
+		"repeated key":       {`{"results":[],"results":[]}`, runtime.ToolMalformed, "names results twice"},
+		"missing pointer":    {`{"results":[{}],"units":{}}`, runtime.ToolMissingOutput, "T_max at /results/0/T_max: nothing there"},
+		"array value":        {`{"results":[{"T_max":[1,2]}],"units":{}}`, runtime.ToolMalformed, "an array is not supported yet"},
+		"object value":       {`{"results":[{"T_max":{"x":1}}],"units":{}}`, runtime.ToolMalformed, "an object is not"},
+		"null value":         {`{"results":[{"T_max":null}],"units":{}}`, runtime.ToolMalformed, "null is not"},
+		"kind disagreement":  {`{"results":[{"T_max":"hot"}],"units":{}}`, runtime.ToolMalformed, "string where number expected"},
+		"boolean for number": {`{"results":[{"T_max":true}],"units":{}}`, runtime.ToolMalformed, "boolean where number expected"},
+		"missing unit":       {`{"results":[{"T_max":1,"v_out":36,"done":true,"code":7,"note":"n"}],"units":{}}`, runtime.ToolMissingOutput, "T_max at /units/T_max"},
+		"empty unit":         {`{"results":[{"T_max":1,"v_out":36,"done":true,"code":7,"note":"n"}],"units":{"T_max":""}}`, runtime.ToolMalformed, "empty unit"},
+		"refusal":            {`{"results":[],"units":{},"error":"did not converge"}`, runtime.ToolRefused, "did not converge"},
+		"refusal not text":   {`{"results":[],"units":{},"error":42}`, runtime.ToolMalformed, "not a message"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := readReply(t, r, entry, tc.source)
+			if replyKind(err) != tc.kind || !strings.Contains(err.Error(), tc.detail) {
+				t.Errorf("read: %v, want kind %s saying %q", err, tc.kind, tc.detail)
+			}
+		})
+	}
+	// errorPath that does not resolve, or resolves empty, is not a refusal.
+	for _, source := range []string{`{"results":[],"units":{}}`, source} {
+		if _, err := readReply(t, r, entry, source); replyKind(err) == runtime.ToolRefused {
+			t.Errorf("%s refused, want no refusal", source)
+		}
+	}
+}
+
+// The `~0` and `~1` escapes and an array index resolve as RFC 6901 spells them, and the
+// whole document is the empty pointer.
+func TestReplyReadsJSONPointerForms(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
+		"T_max": {Path: "/a~1b/c~0d"},
+		"v_out": {Path: "/list/1"},
+	}})
+	out, err := readReply(t, r, entry, `{"a/b":{"c~d":4.5},"list":[10,20],"done":true,"code":9,"note":"x"}`)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if out["T_max"].Value.Real != 4.5 || out["v_out"].Value.Int != 20 {
+		t.Errorf("outputs %+v", out)
+	}
+}
+
+func TestReplyReadsCSV(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, ErrorColumn: &Column{Name: "err"}, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Name: "T_max"}, UnitColumn: &Column{Name: "U"}},
+		"v_out": {Column: &Column{Name: "v_out"}, UnitColumn: &Column{Name: "VU"}},
+		"done":  {Column: &Column{Name: "done"}, Type: TypeBoolean},
+		"code":  {Column: &Column{Index: 5, ByIndex: true}, Type: TypeInteger},
+		"note":  {Column: &Column{Name: "note"}, Type: TypeString},
+	}})
+	source := "T_max,U,v_out,VU,done,code,note,err\n340.9,K,36,km/h,true,0,first,\n341.2,K,36,km/h,FALSE,7, last ,\n"
+	out, err := readReply(t, r, entry, source)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got := out["T_max"]; got.Value.Real != 341.2 || got.Unit != "K" {
+		t.Errorf("T_max = %+v", got)
+	}
+	if got := out["done"]; !got.Value.Bool && got.Value.Kind == semantics.ValBool {
+		// FALSE → false
+	} else {
+		t.Errorf("done = %+v, want false", got)
+	}
+	if got := out["note"]; got.Text != " last " {
+		t.Errorf("note = %q, want it untrimmed under type string", got.Text)
+	}
+
+	// A leading byte-order mark does not become part of the first header name.
+	if _, err := readReply(t, r, entry, "\xef\xbb\xbf"+source); err != nil {
+		t.Errorf("read with BOM: %v", err)
+	}
+}
+
+// A nil kind means the case must read clean.
+func TestReplyReadsCSVFailures(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, ErrorColumn: &Column{Name: "err"}, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Name: "T_max"}},
+		"code":  {Column: &Column{Index: 1, ByIndex: true}, Type: TypeInteger},
+	}})
+	cases := map[string]struct {
+		source string
+		kind   runtime.ToolErrorKind
+		detail string
+	}{
+		"no header":     {"", runtime.ToolMalformed, "wrote no header record"},
+		"no data":       {"T_max,code,err\n", runtime.ToolMissingOutput, "no data record"},
+		"ragged":        {"T_max,code,err\n1,2,\n3\n", runtime.ToolMalformed, "record 3 has 1 fields, not 3"},
+		"dup header":    {"T_max,T_max,err\n1,2,\n", runtime.ToolMalformed, "names T_max twice"},
+		"name absent":   {"code,err\n1,\n", runtime.ToolMalformed, "column T_max is not in the header"},
+		"empty cell":    {"T_max,code,err\n ,2,\n", runtime.ToolMissingOutput, "an empty cell"},
+		"not a number":  {"T_max,code,err\nn/a,2,\n", runtime.ToolMalformed, "n/a is not a number"},
+		"not integer":   {"T_max,code,err\n1,12.0,\n", runtime.ToolMalformed, "12.0 is not an integer"},
+		"refusal":       {"T_max,code,err\n1,2,failed\n", runtime.ToolRefused, "failed"},
+		"empty refusal": {"T_max,code,err\n1,2, \n", -1, ""},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := readReply(t, r, entry, tc.source)
+			if tc.kind < 0 {
+				if err != nil {
+					t.Fatalf("read: %v, want no error", err)
+				}
+				return
+			}
+			if replyKind(err) != tc.kind {
+				t.Fatalf("read: %v, want kind %s", err, tc.kind)
+			}
+			if tc.detail != "" && !strings.Contains(err.Error(), tc.detail) {
+				t.Errorf("error %q, want %q", err, tc.detail)
+			}
+		})
+	}
+	// An index column past the record's width is malformed.
+	r, entry = replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Index: 9, ByIndex: true}}}})
+	if _, err := readReply(t, r, entry, "T_max,code\n1,2\n"); replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "past the 2 fields") {
+		t.Errorf("index past: %v, want malformed naming the width", err)
+	}
+}
+
+func TestReplyReadsCSVRowForms(t *testing.T) {
+	source := "T_max\n300.0\n310.5\n341.2\n"
+	for row, want := range map[*Row]float64{
+		{Kind: RowFirst}:           300.0,
+		{Kind: RowLast}:            341.2,
+		{Kind: RowIndex, Index: 1}: 310.5,
+	} {
+		r, entry := replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+			"T_max": {Column: &Column{Name: "T_max"}, Row: row}}})
+		out, err := readReply(t, r, entry, source)
+		if err != nil || out["T_max"].Value.Real != want {
+			t.Errorf("row %s = %v, %v; want %f", row, out["T_max"], err, want)
+		}
+	}
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Name: "T_max"}, Row: &Row{Kind: RowIndex, Index: 7}}}})
+	if _, err := readReply(t, r, entry, source); replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "row 7: only 3 rows") {
+		t.Errorf("row 7: %v, want malformed naming the row and the count", err)
+	}
+}
+
+// Without a header the columns are zero-based indices; a tab delimiter is one rune.
+func TestReplyReadsCSVHeaderlessAndTab(t *testing.T) {
+	headerFalse := false
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, Header: &headerFalse, Delimiter: "\t",
+		Outputs: map[string]*ReplyOutput{"T_max": {Column: &Column{Index: 1, ByIndex: true}}}})
+	out, err := readReply(t, r, entry, "341\t341.2\n")
+	if err != nil || out["T_max"].Value.Real != 341.2 {
+		t.Fatalf("read: %v, %+v", err, out["T_max"])
+	}
+}
+
+func TestReplyReadsLines(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyLines, ErrorKey: "error", Outputs: map[string]*ReplyOutput{
+		"T_max": {},
+		"done":  {Key: "finished", Type: TypeBoolean},
+		"note":  {Type: TypeString},
+	}})
+	source := "starting solve\nT_max = 341.2\nfinished: TRUE\nnote = it ran: twice = is fine\nerror:\nall done\n"
+	out, err := readReply(t, r, entry, source)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if out["T_max"].Value.Real != 341.2 || !out["done"].Value.Bool || out["note"].Text != "it ran: twice = is fine" {
+		t.Errorf("outputs %+v", out)
+	}
+
+	cases := map[string]struct {
+		source string
+		kind   runtime.ToolErrorKind
+		detail string
+	}{
+		"missing key":   {"done = true\n", runtime.ToolMissingOutput, "T_max under key T_max: no line"},
+		"key twice":     {"T_max = 1\nT_max = 2\n", runtime.ToolMalformed, "lines 1 and 2"},
+		"not a number":  {"T_max = n/a\n", runtime.ToolMalformed, "line 1"},
+		"refusal":       {"error = did not converge\nT_max = 1\n", runtime.ToolRefused, "did not converge"},
+		"empty refusal": {"error: \n", runtime.ToolMissingOutput, "T_max"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := readReply(t, r, entry, tc.source)
+			if replyKind(err) != tc.kind || !strings.Contains(err.Error(), tc.detail) {
+				t.Errorf("read: %v, want kind %s saying %q", err, tc.kind, tc.detail)
+			}
+		})
+	}
+}
+
+func TestReplyReadsLinesRegex(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyLines, Regex: `T=(?P<T_max>[0-9.]+)`, Outputs: map[string]*ReplyOutput{
+		"T_max": {Type: TypeReal}}})
+	out, err := readReply(t, r, entry, "chatter\nT=341.2K and more\n")
+	if err != nil || out["T_max"].Value.Real != 341.2 {
+		t.Fatalf("read: %v, %+v", err, out["T_max"])
+	}
+	if _, err := readReply(t, r, entry, "T=1\nT=2\n"); replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "lines 1 and 2") {
+		t.Errorf("two matches: %v, want malformed", err)
+	}
+	if _, err := readReply(t, r, entry, "nothing\n"); replyKind(err) != runtime.ToolMissingOutput {
+		t.Errorf("no match: %v, want missing", err)
+	}
+}
+
+func TestReplyReadsExitCode(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{
+		"done": {Type: TypeBoolean}}})
+	for code, want := range map[int]bool{0: true, 3: true, 1: false} {
+		out, err := r.read(entry, &execution{exit: code}, nil)
+		if err != nil || out["done"].Value.Bool != want {
+			t.Errorf("exit %d = %+v, %v; want %v", code, out["done"], err, want)
+		}
+	}
+	r, entry = replyOf(t, &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{
+		"code": {Type: TypeInteger}}})
+	out, err := r.read(entry, &execution{exit: 3}, nil)
+	if err != nil || out["code"].Value.Int != 3 {
+		t.Errorf("exit 3 as integer = %+v, %v", out["code"], err)
+	}
+}
+
+// typeText reads each ValueType; a non-finite number is malformed everywhere.
+func TestTypeText(t *testing.T) {
+	cases := map[string]struct {
+		text  string
+		typ   ValueType
+		check func(runtime.ToolValue) bool
+	}{
+		"integer as number":  {"12", TypeNumber, func(v runtime.ToolValue) bool { return v.Value.Kind == semantics.ValInt && v.Value.Int == 12 }},
+		"real as number":     {"1.5e2", TypeNumber, func(v runtime.ToolValue) bool { return v.Value.Kind == semantics.ValReal && v.Value.Real == 150 }},
+		"integer":            {"12", TypeInteger, func(v runtime.ToolValue) bool { return v.Value.Kind == semantics.ValInt }},
+		"real of an integer": {"12", TypeReal, func(v runtime.ToolValue) bool { return v.Value.Kind == semantics.ValReal && v.Value.Real == 12 }},
+		"boolean":            {"TRUE", TypeBoolean, func(v runtime.ToolValue) bool { return v.Value.Bool }},
+		"string":             {" a b ", TypeString, func(v runtime.ToolValue) bool { return v.Text == " a b " }},
+	}
+	for name, tc := range cases {
+		v, err := typeText(tc.text, tc.typ)
+		if err != nil || !tc.check(v) {
+			t.Errorf("%s: %v, %+v", name, err, v)
+		}
+	}
+	for _, tc := range []struct {
+		text string
+		typ  ValueType
+	}{
+		{"12.0", TypeInteger}, {"inf", TypeReal}, {"nan", TypeNumber}, {"yes", TypeBoolean}, {"x", TypeNumber},
+	} {
+		if _, err := typeText(tc.text, tc.typ); err == nil {
+			t.Errorf("%s as %s read, want malformed", tc.text, tc.typ)
+		}
+	}
+	if _, err := typeText("1e400", TypeNumber); err == nil {
+		t.Error("1e400 read as a number, want a non-finite refusal")
+	}
+}
