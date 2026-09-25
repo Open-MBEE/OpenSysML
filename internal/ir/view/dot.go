@@ -1264,15 +1264,10 @@ func (l labeller) assemble(node *Node, parts labelParts) string {
 		title, strings.Join(parts.details, "<br/>"))
 }
 
-// dotFitHead wraps a head line into a box at the largest font size, from the
-// default down to the floor, at which it fits with its words whole, else at the
-// largest at which it fits with a word broken; when none does, the floor's
-// wrapping is cut to the lines the height holds, the last ellipsized.
-func dotFitHead(head string, width, height, from float64) (size float64, lines []string, fits bool) {
-	return dotFitText([]string{head}, dotBoldGlyphEm, width, height, from)
-}
-
-// dotFitText fits several lines of text into a box as dotFitHead fits one: each
+// dotFitText wraps lines of text into a box at the largest font size, from the
+// default down to the floor, at which they fit with their words whole, else at
+// the largest at which they fit with a word broken; when none does, the floor's
+// wrapping is cut to the lines the height holds, the last ellipsized. Each
 // entry is wrapped separately at the runes a glyph of the size holds and the
 // wrappings concatenated; a whole-word pass fails when any entry must break a
 // word.
