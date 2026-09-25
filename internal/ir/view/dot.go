@@ -131,11 +131,11 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		depth = 2
 	}
 	under, over := w.noteLayers()
-	w.writeNotes(under, depth)
+	w.writeNotes(under, depth, true)
 	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, depth)
 	}
-	w.writeNotes(over, depth)
+	w.writeNotes(over, depth, false)
 	if w.skin.cameo {
 		b.WriteString("  }\n")
 	}
@@ -1660,8 +1660,9 @@ func (w *dotWriter) noteEnclosesNode(i int) bool {
 }
 
 // writeNotes writes each indexed note as a `shape=note` node, white under
-// either skin, pinned in its box when the drawing is positioned.
-func (w *dotWriter) writeNotes(indices []int, depth int) {
+// either skin, pinned in its box when the drawing is positioned; top captions
+// the note at the top of its box, for a note written under nodes it frames.
+func (w *dotWriter) writeNotes(indices []int, depth int, top bool) {
 	indent := strings.Repeat("  ", depth)
 	for _, i := range indices {
 		note := w.notes[i]
@@ -1674,6 +1675,9 @@ func (w *dotWriter) writeNotes(indices []int, depth int) {
 			box = &w.noteBoxes[i]
 		}
 		attrs = append(attrs, w.dotNoteLabel(note, box)...)
+		if top {
+			attrs = append(attrs, "labelloc=t")
+		}
 		if box != nil {
 			attrs = append(attrs, w.dotPin(box.centre()), "width="+dotInches(box.high.X-box.low.X), "height="+dotInches(box.high.Y-box.low.Y))
 			if box.stated {

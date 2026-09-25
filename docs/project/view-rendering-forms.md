@@ -233,7 +233,8 @@ digraph "VehicleViews::vehicleView" {
 - **Order.** Nodes and edges are written in the rendering's order; nothing is emitted from a map.
   Graphviz paints in file order, so a sibling box enclosing others is written before them, and a
   note whose stated box encloses a node's is written before the nodes — a Cameo text box used as
-  a group frame paints behind what it frames — while every other note is written after them.
+  a group frame paints behind what it frames, its caption set at the box's top with `labelloc=t`
+  so the nodes it holds do not cover it — while every other note is written after them.
   Within an attribute list, what a node *is* (shape, style, colours, label) precedes where it is
   (`pos`, `width`, `height`).
 

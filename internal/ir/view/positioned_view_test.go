@@ -242,6 +242,16 @@ func TestEnclosingNotePaintsBehindTheNodes(t *testing.T) {
 	if small < node {
 		t.Errorf("the small note is written before the nodes, where it would hide under them:\n%s", dot)
 	}
+	line := func(at int) string {
+		end := strings.IndexByte(dot[at:], '\n')
+		return dot[at : at+end]
+	}
+	if !strings.Contains(line(frame), "labelloc=t") {
+		t.Errorf("the frame note's caption is not set at its top:\n%s", line(frame))
+	}
+	if strings.Contains(line(small), "labelloc") {
+		t.Errorf("the small note is captioned at its top:\n%s", line(small))
+	}
 }
 
 // A quoted name's escapes decode in the label: `\n` a line break, `\'` a
