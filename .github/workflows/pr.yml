@@ -27,6 +27,9 @@ env:
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"
+  # The WebAssembly gate runs the wasm binaries under Node, which the runners carry;
+  # without a runtime it would skip instead of proving they run (see tests/wasm).
+  OPENSYSML_REQUIRE_WASM: "1"
 
 jobs:
   # Which areas the pull request touches. A path no area claims turns every area
@@ -455,6 +458,19 @@ jobs:
           grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
             echo "error: the api-json corpus round-trip gate skipped" >&2
+            exit 1
+          fi
+
+      # The WebAssembly gate on its own, for the same reason: it compiles and vets
+      # the whole tree for both wasm targets, links the commands and runs them under
+      # Node, so a skip has to be visible and has to fail.
+      - name: Run the WebAssembly gate
+        run: |
+          set -o pipefail
+          node --version
+          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          if grep -qE '^\s*--- SKIP' wasm-gate.log; then
+            echo "error: the WebAssembly gate skipped" >&2
             exit 1
           fi
 
