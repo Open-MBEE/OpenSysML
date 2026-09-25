@@ -636,6 +636,28 @@ func TestConvertImageSidecarCollision(t *testing.T) {
 	}
 }
 
+// TestConvertImageSidecarIsTheModel refuses a -o an image would land on,
+// here through an images/ link back to the model's directory.
+func TestConvertImageSidecarIsTheModel(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(dir, filepath.Join(dir, "images")); err != nil {
+		t.Skip(err)
+	}
+	out := filepath.Join(dir, "fleet.png")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+out) {
+		t.Errorf("-o at an image's path: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote to the model's path")
+	}
+}
+
 // TestConvertModelFailureKeepsImages a migration whose model cannot be saved
 // leaves the images beside the previous model as they were: the model and its
 // images are committed only once every one of them is written.

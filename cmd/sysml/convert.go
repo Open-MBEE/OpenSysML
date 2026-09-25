@@ -152,7 +152,7 @@ func runConvert(files []string) (int, error) {
 	}
 	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
 		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
-		for _, protected := range []string{input, migrationReport, migrationResults} {
+		for _, protected := range []string{target, input, migrationReport, migrationResults} {
 			if protected != "" && protected != "-" && samePath(dest, protected) {
 				return 0, fmt.Errorf("the migration's image %s would replace %s", dest, protected)
 			}
