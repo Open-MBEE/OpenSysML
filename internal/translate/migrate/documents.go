@@ -450,10 +450,8 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 	return true
 }
 
-// imageFile locates the archive entry the comment's attachment names — its
-// stream, the tag's name, or the unique entry with that base name — and
-// registers image bytes for writing beside the notation under images/; reason
-// says why nothing was found when it returns "".
+// imageFile registers the image bytes the attachment names (stream, exact
+// entry, or unique base name) for writing under images/; reason says why not.
 func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason string) {
 	named := "the attached image " + strconv.Quote(name)
 	if name == "" {
