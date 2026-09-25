@@ -59,7 +59,7 @@ func (e toolEngine) Describe() Description {
 
 // Origin is the tool's manifest entry.
 func (e toolEngine) Origin() Origin {
-	return Origin{Kind: KindTool, Version: e.entry.Version, File: e.entry.File, Command: e.entry.Executable}
+	return Origin{Kind: KindTool, Version: e.entry.Version, File: e.entry.File, Command: e.entry.Executable, Exchange: e.entry.Protocol()}
 }
 
 // Process names the executable found, with the tool's version, or reports its absence.
@@ -114,9 +114,10 @@ func (e toolEngine) unaccepted(call *runtime.ToolCall) []string {
 	return unknown
 }
 
-// Run invokes the tool once: the call as one JSON object on its standard input, its one
-// JSON object on standard output bound to the call's outputs. Every failure of the process
-// or the protocol is a runtime.ToolError, which fails the performance that asked.
+// Run invokes the tool once: the call as one JSON object on its standard input, or as the
+// entry's invocation block composes it, its one JSON object on standard output bound to the
+// call's outputs. Every failure of the process or the protocol is a runtime.ToolError, which
+// fails the performance that asked.
 func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Result, error) {
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
@@ -133,9 +134,16 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	if err != nil {
 		return Result{}, err
 	}
+	process := &composed{stdin: request}
+	if e.entry.Invocation != nil {
+		if process, err = e.entry.Invocation.compose(call, e.entry, request); err != nil {
+			return Result{}, err
+		}
+	}
 	timeout := e.timeout()
 	started := time.Now()
-	reply, err := e.invoke(ctx, path, request, timeout, e.outputLimit())
+	reply, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
+	process.remove()
 	if err != nil {
 		return Result{}, err
 	}
@@ -188,13 +196,16 @@ func (e toolEngine) outputLimit() int {
 	return e.limit()
 }
 
-// invoke runs the executable once under the timeout and reads its reply.
-func (e toolEngine) invoke(ctx context.Context, path string, request []byte, timeout time.Duration, limit int) (map[string]runtime.ToolValue, error) {
+// invoke runs the executable once as composed, under the timeout, and reads its reply. Each
+// argument is one argv entry as rendered; no shell is involved. A nil env inherits this
+// process's, as an entry without an invocation block does.
+func (e toolEngine) invoke(ctx context.Context, path string, process *composed, timeout time.Duration, limit int) (map[string]runtime.ToolValue, error) {
 	tool := e.entry.ToolName
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd := exec.CommandContext(tctx, path)
-	cmd.Stdin = bytes.NewReader(request)
+	cmd := exec.CommandContext(tctx, path, process.args...) // #nosec G204 -- the manifest names the executable; the arguments are values
+	cmd.Env, cmd.Dir = process.env, process.dir
+	cmd.Stdin = bytes.NewReader(process.stdin)
 	stdout, stderr := newBoundedBuffer(limit, cancel), newBoundedBuffer(limit, cancel)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = time.Second

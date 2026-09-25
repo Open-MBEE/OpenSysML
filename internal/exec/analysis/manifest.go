@@ -66,6 +66,9 @@ type ToolEntry struct {
 	Executable string `json:"executable"`
 	// Variables are the ToolVariable names the tool accepts.
 	Variables []string `json:"variables"`
+	// Invocation composes the process from the call; nil runs the executable bare with the
+	// JSON request on standard input.
+	Invocation *Invocation `json:"invocation,omitempty"`
 }
 
 // Accepts reports whether the tool accepts the tool variable named.
@@ -276,7 +279,7 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 	}
 	var entry ToolEntry
 	if err := decodeOne(data, &entry); err != nil {
-		return fault("not one JSON object of kind, toolName, version, executable and variables", err)
+		return fault("not one JSON object of kind, toolName, version, executable, variables and invocation", err)
 	}
 	entry.File = path
 	entry.Kind = KindTool
@@ -309,6 +312,11 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 			return fault("executable "+err.Error(), nil)
 		}
 		entry.Executable = resolved
+	}
+	if entry.Invocation != nil {
+		if err := checkInvocation(&entry, filepath.Dir(path)); err != nil {
+			return fault(err.Error(), nil)
+		}
 	}
 	return entry, nil
 }
