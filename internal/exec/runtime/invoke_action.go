@@ -550,11 +550,12 @@ func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
 
 // ActionInputs is the inputs an invocation of sym binds, as bindArgumentList
 // binds them: the positional arguments to the first `in` parameters in
-// declaration order, then the named ones in sorted order. More positional
+// declaration order, then the named ones in sorted order — each written name
+// resolved through BoundParameter as an invocation's is. More positional
 // arguments than parameters is ErrActionArity, a name no `in` parameter carries
 // is ErrUnknownParameter, and one a positional argument already bound is
 // ErrDuplicateArgument.
-func (ctx *Context) ActionInputs(sym *symbols.Symbol, positional []Value, named map[string]Value) (map[string]Value, error) {
+func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, positional []Value, named map[string]Value) (map[string]Value, error) {
 	names := ctx.ActionInputNames(sym)
 	if len(positional) > len(names) {
 		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
@@ -566,7 +567,15 @@ func (ctx *Context) ActionInputs(sym *symbols.Symbol, positional []Value, named 
 		inputs[names[i]] = value
 		bound[names[i]] = true
 	}
-	for _, name := range slices.Sorted(maps.Keys(named)) {
+	for _, written := range slices.Sorted(maps.Keys(named)) {
+		name := written
+		if ctx.model.semantics != nil {
+			qn := &ast.QualifiedName{}
+			qn.SetSingleton(ast.NameSegment{Text: written})
+			if resolved, ok := ctx.model.semantics.BoundParameter(scope, sym, qn); ok {
+				name = resolved
+			}
+		}
 		if !slices.Contains(names, name) {
 			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
 				ErrUnknownParameter, symbolText(sym), name)
@@ -576,7 +585,7 @@ func (ctx *Context) ActionInputs(sym *symbols.Symbol, positional []Value, named 
 				ErrDuplicateArgument, name, symbolText(sym))
 		}
 		bound[name] = true
-		inputs[name] = named[name]
+		inputs[name] = named[written]
 	}
 	return inputs, nil
 }

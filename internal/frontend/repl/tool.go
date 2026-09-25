@@ -100,7 +100,7 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 	if err != nil {
 		return err
 	}
-	inputs, err := ctx.ActionInputs(sym, positional, named)
+	inputs, err := ctx.ActionInputs(scope, sym, positional, named)
 	if err != nil {
 		return err
 	}

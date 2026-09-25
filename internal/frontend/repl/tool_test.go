@@ -351,3 +351,25 @@ func TestToolPreviewsAFileReplysRenderedSource(t *testing.T) {
 	wantsInOrder(t, run(t, s, "%tool Tools::Heating"),
 		`  "--out"`, `  "<outputDir>"`,
 		"reply: csv from file:<outputDir>/result.csv",
+		"the process was not started")
+}
+
+// %tool resolves a named argument as an invocation does: a redefined parameter's
+// spelling binds the parameter it redefines.
+func TestToolBindsARedefinedParametersName(t *testing.T) {
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	action def Base {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in x : Real { @ToolVariable { name = "mass"; } }
+		out tMax : Real { @ToolVariable { name = "tMax"; } }
+	}
+	action def Sub : Base { in attribute load :>> x; }
+}`)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	wants(t, run(t, s, "%tool Tools::Sub(load=30)"), "mass = 30", "the process was not started")
+}
