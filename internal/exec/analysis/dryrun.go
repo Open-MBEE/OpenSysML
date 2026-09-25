@@ -274,7 +274,11 @@ func appendData(lines []string, data []byte) []string {
 func (d DryRun) replyLines() []string {
 	r := d.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
-		return []string{"reply: object — the protocol's JSON object, one key per output variable"}
+		line := "reply: object"
+		if source := d.ReplySource; source != "" && source != "stdout" {
+			line += " from " + source
+		}
+		return []string{line + " — the protocol's JSON object, one key per output variable"}
 	}
 	source := d.ReplySource
 	if source == "" {
