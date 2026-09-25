@@ -81,6 +81,9 @@ type Report struct {
 	// Layout accounts for the geometry the views were laid out from, an MTIP
 	// export or the diagrams' own symbol streams; nil when there was neither.
 	Layout *LayoutSummary `json:"layout,omitempty"`
+	// Images counts the attached image files the migration wrote beside the
+	// notation for its Image blocks.
+	Images int `json:"images,omitempty"`
 }
 
 // LayoutSummary accounts for what an MTIP export and the diagrams' own symbol
@@ -175,6 +178,9 @@ func (r *Report) Summary() string {
 		s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed, %s styled, %s notes",
 			laidOut, laidOut+l.ViewsWithoutLayout, l.Source,
 			commas(l.PlacementsWritten), commas(l.RoutesWritten), commas(l.StylesWritten), commas(l.Notes))
+	}
+	if r.Images > 0 {
+		s += fmt.Sprintf("; wrote %d image file(s)", r.Images)
 	}
 	return s
 }

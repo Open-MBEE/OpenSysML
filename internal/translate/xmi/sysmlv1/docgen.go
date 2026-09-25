@@ -41,8 +41,8 @@ type DocGenView struct {
 }
 
 // DocGenParagraph is one collaborator paragraph: a comment the collaborator
-// profile places in a view (its ownerId) of a document (its viewId), after
-// the paragraph its siblingId names.
+// profile places in a view (ownerId, or sectionId in the 2022x schema) of a
+// document, after the paragraph its siblingId or parentId names.
 type DocGenParagraph struct {
 	// Application is the CollaboratorParagraph or CollaboratorImageParagraph application.
 	Application *Stereotype
@@ -52,8 +52,8 @@ type DocGenParagraph struct {
 	Comment *Element
 	// Malformed is why the paragraph cannot be shown, "" when it can.
 	Malformed string
-	// Placed reports whether siblingId named a paragraph of the same view,
-	// which this one then follows; false also when siblingId is empty.
+	// Placed reports whether the predecessor tag named a paragraph of the
+	// same view, which this one then follows.
 	Placed bool
 }
 
@@ -134,8 +134,7 @@ func (m *Model) readDocuments() {
 	r := &docGenReader{m: m, comments: map[string][]*Stereotype{}, placed: map[*Stereotype]bool{}}
 	for _, s := range m.Stereotypes {
 		if isCollaboratorParagraph(s) {
-			owner := s.Tag("ownerId")
-			r.comments[owner] = append(r.comments[owner], s)
+			r.comments[ownerTag(s)] = append(r.comments[ownerTag(s)], s)
 		}
 	}
 	seen := map[*Element]bool{}
@@ -148,6 +147,7 @@ func (m *Model) readDocuments() {
 		}
 		seen[s.Base] = true
 		r.doc = s.Base
+		r.docViews = m.viewTree(s.Base)
 		doc := &DocGenDocument{Class: s.Base, Application: s}
 		doc.Root = r.view(s.Base, nil, map[*Element]bool{}, true)
 		m.Documents = append(m.Documents, doc)
@@ -157,10 +157,10 @@ func (m *Model) readDocuments() {
 			continue
 		}
 		p := &DocGenParagraph{Application: s, Comment: s.Base, Image: s.Name == "CollaboratorImageParagraph"}
-		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] {
+		if id := s.Tag("viewId"); id != "" && !seen[m.Lookup(id)] && (m.Lookup(id) == nil || !isDocGenView(m.Lookup(id))) {
 			p.Malformed = fmt.Sprintf("viewId %q names no document", id)
 		} else {
-			p.Malformed = fmt.Sprintf("ownerId %q names no view of the document", s.Tag("ownerId"))
+			p.Malformed = fmt.Sprintf("%s %q names no view of the document", ownerTagName(s), ownerTag(s))
 		}
 		m.StrayParagraphs = append(m.StrayParagraphs, p)
 	}
@@ -171,13 +171,41 @@ func isCollaboratorParagraph(s *Stereotype) bool {
 	return s.Namespace == DocGenCollaboratorNS && (s.Name == "CollaboratorParagraph" || s.Name == "CollaboratorImageParagraph")
 }
 
+// ownerTag is the view a paragraph application places its comment in:
+// ownerId, or the 2022x schema's sectionId.
+func ownerTag(s *Stereotype) string {
+	if id := s.Tag("ownerId"); id != "" {
+		return id
+	}
+	return s.Tag("sectionId")
+}
+
+// ownerTagName names the tag ownerTag read, for a stray paragraph's reason.
+func ownerTagName(s *Stereotype) string {
+	if s.Tag("ownerId") != "" {
+		return "ownerId"
+	}
+	return "sectionId"
+}
+
+// predecessor is the paragraph before this one in its section: siblingId, or
+// the 2022x schema's parentId.
+func predecessor(s *Stereotype) string {
+	if id := s.Tag("siblingId"); id != "" {
+		return id
+	}
+	return s.Tag("parentId")
+}
+
 type docGenReader struct {
 	m        *Model
 	comments map[string][]*Stereotype
-	// doc is the document class whose views are being read; placed are the
-	// paragraph applications some view of some document has shown.
-	doc    *Element
-	placed map[*Stereotype]bool
+	// doc is the document class whose views are being read and docViews the ids
+	// of its view tree's classes; placed are the paragraph applications some
+	// view of some document has shown.
+	doc      *Element
+	docViews map[string]bool
+	placed   map[*Stereotype]bool
 }
 
 // isDocGenView reports whether e is a view class: the SysML View stereotype
@@ -197,6 +225,33 @@ func (e *Element) DocGenView() bool {
 // document mapping reads.
 func IsDocGenProfile(ns string) bool {
 	return ns == DocGenNS || ns == DocGenCollaboratorNS
+}
+
+// viewTree returns the ids of the classes the document's view tree shows:
+// every ownedAttribute whose type isDocGenView accepts, entered deeper under
+// the aggregation rule view follows.
+func (m *Model) viewTree(root *Element) map[string]bool {
+	tree := map[string]bool{}
+	seen := map[*Element]bool{root: true}
+	var walk func(class *Element)
+	walk = func(class *Element) {
+		for _, p := range class.Owned("ownedAttribute") {
+			t := m.Ref(p, "type")
+			if p.Type != "Property" || t == nil || !isDocGenView(t) {
+				continue
+			}
+			tree[t.ID] = true
+			if seen[t] {
+				continue
+			}
+			seen[t] = true
+			if aggregation := p.Attrs["aggregation"]; aggregation != "" && aggregation != "none" {
+				walk(t)
+			}
+		}
+	}
+	walk(root)
+	return tree
 }
 
 // view reads one view placed by property p of its parent (nil at the root)
@@ -243,13 +298,14 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 }
 
 // paragraphs reads the collaborator paragraphs placed in a view of the
-// current document (viewId, when set, names the document class): in
-// application order, each moved behind the paragraph its siblingId names.
+// current document (a viewId must name the document class, or a view of its
+// tree in a 2022x export), each moved behind the paragraph its predecessor
+// names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
 	for _, s := range r.comments[class.ID] {
-		if id := s.Tag("viewId"); id != "" && id != r.doc.ID {
+		if id := s.Tag("viewId"); id != "" && id != r.doc.ID && !r.docViews[id] {
 			continue
 		}
 		r.placed[s] = true
@@ -270,7 +326,7 @@ func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	followers := map[*DocGenParagraph][]*DocGenParagraph{}
 	var heads []*DocGenParagraph
 	for _, p := range out {
-		after := byComment[p.Application.Tag("siblingId")]
+		after := byComment[predecessor(p.Application)]
 		if after == nil || after == p {
 			heads = append(heads, p)
 			continue

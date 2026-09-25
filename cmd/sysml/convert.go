@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
@@ -120,6 +122,9 @@ func runConvert(files []string) (int, error) {
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
+	if err := imageBaseURLMisuse(from); err != nil {
+		return 0, err
+	}
 	if err := layoutMisuse(from, input); err != nil {
 		return 0, err
 	}
@@ -127,13 +132,34 @@ func runConvert(files []string) (int, error) {
 	if from == convert.FormatXMI && outputPath != "" && input != "-" && samePath(outputPath, input) {
 		return 0, fmt.Errorf("-o names the model being migrated, %s; the v1 model would be replaced by its migration", input)
 	}
-	out, err := convertInput(name, data, from, to)
+	out, imageFiles, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
 	}
 	if outputPath == "" {
+		if len(imageFiles) > 0 {
+			return 0, fmt.Errorf("the migration wrote %d image file(s); -o a local file path is required to write them", len(imageFiles))
+		}
 		_, err := os.Stdout.Write(out)
 		return exitHolds, err
+	}
+	target, info, err := export.Destination(outputPath)
+	if err != nil {
+		return 0, err
+	}
+	if len(imageFiles) > 0 && info != nil && !info.Mode().IsRegular() {
+		return 0, fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
+	}
+	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
+		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
+		for _, protected := range []string{input, migrationReport, migrationResults} {
+			if protected != "" && protected != "-" && samePath(dest, protected) {
+				return 0, fmt.Errorf("the migration's image %s would replace %s", dest, protected)
+			}
+		}
+	}
+	if err := writeMigrationFiles(filepath.Dir(target), imageFiles); err != nil {
+		return 0, err
 	}
 	if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
@@ -142,30 +168,50 @@ func runConvert(files []string) (int, error) {
 }
 
 // convertInput runs the conversion the input format asks for: a SysML v1 model
-// is migrated and its report written, anything else converted.
-func convertInput(name string, data []byte, from, to convert.Format) ([]byte, error) {
+// is migrated and its report written, anything else converted. files are the
+// attached image files a migration wrote for its document Image blocks, nil
+// for any other input.
+func convertInput(name string, data []byte, from, to convert.Format) ([]byte, map[string][]byte, error) {
 	opts, err := convertOptions(from, to)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if from != convert.FormatXMI {
-		return convert.ConvertWith(name, data, from, to, opts)
+		out, err := convert.ConvertWith(name, data, from, to, opts)
+		return out, nil, err
 	}
 	migOpts, err := migrationOptions()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	migrated, err := convert.Migrate(name, data, to, migOpts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := writeMigrationReport(migrated.Report); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := writeMigrationResults(migrated.Results); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return migrated.Output, nil
+	return migrated.Output, migrated.Files, nil
+}
+
+// writeMigrationFiles writes the image files a migration produced under dir,
+// each at the relative path it was planned for.
+func writeMigrationFiles(dir string, files map[string][]byte) error {
+	names := slices.Sorted(maps.Keys(files))
+	for _, name := range names {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			return err
+		}
+		if _, err := export.WriteFile(path, files[name]); err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "wrote %s (image file, %d bytes)\n", path, len(files[name]))
+	}
+	return nil
 }
 
 // recordedConvertMisuse is why a flag cannot share the run -record-run
@@ -197,6 +243,8 @@ func recordedConvertMisuse(input string) error {
 		return errors.New("-record-run converts the recorded session model; -migration-results does not apply")
 	case layoutPath != "":
 		return errors.New("-record-run converts the recorded session model; -layout does not apply")
+	case imageBaseURL != "":
+		return errors.New("-record-run converts the recorded session model; -image-base-url does not apply")
 	}
 	return nil
 }
@@ -330,6 +378,9 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if layoutPath != "" {
 		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
 	}
+	if imageBaseURL != "" {
+		return 0, fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
 	repo, cfg, err := openBranch(ref)
 	if err != nil {
 		return 0, err
@@ -427,15 +478,21 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if migrationReport != "" && from != convert.FormatXMI {
 		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	}
+	if err := imageBaseURLMisuse(from); err != nil {
+		return 0, err
+	}
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
 	if err := layoutMisuse(from, input); err != nil {
 		return 0, err
 	}
-	out, err := convertInput(name, data, from, to)
+	out, imageFiles, err := convertInput(name, data, from, to)
 	if err != nil {
 		return 0, err
+	}
+	if len(imageFiles) > 0 {
+		return 0, fmt.Errorf("the migration wrote %d image file(s); a repository branch cannot hold them: -o a local file path is required", len(imageFiles))
 	}
 	head, err := repo.Push(context.Background(), out, "sysml -convert ttl")
 	if err != nil {
@@ -484,11 +541,19 @@ func recordBranchState(head string, state *reposync.State, scope reposync.Scope,
 	return exitHolds, nil
 }
 
+// imageBaseURLMisuse reports -image-base-url passed for input no migration reads.
+func imageBaseURLMisuse(from convert.Format) error {
+	if imageBaseURL != "" && from != convert.FormatXMI {
+		return fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	}
+	return nil
+}
+
 // migrationOptions reads the -layout MTIP export into the migration's
 // options; none were given when the flag was not passed.
 func migrationOptions() (migrate.Options, error) {
 	if layoutPath == "" {
-		return migrate.Options{}, nil
+		return migrate.Options{ImageBaseURL: imageBaseURL}, nil
 	}
 	data, err := os.ReadFile(layoutPath)
 	if err != nil {
@@ -498,7 +563,7 @@ func migrationOptions() (migrate.Options, error) {
 	if err != nil {
 		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
 	}
-	return migrate.Options{Layout: layout, LayoutSource: layoutPath}, nil
+	return migrate.Options{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL}, nil
 }
 
 // layoutMisuse reports why -layout augments nothing: a v2 input has no

@@ -145,6 +145,34 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 	return diagrams, nil
 }
 
+// Image is one image block of a document: its name, the location it shows,
+// its alt text and caption.
+type Image struct {
+	Name     string
+	Location string
+	Alt      string
+	Caption  string
+}
+
+// Images lists the image blocks of a document in document order.
+func Images(document *docir.Document) []Image {
+	if document == nil {
+		return nil
+	}
+	var images []Image
+	var walk func(nodes []docir.Content)
+	walk = func(nodes []docir.Content) {
+		for _, node := range nodes {
+			if node.Kind() == docir.ContentImage {
+				images = append(images, Image{Name: node.Name(), Location: node.Location(), Alt: node.Alt(), Caption: node.Caption()})
+			}
+			walk(node.Children())
+		}
+	}
+	walk(document.Content())
+	return images
+}
+
 // Formula is one formula of a document as the HTML backend keys it: its LaTeX
 // source, trimmed, and whether it is displayed on a line of its own.
 type Formula struct {
@@ -221,7 +249,7 @@ func displayFormula(source string) Formula {
 	return Formula{Source: strings.TrimSpace(newlineNormalizer.Replace(source)), Display: true}
 }
 
-// Captions lists the document's table, diagram and formula captions in
+// Captions lists the document's table, diagram, formula and image captions in
 // document order: each is the emphasized paragraph the Markdown backend
 // writes ahead of its block, for a consumer telling a caption from a
 // paragraph that happens to be emphasized. Each is listed as written, without
@@ -235,7 +263,7 @@ func Captions(document *docir.Document) []string {
 	walk = func(nodes []docir.Content) {
 		for _, node := range nodes {
 			switch node.Kind() {
-			case docir.ContentTable, docir.ContentDiagram, docir.ContentFormula:
+			case docir.ContentTable, docir.ContentDiagram, docir.ContentFormula, docir.ContentImage:
 				if caption := strings.TrimSpace(node.Caption()); caption != "" {
 					captions = append(captions, caption)
 				}

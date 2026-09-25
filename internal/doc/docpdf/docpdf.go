@@ -115,6 +115,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	if err := checkImages(docrender.Images(document), base); err != nil {
+		return nil, err
+	}
 	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
@@ -218,6 +221,36 @@ func fileRefs(dir string, names []string) []string {
 		}
 	}
 	return refs
+}
+
+// checkImages requires every local image a document shows to exist where its
+// location resolves: a relative path against base, an absolute path or a
+// file URL as written; http(s) locations are left for the engine to fetch.
+func checkImages(images []docrender.Image, base string) error {
+	for _, image := range images {
+		location := image.Location
+		if isRemoteImageLocation(location) {
+			continue
+		}
+		path := location
+		if u, err := url.Parse(location); err == nil && u.Scheme == "file" {
+			path = filepath.FromSlash(u.Path)
+		} else if !filepath.IsAbs(path) {
+			path = filepath.Join(base, filepath.FromSlash(path))
+		}
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return &Error{Kind: ErrorImageMissing, Tool: image.Name, Detail: path}
+		}
+	}
+	return nil
+}
+
+// isRemoteImageLocation reports a location rendered where it stands: an
+// http(s) URL the engines fetch themselves.
+func isRemoteImageLocation(location string) bool {
+	lower := strings.ToLower(location)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
 
 // dirURL is the file URL of an absolute directory with a trailing slash, so

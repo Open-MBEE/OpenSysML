@@ -125,6 +125,7 @@ var (
 	migrationReport  string
 	migrationResults string
 	layoutPath       string
+	imageBaseURL     string
 	renderView       string
 	renderAllDir     string
 	renderForm       string

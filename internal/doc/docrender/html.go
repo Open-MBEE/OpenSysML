@@ -478,6 +478,9 @@ func (w *htmlWriter) writeContent(node docir.Content, path []step, index, level 
 	case docir.ContentFormula:
 		w.writeFormula(node, id)
 		return nil
+	case docir.ContentImage:
+		w.writeImage(node, id)
+		return nil
 	case docir.ContentDiagram:
 		return w.writeDiagram(node, id)
 	default:
@@ -661,6 +664,22 @@ func (w *htmlWriter) writeFormula(node docir.Content, id string) {
 		math = typeset
 	}
 	w.b.WriteString("<div class=\"sysml-math\">" + math + "</div>\n")
+	if node.Caption() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
+	}
+	w.b.WriteString("</figure>\n")
+}
+
+// writeImage writes one image as a figure: its location verbatim, so a
+// relative path stays relative to the document, and its caption.
+func (w *htmlWriter) writeImage(node docir.Content, id string) {
+	alt := node.Alt()
+	if alt == "" {
+		alt = node.Caption()
+	}
+	w.b.WriteString("<figure class=\"sysml-image\"" + attr("id", id) + " data-content=\"image\"" +
+		attr(attrName, node.Name()) + ">\n")
+	w.b.WriteString("<img" + attr("src", node.Location()) + attr("alt", alt) + ">\n")
 	if node.Caption() != "" {
 		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
 	}
