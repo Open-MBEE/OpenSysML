@@ -202,10 +202,14 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
 		part := variable + "="
-		if v.Value.Kind == semantics.ValInvalid {
-			part += strconv.Quote(v.Text)
+		if v.Items != nil {
+			elements := make([]string, len(v.Items))
+			for i, item := range v.Items {
+				elements[i] = renderValue(item)
+			}
+			part += "(" + strings.Join(elements, ", ") + ")"
 		} else {
-			part += semantics.FormatConst(v.Value)
+			part += renderValue(v)
 		}
 		if v.Unit != "" {
 			part += " [" + v.Unit + "]"
@@ -214,6 +218,14 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, " ")
+}
+
+// renderValue spells one carried value: text quoted, a scalar by FormatConst.
+func renderValue(v runtime.ToolValue) string {
+	if v.Value.Kind == semantics.ValInvalid {
+		return strconv.Quote(v.Text)
+	}
+	return semantics.FormatConst(v.Value)
 }
 
 // outputLimit is the bound on one reply, OutputLimitEnv's unless the engine was built without it.
@@ -528,31 +540,67 @@ func decodeValue(raw wiredValue) (runtime.ToolValue, error) {
 		return runtime.ToolValue{}, err
 	}
 	out := runtime.ToolValue{Unit: unit}
+	if items, isArray := decoded.([]any); isArray {
+		seq := make([]runtime.ToolValue, 0, len(items))
+		var want string
+		for i, elem := range items {
+			switch elem.(type) {
+			case []any, map[string]any, nil:
+				return runtime.ToolValue{}, fmt.Errorf("element %d is %s, not a number, boolean or string", i, jsonKindOf(elem))
+			}
+			kind := jsonWireKind(elem)
+			if i == 0 {
+				want = kind
+			} else if kind != want {
+				return runtime.ToolValue{}, fmt.Errorf("element %d is a %s after element 0 is a %s", i, kind, want)
+			}
+			if unit != "" && kind != "number" {
+				return runtime.ToolValue{}, fmt.Errorf("a %s has no unit, got %q", kind, unit)
+			}
+			item, _, err := decodeScalar(elem)
+			if err != nil {
+				return runtime.ToolValue{}, fmt.Errorf("element %d: %v", i, err)
+			}
+			seq = append(seq, item)
+		}
+		out.Items = seq
+		return out, nil
+	}
+	value, kind, err := decodeScalar(decoded)
+	if err != nil {
+		if _, isNumber := decoded.(json.Number); isNumber {
+			return runtime.ToolValue{}, err
+		}
+		return runtime.ToolValue{}, fmt.Errorf("%s is not a number, boolean or string", strings.TrimSpace(string(raw.Value)))
+	}
+	if unit != "" && kind != "number" {
+		return runtime.ToolValue{}, fmt.Errorf("a %s has no unit, got %q", kind, unit)
+	}
+	out.Value = value.Value
+	out.Text = value.Text
+	return out, nil
+}
+
+// decodeScalar reads one decoded JSON scalar — a number, boolean or string — reporting
+// its kind so a caller can tell a sequence's element kinds apart; a number reports
+// "number" whichever of Integer and Real it parsed as.
+func decodeScalar(decoded any) (runtime.ToolValue, string, error) {
 	switch v := decoded.(type) {
 	case json.Number:
 		if i, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
-			out.Value = semantics.Value{Kind: semantics.ValInt, Int: i}
-			return out, nil
+			return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, "number", nil
 		}
 		f, err := strconv.ParseFloat(v.String(), 64)
 		if err != nil || math.IsInf(f, 0) {
-			return runtime.ToolValue{}, fmt.Errorf("%s is not a finite number", v.String())
+			return runtime.ToolValue{}, "", fmt.Errorf("%s is not a finite number", v.String())
 		}
-		out.Value = semantics.Value{Kind: semantics.ValReal, Real: f}
+		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: f}}, "number", nil
 	case bool:
-		if out.Unit != "" {
-			return runtime.ToolValue{}, fmt.Errorf("a boolean has no unit, got %q", out.Unit)
-		}
-		out.Value = semantics.Value{Kind: semantics.ValBool, Bool: v}
+		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValBool, Bool: v}}, "boolean", nil
 	case string:
-		if out.Unit != "" {
-			return runtime.ToolValue{}, fmt.Errorf("a string has no unit, got %q", out.Unit)
-		}
-		out.Text = v
-	default:
-		return runtime.ToolValue{}, fmt.Errorf("%s is not a number, boolean or string", strings.TrimSpace(string(raw.Value)))
+		return runtime.ToolValue{Text: v}, "string", nil
 	}
-	return out, nil
+	return runtime.ToolValue{}, "", errors.New("not a scalar")
 }
 
 // decodeUnit reads a wire value's unit: none when omitted, else a string of unit expression

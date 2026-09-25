@@ -165,7 +165,7 @@ const (
 	RowLast
 	// RowIndex is the zero-based nth.
 	RowIndex
-	// RowAll is every data record in order; parsed, refused at load for now.
+	// RowAll is every data record in order; the output is a sequence of them.
 	RowAll
 )
 
@@ -510,9 +510,6 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 		if o.Row == nil {
 			o.Row = &Row{Kind: RowLast}
 		}
-		if o.Row.Kind == RowAll {
-			return fmt.Errorf("reply.outputs.%s.row: all is not supported yet", variable)
-		}
 	case ReplyLines:
 		if o.Key == "" {
 			o.Key = variable
@@ -802,23 +799,72 @@ func jsonKindOf(v any) string {
 	return "a value"
 }
 
+// jsonWireKind names the wire kind of a JSON scalar: "number" for any number, "boolean"
+// or "string"; "" for a non-scalar, which its caller reports itself.
+func jsonWireKind(v any) string {
+	switch v.(type) {
+	case json.Number:
+		return "number"
+	case bool:
+		return "boolean"
+	case string:
+		return "string"
+	}
+	return ""
+}
+
 // jsonOutputValue reads one resolved value against the declared type: a number, boolean or
-// string scalar; an array is not supported yet, an object or null is malformed.
+// string scalar, or an array of them as a sequence whose elements share one kind; an object
+// or null is malformed.
 func jsonOutputValue(o *ReplyOutput, v any) (runtime.ToolValue, error) {
 	out := runtime.ToolValue{Unit: o.Unit}
 	switch value := v.(type) {
 	case []any:
-		return runtime.ToolValue{}, errors.New("an array is not supported yet")
+		items := make([]runtime.ToolValue, 0, len(value))
+		var want string
+		for i, elem := range value {
+			switch elem.(type) {
+			case []any, map[string]any, nil:
+				return runtime.ToolValue{}, fmt.Errorf("element %d is %s, not a number, boolean or string", i, jsonKindOf(elem))
+			}
+			if kind := jsonWireKind(elem); i == 0 {
+				want = kind
+			} else if kind != want {
+				return runtime.ToolValue{}, fmt.Errorf("element %d is a %s after element 0 is a %s", i, kind, want)
+			}
+			item, _, err := jsonScalar(o, elem)
+			if err != nil {
+				return runtime.ToolValue{}, fmt.Errorf("element %d: %v", i, err)
+			}
+			items = append(items, item)
+		}
+		out.Items = items
+		return out, nil
 	case map[string]any:
 		return runtime.ToolValue{}, errors.New("an object is not a number, boolean or string")
 	case nil:
 		return runtime.ToolValue{}, errors.New("null is not a number, boolean or string")
+	}
+	item, _, err := jsonScalar(o, v)
+	if err != nil {
+		return runtime.ToolValue{}, err
+	}
+	out.Value = item.Value
+	out.Text = item.Text
+	return out, nil
+}
+
+// jsonScalar reads one JSON scalar against the declared type, reporting its wire kind —
+// "number" for an Integer or Real, "boolean" or "string" — so a caller can tell the kinds
+// of a sequence's elements apart.
+func jsonScalar(o *ReplyOutput, v any) (runtime.ToolValue, string, error) {
+	switch value := v.(type) {
 	case json.Number:
 		switch o.Type {
 		case TypeBoolean:
-			return runtime.ToolValue{}, errors.New("number where boolean expected")
+			return runtime.ToolValue{}, "", errors.New("number where boolean expected")
 		case TypeString:
-			return runtime.ToolValue{}, errors.New("number where string expected")
+			return runtime.ToolValue{}, "", errors.New("number where string expected")
 		}
 		var held semantics.Value
 		if i, err := strconv.ParseInt(value.String(), 10, 64); err == nil {
@@ -826,33 +872,33 @@ func jsonOutputValue(o *ReplyOutput, v any) (runtime.ToolValue, error) {
 		} else {
 			f, err := strconv.ParseFloat(value.String(), 64)
 			if err != nil || math.IsInf(f, 0) || math.IsNaN(f) {
-				return runtime.ToolValue{}, fmt.Errorf("%s is not a finite number", value.String())
+				return runtime.ToolValue{}, "", fmt.Errorf("%s is not a finite number", value.String())
 			}
 			held = semantics.Value{Kind: semantics.ValReal, Real: f}
 		}
 		switch o.Type {
 		case TypeInteger:
 			if held.Kind != semantics.ValInt {
-				return runtime.ToolValue{}, fmt.Errorf("%s is not an integer", value.String())
+				return runtime.ToolValue{}, "", fmt.Errorf("%s is not an integer", value.String())
 			}
 		case TypeReal:
 			if held.Kind == semantics.ValInt {
 				held = semantics.Value{Kind: semantics.ValReal, Real: float64(held.Int)}
 			}
 		}
-		out.Value = held
+		return runtime.ToolValue{Value: held}, "number", nil
 	case bool:
 		if o.Type != TypeBoolean {
-			return runtime.ToolValue{}, fmt.Errorf("boolean where %s expected", o.Type)
+			return runtime.ToolValue{}, "", fmt.Errorf("boolean where %s expected", o.Type)
 		}
-		out.Value = semantics.Value{Kind: semantics.ValBool, Bool: value}
+		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValBool, Bool: value}}, "boolean", nil
 	case string:
 		if o.Type != TypeString {
-			return runtime.ToolValue{}, fmt.Errorf("string where %s expected", o.Type)
+			return runtime.ToolValue{}, "", fmt.Errorf("string where %s expected", o.Type)
 		}
-		out.Text = value
+		return runtime.ToolValue{Text: value}, "string", nil
 	}
-	return out, nil
+	return runtime.ToolValue{}, "", fmt.Errorf("%s is not a number, boolean or string", jsonKindOf(v))
 }
 
 // readCSV parses the records and reads each output's cell: the refusal at errorColumn first.
@@ -923,6 +969,41 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 		if err != nil {
 			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s: %v", variable, o.Column, err)
 		}
+		ucol := -1
+		if o.UnitColumn != nil {
+			if ucol, err = indexOf(o.UnitColumn); err != nil {
+				return nil, toolFault(tool, runtime.ToolMalformed, "unit %v", err)
+			}
+		}
+		if o.Row.Kind == RowAll {
+			// Every data record in order is one item; its unit column reads per row and
+			// all rows must agree on it.
+			items := make([]runtime.ToolValue, 0, len(data))
+			unit := o.Unit
+			for i := range data {
+				value, missing, err := csvCell(o, data[i][col])
+				if err != nil {
+					return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %d: %v", variable, o.Column, i, err)
+				}
+				if missing {
+					return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %d: an empty cell", variable, o.Column, i)
+				}
+				if ucol >= 0 {
+					u := strings.TrimSpace(data[i][ucol])
+					if u == "" {
+						return nil, toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %d is empty", o.UnitColumn, i)
+					}
+					if i == 0 {
+						unit = u
+					} else if u != unit {
+						return nil, toolFault(tool, runtime.ToolMalformed, "%s: unit column %s is %s in row %d but %s in row %d", variable, o.UnitColumn, unit, 0, u, i)
+					}
+				}
+				items = append(items, value)
+			}
+			outputs[variable] = runtime.ToolValue{Unit: unit, Items: items}
+			continue
+		}
 		row, err := csvRow(o.Row, len(data))
 		if err != nil {
 			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
@@ -930,23 +1011,15 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 		if row >= len(data) {
 			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(data))
 		}
-		cell := data[row][col]
-		if o.Type != TypeString {
-			cell = strings.TrimSpace(cell)
-		}
-		if cell == "" && o.Type != TypeString {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
-		}
-		value, err := typeText(cell, o.Type)
+		value, missing, err := csvCell(o, data[row][col])
 		if err != nil {
 			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
 		}
+		if missing {
+			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
+		}
 		value.Unit = o.Unit
-		if o.UnitColumn != nil {
-			ucol, err := indexOf(o.UnitColumn)
-			if err != nil {
-				return nil, toolFault(tool, runtime.ToolMalformed, "unit %v", err)
-			}
+		if ucol >= 0 {
 			unit := strings.TrimSpace(data[row][ucol])
 			if unit == "" {
 				return nil, toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %s is empty", o.UnitColumn, o.Row)
@@ -956,6 +1029,19 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 		outputs[variable] = value
 	}
 	return outputs, nil
+}
+
+// csvCell reads one data cell as the output's declared type; missing marks an empty cell,
+// which reads as nothing under every type but string.
+func csvCell(o *ReplyOutput, cell string) (value runtime.ToolValue, missing bool, err error) {
+	if o.Type != TypeString {
+		cell = strings.TrimSpace(cell)
+	}
+	if cell == "" && o.Type != TypeString {
+		return runtime.ToolValue{}, true, nil
+	}
+	value, err = typeText(cell, o.Type)
+	return value, false, err
 }
 
 // csvRow is the data record a selector picks; false when there are none.
