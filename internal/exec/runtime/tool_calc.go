@@ -119,6 +119,12 @@ func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, he
 	if err != nil {
 		return Value{}, false, nil, err
 	}
+	for _, out := range call.Outputs {
+		if _, answered := answer.Outputs[out.Parameter]; !answered {
+			return Value{}, false, nil, &ToolError{Tool: tool, Kind: ToolMissingOutput,
+				Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Parameter, out.Variable, shape.Label)}
+		}
+	}
 	if answer.Diverged {
 		ctx.note(ToolDivergence{
 			Tool:   tool,

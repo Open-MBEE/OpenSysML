@@ -596,6 +596,42 @@ func TestToolCalcDeclaredReaderForwardsDivergence(t *testing.T) {
 	t.Fatalf("held notes = %v, want a ToolDivergence for Thermo", ctx.Notes())
 }
 
+// A runner answering without Bind — as one is free to — that leaves one of the
+// call's outputs unanswered is refused the same as a reply Bind would reject:
+// the output it left out was answered by nothing, not bound to a zero value.
+func TestToolCalcRefusesAnUnansweredResult(t *testing.T) {
+	t.Run("result unanswered", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcRobustnessModel)
+		ctx.SetToolRunner(partialCalcRunner{outputs: map[string]Value{
+			"warn": {Kind: ValConst, Const: semanticsBool(true)},
+		}})
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Tw"), nil, scope)
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMissingOutput {
+			t.Fatalf("InvokeCalc = %v, want ToolMissingOutput", err)
+		}
+	})
+	t.Run("output unanswered", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcRobustnessModel)
+		ctx.SetToolRunner(partialCalcRunner{outputs: map[string]Value{
+			"result": {Kind: ValConst, Const: toolReal(1)},
+		}})
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Tw"), nil, scope)
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMissingOutput {
+			t.Fatalf("InvokeCalc = %v, want ToolMissingOutput", err)
+		}
+	})
+}
+
+// partialCalcRunner is a runner that answers exactly the outputs given, never
+// passing them through the call's Bind check.
+type partialCalcRunner struct{ outputs map[string]Value }
+
+func (r partialCalcRunner) RunTool(call *ToolCall) (ToolAnswer, error) {
+	return ToolAnswer{Outputs: r.outputs}, nil
+}
+
 // Annotating cases is deferred: an analysis case carrying ToolExecution runs
 // its body and verdicts as before, needing no runner and refusing none.
 func TestToolCalcAnnotatedCaseStillRunsItsBody(t *testing.T) {
