@@ -908,7 +908,7 @@ answer.
 | `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else, and present for a standard-library element as `isAbstract` is | |
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
-| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; absent when there is no `by` clause or it is unresolved | |
+| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
 

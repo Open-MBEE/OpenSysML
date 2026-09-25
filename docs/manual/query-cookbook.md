@@ -502,7 +502,7 @@ are always projectable:
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 | `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
-| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause |
+| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at |
 
 For example, the model's `satisfy massRequirement by telescope;` reports
 `satisfyingFeature = Cookbook::telescope` and

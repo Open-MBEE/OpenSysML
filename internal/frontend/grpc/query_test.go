@@ -725,8 +725,8 @@ func TestQuerySatisfyWithoutByAndFeatureChain(t *testing.T) {
 		if len(resp.Elements) != 1 {
 			t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
 		}
-		if got := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; got != "Demo::v::heater" {
-			t.Errorf("satisfyingFeature = %q, want Demo::v::heater", got)
+		if got := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; got != "Demo::Vehicle::heater" {
+			t.Errorf("satisfyingFeature = %q, want Demo::Vehicle::heater", got)
 		}
 	})
 }

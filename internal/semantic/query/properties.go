@@ -155,43 +155,7 @@ func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.N
 	if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
 		resolved = alias
 	}
-	if _, isChain := target.(*ast.FeatureChainExpr); isChain {
-		if path, ok := r.featureChainIdentity(sym.OwnerScope, target); ok {
-			return presentValues(path)
-		}
-	}
 	return presentValues(r.elementIdentity(resolved))
-}
-
-func (r *PropertyReader) featureChainIdentity(scope *symbols.Scope, target ast.Node) (string, bool) {
-	switch target := target.(type) {
-	case *ast.FeatureChainExpr:
-		base, ok := r.featureChainIdentity(scope, target.Operand)
-		if !ok || target.Member == nil || len(target.Member.Parts) == 0 {
-			return "", false
-		}
-		return base + "::" + strings.Join(qualifiedNameParts(target.Member), "::"), true
-	case *ast.FeatureReference:
-		return r.featureChainIdentity(scope, target.Name)
-	case *ast.IndexExpr:
-		return r.featureChainIdentity(scope, target.Operand)
-	case *ast.QualifiedName:
-		resolved, ok := r.resolver.ResolveTarget(scope, target)
-		if !ok || resolved == nil {
-			return "", false
-		}
-		return r.elementIdentity(resolved), true
-	default:
-		return "", false
-	}
-}
-
-func qualifiedNameParts(name *ast.QualifiedName) []string {
-	parts := make([]string, len(name.Parts))
-	for i, part := range name.Parts {
-		parts[i] = part.Text
-	}
-	return parts
 }
 
 func (r *PropertyReader) elementIdentity(sym *symbols.Symbol) string {
