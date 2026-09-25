@@ -815,3 +815,53 @@ func TestRecordAttributesFollowsAnInheritedBound(t *testing.T) {
 		t.Errorf("temps = %+v (present %v), want a multi-valued feature", f, ok)
 	}
 }
+
+// A sample no conclusion runs over — its observation no number — still records
+// each completed row's own tool calls.
+func TestRecordMonteCarloKeepsRowToolsWhenUnconcluded(t *testing.T) {
+	s := NewSession()
+	s.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	if errs := errorDiagnostics(s.Submit(`package MC {
+	private import ScalarValues::*;
+	private import AnalysisTooling::*;
+	private import ISQ::*;
+	part def Probe {
+		attribute t : TemperatureValue;
+		action settle { first start; then assign t := Warm(1.0, 250.0); then done; }
+	}
+	individual def probe :> Probe;
+	calc def Warm {
+		metadata ToolExecution { toolName = "Thermo"; uri = "thermo://local"; }
+		in x : Real { @ToolVariable { name = "mass"; } }
+		in p : Real { @ToolVariable { name = "power"; } }
+		out warn : Boolean { @ToolVariable { name = "warn"; } }
+		return : TemperatureValue { @ToolVariable { name = "Tmax"; } }
+	}
+	analysis def Mc :> Simulation::MonteCarlo {
+		subject analysed : Probe;
+		perform action run ::> analysed.settle;
+		attribute :>> observed : String = "warm";
+	}
+}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	t.Setenv(analysis.ToolsEnv, toolCalcManifest(t))
+	engines, err := analysis.DefaultFromEnv()
+	if err != nil {
+		t.Fatalf("DefaultFromEnv: %v", err)
+	}
+	if err := s.SetEngines(engines); err != nil {
+		t.Fatalf("SetEngines: %v", err)
+	}
+	run(t, s, "%instantiate MC::probe")
+	seed := uint64(7)
+	v := s.RecordMonteCarlo("MC::Mc MC::probe", 2, &seed, "", "%record MC::Mc")
+	out := strings.Join(v.Lines, "\n")
+	if !strings.Contains(out, "recorded 2 runs") {
+		t.Fatalf("the runs were not recorded:\n%s", out)
+	}
+	// Each row made its one tool call: both records name it.
+	if n := strings.Count(s.text(), `"Thermo 1.0.0 from`); n != 2 {
+		t.Errorf("the run records name the tool call %d time(s) over 2 runs, want one each:\n%s", n, s.text())
+	}
+}

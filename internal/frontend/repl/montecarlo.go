@@ -141,7 +141,7 @@ type monteCarloRuns struct {
 	concludeErr   error
 	concludedOnce bool
 	// answered is the plan the runs answered under; toolMark is the count of its
-	// tool calls when the conclusion began, taken between settle and conclude.
+	// tool calls when the conclusion began — every call made, when none runs.
 	answered *analysis.Plan
 	toolMark int
 }
@@ -314,11 +314,11 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		}
 	}
 	if len(completed) == 0 {
-		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded"), answered: &answered}, &answered, nil
+		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded"), answered: &answered, toolMark: answered.ToolMark()}, &answered, nil
 	}
 	stats, err := runtime.MonteCarloSample(completed)
 	if err != nil {
-		return &monteCarloRuns{table: table, completed: completed, unconcluded: err, answered: &answered}, &answered, nil
+		return &monteCarloRuns{table: table, completed: completed, unconcluded: err, answered: &answered, toolMark: answered.ToolMark()}, &answered, nil
 	}
 	return &monteCarloRuns{table: table, stats: stats, completed: completed, answered: &answered}, &answered, nil
 }
