@@ -539,6 +539,41 @@ func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 	return params
 }
 
+// ActionInputNames is the action's `in` and `inout` parameter names in
+// declaration order — the parameters an invocation's arguments bind.
+func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
+	in, _ := parameterNames(ctx.actionParametersOf(sym))
+	return in
+}
+
+// ActionInputs is the inputs an invocation of sym binds: the named arguments,
+// then the positional ones to the first `in` parameters no named argument
+// covered. More positional arguments than parameters left is ErrActionArity.
+func (ctx *Context) ActionInputs(sym *symbols.Symbol, positional []Value, named map[string]Value) (map[string]Value, error) {
+	names := ctx.ActionInputNames(sym)
+	namedIn := 0
+	var free []string
+	for _, name := range names {
+		if _, taken := named[name]; taken {
+			namedIn++
+			continue
+		}
+		free = append(free, name)
+	}
+	if len(positional) > len(free) {
+		return nil, fmt.Errorf("%w: action %s takes %d argument(s), got %d",
+			ErrActionArity, symbolText(sym), len(names), len(positional)+namedIn)
+	}
+	inputs := make(map[string]Value, len(named)+len(positional))
+	for name, value := range named {
+		inputs[name] = value
+	}
+	for i, value := range positional {
+		inputs[free[i]] = value
+	}
+	return inputs, nil
+}
+
 // parameterNames splits parameters into those the caller writes and reads back.
 func parameterNames(params []actionParameter) (in, out []string) {
 	for _, param := range params {

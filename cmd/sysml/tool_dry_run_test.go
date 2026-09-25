@@ -125,3 +125,14 @@ func TestToolDryRunIsInTheHelp(t *testing.T) {
 		t.Fatalf("-help does not name -tool-dry-run:\n%s", out)
 	}
 }
+
+// -tool-dry-run on an action binds the invocation's argument into the preview.
+func TestToolDryRunBindsAnActionsArguments(t *testing.T) {
+	binary := buildCLI(t)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + dryRunStandin(t) + `","variables":["mass","tMax"],` +
+		`"invocation":{"args":["--mass","{mass}"],"stdin":"none"}}`
+	dryRunManifest(t, entry)
+	got := check(t, binary, toolCaseModel, "-tool-dry-run", "Tools::Heating(30)")
+	wantReport(t, got, 0, "dry run of tool 'Solver' for Tools::Heating", `"--mass"`, `"30"`,
+		"inputs:", "  mass = 30", "the process was not started")
+}

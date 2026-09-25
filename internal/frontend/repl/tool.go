@@ -83,7 +83,28 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 	if err != nil {
 		return err
 	}
-	exec, err := ctx.CreateActionExecutorFor(sym, self)
+	parsed, err := parseAnalysisArgs(inv.argText)
+	if err != nil {
+		return err
+	}
+	scope := s.promptScope()
+	var positional []runtime.Value
+	for _, arg := range parsed.positional {
+		val, err := ctx.EvalWithScope(arg.expr, scope)
+		if err != nil {
+			return fmt.Errorf("evaluation of argument %q failed: %w", arg.text, err)
+		}
+		positional = append(positional, val)
+	}
+	named, err := s.evalArguments(ctx, parsed.named)
+	if err != nil {
+		return err
+	}
+	inputs, err := ctx.ActionInputs(sym, positional, named)
+	if err != nil {
+		return err
+	}
+	exec, err := ctx.CreateActionExecutorWithInputs(sym, self, inputs)
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)
 	}

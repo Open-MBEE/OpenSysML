@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -67,6 +68,40 @@ func TestSeedingAnOutputParameterIsReported(t *testing.T) {
 	}
 	if got := outputs["total"]; got.Const.Int != 5 {
 		t.Fatalf("total = %+v, want 5", got)
+	}
+}
+
+// mixModel declares two inputs and an output for ActionInputs to bind over.
+const mixModel = `action mix {
+	in attribute a;
+	in attribute b;
+	out attribute c;
+}`
+
+// TestActionInputsBindsPositionalAfterNamed: the positional arguments bind the
+// first input parameters no named argument covered, in declaration order; more
+// positional arguments than parameters left is ErrActionArity.
+func TestActionInputsBindsPositionalAfterNamed(t *testing.T) {
+	model, resolver, root := parseAndBuildModel(t, mixModel)
+	ctx := NewContext(typedModel(model, resolver), 1000)
+	mix := resolveSymbol(t, root, "mix")
+
+	if got := ctx.ActionInputNames(mix); fmt.Sprint(got) != "[a b]" {
+		t.Fatalf("ActionInputNames = %v, want [a b]", got)
+	}
+	inputs, err := ctx.ActionInputs(mix, []Value{constInt(7)}, map[string]Value{"b": constInt(9)})
+	if err != nil {
+		t.Fatalf("ActionInputs: %v", err)
+	}
+	if inputs["a"].Const.Int != 7 || inputs["b"].Const.Int != 9 {
+		t.Fatalf("inputs = %+v, want a = 7 bound positionally, b = 9 by name", inputs)
+	}
+	_, err = ctx.ActionInputs(mix, []Value{constInt(1), constInt(2)}, map[string]Value{"a": constInt(3)})
+	if !errors.Is(err, ErrActionArity) {
+		t.Fatalf("one named and two positional = %v, want ErrActionArity", err)
+	}
+	if !strings.Contains(err.Error(), "takes 2 argument(s), got 3") {
+		t.Errorf("error = %v, want the arity spelled", err)
 	}
 }
 
