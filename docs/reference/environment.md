@@ -146,7 +146,10 @@ The reply is read as the `reply` block below says — from standard output by de
 the timeout, size bounds and divergence report apply unchanged; `-engines` shows the protocol
 as `argv+json`, `argv+none`, `argv+csv` or `argv+template` rather than `object`, with the
 reply's format appended when it is not `object` (`argv+none/csv`, or the format alone for an
-entry with no `invocation`).
+entry with no `invocation`). `-tool-dry-run` at the CLI and `%tool` in the REPL show the
+composition an entry would make for a case's or action's first tool call — executable, argv,
+environment, cwd, stdin, input file and reply mapping — without starting the process; see
+[Running external programs from a model](../manual/running-external-programs.md).
 
 **Reply.** Without more, the reply is the protocol's one JSON object on standard output. An
 optional `reply` block reads a different reply for a program that answers as a JSON document,
