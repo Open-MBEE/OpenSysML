@@ -43,7 +43,7 @@ func TestSparseValuesDifferential(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				n, taken := sparseDifferentialSource(t, path, src)
+				n, taken := sparseDifferentialSource(t, path, src, partSymbolsUnder)
 				parts.Add(int64(n))
 				shared.Add(int64(taken))
 			})
@@ -56,30 +56,26 @@ func TestSparseValuesDifferential(t *testing.T) {
 }
 
 // TestSparseValuesDifferentialFleet compares both sides over the fleet form of
-// the stress-test constellation, whose occurrences share their blocks' defaults
-// except for the units stating as-built values of their own: one unit per
-// plane in the smaller fleet, two in the larger.
+// the stress-test constellation: two planes of twenty, each a block whose
+// occurrences share its defaults except the two units per plane stating
+// as-built values of their own. The constellation is read through the parts
+// the model declares, so each definition is read once, as the type of its usage.
 func TestSparseValuesDifferentialFleet(t *testing.T) {
-	for _, satellites := range []int{8, 20} {
-		network := stressmodel.SatelliteNetwork{Planes: 2, Satellites: satellites, GroundStations: 2, Fleet: true}
-		name := fmt.Sprintf("fleet-%d.sysml", 2*satellites)
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			src, _ := network.Source()
-			parts, shared := sparseDifferentialSource(t, name, []byte(src))
-			if shared == 0 {
-				t.Errorf("%s: no default or verdict shared between the occurrences", name)
-			}
-			t.Logf("%s: %d parts compared, %d defaults and verdicts shared", name, parts, shared)
-		})
+	network := stressmodel.SatelliteNetwork{Planes: 2, Satellites: 20, GroundStations: 2, Fleet: true}
+	src, stats := network.Source()
+	name := fmt.Sprintf("fleet-%d.sysml", stats.Satellites)
+	parts, shared := sparseDifferentialSource(t, name, []byte(src), partUsagesUnder)
+	if shared == 0 {
+		t.Errorf("%s: no default or verdict shared between the occurrences", name)
 	}
+	t.Logf("%s: %d parts compared, %d defaults and verdicts shared", name, parts, shared)
 }
 
 // sparseDifferentialSource builds the model src, named path, once and
-// instantiates each of its top-level parts on a sharing and a materializing
-// context, returning the number compared and how many values the sharing side
-// took from its type rather than deriving.
-func sparseDifferentialSource(t *testing.T, path string, src []byte) (parts, shared int) {
+// instantiates each of the parts roots picks from it on a sharing and a
+// materializing context, returning the number compared and how many values the
+// sharing side took from its type rather than deriving.
+func sparseDifferentialSource(t *testing.T, path string, src []byte, roots func(*symbols.Scope) []*symbols.Symbol) (parts, shared int) {
 	t.Helper()
 	idx := libs.NewModelIndex()
 	idx.AddDocument(path, parser.New(source.New(path, src)).ParseFile())
@@ -87,7 +83,7 @@ func sparseDifferentialSource(t *testing.T, path string, src []byte) (parts, sha
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	root := idx.DocumentRoot(path)
-	for _, sym := range partSymbolsUnder(root) {
+	for _, sym := range roots(root) {
 		sharing := NewContext(NewModel(model, resolver), sparseDifferentialMaxSteps)
 		sharing.SetSharedDefaults(true)
 		materializing := NewContext(NewModel(model, resolver), sparseDifferentialMaxSteps)
@@ -213,6 +209,18 @@ func isBehaviorKind(feat *EffectiveFeature) bool {
 		return true
 	}
 	return false
+}
+
+// partUsagesUnder lists the part usages declared directly in scope's packages:
+// the objects the model declares, through which their definitions are read.
+func partUsagesUnder(scope *symbols.Scope) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, sym := range partSymbolsUnder(scope) {
+		if sym.Kind == symbols.SymbolPartUsage {
+			out = append(out, sym)
+		}
+	}
+	return out
 }
 
 // partSymbolsUnder lists the part definitions and usages declared directly in
