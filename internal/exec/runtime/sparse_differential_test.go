@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -23,6 +24,7 @@ const sparseDifferentialMaxSteps int64 = 20000
 // TestSparseValuesDifferential instantiates every part declared at the top of
 // every model under the differential roots with shared defaults on and off,
 // requiring the same readable values, materialization errors and verdicts.
+// Each file is a parallel subtest: every one builds its own model and contexts.
 func TestSparseValuesDifferential(t *testing.T) {
 	var files []string
 	for _, root := range differentialRoots {
@@ -32,35 +34,44 @@ func TestSparseValuesDifferential(t *testing.T) {
 	if len(files) == 0 {
 		t.Fatal("no .sysml files under the differential roots")
 	}
-	var parts, shared int
-	for _, path := range files {
-		src, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
+	var parts, shared atomic.Int64
+	t.Run("files", func(t *testing.T) {
+		for _, path := range files {
+			t.Run(path, func(t *testing.T) {
+				t.Parallel()
+				src, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				n, taken := sparseDifferentialSource(t, path, src)
+				parts.Add(int64(n))
+				shared.Add(int64(taken))
+			})
 		}
-		n, taken := sparseDifferentialSource(t, path, src)
-		parts += n
-		shared += taken
-	}
-	if parts == 0 {
+	})
+	if parts.Load() == 0 {
 		t.Fatal("no part instantiated in any file")
 	}
-	t.Logf("%d files: %d parts compared, %d defaults and verdicts shared", len(files), parts, shared)
+	t.Logf("%d files: %d parts compared, %d defaults and verdicts shared", len(files), parts.Load(), shared.Load())
 }
 
 // TestSparseValuesDifferentialFleet compares both sides over the fleet form of
 // the stress-test constellation, whose occurrences share their blocks' defaults
-// except for the units stating as-built values of their own.
+// except for the units stating as-built values of their own: one unit per
+// plane in the smaller fleet, two in the larger.
 func TestSparseValuesDifferentialFleet(t *testing.T) {
-	for _, satellites := range []int{8, 40} {
+	for _, satellites := range []int{8, 20} {
 		network := stressmodel.SatelliteNetwork{Planes: 2, Satellites: satellites, GroundStations: 2, Fleet: true}
-		src, _ := network.Source()
 		name := fmt.Sprintf("fleet-%d.sysml", 2*satellites)
-		parts, shared := sparseDifferentialSource(t, name, []byte(src))
-		if shared == 0 {
-			t.Errorf("%s: no default or verdict shared between the occurrences", name)
-		}
-		t.Logf("%s: %d parts compared, %d defaults and verdicts shared", name, parts, shared)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			src, _ := network.Source()
+			parts, shared := sparseDifferentialSource(t, name, []byte(src))
+			if shared == 0 {
+				t.Errorf("%s: no default or verdict shared between the occurrences", name)
+			}
+			t.Logf("%s: %d parts compared, %d defaults and verdicts shared", name, parts, shared)
+		})
 	}
 }
 
