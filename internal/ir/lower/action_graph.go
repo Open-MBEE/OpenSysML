@@ -44,6 +44,10 @@ type ActionGraph struct {
 	footprints     map[ast.Node]Footprint
 	footprintsOnce sync.Once
 
+	// incoming: node → the successions into it; computed on the first call of Incoming.
+	incoming     map[ast.Node][]ActionEdge
+	incomingOnce sync.Once
+
 	// Features: node → the parameters and attributes the node declares itself,
 	// in declaration order; each performance of the node holds its own values.
 	Features map[ast.Node][]Feature
@@ -100,6 +104,20 @@ type ActionGraph struct {
 	// declaredIn: inherited node, flow or binding declaration → the scope of the
 	// general's body it was written in, which says which document declares it.
 	declaredIn map[ast.Node]*symbols.Scope
+}
+
+// Incoming returns the successions into node, in the declaration order of the
+// nodes they leave. The result is shared: callers must not modify it.
+func (g *ActionGraph) Incoming(node ast.Node) []ActionEdge {
+	g.incomingOnce.Do(func() {
+		g.incoming = make(map[ast.Node][]ActionEdge)
+		for _, source := range g.Nodes {
+			for _, edge := range g.Edges[source] {
+				g.incoming[edge.Target] = append(g.incoming[edge.Target], edge)
+			}
+		}
+	})
+	return g.incoming[node]
 }
 
 // recordDeclaredIn records the scope of the body an inherited declaration was written in.

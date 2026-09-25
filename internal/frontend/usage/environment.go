@@ -19,7 +19,7 @@ func BudgetEnvironment() []Item {
 // read for how many runs of one plan go concurrently.
 func JobsEnvironment() []Item {
 	return []Item{
-		{"OPENSYSML_JOBS", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; -jobs and %jobs override it. Default the number of CPUs."},
+		{"OPENSYSML_JOBS", "Runs of one check that may go concurrently — the linearizations of an exploration, the engines -engine all consults — each on a worker of its own over the shared model; -jobs and %jobs override it. Default one per CPU, fewer where the memory available leaves less than 512 MiB per worker."},
 	}
 }
 
