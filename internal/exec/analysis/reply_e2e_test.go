@@ -94,6 +94,18 @@ const replyDriver = `package ProbeR {
 		action step : Exit;
 		bind code = step.code;
 	}
+
+	action def Signal {
+		metadata ToolExecution {
+			toolName = "Thermal";
+			uri = "thermal://host/solve";
+		}
+		in mass : MassValue { @ToolVariable { name = "mass"; } }
+	}
+
+	action def SignalOnce {
+		action step : Signal { in mass = 1500 [SI::kg]; }
+	}
 }`
 
 var replyVariables = []string{"mass", "T_max", "v_out", "done", "code", "note"}
@@ -227,11 +239,11 @@ func TestToolReplyReadsJSONFromAFile(t *testing.T) {
 	entry := thermalEntry(toolreply(t), []string{"json-file", "{outputDir}"}, &Reply{
 		Format: ReplyJSON, Source: "file:{outputDir}/result.json", ErrorPath: "/error",
 		Outputs: map[string]*ReplyOutput{
-			"T_max": {Path: "/results/0/T_max", UnitPath: "/units/T_max"},
-			"v_out": {Path: "/results/0/v_out", UnitPath: "/units/v_out"},
-			"done":  {Path: "/results/0/done", Type: TypeBoolean},
-			"code":  {Path: "/results/0/code", Type: TypeInteger},
-			"note":  {Path: "/results/0/note", Type: TypeString},
+			"T_max": {Path: jsonPath("/results/0/T_max"), UnitPath: "/units/T_max"},
+			"v_out": {Path: jsonPath("/results/0/v_out"), UnitPath: "/units/v_out"},
+			"done":  {Path: jsonPath("/results/0/done"), Type: TypeBoolean},
+			"code":  {Path: jsonPath("/results/0/code"), Type: TypeInteger},
+			"note":  {Path: jsonPath("/results/0/note"), Type: TypeString},
 		}})
 	out, _, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Once")
 	if err != nil {
@@ -329,6 +341,23 @@ func TestToolReplyReadsOnlyRequestedOutputs(t *testing.T) {
 	}
 }
 
+// A performance asking for no outputs runs the tool and binds nothing: the exit status
+// is data only to an output the action declares.
+func TestToolReplyReadsNoRequestedOutputs(t *testing.T) {
+	p := parseRProbe(t)
+	entry := ToolEntry{ToolName: "Thermal", Executable: toolreply(t), Variables: []string{"mass", "done"},
+		Invocation: &Invocation{Args: []string{"csv-stdout"}},
+		Reply:      &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{"done": {}}}}
+	out, _, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "SignalOnce")
+	if err != nil {
+		t.Fatalf("SignalOnce over an exitcode reply: %v", err)
+	}
+	_, echoed := out["step.mass"]
+	if len(out) != 1 || !echoed {
+		t.Fatalf("outputs = %+v, want only the step's input echoed", out)
+	}
+}
+
 // An entry built in code, not read from a manifest, has its reply checked by NewTool: a
 // sound one reads the exit status, a faulty one refuses every question with the fault.
 func TestNewToolChecksAProgrammaticReply(t *testing.T) {
@@ -379,7 +408,7 @@ func TestToolReplyMissingFile(t *testing.T) {
 	p := parseRProbe(t)
 	entry := thermalEntry(toolreply(t), []string{"json-file", "{outputDir}"}, &Reply{
 		Format: ReplyJSON, Source: "file:{outputDir}/missing.json",
-		Outputs: map[string]*ReplyOutput{"T_max": {Path: "/T_max"}}})
+		Outputs: map[string]*ReplyOutput{"T_max": {Path: jsonPath("/T_max")}}})
 	_, _, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Once")
 	var fault *runtime.ToolError
 	if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed || !strings.Contains(err.Error(), "wrote no file missing.json") {

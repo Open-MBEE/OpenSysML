@@ -79,8 +79,8 @@ type compiledReply struct {
 
 // ReplyOutput is one output's selector; which fields are read depends on the format.
 type ReplyOutput struct {
-	// Path is the `json` RFC 6901 pointer to the value.
-	Path string `json:"path,omitempty"`
+	// Path is the `json` RFC 6901 pointer to the value; the empty pointer names the document.
+	Path *string `json:"path,omitempty"`
 	// Column is the `csv` column: a header name or a zero-based index.
 	Column *Column `json:"column,omitempty"`
 	// Row selects among the CSV data records: `first`, `last` or a zero-based index.
@@ -483,7 +483,7 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 		set   bool
 		admit ReplyFormat
 	}{
-		{"path", o.Path != "", ReplyJSON},
+		{"path", o.Path != nil, ReplyJSON},
 		{"column", o.Column != nil, ReplyCSV},
 		{"row", o.Row != nil, ReplyCSV},
 		{"key", o.Key != "", ReplyLines},
@@ -513,7 +513,7 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 	}
 	switch format {
 	case ReplyJSON:
-		if o.Path == "" {
+		if o.Path == nil {
 			return fmt.Errorf("reply.outputs.%s needs a path", variable)
 		}
 	case ReplyCSV:
@@ -534,7 +534,7 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 func checkReplyJSON(r *Reply, variables []string, compiled *compiledReply) error {
 	for _, variable := range r.outputsOrdered(variables, nil) {
 		o := r.Outputs[variable]
-		p, err := parsePointer(o.Path)
+		p, err := parsePointer(*o.Path)
 		if err != nil {
 			return fmt.Errorf("reply.outputs.%s.path: %v", variable, err)
 		}
@@ -672,8 +672,11 @@ func toolFault(tool string, kind runtime.ToolErrorKind, format string, args ...a
 
 // readExitCode is the process's exit status as the one output: true when it is among
 // success, or the status itself as an Integer.
-func (r *Reply) readExitCode(ex *execution) map[string]runtime.ToolValue {
+func (r *Reply) readExitCode(ex *execution, wanted map[string]bool) map[string]runtime.ToolValue {
 	variable := r.compiled.exitVariable
+	if wanted != nil && !wanted[variable] {
+		return map[string]runtime.ToolValue{}
+	}
 	o := r.Outputs[variable]
 	if o.Type == TypeInteger {
 		return map[string]runtime.ToolValue{variable: {Value: semantics.Value{Kind: semantics.ValInt, Int: int64(ex.exit)}}}

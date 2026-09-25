@@ -183,7 +183,7 @@ Each member of `outputs` is a selector:
 
 | Member | Formats | Meaning |
 |---|---|---|
-| `path` | `json`, required | An [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer to the value (`/results/0/T_max`); `~0` spells `~`, `~1` spells `/` |
+| `path` | `json`, required | An [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer to the value (`/results/0/T_max`); `~0` spells `~`, `~1` spells `/`, and the empty pointer `""` names the whole document |
 | `column` | `csv`, required | The column: a header name, or a zero-based index as an integer |
 | `row` | `csv` | Which data record (the header is not one): `"first"`, `"last"` (the default) or a zero-based index |
 | `key` | `lines` | The key on the left of the first `=` or `:` (default the variable's name); a line with neither is ignored |
