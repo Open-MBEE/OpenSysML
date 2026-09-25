@@ -15,11 +15,18 @@ type PropertyReader struct {
 	index     *symbols.Index
 	resolver  *resolve.Resolver
 	semantics *semantics.Model
+	identity  func(*symbols.Symbol) string
 }
 
 // NewPropertyReader constructs a reader over one index and semantic model.
 func NewPropertyReader(index *symbols.Index, resolver *resolve.Resolver, model *semantics.Model) *PropertyReader {
 	return &PropertyReader{index: index, resolver: resolver, semantics: model}
+}
+
+// WithIdentity overrides how element identities are reported by this reader.
+func (r *PropertyReader) WithIdentity(identity func(*symbols.Symbol) string) *PropertyReader {
+	r.identity = identity
+	return r
 }
 
 // Values returns the values of one queryable property.
@@ -29,7 +36,17 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	}
 	fqn := r.index.GetFQN(sym)
 	switch property {
-	case PropertyID, PropertyQualifiedName:
+	case PropertyID:
+		if r.identity != nil {
+			return presentValues(r.identity(sym))
+		}
+		return presentValues(fqn)
+	case PropertyQualifiedName:
+		if r.identity != nil {
+			if identity := r.identity(sym); identity != "" && identity != fqn {
+				return nil, false
+			}
+		}
 		return presentValues(fqn)
 	case PropertyName:
 		if r.semantics != nil {
@@ -56,7 +73,13 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return bodies, len(bodies) > 0
 	case PropertyOwner:
 		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
-			return presentValues(r.index.GetFQN(sym.OwnerScope.Owner()))
+			owner := sym.OwnerScope.Owner()
+			if r.identity != nil {
+				if identity := r.identity(owner); identity != "" {
+					return presentValues(identity)
+				}
+			}
+			return presentValues(r.index.GetFQN(owner))
 		}
 		return presentValues(ownerName(fqn))
 	case PropertyType:
@@ -89,8 +112,95 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 			return boundValues(rng.Lower)
 		}
 		return boundValues(rng.Upper)
+	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
+		return r.satisfyEnd(sym, property)
 	}
 	return nil, false
+}
+
+func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]string, bool) {
+	if sym.Kind != symbols.SymbolSatisfyRequirementUsage {
+		return nil, false
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok || decl.Kind != ast.UsageSatisfy || decl.IsVerifiedRequirement() {
+		return nil, false
+	}
+	if property == PropertySatisfiedRequirement {
+		if decl.DeclaresRequirement {
+			return presentValues(r.elementIdentity(sym))
+		}
+		rel := decl.ReferenceSubsetting()
+		if rel == nil {
+			return nil, false
+		}
+		return r.resolveTargetIdentity(sym, rel.Target)
+	}
+	for _, rel := range decl.Relationships {
+		if rel != nil && rel.Kind == ast.RelSubject {
+			return r.resolveTargetIdentity(sym, rel.Target)
+		}
+	}
+	return nil, false
+}
+
+func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {
+	if r.resolver == nil {
+		return nil, false
+	}
+	resolved, ok := r.resolver.ResolveTarget(sym.OwnerScope, target)
+	if !ok || resolved == nil {
+		return nil, false
+	}
+	if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
+		resolved = alias
+	}
+	if _, isChain := target.(*ast.FeatureChainExpr); isChain {
+		if path, ok := r.featureChainIdentity(sym.OwnerScope, target); ok {
+			return presentValues(path)
+		}
+	}
+	return presentValues(r.elementIdentity(resolved))
+}
+
+func (r *PropertyReader) featureChainIdentity(scope *symbols.Scope, target ast.Node) (string, bool) {
+	switch target := target.(type) {
+	case *ast.FeatureChainExpr:
+		base, ok := r.featureChainIdentity(scope, target.Operand)
+		if !ok || target.Member == nil || len(target.Member.Parts) == 0 {
+			return "", false
+		}
+		return base + "::" + strings.Join(qualifiedNameParts(target.Member), "::"), true
+	case *ast.FeatureReference:
+		return r.featureChainIdentity(scope, target.Name)
+	case *ast.IndexExpr:
+		return r.featureChainIdentity(scope, target.Operand)
+	case *ast.QualifiedName:
+		resolved, ok := r.resolver.ResolveTarget(scope, target)
+		if !ok || resolved == nil {
+			return "", false
+		}
+		return r.elementIdentity(resolved), true
+	default:
+		return "", false
+	}
+}
+
+func qualifiedNameParts(name *ast.QualifiedName) []string {
+	parts := make([]string, len(name.Parts))
+	for i, part := range name.Parts {
+		parts[i] = part.Text
+	}
+	return parts
+}
+
+func (r *PropertyReader) elementIdentity(sym *symbols.Symbol) string {
+	if r.identity != nil {
+		if identity := r.identity(sym); identity != "" {
+			return identity
+		}
+	}
+	return r.index.GetFQN(sym)
 }
 
 func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {

@@ -1,0 +1,1 @@
+- **Queries identify unnamed declarations by their export-compatible position.** Their IDs match RDF and API-JSON export and can be used as a query scope; declarations without an unambiguous export identity remain omitted.

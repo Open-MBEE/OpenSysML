@@ -323,13 +323,35 @@ class TestQueryAgainstRealService:
             with pytest.raises(ModelNotFoundError):
                 conn.query("deadbeef", COOKBOOK_QUERY)
 
-    def test_an_unnamed_element_is_not_answered(self, real_service):
+    def test_an_unnamed_element_uses_positional_identity(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
             elements = conn.load_from_content(
                 "package Anon { doc /* unnamed */ part def Rig; part : Rig; }"
             ).query()
         ids = [e.id for e in elements]
-        assert ids == ["Anon", "Anon::Rig"]
+        assert ids[:2] == ["Anon", "Anon::Rig"]
+        assert sum("::@" in element_id for element_id in ids) == 2
+
+    def test_satisfy_query_reports_both_ends(self, real_service):
+        model = """package Demo {
+            part def Toaster;
+            requirement def EnergyReq { subject t : Toaster; }
+            requirement r : EnergyReq { subject t : Toaster; }
+            part t : Toaster;
+            assert satisfy r by t;
+        }"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            elements = conn.load_from_content(model).query(
+                where={"operator": "=", "property": "@type",
+                       "value": "SatisfyRequirementUsage"},
+                select=["satisfiedRequirement", "satisfyingFeature"],
+            )
+        assert len(elements) == 1
+        assert elements[0].id == "Demo::@4"
+        assert elements[0].properties == {
+            "satisfiedRequirement": "Demo::r",
+            "satisfyingFeature": "Demo::t",
+        }
 
     def test_a_query_matching_nothing_answers_with_nothing(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

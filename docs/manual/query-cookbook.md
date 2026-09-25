@@ -501,6 +501,14 @@ are always projectable:
 | `isAbstract` | Boolean |
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
+| `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
+| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause |
+
+For example, the model's `satisfy massRequirement by telescope;` reports
+`satisfyingFeature = Cookbook::telescope` and
+`satisfiedRequirement = Cookbook::massRequirement`. Selecting these properties
+on `SatisfyRequirementUsage` elements shows which parts satisfy which
+requirements. A satisfy with no `by` clause has no `satisfyingFeature`.
 
 ```sysml
 calc def MassTable :> Query {

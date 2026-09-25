@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // queryModel is the model the query tests run against: parts and attributes at
@@ -122,6 +124,7 @@ func TestQueryWithoutWhereSelectsWholeScope(t *testing.T) {
 		"Demo::Wheel",
 		"Demo::vehicle",
 		"Demo::vehicle::wheels",
+		"Demo::vehicle::wheels::@0",
 		"Demo::vehicle::vin",
 		"Demo::spare",
 	}
@@ -134,7 +137,7 @@ func TestQueryWithoutWhereSelectsWholeScope(t *testing.T) {
 // named element and everything nested inside it, and nothing else.
 func TestQueryScopeRestrictsToAnElementAndItsNested(t *testing.T) {
 	ids := mustRunQuery(t, &pb.Query{Scope: []string{"Demo::vehicle"}})
-	want := []string{"Demo::vehicle", "Demo::vehicle::wheels", "Demo::vehicle::vin"}
+	want := []string{"Demo::vehicle", "Demo::vehicle::wheels", "Demo::vehicle::wheels::@0", "Demo::vehicle::vin"}
 	if !slices.Equal(ids, want) {
 		t.Errorf("scoped elements = %v, want %v", ids, want)
 	}
@@ -511,10 +514,9 @@ func TestQueryScopeMayNameALibraryElement(t *testing.T) {
 	}
 }
 
-// TestQueryOmitsElementsWithNoQualifiedIdentity verifies an unnamed element — a
-// doc note, an anonymous usage — is not reported: its qualified name has an
-// empty segment, so it is neither unique nor a name a scope could use.
-func TestQueryOmitsElementsWithNoQualifiedIdentity(t *testing.T) {
+// TestQueryUsesPositionalIdentityForUnnamedElements verifies exported positions
+// identify unnamed declarations without making body-local names queryable.
+func TestQueryUsesPositionalIdentityForUnnamedElements(t *testing.T) {
 	const model = `
 package Anon {
 	doc /* the package's documentation, which is unnamed */
@@ -542,18 +544,239 @@ package Anon {
 	}
 
 	seen := make(map[string]bool, len(resp.Elements))
+	positional := 0
 	for _, element := range resp.Elements {
-		if !hasQualifiedIdentity(element.Id) {
-			t.Errorf("element id = %q, want every reported element to have a qualified name", element.Id)
+		if isPositionalIdentity(element.Id) {
+			positional++
 		}
 		if seen[element.Id] {
-			t.Errorf("element id %q was reported twice, so it identifies no element", element.Id)
+			t.Errorf("element id %q was reported twice", element.Id)
 		}
 		seen[element.Id] = true
 	}
 	for _, want := range []string{"Anon", "Anon::Rig", "Anon::rig"} {
 		if !seen[want] {
 			t.Errorf("elements = %v, want it to contain %s", resp.Elements, want)
+		}
+	}
+	if positional != 3 {
+		t.Errorf("positional element count = %d, want 3 (doc, anonymous part, connect): %v", positional, resp.Elements)
+	}
+}
+
+const satisfyQueryModel = `package Demo {
+	part def Toaster;
+	requirement def EnergyReq { subject t : Toaster; }
+	requirement r : EnergyReq { subject t : Toaster; }
+	part t : Toaster;
+	assert satisfy r by t;
+}`
+
+func runQueryOnSource(t *testing.T, model string, query *pb.Query) (*Service, string, *pb.QueryResponse) {
+	t.Helper()
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: model},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: parsed.ModelHash,
+		Query:     query,
+	})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	return srv, parsed.ModelHash, resp
+}
+
+func satisfyUsageQuery(selected ...string) *pb.Query {
+	return &pb.Query{
+		Where:  primitive(QueryPropType, opEqual, false, "SatisfyRequirementUsage"),
+		Select: selected,
+	}
+}
+
+func TestQuerySatisfyEndsUsePositionalIdentity(t *testing.T) {
+	srv, modelHash, resp := runQueryOnSource(t, satisfyQueryModel, satisfyUsageQuery(
+		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature, QueryPropOwner, QueryPropQualifiedName,
+	))
+	if len(resp.Elements) != 1 {
+		t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	}
+	element := resp.Elements[0]
+	if element.Id != "Demo::@4" {
+		t.Errorf("satisfy id = %q, want Demo::@4", element.Id)
+	}
+	for property, want := range map[string]string{
+		QueryPropSatisfiedRequirement: "Demo::r",
+		QueryPropSatisfyingFeature:    "Demo::t",
+		QueryPropOwner:                "Demo",
+	} {
+		if got := element.Properties[property]; got != want {
+			t.Errorf("properties[%q] = %q, want %q", property, got, want)
+		}
+	}
+	if _, ok := element.Properties[QueryPropQualifiedName]; ok {
+		t.Errorf("qualifiedName = %q, want absent for positional identity", element.Properties[QueryPropQualifiedName])
+	}
+
+	convertResp, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source:     &pb.ConvertRequest_ModelHash{ModelHash: modelHash},
+		FromFormat: "sysml",
+		ToFormat:   "api-json",
+	})
+	if err != nil {
+		t.Fatalf("Convert: %v", err)
+	}
+	if convertResp.Error != "" {
+		t.Fatalf("Convert reported %q", convertResp.Error)
+	}
+	var elements []struct {
+		Type string `json:"@type"`
+		ID   string `json:"@id"`
+	}
+	if err := json.Unmarshal([]byte(convertResp.Content), &elements); err != nil {
+		t.Fatalf("decode API JSON: %v", err)
+	}
+	var apiID string
+	for _, exported := range elements {
+		if exported.Type == "SatisfyRequirementUsage" {
+			apiID = exported.ID
+			break
+		}
+	}
+	if want := rdf.EncodeElementID(element.Id); apiID != want {
+		t.Errorf("API JSON satisfy id = %q, want rdf.EncodeElementID(%q) = %q", apiID, element.Id, want)
+	}
+
+	scoped, err := srv.Query(context.Background(), &pb.QueryRequest{
+		ModelHash: modelHash,
+		Query: &pb.Query{
+			Scope: []string{element.Id},
+			Where: primitive(QueryPropID, opEqual, false, element.Id),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Query by positional scope and @id: %v", err)
+	}
+	if len(scoped.Elements) != 1 || scoped.Elements[0].Id != element.Id {
+		t.Errorf("scoped results = %v, want the satisfy %q", scoped.Elements, element.Id)
+	}
+}
+
+func TestQueryDeclaredSatisfyRequirementUsesOwnIdentity(t *testing.T) {
+	model := `package Demo {
+		part def Toaster;
+		requirement def EnergyReq { subject t : Toaster; }
+		part t : Toaster;
+		assert satisfy requirement s1 : EnergyReq by t;
+	}`
+	_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
+		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
+	))
+	if len(resp.Elements) != 1 {
+		t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	}
+	element := resp.Elements[0]
+	if element.Id != "Demo::s1" {
+		t.Errorf("satisfy id = %q, want Demo::s1", element.Id)
+	}
+	for property, want := range map[string]string{
+		QueryPropSatisfiedRequirement: "Demo::s1",
+		QueryPropSatisfyingFeature:    "Demo::t",
+	} {
+		if got := element.Properties[property]; got != want {
+			t.Errorf("properties[%q] = %q, want %q", property, got, want)
+		}
+	}
+}
+
+func TestQuerySatisfyWithoutByAndFeatureChain(t *testing.T) {
+	t.Run("no by", func(t *testing.T) {
+		model := `package Demo {
+			part def Toaster;
+			requirement r;
+			part t : Toaster { satisfy r; }
+		}`
+		_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
+			QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
+		))
+		if len(resp.Elements) != 1 {
+			t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+		}
+		if got := resp.Elements[0].Properties[QueryPropSatisfiedRequirement]; got != "Demo::r" {
+			t.Errorf("satisfiedRequirement = %q, want Demo::r", got)
+		}
+		if _, ok := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; ok {
+			t.Errorf("satisfyingFeature = %q, want absent", resp.Elements[0].Properties[QueryPropSatisfyingFeature])
+		}
+	})
+	t.Run("feature chain", func(t *testing.T) {
+		model := `package Demo {
+			part def Toaster;
+			requirement r;
+			part def Vehicle { part heater : Toaster; }
+			part v : Vehicle;
+			assert satisfy r by v.heater;
+		}`
+		_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(QueryPropSatisfyingFeature))
+		if len(resp.Elements) != 1 {
+			t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+		}
+		if got := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; got != "Demo::v::heater" {
+			t.Errorf("satisfyingFeature = %q, want Demo::v::heater", got)
+		}
+	})
+}
+
+func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
+	model := `package Demo {
+		requirement r;
+		verification def Check {
+			objective { verify r; }
+		}
+	}`
+	_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
+		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
+	))
+	if len(resp.Elements) != 1 {
+		t.Fatalf("verify elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	}
+	for _, property := range []string{QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature} {
+		if _, ok := resp.Elements[0].Properties[property]; ok {
+			t.Errorf("verify properties[%q] = %q, want absent", property, resp.Elements[0].Properties[property])
+		}
+	}
+}
+
+func TestQueryOmitsPositionalIdentityWhenExporterRefusesCollision(t *testing.T) {
+	model := `package Collision {
+		metadata def M;
+		#M part def Car {
+			part def '@1';
+		}
+		part a;
+		part b;
+		connect a to b;
+	}`
+	_, _, resp := runQueryOnSource(t, model, &pb.Query{})
+	seen := make(map[string]bool, len(resp.Elements))
+	for _, element := range resp.Elements {
+		if seen[element.Id] {
+			t.Errorf("element id %q was reported more than once", element.Id)
+		}
+		seen[element.Id] = true
+	}
+	for _, want := range []string{"Collision", "Collision::M", "Collision::Car", "Collision::Car::@1", "Collision::a", "Collision::b"} {
+		if !seen[want] {
+			t.Errorf("elements = %v, want named element %q", resp.Elements, want)
+		}
+	}
+	for _, element := range resp.Elements {
+		if isPositionalIdentity(element.Id) && element.Id != "Collision::Car::@1" {
+			t.Errorf("element id = %q, want no positional ids after the exporter refused the collision", element.Id)
 		}
 	}
 }

@@ -54,19 +54,21 @@ var DefaultPrefixes = map[string]string{
 }
 
 var oslcPropertyMappings = map[string]string{
-	rdfNS + "type":                PropertyType,
-	sysmlNS + "qualifiedName":     PropertyQualifiedName,
-	sysmlNS + "name":              PropertyName,
-	sysmlNS + "declaredName":      PropertyDeclaredName,
-	sysmlNS + "shortName":         PropertyShortName,
-	sysmlNS + "declaredShortName": PropertyDeclaredShortName,
-	sysmlNS + "documentation":     PropertyDocumentation,
-	sysmlNS + "owner":             PropertyOwner,
-	sysmlNS + "isAbstract":        PropertyIsAbstract,
-	sysmlNS + "isIndividual":      PropertyIsIndividual,
-	sysmlNS + "type":              PropertyElementType,
-	sysmlNS + "multiplicityLower": PropertyMultiplicityLower,
-	sysmlNS + "multiplicityUpper": PropertyMultiplicityUpper,
+	rdfNS + "type":                   PropertyType,
+	sysmlNS + "qualifiedName":        PropertyQualifiedName,
+	sysmlNS + "name":                 PropertyName,
+	sysmlNS + "declaredName":         PropertyDeclaredName,
+	sysmlNS + "shortName":            PropertyShortName,
+	sysmlNS + "declaredShortName":    PropertyDeclaredShortName,
+	sysmlNS + "documentation":        PropertyDocumentation,
+	sysmlNS + "owner":                PropertyOwner,
+	sysmlNS + "isAbstract":           PropertyIsAbstract,
+	sysmlNS + "isIndividual":         PropertyIsIndividual,
+	sysmlNS + "type":                 PropertyElementType,
+	sysmlNS + "multiplicityLower":    PropertyMultiplicityLower,
+	sysmlNS + "multiplicityUpper":    PropertyMultiplicityUpper,
+	sysmlNS + "satisfiedRequirement": PropertySatisfiedRequirement,
+	sysmlNS + "satisfyingFeature":    PropertySatisfyingFeature,
 }
 
 // ParseOSLC parses a where expression. It also accepts a query-parameter
