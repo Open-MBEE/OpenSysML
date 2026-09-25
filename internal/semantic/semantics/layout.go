@@ -134,6 +134,15 @@ func (s *LayoutSite) Applies() bool {
 	return s != nil && (s.Layout != nil || s.Route != nil || s.Canvas != nil || s.Style != nil || s.Note != nil || s.Picture != nil)
 }
 
+// Origin is where the annotation is stated: the document its scope belongs to
+// and the span of its node.
+func (s *LayoutSite) Origin() symbols.Origin {
+	if s == nil {
+		return symbols.Origin{}
+	}
+	return symbols.NodeOrigin(symbols.DocNameOf(s.Scope), s.Node)
+}
+
 // InView reports whether the site positions its element in view: an `about`
 // annotation stated in the view's body, or one applying in every view.
 func (s *LayoutSite) InView(view *symbols.Symbol) bool {

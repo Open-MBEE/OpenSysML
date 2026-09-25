@@ -327,6 +327,8 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		out.Canvas = r.canvasOf(view, out)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
+	case KindTable, KindSequence:
+		r.undrawnPicturesOf(view, out)
 	}
 	return out, nil
 }

@@ -42,6 +42,75 @@ func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 	}
 }
 
+// A picture places no node: a view whose nodes nothing positions draws them
+// all, in a strip below the picture in DOT, whole in the other forms.
+func TestPictureAloneLeavesNoNodeUndrawn(t *testing.T) {
+	rendering := render(t, "pictures.sysml", "Site::unplacedView")
+	if !rendering.Positioned() {
+		t.Fatal("a pictured view is not positioned")
+	}
+	for _, options := range []Options{{}, {Unplaced: UnplacedStrip}} {
+		dot, err := rendering.DOTWith(options)
+		if err != nil {
+			t.Fatalf("DOT %+v: %v", options, err)
+		}
+		checkDOTSyntax(t, dot)
+		if !strings.Contains(dot, "// not represented: 3 node(s) without a position, drawn in a strip below the picture(s)\n") || strings.Contains(dot, "left undrawn") {
+			t.Errorf("DOT %+v header:\n%s", options, dot)
+		}
+		// The table's cluster heads the strip 24 below the picture's 300 high box.
+		if !strings.Contains(dot, `"picture:0" [shape=none`) || !strings.Contains(dot, `bb="0,-406,331,-324";`) || !strings.Contains(dot, "bench : Bench") || !strings.Contains(dot, "camera : Camera") {
+			t.Errorf("DOT %+v leaves the parts undrawn:\n%s", options, dot)
+		}
+	}
+	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "bench") || !strings.Contains(mermaid, "camera") || strings.Contains(mermaid, "without a position") {
+		t.Errorf("Mermaid leaves the parts undrawn:\n%s", mermaid)
+	}
+}
+
+// A Picture stated in another file, `about` the view, locates its file from
+// that file's directory, not the view's.
+func TestPictureStatedElsewhereIsLocatedFromItsOwnFile(t *testing.T) {
+	site := []byte(`package Site {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+	part def Bench;
+	view benchView {
+		expose Site::Bench;
+		render asInterconnectionDiagram;
+		@Picture { location = "images/bench.png"; x = 0; y = 0; width = 400; height = 300; }
+	}
+}
+`)
+	overlay := []byte(`package Overlay {
+	private import DiagramLayout::*;
+	metadata Picture about Site::benchView { location = "images/logo.png"; x = 10; y = 10; width = 80; height = 40; above = true; }
+}
+`)
+	r, idx := loadSources(t, []string{filepath.Join("model", "site.sysml"), filepath.Join("docs", "overlay", "overlay.sysml")}, [][]byte{site, overlay})
+	rendering, err := r.Render(lookup(t, idx, "Site::benchView"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Picture{
+		{Location: "images/bench.png", Dir: "model", X: 0, Y: 0, Width: 400, Height: 300},
+		{Location: "images/logo.png", Dir: filepath.Join("docs", "overlay"), X: 10, Y: 10, Width: 80, Height: 40, Above: true},
+	}
+	if !reflect.DeepEqual(rendering.Pictures, want) {
+		t.Errorf("pictures = %+v, want %+v", rendering.Pictures, want)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join("model", "images", "bench.png"), filepath.Join("docs", "overlay", "images", "logo.png")} {
+		if !strings.Contains(dot, "image="+dotQuote(path)) {
+			t.Errorf("DOT lacks image=%q:\n%s", path, dot)
+		}
+	}
+}
+
 // A view exposing nothing but carrying a picture is not empty: DOT draws the
 // picture alone; the forms that draw no picture say so instead of a blank.
 func TestPictureOnlyViewIsNotEmpty(t *testing.T) {
@@ -79,6 +148,25 @@ func TestPictureOnlyViewIsNotEmpty(t *testing.T) {
 	clone.Pictures[0].Location = "elsewhere.png"
 	if rendering.Pictures[0].Location != "images/site.jpg" {
 		t.Error("Clone shares the pictures with the original")
+	}
+}
+
+// A table draws no picture: the one its view states is noticed in every form,
+// not carried as drawn and not dropped.
+func TestPictureOnTableIsNoticedNotDrawn(t *testing.T) {
+	rendering := render(t, "pictures.sysml", "Site::tableView")
+	if len(rendering.Pictures) != 0 || len(rendering.Rows) != 2 {
+		t.Fatalf("table carries %d picture(s) and %d row(s), want 0 and 2", len(rendering.Pictures), len(rendering.Rows))
+	}
+	notice := "1 picture(s) not drawn: images/site.jpg at (0, 0) size 640×480; a table rendering draws no picture"
+	if len(rendering.Notices) != 1 || rendering.Notices[0] != notice {
+		t.Fatalf("notices = %q, want [%q]", rendering.Notices, notice)
+	}
+	if text := rendering.Text(); !strings.Contains(text, notice) {
+		t.Errorf("text drops the picture silently:\n%s", text)
+	}
+	if md := rendering.Markdown(); !strings.Contains(md, notice) {
+		t.Errorf("markdown drops the picture silently:\n%s", md)
 	}
 }
 

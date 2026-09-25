@@ -71,7 +71,7 @@ const streamHead = `<?xml version="1.0" encoding="UTF-8"?>
 // the list omits it, or lists another element only, and a listed element no
 // symbol displays is not shown. The modes diagram pastes the same picture
 // under its states and a sticker of it over one, names a file the archive
-// lacks, and carries bytes that do not read.
+// lacks, and carries bytes that do not read; the roster table pastes it too.
 var figureStreams = map[string]string{
 	"BINARY-blank": strings.Replace(streamHead, "%s", "_diag_blank", 1) + `
 </mdOwnedViews>`,
@@ -213,6 +213,16 @@ var figureStreams = map[string]string{
     <geometry>300, 100, 120, 60</geometry>
   </mdElement>
 </mdOwnedViews>`,
+	"BINARY-roster": strings.Replace(streamHead, "%s", "_diag_roster", 1) + `
+  <mdElement elementClass="Class" xmi:id="_sym_roster_tank">
+    <elementID xmi:idref="_blk_tank"/>
+    <geometry>20, 20, 200, 30</geometry>
+  </mdElement>
+  <mdElement elementClass="ImageShape" xmi:id="_sym_roster_photo">
+    <geometry>300, 20, 120, 80</geometry>
+    <image>` + cameoHex(plantPNG) + `</image>
+  </mdElement>
+</mdOwnedViews>`,
 }
 
 // An Image over a state machine or activity diagram draws the graph-form
@@ -256,9 +266,13 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"view Poster {",
 		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 40; y = 40; width = 300; height = 200; alt = "Plant from the north"; }`,
 		`@DiagramLayout::Note { text = "The plant from the north";`)
-	if strings.Count(notation, "DiagramLayout::Picture {") != 3 {
-		t.Errorf("pictures drawn = %d, want the 3 with bytes:\n%s", strings.Count(notation, "DiagramLayout::Picture {"), notation)
+	if strings.Count(notation, "DiagramLayout::Picture {") != 4 {
+		t.Errorf("pictures written = %d, want the 4 with bytes:\n%s", strings.Count(notation, "DiagramLayout::Picture {"), notation)
 	}
+	wantInOrder(t, "table picture", notation,
+		"view Roster {", "expose Tank;",
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 300; y = 20; width = 120; height = 80; }`,
+		"render Views::asElementTable;")
 	if got := r.Files["images/Plant_from_the_north.png"]; !bytes.Equal(got, plantPNG) || len(r.Files) != 1 {
 		t.Errorf("files = %d, want the one picture the three symbols share, byte for byte", len(r.Files))
 	}
@@ -272,7 +286,9 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"part 'diagram 2' : DocumentQueries::Diagram {",
 		"ref redefines source = Plant::Unlisted;",
 		"part 'diagram 3' : DocumentQueries::Diagram {",
-		"ref redefines source = Plant::Stale;")
+		"ref redefines source = Plant::Stale;",
+		"part 'diagram 4' : DocumentQueries::Diagram {",
+		"ref redefines source = Plant::Roster;")
 	for _, name := range []string{"Blank", "Silent"} {
 		if strings.Contains(notation, "source = Plant::"+name+";") {
 			t.Errorf("the empty diagram %s is drawn:\n%s", name, notation)
@@ -287,7 +303,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 			es = append(es, e)
 		}
 	}
-	if len(es) != 5 {
+	if len(es) != 6 {
 		t.Fatalf("Image entries = %+v, want one per diagram", es)
 	}
 	notes := map[migrate.Verdict][]string{}
@@ -300,6 +316,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::diagram: ",
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2': ",
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 3': ",
+			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 4': ",
 		},
 		migrate.Approximated: {
 			": no Diagram shows the SysML Block Definition Diagram 'Silent': it shows no model element, and its view exposes nothing, so the figure would be empty and is left out",
@@ -394,13 +411,15 @@ func TestShownCollectionOverUnreadStream(t *testing.T) {
 }
 
 // Without the archive, what the four listless diagrams show is unknown; every
-// figure over them is left out with that reason, the diagram listing an element
-// its stream would show to be gone is drawn from its list, and a collection over
-// the diagram listing one element is refused for the stream it names.
+// figure over them is left out with that reason, the diagrams listing an element
+// are drawn from their lists (the table's pasted picture unknown, so unnoted),
+// and a collection over the diagram listing one element is refused for the
+// stream it names.
 func TestFiguresWithoutStreams(t *testing.T) {
 	r := migrateFixtureFile(t, "figures")
 	wantInOrder(t, "the listed diagram", string(r.Notation),
-		"view Stale {", "expose Pump;", "ref redefines source = Plant::Stale;")
+		"view Stale {", "expose Pump;", "ref redefines source = Plant::Stale;",
+		"ref redefines source = Plant::Roster;")
 	wantNote(t, r, "_st_shown_collect", migrate.Unmapped,
 		"it collects what the SysML Block Definition Diagram 'Partial' shows beyond the 1 element the tool lists, whose symbols cannot be read and what the SysML Block Definition Diagram 'Unlisted' shows, which the archive does not record")
 	for _, name := range []string{"Blank", "Poster", "Unlisted", "Silent"} {
@@ -408,9 +427,16 @@ func TestFiguresWithoutStreams(t *testing.T) {
 			t.Errorf("the diagram %s, whose content is unread, is drawn:\n%s", name, r.Notation)
 		}
 	}
+	table := diagramPartOf(t, string(r.Notation), "Plant::Roster")
 	n := 0
 	for _, e := range entriesFor(r, "_st_pictures_image") {
 		if strings.HasPrefix(e.Note, "the paragraph is the caption") || strings.HasSuffix(e.Target, "::Pictures::diagram") {
+			continue
+		}
+		if strings.HasSuffix(e.Target, "::Pictures::"+table) {
+			if e.Verdict != migrate.Mapped || e.Note != "" {
+				t.Errorf("Image entry over the table = %+v, want mapped from its list without a note", e)
+			}
 			continue
 		}
 		n++
@@ -421,4 +447,23 @@ func TestFiguresWithoutStreams(t *testing.T) {
 	if n != 4 {
 		t.Errorf("%d figures are left out, want 4", n)
 	}
+}
+
+// diagramPartOf is the quoted name of the Diagram part of notation whose
+// source is the view at path.
+func diagramPartOf(t *testing.T, notation, path string) string {
+	t.Helper()
+	const head = "part 'diagram "
+	for _, chunk := range strings.Split(notation, head)[1:] {
+		name, rest, ok := strings.Cut(chunk, "' : DocumentQueries::Diagram {")
+		if !ok {
+			continue
+		}
+		_, source, _ := strings.Cut(rest, "redefines source = ")
+		if strings.HasPrefix(source, path+";") {
+			return "'diagram " + name + "'"
+		}
+	}
+	t.Fatalf("no Diagram part shows %s:\n%s", path, notation)
+	return ""
 }

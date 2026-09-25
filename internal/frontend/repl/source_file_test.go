@@ -31,9 +31,8 @@ const locatedPicturesModel = `package Site {
 }
 `
 
-// A location a loaded file states is relative to that file, not to the
-// session buffer the file was joined into: the DOT form names the file beside
-// the model, and a document written elsewhere refers back to it.
+// A location a loaded file states is relative to that file, not to the session buffer it was
+// joined into: the DOT form names the file beside the model, a document elsewhere refers back to it.
 func TestLoadedFileLocationsResolveBesideTheFile(t *testing.T) {
 	dir := t.TempDir()
 	model := filepath.Join(dir, "model", "site.sysml")

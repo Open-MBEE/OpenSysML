@@ -43,7 +43,7 @@ func drawsAny(model *sysmlv1.Model) bool {
 
 // streamRecord reads d's own symbol stream as a layout record: a placement per
 // shape standing for an element, a connector per path; nil when d has no stream.
-// A comment's note is dressing, not a placement.
+// A comment's note is dressing, not a placement; a hidden symbol is not drawn.
 func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 	if !d.Drawn {
 		return nil
@@ -51,7 +51,7 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 	rec := &mtip.Diagram{ID: d.ID, Name: d.Name, Type: d.Kind}
 	for _, s := range d.Symbols {
 		switch {
-		case s.Free() || s.Class == "DiagramFrame" || s.ElementID == d.ID || isNoteSymbol(s, m):
+		case s.Hidden || s.Free() || s.Class == "DiagramFrame" || s.ElementID == d.ID || isNoteSymbol(s, m):
 		case s.IsPath():
 			if len(s.Points) < 2 {
 				continue
@@ -121,12 +121,13 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	return &merged, src
 }
 
-// picture is a pasted image the view draws: its symbol, the file it is written
-// as, and whether it lies over an element symbol drawn before it.
+// picture is a pasted image the view draws: its symbol, its file, whether it lies over the
+// symbols it overlaps, and how many it lay over in the tool yet is drawn under (later ones cover it).
 type picture struct {
 	sym      *sysmlv1.Symbol
 	location string
 	above    bool
+	under    int
 }
 
 // pictures is what became of the pasted images of one diagram's stream: those
@@ -151,12 +152,9 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 	for _, e := range d.ImageErrors {
 		unread[e.Symbol] = e
 	}
-	var boxes []*sysmlv1.Bounds
-	for _, sym := range d.Symbols {
+	boxes := elementBoxes(d)
+	for i, sym := range d.Symbols {
 		if !sym.Free() {
-			if sym.Bounds != nil && sym.Class != "DiagramFrame" && sym.ElementID != d.ID {
-				boxes = append(boxes, sym.Bounds)
-			}
 			continue
 		}
 		e := unread[sym.ID]
@@ -172,6 +170,9 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 		data, ct := sym.Image, sym.ImageType()
 		var entry string
 		switch {
+		case sym.Hidden:
+			p.lost = append(p.lost, named+" is hidden on the diagram")
+			continue
 		case e != nil:
 			p.lost = append(p.lost, named+" has bytes that do not read ("+e.Reason()+")")
 			continue
@@ -193,23 +194,62 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 		if entry != "" {
 			fallback = entry
 		}
-		p.drawn = append(p.drawn, picture{
-			sym:      sym,
-			location: m.addFile(imagefile.Name(sym.Attachment, fallback, ct), data),
-			above:    overlapsAny(sym.Bounds, boxes),
-		})
+		before, after := overlapping(sym.Bounds, boxes, i)
+		pic := picture{sym: sym, location: m.addFile(imagefile.Name(sym.Attachment, fallback, ct), data)}
+		if after == 0 {
+			pic.above = before > 0
+		} else {
+			pic.under = before
+		}
+		p.drawn = append(p.drawn, pic)
 	}
 	return p
 }
 
-// overlapsAny reports whether b shares area with one of boxes.
-func overlapsAny(b *sysmlv1.Bounds, boxes []*sysmlv1.Bounds) bool {
-	for _, o := range boxes {
-		if b.X < o.X+o.Width && o.X < b.X+b.Width && b.Y < o.Y+o.Height && o.Y < b.Y+b.Height {
-			return true
+// elementBox is the bounds of an element symbol and its place in the stream.
+type elementBox struct {
+	index  int
+	bounds *sysmlv1.Bounds
+}
+
+// elementBoxes is the box of every element symbol d draws, in stream order.
+func elementBoxes(d *sysmlv1.Diagram) []elementBox {
+	var boxes []elementBox
+	for i, sym := range d.Symbols {
+		if !sym.Free() && !sym.Hidden && sym.Bounds != nil && sym.Class != "DiagramFrame" && sym.ElementID != d.ID {
+			boxes = append(boxes, elementBox{index: i, bounds: sym.Bounds})
 		}
 	}
-	return false
+	return boxes
+}
+
+// overlapping counts the boxes sharing area with b among the symbols before
+// and after the one at index in the stream: the tool draws later symbols on top.
+func overlapping(b *sysmlv1.Bounds, boxes []elementBox, index int) (before, after int) {
+	for _, box := range boxes {
+		o := box.bounds
+		if !(b.X < o.X+o.Width && o.X < b.X+b.Width && b.Y < o.Y+o.Height && o.Y < b.Y+b.Height) {
+			continue
+		}
+		if box.index < index {
+			before++
+		} else {
+			after++
+		}
+	}
+	return before, after
+}
+
+// underlaid counts the drawn pictures that lay between element symbols in the
+// tool and the symbols they lay over that they are drawn under.
+func (p *pictures) underlaid() (sandwiched, under int) {
+	for _, pic := range p.drawn {
+		if pic.under > 0 {
+			sandwiched++
+			under += pic.under
+		}
+	}
+	return sandwiched, under
 }
 
 // pictureLine writes p's Picture annotation: file, bounds, the pasted file's
@@ -238,9 +278,9 @@ func pastedAlt(name string) string {
 	return ""
 }
 
-// picturesClause words what became of a diagram's pasted images for its
-// layout note: the files the drawn ones are written as, and why the rest are not.
-func picturesClause(p *pictures) []string {
+// picturesClause words for the layout note what became of a diagram's pasted images:
+// the files written, that the view's form does not draw them when so, and why the rest are not.
+func picturesClause(p *pictures, form viewForm) []string {
 	var clauses []string
 	if n := len(p.drawn); n > 0 {
 		files := make([]string, 0, n)
@@ -249,7 +289,15 @@ func picturesClause(p *pictures) []string {
 				files = append(files, pic.location)
 			}
 		}
-		clauses = append(clauses, plural(n, "pasted image")+" written as "+strings.Join(files, ", "))
+		clause := plural(n, "pasted image") + " written as " + strings.Join(files, ", ")
+		if !form.drawsPictures() {
+			clause += ", which a view rendered " + form.rendering + " does not draw"
+		}
+		clauses = append(clauses, clause)
+		if sandwiched, under := p.underlaid(); sandwiched > 0 && form.drawsPictures() {
+			clauses = append(clauses, plural(sandwiched, "pasted image")+" drawn under the "+plural(under, "element symbol")+
+				" it lay over, since symbols drawn after it lie over it")
+		}
 	}
 	if n := len(p.lost); n > 0 {
 		clauses = append(clauses, plural(n, "pasted image")+" not written: "+strings.Join(p.lost, " and "))
@@ -257,22 +305,20 @@ func picturesClause(p *pictures) []string {
 	return clauses
 }
 
-// viewDressing is what a diagram's stream adds to its view beyond geometry:
-// the Picture, Style and Note annotation lines and the clauses accounting
-// for them, and how many pasted images it draws and loses.
+// viewDressing is what a stream adds to its view beyond geometry: the Picture, Style and
+// Note lines, their report clauses, and the pasted images drawn, underlaid, undrawn and lost.
 type viewDressing struct {
-	lines    []string
-	notes    []string
-	pictures int
-	lost     int
+	lines     []string
+	notes     []string
+	pictures  int
+	underlaid int
+	undrawn   int
+	lost      int
 }
 
-// viewDressing plans the Picture of every pasted image written, the Style of
-// every symbol drawn in its own colours or font whose element the view draws
-// (refOf naming it, positioned or not), the Note of every comment and text box,
-// each anchored to the element its anchor reaches when the view draws that and
-// free on the view otherwise, and counts the free symbols nothing represents.
-func (m *migration) viewDressing(v *view, prefix string, refOf func(string) string) viewDressing {
+// viewDressing plans the Picture of each pasted image written, the Style of each symbol drawn
+// in its own look (refOf naming its element), the Note of each text box, and counts the free rest.
+func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf func(string) string) viewDressing {
 	d := v.d
 	if !d.Drawn {
 		return viewDressing{}
@@ -310,7 +356,7 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 	styledRefs := map[string]bool{}
 	for _, sym := range d.Symbols {
 		switch {
-		case sym.Class == "DiagramFrame" || sym.ElementID == d.ID || drawn[sym]:
+		case sym.Hidden || sym.Class == "DiagramFrame" || sym.ElementID == d.ID || drawn[sym]:
 		case isNoteSymbol(sym, m):
 			if sym.Bounds == nil {
 				continue
@@ -365,8 +411,15 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 		}
 	}
 	dress.pictures, dress.lost = len(pics.drawn), len(pics.lost)
-	s.Pictures += dress.pictures + dress.lost
+	if form.drawsPictures() {
+		dress.underlaid, _ = pics.underlaid()
+	} else {
+		dress.pictures, dress.undrawn = 0, dress.pictures
+	}
+	s.Pictures += dress.pictures + dress.undrawn + dress.lost
 	s.PicturesWritten += dress.pictures
+	s.PicturesUnderlaid += dress.underlaid
+	s.PicturesUndrawn += dress.undrawn
 	s.Styles += styles
 	s.StylesWritten += styled
 	s.Notes += notes
@@ -375,7 +428,7 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 	for class, n := range dropped {
 		s.Dropped[class] += n
 	}
-	dress.notes = append(dress.notes, picturesClause(pics)...)
+	dress.notes = append(dress.notes, picturesClause(pics, form)...)
 	if styles > 0 {
 		dress.notes = append(dress.notes, fmt.Sprintf("%d of %d symbols drawn in their own colours or font styled", styled, styles))
 	}
@@ -408,7 +461,7 @@ func (m *migration) notesShown(d *sysmlv1.Diagram, el *sysmlv1.Element) bool {
 		return false
 	}
 	for _, sym := range d.Symbols {
-		if sym.ElementID == el.ID && sym.Bounds != nil {
+		if sym.ElementID == el.ID && sym.Bounds != nil && !sym.Hidden {
 			return true
 		}
 	}

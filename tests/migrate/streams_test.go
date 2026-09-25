@@ -70,14 +70,14 @@ func TestStreamLaysOutView(t *testing.T) {
 	if s.Source != "the diagrams' own symbol streams" {
 		t.Errorf("source = %q", s.Source)
 	}
-	if s.StreamDiagrams != 6 || s.DiagramsJoined != 0 {
-		t.Errorf("stream diagrams = %d, joined = %d; want 6 and 0", s.StreamDiagrams, s.DiagramsJoined)
+	if s.StreamDiagrams != 7 || s.DiagramsJoined != 0 {
+		t.Errorf("stream diagrams = %d, joined = %d; want 7 and 0", s.StreamDiagrams, s.DiagramsJoined)
 	}
 	if s.StylesWritten != 2 || s.Notes != 4 || s.NotesAnchored != 2 {
 		t.Errorf("styles written = %d, notes = %d, anchored = %d; want 2, 4 and 2", s.StylesWritten, s.Notes, s.NotesAnchored)
 	}
-	if s.Pictures != 5 || s.PicturesWritten != 3 {
-		t.Errorf("pictures = %d, written = %d; want 5 and 3", s.Pictures, s.PicturesWritten)
+	if s.Pictures != 6 || s.PicturesWritten != 3 || s.PicturesUndrawn != 1 {
+		t.Errorf("pictures = %d, written = %d, undrawn = %d; want 6, 3 and 1", s.Pictures, s.PicturesWritten, s.PicturesUndrawn)
 	}
 	if s.Dropped["ImageShape"] != 2 {
 		t.Errorf("dropped = %v; want the 2 ImageShape without bytes to write", s.Dropped)
@@ -85,8 +85,10 @@ func TestStreamLaysOutView(t *testing.T) {
 	report := reportText(t, r)
 	wantInOrder(t, "modes entry", report,
 		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 pasted images written as images/Plant_from_the_north.png, 2 pasted images not written: the pasted image \"logo.png\" is not in the archive and the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is \"xx\", not a hexadecimal byte), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 2 ImageShape")
+	wantInOrder(t, "roster entry", report,
+		"_diag_roster", "1 pasted image written as images/Plant_from_the_north.png, which a view rendered asElementTable does not draw")
 	wantInOrder(t, "layout summary", report,
-		"# pasted images: 3 of 5 written as files and drawn by the view")
+		"# pasted images: 3 of 6 written as files and drawn by the view, 1 written on a view whose table rendering does not draw them")
 	wantNote(t, r, "_sym_torn", migrate.Unmapped,
 		"the pasted image's bytes do not read: octet 19 is \"xx\", not a hexadecimal byte")
 }
@@ -148,6 +150,56 @@ func TestMigratedConnectorNoteIsDrawn(t *testing.T) {
 	}
 }
 
+// A picture pasted over one element symbol and under another drawn after it is written
+// under both, so no symbol is hidden, and the diagram's note says which loss that is.
+func TestPictureBetweenSymbolsIsDrawnUnder(t *testing.T) {
+	streams := map[string]string{}
+	for k, v := range figureStreams {
+		streams[k] = v
+	}
+	modes := streams["BINARY-modes"]
+	running := modes[strings.Index(modes, `<mdElement elementClass="State" xmi:id="_sym_running">`):]
+	running = running[:strings.Index(running, `<mdElement elementClass="Transition"`)]
+	modes = strings.Replace(modes, running, "", 1)
+	modes = strings.Replace(modes, "<geometry>350, 120, 40, 40</geometry>", "<geometry>100, 120, 250, 40</geometry>", 1)
+	streams["BINARY-modes"] = strings.Replace(modes, "</mdOwnedViews>", running+"\n</mdOwnedViews>", 1)
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	notation := string(r.Notation)
+	sticker := `@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 100; y = 120; width = 250; height = 40; }`
+	if !strings.Contains(notation, sticker) || strings.Contains(notation, "height = 40; above = true;") {
+		t.Errorf("the picture between Idle and Running is not drawn under both:\n%s", notation)
+	}
+	wantInOrder(t, "modes entry", reportText(t, r),
+		"_diag_modes", "2 pasted images written as images/Plant_from_the_north.png, 1 pasted image drawn under the 1 element symbol it lay over, since symbols drawn after it lie over it")
+	wantInOrder(t, "layout summary", reportText(t, r),
+		"# pasted images: 3 of 6 written as files and drawn by the view (1 under element symbols they lay over)")
+	if r.Report.Layout.PicturesUnderlaid != 1 {
+		t.Errorf("underlaid = %d, want 1", r.Report.Layout.PicturesUnderlaid)
+	}
+}
+
+// A picture pasted on a table diagram reaches the migrated view, whose table
+// rendering keeps its rows and says where the picture would have been.
+func TestMigratedTablePictureIsNoticed(t *testing.T) {
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, figureStreams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	rendering, err := session(t, r).ViewRendering("Plant::Roster")
+	if err != nil {
+		t.Fatalf("ViewRendering: %v", err)
+	}
+	notice := "1 picture(s) not drawn: images/Plant_from_the_north.png at (300, 20) size 120×80; a table rendering draws no picture"
+	if len(rendering.Pictures) != 0 || len(rendering.Rows) != 1 || len(rendering.Notices) != 1 || rendering.Notices[0] != notice {
+		t.Fatalf("table rendering = %d picture(s), %d row(s), notices %q; want none, 1 and [%q]",
+			len(rendering.Pictures), len(rendering.Rows), rendering.Notices, notice)
+	}
+}
+
 // reportText renders r's report as text.
 func reportText(t *testing.T, r *migrate.Result) string {
 	t.Helper()
@@ -188,8 +240,8 @@ func TestExportPrecedesStream(t *testing.T) {
 		"view Partial {",
 		"metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }")
 	s := r.Report.Layout
-	if s == nil || s.DiagramsJoined != 1 || s.StreamDiagrams != 5 || s.StreamSupplemented != 1 {
-		t.Fatalf("layout summary = %+v; want 1 diagram joined and supplemented, 5 from streams", s)
+	if s == nil || s.DiagramsJoined != 1 || s.StreamDiagrams != 6 || s.StreamSupplemented != 1 {
+		t.Fatalf("layout summary = %+v; want 1 diagram joined and supplemented, 6 from streams", s)
 	}
 	report := reportText(t, r)
 	wantInOrder(t, "sources", report,

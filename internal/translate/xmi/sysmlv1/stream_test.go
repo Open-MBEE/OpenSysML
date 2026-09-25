@@ -222,6 +222,50 @@ func TestReadSymbolsIgnoresMalformedGeometryAndColour(t *testing.T) {
 	}
 }
 
+// A symbol MagicDraw marks not visible is read but hidden: a hidden frame does not bound the
+// diagram and a hidden free symbol is not counted, while a property's own visible flag is not the symbol's.
+func TestReadSymbolsHidden(t *testing.T) {
+	stream := `<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <visible xmi:value='false'/>
+    <geometry>5, 5, 1397, 971</geometry>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_img'>
+    <geometry>0, 0, 823, 577</geometry>
+    <image>89 50 4e 47 d a 1a a</image>
+  </mdElement>
+  <mdElement elementClass='TextBox' xmi:id='_tb'>
+    <visible xmi:value='false'></visible>
+    <geometry>0, 0, 24, 12</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_s1'>
+    <elementID xmi:idref='_a'/>
+    <properties>
+      <mdElement elementClass='BooleanProperty'><propertyID>SHOW_NAME</propertyID><visible xmi:value='false'/></mdElement>
+    </properties>
+    <geometry>10, 10, 100, 50</geometry>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if syms.frame != nil {
+		t.Errorf("a hidden frame bounds the diagram: %+v", syms.frame)
+	}
+	if want := map[string]int{"ImageShape": 1}; !reflect.DeepEqual(syms.free, want) {
+		t.Errorf("free = %v, want %v", syms.free, want)
+	}
+	hidden := map[string]bool{}
+	for _, s := range syms.list {
+		hidden[s.ID] = s.Hidden
+	}
+	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false}; !reflect.DeepEqual(hidden, want) {
+		t.Errorf("hidden = %v, want %v", hidden, want)
+	}
+}
+
 func TestReadSymbolsOfEmptyStream(t *testing.T) {
 	for name, stream := range map[string]string{
 		"bare":  `<mdOwnedViews/>`,

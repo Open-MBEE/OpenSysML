@@ -1,13 +1,13 @@
 # SysML v1 to v2 migration report: figures.mdzip
 # exported by Example UML Tool
-# migrated 87 element(s): 72 mapped, 14 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 8 diagrams from the diagrams' own symbol streams: 6 elements positioned, 1 connectors routed, 2 styled, 4 notes; wrote 1 image file(s)
+# migrated 90 element(s): 74 mapped, 15 approximated, 1 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 7 of 9 diagrams from the diagrams' own symbol streams: 7 elements positioned, 1 connectors routed, 2 styled, 4 notes; wrote 1 image file(s)
 
 ## layout
 # source: the diagrams' own symbol streams
-# 6 views laid out from their own symbol stream, 2 without layout
-# placements: 6 of 7 written (1 not exposed, 0 resolving to no element); routes: 1 of 2 written (1 not pinned, 0 resolving to no element); malformed: 0
+# 7 views laid out from their own symbol stream, 2 without layout
+# placements: 7 of 8 written (1 not exposed, 0 resolving to no element); routes: 1 of 2 written (1 not pinned, 0 resolving to no element); malformed: 0
 # styles: 2 of 2 written; notes: 4 written (2 anchored, 0 freed of an anchor the view does not lay out)
-# pasted images: 3 of 5 written as files and drawn by the view
+# pasted images: 3 of 6 written as files and drawn by the view, 1 written on a view whose table rendering does not draw them
 # routes of Transition: 1 no v2 member
 # routes of Transition: 1 written
 # free symbols dropped: ImageShape (2)
@@ -16,7 +16,7 @@
 ## unmapped (1)
 ImageShape	Plant::Pump::Modes::Pump Modes	_sym_torn	(the pasted image's bytes do not read: octet 19 is "xx", not a hexadecimal byte)
 
-## approximated (14)
+## approximated (15)
 «Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'	(a plain UML class without «Block» is written as a part def)
 Activity	Plant Viewpoints::Figures Viewpoint::Figures Method	_act_figures	-> 'Plant Viewpoints'::'Figures Viewpoint'::'Figures Method'	(the classifier behavior is run by every object of Plant Viewpoints::Figures Viewpoint as its usage figures Method)
 «Image» CallBehaviorAction	Plant Viewpoints::Figures Viewpoint::Figures Method::Image	_figures_image	-> Image	(a step with no behavior and no duration; it passes the token on)
@@ -30,9 +30,10 @@ Diagram	Plant::Blank	_diag_blank	-> Plant::Blank	(a SysML Block Definition Diagr
 Diagram	Plant::Pump::Modes::Pump Modes	_diag_modes	-> Plant::Pump::Modes::'Pump Modes'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Plant::Pump::Modes, whose graph the rendering draws with the 5 shown nodes and edges of it; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 pasted images written as images/Plant_from_the_north.png, 2 pasted images not written: the pasted image "logo.png" is not in the archive and the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is "xx", not a hexadecimal byte), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 2 ImageShape)
 OpaqueAction	Plant::Pump::Prime::Fill	_prime_fill	-> Fill	(the body is kept as a comment: the body is empty)
 OpaqueAction	Plant::Pump::Prime::Vent	_prime_vent	-> Vent	(the body is kept as a comment: the body is empty)
+Diagram	Plant::Roster	_diag_roster	-> Plant::Roster	(a Generic Table written as a view rendered asElementTable; laid out from the diagram's own symbol stream: 1 of 1 shown elements positioned, 0 of 0 connectors routed, 1 pasted image written as images/Plant_from_the_north.png, which a view rendered asElementTable does not draw)
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
 
-## mapped (72)
+## mapped (74)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
@@ -43,6 +44,7 @@ Package	Plant Documents	_pkg_docs	-> 'Plant Documents'
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_unlisted	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_silent	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_stale	-> 'Plant Documents'::Pictures
+«Expose» Dependency	Plant Documents::<Dependency>	_expose_pictures_roster	-> 'Plant Documents'::Pictures
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_partial	-> 'Plant Documents'::Shown
 «Expose» Dependency	Plant Documents::<Dependency>	_expose_shown_unlisted	-> 'Plant Documents'::Shown
 «View» Class	Plant Documents::Behaviors	_view_behaviors	-> 'Plant Documents'::Behaviors
@@ -74,6 +76,7 @@ InitialNode	Plant Viewpoints::Pictures Viewpoint::Pictures Method::<InitialNode>
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'paragraph 2'	(the paragraph is the Diagram's caption)
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2'
 «Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 3'
+«Image» CallBehaviorAction	Plant Viewpoints::Pictures Viewpoint::Pictures Method::Image	_st_pictures_image	-> part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 4'
 «Viewpoint» Class	Plant Viewpoints::Shown Viewpoint	_vp_shown	-> 'Plant Viewpoints'::'Shown Viewpoint'
 ActivityFinalNode	Plant Viewpoints::Shown Viewpoint::Shown Method::<ActivityFinalNode>	_shown_final	-> final
 ControlFlow	Plant Viewpoints::Shown Viewpoint::Shown Method::<ControlFlow>	_shown_e2

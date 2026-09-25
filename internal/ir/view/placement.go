@@ -109,9 +109,13 @@ func (p *placement) place(node *Node, tree bool, routed map[string]bool) {
 // node or a picture, so the drawing is pinned where the diagram states.
 func (p *placement) positioned() bool { return p.count > 0 || p.pictures > 0 }
 
-// partial reports whether a positioned rendering leaves some nodes without a
-// place: the case a form settles as its Options.Unplaced asks.
-func (p *placement) partial() bool { return p.positioned() && p.count < p.nodes }
+// partial reports whether the rendering places some nodes and not others: the
+// case a form settles as its Options.Unplaced asks. Pictures place no node.
+func (p *placement) partial() bool { return p.count > 0 && p.count < p.nodes }
+
+// picturedOnly reports whether pictures alone pin the drawing while none of
+// its nodes has a place, so the nodes are drawn in a strip below the pictures.
+func (p *placement) picturedOnly() bool { return p.count == 0 && p.pictures > 0 && p.nodes > 0 }
 
 // unplaced is how many nodes have no place.
 func (p *placement) unplaced() int { return p.nodes - p.count }

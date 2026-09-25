@@ -44,6 +44,9 @@ type Symbol struct {
 	// Image holds a pasted image's own bytes when the tool serialized them in
 	// the stream; nil when it wrote only the file's name or they do not read.
 	Image []byte
+	// Hidden reports a symbol the tool keeps but does not draw (visible false):
+	// it takes no room on the diagram, and a hidden frame does not bound it.
+	Hidden bool
 }
 
 // Bounds is a rectangle in diagram pixels: its top-left corner and size.
@@ -136,6 +139,7 @@ var attachmentTags = map[string]bool{
 // it is drawn with, and in its image the bytes of a pasted picture. A top-level
 // symbol naming no element is free content, a pasted image or text box,
 // counted by class; the frame symbol names the diagram itself and is neither.
+// A symbol marked not visible is read but hidden, and a hidden frame is no frame.
 // A stream that ends with a symbol open is torn, and what it drew is unknown;
 // an image whose bytes do not read is noted and the symbol read without them.
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
@@ -200,6 +204,10 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 				symbolPath = append(symbolPath, f.sym)
 			case t.Name.Local == "mdElement" && enclosing() != nil:
 				f.prop = &property{class: attr(t, "elementClass")}
+			case t.Name.Local == "visible" && parentTag == "mdElement" && openProperty() == nil:
+				if sym := enclosing(); sym != nil && attr(t, "value") == "false" {
+					sym.Hidden = true
+				}
 			case t.Name.Local == "elementID" && parentTag == "mdElement":
 				id := refOf(t)
 				if sym := enclosing(); sym != nil && id != "" {
@@ -242,10 +250,10 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 			switch {
 			case f.sym != nil:
 				symbolPath = symbolPath[:len(symbolPath)-1]
-				if f.sym.Parent == nil && f.sym.Free() {
+				if f.sym.Parent == nil && f.sym.Free() && !f.sym.Hidden {
 					syms.free[f.sym.Class]++
 				}
-				if f.sym.Class == "DiagramFrame" && f.sym.Bounds != nil && syms.frame == nil {
+				if f.sym.Class == "DiagramFrame" && f.sym.Bounds != nil && !f.sym.Hidden && syms.frame == nil {
 					syms.frame = f.sym.Bounds
 				}
 			case f.prop != nil:

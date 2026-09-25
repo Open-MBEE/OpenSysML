@@ -249,9 +249,8 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
 }
 
-// sessionSourceFile locates the file a span of the session buffer was loaded
-// from: the buffer joins every loaded file, so a location a declaration states
-// relative to its file resolves against that file, not the buffer.
+// sessionSourceFile locates the file a span of the session buffer was loaded from, so a
+// location a declaration states relative to its file resolves against that file, not the buffer.
 func (s *Session) sessionSourceFile(doc string, span source.Span) string {
 	if doc != docName && doc != kermlDocName {
 		return source.FileNamed(doc, span)

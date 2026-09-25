@@ -68,6 +68,13 @@ package Plant {
         metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
+    view Roster {
+        expose Tank;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 20; y = 20; width = 200; height = 30; }
+        @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 300; y = 20; width = 120; height = 80; }
+        render Views::asElementTable;
+    }
     view Partial {
         expose Tank;
         expose Pump;
@@ -133,6 +140,7 @@ package 'Plant Documents' {
         expose Plant::Unlisted;
         expose Plant::Silent;
         expose Plant::Stale;
+        expose Plant::Roster;
     }
     view Shown {
         satisfy 'Plant Viewpoints'::'Shown Viewpoint';
@@ -184,6 +192,10 @@ package 'Plant Documents' {
             part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Stale";
                 ref redefines source = Plant::Stale;
+            }
+            part 'diagram 4' : DocumentQueries::Diagram {
+                attribute redefines caption = "Roster";
+                ref redefines source = Plant::Roster;
             }
         }
         part Shown : DocumentQueries::Section {

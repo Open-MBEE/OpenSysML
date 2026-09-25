@@ -24,14 +24,16 @@ var renderings = []struct {
 	words     []string
 	rendering string
 }{
-	{[]string{"table", "matrix"}, "asElementTable"},
+	{[]string{"table", "matrix"}, tableRendering},
 	{[]string{"internal block", "parametric", "composite structure", "interconnection"}, interconnectionRendering},
-	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure"}, "asTreeDiagram"},
+	{[]string{"block definition", "class", "package", "object", "component", "deployment", "profile", "structure"}, treeRendering},
 }
 
 const (
 	textualRendering         = "asTextualNotation"
 	interconnectionRendering = "asInterconnectionDiagram"
+	treeRendering            = "asTreeDiagram"
+	tableRendering           = "asElementTable"
 )
 
 // viewDefinitionsPrefix qualifies a standard view definition, like viewsPrefix
@@ -403,7 +405,11 @@ func (m *migration) places(x exposures, f viewForm, el *sysmlv1.Element, ref str
 // when the rendering has something to draw.
 func (m *migration) emptyView(v *view, f viewForm) string {
 	d := v.d
-	if len(m.exposures(d, v.host, f).refs) > 0 || len(m.pastedPictures(d).drawn) > 0 {
+	if len(m.exposures(d, v.host, f).refs) > 0 {
+		return ""
+	}
+	pictured := len(m.pastedPictures(d).drawn)
+	if pictured > 0 && f.drawsPictures() {
 		return ""
 	}
 	for _, td := range v.tables {
@@ -415,6 +421,8 @@ func (m *migration) emptyView(v *view, f viewForm) string {
 	switch {
 	case !d.Represented():
 		return "no diagram representation is serialized, so what it shows is unknown and its view exposes nothing"
+	case len(d.Shown) == 0 && pictured > 0:
+		return "it shows no model element, only " + plural(pictured, "pasted image") + " a view rendered " + f.rendering + " does not draw, and its view exposes nothing"
 	case len(d.Shown) == 0:
 		return "it " + showsNothing(d, "shows no model element") + ", and its view exposes nothing"
 	}
@@ -520,6 +528,8 @@ func (m *migration) writeView(v *view) {
 		note = joinNotes(note, "no diagram representation is serialized: what the diagram is and shows is unknown, and the view exposes nothing")
 	case shown == 0 && geo.pictures > 0:
 		note = joinNotes(note, "the diagram shows no model element; the view draws the "+plural(geo.pictures, "pasted image")+" it carries and exposes nothing")
+	case shown == 0 && geo.undrawn > 0:
+		note = joinNotes(note, "the diagram shows no model element, only "+plural(geo.undrawn, "pasted image")+" the view carries and its rendering does not draw; the view exposes nothing")
 	case shown == 0:
 		note = joinNotes(note, "the diagram "+showsNothing(d, "shows nothing")+"; the view exposes nothing")
 	case len(x.refs) == 0:
@@ -559,7 +569,7 @@ func (m *migration) writeView(v *view) {
 	}
 	verdict := Mapped
 	drawsNothing := (shown == 0 || len(x.refs) == 0) && geo.pictures == 0
-	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.lost > 0 {
+	if v.note != "" || untyped || drawsNothing || x.unwritten+x.dangling > 0 || geo.underlaid+geo.undrawn+geo.lost > 0 {
 		verdict = Approximated
 	}
 	v.entry = m.diagramEntry(d, verdict, m.qualified(append(m.segments(host), v.name)), note)
@@ -722,13 +732,15 @@ func (m *migration) diagrams() {
 	m.unplacedTables()
 }
 
-// viewGeometry is the layout a diagram writes into a view: the annotation lines,
-// their report clause, and the pasted images drawn (pictures) and lost.
+// viewGeometry is the layout a diagram writes into a view: the annotation lines, their
+// report clause, and the pasted images drawn, underlaid, written but undrawn, and lost.
 type viewGeometry struct {
-	lines    []string
-	note     string
-	pictures int
-	lost     int
+	lines     []string
+	note      string
+	pictures  int
+	underlaid int
+	undrawn   int
+	lost      int
 }
 
 // viewGeometry plans the DiagramLayout annotations of v's layout record, the
@@ -858,7 +870,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	for tag, n := range rec.Unsupported {
 		s.Unsupported[tag] += n
 	}
-	dress := m.viewDressing(v, prefix, func(id string) string {
+	dress := m.viewDressing(v, form, prefix, func(id string) string {
 		if ref, ok := refOf[id]; ok {
 			return ref
 		}
@@ -867,7 +879,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	for _, p := range m.pastedPictures(v.d).drawn {
 		grow(p.sym.Bounds.X+p.sym.Bounds.Width, p.sym.Bounds.Y+p.sym.Bounds.Height)
 	}
-	geo := viewGeometry{pictures: dress.pictures, lost: dress.lost}
+	geo := viewGeometry{pictures: dress.pictures, underlaid: dress.underlaid, undrawn: dress.undrawn, lost: dress.lost}
 	if size {
 		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { unit = \"px\"; width = %s; height = %s; }",
 			prefix, layoutNumber(maxX), layoutNumber(maxY)))

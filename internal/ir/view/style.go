@@ -119,18 +119,19 @@ func (r *Rendering) visualNotices(what string, withNotes bool) []string {
 		notices = append(notices, fmt.Sprintf("%d note(s); the dot form draws notes", len(r.Notes)))
 	}
 	if withNotes && len(r.Pictures) > 0 {
-		notices = append(notices, r.pictureNotice())
+		notices = append(notices, pictureNotice(r.Pictures, "the dot form draws pictures"))
 	}
 	return notices
 }
 
-// pictureNotice names the pictures a form does not draw, with their bounds.
-func (r *Rendering) pictureNotice() string {
-	placed := make([]string, len(r.Pictures))
-	for i, p := range r.Pictures {
+// pictureNotice names the pictures a form or kind does not draw, with their
+// bounds, and says why (what does draw them, or that the kind draws none).
+func pictureNotice(pictures []Picture, why string) string {
+	placed := make([]string, len(pictures))
+	for i, p := range pictures {
 		placed[i] = fmt.Sprintf("%s at (%s, %s) size %s×%s", p.Location, formatCoord(p.X), formatCoord(p.Y), formatCoord(p.Width), formatCoord(p.Height))
 	}
-	return fmt.Sprintf("%d picture(s) not drawn: %s; the dot form draws pictures", len(r.Pictures), strings.Join(placed, ", "))
+	return fmt.Sprintf("%d picture(s) not drawn: %s; %s", len(pictures), strings.Join(placed, ", "), why)
 }
 
 // What each form leaves out of a Style, for visualNotices.

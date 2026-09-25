@@ -79,18 +79,34 @@ func (p Picture) Path() string {
 	return filepath.Join(p.Dir, filepath.FromSlash(p.Location))
 }
 
-// picturesOf adds to out the Pictures drawn on view, in the order the view
-// states them; one that does not read is noticed.
+// picturesOf adds to out the Pictures drawn on view in declaration order, each located
+// from the file stating it; one that does not read is noticed.
 func (r *Renderer) picturesOf(view *symbols.Symbol, out *Rendering) {
-	dir := source.Dir(r.model.SourceFileOf(view.Origin()))
+	out.Pictures = append(out.Pictures, r.statedPictures(view, out)...)
+}
+
+// undrawnPicturesOf notices the Pictures view states when out is of a kind
+// that draws none, a table or a sequence, so they are not silently dropped.
+func (r *Renderer) undrawnPicturesOf(view *symbols.Symbol, out *Rendering) {
+	if pictures := r.statedPictures(view, out); len(pictures) > 0 {
+		out.Notices = append(out.Notices, pictureNotice(pictures, fmt.Sprintf("%s %s rendering draws no picture", out.Kind.article(), out.Kind)))
+	}
+}
+
+// statedPictures reads the Pictures view states, in order, each located from
+// the file stating it; one that does not read is noticed on out.
+func (r *Renderer) statedPictures(view *symbols.Symbol, out *Rendering) []Picture {
+	var pictures []Picture
 	for _, site := range r.model.PicturesOf(view) {
 		r.noteLayoutProblems(site, view, out)
 		if site.Picture == nil {
 			continue
 		}
 		p := site.Picture
-		out.Pictures = append(out.Pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+		dir := source.Dir(r.model.SourceFileOf(site.Origin()))
+		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
 	}
+	return pictures
 }
 
 // styleOf is the Style colouring elem in view (nil view: inline Style only),

@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestImagesResolveBesideTheSource: an image block's relative location
-// resolves against the directory of the source file stating it, an absolute
-// path or file URL as written, and a remote location not at all.
+// An image block's relative location resolves against the directory of the source file
+// stating it; an absolute path or file URL as written; a remote location not at all.
 func TestImagesResolveBesideTheSource(t *testing.T) {
 	model := filepath.Join(t.TempDir(), "model")
 	document := fixtureDocumentAt(t, filepath.Join("testdata", "image_report.sysml"), filepath.Join(model, "report.sysml"), "Pictures::ImageReport")
@@ -59,10 +58,8 @@ func TestImagesResolveBesideTheSource(t *testing.T) {
 	}
 }
 
-// TestImageSourceIsRelativeToTheOutput: written into another directory, a
-// rendering refers to the file by a path from that directory; an unknown
-// output directory, a sourceless document or a non-relative location keep the
-// location as stated.
+// Written into another directory, a rendering refers to the file by a path from there; an
+// unknown output directory, a sourceless document or a non-relative location keep it as stated.
 func TestImageSourceIsRelativeToTheOutput(t *testing.T) {
 	root := t.TempDir()
 	model := filepath.Join(root, "model")
@@ -86,9 +83,8 @@ func TestImageSourceIsRelativeToTheOutput(t *testing.T) {
 	}
 }
 
-// TestBackendsWriteImagesRelativeToTheOutput: the HTML and Markdown backends
-// agree on the reference a page in another directory makes to an image beside
-// the source, and write the location as stated without an output directory.
+// The HTML and Markdown backends agree on the reference a page in another directory makes
+// to an image beside the source, and write the location as stated without an output directory.
 func TestBackendsWriteImagesRelativeToTheOutput(t *testing.T) {
 	root := t.TempDir()
 	model := filepath.Join(root, "model")

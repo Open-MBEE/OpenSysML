@@ -71,8 +71,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		}
 	}
 	edges := r.Edges
-	if w.placement.partial() {
+	switch {
+	case w.placement.partial():
 		edges = w.settleUnplaced(r.Roots, r.Edges, options.Unplaced)
+	case w.placement.picturedOnly():
+		w.stripUnplaced(r.Roots, r.Edges)
+		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
 	edges = w.drawnEdges(edges)
 	for _, edge := range edges {

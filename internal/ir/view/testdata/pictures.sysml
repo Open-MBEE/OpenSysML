@@ -23,9 +23,24 @@ package Site {
 		@Picture { location = "images/logo.png"; x = 700; y = 20; width = 80; height = 40; above = true; }
 	}
 
+	// A picture under parts nothing places: the parts are drawn below it.
+	view unplacedView {
+		expose Site::Table;
+		render asInterconnectionDiagram;
+		@Picture { location = "images/bench.png"; x = 0; y = 0; width = 400; height = 300; }
+	}
+
 	// A picture alone: the view exposes no element.
 	view pictureOnlyView {
 		render asInterconnectionDiagram;
+		@Picture { location = "images/site.jpg"; x = 0; y = 0; width = 640; height = 480; }
+	}
+
+	// A picture on a table: a table draws no picture, and says so.
+	view tableView {
+		expose Site::Bench;
+		expose Site::Camera;
+		render asElementTable;
 		@Picture { location = "images/site.jpg"; x = 0; y = 0; width = 640; height = 480; }
 	}
 }

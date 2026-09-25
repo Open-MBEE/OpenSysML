@@ -112,8 +112,24 @@ that view's canvas; a note stated outside every view applies in every view. A `P
 image pasted onto the drawing surface: the file it is read from, relative to the file the view is
 written in (an absolute path or a URL as given), the box it fills, an optional alternative text,
 and `above` when it lies over the element symbols it overlaps rather than under them, which is
-the default — a background picture with the boxes drawn on top. A `Picture` belongs to a view
-alone, `@Picture { … }` in its body; a view carries as many as it shows, in declaration order.
+the default — a background picture with the boxes drawn on top. There is no order finer than
+that: a picture lies under every element symbol or over every one, never between two. A
+`Picture` belongs to a view alone, `@Picture { … }` in its body; a view carries as many as it
+shows, in declaration order.
+The graph-shaped renderings (interconnection, tree, state and action views) draw it; a table or
+sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
+each picture's file and box under `not drawn`.
+A `Picture` names a file the way a `DocumentQueries::Image` block's `location` does, and it is
+trusted the same way: the model's author states which files of theirs a rendering reads, so a
+document rendered from a model lets that model reach whatever the location names, as an
+`Image` block always has. What a rendering copies out of such a file is bounded, though: when a
+drawn diagram's pictures are inlined into a single-file document, a file is embedded as a data
+URI only when its bytes are a recognised image (PNG, JPEG, GIF, BMP, WebP, or one well-formed SVG
+document — a single `svg` root in the SVG namespace); any other file stays a reference to its
+path, so no text or binary that is not an image is ever copied into a document by naming it. An
+SVG picture is shown through an `<image>` element (of the drawn SVG) or an `<img>` element, which
+a browser renders as a static image — none of its scripts runs and it loads no external
+resource — and the PDF engine runs no script at all.
 
 Applied:
 
