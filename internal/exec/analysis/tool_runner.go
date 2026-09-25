@@ -111,7 +111,7 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
 	plan, err := t.registry.answer(t.ctx, t.model, q, t.budget, t.selection)
 	if err != nil {
-		t.noteUse(call, seq, err)
+		t.keep(call, seq, plan, err)
 		if errors.Is(err, ErrNoEngine) {
 			return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 		}
@@ -122,22 +122,7 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 		t.noteUse(call, seq, err)
 		return runtime.ToolAnswer{}, err
 	}
-	// A composed answer keeps no Tool of its own: the uses each engine's result
-	// carried, and any a failed engine carried, join the provenance by call order.
-	t.mu.Lock()
-	for i := range plan.Steps {
-		step := &plan.Steps[i]
-		if step.Result != nil && step.Result.Tool != nil {
-			use := *step.Result.Tool
-			use.in = call.Context()
-			use.seq = seq
-			t.uses = append(t.uses, use)
-		}
-		if step.Err != nil {
-			t.noteUseLocked(call, seq, step.Err)
-		}
-	}
-	t.mu.Unlock()
+	t.keep(call, seq, plan, nil)
 	outputs := make(map[string]runtime.Value, len(plan.Result.Values))
 	for _, v := range plan.Result.Values {
 		outputs[v.Name] = v.Value
@@ -181,6 +166,39 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 		return false, nil
 	}
 	return earlier != answer, nil
+}
+
+// keep joins the uses a plan's steps carried to the provenance: each result's
+// Tool, and each fault's ToolUseError — under all a composed answer keeps no
+// Tool of its own and a faulted plan keeps its earlier engines' steps. The
+// fault err's own use is appended unless a step already carried it.
+func (t *toolRunner) keep(call *runtime.ToolCall, seq uint64, plan Plan, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	seen := map[*ToolUseError]bool{}
+	for i := range plan.Steps {
+		step := &plan.Steps[i]
+		if step.Result != nil && step.Result.Tool != nil {
+			use := *step.Result.Tool
+			use.in = call.Context()
+			use.seq = seq
+			t.uses = append(t.uses, use)
+		}
+		var useErr *ToolUseError
+		if step.Err != nil && errors.As(step.Err, &useErr) {
+			useErr.Use.in = call.Context()
+			useErr.Use.seq = seq
+			t.uses = append(t.uses, useErr.Use)
+			seen[useErr] = true
+		}
+	}
+	if err != nil {
+		var useErr *ToolUseError
+		if errors.As(err, &useErr) && seen[useErr] {
+			return
+		}
+		t.noteUseLocked(call, seq, err)
+	}
 }
 
 // noteUse keeps the call's use when a ToolUseError carried one, attributed to the

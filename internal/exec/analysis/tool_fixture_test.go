@@ -808,3 +808,22 @@ func TestUsedReportsTheCallsInCallOrder(t *testing.T) {
 		t.Fatalf("used %v, want first before second", uses)
 	}
 }
+
+// keep joins the uses a plan's steps carried — a faulted plan keeps its earlier
+// engines' steps — and the fault's own use is not appended twice.
+func TestKeepKeepsAPlansStepsWhenThePlanFaulted(t *testing.T) {
+	r := &toolRunner{}
+	ran := ToolUse{Tool: "Solver"}
+	failed := &ToolUseError{Use: ToolUse{Tool: "Bogus", Failed: "exit status 2"}, Err: errors.New("exit status 2")}
+	plan := Plan{Steps: []Step{
+		{Result: &Result{Tool: &ran}},
+		{Err: failed},
+	}}
+	r.keep(&runtime.ToolCall{}, 1, plan, failed)
+	if len(r.uses) != 2 {
+		t.Fatalf("uses = %v, want the run call and the failed call, not the fault's twice", r.uses)
+	}
+	if r.uses[0].Tool != "Solver" || r.uses[1].Tool != "Bogus" || r.uses[1].Failed != "exit status 2" {
+		t.Fatalf("uses = %+v", r.uses)
+	}
+}
