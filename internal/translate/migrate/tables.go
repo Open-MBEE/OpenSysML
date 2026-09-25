@@ -72,8 +72,8 @@ func (m *migration) planTables() {
 		m.tableOf[t] = td
 		v.tables = append(v.tables, td)
 		for _, c := range t.Columns {
-			if _, f, why := m.columnKey(c, v.host); f != nil && why == "" && !c.Hidden {
-				m.expose(f, "a column of the table '"+name+"' reads it")
+			if s := m.columnKey(c, v.host); s.feature != nil && s.why == "" && !c.Hidden {
+				m.expose(s.feature, "a column of the table '"+name+"' reads it")
 			}
 		}
 	}
@@ -421,32 +421,44 @@ var queryProperties = map[string]string{
 	"isAbstract":    "isAbstract",
 }
 
-// columnKey is what a column reads of a row as a query property or feature
-// name, or why it reads nothing a query can.
-func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) (key string, feature *sysmlv1.Element, why string) {
+// columnSource is what a column reads of a row: a query property (feature
+// nil), a classifier feature a Column reads (feature set), or a member path
+// written as its own Column (path set, captioned caption); why says why it
+// reads nothing a query can.
+type columnSource struct {
+	key     string
+	feature *sysmlv1.Element
+	caption string
+	path    bool
+	why     string
+}
+
+// columnKey is what a column reads of a row as a query property, feature
+// name or member path, or why it reads nothing a query can.
+func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) columnSource {
 	switch c.Kind {
 	case sysmlv1.ColumnProperty:
 		if p, ok := queryProperties[c.Property]; ok {
-			return p, nil, ""
+			return columnSource{key: p}
 		}
-		return "", nil, "no query property stands for the UML property " + c.Property
+		return columnSource{why: "no query property stands for the UML property " + c.Property}
 	case sysmlv1.ColumnFeature:
 		f := c.Feature.Element
 		switch {
 		case f == nil:
-			return "", nil, "the column " + c.ID + " names no property of the document"
+			return columnSource{why: "the column " + c.ID + " names no property of the document"}
 		case monteCarloFeature(f) != "":
-			return "", nil, monteCarloColumnNote(monteCarloFeature(f))
+			return monteCarloColumn(monteCarloFeature(f))
 		case !m.written(f):
-			return "", nil, "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"
+			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"}
 		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):
-			return "", nil, "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not a property of a classifier"
+			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not a property of a classifier"}
 		}
-		return m.nameOf(f), f, ""
+		return columnSource{key: m.nameOf(f), feature: f}
 	case sysmlv1.ColumnPropertyPair:
-		return "", nil, "the column " + c.ID + " reads a property of a property, which no Column expression reads"
+		return columnSource{why: "the column " + c.ID + " reads a property of a property, which no Column expression reads"}
 	}
-	return "", nil, "the column " + c.ID + " is of a form the migrator does not read"
+	return columnSource{why: "the column " + c.ID + " is of a form the migrator does not read"}
 }
 
 // sorted orders rows by the table's sort keys, least significant first so the
@@ -469,16 +481,16 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 		if col.Kind == sysmlv1.ColumnTool {
 			continue
 		}
-		key, _, why := m.columnKey(col, host)
-		if why != "" {
-			l.note("the sort by " + s.Column + " is dropped: " + why)
+		src := m.columnKey(col, host)
+		if src.why != "" {
+			l.note("the sort by " + s.Column + " is dropped: " + src.why)
 			continue
 		}
 		dir := "ascending"
 		if s.Descending {
 			dir = "descending"
 		}
-		rows = qcall("OrderBy", qarg1("source", rows), qarg1("property", qstr(key)),
+		rows = qcall("OrderBy", qarg1("source", rows), qarg1("property", qstr(src.key)),
 			qarg1("direction", qstr(dir)), qarg1("missing", qstr("last")), qarg1("multiple", qstr("first")))
 	}
 	return rows
@@ -509,18 +521,22 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 			continue
 		}
 		shown++
-		key, f, why := m.columnKey(c, host)
-		if why != "" {
-			l.note("the column " + c.ID + " is omitted: " + why)
+		src := m.columnKey(c, host)
+		if src.why != "" {
+			l.note("the column " + c.ID + " is omitted: " + src.why)
 			continue
 		}
-		if f == nil {
-			if !p.property(key) {
-				l.note("the column " + c.ID + " repeats the column " + key + " and is omitted")
+		switch {
+		case src.path:
+			// A member path reads an absent statistic as an empty cell already.
+			p.column(src.caption, qlit(src.key))
+		case src.feature == nil:
+			if !p.property(src.key) {
+				l.note("the column " + c.ID + " repeats the column " + src.key + " and is omitted")
 			}
-			continue
+		default:
+			p.column(src.key, qlit(m.ref(src.feature, host)+" ?? \"\""))
 		}
-		p.column(key, qlit(m.ref(f, host)+" ?? \"\""))
 	}
 	if shown > 0 && p.empty() {
 		l.refuse("none of the table's columns reads what a query can")

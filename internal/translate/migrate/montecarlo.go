@@ -71,16 +71,20 @@ type monteCarloBinding struct {
 	note   string
 }
 
-// monteCarloColumnNote says why a column reading a MonteCarloAnalysis statistic is
-// omitted: the value sits in the row's nested analysis, which no Column reaches.
-func monteCarloColumnNote(stat string) string {
-	subject := "the column's " + monteCarloAnalysisBlock + "::" + stat
+// monteCarloColumn is the column over a MonteCarloAnalysis statistic: a
+// member-path Column reading the statistic off the row's nested 'Monte Carlo'
+// analysis, captioned by the v1 statistic's name.
+func monteCarloColumn(stat string) columnSource {
 	member, ok := monteCarloMembers[stat]
 	if !ok {
-		return subject + " is no statistic the analysis records"
+		return columnSource{why: "the column's " + monteCarloAnalysisBlock + "::" + stat +
+			" is no statistic the analysis records"}
 	}
-	return subject + " is recorded as " + writeName(monteCarloRecorded) + "." + member.member +
-		" of the row's analysis, a nested feature no Column expression reads"
+	return columnSource{
+		key:     writeName(monteCarloRecorded) + "." + member.member,
+		caption: stat,
+		path:    true,
+	}
 }
 
 // monteCarloEnd is the statistic a connector's end names on the tool's

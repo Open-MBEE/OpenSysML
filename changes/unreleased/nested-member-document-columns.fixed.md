@@ -1,0 +1,1 @@
+- Migrated «InstanceTable»/TableStructure columns and sorts over MonteCarloAnalysis statistics are written as member-path columns and render their stored values instead of being omitted.

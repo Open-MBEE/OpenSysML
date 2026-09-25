@@ -1599,13 +1599,16 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 				return prop, expr, ""
 			}
 		}
-		key, f, why := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host)
-		if why != "" {
-			return "", expr, why
+		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host)
+		if s.why != "" {
+			return "", expr, s.why
 		}
-		c.m.expose(f, "a column of a document table reads it")
-		name := c.caption(col, key)
-		return "", columnExpr{name: name, expression: c.m.ref(f, c.dp.host) + " ?? \"\""}, ""
+		if s.path {
+			return "", columnExpr{name: c.caption(col, s.caption), expression: s.key}, ""
+		}
+		c.m.expose(s.feature, "a column of a document table reads it")
+		name := c.caption(col, s.key)
+		return "", columnExpr{name: name, expression: c.m.ref(s.feature, c.dp.host) + " ?? \"\""}, ""
 	case "TableExpressionColumn":
 		e := strings.TrimSpace(col.Application.Tag("expression"))
 		if p, ok := queryProperties[e]; ok {
