@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -81,6 +82,23 @@ const toolCalcModel = `package test {
 
 	calc def UsesCustom {
 		return : Real = Custom(-4);
+	}
+
+	calc def External {
+		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
+		in x : Real { @ToolVariable { name = "x"; } }
+		return : Real = x * 2.0;
+	}
+
+	calc def Wrapper {
+		in x : Real;
+		return : Real = External(x);
+	}
+
+	calc def Biased {
+		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
+		in bias : Real [0..1] { @ToolVariable { name = "bias"; } }
+		return : Real;
 	}
 
 	analysis def Surveyed {
@@ -495,6 +513,87 @@ func TestToolCalcSpecializingALibraryFunctionComputesByTool(t *testing.T) {
 			t.Fatalf("result = %s, want the tool's 7.0", got)
 		}
 	})
+}
+
+// A compiled caller compiles its callees' bodies in, so a call of a calc a
+// tool must compute compiles the body and runs it — unless compiling a
+// tool-annotated shape withdraws it and settles the caller to the evaluator,
+// which takes the call to the tool. Compiled or not, the answer is the tool's.
+func TestToolCalcCompiledCallerGoesThroughTheTool(t *testing.T) {
+	for _, compile := range []bool{true, false} {
+		t.Run(fmt.Sprint("compile=", compile), func(t *testing.T) {
+			t.Run("answered", func(t *testing.T) {
+				ctx, scope := analysisFixture(t, toolCalcModel)
+				ctx.SetCalcCompile(compile)
+				runner := &recordingRunner{answer: map[string]ToolValue{"result": {Value: toolReal(42)}}}
+				ctx.SetToolRunner(runner)
+				result, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
+				if err != nil {
+					t.Fatalf("InvokeCalc: %v", err)
+				}
+				if got := FormatValue(result); got != "42.0" {
+					t.Fatalf("Wrapper(3.0) = %s, want the tool's 42.0, not the body's 6.0", got)
+				}
+				if len(runner.calls) != 1 {
+					t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+				}
+			})
+			t.Run("no runner", func(t *testing.T) {
+				ctx, scope := analysisFixture(t, toolCalcModel)
+				ctx.SetCalcCompile(compile)
+				_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
+				if !errors.Is(err, ErrToolNotRegistered) {
+					t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered, not the body's 6.0", err)
+				}
+			})
+		})
+	}
+}
+
+// An optional input no argument binds is omitted from the call — the binder's
+// null for it is not sent — while one bound by an argument is sent as usual.
+func TestToolCalcOmitsAnOptionalNullInput(t *testing.T) {
+	t.Run("omitted", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"result": {Value: toolReal(1)}}}
+		ctx.SetToolRunner(runner)
+		if _, err := ctx.InvokeCalc(calcNamed(t, scope, "Biased"), nil, scope); err != nil {
+			t.Fatalf("InvokeCalc: %v", err)
+		}
+		if len(runner.calls) != 1 || len(runner.calls[0].Inputs) != 0 {
+			t.Fatalf("calls %+v, want one call sending no input", runner.calls)
+		}
+	})
+	t.Run("bound", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		runner := &recordingRunner{answer: map[string]ToolValue{"result": {Value: toolReal(1)}}}
+		ctx.SetToolRunner(runner)
+		if _, err := ctx.InvokeCalc(calcNamed(t, scope, "Biased"), []Value{realOf(2)}, scope); err != nil {
+			t.Fatalf("InvokeCalc: %v", err)
+		}
+		if len(runner.calls) != 1 || len(runner.calls[0].Inputs) != 1 ||
+			runner.calls[0].Inputs[0].Variable != "bias" || !nearly(runner.calls[0].Inputs[0].Value.Value, toolReal(2)) {
+			t.Fatalf("calls %+v, want one call sending bias = 2", runner.calls)
+		}
+	})
+}
+
+// A derived feature the declared reader evaluates computes its tool calcs under
+// the context the reader was seeded from, so the divergence a runner reports
+// lands on that context's notes, not only the reader's own.
+func TestToolCalcDeclaredReaderForwardsDivergence(t *testing.T) {
+	ctx, scope := analysisFixture(t, toolCalcModel)
+	ctx.SetToolRunner(divergingCalcRunner{})
+	reader := NewDeclaredReaderIn(ctx)
+	if _, err := reader.Read(calcNamed(t, scope, "Board"), "Tmax"); err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if d, ok := note.(ToolDivergence); ok && d.Tool == "Thermo" {
+			return
+		}
+	}
+	t.Fatalf("held notes = %v, want a ToolDivergence for Thermo", ctx.Notes())
 }
 
 // Annotating cases is deferred: an analysis case carrying ToolExecution runs

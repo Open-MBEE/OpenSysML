@@ -84,6 +84,17 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 			t.Fatalf("CalcUsageOutput = %v, want ToolMissingOutput", err)
 		}
 	})
+	t.Run("compiled_caller_no_runner", func(t *testing.T) {
+		// Under the compiled tier a caller of a tool calc settles to the
+		// evaluator, which refuses for want of a runner rather than running
+		// the compiled body it never made.
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetCalcCompile(true)
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "Wrapper"), []Value{realOf(3)}, scope)
+		if !errors.Is(err, ErrToolNotRegistered) {
+			t.Fatalf("InvokeCalc = %v, want ErrToolNotRegistered", err)
+		}
+	})
 }
 
 // dodgyCalcRunner answers the call's outputs except one, bypassing Bind's check,

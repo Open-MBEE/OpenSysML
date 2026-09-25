@@ -55,11 +55,14 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 		writes := param.Direction == ast.DirOut || param.Direction == ast.DirInOut
 		if reads {
 			value, bound := held(name)
-			if !bound && !ctx.model.semantics.OptionalParameter(param.Symbol) {
+			optional := ctx.model.semantics.OptionalParameter(param.Symbol)
+			if !bound && !optional {
 				return nil, "", fmt.Errorf("%w: %s: input parameter %s is bound by no argument",
 					ErrUnboundParameter, shape.Label, name)
 			}
-			if bound {
+			// An optional input bound to null is omitted: nothing is sent for it,
+			// as an action's unbound optional sends none.
+			if bound && (value.Kind != ValNull || !optional) {
 				sent, err := toolInput(tool, param.Symbol, value)
 				if err != nil {
 					return nil, "", err

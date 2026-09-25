@@ -657,7 +657,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	// sub-expression, an argument is not a scalar, a bound object may answer
 	// a library constant the body reads before the library does, or the body
 	// reads the bindings enclosing it.
-	if shape.Tool == nil && ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
+	if ctx.compileCalcs && ctx.trace == nil && len(enclosing) == 0 {
 		if compiled := ctx.compiledCalcOf(shape); compiled != nil && (self == nil || !compiled.readsLibrary) {
 			if result, ran, err := compiled.invokeBoxed(ctx, args); ran {
 				return result, err
