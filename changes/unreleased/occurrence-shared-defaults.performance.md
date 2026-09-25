@@ -11,6 +11,6 @@
   diagnostics are unchanged, as `TestSparseValuesDifferential` asserts with sharing on and off
   (`OPENSYSML_SHARED_DEFAULTS=0` turns it off; a context recording a trace shares nothing, so
   the trace lists every evaluation). On the 12 800-satellite fleet constellation,
-  checking its 2 412 satisfaction assertions drops from 23.2 s and 14.4 GiB allocated to 10.9 s
-  and 6.1 GiB, and reading one summed attribute over every occurrence from 259 s and 74.3 GiB to
-  8.6 s and 2.1 GiB.
+  checking its 2 412 satisfaction assertions drops from 8.84 s and 23.4 GiB allocated to 4.59 s
+  and 7.2 GiB, and reading one summed attribute over every occurrence from 42.7 s and 141.3 GiB
+  to 3.85 s and 2.7 GiB.

@@ -198,18 +198,18 @@ The guide chapter [modeling fleets](../guide/modeling-fleets.md) shows the
 source of both forms.
 
 ```bash
-go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
+go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
 # satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 elements=2354827 bytes=145364954
-go run ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
+go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
 # satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=12467 bytes=770621
 ```
 
 | satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |
 | ---------- | ------------------ | ---- | ----------- | ----- | -------- | ------ | ---------------- | --------- | -------- |
-| 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 17.5 s | 5.5 GiB | 2.6 GB |
-| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 193 KB | 0.17 s | 93 MiB | 106 MB |
-| 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 301 s | 43.5 GiB | 20.1 GB |
-| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 771 KB | 0.57 s | 254 MiB | 175 MB |
+| 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 22.7 s | 6.2 GiB | 2.5 GB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 193 KB | 0.22 s | 102 MiB | 108 MB |
+| 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 331 s | 49.8 GiB | 20.3 GB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 771 KB | 0.70 s | 289 MiB | 184 MB |
 
 The single-definition rows here are the plane and station layout the fleet
 uses, so the two forms describe the same planes and stations; the validation table above
@@ -217,7 +217,7 @@ uses, so the two forms describe the same planes and stations; the validation tab
 with a different split into planes and stations, and so slightly more links
 and station components. The fleet form
 declares **190 times fewer elements** at 12 800 satellites and validates in
-0.57 s and 175 MB rather than 301 s and 20.1 GB: validation is a function of
+0.70 s and 184 MB rather than 331 s and 20.3 GB: validation is a function of
 what the source declares, and the fleet source is the size of four
 spacecraft, twenty stations and the links between thirty-two planes.
 
@@ -226,27 +226,26 @@ defaults and verdicts between them (the next section), on the same machine:
 
 | satellites | operation | wall | allocated | peak RSS |
 | ---------- | --------- | ---- | --------- | -------- |
-| 1 600 | `-instantiate` the network | 0.47 s | 220 MiB | 168 MB |
-| 1 600 | `-satisfy`, 324 assertions | 0.95 s | 513 MiB | 269 MB |
-| 12 800 | `-instantiate` the network | 2.34 s | 1.0 GiB | 692 MB |
-| 12 800 | `-satisfy`, 2 412 assertions | 23.4 s | 14.4 GiB | 1.36 GB |
-| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 252 s | 73.8 GiB | 4.9 GB |
+| 1 600 | `-instantiate` the network | 0.44 s | 238 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666 MiB | 306 MB |
+| 1 600 | `%eval` of `plane<i>.sats.dryMass`, all 8 planes | 1.85 s | 2.9 GiB | 737 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB |
+| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 42.7 s | 141.3 GiB | 5.2 GB |
 
 The runtime shares one shape — the effective feature list `FeaturesOf`
 caches per type — between the occurrences of a block, and nothing else: each
 occurrence is an object with a value slot per feature, materialized lazily.
-Instantiating the network is therefore linear and cheap (about 50 KB per
+Instantiating the network is therefore linear and cheap (about 60 KB per
 occurrence; the walk of the created object's feature values stops at the
 materialization budget and says so). Checking is not: a `satisfy` on a unit
 reads the unit through the network object, evaluates its summed mass and
 power — materializing its subsystems and components and starting their
 behaviors — and then drains the behaviors every object of the network runs,
 so each check costs more the more of the fleet earlier checks have touched
-(0.9 MiB allocated per assertion in a network of one plane of 400, 6 MiB in
-one of 32 planes). A CPU profile of the 16-plane `-satisfy` spends 57% of
-its samples evaluating the requirements' expressions, 41% of the total under
-`startClassifierBehaviors` for the parts that evaluation materializes, and
-31% in `ObjectBehavior.hasPendingWork` / `StateExecutor.hasDueEvent`
+(2 MiB allocated per assertion in a network of 8 planes, 10 MiB in one of
+32 planes): the cost is in evaluating the requirements' expressions, in
+starting the behaviors of the parts that evaluation materializes, and in
 polling the running mode machines. Reading one summed attribute over every
 occurrence evaluates it over the full tree of each — the cost the
 single-definition form paid at validation, paid here at the first read.
@@ -313,7 +312,7 @@ definition, many occurrences):
   their order are those of evaluating every check.
 
 `OPENSYSML_SHARED_DEFAULTS=0` turns both off, which is how
-`TestSparseValuesDifferential` in `internal/core/runtime` compares every
+`TestSparseValuesDifferential` in `internal/exec/runtime` compares every
 readable value and every verdict, sharing on and off, over the fixtures, the
 execution-conformance models and generated fleets.
 
@@ -324,19 +323,19 @@ differ from it by run-to-run variance):
 
 | satellites | operation | before wall | allocated | peak RSS | after wall | allocated | peak RSS |
 | ---------- | --------- | ----------- | --------- | -------- | ---------- | --------- | -------- |
-| 1 600 | `-validate` | 0.20 s | 95.8 MiB | 105 MB | 0.19 s | 95.7 MiB | 111 MB |
-| 1 600 | `-instantiate` the network | 0.51 s | 222.6 MiB | 181 MB | 0.39 s | 217.7 MiB | 177 MB |
-| 1 600 | `-satisfy`, 324 assertions | 1.01 s | 515.7 MiB | 275 MB | 0.59 s | 352.9 MiB | 249 MB |
-| 12 800 | `-validate` | 0.63 s | 263.6 MiB | 191 MB | 0.61 s | 263.7 MiB | 186 MB |
-| 12 800 | `-instantiate` the network | 2.47 s | 1.0 GiB | 692 MB | 1.93 s | 1 007.1 MiB | 680 MB |
-| 12 800 | `-satisfy`, 2 412 assertions | 23.2 s | 14.4 GiB | 1.38 GB | 10.9 s | 6.1 GiB | 1.27 GB |
-| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 259 s | 74.3 GiB | 5.2 GB | 8.6 s | 2.1 GiB | 1.16 GB |
+| 1 600 | `-validate` | 0.22 s | 102.2 MiB | 108 MB | 0.23 s | 102.1 MiB | 104 MB |
+| 1 600 | `-instantiate` the network | 0.44 s | 238.4 MiB | 195 MB | 0.45 s | 238.5 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666.0 MiB | 306 MB | 0.60 s | 381.6 MiB | 272 MB |
+| 1 600 | `%eval` of `plane<i>.sats.dryMass`, all 8 planes | 1.85 s | 2.9 GiB | 737 MB | 0.58 s | 306.3 MiB | 252 MB |
+| 12 800 | `-validate` | 0.70 s | 289.4 MiB | 184 MB | 0.73 s | 289.0 MiB | 175 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB | 1.97 s | 1.1 GiB | 763 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB | 4.59 s | 7.2 GiB | 1.32 GB |
+| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 42.7 s | 141.3 GiB | 5.2 GB | 3.85 s | 2.7 GiB | 1.24 GB |
 
 The reports are identical line for line: the same 2 412 verdicts in the same
 order, and the same 12 800 masses. Validation does not move — nothing in
-loading changed. Instantiation is a little cheaper because the walk that
-reports the created object takes the shared masses rather than deriving
-them. Checking halves, and the whole of that comes from the shared defaults:
+loading changed — and neither does instantiation, which derives nothing.
+Checking halves, and the whole of that comes from the shared defaults:
 every assertion of this workload names a diverging unit, which states its
 own as-built masses, so no verdict here stands for another and each is
 evaluated — but what each evaluation costs is lower because the
@@ -347,25 +346,25 @@ whose behaviors then run to the end of the report. Verdict fan-out shows
 where units state nothing of their own: a requirement satisfied by such
 units is decided once for all of them, and once more per unit stating a
 value (`satisfy_distinct_shapes_mixed` under
-`internal/core/runtime/testdata/conformance/`). Reading one summed
+`internal/exec/runtime/testdata/conformance/`). Reading one summed
 attribute over every occurrence is where the sharing pays most — the first occurrence of each block derives `dryMass`
-over its component tree, the other 12 796 take it — and is now **30 times
-faster and 35 times less allocation**.
+over its component tree, the other 12 796 take it — and is now **11 times
+faster with 52 times less allocation**.
 
 `BenchmarkFleetInstantiate` and `BenchmarkFleetSatisfy` in
-`internal/stressmodel` measure, warm, instantiating the fleet network and
+`tests/stressmodel` measure, warm, instantiating the fleet network and
 reading `sats.dryMass` over four planes, and re-checking every assertion in
 a session that has already checked them once:
 
 ```bash
-go test ./internal/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
+go test ./tests/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
 ```
 
 | satellites | elements | instantiate + read four planes, before | after | per satellite, after | allocated, before | after | assertions | warm re-check, before | after | allocated, before | after |
 | ---------- | -------- | -------------------------------------- | ----- | -------------------- | ----------------- | ----- | ---------- | --------------------- | ----- | ----------------- | ----- |
-| 32 | 1 179 | 77 ms | 15 ms | 0.46 ms | 21.3 MiB | 8.0 MiB | 24 | 0.8 ms | 2.3 ms | 0.5 MiB | 1.1 MiB |
-| 128 | 1 715 | 298 ms | 27 ms | 0.21 ms | 87.1 MiB | 15.1 MiB | 36 | 1.2 ms | 2.3 ms | 1.1 MiB | 2.1 MiB |
-| 512 | 3 947 | 1.53 s | 68 ms | 0.13 ms | 608 MiB | 44.3 MiB | 108 | 6.0 ms | 9.9 ms | 7.8 MiB | 11.1 MiB |
+| 32 | 1 179 | 29 ms | 16 ms | 0.49 ms | 18.4 MiB | 7.7 MiB | 24 | 0.9 ms | 2.5 ms | 0.5 MiB | 1.0 MiB |
+| 128 | 1 715 | 87 ms | 28 ms | 0.22 ms | 93.1 MiB | 15.0 MiB | 36 | 1.2 ms | 2.4 ms | 1.0 MiB | 2.0 MiB |
+| 512 | 3 947 | 460 ms | 73 ms | 0.14 ms | 882 MiB | 44.6 MiB | 108 | 8.5 ms | 12.2 ms | 7.3 MiB | 10.7 MiB |
 
 Instantiating and reading over the occurrences is now sub-linear per
 satellite — the per-satellite cost falls as the fleet grows, since the
