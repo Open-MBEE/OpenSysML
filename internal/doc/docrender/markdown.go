@@ -54,6 +54,14 @@ type MarkdownOptions struct {
 	// DiagramSVG when that is empty; one that is not available settles the
 	// choice on the Mermaid fallback. Nil leaves the choice to WithoutGraphviz.
 	Drawer DiagramDrawer
+
+	// OutputDir is the directory the document is written into, when known, so an
+	// image's source-relative location is written relative to it; empty writes it as stated.
+	OutputDir string
+
+	// NumberFigures captions figures (drawn diagrams, images) "Figure N. …" and
+	// tables (query tables, table-kind diagrams) "Table N. …" in document order.
+	NumberFigures bool
 }
 
 // diagramOptions is the part of the options the diagrams are written by.
@@ -81,7 +89,10 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
 		return "", err
 	}
-	w := &markdownWriter{opts: diagrams, files: opts.Files, svg: opts.DiagramSVG}
+	w := &markdownWriter{
+		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
+		numbers: captionNumbering{on: opts.NumberFigures},
+	}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
@@ -108,10 +119,12 @@ func checkStyle(style view.DrawingStyle) error {
 // markdownWriter carries the choices one Markdown render applies to every
 // node it writes.
 type markdownWriter struct {
-	opts     DiagramOptions
-	files    map[string]string
-	svg      []string
-	diagrams int
+	opts      DiagramOptions
+	files     map[string]string
+	svg       []string
+	diagrams  int
+	outputDir string
+	numbers   captionNumbering
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
@@ -153,7 +166,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentParagraph:
 		return []string{w.blockText(node.Runs())}, nil
 	case docir.ContentTable:
-		return renderTable(node), nil
+		return renderTable(node, w.numbers.caption(node).String()), nil
 	case docir.ContentList:
 		return w.renderList(node), nil
 	case docir.ContentDefinitions:
@@ -161,9 +174,9 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentFormula:
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
-		return w.diagramFigure(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts))
+		return w.diagramFigure(node.Name(), w.numbers.caption(node).String(), node.Rendering(), figureOptions(node, w.opts))
 	case docir.ContentImage:
-		return renderImage(node), nil
+		return renderImage(node, w.numbers.caption(node).String(), w.outputDir), nil
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -182,8 +195,8 @@ func heading(level int, title string) string {
 // without rows still writes its header and delimiter.
 // A grouped table writes one subtable per group, each preceded by its group key in strong
 // emphasis; the group column keeps its place in every subtable.
-func renderTable(node docir.Content) []string {
-	blocks := captionBlock(node.Caption())
+func renderTable(node docir.Content, caption string) []string {
+	blocks := captionBlock(caption)
 	columns := node.Columns()
 	names := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -358,14 +371,15 @@ func renderFormula(node docir.Content) []string {
 }
 
 // renderImage writes one image under its caption in emphasis, as Markdown's
-// own image syntax; alt defaults to the caption.
-func renderImage(node docir.Content) []string {
-	blocks := captionBlock(node.Caption())
+// own image syntax, its location as a document in outputDir refers to it
+// (see MarkdownOptions.OutputDir); alt defaults to the stated caption.
+func renderImage(node docir.Content, caption, outputDir string) []string {
+	blocks := captionBlock(caption)
 	alt := node.Alt()
 	if alt == "" {
 		alt = node.Caption()
 	}
-	location := node.Location()
+	location := imageOf(node).Source(outputDir)
 	location = strings.NewReplacer("<", "%3C", ">", "%3E", "(", "%28", ")", "%29", "\n", "%0A", "\r", "%0D").Replace(location)
 	if strings.Contains(location, " ") {
 		location = "<" + location + ">"

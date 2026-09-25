@@ -191,8 +191,8 @@ const (
 func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 	b := &w.b
 	b.WriteString("hide circle\nhide empty members\n")
-	if r.Empty() {
-		fmt.Fprintf(b, "class %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "class %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -217,8 +217,8 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 // with children is a rectangle block holding them, a connection an undirected
 // heavy line, a flow a dashed arrow.
 func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
-	if r.Empty() {
-		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -252,8 +252,8 @@ func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 func (w *plantumlWriter) writeStateDiagram(r *Rendering) {
 	b := &w.b
 	b.WriteString("hide empty description\n")
-	if r.Empty() {
-		fmt.Fprintf(b, "state %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "state %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	starts := map[string][]Edge{}
@@ -304,8 +304,8 @@ func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string
 // rendering settled on. A participant is filled under a palette like any usage.
 func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 	b := &w.b
-	if r.Empty() {
-		fmt.Fprintf(b, "participant %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "participant %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, node := range r.Roots {

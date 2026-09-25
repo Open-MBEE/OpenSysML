@@ -1014,22 +1014,12 @@ func dominantSize(sizes map[float64]int) float64 {
 	return best
 }
 
-// TestRenderImageBlocksWithInstalledEngines renders a document whose image
-// blocks name a file beside the output through each installed converter, and
-// reads back that the image was drawn: pdfimages lists it.
+// TestRenderImageBlocksWithInstalledEngines checks each converter draws the
+// image a sourceless document names beside the output: pdfimages lists it.
 func TestRenderImageBlocksWithInstalledEngines(t *testing.T) {
 	base := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	mark, err := os.ReadFile(filepath.Join("testdata", "mark.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(base, "images", "mark.png"), mark, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	document := imageDocSource(t, `"images/mark.png"`)
+	writeMark(t, filepath.Join(base, "images", "mark.png"))
+	document := imageDocSource(t, "<stdin>", `"images/mark.png"`)
 	for _, engine := range Engines() {
 		t.Run(engine, func(t *testing.T) {
 			pdf, text := renderInstalled(t, document, engine, Options{BaseDir: base})
@@ -1039,6 +1029,42 @@ func TestRenderImageBlocksWithInstalledEngines(t *testing.T) {
 			images := pdfImages(t, pdf)
 			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+`).MatchString(images) {
 				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
+			}
+		})
+	}
+}
+
+// TestRenderNumberedCaptionsWithInstalledEngines checks every converter lays
+// out the same numbered captions, the image resolved beside the source.
+func TestRenderNumberedCaptionsWithInstalledEngines(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	base := t.TempDir()
+	writeMark(t, filepath.Join(base, "images", "mark.png"))
+	content, err := os.ReadFile(filepath.Join("..", "docrender", "testdata", "numbered_report.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := sourceDocument(t, filepath.Join(base, "numbered_report.sysml"), string(content), "Numbered::NumberedReport")
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{BaseDir: t.TempDir(), NumberFigures: true, DiagramForm: view.FormMermaid})
+			for _, want := range []string{
+				"Table 1. Optical parts",
+				"Figure 1. How the parts connect",
+				"Collecting area",
+				"Figure 2",
+				"Table 2",
+				"Table 3. The parts as rows",
+				"Figure 3. The survey mark",
+			} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			if strings.Contains(text, "Figure 4") || strings.Contains(text, "Table 4") || strings.Contains(text, "*") {
+				t.Errorf("PDF text carries a stray number or emphasis marker:\n%s", text)
 			}
 		})
 	}

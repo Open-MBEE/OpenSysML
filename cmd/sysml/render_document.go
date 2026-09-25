@@ -58,7 +58,7 @@ func runRenderDocument(files []string) error {
 		}
 		return writePDFArtifact(pdf)
 	}
-	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions())
+	markdown, err := sess.RenderDocumentMarkdown(renderDoc, markdownOptions(artifactDir()))
 	if err != nil {
 		return err
 	}
@@ -77,6 +77,7 @@ func pdfOptions() (docpdf.Options, error) {
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
+		NumberFigures:       docNumberFigures,
 		Theme:               page.Theme,
 		NoDefaultStylesheet: page.NoDefaultStylesheet,
 		Stylesheets:         page.Stylesheets,
@@ -136,7 +137,7 @@ func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) 
 			return nil, "", err
 		}
 		sheets = assets
-		opts := documentOptions()
+		opts := documentOptions(renderDocsDir)
 		opts.Stylesheets = links
 		// The set links its sheets rather than inlining them in each page.
 		opts.NoDefaultStylesheet = true
@@ -145,7 +146,7 @@ func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) 
 			return nil, "", err
 		}
 	} else {
-		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions())
+		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions(renderDocsDir))
 		if err != nil {
 			return nil, "", err
 		}
@@ -157,8 +158,9 @@ func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) 
 }
 
 // documentOptions carries the flags shaping the document itself, leaving its
-// stylesheets to the caller.
-func documentOptions() docrender.HTMLOptions {
+// stylesheets to the caller; outputDir is where the page is written, "" for
+// standard output.
+func documentOptions(outputDir string) docrender.HTMLOptions {
 	return docrender.HTMLOptions{
 		Fragment:            htmlFragment,
 		NoDefaultStylesheet: htmlNoCSS,
@@ -166,20 +168,33 @@ func documentOptions() docrender.HTMLOptions {
 		TitlePage:           pdfTitlePage,
 		TOC:                 pdfTOC,
 		NumberSections:      pdfNumbering,
+		NumberFigures:       docNumberFigures,
 		MermaidScript:       mermaidScriptURL(),
 		MathScript:          mathScriptURL(),
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
 		Style:               view.DrawingStyle(renderStyle),
 		Drawer:              docpdf.Graphviz{},
+		OutputDir:           outputDir,
 	}
 }
 
-// markdownOptions carries the flags shaping a Markdown document.
-func markdownOptions() docrender.MarkdownOptions {
+// markdownOptions carries the flags shaping a Markdown document written into
+// outputDir, "" for standard output.
+func markdownOptions(outputDir string) docrender.MarkdownOptions {
 	return docrender.MarkdownOptions{
 		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Drawer: docpdf.Graphviz{},
+		OutputDir: outputDir, NumberFigures: docNumberFigures,
 	}
+}
+
+// artifactDir is the directory the -o artifact is written into, "" when it
+// goes to standard output.
+func artifactDir() string {
+	if outputPath == "" {
+		return ""
+	}
+	return filepath.Dir(outputPath)
 }
 
 // checkDiagramForm rejects a -diagram-form value naming no diagram form, a
@@ -316,7 +331,7 @@ func shortenStylesheetName(name string) string {
 // htmlOptions resolves the HTML flags, reading each -html-css file and
 // linking each -html-css URL.
 func htmlOptions() (docrender.HTMLOptions, error) {
-	opts := documentOptions()
+	opts := documentOptions(artifactDir())
 	for _, css := range htmlCSS {
 		if isWebURL(css) {
 			opts.Stylesheets = append(opts.Stylesheets, docrender.LinkedStylesheet(css))
