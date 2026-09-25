@@ -54,8 +54,10 @@ type Stats struct {
 	Components int
 	// Connections is the number of interface usages, inside satellites and between them.
 	Connections int
-	// Requirements is the number of requirement usages, each with a satisfy assertion.
+	// Requirements is the number of requirement usages; Assertions the number of
+	// satisfy assertions, one per requirement plus one per diverging unit in fleet form.
 	Requirements int
+	Assertions   int
 	// Elements is the number of declarations the model makes, library included.
 	Elements int
 	// Bytes is the length of the generated source.
@@ -514,6 +516,7 @@ func (g *generator) spacecraftBody(id int, valued string) {
 // named config, with their satisfy assertions, under names prefixed by name.
 func (g *generator) requirements(name, config string, id int) {
 	g.stats.Requirements += 3
+	g.stats.Assertions += 3
 	g.decl(2, "requirement %sMass : MassBudget { subject :>> sc = %s; attribute :>> limit = %d [kg]; }", name, config, 900+id%100)
 	g.stats.Elements += 2
 	g.decl(2, "satisfy %sMass by %s;", name, config)
@@ -594,6 +597,7 @@ func (g *generator) fleetBody(n SatelliteNetwork) {
 	for p := 0; p < n.Planes; p++ {
 		for s := 0; s < n.Satellites; s += fleetUnitStride {
 			for _, req := range []string{"Mass", "Power", "Crosslink"} {
+				g.stats.Assertions++
 				g.decl(2, "satisfy block%s%s by network.plane%d.unit%d;", blockName(p%blocks), req, p, s)
 			}
 		}
