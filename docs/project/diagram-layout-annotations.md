@@ -96,7 +96,9 @@ as `"#RRGGBB"`, the font by family name, its size in points — each attribute o
 symbol coloured by hand states its fill and nothing else, and the drawing style supplies the
 rest. A `Note` is a comment box: its text, the top-left corner of its box and an optional size,
 in the units of `Layout`; `metadata Note about X { … }` in a view anchors it to `X` with a dashed
-line, a `@Note { … }` on the view itself is free on the drawing surface.
+line, a `@Note { … }` on the view itself is free on the drawing surface. A note stated in a
+view's body — `about` a member or free on the view — is drawn in that view alone, its corner in
+that view's canvas; a note stated outside every view applies in every view.
 
 Applied:
 

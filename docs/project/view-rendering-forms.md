@@ -382,7 +382,7 @@ preprocessing step:
 // canvas: unit=px w=1200 h=800
 // layout: neato -n2
 digraph "PlantViews::placedView" {
-  graph [fontname="Helvetica", inputscale=72, dpi=72];
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
@@ -401,7 +401,8 @@ digraph "PlantViews::placedView" {
 ```
 
 - **Scale.** One pixel is one point: `inputscale=72` tells `neato` that `pos` is in points, and
-  `dpi=72` keeps the rendered pixel at that size. Lengths Graphviz takes in inches — a node's
+  `dpi=72` keeps the rendered pixel at that size. `layout=neato` names the engine in the digraph
+  itself, so a plain `dot -n` run honours the pinned positions without `-K` or a neato invocation. Lengths Graphviz takes in inches — a node's
   `width`/`height` — are divided by 72.
 - **Axis.** `y` is flipped: measured up from the canvas's bottom edge (`height - y`) when the
   canvas states a height, negated when it does not. `x` is unchanged.
