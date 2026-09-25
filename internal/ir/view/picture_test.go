@@ -1,6 +1,11 @@
 package view
 
 import (
+	"bytes"
+	"image"
+	"image/png"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -189,6 +194,59 @@ func TestPictureOnTableIsNoticedNotDrawn(t *testing.T) {
 	}
 	if md := rendering.Markdown(); !strings.Contains(md, notice) {
 		t.Errorf("markdown drops the picture silently:\n%s", md)
+	}
+}
+
+// The layers hold in what Graphviz paints, not only in the DOT text: the overlay
+// covers the connections as well as the parts, the background lies under both.
+func TestPictureLayersHoldInGraphvizOutput(t *testing.T) {
+	dot, err := exec.LookPath("dot")
+	if err != nil {
+		t.Skip("dot is not installed")
+	}
+	rendering := render(t, "pictures.sysml", "Site::wiredView")
+	if len(rendering.Edges) != 1 || len(rendering.Pictures) != 2 {
+		t.Fatalf("view carries %d edge(s) and %d picture(s), want 1 and 2", len(rendering.Edges), len(rendering.Pictures))
+	}
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "images"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"bench.png", "logo.png"} {
+		var pic bytes.Buffer
+		if err := png.Encode(&pic, image.NewRGBA(image.Rect(0, 0, 4, 4))); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "images", name), pic.Bytes(), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+		source, err := rendering.DOTWith(Options{Style: style})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", style, err)
+		}
+		cmd := exec.Command(dot, "-Kneato", "-n", "-Tsvg")
+		cmd.Dir = dir
+		cmd.Stdin = strings.NewReader(source)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		out, err := cmd.Output()
+		if err != nil || stderr.Len() != 0 {
+			t.Fatalf("%s: dot -n: %v\nstderr: %s\nsource:\n%s", style, err, stderr.String(), source)
+		}
+		svg := string(out)
+		at := func(title string) int {
+			i := strings.Index(svg, "<title>"+title+"</title>")
+			if i < 0 {
+				t.Fatalf("%s: SVG draws no %q:\n%s", style, title, svg)
+			}
+			return i
+		}
+		under, bench, camera, wire, over := at("picture:0"), at("n1"), at("n2"), at("n1&#45;&gt;n2"), at("picture:1")
+		if !(under < bench && bench < camera && camera < wire && wire < over) {
+			t.Errorf("%s: SVG does not paint the background, the parts, the connection, then the overlay in that order:\n%s", style, svg)
+		}
 	}
 }
 

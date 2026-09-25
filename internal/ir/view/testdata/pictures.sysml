@@ -11,6 +11,12 @@ package Site {
 		part camera : Camera;
 	}
 
+	part def Wired {
+		part bench : Bench;
+		part camera : Camera;
+		connect bench to camera;
+	}
+
 	// A picture drawn under the parts, at the bounds Cameo drew it at, and a
 	// small one drawn over them.
 	view mixedView {
@@ -56,6 +62,17 @@ package Site {
 		expose Site::Camera;
 		render asElementTable;
 		@Picture { location = "images/site.jpg"; x = 0; y = 0; width = 640; height = 480; }
+	}
+
+	// A picture over a connection: drawn over the line as well as the parts.
+	view wiredView {
+		expose Site::Wired;
+		render asInterconnectionDiagram;
+		@Canvas { unit = "px"; width = 900; height = 600; }
+		metadata Layout about Site::Wired::bench { x = 100; y = 200; width = 120; height = 60; }
+		metadata Layout about Site::Wired::camera { x = 600; y = 200; width = 120; height = 60; }
+		@Picture { location = "images/bench.png"; x = 0; y = 0; width = 823; height = 577; }
+		@Picture { location = "images/logo.png"; x = 360; y = 190; width = 100; height = 80; above = true; }
 	}
 
 	// A picture at a URL: no drawing tool reads one, so it is not drawn.
