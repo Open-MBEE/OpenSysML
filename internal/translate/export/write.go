@@ -56,20 +56,52 @@ func WriteFile(path string, data []byte) (replaced bool, err error) {
 }
 
 // writeAtomic writes data beside target and renames it over target.
-func writeAtomic(path, target string, mode os.FileMode, data []byte) (err error) {
+func writeAtomic(path, target string, mode os.FileMode, data []byte) error {
+	s, err := stage(path, target, mode, data)
+	if err != nil {
+		return err
+	}
+	return s.Commit()
+}
+
+// Staged is a file written beside its destination but not yet renamed over
+// it, so a set of files can be committed together or discarded.
+type Staged struct {
+	path, target, name string
+}
+
+// Stage writes data to a temporary file beside path, ready to Commit; path
+// must be absent or a regular file, as there is nothing else to rename over.
+func Stage(path string, data []byte) (*Staged, error) {
+	target, info, err := Destination(path)
+	switch {
+	case err != nil:
+		return nil, err
+	case info == nil:
+		return stage(path, target, newFileMode, data)
+	case info.IsDir():
+		return nil, fmt.Errorf("cannot write %s: it is a directory", path)
+	case !info.Mode().IsRegular():
+		return nil, fmt.Errorf("cannot write %s: it is not a regular file", path)
+	}
+	return stage(path, target, info.Mode().Perm(), data)
+}
+
+// stage writes data, flushed and with mode, to a temporary file beside target.
+func stage(path, target string, mode os.FileMode, data []byte) (s *Staged, err error) {
 	dir := filepath.Dir(target)
 	info, serr := os.Stat(dir)
 	switch {
 	case os.IsNotExist(serr):
-		return fmt.Errorf("cannot write %s: directory %s does not exist", path, dir)
+		return nil, fmt.Errorf("cannot write %s: directory %s does not exist", path, dir)
 	case serr != nil:
-		return serr
+		return nil, serr
 	case !info.IsDir():
-		return fmt.Errorf("cannot write %s: %s is not a directory", path, dir)
+		return nil, fmt.Errorf("cannot write %s: %s is not a directory", path, dir)
 	}
 	tmp, err := os.CreateTemp(dir, "."+tempStem(filepath.Base(target))+".*")
 	if err != nil {
-		return writeError(path, err)
+		return nil, writeError(path, err)
 	}
 	name := tmp.Name()
 	defer func() {
@@ -80,27 +112,38 @@ func writeAtomic(path, target string, mode os.FileMode, data []byte) (err error)
 	}()
 	if _, err = tmp.Write(data); err != nil {
 		_ = tmp.Close()
-		return err
+		return nil, err
 	}
 	// Without this the rename can reach the disk before the bytes do, which
 	// after a crash leaves an empty file where the previous model was.
 	if err = tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		return err
+		return nil, err
 	}
 	if err = tmp.Close(); err != nil {
-		return err
+		return nil, err
 	}
 	// CreateTemp makes the file 0600, which is not what a saved document is.
 	// #nosec G302 -- deliberate: see newFileMode.
 	if err = os.Chmod(name, mode); err != nil {
-		return err
+		return nil, err
 	}
-	if err = os.Rename(name, target); err != nil {
-		return err
+	return &Staged{path: path, target: target, name: name}, nil
+}
+
+// Commit renames the staged file over its destination.
+func (s *Staged) Commit() error {
+	if err := os.Rename(s.name, s.target); err != nil {
+		_ = os.Remove(s.name)
+		return writeError(s.path, err)
 	}
-	syncDir(dir)
+	syncDir(filepath.Dir(s.target))
 	return nil
+}
+
+// Discard removes the staged file, leaving its destination as it was.
+func (s *Staged) Discard() {
+	_ = os.Remove(s.name)
 }
 
 // tempStem cuts a long file name to maxTempStemBytes without splitting a UTF-8 sequence.

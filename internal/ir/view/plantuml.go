@@ -50,6 +50,10 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if placed, routed := r.countGeometry(); placed+routed > 0 || r.Canvas != nil {
 		notices = append(notices, fmt.Sprintf("%d positioned node(s) and %d route(s) kept as comments; PlantUML pins no position, the dot form does", placed, routed))
 	}
+	if options.Style != "" && options.Style != StylePilot {
+		notices = append(notices, styleNotice(options.Style))
+	}
+	notices = append(notices, r.visualNotices(noFontOrEdgeStyle, true)...)
 	b := &w.b
 	b.WriteString("@startuml\n")
 	if r.View == "" {
@@ -326,6 +330,19 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string) {
 	fmt.Fprintf(&w.b, "%s%s %s %s : %s\n", indent, from, arrow, to, plantumlText(label))
 }
 
+// plantumlStyleColor is a Style's colours as PlantUML's inline colour,
+// `#fill;line:RRGGBB;text:RRGGBB`; with no fill it opens `#;`.
+func plantumlStyleColor(style *Style) string {
+	color := "#" + strings.TrimPrefix(style.Fill, "#")
+	if style.Line != "" {
+		color += ";line:" + strings.TrimPrefix(style.Line, "#")
+	}
+	if style.Text != "" {
+		color += ";text:" + strings.TrimPrefix(style.Text, "#")
+	}
+	return color
+}
+
 // plantumlArrow is how an edge of each kind is drawn: a connection as the
 // Pilot's heavy undirected connector, a binding a plain undirected line, a flow
 // dashed, every other edge a plain arrow.
@@ -357,11 +374,17 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if shape := plantumlShapeStereotype(node); shape != "" && shape != node.Kind {
 		fmt.Fprintf(&out, " <<%s>>", shape)
 	}
-	if w.fills.filled(node) {
+	switch {
+	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))
 		if w.borders {
 			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
 		}
+		if node.Style != nil && node.Style.Text != "" {
+			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+		}
+	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
+		out.WriteString(" " + plantumlStyleColor(node.Style))
 	}
 	return out.String()
 }

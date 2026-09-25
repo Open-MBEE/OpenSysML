@@ -146,6 +146,8 @@ type Options struct {
 	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
 	// keyword family; empty draws in black and white.
 	Palette Palette
+	// Style is the look the DOT form draws in; empty is the Pilot's, StylePilot.
+	Style DrawingStyle
 	// Unplaced is what a graph-shaped form does with the nodes a positioned
 	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
 	Unplaced Unplaced

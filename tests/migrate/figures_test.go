@@ -83,6 +83,89 @@ var figureStreams = map[string]string{
     </mdOwnedViews>
   </mdElement>
 </mdOwnedViews>`,
+	"BINARY-modes": strings.Replace(streamHead, "%s", "_diag_modes", 1) + `
+  <mdElement elementClass="Pseudostate" xmi:id="_sym_init">
+    <elementID xmi:idref="_sm_init"/>
+    <geometry>60, 40, 16, 16</geometry>
+  </mdElement>
+  <mdElement elementClass="State" xmi:id="_sym_idle">
+    <elementID xmi:idref="_st_idle"/>
+    <properties>
+      <mdElement elementClass="ColorProperty">
+        <propertyID>FILL_COLOR</propertyID>
+        <value xmi:value="-1973821"/>
+      </mdElement>
+      <mdElement elementClass="ColorProperty">
+        <propertyID>PEN_COLOR</propertyID>
+        <value xmi:value="-6710948"/>
+      </mdElement>
+      <mdElement elementClass="ColorProperty">
+        <propertyID>TEXT_COLOR</propertyID>
+        <value xmi:value="-16777216"/>
+      </mdElement>
+      <mdElement elementClass="FontProperty">
+        <propertyID>FONT</propertyID>
+        <fontName>Arial</fontName>
+        <size xmi:value="11"/>
+        <style xmi:value="1"/>
+      </mdElement>
+    </properties>
+    <geometry>40, 100, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass="State" xmi:id="_sym_running">
+    <elementID xmi:idref="_st_running"/>
+    <properties>
+      <mdElement elementClass="BooleanProperty">
+        <propertyID>USE_FILL_COLOR</propertyID>
+        <value xmi:value="false"/>
+      </mdElement>
+    </properties>
+    <geometry>260, 100, 120, 50</geometry>
+  </mdElement>
+  <mdElement elementClass="Transition" xmi:id="_sym_t_init">
+    <elementID xmi:idref="_t_init"/>
+    <linkFirstEndID xmi:idref="_sym_init"/>
+    <linkSecondEndID xmi:idref="_sym_idle"/>
+    <geometry>68, 56; 68, 100; </geometry>
+  </mdElement>
+  <mdElement elementClass="Transition" xmi:id="_sym_t_start">
+    <elementID xmi:idref="_t_start"/>
+    <linkFirstEndID xmi:idref="_sym_idle"/>
+    <linkSecondEndID xmi:idref="_sym_running"/>
+    <geometry>160, 125; 210, 125; 210, 130; 260, 130; </geometry>
+  </mdElement>
+  <mdElement elementClass="Note" xmi:id="_sym_note">
+    <elementID xmi:idref="_cmt_pump"/>
+    <geometry>40, 200, 150, 40</geometry>
+  </mdElement>
+  <mdElement elementClass="NoteAnchor" xmi:id="_sym_anchor">
+    <linkFirstEndID xmi:idref="_sym_note"/>
+    <linkSecondEndID xmi:idref="_sym_idle"/>
+    <geometry>100, 200; 100, 150; </geometry>
+  </mdElement>
+  <mdElement elementClass="Note" xmi:id="_sym_note_start">
+    <elementID xmi:idref="_cmt_start"/>
+    <geometry>180, 40, 100, 30</geometry>
+  </mdElement>
+  <mdElement elementClass="NoteAnchor" xmi:id="_sym_anchor_start">
+    <linkFirstEndID xmi:idref="_sym_note_start"/>
+    <linkSecondEndID xmi:idref="_sym_t_start"/>
+    <geometry>210, 70; 210, 125; </geometry>
+  </mdElement>
+  <mdElement elementClass="TextBox" xmi:id="_sym_draft">
+    <geometry>600, 20, 80, 12</geometry>
+    <text>Draft only</text>
+  </mdElement>
+  <mdElement elementClass="ImageShape" xmi:id="_sym_logo">
+    <geometry>600, 400, 150, 150</geometry>
+    <properties>
+      <mdElement elementClass="StringProperty">
+        <propertyID>IMAGE_FILE</propertyID>
+        <value>logo.png</value>
+      </mdElement>
+    </properties>
+  </mdElement>
+</mdOwnedViews>`,
 	"BINARY-partial": strings.Replace(streamHead, "%s", "_diag_partial", 1) + `
   <mdElement elementClass="Class" xmi:id="_sym_partial_tank">
     <elementID xmi:idref="_blk_tank"/>
@@ -186,15 +269,20 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	wantInOrder(t, "Plant Handbook Markdown", md,
 		"# Plant Handbook",
 		"## Behaviors",
-		"*Pump Modes*", "```mermaid", "Idle", "Running", "How the pump behaves",
+		"*Pump Modes*", "```dot", "// layout: neato -n2", "Idle", "Running", "How the pump behaves",
 		"*Priming*", "```mermaid", "Fill", "Vent", "How the pump is primed",
 		"## Pictures",
 		"Nothing to see",
 		"The plant, photographed",
-		"*Unlisted*", "```mermaid", "Plant::Unlisted — tree rendering", `"Tank<br>«part def»"`, `"Pump<br>«part def»"`,
-		"*Stale*", "```mermaid", "Plant::Stale — tree rendering", `"Tank<br>«part def»"`)
-	if n := strings.Count(md, "```mermaid"); n != 4 {
-		t.Errorf("Plant Handbook draws %d figures, want 4:\n%s", n, md)
+		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "<b>Tank</b>", "«part def»", `pos="160,480!"`,
+		"*Stale*", "```dot", "// view: Plant::Stale", "<b>Tank</b>", "«part def»")
+	// The stream positions three of the four diagrams, so those are drawn
+	// by Graphviz where they state; the unpositioned activity stays Mermaid.
+	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 3 || mermaid != 1 {
+		t.Errorf("Plant Handbook draws %d dot and %d mermaid figures, want 3 and 1:\n%s", dot, mermaid, md)
+	}
+	if strings.Contains(md, "drawn as Mermaid") {
+		t.Errorf("a Graphviz fallback notice appears where no drawer was asked:\n%s", md)
 	}
 	if stale := md[strings.Index(md, "*Stale*"):]; strings.Contains(stale[:strings.Index(stale, "## Shown")], "Pump") {
 		t.Errorf("the figure of Stale draws the element no symbol displays:\n%s", stale)

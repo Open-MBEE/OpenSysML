@@ -98,7 +98,7 @@ func TestDOTFitHead(t *testing.T) {
 		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmn", "opqrst…"}, false},
 	}
 	for _, tc := range cases {
-		size, lines, fits := dotFitHead(tc.head, tc.width, tc.height)
+		size, lines, fits := dotFitHead(tc.head, tc.width, tc.height, dotFontSize)
 		if size != tc.size || fits != tc.fits || strings.Join(lines, "|") != strings.Join(tc.lines, "|") {
 			t.Errorf("dotFitHead(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
 		}

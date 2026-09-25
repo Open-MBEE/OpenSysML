@@ -1,6 +1,16 @@
 # SysML v1 to v2 migration report: figures.mdzip
 # exported by Example UML Tool
-# migrated 86 element(s): 71 mapped, 15 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 86 element(s): 71 mapped, 15 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 6 of 8 diagrams from the diagrams' own symbol streams: 6 elements positioned, 1 connectors routed, 2 styled, 4 notes
+
+## layout
+# source: the diagrams' own symbol streams
+# 6 views laid out from their own symbol stream, 2 without layout
+# placements: 6 of 7 written (1 not exposed, 0 resolving to no element); routes: 1 of 2 written (1 not pinned, 0 resolving to no element); malformed: 0
+# styles: 2 of 2 written; notes: 4 written (2 anchored, 0 freed of an anchor the view does not lay out)
+# routes of Transition: 1 no v2 member
+# routes of Transition: 1 written
+# free symbols dropped: ImageShape (2)
+# unsupported presentation properties, dropped: USE_FILL_COLOR (1)
 
 ## approximated (15)
 «Document» Class	Plant Documents::Plant Handbook	_doc_plant	-> 'Plant Documents'::'Plant Handbook'	(a plain UML class without «Block» is written as a part def)
@@ -14,7 +24,7 @@ Activity	Plant Viewpoints::Shown Viewpoint::Shown Method	_act_shown	-> 'Plant Vi
 «CollectThingsOnDiagram» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Collect Things On Diagram	_shown_collect	-> 'Collect Things On Diagram'	(a step with no behavior and no duration; it passes the token on)
 «TableAttributeColumn» CallBehaviorAction	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::Name	_shown_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
 Diagram	Plant::Blank	_diag_blank	-> Plant::Blank	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram draws nothing at all; the view exposes nothing)
-Diagram	Plant::Poster	_diag_poster	-> Plant::Poster	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows no model element, only an image and a text box standing for none; the view exposes nothing)
+Diagram	Plant::Poster	_diag_poster	-> Plant::Poster	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows no model element, only an image and a text box standing for none; the view exposes nothing; dressed from the diagram's own symbol stream: 1 notes written, 0 anchored, free symbols not represented: 1 ImageShape)
 OpaqueAction	Plant::Pump::Prime::Fill	_prime_fill	-> Fill	(the body is kept as a comment: the body is empty)
 OpaqueAction	Plant::Pump::Prime::Vent	_prime_vent	-> Vent	(the body is kept as a comment: the body is empty)
 Diagram	Plant::Silent	_diag_silent	-> Plant::Silent	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; the diagram shows nothing; the view exposes nothing)
@@ -69,7 +79,7 @@ InitialNode	Plant Viewpoints::Shown Viewpoint::Shown Method::<InitialNode>	_show
 «TableStructure» StructuredActivityNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks	_st_shown_table	-> part 'Plant Documents'::'Plant Handbook Document'::Shown::table	(its rows are the query 'Plant Handbook Shown Blocks Rows')
 InitialNode	Plant Viewpoints::Shown Viewpoint::Shown Method::Shown Blocks::<InitialNode>	_shown_table_init	-> start
 SignalEvent	Plant::<SignalEvent>	_ev_start	(written where a trigger refers to it, as accept Start)
-Diagram	Plant::Partial	_diag_partial	-> Plant::Partial	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+Diagram	Plant::Partial	_diag_partial	-> Plant::Partial	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 2 of 2 shown elements positioned, 0 of 0 connectors routed)
 «Block» Class	Plant::Pump	_blk_pump	-> Plant::Pump
 Comment	Plant::Pump::<Comment>	_cmt_pump
 StateMachine	Plant::Pump::Modes	_sm_modes	-> Plant::Pump::Modes
@@ -80,14 +90,14 @@ Transition	Plant::Pump::Modes::<Region>::<Transition>	_t_start	-> Plant::Pump::M
 Trigger	Plant::Pump::Modes::<Region>::<Transition>::<Trigger>	_tr_start
 State	Plant::Pump::Modes::<Region>::Idle	_st_idle	-> Idle
 State	Plant::Pump::Modes::<Region>::Running	_st_running	-> Running
-Diagram	Plant::Pump::Modes::Pump Modes	_diag_modes	-> Plant::Pump::Modes::'Pump Modes'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Plant::Pump::Modes, whose graph the rendering draws with the 3 shown nodes and edges of it)
+Diagram	Plant::Pump::Modes::Pump Modes	_diag_modes	-> Plant::Pump::Modes::'Pump Modes'	(a SysML State Machine Diagram written as a view rendered asInterconnectionDiagram of StateTransitionView; the view exposes state def Plant::Pump::Modes, whose graph the rendering draws with the 5 shown nodes and edges of it; laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 1 ImageShape)
 Activity	Plant::Pump::Prime	_act_prime	-> Plant::Pump::Prime
 ActivityFinalNode	Plant::Pump::Prime::<ActivityFinalNode>	_prime_final	-> final
 ControlFlow	Plant::Pump::Prime::<ControlFlow>	_prime_e2
 ControlFlow	Plant::Pump::Prime::<ControlFlow>	_prime_e3
 InitialNode	Plant::Pump::Prime::<InitialNode>	_prime_init	-> start
 Diagram	Plant::Pump::Prime::Priming	_diag_prime	-> Plant::Pump::Prime::Priming	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Plant::Pump::Prime, whose graph the rendering draws with the 2 shown nodes and edges of it)
-Diagram	Plant::Stale	_diag_stale	-> Plant::Stale	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+Diagram	Plant::Stale	_diag_stale	-> Plant::Stale	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 1 of 1 shown elements positioned, 0 of 0 connectors routed)
 Signal	Plant::Start	_sig_start	-> Plant::Start
 «Block» Class	Plant::Tank	_blk_tank	-> Plant::Tank
-Diagram	Plant::Unlisted	_diag_unlisted	-> Plant::Unlisted	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram)
+Diagram	Plant::Unlisted	_diag_unlisted	-> Plant::Unlisted	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; laid out from the diagram's own symbol stream: 1 of 1 shown elements positioned, 0 of 0 connectors routed)

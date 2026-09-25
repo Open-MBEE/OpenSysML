@@ -27,6 +27,7 @@
     --sysml-group-heading-weight: 600;
     --sysml-term-weight: 600;
     --sysml-formula-align: center;
+    --sysml-image-max-width: 100%;
 
     box-sizing: border-box;
     max-width: var(--sysml-measure);
@@ -127,6 +128,14 @@
 
   .sysml-document .sysml-diagram {
     margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image img {
+    max-width: var(--sysml-image-max-width);
   }
 
   .sysml-document .sysml-formula {
