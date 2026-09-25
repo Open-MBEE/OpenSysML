@@ -1,15 +1,15 @@
 ---
 name: testing-pilot-rejection
-description: How to verify the advisory pilot rejection oracle (cmd/pilot-reject + its committed negative corpus) end to end on Linux — provisioning the two pinned reference validators, reproducing the committed baseline, proving determinism, extending the corpus, and inspecting permissiveness gaps.
+description: How to verify the advisory pilot rejection oracle (tools/referee/reject + its committed negative corpus) end to end on Linux — provisioning the two pinned reference validators, reproducing the committed baseline, proving determinism, extending the corpus, and inspecting permissiveness gaps.
 ---
 
-# Testing the pilot rejection oracle (`cmd/pilot-reject`)
+# Testing the pilot rejection oracle (`tools/referee/reject`)
 
 Sibling of `testing-pilot-differential` and `testing-pilot-xpect` (same pin
 `scripts/pilot-pin.sh`, same committed-baseline shape), but pointed the other way: the
 differential measures what the reference accepts and we reject; this oracle measures what the
 reference **rejects and we accept** — permissiveness gaps. Its corpus is committed under
-`cmd/pilot-reject/testdata/negative/` (306 hand-written invalid models, one violated rule + citation
+`tools/referee/reject/testdata/negative/` (306 hand-written invalid models, one violated rule + citation
 in each file's mandatory `// Invalid: ...` first line), so no corpus download exists. Method and
 findings: `docs/project/pilot-rejection.md`.
 
@@ -25,12 +25,12 @@ findings: `docs/project/pilot-rejection.md`.
 ## The core check (~10 s per run once provisioned)
 
 ```bash
-rm -rf build/pilot-reject && go run ./cmd/pilot-reject
+rm -rf build/pilot-reject && go run -C tools ./cmd/pilot-reject
 cmp build/pilot-reject/pilot-reject.json docs/project/pilot-rejection-baseline.json   # must be silent
 ```
 
 `docs/project/pilot-rejection-baseline.json` is the only authority for the counts; the numbers
-quoted here are as-of values, and `cmd/pilot-reject/doc_counts_test.go` fails if they drift from it.
+quoted here are as-of values, and `tools/referee/reject/doc_counts_test.go` fails if they drift from it.
 As of the `semantic/` source (named pilot constraints, KerML and SysML, the control-node
 succession rules, the feature-value overriding rule, the enumeration-variation rules, the send-action cases,
 the metadata typing, annotated-element and body rules, the trigger-argument typing rules, the owning-body member rules, the cross-subsetting rules, the variant port rule, the association arity, binary-link end
@@ -52,9 +52,9 @@ default mode. The report names each case's mode and lists the four strict-only a
 separately, so a strict agreement never reads as a default one.
 
 ```bash
-go run ./cmd/pilot-reject -conformance default -out build/pilot-reject-default
+go run -C tools ./cmd/pilot-reject -conformance default -out build/pilot-reject-default
 # as of the `semantic/` source: 193 agreements, 25 gaps — the numbers strict mode leaves alone
-go run ./cmd/pilot-reject -conformance lenient   # must fail: unknown conformance policy
+go run -C tools ./cmd/pilot-reject -conformance lenient   # must fail: unknown conformance policy
 ```
 
 The `default` numbers are the ones the other waves' rules produce and must not move: strict mode is
@@ -66,7 +66,7 @@ The reports carry no timestamps and no absolute paths; case order is the sorted 
 Prove it with two independent runs:
 
 ```bash
-go run ./cmd/pilot-reject && go run ./cmd/pilot-reject -out build/pilot-reject-2
+go run -C tools ./cmd/pilot-reject && go run -C tools ./cmd/pilot-reject -out build/pilot-reject-2
 cmp build/pilot-reject/pilot-reject.json build/pilot-reject-2/pilot-reject.json   # must be silent
 rm -rf build/pilot-reject-2
 ```
@@ -96,14 +96,14 @@ build/pilot-kerml-validator/validate-kerml <dir>/<file>.kerml
 ```
 
 Then recommit the baseline
-(`go run ./cmd/pilot-reject -update`) and update
+(`go run -C tools ./cmd/pilot-reject -update`) and update
 the counts and gap table in `docs/project/pilot-rejection.md`, the README's rejection-oracle line,
 and the headline above. `TestPilotRejectionDocumentCountsMatchBaseline` (CI-cheap, reads only
 committed files) fails on any stale count, and on a gap table that does not enumerate exactly the
 baseline's `pilot-only-rejects` cases:
 
 ```bash
-go test -count=1 ./cmd/pilot-reject
+go test -C tools -count=1 ./referee/reject
 ```
 
 ## Inspecting a gap
@@ -127,7 +127,7 @@ separate refresh, so `cmp` against the baseline is the wrong check. Attribute th
 ```bash
 git worktree add /home/ubuntu/wt-main origin/main
 # run the harness from main, but over the branch checkout's corpus and the provisioned validators
-cd /home/ubuntu/wt-main && go run ./cmd/pilot-reject -repo /path/to/branch/checkout -out /tmp/mn
+cd /home/ubuntu/wt-main && go run -C tools ./cmd/pilot-reject -repo /path/to/branch/checkout -out /tmp/mn
 ```
 
 A `main` run whose JSON is byte-identical to `docs/project/pilot-rejection-baseline.json` proves the
@@ -159,7 +159,7 @@ Adversarial checks worth running for such a PR:
 - **Strict must never be more permissive than default.** Sweep every construct that can declare a
   reserved keyword as its name in both modes and require the same count in each.
 - **Corpus/stdlib regression scan.** Diff severity-normalised diagnostics between the two binaries
-  over `examples/pilot-corpora`, `examples/sysml-v2-training` and `internal/core/libs/stdlib`. Note
+  over `examples/pilot-corpora`, `examples/sysml-v2-training` and `internal/workspace/libs/stdlib`. Note
   this is **structurally vacuous** for `reserved-keyword-name`/`sysml-notation` (0 hits corpus-wide,
   since OMG corpora contain no such names) — report it as a regression control and state the 0-hit
   count, never as coverage proof. Two traps: prefix rows with `awk -v f="$F" '{print f" "$0}'`

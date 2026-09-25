@@ -1,5 +1,0 @@
-# Files in the pinned OMG training corpus that still report semantic errors,
-# as "<error count>\t<path>". See docs/project/training-examples.md for why each one
-# fails; regenerate with:
-#   go test ./internal/core/model -run TestTrainingExamplesSemanticErrors -update-training
-# files: 100

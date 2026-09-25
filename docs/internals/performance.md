@@ -51,13 +51,13 @@ Peak resident size is measured from outside:
 
 ## Benchmarks
 
-`internal/repl/bench_test.go` loads and runs synthetic models of a stated size,
+`internal/frontend/repl/bench_test.go` loads and runs synthetic models of a stated size,
 so a cost that grows faster than the model is visible as a per-element figure
 that grows with size:
 
 ```bash
-go test ./internal/repl -run '^$' -bench . -benchmem
-go test ./internal/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
+go test ./internal/frontend/repl -run '^$' -bench . -benchmem
+go test ./internal/frontend/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
 ```
 
 Beyond the standard figures they report:
@@ -70,21 +70,21 @@ Beyond the standard figures they report:
 before it holds anything, so reading a size against it separates the model's cost
 from the session's.
 
-`internal/core/parser/bench_test.go` times the parser alone over a real model: it
+`internal/syntax/parser/bench_test.go` times the parser alone over a real model: it
 parses every `.sysml` and `.kerml` file under the directory `OPENSYSML_BENCH_MODEL`
 names, with no library, no name resolution and no validation, and skips when the
 variable is unset:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 ```
 
-`internal/perfbench/model_bench_test.go` times the whole load of the same directory
+`tests/perf/model_bench_test.go` times the whole load of the same directory
 as one REPL session — library, resolution and validation included — and fails if the
 model has errors, so the measured load is a clean one:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/perfbench -run '^$' -bench REPLLoadModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./tests/perf -run '^$' -bench REPLLoadModel -benchmem
 ```
 
 ## A real model: Apollo 11
@@ -99,7 +99,7 @@ technical architectures, operations, and the trajectory calculations.
 
 ```bash
 git clone https://github.com/airbus/apollo-11-sysml-v2 && git -C apollo-11-sysml-v2 checkout 6e9c93f
-OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 ```
 
@@ -323,63 +323,65 @@ with a private resolver and semantic model, over an index nothing writes while
 the pool runs. What resolving a document would otherwise link into the scope
 tree on first use — the owner of a metadata body — is linked for every document
 of the batch before the pool starts (`passes.PrepareBatch`), so the workers
-only read it. The batch carries one `passes.Gathers` (`passes.Batch.Gathers`):
-the first context that runs a workspace-wide audit gathers every document's
-facts into it, under its lock, and every context reads the same union
-afterwards, so the audits gather each document once per batch rather than once
-per analysis. The gathers are the batch's, not the workspace's persistent
-ones: a private resolver records no dependencies, so facts it gathered could
-not be invalidated when what they read changes, and the diagnostics a batch
-computes are cached the same way — dropped on any change to the workspace
-(`Workspace.batched`) rather than per dependency. Diagnostics come back in the
-order the files were given and are the same at any worker count; `-workers`
-and `OPENSYSML_WORKERS` set the pool, default one worker per CPU. The earlier
-cost of indexing files one at a time — re-expanding wildcard imports over every
+only read it. The batch carries the workspace's `passes.Gathers`
+(`passes.Batch.Gathers`), settled before the pool starts: the first context that
+runs a workspace-wide audit gathers every document's facts into it, under its
+lock, and every context reads the same union afterwards, so the audits gather
+each document once per batch rather than once per analysis. A private resolver
+records no dependencies, so the diagnostics a batch computes are cached with
+none — dropped on any change to the workspace (`Workspace.batched`) rather than
+per dependency — while the gathers themselves stay the workspace's, invalidated
+per document as the editor path does. Diagnostics come back in the order the
+files were given and are the same at any job count; `-jobs` and
+`OPENSYSML_JOBS`, the setting that bounds how many runs of one check go
+concurrently, set the pool, default one worker per CPU. The earlier cost of
+indexing files one at a time — re-expanding wildcard imports over every
 document loaded so far, quadratic in the file count — is gone with it.
 
 Measured on the satellite constellation split one file per orbital plane
-(`cmd/stress-model -split-planes`; `Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB,
+(`stress-model -split-planes`; `Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB,
 Go 1.25.0, one run each, `/usr/bin/time -v`):
 
-| model | files | workers | wall | CPU | peak RSS |
-| ----- | ----- | ------- | ---- | --- | -------- |
-| 1 600 satellites, one file | 1 | — | 18.5 s | 134% | 2.47 GB |
-| 1 600 satellites, split | 34 | 1 | 19.5 s | 130% | 2.12 GB |
-| | | 2 | 12.3 s | 221% | 2.17 GB |
-| | | 4 | 8.86 s | 311% | 2.55 GB |
-| | | 8 | 7.33 s | 394% | 2.69 GB |
-| 200 satellites, split | 10 | 1 | 2.30 s | 126% | 346 MB |
-| | | 8 | 0.89 s | 368% | 489 MB |
+| model | files | jobs | wall | CPU | peak RSS |
+| ----- | ----- | ---- | ---- | --- | -------- |
+| 1 600 satellites, one file | 1 | — | 20.3 s | 133% | 2.38 GB |
+| 1 600 satellites, split | 34 | 1 | 22.0 s | 129% | 2.27 GB |
+| | | 2 | 14.3 s | 213% | 2.12 GB |
+| | | 4 | 10.7 s | 288% | 2.23 GB |
+| | | 8 | 9.24 s | 365% | 2.63 GB |
+| 200 satellites, split | 10 | 1 | 2.63 s | 129% | 358 MB |
+| | | 8 | 1.19 s | 341% | 507 MB |
 
-The single file is unchanged at 18.5 s. The split costs the single file's time on one worker and
-2.5× less on eight, at the single file's peak RSS. What bounds the pool is
-the gather: in the eight-worker CPU profile (7.45 s wall, 28.6 s of samples)
-the three audits' gather is 3.6 s — `passes.(*Gathers).oosemOf` 2.7 s,
-`identitiesOf` 0.55 s, `mosaOf` 0.41 s — run by one context over all 34
-documents while the other workers wait at the lock, and installing the scope
-trees and expanding wildcard imports before the pool (`commitBatch`, 1.1 s) is
-serial too; the rest — name resolution 6.8 s, the inherited-name conflict pass
-3.3 s, type checking 1.2 s, the collector 5.0 s — is spread over the workers.
-Gathering on the pool as well, each worker gathering its own document's facts
-into the union before analysis starts, is the step left to the ~5 s the
-scaling design sets for this run
+The split costs a little over the single file's time on one job and 2.2× less
+on eight, within a tenth of the single file's peak RSS. What bounds the pool
+is the gather: in the eight-job CPU profile (9.57 s wall, 34.2 s of samples)
+the three audits' gather is 4.5 s — the OOSEM union 3.6 s, identity 0.52 s,
+MOSA 0.37 s — run by one context over all 34 documents while the other
+workers wait at the lock; the scan of the files for the root namespaces they
+import from their siblings (`project.Dependencies`, 0.87 s) and installing the
+scope trees and expanding wildcard imports before the pool (`commitBatch`,
+1.0 s) are serial too; the rest — name resolution 9.0 s, the inherited-name
+conflict pass 4.0 s, type checking 1.2 s, the collector 5.6 s — is spread over
+the workers. Gathering on the pool as well, each worker gathering its own
+document's facts into the union before analysis starts, is the step left to
+the ~5 s the scaling design sets for this run
 ([scaling to very large models](../project/large-model-scaling-design.md)).
 Before the audits gathered once per batch, each of the 34 analyses gathered
-all 34 documents afresh in its own model: 129 s on one worker, 30.9 s on eight
+all 34 documents afresh in its own model: 129 s on one job, 30.9 s on eight
 at 7.24 GB peak RSS, 118 s of a 128 s serial analysis in the three passes.
-`BenchmarkAnalyzeSplitPerDocument` in `internal/stressmodel` measures the
+`BenchmarkAnalyzeSplitPerDocument` in `tests/stressmodel` measures the
 pool's own speedup with the three audits left out, over the split's six files
-at 512 satellites: 3.65 s → 0.94 s, one worker against eight, the largest file
+at 512 satellites: 3.91 s → 1.09 s, one job against eight, the largest file
 bounding it. The whole load of the same split, audits included, is
-`BenchmarkValidateSplit`: 5.77 s → 1.67 s (10.3 s → 2.77 s before the batch gather).
+`BenchmarkValidateSplit`: 6.30 s → 2.14 s.
 
 Parallelism does not reduce what a load allocates — the 34-file run allocates
-6.8 GiB and 90 million objects at any worker count, against the single file's
-5.4 GiB and 86 million — and the collector marking eight workers' garbage at
+7.6 GiB and 108 million objects at any job count, against the single file's
+6.1 GiB and 97 million — and the collector marking eight workers' garbage at
 once is where the pool loses efficiency beyond the gather
-(`runtime.gcBgMarkWorker` 17.5% and `runtime.scanobject` 17.9% of the
-eight-worker samples; user time 24.7 s → 28.0 s). The allocation sites the
-pool does not help, from the heap profile of the single-file 1 600-satellite
+(`runtime.gcBgMarkWorker` 16.2% and `runtime.scanobject` 17.0% of the
+eight-job samples; user time 27.6 s → 32.4 s). The allocation sites the
+pool does not help, from the heap profile of an earlier build's single-file 1 600-satellite
 run (62 million sampled objects and 4.3 GiB, of a run that counts 85.5 million
 allocations and 5.4 GiB), by objects allocated:
 
@@ -403,8 +405,9 @@ model — and each is to be measured on its own before it is changed.
 One parse per load is spent twice: the REPL parses each file to accept it (the
 names it declares, whether it closes its own text) and the workspace parses the
 same bytes again as the document. The 34 files of the split (17 MB) parse in
-1.03 s serially, so the second parse is ~1 s of the one-worker 19.5 s and
-~0.13 s of the eight-worker wall. Carrying the accepted tree into the workspace
+1.8 s serially (`repl.preparse` in the one-job profile), so the second parse
+is ~1.8 s of the one-job 22.0 s and ~0.3 s of the eight-job wall, where it runs
+on the pool. Carrying the accepted tree into the workspace
 batch would recover it; it is a change to what `model.Input` owns and is left
 to be measured on its own.
 
@@ -443,10 +446,10 @@ Three changes took it to under 20 ms, each measured over the same command
   15.0 MB and 123k. The expansion stays inherently iterative — most of its cost
   is the re-export closure itself — which is what the snapshot removes.
 - **The snapshot.** The library's frozen index is serialized at generation time
-  into `internal/core/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
+  into `internal/workspace/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
   binary grows from 16.9 to 20.5 MB) and decoded at start-up, so neither the
   parser nor the expansion runs for the library at all. The format is
-  hand-rolled (`internal/core/pack`, `internal/core/ast/astcodec`,
+  hand-rolled (`internal/syntax/pack`, `internal/syntax/ast/astcodec`,
   `symbols.WriteSnapshot`): varints over one string table, a node table per
   syntax-node type so each type's nodes are allocated in one block, and index
   references in place of pointers, so the decoded graph shares what the parsed

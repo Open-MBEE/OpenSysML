@@ -3,12 +3,12 @@
 #
 # The corpus is not vendored: it belongs to the OMG pilot implementation and is
 # licensed there. The tests that read it skip when it is absent, so this script
-# is optional for building and running the suite — but `go test ./internal/core/model`
+# is optional for building and running the suite — but `go test ./internal/workspace/model`
 # only gates the corpus once it has been downloaded.
 #
 # The tag is pinned in scripts/pilot-pin.sh, which also holds the shared fetch
 # used here and by download-pilot-corpora.sh, so the expected results in
-# internal/core/model/testdata are reproducible against one pilot release.
+# internal/workspace/model/testdata are reproducible against one pilot release.
 set -euo pipefail
 
 # shellcheck source=scripts/pilot-pin.sh

@@ -1,0 +1,19 @@
+step 1: token 1@split
+step 2: token 2@slow, token 3@pre1
+stmt assign z
+  eval literal 3 -> 3
+enter action node: slow
+choice step 3: tokens 2@slow, 3@pre1 (unordered; took 3@pre1 first)
+step 3: token 2@start, token 3@pre2
+choice step 4: tokens 2@start, 3@pre2 (unordered; took 3@pre2 first)
+step 4: token 2@begun, token 3@pre3
+stmt assign x
+  eval literal 1 -> 1
+choice step 5: tokens 2@begun, 3@pre3 (unordered; took 3@pre3 first)
+step 5: token 2@waiter, token 3@killer
+stmt terminate
+terminate action node slow: no token dropped
+leave action node: slow
+step 6: token 2@sync, token 3@sync
+step 7: token 4@done
+step 8: no active tokens

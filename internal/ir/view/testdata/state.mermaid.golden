@@ -1,0 +1,15 @@
+%% MachineViews::vehicleStates — state rendering (view def StateTransitionView)
+stateDiagram-v2
+  state "VehicleStates<br>«state def»" as n0 {
+    state "off<br>«state»<br>initial" as n1
+    state "operating<br>«state»" as n2 {
+      state "idle<br>«state»<br>initial" as n3
+      state "moving<br>«state»" as n4
+      [*] --> n3
+    }
+    [*] --> n1
+  }
+  n1 --> n2
+  n2 --> n1
+  n3 --> n4 : accept Signal [temperature #gt; 0]
+  n4 --> n3

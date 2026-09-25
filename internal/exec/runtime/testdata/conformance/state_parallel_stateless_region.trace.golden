@@ -1,0 +1,7 @@
+exit: wstart
+enter: wdone
+transition: wstart -> wdone (event: accept Go)
+exit: wdone
+exit: busy
+enter: done
+transition: busy -> done (event: accept Stop)

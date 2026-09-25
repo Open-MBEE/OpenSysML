@@ -1,0 +1,17 @@
+MachineViews::vehicleStates - state rendering (view def StateTransitionView)
+
+state def Machines::VehicleStates
+  start
+  state off (initial)
+  state operating
+    start
+    state idle (initial)
+    state moving
+
+transitions:
+  start of Machines::VehicleStates -> off
+  start of operating -> idle
+  off -> operating
+  operating -> off
+  idle -> moving: accept Signal [temperature > 0]
+  moving -> idle

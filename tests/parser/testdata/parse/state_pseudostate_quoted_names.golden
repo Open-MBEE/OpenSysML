@@ -1,0 +1,19 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="state" abstract=false variation=false name="Cycle"
+      (Membership visibility="default"
+        (Usage kind="attribute" name="fork" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Relationship kind="typing" target=ScalarValues::Integer
+            (*ast.QualifiedName))))
+      (EntryMember)
+      (SuccessionEdge source="@entry" target="Idle")
+      (SubstateMember name="Idle")
+      (PseudostateNode kind="fork" name="spread 2")
+      (PseudostateNode kind="join" name="gather 2")
+      (PseudostateNode kind="junction" name="route 2")
+      (PseudostateNode kind="choice" name="pick 2")
+      (PseudostateNode kind="shallow history" name="checkpoint 2")
+      (PseudostateNode kind="deep history" name="deepest 2")
+      (TransitionMember source="Idle" target="spread 2")
+      (TransitionMember source="gather 2" target="checkpoint 2")
+      (TransitionMember source="deepest 2" target="Idle"))))

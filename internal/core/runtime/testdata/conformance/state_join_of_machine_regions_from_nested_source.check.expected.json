@@ -1,5 +1,0 @@
-{
-	"verdict": "divergent",
-	"divergent": {"log": ["\"a(exit) c(exit) inner(exit) a b(exit) b sync\"", "\"b(exit) b a(exit) c(exit) inner(exit) a sync\""]},
-	"agreed": {"finalState": "done"}
-}

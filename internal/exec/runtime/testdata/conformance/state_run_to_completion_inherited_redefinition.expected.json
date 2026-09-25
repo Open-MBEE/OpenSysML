@@ -1,0 +1,7 @@
+{
+  "type": "instance",
+  "instantiate": "test::ctl",
+  "events": [{"signal": "Go"}],
+  "finalState": "done",
+  "stateVisits": ["idle", "done"]
+}

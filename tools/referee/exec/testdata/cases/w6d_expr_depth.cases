@@ -1,0 +1,107 @@
+model: tools/referee/exec/testdata/models/w6d_expr_depth.sysml
+
+# Wave 6D: expression evaluation and type depth. Each block records what the
+# pinned pilot answers for a compliance row that reduces to evaluation.
+
+# Instantiation and feature values. The pilot's evaluator returns the feature
+# itself for a feature with no value, so eager materialization (a required lower
+# bound, a valueless value-typed feature) is unrefereeable here rather than
+# agreed: those land in pilot-unevaluated.
+undeclared-multi ::  :: W6D::undeclared
+undeclared-multi-typed ::  :: W6D::undeclaredTyped
+lower-bound-three ::  :: W6D::lowerThree
+lower-bound-unbounded ::  :: W6D::unboundedLower
+star-only ::  :: W6D::starOnly
+valueless-value-type ::  :: W6D::valueless
+
+# Reached through a part, where the assumed 1..1 governs an undeclared
+# multiplicity. A valueless `[3]` has a fixed count and no value, so at model
+# level it reads undetermined rather than as three unset holders.
+held-undeclared-multi ::  :: W6D::holder.xs
+held-declared-two ::  :: W6D::holder.ys
+held-lower-three-no-value ::  :: W6D::holder.zs
+held-single ::  :: W6D::holder.one
+
+# A subsetting part is one of the objects the subsetted feature holds, so the
+# roll-up over `subsystem` reads the mass of `a`.
+subsetting-rollup ::  :: W6D::sys.total
+
+# A body on a redefining declaration governs the value it inherits: `v` is
+# valued in the body, `w` is not and takes its own type's default rather than
+# the bound value's. `plain.cost.v` reads the inherited value with no body.
+body-governs-valued ::  :: W6D::r.cost.v
+body-governs-unvalued ::  :: W6D::r.cost.w
+inherited-value-no-body ::  :: W6D::plain.cost.v
+inherited-value-template ::  :: W6D::template.v
+
+# Sequence indexing and collection operations. The vendored library bodies
+# throw in the pilot for every `includingAt` and for an endpoint outside the
+# sequence; ours report a typed error instead.
+including-at ::  :: W6D::IncAt()
+including-at-appends ::  :: W6D::IncAtAppends()
+including-at-out-of-range ::  :: W6D::IncAtOutOfRange()
+excluding-at ::  :: W6D::ExclAt()
+excluding-at-out-of-range ::  :: W6D::ExclAtOutOfRange()
+subsequence ::  :: W6D::Subseq()
+subsequence-out-of-range ::  :: W6D::SubseqOutOfRange()
+subsequence-empty-range ::  :: W6D::SubseqEmptyRange()
+
+# Quantity aggregation. The pilot does not evaluate quantity arithmetic, so the
+# unit an aggregate answers in is unrefereeable; the empty aggregate is not.
+sum-quantities ::  :: W6D::SumQ()
+sum-quantities-mixed-units ::  :: W6D::SumQMixed()
+sum-empty ::  :: W6D::SumEmpty()
+quantity-add ::  :: 3.0 [SI::kg] + 500.0 [SI::g]
+add-bare-to-measured ::  :: W6D::AddBareToMeasured()
+sum-empty-quantity ::  :: W6D::SumEmptyQuantity()
+add-empty-quantity-sum ::  :: W6D::AddEmptyQuantitySum()
+
+# The pilot folds a `default null` collection to its default rather than to the
+# parts subsetting it, and counts an undefaulted collection as one value whether
+# two parts subset it or none does, so membership is unrefereeable here.
+subsetting-defaulted-count ::  :: W6D::sysDefaulted.n
+subsetting-two-count ::  :: W6D::sysTwo.n
+subsetting-none-count ::  :: W6D::sysNone.n
+
+# KerML function library: VectorFunctions and ComplexFunctions. Only the
+# concrete library bodies the pilot can fold are refereeable.
+vector-elements ::  :: W6D::VecElements()
+vector-is-zero ::  :: W6D::VecIsZero()
+vector-norm-cartesian ::  :: W6D::VecNormCartesian()
+vector-norm-abstract ::  :: W6D::VecNormAbstract()
+vector-inner ::  :: W6D::VecInner()
+vector-add ::  :: W6D::VecAdd()
+complex-re ::  :: W6D::CxRe()
+complex-abs ::  :: W6D::CxAbs()
+complex-mul-re ::  :: W6D::CxMulRe()
+complex-is-zero ::  :: W6D::CxIsZero()
+complex-abs-qualified ::  :: W6D::CxAbsQualified()
+complex-is-zero-qualified ::  :: W6D::CxIsZeroQualified()
+complex-mul-qualified ::  :: W6D::CxMulQualified()
+
+# A calc usage's outputs are evaluation results, not feature values.
+calc-usage ::  :: W6D::addUse
+
+# Classification operators. The pilot answers all of these; we report
+# ErrUnsupportedOperator, so they land in ours-error and record the contract an
+# implementation must meet.
+istype-int-integer ::  :: W6D::IsIntInteger()
+hastype-int-integer ::  :: W6D::HasIntInteger()
+istype-int-real ::  :: W6D::IsIntReal()
+hastype-int-real ::  :: W6D::HasIntReal()
+istype-int-natural ::  :: W6D::IsIntNatural()
+istype-nat-integer ::  :: W6D::IsNatInteger()
+hastype-nat-integer ::  :: W6D::HasNatInteger()
+istype-real-integer ::  :: W6D::IsRealInteger()
+istype-string-string ::  :: W6D::IsStrString()
+istype-int-string ::  :: W6D::IsIntString()
+istype-literal-integer ::  :: W6D::IsLiteralInteger()
+istype-literal-real ::  :: W6D::IsLiteralReal()
+istype-sequence-integer ::  :: W6D::IsSeqInteger()
+istype-mixed-sequence ::  :: W6D::IsMixedSeqInteger()
+istype-empty-integer ::  :: W6D::IsEmptyInteger()
+istype-car-car ::  :: W6D::IsCarCar()
+istype-car-vehicle ::  :: W6D::IsCarVehicle()
+hastype-car-vehicle ::  :: W6D::HasCarVehicle()
+hastype-car-car ::  :: W6D::HasCarCar()
+istype-sys-car ::  :: W6D::IsSysCar()

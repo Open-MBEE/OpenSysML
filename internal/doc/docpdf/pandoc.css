@@ -1,0 +1,94 @@
+/* The print stylesheet for pandoc's own HTML, which carries pandoc's
+   structure — a title block, nav#TOC, bare tables — and none of the
+   sysml- classes the HTML backend's sheets style. */
+@page {
+  size: A4;
+  margin: 2.2cm;
+
+  @bottom-center {
+    content: counter(page);
+    font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+    font-size: 9pt;
+    color: #444444;
+  }
+}
+
+body {
+  font-family: "Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  page: main;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif;
+  line-height: 1.2;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+h1 { font-size: 20pt; }
+h2 { font-size: 15pt; margin-top: 1.4em; }
+h3 { font-size: 13pt; margin-top: 1.2em; }
+h4, h5, h6 { font-size: 11pt; margin-top: 1em; }
+
+header#title-block-header h1 { font-size: 26pt; }
+
+nav#TOC {
+  break-after: page;
+  page-break-after: always;
+}
+
+nav#TOC ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+nav#TOC ul ul { padding-left: 1.5em; }
+nav#TOC li { margin: 0.25em 0; }
+nav#TOC a { text-decoration: none; color: inherit; }
+
+table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
+
+tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+th, td {
+  border: 0.5pt solid #666666;
+  padding: 0.3em 0.6em;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+th {
+  background: #eeeeee;
+  overflow-wrap: normal;
+}
+
+/* A caption and the paragraph leading into a table stay with what follows. */
+p:has(.caption) { break-after: avoid; page-break-after: avoid; }
+p:has(+ table) { break-after: avoid; page-break-after: avoid; }
+
+/* A table of seven or more columns goes on a landscape page in smaller type with
+   the heading, caption and group key ahead of it; :has() nests since cssselect2 misreads "+ p + table". */
+@page wide { size: A4 landscape; }
+table:has(thead > tr > th:nth-child(7)) { page: wide; font-size: 9pt; }
+p:has(+ table:has(thead > tr > th:nth-child(7))),
+p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
+:is(h1, h2, h3, h4, h5, h6):has(+ table:has(thead > tr > th:nth-child(7))),
+:is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
+:is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7))))) { page: wide; }
+
+/* A figure taller than the page is scaled onto it, with its caption. */
+figure { margin: 0.8em 0; break-inside: avoid; page-break-inside: avoid; }
+figure img, p img { max-width: 100%; max-height: 85vh; }
+span.caption { font-size: 9.5pt; color: #444444; }
+div.formula { margin: 0.8em 0; text-align: center; }
+pre, code { font-family: "Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace; }
+pre { font-size: 9pt; white-space: pre-wrap; }

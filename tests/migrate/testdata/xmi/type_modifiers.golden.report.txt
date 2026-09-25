@@ -1,0 +1,37 @@
+# SysML v1 to v2 migration report: type_modifiers.xmi
+# exported by Example UML Tool
+# migrated 26 element(s): 17 mapped, 9 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (9)
+«typeModifier» Property	Signals::Filter::blank	_blank	-> Signals::Filter::blank	(an empty «typeModifier» is kept as a comment: it says nothing of the type)
+«typeModifier» Property	Signals::Filter::grid	_grid	-> Signals::Filter::grid	(«typeModifier» [][] is kept as a comment: the type modifier [][] has no v2 form: a multiplicity has one dimension)
+«typeModifier» Property	Signals::Filter::history	_history	-> Signals::Filter::history	(«typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity [0..*] is already a collection, and a collection of collections has no multiplicity)
+«typeModifier» Property	Signals::Filter::level	_level	-> Signals::Filter::level	(«typeModifier» * is kept as a comment: the type modifier * has no v2 form: only a part or item is held by reference, not an attribute)
+«typeModifier» Property	Signals::Filter::odd	_odd	-> Signals::Filter::odd	(«typeModifier» [2x] is kept as a comment: the type modifier [2x] is not one the migrator reads)
+«typeModifier» Property	Signals::Filter::rect	_rect	-> Signals::Filter::rect	(«typeModifier» [2*3] is kept as a comment: the type modifier [2*3] has no v2 form: a multiplicity has one dimension)
+«typeModifier» Parameter	Signals::Filter::smooth::handle	_par_handle	-> Signals::Filter::smooth::handle	(«typeModifier» * is kept as a comment: the type modifier * has no v2 form: a parameter is not held by reference)
+«typeModifier» Parameter	Signals::Filter::smooth::result	_par_result	-> Signals::Filter::smooth::result	(the return parameter is written as an out parameter)
+«typeModifier» Property	Signals::Filter::stray	_stray	-> Signals::Filter::stray	(multiplicity n..n is not a range of natural numbers and is not written; «typeModifier» [] is kept as a comment: the type modifier [] has no v2 form: the declared multiplicity n..n is not a range of natural numbers and is not written)
+
+## mapped (17)
+Model	Model	_m	(the root model's members are written at the top level)
+Profile	Shapes Profile	_shapes	-> 'Shapes Profile'
+Stereotype	Shapes Profile::typeModifier	_st_shape_mod	-> 'Shapes Profile'::typeModifier
+Property	Shapes Profile::typeModifier::typeModifier	_st_shape_mod_tag	-> 'Shapes Profile'::typeModifier::typeModifier
+Package	Signals	_pkg	-> Signals
+«Block» Class	Signals::Actuator	_actuator	-> Signals::Actuator
+«Block» Class	Signals::Filter	_filter	-> Signals::Filter
+«typeModifier» Property	Signals::Filter::count	_count	-> Signals::Filter::count
+«typeModifier» Property	Signals::Filter::drive	_drive	-> Signals::Filter::drive
+«typeModifier» Property	Signals::Filter::probe	_probe	-> Signals::Filter::probe
+«typeModifier» Property	Signals::Filter::row	_row	-> Signals::Filter::row
+«typeModifier» Property	Signals::Filter::samples	_samples	-> Signals::Filter::samples
+Operation	Signals::Filter::smooth	_op_smooth	-> Signals::Filter::smooth	(its owner's usage smooth 2 performs it, as a call on an object does)
+«typeModifier» Parameter	Signals::Filter::smooth::values	_par_values	-> Signals::Filter::smooth::values
+«typeModifier» Parameter	Signals::Filter::smooth::window	_par_window	-> Signals::Filter::smooth::window
+«typeModifier» Property	Signals::Filter::taps	_taps	-> Signals::Filter::taps
+«Block» Class	Signals::Sensor	_sensor	-> Signals::Sensor
+
+## skipped (2)
+Extension	Shapes Profile::<Extension>	_ext_shape_mod	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Shapes Profile::typeModifier::base_Element	_st_shape_mod_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

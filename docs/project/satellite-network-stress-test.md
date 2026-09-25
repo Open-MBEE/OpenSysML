@@ -15,10 +15,10 @@ smallest models carry ±30% of noise from the machine, which the trend does not.
 
 ## The workload
 
-`internal/stressmodel` generates the model; `cmd/stress-model` writes it out:
+`tests/stressmodel` generates the model; `tools/cmd/stress-model` writes it out:
 
 ```bash
-go run ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
+go run -C tools ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
 # satellites=200 ground-stations=20 components=4080 connections=3175 requirements=600 elements=37552 bytes=2297852
 sysml -validate -memstats constellation.sysml
 sysml -satisfy -memstats constellation.sysml
@@ -112,11 +112,11 @@ million elements (10 000 of these satellites) and 32 GiB about 3.8 million.
 The peak RSS above is mostly transient: the parser's and the resolver's
 garbage. What a session keeps alive once the model is loaded — the size that
 bounds a long-lived REPL, LSP or gRPC session rather than a single run — is
-measured in-process by `BenchmarkLoad` in `internal/stressmodel`, which
+measured in-process by `BenchmarkLoad` in `tests/stressmodel`, which
 collects before and after a load and reports the difference:
 
 ```bash
-go test ./internal/stressmodel -run '^$' -bench Load -benchmem -benchtime 3x
+go test ./tests/stressmodel -run '^$' -bench Load -benchmem -benchtime 3x
 ```
 
 | satellites | elements | load wall | live heap held | held / element | allocated / element |
@@ -136,7 +136,7 @@ bodies of their own.
 
 ### Split by plane, parallel
 
-A project of this size is not one file. `cmd/stress-model -split-planes <dir>`
+A project of this size is not one file. `stress-model -split-planes <dir>`
 writes the same constellation as one `.sysml` per orbital plane plus
 `library.sysml` (the definitions every plane shares) and `constellation.sysml`
 (the ground segment and the cross-plane network); the split declares the same
@@ -153,75 +153,77 @@ them on a pool of workers, indexes them once, expands wildcard imports once
 and analyzes them on the pool, each document with a resolver and semantic
 model of its own; the facts the workspace-wide audits (OOSEM, MOSA, identity
 metadata) need of every document are gathered once for the batch and read by
-every worker. `-workers N` (or `OPENSYSML_WORKERS`) sets the pool, default
-one worker per CPU. The diagnostics are the same at any worker count, in
-command-line order.
+every worker. `-jobs N` (or `OPENSYSML_JOBS`), the same setting that bounds
+how many runs of one check go concurrently, sets the pool, default one worker
+per CPU. The diagnostics are the same at any job count, in command-line order.
 
 ```bash
-go run ./cmd/stress-model -planes 32 -satellites 50 -ground-stations 160 -split-planes constellation/
-/usr/bin/time -v sysml -validate -memstats -workers 8 constellation/*.sysml
+go run -C tools ./cmd/stress-model -planes 32 -satellites 50 -ground-stations 160 -split-planes constellation/
+/usr/bin/time -v sysml -validate -memstats -jobs 8 constellation/*.sysml
 ```
 
 Same machine as above (`Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB, Go
 1.25.0, Linux); one run per row; *CPU* is `(user + system) / wall`.
 
-| model | files | workers | wall | user | CPU | allocated | peak RSS |
-| ----- | ----- | ------- | ---- | ---- | --- | --------- | -------- |
-| 200 satellites, one file | 1 | — | 1.95 s | 2.4 s | 127% | 722 MiB | 383 MB |
-| 200 satellites, split | 10 | 1 | 2.30 s | 2.8 s | 126% | 861 MiB | 346 MB |
-| | | 2 | 1.51 s | 3.0 s | 210% | 873 MiB | 377 MB |
-| | | 4 | 1.02 s | 2.9 s | 300% | 875 MiB | 398 MB |
-| | | 8 | 0.89 s | 3.2 s | 368% | 877 MiB | 489 MB |
-| 1 600 satellites, one file | 1 | — | 18.5 s | 23.9 s | 134% | 5.4 GiB | 2.47 GB |
-| 1 600 satellites, split | 34 | 1 | 19.5 s | 24.7 s | 130% | 6.7 GiB | 2.12 GB |
-| | | 2 | 12.3 s | 26.4 s | 221% | 6.8 GiB | 2.17 GB |
-| | | 4 | 8.86 s | 26.7 s | 311% | 6.8 GiB | 2.55 GB |
-| | | 8 | 7.33 s | 28.0 s | 394% | 6.8 GiB | 2.69 GB |
+| model | files | jobs | wall | user | CPU | allocated | peak RSS |
+| ----- | ----- | ---- | ---- | ---- | --- | --------- | -------- |
+| 200 satellites, one file | 1 | — | 2.15 s | 2.6 s | 126% | 806 MiB | 393 MB |
+| 200 satellites, split | 10 | 1 | 2.63 s | 3.3 s | 129% | 957 MiB | 358 MB |
+| | | 2 | 1.69 s | 3.3 s | 201% | 972 MiB | 379 MB |
+| | | 4 | 1.29 s | 3.3 s | 271% | 974 MiB | 414 MB |
+| | | 8 | 1.19 s | 3.9 s | 341% | 976 MiB | 507 MB |
+| 1 600 satellites, one file | 1 | — | 20.3 s | 26.1 s | 133% | 6.1 GiB | 2.38 GB |
+| 1 600 satellites, split | 34 | 1 | 22.0 s | 27.6 s | 129% | 7.5 GiB | 2.27 GB |
+| | | 2 | 14.3 s | 29.5 s | 213% | 7.6 GiB | 2.12 GB |
+| | | 4 | 10.7 s | 29.9 s | 288% | 7.6 GiB | 2.23 GB |
+| | | 8 | 9.24 s | 32.4 s | 365% | 7.6 GiB | 2.63 GB |
 
 Three things the table says:
 
 - **Splitting the file costs little, and the pool pays it back.** One file
-  validates in 18.5 s; the same model in 34 files takes 19.5 s on one worker
-  — the split adds the per-plane packages, their imports and the gather of
-  34 documents instead of one — and 7.33 s on eight, 2.5× the single file's
-  speed. The 200-satellite split goes from 2.30 s to 0.89 s. Peak RSS stays
-  at the single file's: 2.69 GB at eight workers against 2.47 GB, since the
-  workers share one gather and hold only their own document's memoization.
-- **The gather is what bounds the pool.** Eight workers reach 394% CPU, not
-  700%. A CPU profile of the eight-worker run (7.45 s wall, 28.6 s of
-  samples) puts 3.6 s in the three audits' gather — `Gathers.oosemOf` 2.7 s,
-  `identitiesOf` 0.55 s, `mosaOf` 0.41 s — which the first context to ask
-  runs over all 34 documents while the other workers wait for it; before
-  the pool, installing the 34 scope trees in the index and expanding
-  wildcard imports (`commitBatch`, 1.1 s) is serial too. Nearly 5 s of the
-  7.33 s is therefore on one thread. Gathering the
+  validates in 20.3 s; the same model in 34 files takes 22.0 s on one job
+  — the split adds the per-plane packages, their imports, the sibling-file
+  dependency scan and the gather of 34 documents instead of one — and 9.24 s
+  on eight, 2.2× the single file's speed. The 200-satellite split goes from
+  2.63 s to 1.19 s. Peak RSS stays within a tenth of the single file's:
+  2.63 GB at eight jobs against 2.38 GB, since the workers share one gather
+  and hold only their own document's memoization.
+- **The gather is what bounds the pool.** Eight jobs reach 365% CPU, not
+  700%. A CPU profile of the eight-job run (9.57 s wall, 34.2 s of samples)
+  puts 4.5 s in the three audits' gather — the OOSEM union 3.6 s, identity
+  0.52 s, MOSA 0.37 s — which the first context to ask runs over all 34
+  documents while the other workers wait for it; before the pool, the scan
+  of the files for the root namespaces they import from siblings
+  (`project.Dependencies`, 0.87 s) and installing the 34 scope trees in the
+  index and expanding wildcard imports (`commitBatch`, 1.0 s) are serial
+  too. Over 6 s of the 9.24 s is therefore on one thread. Gathering the
   documents on the pool as well — each worker gathering its own document's
   facts into the union, in a context of its own, before analysis starts —
-  would take most of the 3.6 s off the critical path and is the remaining
+  would take most of the 4.5 s off the critical path and is the remaining
   step to the ~5 s the [scaling design](large-model-scaling-design.md) sets
   for this run.
 - **The analysis itself parallelizes.** Outside the gather the profile is
-  the per-document work: name resolution 6.8 s of the 28.6 s, the
-  inherited-name conflict pass 3.3 s, type checking 1.2 s, the collector
-  marking eight workers' allocations at once 5.0 s. On one worker the 34
-  analyses are 18.2 s of samples, 3.6 s of them the gather, so a document
-  averages 0.43 s: no one file is a straggler that would bound the pool the
+  the per-document work: name resolution 9.0 s of the 34.2 s, the
+  inherited-name conflict pass 4.0 s, type checking 1.2 s, the collector
+  marking eight workers' allocations at once 5.6 s. On one job the 34
+  analyses are 17.1 s of samples, 3.9 s of them the gather, so a document
+  averages 0.39 s: no one file is a straggler that would bound the pool the
   way the gather does. `BenchmarkAnalyzeSplitPerDocument` in
-  `internal/stressmodel` analyzes the split's six files over one index with
-  the three audits left out, the pool's own speedup: 3.65 s → 0.94 s at 512
-  satellites on one worker versus eight, the largest file about a quarter of
+  `tests/stressmodel` analyzes the split's six files over one index with
+  the three audits left out, the pool's own speedup: 3.91 s → 1.09 s at 512
+  satellites on one job versus eight, the largest file about a quarter of
   the work. `BenchmarkValidateSplit`, the whole load audits included, runs
-  5.77 s → 1.67 s (10.3 s → 2.77 s before the batch gather).
+  6.30 s → 2.14 s.
 
 **What the gather cost before.** The three audits used to gather every
 workspace document once per document analyzed, each analysis in a model of
 its own, so the gather was done 34 times over 34 documents: the 34-file split
-took 129 s on one worker and 30.9 s on eight (658% CPU, 39.1 GiB allocated,
+took 129 s on one job and 30.9 s on eight (658% CPU, 39.1 GiB allocated,
 7.24 GB peak RSS for eight workspace-wide memoizations held at once), against
-18.5 s for the single file. The profile of that run spent 75% of its samples
-in `OOSEMMethodPass`, `IdentityMetadataPass` and `MOSAPass`; the per-document
-work was about 10 s of 128 s on one worker. The per-document gather cache
-(`passes.Gathers`) removed the quadratic term for the editor path, and
+18.5 s for the single file of that build. The profile of that run spent 75% of
+its samples in `OOSEMMethodPass`, `IdentityMetadataPass` and `MOSAPass`; the
+per-document work was about 10 s of 128 s on one job. The per-document gather
+cache (`passes.Gathers`) removed the quadratic term for the editor path, and
 handing one such gather to a batch's workers removed it for the command line.
 
 ## Editing: what an editor pays per keystroke

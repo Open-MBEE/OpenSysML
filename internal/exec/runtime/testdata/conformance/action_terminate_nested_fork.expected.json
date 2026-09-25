@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"inner": {"type": "Integer", "value": 1},
+		"outer": {"type": "Integer", "value": 2},
+		"after": {"type": "Integer", "value": 3}
+	}
+}

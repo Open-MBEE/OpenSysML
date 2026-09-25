@@ -142,11 +142,13 @@ with the block's stable anchor — a destination like
 a root target links to the file alone. The file name is deterministic: the
 target document's fully qualified name with `::` replaced by `-` and any
 byte outside ASCII letters, digits and `_` escaped as `.XX` (uppercase hex),
-plus `.md`. Render the whole set with `-render-documents <dir>` so the links
-resolve on disk. Rendering a single document that references another still
-succeeds — the link points at the expected file name of the unrendered
-target, and it dangles until that document is rendered into the same
-directory. An unknown target is a typed planning error, and a target usage
+plus `.md`; where two names would meet in one file (see
+[Multi-document sets](outputs.md#multi-document-sets)) the link carries the
+tagged name the set writes. Render the whole set with `-render-documents
+<dir>` so the links resolve on disk. Rendering a single document that
+references another still succeeds — the link points at the file name the set
+gives the unrendered target, and it dangles until that document is rendered
+into the same directory. An unknown target is a typed planning error, and a target usage
 typed by more than one document definition is an ambiguous-target error;
 both carry the reference's source location.
 
@@ -198,7 +200,11 @@ non-empty link destination.
 Computed columns (`Column(name, expression)`) feed column runs like any
 projected property, so a query can compute both the text and the style or
 target it renders with — the `styleColumn`/`targetColumn` example above uses
-computed `style` and `url` columns.
+computed `style` and `url` columns. A `RelatedColumn(...)` cell is
+multi-valued — a table renders its elements comma-separated, each an element
+value with its `data-element` link in HTML, as any multi-valued projection is
+rendered — and its `count` or `any` form is a scalar a table can group by
+([Traceability matrix](query-cookbook.md#traceability-matrix)).
 
 Column names are checked against the query's statically-known projection at
 planning time; a projection only known at evaluation (e.g. a parameter-driven
@@ -221,7 +227,6 @@ part masses : Table {
 ```
 
 ```markdown
-<!-- caption -->
 *All subsystems by mass*
 
 | name | mass |
@@ -261,7 +266,6 @@ part zones : Table {
 ```
 
 ```markdown
-<!-- caption -->
 *Subsystems grouped by zone*
 
 **zone: support**
@@ -400,7 +404,6 @@ renders as:
 ```markdown
 The mirror's mass scales as $m \propto D^{2.5}_{\text{eff}}$ and each \$ of budget buys about 1 cm^2 of aperture.
 
-<!-- caption -->
 *Collecting area of a circular mirror*
 
 $$
@@ -492,7 +495,7 @@ config:
 ---
 %% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
-  subgraph n0 ["Observatory::imagingChain<br>«part»"]
+  subgraph n0 ["imagingChain<br>«part»"]
     direction LR
     n1["camera : Camera<br>«part»"]
     n2["recorder : Recorder<br>«part»"]
@@ -519,7 +522,7 @@ digraph "Observatory::interconnectView" {
   graph [rankdir=LR];
   node [shape=box];
   subgraph "cluster_n0" {
-    label=<<b>Observatory::imagingChain</b><br/><font point-size="10">«part»</font>>;
+    label=<<b>imagingChain</b><br/><font point-size="10">«part»</font>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
     "n1" [label=<<b>camera : Camera</b><br/><font point-size="10">«part»</font>>];
     "n2" [label=<<b>recorder : Recorder</b><br/><font point-size="10">«part»</font>>];
@@ -554,7 +557,7 @@ PlantUML jar is needed to write it:
 </style>
 skinparam wrapWidth 300
 hide stereotype
-rectangle "**Observatory::imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
+rectangle "**imagingChain**\n<size:10>//«part»//</size>" as n0 <<part>> <<usage>> {
   rectangle "**camera : Camera**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
   rectangle "**recorder : Recorder**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
 }
@@ -573,6 +576,38 @@ element's structure (Element / Kind / Type / Declared in) rather than a
 Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
 with.
 
+## Images
+
+An `Image` shows an image file under an optional caption:
+
+```sysml
+part plate : Image {
+	attribute redefines location = "images/mark.png";
+	attribute redefines caption = "Plate 1: the survey mark";
+	attribute redefines alt = "a brass survey mark";
+}
+```
+
+`location` is required and cannot be blank: it is a path relative to the
+document's source file — resolved the same way a relative link or stylesheet
+is, against the output file's directory — or an `http(s)` or `file` URL. The
+block above renders as:
+
+```markdown
+*Plate 1: the survey mark*
+
+![a brass survey mark](images/mark.png)
+```
+
+Markdown writes the CommonMark image of the location under its caption; HTML a
+`<figure class="sysml-image">` whose `<img>` carries the location verbatim,
+with `alt` the declared text alternative (the caption when none is declared)
+and the caption its `<figcaption>`; a PDF draws the file — a missing local
+location is a typed `missing-image` error naming the block, while an
+`http(s)` location is left for the engine to fetch. An `Image` is a content
+block like a `Table` or `Formula`: it takes no query, nests nothing, and a
+named one is a `Ref` target.
+
 ## Binding queries to blocks
 
 Every query-carrying block uses the same form:
@@ -587,8 +622,9 @@ calc rows : SubsystemTable {
 Bindings are validated against the query's compiled signature at planning
 time: an unknown parameter, a duplicate, a missing one without a usable
 default, or a type or multiplicity mismatch is a typed error before anything
-runs. A binding's value is an element name or a literal; the engine does not
-evaluate arbitrary default expressions.
+runs. A binding's value is an element name (`telescope`, or
+`telescope.optics.mirror` for a nested usage, in dot notation) or a literal;
+the engine does not evaluate arbitrary default expressions.
 
 ## Escaping — write content freely
 

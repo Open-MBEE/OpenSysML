@@ -3,14 +3,14 @@
 This directory is the language-independent contract between `sysml-grpc` and its clients. A
 scenario states one call and what the service must answer; nothing here names a transport, a
 programming language, or a client's object model. The reference runner is
-[`cmd/conformance`](../cmd/conformance), which builds and starts the service itself:
+[`tools/cmd/conformance`](../tools/cmd/conformance), which builds and starts the service itself:
 
 ```bash
 make conformance                       # the CI gate; writes bin/conformance-report.json and .xml
-go run ./cmd/conformance -v             # print each scenario's normalized response
-go run ./cmd/conformance -run evaluate  # only the scenarios whose id matches
-go run ./cmd/conformance -binary ./bin/sysml-grpc   # test a binary already built
-go run ./cmd/conformance -protocols grpc,connect,connect-json
+go run -C tools ./cmd/conformance -v             # print each scenario's normalized response
+go run -C tools ./cmd/conformance -run evaluate  # only the scenarios whose id matches
+go run -C tools ./cmd/conformance -binary bin/sysml-grpc  # test a binary already built
+go run -C tools ./cmd/conformance -protocols grpc,connect,connect-json
 ```
 
 `-report <file>` writes the machine-readable summary (`-` writes it to stdout). `-junit <file>`
@@ -161,7 +161,7 @@ is exactly the default list minus those names, and requires both fallback expect
 under gRPC, Connect and Connect-JSON. The exact default `GetServerInfo` scenario is replaced in that
 configuration by this stronger set comparison.
 
-Withholding is test-only. `cmd/conformance` passes
+Withholding is test-only. `tools/cmd/conformance` passes
 `OPENSYSML_TEST_WITHHOLD_CAPABILITIES` to the child process it starts; normal startup strips no
 capability, and the variable is not a supported service configuration interface.
 
@@ -170,7 +170,7 @@ capability, and the variable is not a supported service configuration interface.
 A suite that passes against a broken service is worse than none, so what the scenarios catch is
 verified rather than assumed:
 
-- `cmd/conformance`'s own tests pin the comparison rules — tolerance, list length, default
+- `tools/cmd/conformance`'s own tests pin the comparison rules — tolerance, list length, default
   handling, path lookup, id labelling, status naming — with cases that must fail as well as
   cases that must pass.
 - `TestEveryRPCIsCovered` fails if an RPC of the service is reached by no scenario, and
@@ -181,7 +181,7 @@ verified rather than assumed:
 
 ## Porting a runner to another language
 
-The scenarios are the specification and `cmd/conformance` is one reading of it. A runner in
+The scenarios are the specification and `tools/cmd/conformance` is one reading of it. A runner in
 another language needs: protobuf-JSON decoding of `request` into the RPC's request message,
 the normalization table above, the comparison rules above, capability gating from
 `GetServerInfo`, and the same report shape. Nothing else in this directory is gRPC-specific:

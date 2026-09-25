@@ -1,0 +1,15 @@
+package org.openmbee.opensysml.syson.run;
+
+public enum RunOperation {
+    INSTANTIATE,
+    EXECUTE_ACTION,
+    EXPLORE_ACTION,
+    EXECUTE_STATE,
+    EXPLORE_STATE,
+    VERIFY_CONSTRAINT,
+    VERIFY_REQUIREMENT,
+    VERIFY_SATISFACTION,
+    EVALUATE_CALC,
+    RUN_ANALYSIS,
+    VALIDATE_INSTANCE
+}

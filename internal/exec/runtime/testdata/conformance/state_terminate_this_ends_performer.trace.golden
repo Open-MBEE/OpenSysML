@@ -1,0 +1,14 @@
+materialize: Worker #1
+start: exhibited state machine cycle of #1
+materialize: cycle #2
+enter: busy
+run: exhibited state machine cycle of #1
+do: busy
+stmt action body
+  stmt assign count
+    eval literal 1 -> 1
+do: busy
+  stmt terminate
+    eval feature this -> instance#1
+terminate: Worker #1
+terminated with occurrence: cycle (do behavior abandoned: busy)

@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Shapes_Profile="http://www.example.org/schemas/Shapes_Profile.xmi">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_shapes" name="Shapes Profile" URI="http://www.example.org/schemas/Shapes_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_shape_mod" name="typeModifier">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shape_mod_base" name="base_Element" association="_ext_shape_mod">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shape_mod_tag" name="typeModifier">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_shape_mod" memberEnd="_st_shape_mod_base _ext_shape_mod_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_shape_mod_end" name="extension_typeModifier" type="_st_shape_mod" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Signals">
+      <packagedElement xmi:type="uml:Class" xmi:id="_actuator" name="Actuator"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_filter" name="Filter">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_samples" name="samples">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_row" name="row">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_grid" name="grid">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_rect" name="rect">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_history" name="history">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_history_lo" value="0"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_history_hi" value="*"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_stray" name="stray">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralString" xmi:id="_stray_lo" value="n"/>
+          <upperValue xmi:type="uml:LiteralString" xmi:id="_stray_hi" value="n"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_taps" name="taps">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_taps_lo" value="1"/>
+          <upperValue xmi:type="uml:LiteralInteger" xmi:id="_taps_hi" value="1"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_count" name="count">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_blank" name="blank">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_odd" name="odd">
+          <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_drive" name="drive" type="_actuator" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_probe" name="probe" type="_sensor" aggregation="composite"/>
+        <ownedOperation xmi:type="uml:Operation" xmi:id="_op_smooth" name="smooth">
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_par_values" name="values" direction="in">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_par_window" name="window" direction="in">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_par_handle" name="handle" direction="in">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+          <ownedParameter xmi:type="uml:Parameter" xmi:id="_par_result" name="result" direction="return">
+            <type href="http://www.omg.org/spec/UML/20161101/PrimitiveTypes.xmi#Real"/>
+          </ownedParameter>
+        </ownedOperation>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_a_actuator" base_Class="_actuator"/>
+  <sysml:Block xmi:id="_a_sensor" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_a_filter" base_Class="_filter"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_samples" base_Element="_samples" typeModifier="[]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_row" base_Element="_row" typeModifier="[3]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_grid" base_Element="_grid" typeModifier="[][]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_rect" base_Element="_rect" typeModifier="[2*3]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_history" base_Element="_history" typeModifier="[]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_stray" base_Element="_stray" typeModifier="[]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_taps" base_Element="_taps" typeModifier="[4]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_level" base_Element="_level" typeModifier="*"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_blank" base_Element="_blank" typeModifier=""/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_odd" base_Element="_odd" typeModifier="[2x]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_drive" base_Element="_drive" typeModifier="*"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_probe" base_Element="_probe" typeModifier="&amp;"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_values" base_Element="_par_values" typeModifier="[]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_window" base_Element="_par_window" typeModifier="[4]"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_handle" base_Element="_par_handle" typeModifier="*"/>
+  <MagicDraw_Profile:typeModifier xmi:id="_tm_result" base_Element="_par_result" typeModifier="[]"/>
+  <Shapes_Profile:typeModifier xmi:id="_tm_count" base_Element="_count" typeModifier="[]"/>
+</xmi:XMI>

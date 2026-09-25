@@ -26,7 +26,7 @@ interval, quantified. Nothing is left *open*.
   (`git worktree add ../opensysml-v0.4.2 v0.4.2`), so `bin/sysml` of each is
   its own binary.
 - Every package that declares a benchmark on both revisions —
-  `internal/repl`, `internal/core/model`, `internal/grpc` — run on both with
+  `internal/frontend/repl`, `internal/workspace/model`, `internal/frontend/grpc` — run on both with
   `go test ./<pkg> -run '^$' -bench . -benchmem -count 6` and compared with
   `benchstat`. A movement is reported when `p ≤ 0.05` and the change exceeds
   about 5%; smaller significant movements are listed as noise. Packages whose
@@ -47,19 +47,19 @@ interval, quantified. Nothing is left *open*.
 
 ### Workloads that are not comparable
 
-- `internal/perfbench`, `internal/core/libs`, `internal/lsp`,
-  `internal/core/parser`, `internal/core/runtime` and `internal/core/migrate`
+- `internal/perfbench`, `internal/workspace/libs`, `internal/frontend/lsp`,
+  `internal/syntax/parser`, `internal/exec/runtime` and `internal/translate/migrate`
   declare benchmarks only on `main`; 0.4.2 has none of them. They are recorded
   below as reference figures for the next comparison. Where a fix here moved
   one of them, the as-found and fixed figures are both given.
-- `internal/repl`'s `RunStateMachine`, `RunCalc` and `Instantiate` exist on
+- `internal/frontend/repl`'s `RunStateMachine`, `RunCalc` and `Instantiate` exist on
   both revisions but the runtime they time was rebuilt between 0.4.2 and 0.5
   (the 0.5 record's findings 1–3 cover the part after 0.4.3); they are
   reported, and the movements are those fixes, not this one's.
 - No committed baseline file was regenerated. The full suite, with the
   training and pilot corpora required, passes on `main+fix`.
 
-## Benchmarks: `internal/repl`
+## Benchmarks: `internal/frontend/repl`
 
 | figure | 0.4.2 | main | main+fix | main+fix vs 0.4.2 |
 | ------ | ----- | ---- | -------- | ----------------- |
@@ -81,7 +81,7 @@ walking the whole type graph (its finding 3). The +128% bytes per
 instantiated object are the library features an object now carries (its
 finding 2). None of this is touched here.
 
-## Benchmarks: `internal/core/model` and `internal/grpc`
+## Benchmarks: `internal/workspace/model` and `internal/frontend/grpc`
 
 | benchmark | 0.4.2 | main | main+fix | main+fix vs 0.4.2 |
 | --------- | ----- | ---- | -------- | ----------------- |
@@ -173,8 +173,8 @@ went down with the fixes (`LoadModel` B/op, −8%).
 | empty-session load (`LoadModel/elements=0`) | 170 µs | 200 µs |
 
 Start-up is 1.6 ms slower per process. The growth is the binary: `sysml` now
-links `internal/grpc` and with it the protobuf and gRPC stacks, the Flexo
-sync client, `internal/codegen` and `internal/edit`, none of which 0.4.2
+links `internal/frontend/grpc` and with it the protobuf and gRPC stacks, the Flexo
+sync client, `internal/translate/codegen` and `internal/edit`, none of which 0.4.2
 linked, so it maps 23 MiB more and runs 1.3 ms more package initialisers.
 This is the same finding the 0.5 record made against 0.4.3 and is
 **explained**.
@@ -253,7 +253,7 @@ contributor; the names two contributors both supply are found by walking
 every contributor but the largest (a name only the largest supplies is
 reached once and cannot conflict) and counting the others; both answers are
 the ones the merged map gave, in the same contributor order, and the
-diagnostics are unchanged (`TestW9C*` in `internal/core/passes/w9c_rules_test.go` covers the library-base,
+diagnostics are unchanged (`TestW9C*` in `internal/check/passes/w9c_rules_test.go` covers the library-base,
 user-supertype, inherited-through-feature, specializing-own-name and
 inherited-short-name cases, warning and silent alike). The pass is 2.9% of the fixed load profile;
 `LoadModel` allocates 8% fewer bytes than 0.4.2 and runs +4–8% instead of
@@ -277,7 +277,7 @@ either way. What remains of it is `FeatureTypeSet` per feature (finding 3).
 After the fixes, `LoadModel` is +4% / +6% / +8% at 250 / 1 000 / 4 000
 elements against 0.4.2, `AnalyseResolved` +28% (174 µs on 631), and the
 validation slope of the whole binary is level at 12 000 elements.
-`internal/core/passes` gained sixteen rule files in the interval: annotation
+`internal/check/passes` gained sixteen rule files in the interval: annotation
 ownership, conjugation, control nodes, end features and end multiplicities,
 enumeration bodies, feature declarations, feature-value overriding, identity
 metadata, invocations, OOSEM methods, return parameters, send actions, and
@@ -363,17 +363,17 @@ git fetch --tags
 git worktree add ../opensysml-v0.4.2 v0.4.2
 (cd ../opensysml-v0.4.2 && make build)
 make build
-for pkg in internal/repl internal/core/model internal/grpc; do
+for pkg in internal/frontend/repl internal/workspace/model internal/frontend/grpc; do
   (cd ../opensysml-v0.4.2 && go test ./$pkg -run '^$' -bench . -benchmem -count 6) > old.$pkg.txt
   go test ./$pkg -run '^$' -bench . -benchmem -count 6 > new.$pkg.txt
   benchstat old.$pkg.txt new.$pkg.txt
 done
-for pkg in internal/perfbench internal/core/libs internal/lsp internal/core/runtime internal/core/migrate; do
+for pkg in internal/perfbench internal/workspace/libs internal/frontend/lsp internal/exec/runtime internal/translate/migrate; do
   go test ./$pkg -run '^$' -bench . -benchmem -count 6 > new.$pkg.txt
 done
-OPENSYSML_BENCH_MODEL=examples/pilot-corpora/sysml-examples go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem -count 6
-go test ./internal/repl -run '^$' -bench 'LoadModel/elements=4000' -benchtime 10x -cpuprofile load.cpu -memprofile load.mem
-go test ./internal/core/model -run '^$' -bench AnalyseResolved -cpuprofile ar.cpu
+OPENSYSML_BENCH_MODEL=examples/pilot-corpora/sysml-examples go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem -count 6
+go test ./internal/frontend/repl -run '^$' -bench 'LoadModel/elements=4000' -benchtime 10x -cpuprofile load.cpu -memprofile load.mem
+go test ./internal/workspace/model -run '^$' -bench AnalyseResolved -cpuprofile ar.cpu
 ../opensysml-v0.4.2/bin/sysml -validate gen12000.sysml
 bin/sysml -validate gen12000.sysml
 ```

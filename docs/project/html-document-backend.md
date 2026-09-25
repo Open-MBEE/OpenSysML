@@ -1,22 +1,23 @@
 # HTML document backend — design
 
-Status: **implemented, except the PDF migration** — `docrender.HTML`, `-doc-form html`, the
-stylesheet options and linked HTML sets ship; the PDF engines still read the Markdown-derived
-HTML of `internal/docpdf` (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
-for the user-facing surface). This page records the design agreed for rendering documents as HTML
+Status: **implemented** — `docrender.HTML`, `-doc-form html`, the stylesheet options and linked
+HTML sets ship, and the PDF engines that read HTML are handed this backend's page with the PDF
+backend's print stylesheet (see [Rendering a document as HTML](../reference/cli.md#rendering-a-document-as-html)
+and [Rendering a document as PDF](../reference/cli.md#rendering-a-document-as-pdf) for the
+user-facing surface). This page records the design agreed for rendering documents as HTML
 directly from the document IR, the class and attribute vocabulary that makes the output styleable,
-and what the change does to the existing PDF backend.
+and what the change did to the PDF backend.
 
 ## The problem
 
-The problem this page set out to solve, as it stood: `-doc-form` wrote Markdown or PDF, and there
+The problem this page set out to solve, as it stood before either step landed: `-doc-form` wrote Markdown or PDF, and there
 was no HTML form at all. HTML did exist inside
 the toolchain, but only as an intermediate for the PDF converters that read HTML — WeasyPrint
-and Prince — and it is built the long way round: `internal/docpdf/markdown.go` re-parses
+and Prince — and it was built the long way round: `internal/doc/docpdf/markdown.go` re-parsed
 docrender's Markdown back into flat presentation blocks (heading, paragraph, caption, table,
-list, mermaid, anchor) and `internal/docpdf/html.go` writes those blocks as a page with an
-inline print stylesheet. That intermediate was a deliberate choice — it keeps the PDF layer
-independent of the document IR — and it has two consequences.
+list, mermaid, anchor) and `internal/doc/docpdf/html.go` wrote those blocks as a page with an
+inline print stylesheet. That intermediate was a deliberate choice — it kept the PDF layer
+independent of the document IR — and it had two consequences.
 
 The first is that the markup carries no model information. Its only hooks are `title-page`,
 `nav.toc` with a flat `toc-2`/`toc-3` depth class, `p.caption`, `span.section-number`,
@@ -28,17 +29,17 @@ kind behind a row, whether a link points at a URL or at another content node —
 the Markdown boundary. Markdown is a lossy encoding of the IR, so no amount of work inside
 `docpdf` can recover it.
 
-The second is that the intermediate has to reconstruct what it lost, and that shows. A caption
-is a paragraph that happens to be one emphasis run, so docrender writes an HTML comment marker
-(`<!-- caption -->`) ahead of it and docpdf recognizes the marker; the pandoc path rewrites the
-marked line as `[…]{.caption}` so the Markdown reader styles it the same way. Table cells fold
-newlines to a literal `<br>` that the block parser has to split on and preserve, distinguishing
-it from the escaped metacharacters around it. None of this is wrong, but all of it is a
+The second was that the intermediate had to reconstruct what it lost, and that showed. A caption
+is a paragraph that happens to be one emphasis run, so docrender wrote an HTML comment marker
+(`<!-- caption -->`) ahead of it and docpdf recognized the marker; the pandoc path rewrote the
+marked line as `[…]{.caption}` so the Markdown reader styled it the same way. Table cells fold
+newlines to a literal `<br>` that the block parser had to split on and preserve, distinguishing
+it from the escaped metacharacters around it. None of this was wrong, but all of it was a
 consequence of going through Markdown twice.
 
 ## What the IR already carries
 
-Nothing new has to be computed. `internal/core/docir` is a backend-agnostic tree with
+Nothing new has to be computed. `internal/doc/docir` is a backend-agnostic tree with
 provenance on every node, and it already holds everything a stylesheet would want to select on:
 
 | Available on the IR | Where |
@@ -193,7 +194,7 @@ Decisions, each with its reason:
   keep the class namespace small enough to document in a table like the one above.
 - **The kind vocabulary is the symbol table's, verbatim.** `data-element-kind` writes
   `symbols.SymbolKind.String()` — `partDef`, `requirementUsage`, `stateUsage` — rather than
-  inventing presentation names. The precedent is `internal/core/highlight`, which emits the
+  inventing presentation names. The precedent is `internal/semantic/highlight`, which emits the
   LSP's standardized token names for exactly this reason: one vocabulary, defined elsewhere,
   that a consumer can look up.
 - **Anchors are the IR's stable identifiers, not positional numbers.** Sections get
@@ -227,7 +228,13 @@ that source in `<pre class="mermaid">` inside the `<figure>` by default — it i
 Mermaid's own client-side renderer looks for, so a site that already loads Mermaid renders it
 with no further work, and a site that does not shows the source rather than nothing. A
 standalone page asked to with `-html-mermaid` loads that renderer itself, from the pinned
-jsDelivr release or a URL the caller names. When pre-rendered images are supplied, the `<pre>`
+jsDelivr release or a URL the caller names, and configures it with the text and edge limits
+its largest chart fits under, since Mermaid's defaults refuse a large diagram of a large model
+rather than draw it. Those limits stop at a ceiling of twenty times the defaults
+(`view.MermaidTextCeiling`, `view.MermaidEdgeCeiling`), and a chart past the ceiling is refused
+by every backend with a typed `oversized-diagram` error naming it and its size, so a model of
+any size bounds the work a browser or `mmdc` is asked for; such a diagram is drawn with
+`-diagram-form dot` or `plantuml`. When pre-rendered images are supplied, the `<pre>`
 is replaced by `<img>` with the caption as its `alt` text; that is the path the PDF converters
 use, since no print engine runs Mermaid. Table-kind views keep rendering as a table, as they do
 in Markdown.
@@ -283,13 +290,16 @@ document. Class names are stable and unprefixed by depth: nesting expresses dept
 
 The flags follow from that:
 
-- **`-html-theme <name>`** layers one of the bundled themes (`modern`, `print`, `report`;
-  `default` names the default sheet alone) after the default sheet, in the same `<style>` and
-  the same `opensysml` layer. A theme is written against the `--sysml-*` tokens and the class
-  vocabulary and scopes every selector under `.sysml-document`, so it changes the look without
-  changing the cascade contract: unlayered reader CSS still wins over default and theme alike.
-  The themes live in `docrender/themes/*.css` and are embedded; the file names are the theme
-  names, so adding a theme is adding a file.
+- **`-html-theme <name>`** layers one of the bundled themes (`acm`, `ieee`, `modern`, `nasa`,
+  `print`, `report`; `default` names the default sheet alone) after the default sheet, in the
+  same `<style>` and the same `opensysml` layer. A theme is written against the `--sysml-*`
+  tokens and the class vocabulary and scopes every selector under `.sysml-document`, so it
+  changes the look without changing the cascade contract: unlayered reader CSS still wins over
+  default and theme alike. The themes live in `docrender/themes/*.css` and are embedded; the
+  file names are the theme names, so adding a theme is adding a file. A theme may bring a
+  print companion, `themes/<name>.print.css`, which is no theme of its own — `Themes()` leaves
+  it out and `ThemeStylesheet` refuses its name — but is what the PDF backend lays over its
+  print sheet for that theme (§ *Bundled themes* and § *What this does to the PDF backend*).
 - **`-html-css <file-or-url>`**, repeatable. A file's contents are inlined, so the artifact
   stays self-contained; a URL becomes a `<link>` for a site that serves its own. Each is
   emitted after the default, unlayered, in the order given.
@@ -310,6 +320,26 @@ The flags follow from that:
 The print stylesheet the PDF path needs — `@page` margins, page counters, page breaks — stays
 with the PDF backend, where its `@page` rules belong, and is layered the same way so
 `-html-css` works for PDF too.
+
+### Bundled themes
+
+`modern`, `print` and `report` are generic looks. `nasa`, `ieee` and `acm` follow a publishing
+convention, and each sets on screen the faces and point sizes it sets on paper, so a page and
+its PDF agree. All three are black on white (`--sysml-text`, `--sysml-accent` and
+`--sysml-rule` black, `--sysml-surface` transparent), rule their tables with thin horizontal
+lines only, title tables above and caption figures below, set code in Courier or Liberation
+Mono, and leave the measure unconstrained on paper (the print sheet's `--sysml-measure: none`
+stands, since no companion sets a measure).
+
+| Theme | Convention and sources | Verified values the theme sets | Choices where the convention is silent |
+|---|---|---|---|
+| `nasa` | NASA STI Report Series: *NASA Publications Guide for Authors* (NASA/SP-2005-7602, NTRS 20050189209, § 4.3.1.7 *Mechanics and Layout*) and *NASA Scientific and Technical Information Standards* (NTRS 20060049392, § 1.3.1.2 *Recommendations for Font Usage*, § 1.3.1.4 *Page Numbering*, the figure and table chapters), both citing NPR 2200.2 and ANSI/NISO Z39.18 for covers and title pages | Serif text with sans-serif titles, figure text, tables and graphics; standard cross-platform faces (Times, Arial, Courier); body 11–12pt, 12pt highly recommended, never below 10pt (the theme sets 12pt); 8½ × 11 in page; figures centred with the caption centred below; captions in the same type size as the text; front matter in lowercase roman numerals with the title page as unnumbered page i, body in arabic numerals; no heading left alone at a page foot | Heading sizes live in the STI Word templates, not the text: bold sans 14/12/12pt for the three section levels, numbered and left-aligned, is a template-consistent choice. 1 in margins, line height 1.25, a 24pt bold sans title on the existing title-page block, the page number centred in the bottom margin at body size. The roman front matter is realised with named pages: the title page is `cover` (no number) and the contents are `front`; both advance a `front` counter printed in `lower-roman` (so the contents open on page ii; without a title page the bare title heading shares the contents' page i) and leave the `page` counter at 0, so the first body page — a portrait or a landscape one, whether it opens with a section, a wide table or running text — prints 1 |
+| `ieee` | IEEE Transactions and Journals: *IEEE Editorial Style Manual for Authors* and IEEE PES *Preparation of a Formatted Transactions/Journal Paper*, which states the sizes | 8½ × 11 in page; margins about 0.67 in (16.9 mm) on every side; proportional serif (Times) throughout; 10pt body and equations; 8pt captions, table text, footnotes and references; 24pt title; primary headings centred in small caps, subheadings italic; full justification; 1 pica paragraph indent | Section heads keep the renderer's arabic numbers (see the limitations); line height 1.2; the existing title-page block with the 24pt title; the page number centred in the bottom margin at 8pt |
+| `acm` | ACM Primary Article Template (`acmart`) and the [ACM proceedings template page](https://www.acm.org/publications/proceedings-template) | Libertine family — `"Libertinus Serif", "Linux Libertine O", "Linux Libertine"` with `"Times New Roman", "Liberation Serif", serif` after it; sans `"Libertinus Sans", "Linux Biolinum O", "Linux Biolinum"` with Arial and Liberation Sans after; 10pt body; letter page; numbered bold sans headings; captions in the body face at 9pt; single-column `acmsmall` and `manuscript` styles exist, so one column is a legitimate ACM layout | 1 in margins, line height 1.2, a 10pt paragraph indent, a 17pt bold sans title, 9pt tables and page numbers |
+
+The Libertine fonts `acm` names are installed on few machines; where they are absent the stack
+falls through to Times metrics (Liberation Serif on a Linux box), which is the documented
+fallback, not an error.
 
 ## Surfaces
 
@@ -336,24 +366,81 @@ with the PDF backend, where its `@page` rules belong, and is layered the same wa
 ## What this does to the PDF backend
 
 Once `docrender` writes HTML from the IR, the intermediate in `docpdf` is redundant and its
-losses are unnecessary. The HTML-input converters (WeasyPrint, Prince) are handed the backend's
-HTML with the print stylesheet, and the Markdown-input converter (pandoc) keeps receiving
-Markdown, so all three engines keep working. That deletes `internal/docpdf/markdown.go`,
-`html.go` and `inline.go` — the block parser, the page writer and the Markdown-inline-to-HTML
-translator — and with them the caption marker convention in `docrender.Markdown`, the
-`[…]{.caption}` rewrite for pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it
-is actually for: locating and running external tools, rendering diagrams with `mmdc`, and the
-typed errors for a missing or failing one.
+losses are unnecessary. `docpdf.Render` takes the evaluated `docir.Document`; the HTML-input
+converters (WeasyPrint, Prince) are handed the backend's page with the print stylesheet, and
+the Markdown-input converter (pandoc) keeps receiving `docrender.Markdown`'s text, so all
+three engines keep working. `internal/doc/docpdf/markdown.go`, `html.go` and `inline.go` — the
+block parser, the page writer and the Markdown-inline-to-HTML translator — are gone, and with
+them the caption marker convention in `docrender.Markdown`, the `[…]{.caption}` rewrite for
+pandoc, and the `<br>` fold in table cells. `docpdf` keeps what it is actually for: locating
+and running external tools, drawing diagrams with `mmdc`, typesetting formulas with KaTeX, and
+the typed errors for a missing or failing one.
 
-The caption marker is the one deletion visible in existing output: it is an HTML comment in
-rendered Markdown, so removing it changes Markdown goldens without changing how any Markdown
-renderer displays them. Whether pandoc keeps needing the caption span decides whether the
-marker can go entirely or has to stay for that engine alone; that is settled by measurement
-during the work, not here.
+What a backend may draw or typeset out of process is listed by `docrender` from the IR —
+`Diagrams` (graph-shaped diagram sources in the requested form, table-kind views excluded),
+`Formulas` (distinct math, keyed as the HTML backend writes it) and `Captions` (table, diagram
+and formula captions in document order) — and handed back through `HTMLOptions.DiagramImages`
+and `HTMLOptions.Math`, the one seam where a diagram block becomes its rasterized image and a
+formula its typeset HTML. Rasterizers for other diagram forms plug into that seam beside
+`mermaid.go` without touching the renderer.
+
+The print stylesheet is `internal/doc/docpdf/print.css`: `@page` geometry, the page counter, print
+fonts and breaks, and the print treatment of the `sysml-*` classes, in `@layer opensysml-print`
+declared after `@layer opensysml`. Its default faces name the conventional print families first
+and their metric-compatible free equivalents next — `"Times New Roman", Times, "Liberation Serif",
+"Nimbus Roman", serif` for text, `Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif`
+for headings, `"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace` for code
+— rather than the bare generic family, because fontconfig resolves a bare `serif` to DejaVu Serif
+on most Linux machines, a face some 15 % wider and taller than Times at the same nominal size,
+while the Times-metric Liberation Serif installed beside it is chosen only when named. The
+screen sheet keeps `system-ui`: a system face is the deliberate default for a page.
+
+A theme sits in `opensysml` under the print sheet, so on its own it cannot move the page: the
+print sheet's `--sysml-font-size`, faces and heading scale win over the theme's. A theme that
+means to govern paper therefore carries a print companion, `themes/<name>.print.css`, one block
+of `@layer opensysml-print-theme`, which the print sheet declares after its own layer
+(`@layer opensysml-print, opensysml-print-theme;`) and which `docpdf.htmlOptions` inlines right
+after the print sheet through `docrender.ThemePrintStylesheet`. A companion writes `:root` page
+tokens (`--sysml-page-size`, `--sysml-page-margin`, the page-number font tokens), `@page` rules
+and page-margin boxes, and `.sysml-document` tokens — so it governs page geometry, typography,
+captions, tables, heading scale and the footer — and nothing else. The cascade order for an
+HTML-input engine is
+
+```text
+default sheet + theme (opensysml) < print sheet (opensysml-print) < theme's companion (opensysml-print-theme) < KaTeX < reader's -html-css, unlayered
+```
+
+so the override contract of § *Styling and overriding it* holds for PDF byte for byte,
+`-html-theme` means for PDF what it means for HTML down to the page, and `-html-no-default-css`
+leaves the default sheet, the print sheet and the companion out together. `print`, `report`,
+`nasa`, `ieee` and `acm` carry companions; `modern` does not, being a screen look. Pandoc's own
+HTML carries pandoc's structure rather than the backend's classes, so the pandoc engine keeps a
+stylesheet of its own (`pandoc.css`, naming the same default faces), attaches `-html-css` sheets
+in its page's head after it, and rejects `-html-theme` and `-html-no-default-css` with a typed
+error.
+
+A sheet's relative `url()` and `@import` references resolve for PDF as they do for HTML:
+against the output's own directory. The converters run in a temporary working directory, so
+the PDF backend hands each the PDF's directory as the page's base — WeasyPrint's `--base-url`,
+Prince's `--baseurl`, pandoc's `--resource-path` with `--base-url` for the engine it drives —
+and references its own generated files (diagram images, the KaTeX stylesheet) by absolute
+file URL so the base does not move them. A `docpdf.Render` caller names that directory in
+`Options.BaseDir`; the CLI passes the `-o` path's.
+
+The caption marker was the one deletion visible in existing output: an HTML comment in rendered
+Markdown, so removing it changed Markdown goldens by that line only, without changing how any
+Markdown renderer displays them. Measurement settled the pandoc question: pandoc has no syntax
+that tells a caption from a paragraph that happens to be emphasized, so the pandoc converter's
+generated Lua filter (the one that also swaps in the drawn diagrams and typeset formulas)
+marks a caption when an emphasized paragraph matches the next of the document's caption texts,
+in order, and the block after it is captionable — a table, a display formula, a diagram fence,
+the rendering comment a table-kind diagram opens with, or a grouped table's key ahead of its
+first subtable. An emphasized paragraph elsewhere stays body prose. Nothing of this reaches the
+Markdown output.
 
 ## Test contract
 
-- **Golden HTML** beside the existing Markdown goldens in `internal/core/docrender/testdata`,
+- **Golden HTML** beside the existing Markdown goldens in `internal/doc/docrender/testdata`,
   covering the worked example and the linked set, with the same `-update` discipline.
 - **Well-formedness**, not just golden equality: every golden is parsed with
   `golang.org/x/net/html` (already a dependency) and the tree asserted — sections nest,
@@ -375,9 +462,11 @@ during the work, not here.
   documentation.
 - **Determinism**, rendering twice and comparing bytes, including for grouped tables and
   multi-document sets.
-- **The PDF path unchanged**, per engine: the existing `docpdf` tests and the integration
-  tests against real tools must pass with the new HTML, and the PDF goldens are re-adjudicated
-  rather than blindly re-baselined.
+- **The PDF path unchanged**, per engine: the `docpdf` tests assert the prepared input each
+  converter is handed (the backend's page, or the Markdown text with its filter) and the
+  integration tests against real tools render the fixtures; the print stylesheet meets the
+  override-contract assertions the HTML tests make of the default sheet (no `style`
+  attributes, layered, `--sysml-*` tokens).
 - **CLI surface**: the new form and flags, their conflicts, and stdout versus `-o`.
 - **`docs/project/spec-compliance.md`** gains the rows for the form, the vocabulary and the
   linked HTML set, with honest status flags.
@@ -390,14 +479,15 @@ during the work, not here.
    `-html-default-css` and `-html-fragment`, the shared deliverable options, goldens and the
    test contract, and the user documentation (`docs/reference/cli.md`, `docs/manual/outputs.md`,
    `docs/manual/interfaces.md`, the guide's document pages).
-2. **The PDF migration.** Point the HTML-input engines at the backend, split the print
-   stylesheet out as the PDF backend's own, delete the block parser, page writer, inline
-   translator and — measurement permitting — the caption marker, re-adjudicate the PDF
-   goldens, and add the service form field with its Python client surface.
+2. **The PDF migration** — landed. The HTML-input engines read the backend's page, the print
+   stylesheet is the PDF backend's own `print.css`, the block parser, page writer, inline
+   translator and the caption marker are gone, and `RenderDocument` carries a `form` field
+   (`markdown` or `html`, capability `render_document_html`) with the Python client's
+   `render_document(..., form=)` behind it.
 
-Step 1 stands alone: it delivers the HTML form without touching PDF output. Step 2 is a
-refactor with no new user-visible behavior beyond the caption comment disappearing from
-Markdown.
+Step 1 stood alone: it delivered the HTML form without touching PDF output. Step 2 was a
+refactor whose user-visible changes are the caption comment leaving Markdown output and the
+HTML stylesheet options reaching `-doc-form pdf`.
 
 ## Known limitations
 
@@ -407,9 +497,37 @@ Markdown.
   browser with access to the script's URL. Pre-rendered images are available through the PDF
   path's machinery, but wiring `mmdc` into the HTML form — an `-html-diagrams svg` option — is
   deliberately out of scope and left as follow-on work.
-- **Three bundled themes, no house style.** `modern`, `print` and `report` are generic looks
-  built on the layer and the token vocabulary; an organisation's house style is still a
-  `-html-css` sheet of its own, and no theme is loaded from the network.
+- **PDF only through the CLI.** The service's `RenderDocument` offers `markdown` and `html`;
+  PDF needs the CLI's external converter toolchain and is not a service form.
+- **A PDF is one document.** `-render-documents` refuses `-doc-form pdf`, so a `Ref` into
+  another document links to that document's page file name — as the HTML and Markdown forms
+  write it — which no PDF beside it carries. In-document references are working links.
+- **Pandoc's captions are matched, not marked.** Because the Markdown carries no caption
+  marker, the pandoc engine identifies captions by text and position; an emphasized paragraph
+  whose text equals the next caption and which sits directly ahead of that caption's block
+  would be styled as the caption. The HTML-input engines carry captions as `<caption>` and
+  `<figcaption>` and have no such ambiguity.
+- **Bundled themes, no house style.** `modern`, `print` and `report` are generic looks and
+  `nasa`, `ieee` and `acm` follow published manuscript conventions, all built on the layer and
+  the token vocabulary; an organisation's house style is still a `-html-css` sheet of its own,
+  and no theme is loaded from the network.
+- **Single column for `ieee` and `acm`.** IEEE Transactions are set in two 3.5 in columns; the
+  theme does not attempt that, since migrated tables and wide diagrams do not fit a column, so
+  `ieee` is a single-column manuscript of a two-column journal. ACM's `acmsmall` and
+  `manuscript` styles are single-column, so `acm` is a layout ACM itself publishes.
+- **Roman-numbered IEEE section heads are not written.** IEEE numbers primary heads I, II, III.
+  The renderer writes each number as text in `sysml-section-number`, and the contents list
+  repeats it, so a stylesheet can neither restyle that text as roman nor replace it with a CSS
+  counter without hiding the number the markup carries; `ieee` keeps arabic numbers rather than
+  fake roman ones.
+- **NASA covers stop at the title.** A NASA report's cover and title page carry a report number,
+  authors and affiliations, the issuing centre and the SF-298 report documentation page; none of
+  these is in the document IR, so `nasa` styles the existing title-page block and invents
+  nothing. Its roman-numbered front matter covers the pages the markup can name — the title page
+  and the contents — and a document rendered without `-doc-title-page` or `-doc-toc` simply has
+  fewer of them.
+- **Libertine may be absent.** `acm` falls through to Times metrics where the Libertine fonts are
+  not installed, which is most machines.
 - **The class and token vocabulary becomes a compatibility surface.** Once readers write
   stylesheets against `sysml-` classes, `data-` attributes and `--sysml-*` properties,
   renaming one breaks them silently. It is documented in `docs/reference/` as a contract and

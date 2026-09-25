@@ -1,0 +1,39 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "rest",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l(exit) r(exit) outer(exit) work(exit) "
+				}
+			}
+		},
+		{
+			"finalState": "rest",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r(exit) l(exit) outer(exit) work(exit) "
+				}
+			}
+		},
+		{
+			"finalState": "rest",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r(exit) outer(exit) l(exit) work(exit) "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state left on one occurrence: each is exited, in which order is open"
+}

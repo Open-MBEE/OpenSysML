@@ -4,7 +4,7 @@ This page covers what the `opensysml` crate exposes, why it is blocking, and whe
 stops. To choose between the clients, see [client libraries](clients.md); for a
 task-oriented walkthrough, see [guide chapter 9](../guide/09-clients.md#from-rust). The crate's own notes on
 binary provisioning and its trust model are in
-[clients/rust/README.md](../../clients/rust/README.md).
+[client/rust/README.md](../../client/rust/README.md).
 
 Nothing is published to crates.io yet, so a consumer takes it from a path or from
 git:
@@ -186,7 +186,7 @@ and `Capabilities::has` gates the response fields the same way.
 
 `make conformance-rust` runs the language-neutral scenarios through the typed API —
 public surface only, responses read through the domain accessors — and writes the
-report shape `cmd/conformance` writes. The runner takes `-binary`, `-run`,
+report shape `tools/cmd/conformance` writes. The runner takes `-binary`, `-run`,
 `-report FILE` (or `-report -`), `-allow-skips` and `-v`. The three expected v1
 boundary skips are an RPC the typed API does not cover, a `ParseFile` naming no
 source, and a model of several documents, which the single-document parse cannot

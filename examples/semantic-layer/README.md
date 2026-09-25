@@ -164,16 +164,16 @@ The demo file is validated during test runs:
 
 ```bash
 # Parse validation
-go test ./internal/core/parser/
+go test ./internal/syntax/parser/
 
 # Resolution validation
-go test ./internal/core/resolve/
+go test ./internal/semantic/resolve/
 
 # Runtime evaluation
-go test ./internal/core/runtime/
+go test ./internal/exec/runtime/
 
 # Semantic validation
-go test ./internal/core/passes/
+go test ./internal/check/passes/
 ```
 
 All tests should pass with this demo loaded.

@@ -1,0 +1,525 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ReferenceSubsets
+    a sysml:Package ;
+    sysml:qualifiedName "ReferenceSubsets" ;
+    sysml:elementId "ReferenceSubsets" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "ReferenceSubsets" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ReferenceSubsets__Vehicle, elmt:ReferenceSubsets__vehicle_5fc1, elmt:ReferenceSubsets__Person, elmt:ReferenceSubsets__design ;
+    sysml:ownedMembership elmt:ReferenceSubsets__Vehicle_om, elmt:ReferenceSubsets__vehicle_5fc1_om, elmt:ReferenceSubsets__Person_om, elmt:ReferenceSubsets__design_om ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__Vehicle_om, elmt:ReferenceSubsets__vehicle_5fc1_om, elmt:ReferenceSubsets__Person_om, elmt:ReferenceSubsets__design_om ;
+    sysx:sourceText "package ReferenceSubsets {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"ReferenceSubsets__Vehicle\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"},{\"@id\":\"ReferenceSubsets__Person\"},{\"@id\":\"ReferenceSubsets__design\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__Vehicle_om\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1_om\"},{\"@id\":\"ReferenceSubsets__Person_om\"},{\"@id\":\"ReferenceSubsets__design_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__Vehicle_om\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1_om\"},{\"@id\":\"ReferenceSubsets__Person_om\"},{\"@id\":\"ReferenceSubsets__design_om\"}]" .
+
+elmt:ReferenceSubsets__Vehicle
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ReferenceSubsets::Vehicle" ;
+    sysml:elementId "ReferenceSubsets__Vehicle" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:owningRelationship elmt:ReferenceSubsets__Vehicle_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__Vehicle_om ;
+    sysml:declaredName "Vehicle" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    part def Vehicle;\n" .
+
+elmt:ReferenceSubsets__Vehicle_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__Vehicle_om" ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:memberElement elmt:ReferenceSubsets__Vehicle ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__Vehicle ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__Vehicle ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets .
+
+elmt:ReferenceSubsets__vehicle_5fc1
+    a sysml:PartUsage ;
+    sysml:qualifiedName "ReferenceSubsets::vehicle_c1" ;
+    sysml:elementId "ReferenceSubsets__vehicle_5fc1" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:owningRelationship elmt:ReferenceSubsets__vehicle_5fc1_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__vehicle_5fc1_om ;
+    sysml:declaredName "vehicle_c1" ;
+    sysml:type elmt:ReferenceSubsets__Vehicle ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ReferenceSubsets__vehicle_5fc1_ft0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__vehicle_5fc1_ft0 ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__vehicle_5fc1_ft0 ;
+    sysx:sourceText "    part vehicle_c1 : Vehicle;\n" .
+
+elmt:ReferenceSubsets__vehicle_5fc1_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__vehicle_5fc1_om" ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:memberElement elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets .
+
+elmt:ReferenceSubsets__Person
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "ReferenceSubsets::Person" ;
+    sysml:elementId "ReferenceSubsets__Person" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:owningRelationship elmt:ReferenceSubsets__Person_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__Person_om ;
+    sysml:declaredName "Person" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    part def Person;\n" .
+
+elmt:ReferenceSubsets__Person_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__Person_om" ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:memberElement elmt:ReferenceSubsets__Person ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__Person ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__Person ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets .
+
+elmt:ReferenceSubsets__design
+    a sysml:PartUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design" ;
+    sysml:elementId "ReferenceSubsets__design" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design_om ;
+    sysml:declaredName "design" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ReferenceSubsets__design__vehicle_5fdesign, elmt:ReferenceSubsets__design__spare, elmt:ReferenceSubsets__design__spare_20wheel, elmt:ReferenceSubsets__design__fleet, elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:ownedMembership elmt:ReferenceSubsets__design__vehicle_5fdesign_om, elmt:ReferenceSubsets__design__spare_om, elmt:ReferenceSubsets__design__spare_20wheel_om, elmt:ReferenceSubsets__design__fleet_om, elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__design__vehicle_5fdesign_om, elmt:ReferenceSubsets__design__spare_om, elmt:ReferenceSubsets__design__spare_20wheel_om, elmt:ReferenceSubsets__design__fleet_om, elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysml:ownedFeature elmt:ReferenceSubsets__design__vehicle_5fdesign, elmt:ReferenceSubsets__design__spare, elmt:ReferenceSubsets__design__spare_20wheel, elmt:ReferenceSubsets__design__fleet, elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:ownedFeatureMembership elmt:ReferenceSubsets__design__vehicle_5fdesign_om, elmt:ReferenceSubsets__design__spare_om, elmt:ReferenceSubsets__design__spare_20wheel_om, elmt:ReferenceSubsets__design__fleet_om, elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysx:sourceText "    part design {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign\"},{\"@id\":\"ReferenceSubsets__design__spare\"},{\"@id\":\"ReferenceSubsets__design__spare_20wheel\"},{\"@id\":\"ReferenceSubsets__design__fleet\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign_om\"},{\"@id\":\"ReferenceSubsets__design__spare_om\"},{\"@id\":\"ReferenceSubsets__design__spare_20wheel_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign_om\"},{\"@id\":\"ReferenceSubsets__design__spare_om\"},{\"@id\":\"ReferenceSubsets__design__spare_20wheel_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign\"},{\"@id\":\"ReferenceSubsets__design__spare\"},{\"@id\":\"ReferenceSubsets__design__spare_20wheel\"},{\"@id\":\"ReferenceSubsets__design__fleet\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign_om\"},{\"@id\":\"ReferenceSubsets__design__spare_om\"},{\"@id\":\"ReferenceSubsets__design__spare_20wheel_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_om\"}]" .
+
+elmt:ReferenceSubsets__design_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design_om" ;
+    sysml:owner elmt:ReferenceSubsets ;
+    sysml:memberElement elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets .
+
+elmt:ReferenceSubsets__design__vehicle_5fdesign
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design::vehicle_design" ;
+    sysml:elementId "ReferenceSubsets__design__vehicle_5fdesign" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets__design ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design__vehicle_5fdesign_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design__vehicle_5fdesign_om ;
+    sysml:declaredName "vehicle_design" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:ReferenceSubsets__design__vehicle_5fdesign_ss0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__design__vehicle_5fdesign_ss0 ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__design__vehicle_5fdesign_ss0 ;
+    sysx:sourceText "        ref vehicle_design :> vehicle_c1;\n" .
+
+elmt:ReferenceSubsets__design__vehicle_5fdesign_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ReferenceSubsets__design__vehicle_5fdesign_om" ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:memberElement elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberFeature elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:owningType elmt:ReferenceSubsets__design .
+
+elmt:ReferenceSubsets__design__spare
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design::spare" ;
+    sysml:elementId "ReferenceSubsets__design__spare" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets__design ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design__spare_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design__spare_om ;
+    sysml:declaredName "spare" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:ReferenceSubsets__design__spare_ss0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__design__spare_ss0 ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__design__spare_ss0 ;
+    sysx:sourceText "        ref spare subsets vehicle_c1;\n" .
+
+elmt:ReferenceSubsets__design__spare_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ReferenceSubsets__design__spare_om" ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:memberElement elmt:ReferenceSubsets__design__spare ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design__spare ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design__spare ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberFeature elmt:ReferenceSubsets__design__spare ;
+    sysml:owningType elmt:ReferenceSubsets__design .
+
+elmt:ReferenceSubsets__design__spare_20wheel
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design::spare wheel" ;
+    sysml:elementId "ReferenceSubsets__design__spare_20wheel" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets__design ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design__spare_20wheel_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design__spare_20wheel_om ;
+    sysml:declaredName "spare wheel" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:ReferenceSubsets__design__spare_20wheel_ss0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__design__spare_20wheel_ss0 ;
+    sysml:ownedRelationship elmt:ReferenceSubsets__design__spare_20wheel_ss0 ;
+    sysx:sourceText "        ref 'spare wheel' subsets vehicle_c1;\n" .
+
+elmt:ReferenceSubsets__design__spare_20wheel_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ReferenceSubsets__design__spare_20wheel_om" ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:memberElement elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberFeature elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:owningType elmt:ReferenceSubsets__design .
+
+elmt:ReferenceSubsets__design__fleet
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design::fleet" ;
+    sysml:elementId "ReferenceSubsets__design__fleet" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets__design ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design__fleet_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design__fleet_om ;
+    sysml:declaredName "fleet" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:multiplicity expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om, elmt:ReferenceSubsets__design__fleet_ss0 ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
+    sysml:lowerBound expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:upperBound expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedSubsetting elmt:ReferenceSubsets__design__fleet_ss0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__design__fleet_ss0 ;
+    sysx:sourceText "        ref fleet[0..*] :> vehicle_c1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__fleet_pmultiplicity_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_ss0\"}]" .
+
+elmt:ReferenceSubsets__design__fleet_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_om" ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:memberElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberFeature elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningType elmt:ReferenceSubsets__design .
+
+expr:ReferenceSubsets__design__fleet_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "ReferenceSubsets__design__fleet_pmultiplicity" ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__fleet_pmultiplicity_om ;
+    sysml:lowerBound expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om, expr:ReferenceSubsets__design__fleet_pupperBound_om ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__fleet_plowerBound_om, expr:ReferenceSubsets__design__fleet_pupperBound_om ;
+    sysml:upperBound expr:ReferenceSubsets__design__fleet_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__fleet_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__design__fleet_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__fleet_pupperBound_om\"}]" .
+
+expr:ReferenceSubsets__design__fleet_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_pmultiplicity_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:memberElement expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__fleet .
+
+expr:ReferenceSubsets__design__fleet_plowerBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "0" ;
+    sysml:elementId "ReferenceSubsets__design__fleet_plowerBound" ;
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__fleet_plowerBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__fleet_plowerBound_om .
+
+expr:ReferenceSubsets__design__fleet_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_plowerBound_om" ;
+    sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:memberElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__fleet_plowerBound ;
+    sysml:owningRelatedElement expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ReferenceSubsets__design__fleet_pmultiplicity .
+
+expr:ReferenceSubsets__design__fleet_pupperBound
+    a sysml:LiteralInfinity ;
+    sysx:sourceText "*" ;
+    sysml:elementId "ReferenceSubsets__design__fleet_pupperBound" ;
+    sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__fleet_pupperBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__fleet_pupperBound_om .
+
+expr:ReferenceSubsets__design__fleet_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__fleet_pupperBound_om" ;
+    sysml:owner expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:memberElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__fleet_pupperBound ;
+    sysml:owningRelatedElement expr:ReferenceSubsets__design__fleet_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ReferenceSubsets__design__fleet_pmultiplicity .
+
+elmt:ReferenceSubsets__design__presidentOfCountry
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "ReferenceSubsets::design::presidentOfCountry" ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:ReferenceSubsets__design ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:owningRelationship elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysml:owningMembership elmt:ReferenceSubsets__design__presidentOfCountry_om ;
+    sysml:declaredName "presidentOfCountry" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isReference "true"^^xsd:boolean ;
+    sysml:type elmt:ReferenceSubsets__Person ;
+    sysml:subsets elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:multiplicity expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om, elmt:ReferenceSubsets__design__presidentOfCountry_ft0, elmt:ReferenceSubsets__design__presidentOfCountry_ss0 ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
+    sysml:lowerBound expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:upperBound expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:ReferenceSubsets__design__presidentOfCountry_ft0 ;
+    sysml:ownedSpecialization elmt:ReferenceSubsets__design__presidentOfCountry_ft0, elmt:ReferenceSubsets__design__presidentOfCountry_ss0 ;
+    sysml:ownedSubsetting elmt:ReferenceSubsets__design__presidentOfCountry_ss0 ;
+    sysx:sourceText "        ref presidentOfCountry[0..1] : Person :> vehicle_c1;\n" ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_ft0\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_ss0\"}]" ;
+    json:ownedSpecialization "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_ft0\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_ss0\"}]" .
+
+elmt:ReferenceSubsets__design__presidentOfCountry_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_om" ;
+    sysml:owner elmt:ReferenceSubsets__design ;
+    sysml:memberElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:ownedMemberElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:ownedRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design ;
+    sysml:ownedMemberFeature elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningType elmt:ReferenceSubsets__design .
+
+expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity
+    a sysml:MultiplicityRange ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pmultiplicity" ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om ;
+    sysml:lowerBound expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om, expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
+    sysml:ownedMembership expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om, expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
+    sysml:upperBound expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    json:ownedRelationship "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_pupperBound_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_plowerBound_om\"},{\"@id\":\"ReferenceSubsets__design__presidentOfCountry_pupperBound_om\"}]" .
+
+expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pmultiplicity_om" ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:memberElement expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:membershipOwningNamespace elmt:ReferenceSubsets__design__presidentOfCountry .
+
+expr:ReferenceSubsets__design__presidentOfCountry_plowerBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "0" ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound" ;
+    sysml:value "0"^^xsd:integer ;
+    sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om .
+
+expr:ReferenceSubsets__design__presidentOfCountry_plowerBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_plowerBound_om" ;
+    sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:memberElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_plowerBound ;
+    sysml:owningRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity .
+
+expr:ReferenceSubsets__design__presidentOfCountry_pupperBound
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound" ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:owningRelationship expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om ;
+    sysml:owningMembership expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om .
+
+expr:ReferenceSubsets__design__presidentOfCountry_pupperBound_om
+    a sysml:OwningMembership ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_pupperBound_om" ;
+    sysml:owner expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:memberElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:ownedMemberElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:ownedRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_pupperBound ;
+    sysml:owningRelatedElement expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity ;
+    sysml:membershipOwningNamespace expr:ReferenceSubsets__design__presidentOfCountry_pmultiplicity .
+
+elmt:ReferenceSubsets__vehicle_5fc1_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ReferenceSubsets__vehicle_5fc1_ft0" ;
+    sysml:typedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owningFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:specific elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:source elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:type elmt:ReferenceSubsets__Vehicle ;
+    sysml:general elmt:ReferenceSubsets__Vehicle ;
+    sysml:target elmt:ReferenceSubsets__Vehicle ;
+    sysml:owner elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:relatedElement elmt:ReferenceSubsets__vehicle_5fc1, elmt:ReferenceSubsets__Vehicle ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"},{\"@id\":\"ReferenceSubsets__Vehicle\"}]" .
+
+elmt:ReferenceSubsets__design__vehicle_5fdesign_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ReferenceSubsets__design__vehicle_5fdesign_ss0" ;
+    sysml:subsettingFeature elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:specific elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:source elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:subsettedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:general elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:target elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owner elmt:ReferenceSubsets__design__vehicle_5fdesign ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__vehicle_5fdesign, elmt:ReferenceSubsets__vehicle_5fc1 ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__vehicle_5fdesign\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"}]" .
+
+elmt:ReferenceSubsets__design__spare_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ReferenceSubsets__design__spare_ss0" ;
+    sysml:subsettingFeature elmt:ReferenceSubsets__design__spare ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__spare ;
+    sysml:specific elmt:ReferenceSubsets__design__spare ;
+    sysml:source elmt:ReferenceSubsets__design__spare ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__spare ;
+    sysml:subsettedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:general elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:target elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owner elmt:ReferenceSubsets__design__spare ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__spare, elmt:ReferenceSubsets__vehicle_5fc1 ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__spare\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"}]" .
+
+elmt:ReferenceSubsets__design__spare_20wheel_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ReferenceSubsets__design__spare_20wheel_ss0" ;
+    sysml:subsettingFeature elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:specific elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:source elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:subsettedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:general elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:target elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owner elmt:ReferenceSubsets__design__spare_20wheel ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__spare_20wheel, elmt:ReferenceSubsets__vehicle_5fc1 ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__spare_20wheel\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"}]" .
+
+elmt:ReferenceSubsets__design__fleet_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ReferenceSubsets__design__fleet_ss0" ;
+    sysml:subsettingFeature elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__fleet ;
+    sysml:specific elmt:ReferenceSubsets__design__fleet ;
+    sysml:source elmt:ReferenceSubsets__design__fleet ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__fleet ;
+    sysml:subsettedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:general elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:target elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owner elmt:ReferenceSubsets__design__fleet ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__fleet, elmt:ReferenceSubsets__vehicle_5fc1 ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__fleet\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"}]" .
+
+elmt:ReferenceSubsets__design__presidentOfCountry_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_ft0" ;
+    sysml:typedFeature elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:specific elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:source elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:type elmt:ReferenceSubsets__Person ;
+    sysml:general elmt:ReferenceSubsets__Person ;
+    sysml:target elmt:ReferenceSubsets__Person ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__presidentOfCountry, elmt:ReferenceSubsets__Person ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry\"},{\"@id\":\"ReferenceSubsets__Person\"}]" .
+
+elmt:ReferenceSubsets__design__presidentOfCountry_ss0
+    a sysml:Subsetting ;
+    sysml:elementId "ReferenceSubsets__design__presidentOfCountry_ss0" ;
+    sysml:subsettingFeature elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningFeature elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:specific elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:source elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:owningRelatedElement elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:subsettedFeature elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:general elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:target elmt:ReferenceSubsets__vehicle_5fc1 ;
+    sysml:owner elmt:ReferenceSubsets__design__presidentOfCountry ;
+    sysml:relatedElement elmt:ReferenceSubsets__design__presidentOfCountry, elmt:ReferenceSubsets__vehicle_5fc1 ;
+    json:relatedElement "[{\"@id\":\"ReferenceSubsets__design__presidentOfCountry\"},{\"@id\":\"ReferenceSubsets__vehicle_5fc1\"}]" .

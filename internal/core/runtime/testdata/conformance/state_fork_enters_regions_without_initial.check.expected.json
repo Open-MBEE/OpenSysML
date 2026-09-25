@@ -1,5 +1,0 @@
-{
-	"verdict": "divergent",
-	"divergent": {"log": ["\"T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) a(exit) b(exit) work(exit) T2(effect) \"", "\"T1(effect) T1.1(effect) work(entry) a(entry) T1.2(effect) b(entry) b(exit) a(exit) work(exit) T2(effect) \""]},
-	"agreed": {"finalState": "done"}
-}

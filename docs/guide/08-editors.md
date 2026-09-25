@@ -9,8 +9,16 @@ highlighting.
 
 The VS Code extension in [editors/vscode](../../editors/vscode) provides
 syntax highlighting for `.sysml` and `.kerml` and an LSP client that launches
-`sysml-lsp`. It is not published to any marketplace, so you build it and
-side-load it:
+`sysml-lsp`. It is not published to any marketplace, so you side-load it: either
+the `opensysml-sysml.vsix` the [nightly snapshot](../project/nightly.md) attaches,
+packaged from `develop` every night,
+
+```bash
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+code --install-extension opensysml-sysml.vsix
+```
+
+or one you build yourself from a checkout:
 
 ```bash
 make build                                    # builds bin/sysml-lsp
@@ -83,7 +91,9 @@ redraws from what the file now says.
 Where a diagram's boxes go is the model's decision when it states one: a view whose body places
 its elements with the bundled `DiagramLayout` library (`metadata Layout about engine { x = 120;
 y = 80; }`, and `Route` for an edge's waypoints) is drawn exactly so, and a node the model does
-not place takes a slot in a grid under its owner. Dragging a node writes that annotation — into
+not place is laid out in layers under its owner by the ELK layered algorithm, its edges
+running orthogonally around the boxes (a rendering of more than 600 nodes falls back to a
+square grid). Dragging a node writes that annotation — into
 the view's body when a view is drawn, into the element's own when the document is drawn
 directly — as one edit when the pointer is released; dragging the handle on an edge bends it
 through a `Route` waypoint. The geometry is on every node and edge the server sends (`x`, `y`,
@@ -91,7 +101,18 @@ through a `Route` waypoint. The geometry is on every node and edge the server se
 `%% layout:` comments, so other clients can honor it; see
 [Diagram layout annotations](../project/diagram-layout-annotations.md). A drag applies to the
 tree, interconnection, state and action diagrams, which read the annotations back.
-`SysML: Export Diagram` saves that Mermaid (or a table's Markdown) to a file.
+
+#### Exporting a diagram
+
+`SysML: Export Diagram` (the title bar's `…` menu and the right-click menu offer it too) saves
+the drawn view in a form you pick from a list: Mermaid (`.mmd`) with the model's positions as
+`%% layout:` comments, Graphviz DOT (`.dot`) with the positions as `pos` attributes and a
+`// layout:` header naming the engine that keeps them, PlantUML (`.puml`) in the Pilot
+visualizer's style, Markdown (`.md`) for a table, or the text form (`.txt`). The list is the
+one the connected server advertises, so it matches what that server writes; the pick is sent
+as the request's `form`, the server writes that form, and the save dialog opens on the matching
+extension and filter. A form the drawn kind has no grammar for — DOT for a sequence, Mermaid for
+a table — is refused by the server and the message names the form that kind uses.
 
 Drawing and exporting need a connected server that provides the render methods
 ([LSP extensions](../reference/lsp.md)); without one, or with an older `sysml-lsp`, the
@@ -123,11 +144,45 @@ capability that announces it.
 
 After rebuilding the binary, run `SysML: Restart Language Server` from the command palette.
 `editors/vscode/README.md` documents every setting, the grammar generator (keywords are taken
-from `internal/core/lexer.Keywords()`, so they cannot drift) and the <kbd>F5</kbd>
+from `internal/syntax/source.Keywords()`, so they cannot drift) and the <kbd>F5</kbd>
 extension-debugging loop.
 
 Other editors can launch `bin/sysml-lsp` over standard input and output through their own generic
 LSP client; only the syntax highlighting is specific to VS Code.
+
+## OpenCode
+
+[OpenCode](https://opencode.ai) feeds language-server diagnostics back to its coding agent, but
+it knows only the servers compiled into it — `gopls` starts for a `.go` file because the
+registry inside OpenCode has an entry for it — so `sysml-lsp` has to be declared. The
+checkout's [`opencode.json`](../../opencode.json) does that for anyone who opens this repository:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "sysml": {
+      "command": ["sysml-lsp", "--stdio"],
+      "extensions": [".sysml", ".kerml"]
+    }
+  }
+}
+```
+
+The same `lsp` block in `~/.config/opencode/opencode.json` enables the server for every project;
+see [LSP servers](https://opencode.ai/docs/lsp) in the OpenCode documentation. Either way
+`sysml-lsp` must be on `PATH` — `go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest`
+or the release tarball installs it there, and a checkout that ran `make build` can put its own
+build first with `PATH="$PWD/bin:$PATH" opencode`. Two details of the configuration matter:
+`lsp` as an object keeps OpenCode's built-in servers enabled alongside this one (omitting the
+key disables them all), and OpenCode starts a declared server with the project directory as its
+workspace root, so the whole checkout is the server's workspace.
+
+**What the server indexes.** Every `.sysml` and `.kerml` file under the editor's workspace
+folders is indexed at start-up, so a name declared in a file you never opened still resolves,
+and an open buffer's text stands in for its file on disk. A file opened from outside every
+workspace folder — a lone file, or one in another checkout — has its own directory indexed the
+same way, so its imports of sibling files resolve rather than being reported unresolved.
 
 **Capabilities advertised at `initialize`**, recorded from a live session with `bin/sysml-lsp`:
 

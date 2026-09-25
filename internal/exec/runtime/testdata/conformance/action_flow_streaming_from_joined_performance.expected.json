@@ -1,0 +1,7 @@
+{
+	"type": "action",
+	"evaluate": "test::Cfg",
+	"outputs": {
+		"total": {"type": "Integer", "value": 3}
+	}
+}

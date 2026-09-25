@@ -1,0 +1,8 @@
+step 1: token 1@split
+step 2: token 2@waiter, token 3@quit
+stmt assign x
+  eval literal 1 -> 1
+step 3: token 2@waiter, token 3@*ast.TerminateStatement
+stmt terminate
+terminate action: dropped token 2@waiter
+step 4: no active tokens

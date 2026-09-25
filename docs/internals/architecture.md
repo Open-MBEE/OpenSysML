@@ -57,33 +57,88 @@ github.com/Open-MBEE/OpenSysML
 │   ├── sysml-lsp/          # LSP server binary
 │   ├── sysml-grpc/         # gRPC server binary
 │   └── sysml/              # Interactive REPL binary
-├── internal/core/
-│   ├── source/             # Source files, spans, line indexing
-│   ├── lexer/              # Hand-written scanner (~200 keywords)
-│   ├── parser/             # Recursive-descent parser
-│   ├── ast/                # Syntax tree nodes (immutable)
-│   ├── symbols/            # Symbol tables, scope trees
-│   ├── resolve/            # Name resolution (lazy, memoized)
-│   ├── semantics/          # Type system, conformance, multiplicity
-│   ├── passes/             # Validation passes (syntax → constraints)
-│   ├── queryplan/          # Document-query definitions → immutable query plans
-│   ├── queryexec/          # Query plan execution → typed, ordered row sets
-│   ├── docplan/            # Document definitions → immutable document plans
-│   ├── docir/              # Document plan evaluation → backend-agnostic document tree
-│   ├── lower/              # AST → execution IR (ActionGraph/StateGraph)
-│   ├── runtime/            # Execution engine (eval, instances, builtins)
-│   ├── model/              # Workspace, document management
-│   └── libs/               # Standard library bundling & caching
-├── internal/lsp/           # LSP protocol implementation
-├── internal/repl/          # REPL loop implementation
-├── internal/grpc/          # gRPC service implementation
-├── clients/python/         # Python client bindings (opensysml)
-├── clients/rust/           # Rust client (opensysml) and its conformance runner
+├── internal/               # One directory per layer; a package imports only the layers below it
+│   ├── syntax/
+│   │   ├── source/         # Source files, spans, line indexing
+│   │   ├── diag/           # Diagnostic and Severity, quick fixes, ConformanceMode
+│   │   ├── lexer/          # Hand-written scanner (~200 keywords)
+│   │   ├── parser/         # Recursive-descent parser
+│   │   ├── ast/            # Syntax tree nodes (immutable); ast/astcodec encodes them
+│   │   ├── pack/           # Packed model files
+│   │   └── format/         # Notation formatter
+│   ├── semantic/
+│   │   ├── symbols/        # Symbol tables, scope trees
+│   │   ├── resolve/        # Name resolution (lazy, memoized)
+│   │   ├── suggest/        # Name suggestions for unresolved references
+│   │   ├── semantics/      # Type system, conformance, multiplicity, invocation selection
+│   │   ├── identity/       # Element identities and the normative ids
+│   │   ├── highlight/      # Semantic token classification
+│   │   └── query/          # The API element-query model and its OSLC prefix map
+│   ├── ir/
+│   │   ├── lower/          # AST → execution IR (ActionGraph/StateGraph)
+│   │   ├── queryplan/      # Document-query definitions → immutable query plans
+│   │   ├── docplan/        # Document definitions → immutable document plans
+│   │   └── view/           # View and viewpoint evaluation
+│   ├── check/
+│   │   ├── passes/         # Validation passes (syntax → constraints); kit, behavior, document, diagram, identity
+│   │   └── edit/           # Workspace edits and the rename conflict check
+│   ├── exec/
+│   │   ├── runtime/        # Execution engine (eval, instances, builtins)
+│   │   ├── solve/          # SMT-backed solving and configuration
+│   │   ├── smt/            # SMT-LIB translation
+│   │   ├── analysis/       # Analysis questions, engines and the graphs:1/sources forms (analysis/modelform, analysis/enginewire)
+│   │   ├── engines/        # External analysis engines
+│   │   └── objref/         # Object references
+│   ├── translate/
+│   │   ├── rdf/            # RDF graphs, Turtle reading and writing, the SysML vocabulary (rdf/ontology)
+│   │   ├── export/         # The RDF mapping: ToRDF (tree → graph) and ToSysML (graph → notation)
+│   │   ├── xmi/            # XMI element tree indexed by xmi:id; xmi/sysmlv1 reads SysML v1 exports over it
+│   │   ├── migrate/        # SysML v1 XMI → SysML v2 notation
+│   │   ├── convert/        # Conversion entry point: formats, Convert, Migrate, SyntaxError
+│   │   ├── codegen/        # Code generation from models
+│   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
+│   ├── doc/
+│   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
+│   │   ├── docir/          # Document plan evaluation → backend-agnostic document tree
+│   │   ├── docrender/      # Markdown and HTML document backends
+│   │   └── docpdf/         # PDF document backend
+│   ├── workspace/
+│   │   ├── model/          # Workspace, document management
+│   │   ├── libs/           # Standard library bundling & caching; libs/errata declares its errata
+│   │   ├── project/        # Project files
+│   │   └── envvar/         # Environment variables the binaries read
+│   └── frontend/
+│       ├── protoconv/      # Runtime values and instance graphs ↔ API protobuf messages
+│       ├── grpc/           # gRPC service implementation
+│       ├── lsp/            # LSP protocol implementation
+│       ├── repl/           # REPL loop implementation
+│       ├── stdiorpc/       # JSON-RPC over stdio
+│       └── usage/          # Command-line usage and manual pages
+├── client/python/          # Python client bindings (opensysml)
+├── client/rust/            # Rust client (opensysml) and its conformance runner
 ├── api/proto/              # Protobuf service definitions
-├── testdata/               # Test fixtures (.sysml, .kerml)
+├── tests/                  # Black-box suites, benchmarks, shared fixtures (tests/parser, tests/grpc, tests/testdata, …)
+├── tools/                  # Nested module: referees, censuses and generators never linked by a shipped binary
 ├── examples/               # Example models and demos
 └── docs/                   # Documentation
 ```
+
+The layering test (`tests/hygiene/layering_test.go`) checks the directory order against `go list -f '{{.Imports}}'`:
+
+| layer | may import |
+|---|---|
+| `syntax` | `syntax` |
+| `semantic` | `syntax` |
+| `ir` | `syntax`, `semantic` |
+| `check` | `syntax`, `semantic`, `ir` |
+| `exec` | `syntax`, `semantic`, `ir` |
+| `translate` | `syntax`, `semantic`, `ir`, `exec` |
+| `doc` | `syntax`, `semantic`, `ir`, `exec`, `translate` |
+| `workspace` | every layer below it, `check` included |
+| `frontend` | every layer |
+
+Two edges cross the order by design and stay pinned: `translate/export` imports `syntax/parser`, because the graph → notation decoder parses by nature, and `exec/runtime` receives its expression parser and argument typer from the caller (`SetExpressionParser`, `SetArgumentTyper`) rather than importing `check`. The remaining upward edges the test tolerates are listed in its `tolerated` table with the package that carries each.
+
 
 ---
 
@@ -95,14 +150,15 @@ github.com/Open-MBEE/OpenSysML
 source → lexer → parser → AST → symbol index → resolve → passes
 ```
 
-### 1. Source & Lexer (`internal/core/source`, `internal/core/lexer`)
+### 1. Source & Lexer (`internal/syntax/source`, `internal/syntax/lexer`)
 
 - **SourceFile:** Input file (.sysml or .kerml) with byte content
+- **Notation text:** `source` also owns the keyword sets (`Keywords`, `IsKeyword`, `IsKeywordIn`, `IsIdentifier`) and the helpers that read and write notation text without a parse — `NameText`/`QualifiedNameText`, `StringValue`/`StringText`, `CommentBody` — so layers that never tokenize (semantics, runtime, export) do not import the lexer
 - **Lexer:** Hand-written scanner producing tokens with full position tracking
 - **Trivia:** Comments and whitespace tracked as leading/trailing trivia
-- **Keywords:** ~200 SysML keywords (case-sensitive, pre-registered)
+- **Keywords:** ~200 SysML keywords (case-sensitive, taken from `source.Keywords()`)
 
-### 2. Parser (`internal/core/parser`)
+### 2. Parser (`internal/syntax/parser`)
 
 - **Hand-written recursive descent** (chosen over ANTLR4/yacc/JNI bridge)
 - **Rationale:** Zero overhead, full error recovery, sub-ms parses for keystroke-latency feedback
@@ -110,7 +166,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Always produces tree:** ErrorNodes on bad input, parsing never fails
 - **Grammar source:** OMG pilot Xtext grammars (SysML.xtext + KerMLExpressions)
 
-### 3. AST (`internal/core/ast`)
+### 3. AST (`internal/syntax/ast`)
 
 **Key architectural rule:** AST is syntax-only, **immutable after parse**
 
@@ -120,7 +176,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Expression AST:** Full SysML v2 expression grammar (literals, operators, feature refs, invocations, collections, lambdas)
 - **Behavioral AST:** Action control-flow nodes (InitialNode, FinalNode, ForkNode, JoinNode, MergeNode, DecisionNode, ActionExecutionNode), succession edges with guards
 
-### 4. Symbols & Resolution (`internal/core/symbols`, `internal/core/resolve`)
+### 4. Symbols & Resolution (`internal/semantic/symbols`, `internal/semantic/resolve`)
 
 - **Symbol:** `{Name, Kind, Decl ast.Node, Visibility, Scope, OwnerScope}`
 - **Scope:** `{Parent(), Node(), Children(), LookupLocal(name), MemberNames()}`
@@ -128,7 +184,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Resolver:** Lazy name resolution, memoized, `ResolveQualified(scope, *ast.QualifiedName) (*Symbol, bool)`
 - **Deduplication:** Short+primary names alias same `*Symbol` — dedupe by pointer when walking
 
-### 5. Semantic Model (`internal/core/semantics`)
+### 5. Semantic Model (`internal/semantic/semantics`)
 
 **Runtime's primary substrate. Built via `NewModel(*resolve.Resolver)`. All results memoized in side tables.**
 
@@ -149,25 +205,32 @@ source → lexer → parser → AST → symbol index → resolve → passes
   - `Value{Kind ValueKind, Int, Real, Bool}` — int/real/bool/infinity only
   - Returns `ok=false` for feature refs, strings, null, invocations, collections
   - **Runtime Tier 3 extends this to full evaluator**
+- **`invocation.go`:**
+  - `SelectCall(scope, e, performs)` / `SelectInvocation(scope, e, args, performs)` — overload selection for a call, memoized per call site
+  - `InvocationArgs(e)`, `ChainCallee(e)` — the positional arguments and the chain a call `x.f(a)` applies, as the checker and the runtime both read them
+  - `ArgumentTyper` — the seam through which the checker's static argument typing (`passes.NewArgumentTyper`) is installed with `SetArgumentTyper`; `HasArgumentTyper` reports whether one is. Without one, `SelectCall` types arguments by arity and names alone
 
-### 6. Validation Passes (`internal/core/passes`)
+### 6. Validation Passes (`internal/check/passes`)
 
 **Pluggable validation tiers:**
 
 - **PassLevel:** `{LevelSyntax, LevelNameResolution, LevelType, LevelConstraint}`
-- **Pass:** `{Level() PassLevel; Run(ctx, name, root) []Diagnostic}`
+- **Pass:** `{Level() PassLevel; Run(ctx, name, root) []diag.Diagnostic}`
 - **Context:** Exposes `Resolver()` + `Model()` (both lazy, memoized) and `DownstreamOfFailure(ref)` — did a lower tier report a blocking diagnostic inside this reference?
 - **DefaultRegistry:** SyntaxPass, NameResolutionPass, TypeCheckPass, ConstraintPass
+- **Packages:** the framework — `Pass`, `PassLevel`, `Context`, `Options`, `Gathers` and the symbol and member walkers — is `internal/check/passes/kit`, a leaf the root re-exports as type aliases. The checks are grouped by domain: `passes/behavior` (state transitions, succession endpoints, control nodes), `passes/document` (document plans and queries), `passes/diagram` (layout, view renderings), `passes/identity` (identity metadata, with the workspace-wide identity gather), and the root for the rest — the registry, the static expression typer and the checks that call into it, the constraint checker and the structural rules. The root is the one place a check is registered, so it imports every domain package and no domain package imports the root; `tests/hygiene` pins both directions
 - **Tiered execution:** a document-scoped pass at a higher tier is skipped once a lower tier errors; a pass marked `ElementScoped` runs and gates itself per subject through `Context.DownstreamOfFailure` ([element-scoped tier gating](../project/element-scoped-tier-gating.md))
-- **Quick fixes:** A `Diagnostic` carries the `quickfix.Fix` values (`internal/core/quickfix`) the layer reporting it attached, so an editor offers edits without parsing messages
+- **Diagnostics:** `Diagnostic` and `Severity` live in `internal/syntax/diag`, a leaf package beside `source`, so the runtime and the parser report findings in the same type without importing the validation suite; the strict/default conformance switch is `diag.ConformanceMode` in the same package
+- **Quick fixes:** A `Diagnostic` carries the `diag.Fix` values the layer reporting it attached, so an editor offers edits without parsing messages
+- **Argument typing:** `NewArgumentTyper` is the checker's expression typing as a `semantics.ArgumentTyper`; `NewTypedModel(resolver)` is a semantic model with it installed, which is what every path that builds a `runtime.Model` (REPL, LSP workspace, gRPC cache, the analysis drivers) constructs. The runtime never installs it itself: a call selected on a model without one fails with `runtime.ErrNoArgumentTyper` rather than selecting on weaker typing than validation used, and `tests/hygiene` checks the production construction sites
 
-### 6a. Highlighting (`internal/core/highlight`)
+### 6a. Highlighting (`internal/semantic/highlight`)
 
 - **Semantic tokens:** `Tokens(content, root, scope, SegmentResolver)` — keywords, comments and literals from the lexer; declared names from the symbol table; reference segments from the resolver
 - **Ordered and disjoint:** the result is sorted by offset with overlaps dropped, semantics winning, so a consumer encodes it directly
 - **Vocabulary:** LSP token types and modifiers (`Classes()`, `Modifiers()` give legend order)
 
-### 7. Workspace (`internal/core/model`)
+### 7. Workspace (`internal/workspace/model`)
 
 - **Single source of truth:** Owns document set + global index + diagnostic cache
   + reverse reference index
@@ -181,7 +244,7 @@ source → lexer → parser → AST → symbol index → resolve → passes
   and the name it *writes* (an alias, where one was written), with the
   `resolve.Reference` it is a segment of. Find References matches either;
   Rename edits only the written name, and `RenameConflict` checks each
-  occurrence for capture through `internal/core/rename` — a trial reading of the
+  occurrence for capture through `edit.CheckRename` — a trial reading of the
   reference with that segment respelled (`Resolver.ProbeReading`, which keeps
   what each segment reached even where the whole name then fails), so a chain
   member is read in its operand's type, a redefinition target among the
@@ -195,34 +258,50 @@ source → lexer → parser → AST → symbol index → resolve → passes
   declaration, an import target, an alias, an overload that ties a call).
   Library documents are never enumerated; only workspace documents are.
 
-### 8. Standard library (`internal/core/libs`)
+### 8. Standard library (`internal/workspace/libs`)
 
-- **Source of truth:** the 98 library files under `internal/core/libs/stdlib/`, embedded in
+- **Source of truth:** the 98 library files under `internal/workspace/libs/stdlib/`, embedded in
   the binary; `OPENSYSML_LIBRARY_PATH` substitutes a directory of files for them.
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
   it.
-- **Snapshot:** `internal/core/libs/stdlib.snapshot` is that frozen index — syntax trees, scopes,
+- **Snapshot:** `internal/workspace/libs/stdlib.snapshot` is that frozen index — syntax trees, scopes,
   symbols, wildcard-import expansion, facts — serialized at generation time
-  (`go generate ./internal/core/libs`, `make stdlib-snapshot`) and embedded. A process decodes it
+  (`go generate ./internal/workspace/libs`, `make stdlib-snapshot`) and embedded. A process decodes it
   instead of parsing, when its recorded digest of the library files and its format version match
   the files in hand and its CRC-32C over the stream holds; otherwise (an edited file, a
   library-path override, a stale or damaged blob) it parses the files as before. The snapshot is
   a derived artifact: never edit it, regenerate it, and `TestEmbeddedSnapshotIsCurrent` plus
   `make stdlib-snapshot-check` in CI fail when it lags the files.
-- **Encoding:** `internal/core/pack` (varint scalars over a string table) and
-  `internal/core/ast/astcodec` (a node table, every node type, index references in place of
+- **Encoding:** `internal/syntax/pack` (varint scalars over a string table) and
+  `internal/syntax/ast/astcodec` (a node table, every node type, index references in place of
   pointers); `symbols.WriteSnapshot`/`ReadSnapshot` number scopes and symbols the same way. No
   reflection or `encoding/gob`. Decoding reproduces the object graph a fresh load builds, sharing
   and all, which `TestSnapshotIndexMatchesFreshLoad` checks structurally.
 - **Facts cache:** `$XDG_CACHE_HOME/sysml-ls/libs` still holds derived facts for library sets
   the snapshot does not cover, keyed by content digest and build.
 
+### 9. Conversion (`internal/translate/convert`, `internal/translate/export`, `internal/translate/migrate`)
+
+- **Entry point:** `internal/translate/convert` names the formats (`ParseFormat`, `FormatOfPath`) and
+  drives every conversion `sysml -convert`, `%save`, `%print` and the service's `Convert` make:
+  `Convert`/`ConvertTolerant` parse notation and report a `SyntaxError`, `Migrate` runs the SysML
+  v1 migration and writes its notation, `SysMLToRDF` parses and encodes. `cmd/sysml`, `repl`,
+  `grpc` and `interop/flexo` call it; nothing below it imports it.
+- **The mapping:** `internal/translate/export` translates between a parsed tree and a graph — `ToRDF`
+  and `ToSysML` — and never migrates; it parses only where the decoder needs the grammar (to
+  check preserved source text still encodes to the graph, to judge an expression's binding, and
+  to read names). `internal/translate/migrate` reads SysML v1 XMI and writes SysML v2 notation, and
+  knows nothing of RDF. A hygiene test pins `export` free of `migrate` and the entry point as the
+  only package besides the CLI (which prints the migration report) that imports it. The result
+  sidecar a migration writes (`-migration-results`) has its schema in `internal/translate/simresults`,
+  which the migrator fills and the comparison (`repl`, `-compare-results`) reads without the migrator.
+
 ---
 
 ## Execution Runtime Architecture
 
-**Package:** `internal/core/runtime`  
+**Package:** `internal/exec/runtime`  
 **Not a Pass:** Execution is stateful/iterative/value-producing (different shape than diagnostic-emitting pass)
 
 ### Tier 1 — Feature Flattening ✅
@@ -246,7 +325,7 @@ Harden `MembersOf` into stable, ordered **effective-feature list** per type:
 Full evaluator with **user-defined calc invocation**, **constraint evaluation**, and **requirement evaluation**:
 - Feature access `x.y.z` resolved against instance feature values
 - KerML operator library (`->select`, `->collect`, `size`, string ops)
-- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression
+- **Calc invocation:** Resolve calc symbol → extract params/return → bind args to parameters → evaluate return expression. Overloads are selected through `semantics.Model.SelectCall` with the argument typing the model carries (`ErrNoArgumentTyper` when it carries none)
 - **Function values** (`function_value.go`, `ValFunction`): a calc definition, a calc usage with an unsupplied input or an `in calc` parameter read as a value is the calc's lowered `calcShape` plus the environment it was read in — declaring scope, the object it was read off, and, for a calc declared inside a behavior body, the frames through the innermost active run of that behavior (`EvalContext.enclosingRun`, by `frame.runs`) — never a caller's frames, and none when no such run is active. Invoking one (`f(a)` through a calc-typed parameter, or `SampledFunctions::Sample` applying its `calculation`) takes the calc invocation path (`invokeCalcShapeIn`), never a closure over statements; `ValExpr` remains the distinct kind for an expression body a collection operation evaluates per element
 - **Constraint evaluation:** Extract `assert`/`assume` members → evaluate boolean expressions → check satisfaction (with optional `not` negation)
 - **Requirement evaluation:** Extract `subject`/`assume`/`require`/`actor` members → validate bindings → evaluate conditions
@@ -269,9 +348,9 @@ Parse + model all behavioral bodies with unified fallback grammar:
 
 ### Tier 5 — Behavioral Interpreter ✅ Complete
 
-**Package:** `internal/core/runtime`  
+**Package:** `internal/exec/runtime`  
 **Status:** Complete. Conformance gate: every case passing (calc/constraint/requirement/satisfy/action/state all functional); count in [the measured counts](../project/spec-compliance.md).  
-**Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/core/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, regions). The runtime is not a UML or fUML activity engine: "token" names the executor's bookkeeping for where each performance is along the successions of the lowered graph, an implementation device, not the semantic model. What the tokens realize is succession order: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
+**Spec Alignment:** The governing reference is the SysML v2 metamodel or the bundled KerML semantic library (`internal/workspace/libs/stdlib/`); UML 2.5.1 is a fallback only where the SysML v2 notation has no production for a concept *and* the KerML library no performance for it (state-body `fork`/`join`, history, regions). The runtime is not a UML or fUML activity engine: "token" names the executor's bookkeeping for where each performance is along the successions of the lowered graph, an implementation device, not the semantic model. What the tokens realize is succession order: a succession is a KerML `HappensBefore` link (`Occurrences.kerml`), which orders occurrences in time and carries no values — a `SuccessionFlow` is the form that carries a payload (`KerML.kerml`: `Succession specializes Connector`, `SuccessionFlow specializes Succession, Flow`). State machine execution is `Occurrences::Occurrence::isRunToCompletion` over its `runToCompletionScope` ("determines whether transition performances might happen during state entry performances within the run to completion scope"), with event dispatch `isDispatch` / `dispatchScope`. See [SPEC_COMPLIANCE.md](../project/spec-compliance.md) for the detailed compliance mapping, and [the pilot differential](../project/pilot-differential.md) for what is checked against the reference implementation.
 
 **Architecture:**
 
@@ -304,8 +383,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
 3. **Scheduler and choice points** — one resolution rule for what the library leaves unordered ([design note](design/scheduling.md))
    - Six `ChoiceKind`s (`choice.go`): token order within a step, decision branch, same-step write order, transition, region order, due order; each site resolves through the run's `scheduler` and then records a `ChoicePoint`, an informational `RunNote` (diagnostic code `choice-point`) that never alters the run
    - Every decision guard is evaluated so a second holding one is seen; a later guard that cannot be evaluated is an `UnevaluableGuard` note (`guard-unevaluable`), not a failure
-   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `replay:<file>` (a witness's choice lines followed move for move, then `reverse`; a move the run cannot make is a typed `ReplayError`, `replay.go`), `explore[:runs=N,depth=D]`
-   - `Explore` (`explore.go`) replays whole runs from a fresh `Context` each, a recorded choice prefix then the first untried alternative, depth-first within `ExploreBudget` (default 1024 runs, 64 choice points); reports distinct outcomes by `Outcome.identity` with linearization counts and a witness, and `incomplete` when a bound stopped it
+   - `SchedulePolicy` (`scheduler.go`): `reverse` (default and zero value — exactly what every run did before policies existed), `declared`, `seed:<n>` (a PCG generator the run consumes, replayed by the seed), `replay:<file>` (a witness's choice lines followed move for move, then `reverse`'s picks one token a step; a move the run cannot make is a typed `ReplayError`, `replay.go`), `explore[:runs=N,depth=D]`
+   - `Explore` (`explore.go`) replays whole runs from a fresh `Context` each, a recorded choice prefix then an untried alternative, the first run's choices each varied once, earliest first, before any twice (`explore_queue.go`), within `ExploreBudget` (default 1024 runs, 64 choice points); reports distinct outcomes by `Outcome.identity` with linearization counts and a witness, and `incomplete` when a bound stopped it
    - The scheduler lives in the run's `runState` beside the budget and notes; a run driven call by call (`beginExecutorRun`) keeps its own across interleaved runs, and a probe (`beginProbe`) restores the scheduler's position and notes nothing
 
 4. **Context Integration** — Public runtime APIs
@@ -319,6 +398,8 @@ Parse + model all behavioral bodies with unified fallback grammar:
    - `SetSchedule(policy)`, `Schedule()` — the policy runs started from now on resolve their choice points under (`explore` is refused: `Explore` drives it)
    - `Notes()`, `Choices()`, `UnevaluableGuards()` — what the last run recorded
 
+5. **Notation text the run reads** — the runtime imports no parser. The two places a run receives notation as text — a witness file's `input <feature> = <value>` lines (`replay.go`) and the unit a tool answers a value in (`tool.go`, `Context.UnitOf`) — are read through the `runtime.ExpressionParser` the frontend installs on the `Model` (`Model.SetExpressionParser`, normally `parser.ParseOneExpression`). Reaching either with none installed is the typed `ErrNoExpressionParser`, never a refused witness or a tool's malformed output; `tests/hygiene` checks that every shipped construction site installs it and that `internal/exec/runtime` does not depend on `internal/syntax/parser`.
+
 **Implementation:**
 - `context.go` (460 lines) — Public Execute/Invoke/Evaluate APIs, step budget enforcement
 - `action_executor.go` (729 lines) — Token-flow engine with nested actions, send statement
@@ -327,11 +408,11 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - `scheduler.go`, `choice.go`, `action_choice.go`, `explore.go` — scheduling policies, choice-point notes, bounded exploration
 - `trace.go` (154 lines) — Deterministic execution trace recorder
 - `eval.go` — Expression evaluation (binary/unary operators, literals, feature references, qualified names, type coercion)
-- Lowering to execution IR lives in `internal/core/lower/` (`ToActionGraph`, `ToStateGraph`)
+- Lowering to execution IR lives in `internal/ir/lower/` (`ToActionGraph`, `ToStateGraph`)
 
 **Testing:**
-- **Golden ASTs**: `internal/core/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
-- **Negative tests**: `internal/core/parser/negative_test.go` — count in [the measured counts](../project/spec-compliance.md)
+- **Golden ASTs**: `tests/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)
+- **Negative tests**: `tests/parser/negative_test.go` and the `*Negative*` tests beside the parser — count in [the measured counts](../project/spec-compliance.md)
 - **Unit tests**: `action_executor_test.go`, `state_executor_test.go` (action, state)
 - **Conformance gate**: `.sysml` + `.expected.json` pairs, all passing - `conformance_test.go` — counts and per-category breakdown in [the measured counts](../project/spec-compliance.md); a case whose model admits several results lists them as `outcomes`, each cited to [the semantic oracle](../project/behavior-semantic-oracle.md), and is explored to prove every one reachable and nothing else; `TestExecutionConformanceUnderPolicies` re-runs the suite under `declared` and `seed:1`
 - **Golden traces**: `.trace.golden` files - `trace_test.go` — count in [the measured counts](../project/spec-compliance.md); `.trace.order` files state the partial order a trace must respect (`a < b`), and a case with `outcomes` owns a `<case>.<policy>.trace.golden` per sweep policy
@@ -350,9 +431,9 @@ Parse + model all behavioral bodies with unified fallback grammar:
   one contract, one scale for the strength of an answer, parallel isolated runs; and
   [bring your own engine](design/bring-your-own-engines.md) — how a user's engine, strategy
   or tool registers and what its answers are worth
-- Landed: `internal/core/analysis` — the contract (`Question`, `Engine`, `Result`, `Claim`,
+- Landed: `internal/exec/analysis` — the contract (`Question`, `Engine`, `Result`, `Claim`,
   `Strength`, `Budget`), a per-owner `Registry` with `auto` dispatch, and the `run`, `explore`,
-  `sweep` and `solve` engines as adapters over the runtime and `internal/core/solve`; the REPL
+  `sweep` and `solve` engines as adapters over the runtime and `internal/exec/solve`; the REPL
   session and the gRPC service ask every check, run, exploration, sweep and solver question
   through it with no change to what they print or return
 
@@ -360,7 +441,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 
 ## LSP Server
 
-**Package:** `internal/lsp`  
+**Package:** `internal/frontend/lsp`  
 **Binary:** `cmd/sysml-lsp`  
 **Status:** ✅ Complete (stdio protocol, 10 LSP features, tested end to end)
 
@@ -415,7 +496,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
   and wherever a reference in any workspace document writes it
 - Refused with an error naming the element the new name would mean when that
   name is already taken where the element is declared, or when a rewritten
-  reference would afterwards read another element (`internal/core/rename`)
+  reference would afterwards read another element (`edit.CheckRename`)
 
 **Completion (textDocument/completion):**
 - Trigger characters: `:`, `.`
@@ -423,13 +504,13 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - Future: keyword completion, snippet support
 
 **Semantic Tokens (textDocument/semanticTokens/full, /range):**
-- Legend advertised at `initialize`; tokens classified by `internal/core/highlight`
+- Legend advertised at `initialize`; tokens classified by `internal/semantic/highlight`
 - Keywords, comments and literals from the token stream; names from the symbol
   table and the resolver, with declaration/definition/readonly/abstract modifiers
 - Encoded relative to the previous token, split per line; no delta support
 
 **Code Actions (textDocument/codeAction):**
-- Quick fixes only, from the `quickfix.Fix` values parser and resolver
+- Quick fixes only, from the `diag.Fix` values parser and resolver
   diagnostics carry — spelling of an unresolved name, importing the namespace
   declaring it, inserting a semicolon the parser located exactly
 
@@ -480,7 +561,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 ## REPL Integration
 
-**Package:** `internal/repl`  
+**Package:** `internal/frontend/repl`  
 **Binary:** `cmd/sysml`
 
 ### Commands
@@ -529,6 +610,7 @@ See [the guide](../guide/) for VS Code configuration.
   - `runtime.Context.CreateActionExecutor()`, `runtime.Context.CreateStateExecutor()`
 - **Argument parsing:** `%calc` parses literal args via wrapper parsing (`part { attribute arg = <expr>; }`) + Membership unwrapping
 - **Debugging sessions:** Session tracks active ActionExecutor/StateExecutor for step-by-step control
+- **Protobuf output:** `%features … json` serializes the instance graph through `internal/frontend/protoconv` (`InstanceGraphToProtoWithin`, `GraphBounds`), the same conversion the gRPC service uses for `Instantiate`; the REPL, and so `sysml`, do not link the service or its transports
 
 ---
 
@@ -566,7 +648,7 @@ See [the guide](../guide/) for VS Code configuration.
 
 | Component | Status |
 |-----------|--------|
-| Lexer/Parser (structural + behavioral) | ✅ Operational (98/98 stdlib clean - see [conformance gate](../../internal/core/libs/stdlib_conformance_test.go)) |
+| Lexer/Parser (structural + behavioral) | ✅ Operational (105/105 stdlib clean - see [conformance gate](../../internal/workspace/libs/stdlib_conformance_test.go)) |
 | Symbol resolution & type system | ✅ Complete |
 | Validation passes (syntax → constraints) | ✅ Complete |
 | Expression evaluator & instance model (Tiers 1-3) | ✅ Complete |
@@ -580,7 +662,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 98/98 bundled library files parse cleanly — the 94 official SysML v2 standard library files and four non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `OpenSysML Libraries/DocumentQueries.sysml`, `OpenSysML Libraries/IdentityMetadata.sysml` and `OpenSysML Libraries/OOSEM.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/core/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 106/106 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 12 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml` and `MigrationMetadata.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 
@@ -592,20 +674,20 @@ New grammar features require a **four-layer test contract** to ensure correctnes
 
 #### 1. Conformance Gate
 - **Purpose:** Ensure stdlib continues to parse cleanly
-- **Location:** `internal/core/libs/stdlib_conformance_test.go`
-- **Test:** `TestStdlibConformance` loads all 96 bundled library files
-- **Acceptance:** 98/98 files parse without errors
+- **Location:** `internal/workspace/libs/stdlib_conformance_test.go`
+- **Test:** `TestStdlibConformance` loads all 106 bundled library files
+- **Acceptance:** 106/106 files parse without errors
 - **Allowlist:** `testdata/stdlib_known_failures.txt` (currently empty)
 - **Failure mode:** Regression breaks previously-working stdlib files
 
 **Usage:**
 ```bash
-go test -v -run TestStdlibConformance ./internal/core/libs
+go test -v -run TestStdlibConformance ./internal/workspace/libs
 ```
 
 #### 2. Golden AST Snapshots
 - **Purpose:** Verify AST structure matches expected output
-- **Location:** `internal/core/parser/golden_test.go`
+- **Location:** `tests/parser/golden_test.go`
 - **Fixtures:** `testdata/parse/*.sysml` and `*.kerml` (one representative file per construct)
 - **Goldens:** `testdata/parse/*.golden` (AST dumps)
 - **Acceptance:** Parse output matches golden file
@@ -629,7 +711,7 @@ go test -v -run TestStdlibConformance ./internal/core/libs
 
 #### 4. Negative Test Suite
 - **Purpose:** Verify parser rejects malformed input gracefully
-- **Location:** `internal/core/parser/negative_test.go`
+- **Location:** `tests/parser/negative_test.go`
 - **Test:** `TestNegative`, one subtest per malformed input
 - **Acceptance:** each case produces diagnostics rather than panicking
 - **Coverage:** Unclosed blocks, unexpected tokens, invalid syntax, incomplete behavioral members
@@ -651,7 +733,7 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 #### 1. Golden AST Fixtures
 - **Purpose:** Lock in parse structure before execution changes
-- **Location:** `internal/core/parser/testdata/parse/` (behavioral fixtures)
+- **Location:** `tests/parser/testdata/parse/` (behavioral fixtures)
 - **Coverage:** the behavioral fixtures (action, calc, constraint, requirement, state) among the whole set
 - **Acceptance:** `TestGolden` passes, AST dumps match expectations
 - **Update flag:** `go test -run TestGolden -update`
@@ -665,9 +747,9 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 #### 2. Execution Conformance Gate
 - **Purpose:** Verify behavioral execution produces expected outcomes
-- **Location:** `internal/core/runtime/conformance_test.go`
+- **Location:** `internal/exec/runtime/conformance_test.go`
 - **Test:** `TestExecutionConformance` runs `.sysml` + `.expected.json` pairs; `TestExecutionConformanceUnderPolicies` runs them again under `declared` and `seed:1`
-- **Schema:** `internal/core/runtime/testdata/conformance/README.md` (outcome format for each behavioral type; `outcomes` with an `admissible` citation when the model admits several)
+- **Schema:** `internal/exec/runtime/testdata/conformance/README.md` (outcome format for each behavioral type; `outcomes` with an `admissible` citation when the model admits several)
 - **Allowlist:** `known_failures.txt` (currently empty — all cases pass)
 - **Acceptance:** Expected outputs/satisfaction match actual execution results under every policy; a case listing `outcomes` is explored, and every listed outcome must be reached and no other ([design note](design/scheduling.md#the-conformance-contract))
 
@@ -683,12 +765,12 @@ New behavioral features (actions, states, calc, constraints, requirements) requi
 
 **Usage:**
 ```bash
-go test -v -run TestExecutionConformance ./internal/core/runtime
+go test -v -run TestExecutionConformance ./internal/exec/runtime
 ```
 
 #### 3. Golden Execution Traces
 - **Purpose:** verify *how* execution proceeds (ordering, scheduling), not only the final result
-- **Location:** `internal/core/runtime/trace_test.go`
+- **Location:** `internal/exec/runtime/trace_test.go`
 - **Test:** `TestExecutionTrace` compares executor traces against `.trace.golden`, and against the partial order a `.trace.order` states (`a < b` per line)
 - **Determinism:** Token sorting by ID, fixed event queue tie-breaking; each `choice` the run made is a trace line, so a golden pins one linearization and a case with `outcomes` owns one golden per sweep policy (`<case>.<policy>.trace.golden`)
 - **Acceptance:** Trace output matches golden file
@@ -701,7 +783,7 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 
 #### 4. Runtime Robustness Tests
 - **Purpose:** Verify malformed/pathological behaviors fail gracefully (typed errors, no panics/hangs)
-- **Location:** `internal/core/runtime/robustness_test.go` and one `robustness_<feature>_test.go` per feature
+- **Location:** `internal/exec/runtime/robustness_test.go` and one `robustness_<feature>_test.go` per feature
 - **Test:** the `TestRuntimeRobustness*` functions, one subtest per failure mode; a feature's cases live in its own file and function, so two features never edit one registry
 - **Acceptance:** All return typed errors, never panic, timeout guard (60s) prevents hangs
 
@@ -725,16 +807,19 @@ go test -v -run TestExecutionConformance ./internal/core/runtime
 
 **Usage:**
 ```bash
-go test -v -run TestRuntimeRobustness -timeout 60s ./internal/core/runtime
+go test -v -run TestRuntimeRobustness -timeout 60s ./internal/exec/runtime
 ```
 
 ---
 
-### Declared errata (`internal/errata`)
+### Declared errata (`tools/oracle/errata`)
 
 The three pilot oracles read OMG-published material, which is sometimes wrong itself.
-`internal/errata` is the registry of those defects: file, line, published bytes, the specification
+`tools/oracle/errata` is the registry of those defects: file, line, published bytes, the specification
 clause violated, the derivation, and the corrected text where the intended reading is unambiguous.
+The overlay mechanism and the entries for the bundled standard library live in the product's
+`internal/workspace/libs/errata`, which `internal/workspace/libs` applies on read; the registry adds the
+corpus entries and the corrected copy of a corpus root an oracle runs over a second time.
 The published corpus is never written to — corrections are applied to a copy under the oracle's
 output directory — and an entry whose published text no longer matches the bytes on disk fails a
 test rather than rotting. Each oracle reports both censuses; the as-published one stays the
@@ -755,11 +840,11 @@ Every behavioral feature must have:
 <!-- doc-counts:begin refereed-figures -->
 **Measured against the pinned reference** (`PILOT_TAG=2026-08`, artifact `0.62.0`). Every number below is generated by `make docs-counts` from the committed baselines and gated; none of them is typed in by hand.
 
-- **Corpus agreement:** 347 of 379 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1247 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run ./cmd/pilot-diff`).
-- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run ./cmd/pilot-xpect`).
+- **Corpus agreement:** 347 of 379 files agree diagnostic-by-diagnostic; 38 diagnostics are ours alone and 1582 the reference's alone, and the first number must be read by root: our diagnostics against the reference's own corpora fell while our non-standard-notation warnings on our own example models rose ([differential](../project/pilot-differential.md), `go run -C tools ./cmd/pilot-diff`).
+- **Declared-diagnostic silence:** of the 512 declared `errors` rows in the reference's own Xpect suites, we report nothing for 0. 245 we report word-for-word; 248 wording-only and 7 location-only differences are agreement in substance and are not counted as gaps; 0 more we report as a warning and 2 elsewhere in the file ([Xpect oracle](../project/pilot-xpect.md), `go run -C tools ./cmd/pilot-xpect`).
 - **Scope agreement:** 230 of 230 declared scope assertions match exactly (same source).
-- **Permissiveness gaps:** of 306 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 293 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run ./cmd/pilot-reject`).
-- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `internal/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 348 of 379 files agreeing, 37 diagnostics ours alone and 1247 the reference's alone, 0 declared rows we are silent on, and 0 of 306 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
+- **Permissiveness gaps:** of 306 invalid models we wrote ourselves, the reference rejects 4 that we accept by default, and 293 both reject; 4 further cases agree only when we are asked strictly. We authored every one of these cases ourselves, so the denominator measures the reach of our own corpus and not our conformance; agreement reached only under an opt-in strict mode is weaker evidence than agreement by default ([rejection oracle](../project/pilot-rejection.md), `go run -C tools ./cmd/pilot-reject`).
+- **Declared errata:** the registry declares 12 defect(s) in the published reference material — 4 with a specification-derived correction, 8 documented without one, since no intended reading can be inferred ([OMG issues](../project/omg-issues.md), `tools/oracle/errata`). Every figure above is as published and stays the conformance statement; running the same oracles over the corrected text instead reports 348 of 379 files agreeing, 37 diagnostics ours alone and 1582 the reference's alone, 0 declared rows we are silent on, and 0 of 306 authored cases the reference alone rejects. The corrected figures are diagnostic only: an erratum never reclassifies a divergence category, and the published corpus is never edited.
 - **Self-assessed surface:** the action, state-machine and classifier-behavior rows have no external referee at all — the four refereed figures above cannot see them, because the pinned artifact evaluates expressions but executes neither actions nor state machines. [Spec compliance](../project/spec-compliance.md) counts them.
 
 What these numbers cannot show: the OMG corpora are demonstrations rather than an official conformance suite; the differential is one-directional, comparing the diagnostics the two implementations report on the same files; the Xpect suites are the pilot authors' test intent rather than a certification oracle; and none of these is a percentage of the specification — no global compliance figure is claimed anywhere.
@@ -774,7 +859,7 @@ Calc/constraint/requirement functional. Action/state executor infrastructure com
 ### Unit & Integration Tests
 - **Unit tests:** Per-package test coverage (lexer, parser, semantics, runtime)
 - **Integration tests:** End-to-end REPL/runtime scenarios
-- **Test fixtures:** `testdata/*.sysml`, `testdata/*.kerml`
+- **Test fixtures:** `tests/testdata/*.sysml`, `tests/testdata/*.kerml`
 - **Golden files:** Expected parse/resolve/diagnostic outputs
 - **Verification:** `go test ./...` (all tests pass), `go build ./...` (clean build)
 
@@ -791,13 +876,13 @@ When adding parser support for new SysML v2 constructs:
 
 When adding execution support for behavioral constructs (actions, states, calc, constraints, requirements):
 
-1. ✅ Add golden AST fixture to `internal/core/parser/testdata/parse/` (if not already covered)
-2. ✅ Implement semantics in `internal/core/runtime/` (executor or evaluator)
-3. ✅ Add conformance case: `.sysml` + `.expected.json` in `internal/core/runtime/testdata/conformance/`
+1. ✅ Add golden AST fixture to `tests/parser/testdata/parse/` (if not already covered)
+2. ✅ Implement semantics in `internal/exec/runtime/` (executor or evaluator)
+3. ✅ Add conformance case: `.sysml` + `.expected.json` in `internal/exec/runtime/testdata/conformance/`
 4. ✅ Add golden trace case: `.trace.golden` for ordering-sensitive features (fork/join, transitions)
 5. ✅ Add robustness test for failure modes (deadlock, unbound params, missing refs)
 6. ✅ Update `docs/project/spec-compliance.md` with semantic rule → implementation → test → status
-7. ✅ Verify all tests pass: `go test ./internal/core/parser/ ./internal/core/runtime/`
+7. ✅ Verify all tests pass: `go test ./internal/syntax/parser/ ./internal/exec/runtime/`
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for full contribution guidelines.
 

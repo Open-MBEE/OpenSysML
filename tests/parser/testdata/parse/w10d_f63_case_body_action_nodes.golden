@@ -1,0 +1,54 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="CaseBodyActionNodes" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Power"))
+      (Membership visibility="default"
+        (Definition kind="analysis case" abstract=false variation=false name="Dynamics"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="powerProfile" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Power
+                (*ast.QualifiedName))
+              (Multiplicity range=false
+                (LiteralInfinity))))
+          (Membership visibility="private"
+            (Usage kind="attribute" name="position" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="private"
+            (Usage kind="attribute" name="speed" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (WhileLoopActionNode kind="for" variable="i"
+            (OperatorExpr operator=".."
+              (LiteralInteger value="1")
+              (LiteralInteger value="2"))
+            (Membership visibility="default"
+              (Usage kind="action" name="step" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+            (*ast.AssignmentActionNode)
+            (SuccessionEdge source="step" target="@assign"))))
+      (Membership visibility="default"
+        (Definition kind="use case" abstract=false variation=false name="Drive"
+          (Membership visibility="default"
+            (Usage kind="action" name="start" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="action" name="drive" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (JoinNode name="join1")
+          (ForkNode name="fork1")
+          (SuccessionEdge source="fork1" target="drive")
+          (InitialNode name="start" successor="join1")))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Sum"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="a" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (ForkNode name="fork2")
+          (SuccessionEdge source="fork2" target="a")
+          (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+            (FeatureReference name="a"))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Loop"
+          (WhileLoopActionNode kind="for" variable="n"
+            (Relationship kind="typing" target=ScalarValues::Integer
+              (*ast.QualifiedName))
+            (SequenceExpr
+              (LiteralInteger value="1")
+              (LiteralInteger value="2")
+              (LiteralInteger value="3"))
+            (Membership visibility="default"
+              (Usage kind="action" name="body" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))))))

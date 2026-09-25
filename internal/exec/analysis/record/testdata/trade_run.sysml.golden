@@ -1,0 +1,44 @@
+package P {
+    package Records {
+        part def ChooseRun :> AnalysisRecords::AnalysisRun {
+            attribute :>> caseName default = "P::choose";
+            attribute best : ScalarValues::Real;
+        }
+        part choose_run1 : ChooseRun {
+            @AnalysisRecords::RecordedRun {
+                runAt = "2026-01-01T00:00:00Z";
+                tool = "sysml test";
+                command = "%record P::check";
+                kind = "trade";
+            }
+            attribute :>> caseName = "P::choose";
+            attribute :>> kind = "trade";
+            attribute :>> 'objective' = "undecided";
+            attribute :>> subjectName = "P::fleet";
+            attribute :>> best = 1.0;
+            part evaluation1 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "P::score";
+                attribute :>> alternative = "1.0";
+                attribute :>> score = 0.75;
+                attribute :>> result = "0.75";
+                attribute :>> selected = true;
+                attribute :>> tied = false;
+            }
+            part evaluation2 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "P::score";
+                attribute :>> alternative = "2.0";
+                attribute :>> score = 0.75;
+                attribute :>> result = "0.75";
+                attribute :>> selected = false;
+                attribute :>> tied = true;
+            }
+            part evaluation3 : AnalysisRecords::EvaluationRecord :> evaluations {
+                attribute :>> 'function' = "P::score";
+                attribute :>> alternative = "3.0";
+                attribute :>> selected = false;
+                attribute :>> tied = false;
+                attribute :>> error = "boom";
+            }
+        }
+    }
+}

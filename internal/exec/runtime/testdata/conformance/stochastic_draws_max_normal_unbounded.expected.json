@@ -1,0 +1,6 @@
+{
+	"type": "action",
+	"libraries": true,
+	"draws": "max",
+	"error": "under max: the distribution is unbounded"
+}

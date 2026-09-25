@@ -1,0 +1,10 @@
+{
+	"type": "state",
+	"trace": true,
+	"finalState": "next",
+	"stateVisits": ["idle", "next"],
+	"outputs": {
+		"count": {"type": "Integer", "value": 11},
+		"later": {"type": "Integer", "value": 5}
+	}
+}

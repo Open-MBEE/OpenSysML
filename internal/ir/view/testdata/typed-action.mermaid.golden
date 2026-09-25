@@ -1,0 +1,16 @@
+---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% TypedViews::cycleView — action rendering (view def ActionFlowView)
+flowchart TD
+  subgraph n0 ["run : Cycle<br>«action»"]
+    direction TD
+    n1["initial"]
+    n2["warm : Warm<br>«action»"]
+    n3["final"]
+  end
+  n1 --> n2
+  n2 --> n3

@@ -1,7 +1,7 @@
 # Behavior Robustness & Correctness Implementation Plan
 
 **Status:** Complete - All Phases B1-B6 Delivered
-**Audience:** Engineers/agents working on `internal/core/runtime` (action/state executors, calc/constraint/requirement evaluation) and their tests.
+**Audience:** Engineers/agents working on `internal/exec/runtime` (action/state executors, calc/constraint/requirement evaluation) and their tests.
 **Companion doc:** `docs/PARSER_ROBUSTNESS_PLAN.md` (structural parser work). This plan applies the same *measurable-safety-net-first, then root-cause* philosophy to **behaviors** — both their **parsing** and their **execution**.
 
 ---
@@ -21,11 +21,11 @@
 **Guiding principle (same as parser plan):** *If I wanted hacks, I'd write it myself. Don't ever choose hacky over correct.* Prefer unifying grammar rules and building oracles over adding another keyword branch or a bespoke assertion.
 
 ### Reference facts (verified — do not re-derive)
-- **Runtime execution APIs** on `internal/core/runtime/context.go`: `ExecuteAction` (`:310`), `ExecuteState` (`:337`), `CreateActionExecutor` (`:379`), `CreateStateExecutor` (`:395`), `InvokeCalc` (`:228`), `EvaluateConstraint` (`:81`), `EvaluateRequirement` (`:148`).
-- **Executors:** `ActionExecutor` (`internal/core/runtime/action_executor.go`): `Step()` (`:66`), `RunToCompletion()` (`:136`), `Tokens()` (`:670`), `SetBreakpoint()` (`:687`), `SetTrace()`. `StateExecutor` (`internal/core/runtime/state_executor.go`): `ProcessNextEvent()` (`:543`), `CurrentState()` (`:502`), `SetTrace()`.
-- **Oracle:** OMG SysML-v2 Pilot Implementation (2026-05, commit `4c289b926`) is the behavioral-semantics reference, over the SysML v2 metamodel and the bundled KerML semantic library (`internal/core/libs/stdlib/`); see the spec-alignment paragraph in `docs/internals/architecture.md`, which states when UML 2.5.1 is a fallback at all.
-- **Conformance gate:** `internal/core/runtime/conformance_test.go` runs `.sysml` + `.expected.json` pairs from `internal/core/runtime/testdata/conformance/`. Known failures in `known_failures.txt`.
-- **Trace gate:** `internal/core/runtime/trace_test.go` compares executor output against `.trace.golden` files.
+- **Runtime execution APIs** on `internal/exec/runtime/context.go`: `ExecuteAction` (`:310`), `ExecuteState` (`:337`), `CreateActionExecutor` (`:379`), `CreateStateExecutor` (`:395`), `InvokeCalc` (`:228`), `EvaluateConstraint` (`:81`), `EvaluateRequirement` (`:148`).
+- **Executors:** `ActionExecutor` (`internal/exec/runtime/action_executor.go`): `Step()` (`:66`), `RunToCompletion()` (`:136`), `Tokens()` (`:670`), `SetBreakpoint()` (`:687`), `SetTrace()`. `StateExecutor` (`internal/exec/runtime/state_executor.go`): `ProcessNextEvent()` (`:543`), `CurrentState()` (`:502`), `SetTrace()`.
+- **Oracle:** OMG SysML-v2 Pilot Implementation (2026-05, commit `4c289b926`) is the behavioral-semantics reference, over the SysML v2 metamodel and the bundled KerML semantic library (`internal/workspace/libs/stdlib/`); see the spec-alignment paragraph in `docs/internals/architecture.md`, which states when UML 2.5.1 is a fallback at all.
+- **Conformance gate:** `internal/exec/runtime/conformance_test.go` runs `.sysml` + `.expected.json` pairs from `internal/exec/runtime/testdata/conformance/`. Known failures in `known_failures.txt`.
+- **Trace gate:** `internal/exec/runtime/trace_test.go` compares executor output against `.trace.golden` files.
 
 ---
 
@@ -44,7 +44,7 @@
 **Objective:** Ensure malformed or pathological behaviors fail *gracefully* (typed error, detected deadlock) rather than panicking or hanging.
 
 ### Task B5.1 — Failure-mode tests
-- **File:** `internal/core/runtime/robustness_test.go`.
+- **File:** `internal/exec/runtime/robustness_test.go`.
 - **Cases (each must return a typed error, never panic/hang):**
   - Deadlocked action (join awaiting a token that never arrives — exercise the deadlock detector referenced in `docs/internals/architecture.md:214`)
   - Decision with no satisfied guard
@@ -100,20 +100,20 @@ go test ./...
 go vet ./...
 
 # Behavioral parse safety nets (Phase B1/B2)
-go test ./internal/core/parser/ -run 'TestGolden|TestNegative' -v
+go test ./tests/parser ./internal/syntax/parser -run 'TestGolden|TestNegative' -v
 
 # Stdlib gate still green after unify (Phase B2)
-go test ./internal/core/libs/ -run TestStdlibConformance -v
+go test ./internal/workspace/libs/ -run TestStdlibConformance -v
 
 # Execution conformance + traces (Phase B3/B4)
-go test ./internal/core/runtime/ -run 'TestExecutionConformance|TestExecutionTrace' -v
+go test ./internal/exec/runtime/ -run 'TestExecutionConformance|TestExecutionTrace' -v
 
 # Runtime robustness, guard against hangs (Phase B5)
-go test ./internal/core/runtime/ -run TestRuntimeRobustness -v -timeout 60s
+go test ./internal/exec/runtime/ -run TestRuntimeRobustness -v -timeout 60s
 
 # Regenerate goldens/traces intentionally (only after reviewing diffs)
-go test ./internal/core/parser/ -run TestGolden -update
-go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
+go test ./tests/parser -run TestGolden -update
+go test ./internal/exec/runtime/ -run TestExecutionTrace -update-traces
 ```
 
 ---
@@ -151,8 +151,8 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - 8 remaining terminal errors are legitimate (safety checks, required syntax, post-fallback validation)
 
 **Files modified:**
-- internal/core/parser/parser.go: checkpoint/restore
-- internal/core/parser/behavior.go: parseActionMember, parseRequirementMember
+- internal/syntax/parser/parser.go: checkpoint/restore
+- internal/syntax/parser/behavior.go: parseActionMember, parseRequirementMember
 - docs/phase3_unified_member_parsing.md: design doc
 
 **Test results:**
@@ -171,7 +171,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 **Status:** ✅ COMPLETE
 
 **Implementation:**
-- Created 7 behavioral golden fixtures under `internal/core/parser/testdata/parse/`:
+- Created 7 behavioral golden fixtures under `tests/parser/testdata/parse/`:
   1. action_control_flow.sysml - nested actions + general member fallback
   2. action_mixed_params.sysml - in/out/inout params with multiplicities
   3. state_full.sysml - entry/do/exit behaviors, hierarchical substates, transitions
@@ -190,8 +190,8 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - All behavioral negatives produce ≥1 diagnostic as required
 
 **Files created/modified:**
-- internal/core/parser/testdata/parse/{action_control_flow,action_mixed_params,state_full,state_transition_variants,calc_return,constraint_assert_assume,requirement_members}.{sysml,golden}
-- internal/core/parser/negative_test.go: added behavioral negative cases
+- tests/parser/testdata/parse/{action_control_flow,action_mixed_params,state_full,state_transition_variants,calc_return,constraint_assert_assume,requirement_members}.{sysml,golden}
+- internal/syntax/parser/negative_test.go: added behavioral negative cases
 
 **Key decisions:**
 - Focused on parseable constructs (not the control nodes fork/join/decide - not implemented yet)
@@ -213,10 +213,10 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - Known failures mechanism for graceful skipping of unimplemented constructs
 
 **Files created:**
-- internal/core/runtime/conformance_test.go: 416 lines, full test harness
-- internal/core/runtime/testdata/conformance/README.md: schema documentation
-- internal/core/runtime/testdata/conformance/{calc_simple_add,constraint_literal,requirement_literal,action_output,state_simple}.{sysml,expected.json}
-- internal/core/runtime/testdata/conformance/known_failures.txt
+- internal/exec/runtime/conformance_test.go: 416 lines, full test harness
+- internal/exec/runtime/testdata/conformance/README.md: schema documentation
+- internal/exec/runtime/testdata/conformance/{calc_simple_add,constraint_literal,requirement_literal,action_output,state_simple}.{sysml,expected.json}
+- internal/exec/runtime/testdata/conformance/known_failures.txt
 
 **Test results:**
 - TestExecutionConformance: 3 passing (calc/constraint/requirement), 2 skipped (action/state - no initial nodes)
@@ -237,20 +237,20 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 **Status:** ✅ COMPLETE (infrastructure ready, no goldens generated yet)
 
 **Implementation:**
-- Created TraceRecorder (internal/core/runtime/trace.go, 168 lines) with deterministic output
+- Created TraceRecorder (internal/exec/runtime/trace.go, 168 lines) with deterministic output
 - Integrated into ActionExecutor: stepCount field, records after each Step()
 - Integrated into StateExecutor: records entry/exit/transition with hasEntryAction/hasExitAction flags
-- Created TestExecutionTrace harness (internal/core/runtime/trace_test.go, 139 lines)
+- Created TestExecutionTrace harness (internal/exec/runtime/trace_test.go, 139 lines)
 - Token sorting by ID ensures deterministic action traces
 - State traces capture full transition path (exit chain, transition, enter chain)
 
 **Files created:**
-- internal/core/runtime/trace.go: TraceRecorder infrastructure
-- internal/core/runtime/trace_test.go: golden trace test harness
+- internal/exec/runtime/trace.go: TraceRecorder infrastructure
+- internal/exec/runtime/trace_test.go: golden trace test harness
 
 **Files modified:**
-- internal/core/runtime/action_executor.go: trace field, SetTrace, stepCount, recording
-- internal/core/runtime/state_executor.go: trace field, SetTrace, recording
+- internal/exec/runtime/action_executor.go: trace field, SetTrace, stepCount, recording
+- internal/exec/runtime/state_executor.go: trace field, SetTrace, recording
 
 **Test results:**
 - TestExecutionTrace passes (0 subtests - all conformance cases skip or fail with known failures)
@@ -297,7 +297,7 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - Step budget enforced via context.incrementStep
 
 **Files created:**
-- internal/core/runtime/robustness_test.go
+- internal/exec/runtime/robustness_test.go
 
 ---
 
@@ -412,11 +412,11 @@ go test ./internal/core/runtime/ -run TestExecutionTrace -update-traces
 - Stdlib gate: 94/94 clean
 
 **Files modified:**
-- internal/core/ast/behavior.go: ActorMember.BindingExpr field
-- internal/core/parser/behavior.go: subject/actor binding syntax
-- internal/core/runtime/context.go: two-pass evaluation with frame
-- internal/core/runtime/conformance_test.go: pass OwnerScope to EvaluateRequirement
-- internal/core/runtime/requirement_test.go: skip 2 old tests (typed subjects)
+- internal/syntax/ast/behavior.go: ActorMember.BindingExpr field
+- internal/syntax/parser/behavior.go: subject/actor binding syntax
+- internal/exec/runtime/context.go: two-pass evaluation with frame
+- internal/exec/runtime/conformance_test.go: pass OwnerScope to EvaluateRequirement
+- internal/exec/runtime/requirement_test.go: skip 2 old tests (typed subjects)
 - docs/BEHAVIOR_SEMANTICS_MAP.md: updated requirement section (5/5 features ✅)
 
 **Conformance tests added:**

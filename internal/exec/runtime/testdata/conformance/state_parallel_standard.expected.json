@@ -1,0 +1,7 @@
+{
+	"type": "state",
+	"schedule": "reverse",
+	"trace": true,
+	"finalState": "ldone+rdone",
+	"stateVisits": ["lstart", "rstart", "ldone", "rdone"]
+}

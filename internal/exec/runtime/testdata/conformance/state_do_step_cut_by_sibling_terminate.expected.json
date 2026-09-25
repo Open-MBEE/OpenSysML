@@ -1,0 +1,15 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "outcomes": [
+    {"terminated": true, "outputs": {"log": {"type": "String", "value": "work(entry) l1(entry) l1(partI) r1(entry) "}}},
+    {"terminated": true, "outputs": {"log": {"type": "String", "value": "work(entry) l1(entry) r1(entry) l1(partI) "}}},
+    {"terminated": true, "outputs": {"log": {"type": "String", "value": "work(entry) l1(entry) r1(entry) "}}},
+    {"terminated": true, "outputs": {"log": {"type": "String", "value": "work(entry) r1(entry) l1(entry) l1(partI) "}}},
+    {"terminated": true, "outputs": {"log": {"type": "String", "value": "work(entry) r1(entry) l1(entry) "}}}
+  ],
+  "admissible": "A do step and a sibling region's entry due inside one entry: which goes first is open"
+}

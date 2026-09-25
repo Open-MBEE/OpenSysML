@@ -1,0 +1,31 @@
+step 1: token 1@check
+stmt assign before
+materialize: patient #1
+materialize: Heart #2
+start: exhibited state machine rhythm of #2
+materialize: Beating #3
+enter: alive
+run: exhibited state machine rhythm of #2
+do: alive
+    stmt action body
+enter action node: state behavior beat
+      stmt assign beats
+        eval literal 1 -> 1
+  eval chain beats -> 1
+step 2: token 1@stop
+stmt terminate
+  eval chain heart -> instance#2
+terminate: Heart #2
+terminated with occurrence: Beating (do behavior abandoned: alive)
+step 3: token 1@tail
+stmt assign after
+  eval chain beats -> 1
+step 4: token 1@done
+step 5: no active tokens
+eval literal 0 -> 0
+enter: alive
+do: alive
+stmt action body
+enter action node: state behavior beat
+  stmt assign beats
+    eval literal 1 -> 1

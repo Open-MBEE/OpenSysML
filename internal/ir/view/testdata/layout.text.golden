@@ -1,0 +1,19 @@
+PlantViews::placedView - interconnection rendering (render asInterconnectionDiagram)
+
+canvas size 1200×800 in px
+
+part def Plant::Loop
+  part pump : Pump at (300, 40) collapsed
+  part tank : Tank at (500, 40) size 120×60
+
+connections:
+  pump -- tank: supply via (400, 70) (450, 120) (500, 70)
+
+notes:
+  "always" on pump at (10, 90)
+  "anchored" on tank at (650, 40) size 100×30
+  "check pressure" on pump -> tank at (420, 140)
+  "free" at (0, 700)
+
+not represented:
+  - 1 styled node(s) and 1 styled edge(s); colours and fonts are not written; the dot form draws every Style

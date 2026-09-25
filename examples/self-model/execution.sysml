@@ -52,7 +52,7 @@ package OpenSysMLExecution {
     // FeaturesOf: a type's schema, built once per model from the semantic shape and
     // shared by every object of the type; redefinitions stay in it, connector ends join it.
     part def FeatureSchema :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> memoized = true;
         attribute keepsRedefinedFeatures : Boolean = true;
         attribute appendsConnectorEnds : Boolean = true;
@@ -64,7 +64,7 @@ package OpenSysMLExecution {
     // materialize: an identity claimed, a feature value per schema entry with only
     // constant defaults folded, redefinitions aliased, the object registered and begun.
     part def Allocator :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute chargesStep : Boolean = true;
         attribute foldsConstantDefaults : Boolean = true;
         attribute aliasesRedefinitions : Boolean = true;
@@ -76,7 +76,7 @@ package OpenSysMLExecution {
     // GetFeatureValue: a value is made the first time it is read, by the case its
     // feature is in (OpenSysMLBehavior::ReadFeatureValue); composites are made the same way.
     part def LazyReader :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> lazy = true;
         attribute refusesUnknownFeature : String = "object has no such feature";
         attribute refusesUnselectedVariation : String = "variation has no variant selected";
@@ -90,7 +90,7 @@ package OpenSysMLExecution {
     // Bindings and connectors, lowered once per type: a bound value is read from
     // its far end and marked as propagated, never as written.
     part def BindingPropagator :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> memoized = true;
         attribute lowersBindingsPerType : Boolean = true;
         attribute marksBindingDerived : Boolean = true;
@@ -101,7 +101,7 @@ package OpenSysMLExecution {
     // A `=` value lists itself on every value it reads; a write to one of them
     // unmaterializes it, transitively, to derive again on its next read.
     part def DependencyTracker :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute recordsReads : Boolean = true;
         attribute invalidatesTransitively : Boolean = true;
         attribute rederivesWhenStale : Boolean = true;
@@ -113,7 +113,7 @@ package OpenSysMLExecution {
     // What a feature comes to hold passes multiplicity, type and uniqueness first,
     // and is spelt as the declared type prefers.
     part def Admission :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute multiplicityRefusal : String = "multiplicity violation";
         attribute typeRefusal : String = "type mismatch";
         attribute uniquenessRefusal : String = "uniqueness violation";
@@ -127,7 +127,7 @@ package OpenSysMLExecution {
     // The instance layer: the schema of a type once, objects of it on demand, and
     // every value they hold read lazily, propagated, admitted and tracked.
     part def InstanceModel :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> lazy = true;
         attribute lazyFeatureValues : Boolean = true;
         attribute schemaOncePerType : Boolean = true;
@@ -154,7 +154,7 @@ package OpenSysMLExecution {
     // runtime.Context: what one run makes — its objects, budgets, clock, trace and
     // the choices it took — over a model shared with every other run of the worker.
     part def RunContext :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
+        attribute :>> goPackage = "internal/exec/runtime";
         attribute ownsObjects : Boolean = true;
         attribute ownsBudgets : Boolean = true;
         attribute recordsChoices : Boolean = true;
@@ -164,8 +164,8 @@ package OpenSysMLExecution {
     // Where a step has several enabled alternatives the policy picks one and the
     // run records a choice point, which a replay or an exploration takes differently.
     part def Scheduler :> CodeUnit {
-        attribute :>> goPackage = "internal/core/runtime";
-        attribute choiceKindCount : Integer = 7;
+        attribute :>> goPackage = "internal/exec/runtime";
+        attribute choiceKindCount : Integer = 11;
         attribute defaultPolicy : String = "reverse";
         attribute policySpellings : String = "declared, reverse, seed:<n>, explore[:runs=<n>,depth=<d>], replay:<file>";
         attribute recordsChoicePoints : Boolean = true;

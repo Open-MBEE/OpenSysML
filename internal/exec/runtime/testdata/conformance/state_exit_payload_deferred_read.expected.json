@@ -1,0 +1,11 @@
+{
+  "libraries": true,
+  "type": "state",
+  "events": [{"signal": "Level", "value": {"type": "Integer", "value": 7}}],
+  "finalState": "done",
+  "stateVisits": ["idle", "alerting", "done"],
+  "outputs": {
+    "collected": {"type": "Integer", "value": 17},
+    "chosen": {"type": "Integer", "value": 14}
+  }
+}

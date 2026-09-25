@@ -16,30 +16,30 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/docrender"
-	"github.com/Open-MBEE/OpenSysML/internal/core/edit"
-	engineset "github.com/Open-MBEE/OpenSysML/internal/core/engines"
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/highlight"
-	"github.com/Open-MBEE/OpenSysML/internal/core/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/core/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/core/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/docpdf"
-	service "github.com/Open-MBEE/OpenSysML/internal/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/interop/reposync"
-	"github.com/Open-MBEE/OpenSysML/internal/lsp"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	passidentity "github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docpdf"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	service "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/highlight"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 const selfModelDir = "self-model"
@@ -162,7 +162,7 @@ func TestSelfModelFiguresMatchImplementation(t *testing.T) {
 		attribute string
 		actual    int
 	}{
-		{"keywordCount", len(lexer.Keywords())},
+		{"keywordCount", len(source.Keywords())},
 		{"bundledFileCount", len(libs.DefaultSource().List())},
 		{"tierCount", int(passes.LevelConstraint) + 1},
 	}
@@ -300,7 +300,7 @@ func TestSelfModelBudgetsMatchImplementation(t *testing.T) {
 }
 
 // TestSelfModelAnalysisFrameworkMatchesImplementation instantiates the modelled
-// analysis framework and compares it with internal/core/analysis: the engines the
+// analysis framework and compares it with internal/exec/analysis: the engines the
 // build's registry (engines.Default) holds and what each declares, the question kinds, the
 // evidence scale, the selections, the budget and the jobs setting.
 func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
@@ -453,8 +453,9 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if declared := budget.str("jobsEnvVar"); declared != analysis.JobsEnvVar {
 		t.Errorf("pipeline.sysml says jobsEnvVar = %q, analysis reads %q", declared, analysis.JobsEnvVar)
 	}
-	if declared, actual := budget.boolean("defaultJobsIsCpuCount"), analysis.DefaultJobs() == goruntime.NumCPU(); declared != actual {
-		t.Errorf("pipeline.sysml says defaultJobsIsCpuCount = %v, DefaultJobs is the CPU count: %v", declared, actual)
+	jobs := analysis.DefaultJobs()
+	if declared, actual := budget.boolean("defaultJobsAtMostCpuCount"), jobs >= 1 && jobs <= goruntime.NumCPU(); declared != actual {
+		t.Errorf("pipeline.sysml says defaultJobsAtMostCpuCount = %v, DefaultJobs is %d of %d CPUs: %v", declared, jobs, goruntime.NumCPU(), actual)
 	}
 	rejects := true
 	for _, text := range []string{"0", "-1", "two", ""} {
@@ -473,8 +474,8 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if !strings.Contains(readGoPackage(t, filepath.Join("..", "cmd", "sysml")), `"`+strings.TrimPrefix(budget.str("jobsFlag"), "-")+`"`) {
 		t.Errorf("pipeline.sysml says jobsFlag = %q, cmd/sysml defines no such flag", budget.str("jobsFlag"))
 	}
-	if !strings.Contains(readGoPackage(t, filepath.Join("..", "internal", "repl")), `"`+budget.str("jobsCommand")+`"`) {
-		t.Errorf("pipeline.sysml says jobsCommand = %q, internal/repl defines no such command", budget.str("jobsCommand"))
+	if !strings.Contains(readGoPackage(t, filepath.Join("..", "internal", "frontend", "repl")), `"`+budget.str("jobsCommand")+`"`) {
+		t.Errorf("pipeline.sysml says jobsCommand = %q, internal/frontend/repl defines no such command", budget.str("jobsCommand"))
 	}
 }
 
@@ -496,7 +497,7 @@ func TestSelfModelWorkersAreIsolated(t *testing.T) {
 		Semantics: func() (*runtime.Model, error) {
 			built++
 			resolver := resolve.New(idx)
-			return runtime.NewModel(semantics.NewModel(resolver), resolver), nil
+			return runtime.NewModel(passes.NewTypedModel(resolver), resolver), nil
 		},
 		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
 			return runtime.NewContext(w.Model, 1000), nil
@@ -613,8 +614,9 @@ func TestSelfModelQuestionFlowFollowsDispatcher(t *testing.T) {
 // on the way down, queues the next alternative of every choice it owns and no
 // more — up to the runs left, the plan never outgrowing the run budget, the
 // rest dropped and the runs bound hit — and the next run takes the prefix
-// queued deepest, so the queue always drains, and a finite choice tree within
-// the bounds proves while a tree either bound cut observes. The choice tree
+// queued first, every departure from the first run before any second one, so
+// the queue always drains, and a finite choice tree within the bounds proves
+// while a tree either bound cut observes. The choice tree
 // is a chain, each choice below alternative `below` of the one above: 1 has
 // the first run meet them all, 2 has each run meet one. The prefix in hand
 // when the exploration ends is the last run's: the choice it ended at and the
@@ -631,16 +633,16 @@ func TestSelfModelExplorationFlowDrainsQueue(t *testing.T) {
 		{"one schedule", nil, 1, 0, 0, false, false},
 		{"one binary choice, then leaves", map[string]string{"runsLeft": "3", "choicesAhead": "1"}, 2, 1, 2, false, false},
 		{"one choice of four, then leaves", map[string]string{"runsLeft": "8", "choicesAhead": "1", "alternatives": "4"}, 4, 1, 4, false, false},
-		{"two binary choices met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 1, 2, false, false},
-		{"two choices of three met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3"}, 5, 1, 3, false, false},
+		{"two binary choices met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2"}, 3, 2, 2, false, false},
+		{"two choices of three met by the first run", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3"}, 5, 2, 3, false, false},
 		{"a choice below the alternative a choice left", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2"}, 3, 2, 2, false, false},
 		{"a choice below the last alternative of a choice of three", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "3"}, 5, 2, 3, false, false},
-		{"three choices of three, each below the second alternative of the one above", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 7, 1, 3, false, false},
+		{"three choices of three, each below the second alternative of the one above", map[string]string{"runsLeft": "64", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 7, 3, 3, false, false},
 		{"three alternatives under a budget of three runs, exactly", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "3"}, 3, 1, 3, false, false},
 		{"three alternatives under a budget of two runs", map[string]string{"runsLeft": "2", "choicesAhead": "1", "alternatives": "3"}, 2, 1, 2, true, false},
 		{"four alternatives under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "1", "alternatives": "4"}, 3, 1, 3, true, false},
-		{"two choices of three met by the first run under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "2", "alternatives": "3"}, 3, 2, 3, true, false},
-		{"three choices of three, each below the second alternative, under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 3, 2, 2, true, false},
+		{"two choices of three met by the first run under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "2", "alternatives": "3"}, 3, 2, 2, true, false},
+		{"three choices of three, each below the second alternative, under a budget of three runs", map[string]string{"runsLeft": "3", "choicesAhead": "3", "alternatives": "3", "below": "2"}, 3, 1, 3, true, false},
 		{"two choices met by the first run under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "depth": "1"}, 2, 1, 2, false, true},
 		{"a choice below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "below": "2", "depth": "1"}, 2, 1, 2, false, true},
 		{"a choice of three below the second alternative of another under a depth bound of one", map[string]string{"runsLeft": "8", "choicesAhead": "2", "alternatives": "3", "below": "2", "depth": "1"}, 3, 1, 3, false, true},
@@ -1097,7 +1099,7 @@ func TestSelfModelExportMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	exporter := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "Exporter")
 
-	names := export.FormatNames()
+	names := convert.FormatNames()
 	if declared, actual := exporter.str("formatNames"), strings.Join(names, ", "); declared != actual {
 		t.Errorf("surfaces.sysml says formatNames = %q, the implementation accepts %q", declared, actual)
 	}
@@ -1105,7 +1107,7 @@ func TestSelfModelExportMatchesImplementation(t *testing.T) {
 	seen := map[string]bool{}
 	var formats []string
 	for _, name := range names {
-		format, err := export.ParseFormat(name)
+		format, err := convert.ParseFormat(name)
 		if err != nil {
 			t.Fatalf("ParseFormat(%q): %v", name, err)
 		}
@@ -1231,7 +1233,7 @@ func TestSelfModelSyncMatchesImplementation(t *testing.T) {
 	sync := instantiateSelfModel(t, idx, ctx, "identity.sysml", "OpenSysMLIdentity", "RepositorySync")
 
 	if !sync.boolean("implemented") {
-		t.Error("identity.sysml says repository synchronisation is not implemented; internal/interop/reposync is")
+		t.Error("identity.sysml says repository synchronisation is not implemented; internal/translate/interop/reposync is")
 	}
 	changeKinds := []string{
 		string(reposync.KindCreate), string(reposync.KindUpdate), string(reposync.KindDelete), string(reposync.KindConflict),
@@ -1300,7 +1302,7 @@ func TestSelfModelIdentityMatchesImplementation(t *testing.T) {
 		t.Errorf("identity.sysml points at %s, which does not exist", file)
 	}
 
-	if level := (passes.IdentityMetadataPass{}).Level(); level != passes.LevelConstraint {
+	if level := (passidentity.MetadataPass{}).Level(); level != passes.LevelConstraint {
 		t.Errorf("identity.sysml models the identity pass at the constraint tier, the implementation runs it at %v", level)
 	}
 }
@@ -1352,20 +1354,20 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 	// empty rendering of either would otherwise pass unnoticed.
 	for _, want := range []string{
 		"# OpenSysML Architecture",
-		"| sources | internal/core/source |",
+		"| sources | internal/syntax/source |",
 		"| notation | syntax | false |",
 		"| actionEndpoints | name-resolution | true |",
 		"| calcDepth | nested calculation depth | OPENSYSML\\_MAX\\_CALC\\_DEPTH | 10000 | calc recursion limit exceeded |",
 		"| sequence | true |",
 		"| geometry | false |",
 		"| differential | pilot validator | docs/project/pilot-differential-baseline.json |",
-		"| snapshotGate | the bundled library files | internal/core/libs/stdlib.snapshot |",
+		"| snapshotGate | the bundled library files | internal/workspace/libs/stdlib.snapshot |",
 		"OpenSysMLViews::pipelineStructure",
 		"OpenSysMLViews::libraryLoadFlow",
 		"[snapshotCurrent]",
 		"OpenSysMLViews::budgetExhaustion",
 		"| explore | outcomes | runs, depth | proved | true | false | runtime.ExploreWith |",
-		"| solve | satisfiable | runs, solver | proved | true | true | internal/core/solve |",
+		"| solve | satisfiable | runs, solver | proved | true | true | internal/exec/solve |",
 		"OpenSysMLViews::analysisFramework",
 		"OpenSysMLViews::questionFlow",
 		"OpenSysMLViews::exploreFlow",
@@ -1407,7 +1409,7 @@ func analyseSelfModel(t *testing.T) (*symbols.Index, *runtime.Context) {
 		idx.AddDocument(name, parser.New(source.New(name, content)).ParseFile())
 	}
 	resolver := resolve.New(idx)
-	return idx, runtime.NewContext(runtime.NewModel(semantics.NewModel(resolver), resolver), 100000)
+	return idx, runtime.NewContext(runtime.NewModel(passes.NewTypedModel(resolver), resolver), 100000)
 }
 
 // modelInstance is an instantiated definition of the self-model, read by feature.

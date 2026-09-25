@@ -1,0 +1,20 @@
+{
+  "type": "state",
+  "events": [{"signal": "Start"}],
+  "outcomes": [
+    {
+      "finalState": "done+b",
+      "outputs": {"order": {"type": "Integer", "value": 213}}
+    },
+    {
+      "finalState": "done+b",
+      "outputs": {"order": {"type": "Integer", "value": 123}}
+    },
+    {
+      "finalState": "done+b",
+      "outputs": {"order": {"type": "Integer", "value": 132}}
+    }
+  ],
+  "admissible": "Dispatch during an entry the model does not run to completion",
+  "trace": true
+}

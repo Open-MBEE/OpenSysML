@@ -1,0 +1,20 @@
+do: s
+stmt action body
+  stmt assign d
+    eval literal 1 -> 1
+do: s
+  stmt terminate
+terminate state behavior <anonymous>: no token dropped
+exit: s (exit action)
+stmt action body
+  stmt assign x
+    eval literal 1 -> 1
+  stmt terminate
+terminate state behavior <anonymous>: no token dropped
+stmt action body
+  stmt assign n
+    eval literal 1 -> 1
+  stmt terminate
+terminate state behavior <anonymous>: no token dropped
+enter: t
+transition: s -> t (event: time)

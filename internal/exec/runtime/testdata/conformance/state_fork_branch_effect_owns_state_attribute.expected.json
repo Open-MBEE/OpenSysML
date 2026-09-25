@@ -1,0 +1,20 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "finalState": "done",
+  "stateVisits": [
+    "outer",
+    "init",
+    "work",
+    "a",
+    "b",
+    "done",
+    "done",
+    "done",
+    "done"
+  ],
+  "outputs": {
+    "outer.count": {"type": "Integer", "value": 11},
+    "seen": {"type": "Integer", "value": 11}
+  }
+}

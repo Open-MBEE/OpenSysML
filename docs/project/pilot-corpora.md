@@ -11,11 +11,11 @@ at release `2026-08`, commit `692170b71867353b8f90341e61556f49a5beb0e5` (`script
 | `sysml-validation` | `examples/pilot-corpora/sysml-validation` | 56 `.sysml` |
 | `kerml-examples` | `examples/pilot-corpora/kerml-examples` | 58 `.kerml` |
 
-**Gate:** `TestPilotCorporaDiagnostics` in `internal/core/model/pilot_corpora_test.go` records
-every file's diagnostic count in `internal/core/model/testdata/pilot_corpora_expected.txt`, so a
+**Gate:** `TestPilotCorporaDiagnostics` in `tests/corpus/pilot_corpora_test.go` records
+every file's diagnostic count in `tests/corpus/testdata/pilot_corpora_expected.txt`, so a
 count going up, a count going down, a file that becomes clean and a file that starts reporting all
 fail the test
-**Regenerate:** `go test ./internal/core/model -run TestPilotCorporaDiagnostics -update-pilot-corpora`
+**Regenerate:** `go test ./tests/corpus -run TestPilotCorporaDiagnostics -update-pilot-corpora`
 **Required in CI:** `OPENSYSML_REQUIRE_PILOT_CORPORA=1` in both `.circleci/config.yml` and
 `.github/workflows/pr.yml`, under which an absent or empty corpus fails instead of skipping
 
@@ -23,7 +23,7 @@ fail the test
 
 All four OMG model roots — these three plus the training corpus in
 `examples/sysml-v2-training` — come from the same pinned pilot release and share one gate
-mechanism in `internal/core/model/corpus_gate_test.go`: one walker, one whole-root loader, one
+mechanism in `tests/corpus/corpus_gate_test.go`: one walker, one whole-root loader, one
 `GATE NOT RUN` skip banner, one expectation-file format, one cache-independence test
 (`TestCorpusGatesCacheStateIndependent`, which covers all four roots), and one downloader
 (`pilot_fetch_subtrees` in `scripts/pilot-pin.sh`, called with one entry by
@@ -47,7 +47,7 @@ The two *policies* over that mechanism deliberately differ:
   recorded. `-update-training` refuses to write a per-file count, so the assertion cannot be
   ratcheted into a baseline by a future PR with a plausible-sounding justification.
 - **The other three ratchet.** They are not clean under our implementation (109, 10 and 72 files'
-  worth of diagnostics the reference does not report, per `cmd/pilot-diff`), so there is nothing to
+  worth of diagnostics the reference does not report, per `tools/referee/diff`), so there is nothing to
   assert yet; the per-file counts are pinned instead, and every movement in either direction has to
   be adjudicated.
 
@@ -68,7 +68,7 @@ un-gate the other.
   measured. Many of them are diagnostics the reference implementation does not report; the starting
   baseline is where the implementation actually is, not where it should be.
 - **It is not a comparison against the reference implementation.** That is
-  [pilot-differential.md](pilot-differential.md) (`go run ./cmd/pilot-diff`), which needs the pinned
+  [pilot-differential.md](pilot-differential.md) (`go run -C tools ./cmd/pilot-diff`), which needs the pinned
   Java validators, is advisory, and is deliberately not wired into CI. This gate needs no validator:
   it is pure Go and runs in seconds, which is why it can gate every PR.
 - **It does not adjudicate.** Like the [training-examples](training-examples.md) gate, the
@@ -82,8 +82,8 @@ un-gate the other.
 - Every file of a root is opened into one workspace **before** any diagnostic is read, because the
   corpora import across files: diagnosing a file while later ones are unopened would measure the
   alphabetical order of the corpus rather than the implementation. This is what the training gate
-  and `cmd/pilot-diff` both do.
-- Each root is loaded as one batch per language, mirroring `cmd/pilot-diff`, where a KerML file and
+  and `tools/referee/diff` both do.
+- Each root is loaded as one batch per language, mirroring `tools/referee/diff`, where a KerML file and
   a SysML file do not share a resource set.
 - Diagnostics of **every** severity are counted, not errors alone, so a warning that appears or
   disappears is a movement the gate reports. Only the count is recorded, so a diagnostic that merely
@@ -114,7 +114,7 @@ that never ran must not look like a gate that passed. Fetch them once:
 
 ```bash
 ./scripts/download-pilot-corpora.sh
-go test -count=1 ./internal/core/model -run TestPilotCorpora
+go test -count=1 ./tests/corpus -run TestPilotCorpora
 ```
 
 The pilot's XMI serialization of the standard library is fetched the same way, from the release

@@ -1,0 +1,10 @@
+{
+	"type": "action",
+	"trace": true,
+	"outputs": {
+		"before": {"type": "Integer", "value": 1},
+		"inner": {"type": "Integer", "value": 2},
+		"skipped": {"type": "Integer", "value": 0},
+		"after": {"type": "Integer", "value": 5}
+	}
+}

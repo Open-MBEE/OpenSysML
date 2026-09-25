@@ -1,0 +1,12 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Definition kind="state" abstract=false variation=false name="EmptyBlocks"
+      (SubstateMember name="s1")
+      (SubstateMember name="s2")
+      (TransitionMember source="s1" target="s2"
+        (Membership visibility="default"
+          (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)))
+      (TransitionMember source="s1" target="s2" emptyBody=true)
+      (TransitionMember source="s1" target="s2" emptyBody=true
+        (Membership visibility="default"
+          (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))))))

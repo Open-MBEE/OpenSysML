@@ -1,0 +1,50 @@
+@startuml
+' PlantViews::loopView — interconnection rendering (render asInterconnectionDiagram)
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+rectangle "**Loop**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
+  rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+  rectangle "**tank : Tank**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
+  rectangle "**sensor : Pump**\n<size:10>//«part»//</size>" as n3 <<part>> <<usage>>
+}
+n1 -[thickness=3]- n2 : supply
+n1 -[dashed]-> n2 : of Water
+@enduml

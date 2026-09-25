@@ -1,8 +1,0 @@
-(RootNamespace
-  (Membership visibility="default"
-    (Definition kind="state" abstract=false variation=false name="EmptyBlocks"
-      (SubstateMember name="s1")
-      (SubstateMember name="s2")
-      (TransitionMember source="s1" target="s2" emptyEffect=true)
-      (TransitionMember source="s1" target="s2" emptyBody=true)
-      (TransitionMember source="s1" target="s2" emptyEffect=true emptyBody=true))))
