@@ -52,6 +52,10 @@ func (o DiagramOptions) check() error {
 	return checkStyle(o.Style)
 }
 
+// GraphvizFallbackNotice is the emphasized paragraph written between a
+// positioned diagram's caption and its Mermaid source when no Graphviz drew it.
+const GraphvizFallbackNotice = "drawn as Mermaid, not at its stated positions: Graphviz (dot) is not installed"
+
 // formFor is the form rendering is written in: the one asked for, else DOT
 // for a positioned view and Mermaid for the rest — and for a positioned view
 // too without Graphviz, a fallback the output states.
@@ -62,7 +66,7 @@ func (o DiagramOptions) formFor(rendering *view.Rendering) (form view.Form, fall
 	case !rendering.Positioned():
 		return view.FormMermaid, ""
 	case o.WithoutGraphviz:
-		return view.FormMermaid, "drawn as Mermaid, not at its stated positions: Graphviz (dot) is not installed"
+		return view.FormMermaid, GraphvizFallbackNotice
 	}
 	return view.FormDot, ""
 }

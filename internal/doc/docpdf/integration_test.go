@@ -510,6 +510,35 @@ func TestRenderPositionedDiagramByDefaultWithInstalledGraphviz(t *testing.T) {
 	}
 }
 
+// TestRenderPositionedDiagramFallsBackWithInstalledMermaid renders the Cameo
+// report with Graphviz pointed nowhere: the positioned view falls back to a
+// Mermaid drawing, the notice saying so and the caption both reach the PDF,
+// through the default engine and through pandoc, whose filter marks the
+// caption past the notice.
+func TestRenderPositionedDiagramFallsBackWithInstalledMermaid(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	t.Setenv(DotEnv, filepath.Join(t.TempDir(), "no-dot"))
+	if (Graphviz{}).Available() {
+		t.Fatal("Graphviz is available with OPENSYSML_DOT pointed at nothing")
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	for _, engine := range []string{"", pandocTool.name} {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{})
+			for _, want := range []string{"PEAS states, as Cameo drew them", "drawn as Mermaid, not at its stated positions"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			if strings.Contains(text, "stateDiagram") || strings.Contains(text, "digraph") {
+				t.Fatalf("diagram source reached the PDF:\n%s", text)
+			}
+		})
+	}
+}
+
 // TestRenderDiagramsWithInstalledPlantUML draws the telescope report's
 // diagrams as PlantUML through a real jar when OPENSYSML_PLANTUML_JAR and java
 // are set, and skips otherwise.

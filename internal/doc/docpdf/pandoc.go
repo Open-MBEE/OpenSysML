@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 )
 
@@ -65,6 +66,7 @@ func writeArtworkFilter(dir string, images []string, math formulas, captions []s
 	}
 	b.WriteString("}\n")
 	b.WriteString("local notices = {dot = " + luaString(dotNotice) + ", plantuml = " + luaString(plantumlNotice) + "}\n")
+	b.WriteString("local fallbackNotice = " + luaString(docrender.GraphvizFallbackNotice) + "\n")
 	b.WriteString(artworkFilterBody)
 	if err := os.WriteFile(filepath.Join(dir, artworkFilterName), []byte(b.String()), 0o600); err != nil {
 		return "", err
@@ -105,7 +107,7 @@ end
 
 -- The diagram form a fenced code block is written in, nil for other code.
 local function formOf(block)
-  if block.t ~= "CodeBlock" then
+  if block == nil or block.t ~= "CodeBlock" then
     return nil
   end
   for _, class in ipairs(block.classes) do
@@ -133,9 +135,19 @@ local function isImage(block)
   return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Image"
 end
 
+local function isEmphasized(block)
+  return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Emph"
+end
+
+-- The notice the Markdown backend writes between a positioned diagram's
+-- caption and the Mermaid source it fell back to without Graphviz.
+local function isFallbackNotice(block)
+  return isEmphasized(block) and words(pandoc.utils.stringify(block)) == words(fallbackNotice)
+end
+
 -- A caption heads a table (or a grouped table's first group key), a diagram
--- fence, a table-kind diagram's rendering comment, a formula block or an
--- image.
+-- fence (or the fallback notice ahead of one), a table-kind diagram's
+-- rendering comment, a formula block or an image.
 local function isCaptioned(blocks, i)
   local block = blocks[i]
   if block == nil then
@@ -143,12 +155,13 @@ local function isCaptioned(blocks, i)
   end
   return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block) or isImage(block)
     or formOf(block) ~= nil
+    or (isFallbackNotice(block) and formOf(blocks[i + 1]) ~= nil)
     or (isGroupKey(block) and blocks[i + 1] ~= nil and blocks[i + 1].t == "Table")
 end
 
 local function isCaption(blocks, i)
   local block = blocks[i]
-  if block.t ~= "Para" or #block.content ~= 1 or block.content[1].t ~= "Emph" then
+  if not isEmphasized(block) then
     return false
   end
   if not isCaptioned(blocks, i + 1) then
