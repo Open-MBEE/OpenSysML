@@ -706,7 +706,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		var outputs map[string]Value
 		result, returned, outputs, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
 		if err == nil && !returned {
-			result, err = ctx.toolCalcResult(shape, frame, callerScope, self, activation, enclosing, outputs)
+			result, err = shape.toolCalcResult(outputs)
 		}
 	} else {
 		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
@@ -829,24 +829,57 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 }
 
 // toolCalcResult resolves what an invocation of a tool-computed calc yields when
-// the calc declares no result parameter, as runCalcBody does for a body that
-// returned nothing: the designated output's value, read from the tool's answers.
-func (ctx *Context) toolCalcResult(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, outputs map[string]Value) (Value, error) {
-	out, err := shape.designatedOutput()
+// the calc declares no result parameter: the value the tool bound to the output
+// it designates, as runCalcBody resolves a body that returned nothing — a result
+// parameter the tool answered wins outright, the one output the tool bound wins
+// alone, and several or none fail as designatedOutput fails. The tool's answers
+// are the whole computation; no body binding is evaluated.
+func (shape *calcShape) toolCalcResult(outputs map[string]Value) (Value, error) {
+	out, err := shape.designatedToolOutput(outputs)
 	if err != nil {
 		return Value{}, err
 	}
-	run := newCalcRun(shape, callerScope, self, frame.locals())
-	run.activation, run.perf = activation, frame.host.performance()
-	if len(enclosing) > 0 {
-		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
+	key := out.Name
+	if key == "" {
+		key = resultOutputName
 	}
-	// The invocation already holds this evaluation's nesting feature value.
-	run.onStack = true
-	for name, value := range outputs {
-		run.outputs[name] = value
+	return outputs[key], nil
+}
+
+// designatedToolOutput returns the output an invocation of a tool-computed calc
+// yields, in the spirit of designatedOutput: the candidates are the outputs the
+// tool answered, a result parameter winning outright over the rest.
+func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutput, error) {
+	var valued []calcOutput
+	for _, out := range shape.Outputs {
+		key := out.Name
+		if out.IsResult && key == "" {
+			key = resultOutputName
+		}
+		if _, answered := outputs[key]; !answered {
+			continue
+		}
+		if out.IsResult {
+			return out, nil
+		}
+		valued = append(valued, out)
 	}
-	return run.value(ctx, out)
+
+	switch len(valued) {
+	case 0:
+		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrCalcNoReturn, shape.Label)
+	case 1:
+		return valued[0], nil
+	default:
+		names := make([]string, 0, len(valued))
+		for _, out := range valued {
+			names = append(names, out.Name)
+		}
+		return calcOutput{}, fmt.Errorf(
+			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
+			ErrAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+		)
+	}
 }
 
 // runCalcSteps runs the calc's lowered steps on engine, whose data holds the

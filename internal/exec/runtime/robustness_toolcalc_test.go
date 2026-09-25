@@ -59,6 +59,19 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 			t.Fatalf("tool ran %d times under an ambiguous variable", len(runner.calls))
 		}
 	})
+	t.Run("ambiguous_result", func(t *testing.T) {
+		// Two bare outs answered by the tool designate no result, as two bound
+		// outputs do for a body that returned nothing.
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"ok": {Value: semanticsBool(true)},
+			"n":  {Value: toolReal(3)},
+		}})
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "TwoOuts"), []Value{realOf(1)}, scope)
+		if !errors.Is(err, ErrAmbiguousResult) {
+			t.Fatalf("InvokeCalc = %v, want ErrAmbiguousResult", err)
+		}
+	})
 	t.Run("unanswered_output", func(t *testing.T) {
 		// A reply the tool bound before the run ended reaches no binding: the
 		// output read asks the run, which answers the reply's failure as a typed

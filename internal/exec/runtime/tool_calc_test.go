@@ -56,6 +56,23 @@ const toolCalcModel = `package test {
 		in p = 10 [SI::W];
 	}
 
+	calc def Probe {
+		metadata ToolExecution { toolName = "Thermo"; uri = "p"; }
+		in a : Real { @ToolVariable { name = "a"; } }
+		out ok : Boolean { @ToolVariable { name = "ok"; } }
+	}
+
+	calc def TwoOuts {
+		metadata ToolExecution { toolName = "Thermo"; uri = "t"; }
+		in a : Real { @ToolVariable { name = "a"; } }
+		out ok : Boolean { @ToolVariable { name = "ok"; } }
+		out n : Real { @ToolVariable { name = "n"; } }
+	}
+
+	calc p : Probe {
+		in a = 1;
+	}
+
 	part def Board {
 		attribute mass : MassValue = 2 [SI::kg];
 		attribute power : PowerValue = 10 [SI::W];
@@ -206,6 +223,50 @@ func TestToolCalcOutOnlyAsksNoResult(t *testing.T) {
 	if got["warn"] != "true" || got["rating"] != "30.0 [SI::W]" {
 		t.Fatalf("outputs %v, want warn = true and rating = 30 W", got)
 	}
+}
+
+// A calc declaring a bare `out` and no result parameter yields that output as
+// its invocation's result, as a body returning nothing yields its designated
+// output: the one output the tool answered, or the ambiguity the tool's answers
+// leave when it bound several.
+func TestToolCalcBareOutDesignatesTheAnsweredOutput(t *testing.T) {
+	t.Run("single out", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"ok": {Value: semanticsBool(true)},
+		}})
+		result, err := ctx.InvokeCalc(calcNamed(t, scope, "Probe"), []Value{realOf(1)}, scope)
+		if err != nil {
+			t.Fatalf("InvokeCalc: %v", err)
+		}
+		if got := FormatValue(result); got != "true" {
+			t.Fatalf("result = %s, want true", got)
+		}
+	})
+	t.Run("two outs", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"ok": {Value: semanticsBool(true)},
+			"n":  {Value: toolReal(3)},
+		}})
+		_, err := ctx.InvokeCalc(calcNamed(t, scope, "TwoOuts"), []Value{realOf(1)}, scope)
+		if !errors.Is(err, ErrAmbiguousResult) {
+			t.Fatalf("InvokeCalc = %v, want ErrAmbiguousResult", err)
+		}
+	})
+	t.Run("usage still reads the output", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, toolCalcModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"ok": {Value: semanticsBool(true)},
+		}})
+		value, err := ctx.CalcUsageOutput(calcNamed(t, scope, "p"), "ok", scope, nil)
+		if err != nil {
+			t.Fatalf("CalcUsageOutput: %v", err)
+		}
+		if got := FormatValue(value); got != "true" {
+			t.Fatalf("p.ok = %s, want true", got)
+		}
+	})
 }
 
 // The answer's unit is converted to the result parameter's coherent unit; one of
