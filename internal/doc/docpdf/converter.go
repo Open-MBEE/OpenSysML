@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 )
 
 // Environment variables that point each external tool's discovery at a
@@ -152,6 +153,16 @@ var (
 // engine names the converter looking ("" for the diagram renderer). The
 // path comes back absolute, since the tool runs in the render directory.
 func (t tool) locate(engine string) (string, error) {
+	// The tool is an external process: on a host that starts none, that is why it
+	// will not run here, answered before the lookup, whose advice to install it is
+	// advice no such host could act on.
+	subject := strings.TrimSpace(os.Getenv(t.envVar))
+	if subject == "" {
+		subject = t.name
+	}
+	if err := hostcap.CheckSpawn(subject); err != nil {
+		return "", err
+	}
 	if override := strings.TrimSpace(os.Getenv(t.envVar)); override != "" {
 		path, err := exec.LookPath(override)
 		if err != nil {

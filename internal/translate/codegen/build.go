@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 )
 
 // Target is a code generation backend.
@@ -118,6 +120,12 @@ func Build(p *Program, target Target, output string) error {
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
+	// Both targets drive an external compiler, which no WebAssembly build can start:
+	// named here, before it runs, rather than as the stdlib's own report of the pipes
+	// it could not make for a process it could not start.
+	if err := hostcap.CheckSpawn(cmd.Args[0]); err != nil {
+		return fmt.Errorf("codegen: %w", err)
+	}
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("codegen: %s failed: %w\n%s", cmd.Args[0], err, strings.TrimSpace(stderr.String()))
 	}
