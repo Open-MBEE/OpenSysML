@@ -171,7 +171,7 @@ CSV, `key = value` lines or its exit status:
 | Member | Meaning |
 |---|---|
 | `format` | `"object"` (the default), `"json"`, `"csv"`, `"lines"` or `"exitcode"`: how the reply is read. `object` admits no other member but `source`; the others require `outputs` |
-| `source` | `"stdout"` (the default) or `"file:<template>"`, whose template may name `{outputDir}` alone — the path must then be under that directory, a regular file the tool wrote, and an `invocation` must hand `{outputDir}` to the tool |
+| `source` | `"stdout"` (the default) or `"file:<template>"`, whose template may name `{outputDir}` alone — the path must then be under that directory, a regular file the tool wrote, and an `invocation` must hand `{outputDir}` to the tool. It may not be the invocation's `inputFile`, which the tool did not write, and symbolic links under `{outputDir}` are not followed out of it |
 | `outputs` | An object mapping each output's tool variable to the selector finding its value |
 | `header` | `csv`: whether the first record names the columns (default `true`) |
 | `delimiter` | `csv`: the field separator, one character (default `,`) |

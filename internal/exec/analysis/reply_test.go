@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -53,6 +54,13 @@ func TestManifestReplyAcceptedShapes(t *testing.T) {
 	if _, err := LoadManifest(dir); err != nil {
 		t.Fatalf("object reply with a file source: %v", err)
 	}
+	// A file source beside an inputFile is admitted while the names differ.
+	dir = writeManifest(t, map[string]string{"thermal.json": `{"toolName": "Thermal", "executable": "solve", "variables": ["T_max"],
+		"invocation": {"args": ["{outputDir}"], "inputFile": {"format": "csv", "name": "inputs.csv"}},
+		"reply": {"format": "json", "source": "file:{outputDir}/result.json", "outputs": {"T_max": {"path": "/T_max"}}}}`})
+	if _, err := LoadManifest(dir); err != nil {
+		t.Fatalf("file source beside a differently named inputFile: %v", err)
+	}
 }
 
 func TestManifestReplyRefusedShapes(t *testing.T) {
@@ -64,6 +72,11 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"unknown key in output": {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "page": 1}}}`), `unknown field "page"`},
 		"format unknown":        {replyEntryText(`{"format": "yaml", "outputs": {}}`), `reply.format "yaml" is not one of object, json, csv, lines and exitcode`},
 		"output not a variable": {replyEntryText(`{"format": "csv", "outputs": {"Tmax": {"column": 0}}}`), `reply.outputs names "Tmax", which variables does not list`},
+		"null output":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": null}}`), `reply.outputs.T_max is null`},
+		"source is the inputFile": {`{"toolName": "Thermal", "executable": "solve", "variables": ["T_max"],
+			"invocation": {"args": ["{outputDir}"], "inputFile": {"format": "csv", "name": "result.json"}},
+			"reply": {"format": "json", "source": "file:{outputDir}/result.json", "outputs": {"T_max": {"path": "/x"}}}}`,
+			`reply.source "file:{outputDir}/result.json" is the invocation's inputFile, which the tool did not write`},
 		"column under json":     {replyEntryText(`{"format": "json", "outputs": {"T_max": {"path": "/x", "column": 0}}}`), `reply.outputs.T_max.column is not a json member`},
 		"regex under csv":       {replyEntryText(`{"format": "csv", "regex": "x", "outputs": {"T_max": {"column": 0}}}`), `reply.regex is not a csv member`},
 		"success under json":    {replyEntryText(`{"format": "json", "success": [0], "outputs": {"T_max": {"path": "/x"}}}`), `reply.success is not a json member`},
@@ -518,5 +531,56 @@ func TestReplySourceRefusals(t *testing.T) {
 	_, err = e.replySource(&execution{}, process)
 	if replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "result.json is not a regular file") {
 		t.Errorf("a directory: %v", err)
+	}
+
+	// A symlinked ancestor under {outputDir} may not lead out of it.
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "result.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatalf("write outside: %v", err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(dir, "link")); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	linked, err := parseTemplate("{outputDir}/link/result.json")
+	if err != nil {
+		t.Fatalf("parseTemplate: %v", err)
+	}
+	linkedEngine := toolEngine{entry: ToolEntry{ToolName: "Thermal", Reply: &Reply{compiled: &compiledReply{source: linked}}}}
+	_, err = linkedEngine.replySource(&execution{}, process)
+	if replyKind(err) != runtime.ToolMalformed || !strings.Contains(err.Error(), "escapes {outputDir}") {
+		t.Errorf("a symlinked ancestor: %v, want escapes {outputDir}", err)
+	}
+
+	// A file the engine cannot open is the same malformed fault, not a panic.
+	if os.Geteuid() != 0 {
+		if err := os.WriteFile(path, []byte("{}"), 0o600); err != nil {
+			t.Fatalf("rewrite: %v", err)
+		}
+		if err := os.Chmod(path, 0o000); err != nil {
+			t.Fatalf("chmod: %v", err)
+		}
+		_, err = e.replySource(&execution{}, process)
+		var fault *runtime.ToolError
+		if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed ||
+			!strings.HasPrefix(fault.Detail, "cannot read result.json") {
+			t.Errorf("an unreadable file: %v, want cannot read result.json", err)
+		}
+	}
+}
+
+// A row marshals back to the form it is read: a name, or the index as a JSON integer.
+func TestReplyRowRoundTrip(t *testing.T) {
+	for text, want := range map[string]Row{`"first"`: {Kind: RowFirst}, `"last"`: {Kind: RowLast}, `3`: {Kind: RowIndex, Index: 3}} {
+		data, err := want.MarshalJSON()
+		if err != nil || string(data) != text {
+			t.Fatalf("%+v marshals %s, %v; want %s", want, data, err, text)
+		}
+		var got Row
+		if err := json.Unmarshal(data, &got); err != nil || got != want {
+			t.Errorf("%s round-trips %+v, %v; want %+v", text, got, err, want)
+		}
 	}
 }

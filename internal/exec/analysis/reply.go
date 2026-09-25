@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -203,8 +204,11 @@ func (r *Row) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON writes the row as it is read.
+// MarshalJSON writes the row as it is read: a name, or the index as a JSON integer.
 func (r Row) MarshalJSON() ([]byte, error) {
+	if r.Kind == RowIndex {
+		return json.Marshal(r.Index)
+	}
 	return json.Marshal(r.String())
 }
 
@@ -373,6 +377,9 @@ func checkReply(entry *ToolEntry) error {
 		if !ok {
 			continue
 		}
+		if o == nil {
+			return fmt.Errorf("reply.outputs.%s is null", name)
+		}
 		if err := checkReplyOutput(format, name, o); err != nil {
 			return err
 		}
@@ -424,6 +431,12 @@ func checkReplySource(entry *ToolEntry, compiled *compiledReply) error {
 	}
 	if entry.Invocation == nil || entry.Invocation.compiled == nil || !entry.Invocation.compiled.outputDir {
 		return errors.New("reply.source names {outputDir} but no invocation template hands it to the tool")
+	}
+	if f := entry.Invocation.InputFile; f != nil {
+		rendered, err := t.render(scope{outputDir: "D"})
+		if err == nil && filepath.Clean(rendered) == filepath.Clean(filepath.Join("D", f.Name)) {
+			return fmt.Errorf("reply.source %q is the invocation's inputFile, which the tool did not write", r.Source)
+		}
 	}
 	compiled.source = t
 	return nil

@@ -318,6 +318,29 @@ func TestToolReplyReadsExitCode(t *testing.T) {
 	}
 }
 
+// An entry built in code, not read from a manifest, has its reply checked by NewTool: a
+// sound one reads the exit status, a faulty one refuses every question with the fault.
+func TestNewToolChecksAProgrammaticReply(t *testing.T) {
+	p := parseRProbe(t)
+	sound := NewTool(ToolEntry{ToolName: "Thermal", Executable: toolreply(t), Variables: []string{"done"},
+		Invocation: &Invocation{Args: []string{"exit3"}},
+		Reply:      &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{"done": {}}}})
+	out, _, err := p.perform(t, registered(t, NewRun(), sound), "ProbeOnce")
+	if err != nil || runtime.FormatValue(out["ok"]) != "true" {
+		t.Fatalf("programmatic exitcode reply = %v, %v; want true", out["ok"], err)
+	}
+
+	faulty := NewTool(ToolEntry{ToolName: "Thermal", Executable: toolreply(t), Variables: []string{"done"},
+		Reply: &Reply{Format: "yaml", Outputs: map[string]*ReplyOutput{"done": {}}}})
+	if _, err := faulty.Process(); !errors.Is(err, ErrManifest) {
+		t.Errorf("process %v, want the ManifestError, so listings show the tool unavailable", err)
+	}
+	question := Question{Kind: Compute, Compute: &ComputeAsk{Call: &runtime.ToolCall{ToolName: "Thermal"}}}
+	if c := faulty.Covers(nil, question); c.Covered || !errors.Is(c.Refusal, ErrManifest) {
+		t.Errorf("%+v, want the refusal a ManifestError naming tool:Thermal", c)
+	}
+}
+
 // keysOf is the output names a reply declares, for a manifest's variables.
 func keysOf(outputs map[string]*ReplyOutput) []string {
 	var names []string
