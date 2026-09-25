@@ -113,6 +113,7 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 		}
 		return runtime.ToolAnswer{}, err
 	}
+	var own error
 	for _, c := range candidates {
 		te, ok := c.(toolEngine)
 		if !ok {
@@ -133,6 +134,9 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			if d.selection.Mode == SelectNamed {
 				return runtime.ToolAnswer{}, cov.Refusal
 			}
+			if te.entry.ToolName == call.ToolName && own == nil {
+				own = cov.Refusal
+			}
 			continue
 		}
 		if te.entry.ToolName == call.ToolName {
@@ -146,6 +150,9 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			}
 			return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
 		}
+	}
+	if own != nil {
+		return runtime.ToolAnswer{}, own
 	}
 	return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 }

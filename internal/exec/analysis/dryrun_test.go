@@ -70,3 +70,20 @@ func TestADryRunStopsAtAnExternalEngineAheadOfTheTool(t *testing.T) {
 		t.Errorf("undecided = %+v, want engine %q ahead of tool %q", undecided, "eager", "Solver")
 	}
 }
+
+// A tool's own refusal — its executable absent — is the dry run's answer, not
+// "not registered": the entry is registered, it refuses.
+func TestADryRunKeepsTheToolsOwnRefusal(t *testing.T) {
+	entry := ToolEntry{ToolName: "Solver", Executable: filepath.Join(t.TempDir(), "absent"),
+		Variables: []string{"mass", "tMax"}}
+	r := registered(t, NewTool(entry))
+	_, err := r.DryRunner(Auto()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
+	var absent *ProcessAbsentError
+	if !errors.As(err, &absent) {
+		t.Fatalf("RunTool under auto = %v, want the entry's ProcessAbsentError", err)
+	}
+	var registered *runtime.ToolNotRegisteredError
+	if errors.As(err, &registered) {
+		t.Errorf("the refusal reads as not registered: %v", err)
+	}
+}
