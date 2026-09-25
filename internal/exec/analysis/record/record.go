@@ -44,6 +44,9 @@ type Provenance struct {
 
 	// Kind is the run shape the records report.
 	Kind Kind
+
+	// Tools is what every external tool call the run made ran, in call order.
+	Tools []string
 }
 
 // Subject is how a run's object is recorded: its usage in the model, and its
@@ -673,6 +676,16 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 		src.WriteString(" = ")
 		src.WriteString(m.value)
 		src.WriteString(";\n")
+	}
+	if len(req.Provenance.Tools) > 0 {
+		tools := make([]string, 0, len(req.Provenance.Tools))
+		for _, tool := range req.Provenance.Tools {
+			tools = append(tools, source.StringText(tool))
+		}
+		writeIndent(src, depth+2)
+		src.WriteString("tools = (")
+		src.WriteString(strings.Join(tools, ", "))
+		src.WriteString(");\n")
 	}
 	writeIndent(src, depth+1)
 	src.WriteString("}\n")

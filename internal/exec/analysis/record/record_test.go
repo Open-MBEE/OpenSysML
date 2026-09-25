@@ -182,6 +182,26 @@ func TestGenerateSweepRuns(t *testing.T) {
 	}
 }
 
+// A run that reached external tools records each call's tool line in call order.
+func TestGenerateToolRun(t *testing.T) {
+	prov := provenance(KindRun)
+	prov.Tools = []string{
+		"ThermalSolver 2.3 from /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5",
+		"EchoTool: /opt/bin/echo < {\"toolName\":\"EchoTool\"}",
+	}
+	res := golden(t, "tool_run.sysml.golden", Request{
+		Package: "Records", Case: "P::heatCheck", Provenance: prov,
+		Runs: []Run{{
+			Spell:   spell(),
+			Subject: Subject{Text: "P::block"},
+			Outputs: []runtime.CalcOutputValue{{Name: "tMax", Value: realValue(87.2)}},
+		}},
+	})
+	if len(res.Records) != 1 {
+		t.Fatalf("records %v", res.Records)
+	}
+}
+
 // Generate refuses the shapes it cannot record.
 func TestGenerateErrors(t *testing.T) {
 	base := func() Request {
@@ -318,7 +338,7 @@ func TestGenerateInfinityValue(t *testing.T) {
 
 // The generated text is formatter-stable: formatting it changes nothing.
 func TestGeneratedSourceIsFormatterStable(t *testing.T) {
-	for _, name := range []string{"single_run.sysml.golden", "trade_run.sysml.golden", "sweep_runs.sysml.golden"} {
+	for _, name := range []string{"single_run.sysml.golden", "trade_run.sysml.golden", "sweep_runs.sysml.golden", "tool_run.sysml.golden"} {
 		src, err := os.ReadFile(filepath.Join("testdata", name))
 		if err != nil {
 			t.Fatalf("%s missing; run with -update", name)
