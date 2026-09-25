@@ -212,13 +212,13 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
 		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin}
-	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.count > 0)
-	w.labels.skin = skin
 	w.collectDrawn(r.Roots)
-	w.placeNodes(r.Roots, r.Edges)
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
 		w.omitUnplaced(r.Roots)
 	}
+	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.count > 0, w.omitted)
+	w.labels.skin = skin
+	w.placeNodes(r.Roots, r.Edges)
 	w.notes = w.drawnNotes(r.Notes)
 	w.placeNotes(w.notes)
 	for _, root := range r.Roots {
@@ -792,7 +792,7 @@ func (w *dotWriter) graphAttributes(direction Direction) []string {
 		attrs = append(attrs, "compound=true")
 	}
 	if w.placement.count > 0 {
-		attrs = append(attrs, "inputscale=72", "dpi=72")
+		attrs = append(attrs, "layout=neato", "inputscale=72", "dpi=72")
 	}
 	return attrs
 }

@@ -21,11 +21,12 @@ type labeller struct {
 // leading names common to their qualifiers — and, for every node whose
 // qualified name continues that of another drawn node, its name below that owner.
 // simple instead heads each node by the minimal suffix of its qualified name
-// that distinguishes it among every node of the rendering, as a positioned
-// drawing of scattered elements names them.
-func labelsOf(roots []*Node, simple bool) labeller {
+// that distinguishes it among the nodes the drawing declares, as a positioned
+// drawing of scattered elements names them; omitted lists the node IDs a
+// drawing leaves undeclared (nil counts every node).
+func labelsOf(roots []*Node, simple bool, omitted map[string]bool) labeller {
 	if simple {
-		return labeller{simple: simpleNames(roots)}
+		return labeller{simple: simpleNames(roots, omitted)}
 	}
 	var context []string
 	found := false
@@ -101,16 +102,18 @@ func ownedNames(roots []*Node) map[*Node]string {
 // segment, extended back over the qualifier until no other node of the
 // rendering ends in the same segments; a name that does not parse keeps its
 // whole spelling, as a node outside the map reports.
-func simpleNames(roots []*Node) map[*Node]string {
+func simpleNames(roots []*Node, omitted map[string]bool) map[*Node]string {
 	names := map[*Node][]string{}
 	groups := map[string][]*Node{}
 	var walk func(nodes []*Node)
 	walk = func(nodes []*Node) {
 		for _, node := range nodes {
-			if segments, ok := source.QualifiedNameSegments(node.Name); ok && len(segments) > 0 {
-				names[node] = segments
-				last := segments[len(segments)-1]
-				groups[last] = append(groups[last], node)
+			if !omitted[node.ID] {
+				if segments, ok := source.QualifiedNameSegments(node.Name); ok && len(segments) > 0 {
+					names[node] = segments
+					last := segments[len(segments)-1]
+					groups[last] = append(groups[last], node)
+				}
 			}
 			walk(node.Children)
 		}

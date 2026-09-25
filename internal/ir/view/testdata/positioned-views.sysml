@@ -67,4 +67,12 @@ package PositionedViews {
 		metadata Layout about Named::B::X { x = 200; y = 0; }
 		metadata Layout about Elsewhere::Y { x = 400; y = 0; }
 	}
+
+	// Places one X and leaves the other without a position: the omitted node
+	// does not force a qualifier on the name of the one drawn.
+	view cameoPartialView {
+		expose Named::A::X;
+		expose Named::B::X;
+		metadata Layout about Named::A::X { x = 0; y = 0; }
+	}
 }

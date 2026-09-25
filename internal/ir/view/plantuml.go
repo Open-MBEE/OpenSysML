@@ -35,7 +35,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	}
 	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots, false)}
+		labels: labelsOf(r.Roots, false, nil)}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}

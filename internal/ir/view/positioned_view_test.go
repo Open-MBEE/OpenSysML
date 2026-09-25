@@ -80,3 +80,29 @@ func TestPositionedDrawingLabelsSimply(t *testing.T) {
 		}
 	}
 }
+
+// A node a drawing omits for want of a place does not qualify another's name:
+// the one X drawn heads as X alone. Drawn in a strip instead, both X's keep
+// their distinguishing suffixes.
+func TestPositionedDrawingLabelsIgnoreOmittedNodes(t *testing.T) {
+	rendering := render(t, "positioned-views.sysml", "PositionedViews::cameoPartialView")
+	dot, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if !strings.Contains(dot, "<b>X</b>") {
+		t.Errorf("DOT lacks the unqualified head <b>X</b>:\n%s", dot)
+	}
+	if strings.Contains(dot, "A::X") {
+		t.Errorf("DOT still qualifies the drawn X:\n%s", dot)
+	}
+	dot, err = rendering.DOTWith(Options{Style: StyleCameo, Unplaced: UnplacedStrip})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	for _, want := range []string{"<b>A::X</b>", "<b>B::X</b>"} {
+		if !strings.Contains(dot, want) {
+			t.Errorf("DOT lacks a simple head %s:\n%s", want, dot)
+		}
+	}
+}

@@ -4,7 +4,7 @@
 // canvas: unit=px w=1200 h=800
 // layout: neato -n2
 digraph "PlantViews::placedView" {
-  graph [fontname="Helvetica", inputscale=72, dpi=72];
+  graph [fontname="Helvetica", layout=neato, inputscale=72, dpi=72];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,800!", pin=true];
