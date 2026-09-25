@@ -1,1 +1,0 @@
-- **`sysml-lsp` is declared to OpenCode.** A checkout carries an `opencode.json` that starts the language server for `.sysml` and `.kerml` files, so the coding agent reads its diagnostics the way it does `gopls` for Go; the editors chapter of the guide explains the configuration and how to enable it for every project.

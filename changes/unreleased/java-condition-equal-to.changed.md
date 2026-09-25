@@ -1,1 +1,0 @@
-- **The Java client's `Condition.equal` is renamed `Condition.equalTo`.** The old name collided with `Object.equals` on every use; `Condition.equalTo(property, values)` is a drop-in rename.
