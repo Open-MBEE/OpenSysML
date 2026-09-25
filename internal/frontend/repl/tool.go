@@ -108,6 +108,7 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 	if err != nil {
 		return fmt.Errorf("failed to create executor: %w", err)
 	}
+	defer exec.Release()
 	exec.SetTrace(s.trace)
 	return exec.RunToCompletion()
 }
