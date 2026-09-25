@@ -44,7 +44,7 @@ model changes: its renderings are byte-identical to what they were.
 
 ## The metadata library
 
-Five metadata definitions, shipped as a non-normative OpenSysML library extension in the
+Six metadata definitions, shipped as a non-normative OpenSysML library extension in the
 same tier as `IdentityMetadata` (`internal/workspace/libs/stdlib/OpenSysML
 Libraries/DiagramLayout.sysml`, counted by the stdlib conformance gate with the other
 extensions):
@@ -86,17 +86,32 @@ standard library package DiagramLayout {
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
     }
+
+    metadata def Picture {
+        attribute location : ScalarValues::String;
+        attribute x : ScalarValues::Real;
+        attribute y : ScalarValues::Real;
+        attribute width : ScalarValues::Real;
+        attribute height : ScalarValues::Real;
+        attribute alt : ScalarValues::String[0..1];
+        attribute above : ScalarValues::Boolean[0..1];
+    }
 }
 ```
 
-`Layout`, `Route` and `Canvas` say where things are; `Style` and `Note` say how they look and what
-is written beside them, the two other things a tool's own drawing of a diagram carries that the
-model does not. A `Style` applies to whatever a rendering draws as a node or an edge — the colours
+`Layout`, `Route` and `Canvas` say where things are; `Style`, `Note` and `Picture` say how things
+look and what is drawn beside them, the other things a tool's own drawing of a diagram carries that
+the model does not. A `Style` applies to whatever a rendering draws as a node or an edge — the colours
 as `"#RRGGBB"`, the font by family name, its size in points — each attribute optional, so a
 symbol coloured by hand states its fill and nothing else, and the drawing style supplies the
 rest. A `Note` is a comment box: its text, the top-left corner of its box and an optional size,
 in the units of `Layout`; `metadata Note about X { … }` in a view anchors it to `X` with a dashed
-line, a `@Note { … }` on the view itself is free on the drawing surface.
+line, a `@Note { … }` on the view itself is free on the drawing surface. A `Picture` is an image
+pasted onto the drawing surface: the file it is read from, relative to the file the view is
+written in (an absolute path or a URL as given), the box it fills, an optional alternative text,
+and `above` when it lies over the element symbols it overlaps rather than under them, which is
+the default — a background picture with the boxes drawn on top. A `Picture` belongs to a view
+alone, `@Picture { … }` in its body; a view carries as many as it shows, in declaration order.
 
 Applied:
 
@@ -128,6 +143,7 @@ package VehicleLayout {
         metadata Note about Vehicle::engine {
             text = "Sized for the 2.0 L variant."; x = 120; y = 200; width = 160; height = 40;
         }
+        @Picture { location = "images/chassis.png"; x = 0; y = 0; width = 1200; height = 800; alt = "the chassis, from above"; }
     }
 }
 ```
@@ -241,9 +257,9 @@ flow.
 | Code | Severity | When |
 |---|---|---|
 | `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
-| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
-| `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. |
-| `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. |
+| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), a `Picture` without its `location`, `x` and `y`, or `width` and `height`, with an empty `location` or a `width` or `height` that is not positive, or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
+| `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. A `Picture` annotating anything that is not a view: it is drawn on no surface. |
+| `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. A `Note` or a `Picture` is never a duplicate: every one is drawn. |
 
 Which elements a rendering draws is asked of the renderer itself: for a view-local
 annotation the pass renders the view once and reads what was drawn (`Renderer.DrawnIn`),
@@ -254,12 +270,12 @@ reads a feature rather than a literal is already an error of the type tier
 
 ## What each writer does
 
-| Form | Positions | Style and Note | Notes |
+| Form | Positions | Style, Note and Picture | Notes |
 |---|---|---|---|
-| `mermaid` | Not representable | A node's `fill`, `line` and `text` as a `classDef`/`class` pair; its font, an edge's `Style` and every `Note` counted in the `%% not represented:` notice | Written as comments after the header so a round trip through the artifact keeps them: `%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120 y=80 w=200 h=90 collapsed`, `%% route: n1->n2 320,125 400,125 480,125`. Node ids are the ones the diagram body uses. The nodes drawn are the ones the `dot` form draws: in a rendering that positions some nodes, the placed ones and the edges between them, with the unplaced counted in a `%% not represented:` notice, or every node under `Options.Unplaced = UnplacedStrip`; the `plantuml` form does the same under `' not represented:`. |
-| `text` | Not representable | Counted in the notice; nothing coloured is written | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
-| `dot` | Honored | Honored whole: `fillcolor`, `color`, `fontcolor`, `fontname`, `fontsize` written after the drawing style's defaults so they win, `<b>`/`<i>` round the label; a `Note` as a `shape=note` node pinned at its box, anchored by a dashed headless edge (see [view rendering forms](view-rendering-forms.md#style)) | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
-| `plantuml` | Not representable | A node's colours as `#fill;line:line;text:text`; the rest counted in the `' not represented:` notice | The node set and edge set the `dot` form draws, as above |
+| `mermaid` | Not representable | A node's `fill`, `line` and `text` as a `classDef`/`class` pair; its font, an edge's `Style`, every `Note` and every `Picture` (with its file and box) counted in the `%% not represented:` notice | Written as comments after the header so a round trip through the artifact keeps them: `%% canvas: unit=px w=1200 h=800`, `%% layout: n1 x=120 y=80 w=200 h=90 collapsed`, `%% route: n1->n2 320,125 400,125 480,125`. Node ids are the ones the diagram body uses. The nodes drawn are the ones the `dot` form draws: in a rendering that positions some nodes, the placed ones and the edges between them, with the unplaced counted in a `%% not represented:` notice, or every node under `Options.Unplaced = UnplacedStrip`; the `plantuml` form does the same under `' not represented:`. |
+| `text` | Not representable | Counted in the notice; nothing coloured is written; each `Picture` listed under `pictures:` with its file, box and alt text | `at (120, 80)` after a positioned node, `size 200×90` and `collapsed` when stated; `via (320, 125) (400, 125)` after a routed edge; a `canvas size … in px` line under the title. |
+| `dot` | Honored | Honored whole: `fillcolor`, `color`, `fontcolor`, `fontname`, `fontsize` written after the drawing style's defaults so they win, `<b>`/`<i>` round the label; a `Note` as a `shape=note` node pinned at its box, anchored by a dashed headless edge (see [view rendering forms](view-rendering-forms.md#style)); a `Picture` as a `shape=none` node with `image=` its file, `imagescale=both`, `fixedsize=true` and its box's `width`/`height`, pinned at the box's centre, written before the element nodes (Graphviz draws in order, so it lies under them) or after them when `above`, its `alt` as the `tooltip` | Graphviz's own vocabulary, converted from y-down pixels to y-up points (`inputscale=72`, `dpi=72`; y measured from the canvas's bottom edge, negated with no canvas height): a node pinned at the centre of its box with `pos="x,y!"`, `pin=true`, `width`/`height` in inches — `fixedsize=true` for a stated size, fitted to the label for an unstated one — and `comment="collapsed"`; a cluster's `bb` stated (the stated box, or the one round its positioned members) and its anchor pinned at the centre; a route as a `pos` spline through the waypoints, a route of one waypoint noticed, as is a route `neato` redraws; the canvas echoed as `// canvas:` and held by an invisible point pinned at each corner, so the drawing's bounding box is the canvas. The `// layout:` header names `neato -n2` when every node is placed and any edge routed, `neato -n` when every node is placed and none routed, `neato` when some nodes are, `dot` when none — see [view rendering forms](view-rendering-forms.md#geometry). |
+| `plantuml` | Not representable | A node's colours as `#fill;line:line;text:text`; the rest, pictures included, counted in the `' not represented:` notice | The node set and edge set the `dot` form draws, as above |
 | `markdown` (table) | n/a | n/a | — |
 | LSP `opensysml/render` | Structured | Optional `style` (`fill`, `line`, `text`, `font`, `fontSize`, `bold`, `italic`) on a node or an edge; notes reach the client only through the DOT it asks for | Optional `x`, `y`, `width`, `height`, `collapsed` on a node, `route` on an edge, `canvas` on the result — see [the LSP reference](../reference/lsp.md). |
 
@@ -288,12 +304,14 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   out what the model does not place, and writes one edit per drag, so the editor's undo
   puts a node back, in every file at once. A model nobody has dragged in keeps exactly
   its bytes.
-- **RDF / Flexo.** Metadata already maps; `Layout`, `Route`, `Canvas`, `Style` and `Note` ride
-  along as ordinary metadata usages with no change to the mapping.
-- **Migration from Cameo.** The SysML v1 migrator writes all five from the diagram symbol
+- **RDF / Flexo.** Metadata already maps; `Layout`, `Route`, `Canvas`, `Style`, `Note` and
+  `Picture` ride along as ordinary metadata usages with no change to the mapping.
+- **Migration from Cameo.** The SysML v1 migrator writes all six from the diagram symbol
   streams a `.mdzip` carries — each symbol's box, each path's bends, the diagram frame as the
-  `Canvas`, a symbol's own `FILL_COLOR`/`PEN_COLOR`/`TEXT_COLOR`/`FONT` as its `Style`, and each
-  comment or text box as a `Note` anchored where its anchor reaches — with an MTIP export given by
+  `Canvas`, a symbol's own `FILL_COLOR`/`PEN_COLOR`/`TEXT_COLOR`/`FONT` as its `Style`, each
+  comment or text box as a `Note` anchored where its anchor reaches, and each image pasted onto
+  the diagram as a `Picture`, its bytes written to a file under `images/` beside the notation —
+  with an MTIP export given by
   `-layout` taking precedence for every element its record places or routes and the stream
   supplying the rest
   ([the mapping](../reference/sysml-v1-migration.md#layout-from-an-mtip-export)).
@@ -305,10 +323,9 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
 
 - **Standardization.** A proposal to the SysML v2 taskforce is drafted in
   [omg-issues.md](omg-issues.md) and not filed.
-- **Images.** A pasted raster image in a source diagram has no annotation: `Note` carries text
-  alone, and a picture would need a reference to a file the model does not hold. The migrator
-  reads such a symbol's class, box and attached file name and counts it as dropped; an `Image`
-  annotation is a follow-up once where the bytes live is settled.
+- **Picture bytes.** A `Picture` refers to a file beside the notation rather than holding the
+  bytes: a model file stays text, and the image travels with the notation as an ordinary file.
+  A tool that moves the notation alone loses the picture, as it loses a linked `DocumentQueries::Image`.
 - **Label positions.** A `Route` places a line, not its label; the DOT form sets an edge label
   beside the route's longest segment. Cameo's stream carries no label position either, so
   nothing is lost in migration, but a hand-placed label has no home yet.
