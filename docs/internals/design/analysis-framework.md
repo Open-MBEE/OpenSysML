@@ -645,6 +645,22 @@ The pilot's `AnalysisAnnotation` example, with its `ModelCenter` tool and `delta
 The manifest names the executable; the model never does, so the same model runs against the
 vendor's tool at one site and a surrogate at another.
 
+The exchange above is the `object` protocol, and it is the whole of what a manifest entry
+carrying only `toolName`, `version`, `executable` and `variables` means. A program that was not
+written for it — one that takes its inputs on the command line, reads a CSV, writes its answer to
+a file or reports only through an exit code — is described by two optional blocks of the same
+entry, `invocation` and `reply`, designed in [Bring your own engines: tools with composed
+invocations and structured replies](bring-your-own-engines.md#tools-composed-invocations-and-structured-replies).
+That note owns the schema (argument, environment and standard-input templates over the sent
+variables; `json`, `csv`, `lines` and `exitcode` replies from standard output or a file;
+sequence-valued outputs; `ToolExecution` on a `calc def`; the dry-run surfaces; the recorded
+provenance) and the rules it holds to, which are this section's: composition and parsing are
+the manifest's and never the model's, no shell runs, every failure is a `ToolError` that fails
+the performance with no default and no fallback to the body, the answer is *observed*, equal
+inputs answering unequal outputs is a reported divergence, and an entry without the two blocks
+behaves byte for byte as this section describes. The `ToolExecution` and `ToolVariable`
+metadata gain no field for any of it.
+
 ## User surface
 
 Existing flags, commands, RPCs and their outputs keep their meaning. What is added:
@@ -942,7 +958,10 @@ behavior unchanged until stage 4.
    `toolName` and the non-deterministic answer, and the registry and dispatch bullets are covered by
    `analysis/tool_test.go`. The `smt` clause — a tool output is a free input in its declared
    domain, a witness the tool does not reproduce fails replay as *not covered* — is the contract
-   that engine meets when it registers; nothing here encodes it.
+   that engine meets when it registers; nothing here encodes it. What this stage leaves for the
+   tool stages of the [engines note](bring-your-own-engines.md#tools-composed-invocations-and-structured-replies)
+   is everything beyond the `object` protocol: a composed command line, a reply in another
+   format or from a file, a sequence-valued output, a tool behind a `calc def`, a dry run.
 6. **The model checkers register.** `smt` and `check` land by their own notes' stages, each as
    an engine from its first stage, with `all` as their referee harness. *Implemented:* `check`
    ([explicit-state design](bounded-model-checking.md), stages 2 and 3), registered in
