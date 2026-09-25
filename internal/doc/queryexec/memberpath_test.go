@@ -141,6 +141,45 @@ calc def Runs :> Query {
 	}
 }
 
+// A feature whose own name contains a period is read by that name first, in
+// properties and in OrderBy; the member path is only the fallback.
+func TestExecuteDottedFeatureNameReadsBeforeMemberPath(t *testing.T) {
+	fixture := memberPathFixture(t, `
+package Dotted {
+	individual part def D {
+		attribute 'x.y' = 4.0;
+		attribute x {
+			attribute y = 9.0;
+		}
+	}
+	individual part def E {
+		attribute 'x.y' = 1.0;
+	}
+}
+calc def Dots :> Query {
+	in root : Element;
+	Project(
+		source = DocumentQueries::OrderBy(
+			source = Descendants(source = root, maxDepth = 1),
+			property = "x.y",
+			direction = "ascending",
+			missing = "last",
+			multiple = "first"),
+		properties = ("name", "x.y")
+	)
+}`)
+	result, err := fixture.execute(t, "Dots", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Dotted"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := cellNumbers(t, result, "x.y")
+	if !slices.EqualFunc(got, [][]float64{{1}, {4}}, slices.Equal) {
+		t.Fatalf("'x.y' cells = %v, want {1}, {4} — the feature's own name wins and sorts", got)
+	}
+}
+
 // A quoted head reads a member whose name is not a basic name.
 func TestExecuteComputedMemberPathQuotedHead(t *testing.T) {
 	fixture := memberPathFixture(t, `

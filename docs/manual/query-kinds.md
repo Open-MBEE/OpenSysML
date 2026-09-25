@@ -41,7 +41,9 @@ a `Column` computes it or the row is an [object row](#object-rows-and-verdict-ro
 A feature the element does not declare itself but a member nested in it does
 is still reachable: a `properties`/`property` string or a `Column` expression
 spells it as a member path — `stat.runs`, `'Monte Carlo'.runs` — each segment
-a member of the element reached so far, own members first. A row lacking a
+a member of the element reached so far, own members first. A feature whose own
+name contains a period is read by that name first; the path is only the
+fallback. A row lacking a
 segment makes the path absent on that row alone, and a member holding more
 values than its multiplicity admits fails the column as a direct feature
 column does. See

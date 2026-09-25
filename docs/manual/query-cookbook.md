@@ -754,7 +754,9 @@ A column expression may also be a **feature chain** — `'Monte Carlo'.runs`,
 the row element. Each segment names a member of the element the previous one
 reached: the row's own members answer first, then inherited ones, and the
 last segment reads that member's feature. A segment that is not a basic name
-is quoted, as in the notation. A row lacking a segment entirely makes the
+is quoted, as in the notation. In a `properties`/`property` string a feature
+whose own name contains a period is read by that name first, the path only
+the fallback. A row lacking a segment entirely makes the
 path absent on that row — an empty cell, or a `??` default — and the path is
 an unknown-property error only when no row reaches it; a member the path
 finds that declares no value is an empty cell, and a multi-valued member

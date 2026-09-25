@@ -664,7 +664,8 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 
 // propertyValues reads a property of a row: of the session for an object row,
 // of the check, state or trace record for a verdict, state or event row, of
-// the model for an element row.
+// the model for an element row. A dotted name reads a declared feature of that
+// own name first, falling back to the member path.
 func (e *executor) propertyValues(row Value, property string) ([]Value, bool, error) {
 	if _, _, isObject := row.Object(); isObject {
 		return e.objectPropertyValues(row, property)
@@ -690,11 +691,14 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		}
 		return result, true, nil
 	}
-	if segments, ok := parseMemberPath(property); ok {
+	if values, present, err := e.declaredFeatureValues(sym, property); present || err != nil {
+		return values, present, err
+	}
+	if segments, ok := parseMemberPath(property); ok && len(segments) > 1 {
 		values, present, _, err := e.memberPathValues(sym, segments)
 		return values, present, err
 	}
-	return e.declaredFeatureValues(sym, property)
+	return nil, false, nil
 }
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
