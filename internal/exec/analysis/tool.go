@@ -572,6 +572,58 @@ func repeatedKey(document []byte) (string, bool) {
 	}
 }
 
+// nullMember is the first member an object anywhere in a JSON document spells with the
+// value null, as the dotted path to it, which a struct decode would hide by leaving the
+// member's zero value. Only well-formed JSON is walked; anything else is left to the
+// decoder to report.
+func nullMember(document []byte) (string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(document))
+	// One frame per open object or array; only an object's frame has a key in hand.
+	type frame struct {
+		isObject bool
+		inKey    bool
+	}
+	var path []string
+	var open []*frame
+	valueDone := func() {
+		if top := len(open) - 1; top >= 0 && open[top].inKey {
+			open[top].inKey = false
+			path = path[:len(path)-1]
+		}
+	}
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return "", false
+		}
+		switch tok {
+		case json.Delim('{'):
+			open = append(open, &frame{isObject: true})
+			continue
+		case json.Delim('['):
+			open = append(open, &frame{})
+			continue
+		case json.Delim('}'), json.Delim(']'):
+			open = open[:len(open)-1]
+			valueDone()
+			continue
+		}
+		top := len(open) - 1
+		if top >= 0 && open[top].isObject {
+			if !open[top].inKey {
+				key, _ := tok.(string)
+				open[top].inKey = true
+				path = append(path, key)
+				continue
+			}
+			if tok == nil {
+				return strings.Join(path, "."), true
+			}
+		}
+		valueDone()
+	}
+}
+
 // decodeValue reads one wire value: a JSON number as an Integer when it is one and fits,
 // else a finite Real; a boolean as a truth; a string as text. Only a number carries a unit,
 // which when written is a string of text.

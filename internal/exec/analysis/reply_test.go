@@ -77,7 +77,9 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"unknown key in output": {replyEntryText(`{"format": "csv", "outputs": {"T_max": {"column": 0, "page": 1}}}`), `unknown field "page"`},
 		"format unknown":        {replyEntryText(`{"format": "yaml", "outputs": {}}`), `reply.format "yaml" is not one of object, json, csv, lines and exitcode`},
 		"output not a variable": {replyEntryText(`{"format": "csv", "outputs": {"Tmax": {"column": 0}}}`), `reply.outputs names "Tmax", which variables does not list`},
-		"null output":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": null}}`), `reply.outputs.T_max is null`},
+		"null output":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": null}}`), `the entry sets reply.outputs.T_max to null`},
+		"null outputs":          {replyEntryText(`{"format": "object", "outputs": null}`), `the entry sets reply.outputs to null`},
+		"null header":           {replyEntryText(`{"format": "csv", "header": null, "outputs": {"T_max": {"column": 0}}}`), `the entry sets reply.header to null`},
 		"duplicate regex group": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)|code=(?P<code>\\d+)", "outputs": {"code": {}}}`), `reply.regex names group "code" twice`},
 		"key naming the variable": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)", "outputs": {"code": {"key": "code"}}}`),
 			`reply.outputs.code.key is not read beside regex`},
@@ -207,7 +209,7 @@ func readReply(t *testing.T, r *Reply, entry ToolEntry, source string, requested
 		return nil, err
 	}
 	if len(requested) == 0 {
-		requested = r.outputsOrdered(entry.Variables, nil)
+		requested = r.outputsOrdered(entry.Variables)
 	}
 	sorted := append([]string(nil), requested...)
 	sort.Strings(sorted)
@@ -682,5 +684,23 @@ func TestReplyRowRoundTrip(t *testing.T) {
 		if err := json.Unmarshal(data, &got); err != nil || got != want {
 			t.Errorf("%s round-trips %+v, %v; want %+v", text, got, err, want)
 		}
+	}
+}
+
+// nullMember walks the whole document, nested objects and arrays included, naming the
+// first member set to null as a struct decode would hide it.
+func TestNullMember(t *testing.T) {
+	doc := `{"a": {"b": [{"c": 1}, {"d": null}]}, "e": null}`
+	if path, found := nullMember([]byte(doc)); !found || path != "a.b.d" {
+		t.Errorf("nullMember = %q, %v; want a.b.d", path, found)
+	}
+	if path, found := nullMember([]byte(`{"a": {"b": [null]}, "c": [{"d": 0}]}`)); found {
+		t.Errorf("array elements are not members: %q", path)
+	}
+	if path, found := nullMember([]byte(`{"a": 1, "b": {"c": "x"}}`)); found {
+		t.Errorf("no nulls: %q", path)
+	}
+	if _, found := nullMember([]byte(`{"a":`)); found {
+		t.Error("malformed input reports no null member")
 	}
 }

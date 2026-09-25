@@ -92,6 +92,7 @@ keeps the engine registered and listed as `unavailable: tool 'ModelCenter': exec
 found`, and a performance naming the tool is refused with that reason. `variables` are the
 `ToolVariable` names the tool accepts, non-empty and distinct; a parameter whose variable is
 not among them refuses the performance before the process is started. Unknown keys are refused,
+a key spelled twice or a member set to `null` anywhere in an entry likewise,
 and so is a `kind` other than `tool`, `engine`, `policy` or `sampler` (`tool` when absent); the
 last three are [engine entries](#external-engines), which a tool directory may hold too.
 

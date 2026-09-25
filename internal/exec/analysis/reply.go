@@ -532,7 +532,7 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 
 // checkReplyJSON parses the pointers: each output's path and unitPath, and errorPath.
 func checkReplyJSON(r *Reply, variables []string, compiled *compiledReply) error {
-	for _, variable := range r.outputsOrdered(variables, nil) {
+	for _, variable := range r.outputsOrdered(variables) {
 		o := r.Outputs[variable]
 		p, err := parsePointer(*o.Path)
 		if err != nil {
@@ -570,7 +570,7 @@ func checkReplyCSV(r *Reply, variables []string, compiled *compiledReply) error 
 		compiled.delimiter = d
 	}
 	if !compiled.header {
-		for _, variable := range r.outputsOrdered(variables, nil) {
+		for _, variable := range r.outputsOrdered(variables) {
 			o := r.Outputs[variable]
 			if o.Column != nil && !o.Column.ByIndex {
 				return fmt.Errorf("reply.outputs.%s.column %q names a column but header is false", variable, o.Column.Name)
@@ -597,7 +597,7 @@ func validDelimiter(d rune) bool {
 func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) error {
 	if r.Regex == "" {
 		byKey := make(map[string]string, len(r.Outputs))
-		for _, variable := range r.outputsOrdered(variables, nil) {
+		for _, variable := range r.outputsOrdered(variables) {
 			o := r.Outputs[variable]
 			if o.Key == "" {
 				o.Key = variable
@@ -609,7 +609,7 @@ func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) erro
 		}
 		return nil
 	}
-	for _, variable := range r.outputsOrdered(variables, nil) {
+	for _, variable := range r.outputsOrdered(variables) {
 		if o := r.Outputs[variable]; o.Key != "" {
 			return fmt.Errorf("reply.outputs.%s.key is not read beside regex", variable)
 		}
@@ -634,7 +634,7 @@ func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) erro
 		}
 		named[name] = true
 	}
-	for _, variable := range r.outputsOrdered(variables, nil) {
+	for _, variable := range r.outputsOrdered(variables) {
 		if !named[variable] {
 			return fmt.Errorf("reply.outputs.%s is named by no group of reply.regex", variable)
 		}
@@ -648,7 +648,7 @@ func checkReplyExitCode(r *Reply, variables []string, compiled *compiledReply) e
 	if len(r.Outputs) != 1 {
 		return fmt.Errorf("reply.outputs names %d variables; exitcode reads exactly one", len(r.Outputs))
 	}
-	compiled.exitVariable = r.outputsOrdered(variables, nil)[0]
+	compiled.exitVariable = r.outputsOrdered(variables)[0]
 	compiled.success = make(map[int]bool, len(r.Success))
 	if r.Success == nil {
 		compiled.success[0] = true
@@ -725,10 +725,10 @@ func typeText(text string, t ValueType) (runtime.ToolValue, error) {
 
 // outputsOrdered is each output's variable in the entry's variables order, so the first
 // failure of a read or a load check is deterministic.
-func (r *Reply) outputsOrdered(variables []string, wanted map[string]bool) []string {
+func (r *Reply) outputsOrdered(variables []string) []string {
 	names := make([]string, 0, len(r.Outputs))
 	for _, name := range variables {
-		if _, ok := r.Outputs[name]; ok && (wanted == nil || wanted[name]) {
+		if _, ok := r.Outputs[name]; ok {
 			names = append(names, name)
 		}
 	}
@@ -770,7 +770,7 @@ func (r *Reply) readJSON(entry ToolEntry, source []byte) (map[string]runtime.Too
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
 	faults := make(map[string]error, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
+	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
 		p := r.compiled.paths[variable]
 		v, found := p.resolve(doc)
@@ -942,7 +942,7 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
 	faults := make(map[string]error, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
+	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
 		col, err := indexOf(o.Column)
 		if err != nil {
@@ -1041,7 +1041,7 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
 	faults := make(map[string]error, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
+	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
 		hits := found[o.Key]
 		if len(hits) == 0 {
@@ -1069,7 +1069,7 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runt
 	re := r.compiled.regex
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
 	faults := make(map[string]error, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
+	for _, variable := range r.outputsOrdered(entry.Variables) {
 		o := r.Outputs[variable]
 		group := re.SubexpIndex(variable)
 		var text string
