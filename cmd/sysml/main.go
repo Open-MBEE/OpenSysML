@@ -184,7 +184,7 @@ func resolveEngines() error {
 }
 
 // jobs is how many runs of one plan go concurrently: -jobs when given, else
-// OPENSYSML_JOBS, else one per CPU; read once at startup.
+// OPENSYSML_JOBS, else one per CPU the memory available allows; read once at startup.
 var jobs = analysis.DefaultJobs()
 
 // jobsSetting is -jobs as written, rejected where it is parsed so a value below one is

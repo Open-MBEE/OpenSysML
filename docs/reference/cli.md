@@ -286,7 +286,7 @@ written in, so the verdicts are about that object:
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
-| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 Other modes, each described in full by `sysml -help` and the manual page:
@@ -1306,6 +1306,17 @@ are what the two executions produced — nothing is scaled, filtered or tuned �
 bodies or guards are not migrated compares honestly short, and the configuration's `-runs`
 override lets a tool's single stored run be set beside a hundred of OpenSysML's.
 
+The configurations are compared one after another, each printed as soon as it is decided, and
+their runs go `-jobs` at a time ([Running in parallel](#running-in-parallel)) over the one loaded
+model: the parsed and resolved documents, their symbol index and the index of the model's `about`
+metadata are shared read-only by every worker, each worker holding memo tables of its own, and a
+run's objects and messages are released once its observables are read — its trace alone is kept
+for `-trace`. What a comparison of a large migrated model holds at once is therefore the model,
+the workers and the runs in flight, not every run made, so its memory grows with `-jobs` rather
+than with `-runs` or the number of configurations. The default job count is bounded by the memory
+available (see `-jobs`); set `-jobs` or `OPENSYSML_JOBS` lower on a machine the default still
+strains, or run one configuration at a time with `-action`.
+
 ## Exploring every linearization
 
 Where a behavior has [choice points](../guide/06-behavior.md) — several steppable tokens in one
@@ -1444,9 +1455,11 @@ subject of a service request ([wire contract](wire-contract.md)), and `-engine c
 
 ### Running in parallel
 
-`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU) lets `n` runs of one exploration go at
-once, each on a worker of its own — a resolver and semantic model per worker over the one loaded
-model, so no run sees another's memo or object. The prefixes explore discovers form a work queue
+`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU — fewer where the memory available at
+startup leaves less than 512 MiB per worker, read on Linux from `MemAvailable` and the cgroup's
+`memory.max`, and never fewer than one) lets `n` runs of one exploration go at once, each on a
+worker of its own — a resolver and semantic model per worker over the one loaded model, so no run
+sees another's memo or object. The prefixes explore discovers form a work queue
 ordered as the sequential exploration would take them, and the report is assembled in that order:
 the outcome table, each outcome's witness (the least prefix reaching it), the run count and the
 budget hit are the ones `-jobs 1` reports, byte for byte, whatever `n` is. A `runs` budget is a
