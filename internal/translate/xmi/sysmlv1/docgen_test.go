@@ -124,3 +124,70 @@ func TestDocGenChainRefusesDanglingFlows(t *testing.T) {
 		}
 	}
 }
+
+// The 2022x collaborator schema places a paragraph by sectionId (the view it
+// sits in) and orders it by parentId (the preceding paragraph's comment), with
+// viewId naming the document's top view rather than the document; a parentId
+// that resolves to nothing heads the order.
+func TestDocGenParagraphsRead2022xTags(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Document_View_Collaborator_Profile="http://www.magicdraw.com/schemas/manual/Document_View_Collaborator_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_top" name="top" type="_view_top" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_view_top" name="Top">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_sec" name="sec" type="_view_sec" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_view_sec" name="Sec">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_head" body="heads the order"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_first" body="first"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_second" body="second"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_img" body="figure"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <sysml:View xmi:id="_st_top" base_Class="_view_top"/>
+  <sysml:View xmi:id="_st_sec" base_Class="_view_sec"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_p_head" base_Element="_c_head" documentId="mms-1" branchId="mms-2" viewId="_view_top" sectionId="_view_sec" parentId="mms-gone"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_p1" base_Element="_c_first" documentId="mms-1" viewId="_view_top" sectionId="_view_sec"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_p2" base_Element="_c_second" documentId="mms-1" viewId="_view_top" sectionId="_view_sec" parentId="_c_first"/>
+  <Document_View_Collaborator_Profile:CollaboratorImageParagraph xmi:id="_st_p3" base_Element="_c_img" documentId="mms-1" viewId="_view_top" sectionId="_view_sec" parentId="_c_second"/>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Documents) != 1 {
+		t.Fatalf("%d documents, want 1", len(m.Documents))
+	}
+	sec := m.Documents[0].Root.Children[0].Children[0]
+	if sec.Class.ID != "_view_sec" {
+		t.Fatalf("section = %s, want _view_sec", sec.Class.ID)
+	}
+	want := []string{"_c_head", "_c_first", "_c_second", "_c_img"}
+	if len(sec.Paragraphs) != len(want) {
+		t.Fatalf("%d paragraphs, want %d", len(sec.Paragraphs), len(want))
+	}
+	for i, p := range sec.Paragraphs {
+		if p.Comment == nil || p.Comment.ID != want[i] {
+			t.Fatalf("paragraph %d = %+v, want comment %s", i, p, want[i])
+		}
+		if p.Malformed != "" {
+			t.Errorf("paragraph %s malformed: %s", want[i], p.Malformed)
+		}
+	}
+	if !sec.Paragraphs[3].Image {
+		t.Error("the image paragraph did not report Image")
+	}
+	for i, placed := range []bool{false, false, true, true} {
+		if sec.Paragraphs[i].Placed != placed {
+			t.Errorf("paragraph %s: Placed = %v, want %v", want[i], sec.Paragraphs[i].Placed, placed)
+		}
+	}
+	if len(m.StrayParagraphs) != 0 {
+		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
+	}
+}
