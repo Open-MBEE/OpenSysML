@@ -73,6 +73,9 @@ func TestManifestReplyRefusedShapes(t *testing.T) {
 		"format unknown":        {replyEntryText(`{"format": "yaml", "outputs": {}}`), `reply.format "yaml" is not one of object, json, csv, lines and exitcode`},
 		"output not a variable": {replyEntryText(`{"format": "csv", "outputs": {"Tmax": {"column": 0}}}`), `reply.outputs names "Tmax", which variables does not list`},
 		"null output":           {replyEntryText(`{"format": "csv", "outputs": {"T_max": null}}`), `reply.outputs.T_max is null`},
+		"duplicate regex group": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)|code=(?P<code>\\d+)", "outputs": {"code": {}}}`), `reply.regex names group "code" twice`},
+		"key naming the variable": {replyEntryText(`{"format": "lines", "regex": "(?P<code>\\d+)", "outputs": {"code": {"key": "code"}}}`),
+			`reply.outputs.code.key is not read beside regex`},
 		"source is the inputFile": {`{"toolName": "Thermal", "executable": "solve", "variables": ["T_max"],
 			"invocation": {"args": ["{outputDir}"], "inputFile": {"format": "csv", "name": "result.json"}},
 			"reply": {"format": "json", "source": "file:{outputDir}/result.json", "outputs": {"T_max": {"path": "/x"}}}}`,
@@ -178,16 +181,24 @@ func replyOf(t *testing.T, r *Reply) (*Reply, ToolEntry) {
 	return entry.Reply, entry
 }
 
-// readReply parses source with a compiled reply; the kind of a fault is checked by callers.
-func readReply(t *testing.T, r *Reply, entry ToolEntry, source string) (map[string]runtime.ToolValue, error) {
+// readReply parses source with a compiled reply; requested names the outputs the call
+// asks for, all of them when none is given. The kind of a fault is checked by callers.
+func readReply(t *testing.T, r *Reply, entry ToolEntry, source string, requested ...string) (map[string]runtime.ToolValue, error) {
 	t.Helper()
+	var wanted map[string]bool
+	if len(requested) > 0 {
+		wanted = make(map[string]bool, len(requested))
+		for _, name := range requested {
+			wanted[name] = true
+		}
+	}
 	switch r.Format {
 	case ReplyJSON:
-		return r.readJSON(entry, []byte(source))
+		return r.readJSON(entry, []byte(source), wanted)
 	case ReplyCSV:
-		return r.readCSV(entry, []byte(source))
+		return r.readCSV(entry, []byte(source), wanted)
 	default:
-		return r.readLines(entry, []byte(source))
+		return r.readLines(entry, []byte(source), wanted)
 	}
 }
 
@@ -568,6 +579,26 @@ func TestReplySourceRefusals(t *testing.T) {
 			!strings.HasPrefix(fault.Detail, "cannot read result.json") {
 			t.Errorf("an unreadable file: %v, want cannot read result.json", err)
 		}
+	}
+}
+
+// Only the outputs the call requests are read; another mapped output may be absent.
+func TestReplyReadsRequestedOutputs(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
+		"T_max": {Path: "/T_max"},
+		"v_out": {Path: "/v_out"},
+	}})
+	out, err := readReply(t, r, entry, `{"T_max": 341.2}`, "T_max")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if len(out) != 1 || out["T_max"].Value.Real != 341.2 {
+		t.Errorf("outputs = %+v, want only T_max", out)
+	}
+	// Requesting an output that has no manifest selector reads what is mapped, nothing more.
+	out, err = readReply(t, r, entry, `{"T_max": 341.2, "v_out": 36}`, "T_max", "done")
+	if err != nil || len(out) != 1 {
+		t.Errorf("an unmapped request: %v, %+v", err, out)
 	}
 }
 

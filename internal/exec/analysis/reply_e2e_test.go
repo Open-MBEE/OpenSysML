@@ -318,6 +318,17 @@ func TestToolReplyReadsExitCode(t *testing.T) {
 	}
 }
 
+// A performance declaring one of the mapped outputs reads only it: the manifest maps all
+// five but Probe asks for `done` alone, and nothing else is bound or faulted for.
+func TestToolReplyReadsOnlyRequestedOutputs(t *testing.T) {
+	p := parseRProbe(t)
+	entry := thermalEntry(toolreply(t), []string{"csv-stdout"}, &Reply{Format: ReplyCSV, Outputs: csvReplyOutputs})
+	out, _, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "ProbeOnce")
+	if err != nil || runtime.FormatValue(out["ok"]) != "false" {
+		t.Fatalf("ProbeOnce over a csv reply = %v, %v; want false", out["ok"], err)
+	}
+}
+
 // An entry built in code, not read from a manifest, has its reply checked by NewTool: a
 // sound one reads the exit status, a faulty one refuses every question with the fault.
 func TestNewToolChecksAProgrammaticReply(t *testing.T) {

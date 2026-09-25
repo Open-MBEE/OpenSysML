@@ -178,7 +178,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		process.remove()
 		return Result{}, err
 	}
-	reply, err := e.read(ex, process)
+	reply, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -279,7 +279,7 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 
 // read parses the execution's reply as the entry's reply block says, reading the file a
 // `file:` source names before the invocation's directory is removed.
-func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
 	tool := e.entry.ToolName
 	r := e.entry.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
@@ -296,13 +296,17 @@ func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.T
 	if err != nil {
 		return nil, err
 	}
+	wanted := make(map[string]bool, len(call.Outputs))
+	for _, out := range call.Outputs {
+		wanted[out.Variable] = true
+	}
 	if r.Format == ReplyJSON {
-		return r.readJSON(e.entry, source)
+		return r.readJSON(e.entry, source, wanted)
 	}
 	if r.Format == ReplyCSV {
-		return r.readCSV(e.entry, source)
+		return r.readCSV(e.entry, source, wanted)
 	}
-	return r.readLines(e.entry, source)
+	return r.readLines(e.entry, source, wanted)
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —

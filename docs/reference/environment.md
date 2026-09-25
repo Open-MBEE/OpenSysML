@@ -175,7 +175,7 @@ CSV, `key = value` lines or its exit status:
 | `outputs` | An object mapping each output's tool variable to the selector finding its value |
 | `header` | `csv`: whether the first record names the columns (default `true`) |
 | `delimiter` | `csv`: the field separator, one character (default `,`) |
-| `regex` | `lines`: an RE2 expression whose named groups are the outputs; exclusive with `key` and `errorKey` |
+| `regex` | `lines`: an RE2 expression whose named groups are the outputs, each named exactly once; exclusive with `key` and `errorKey` |
 | `success` | `exitcode`: the exit statuses that render `true` (default `[0]`) |
 | `errorPath`, `errorColumn`, `errorKey` | `json`, `csv`, `lines`: where the tool's own refusal message is; a non-empty value there fails the performance with the tool's message, checked before any output |
 
@@ -190,6 +190,9 @@ Each member of `outputs` is a selector:
 | `type` | all but `object` | What the text is read as: `"number"` (the default), `"integer"`, `"real"`, `"boolean"` or `"string"`. Under `exitcode` only `boolean` (the default) and `integer` are admitted |
 | `unit` | all but `object`, `exitcode` | The value's unit as a fixed expression (`K`, `km/h`) |
 | `unitPath`, `unitColumn` | `json`, `csv` | Where a string holding the unit is read from; exclusive with `unit` |
+
+Only the outputs the performance declares are read; other mapped outputs may be absent
+from the reply without fault.
 
 A unit found either way goes through the same conversion as the JSON protocol's `unit`: it
 is read as a SysML unit expression and converted to the coherent unit of the parameter's
