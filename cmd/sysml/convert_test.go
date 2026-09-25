@@ -542,29 +542,8 @@ func TestConvertImageBaseURL(t *testing.T) {
 func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for name, content := range map[string][]byte{
-		"com.nomagic.magicdraw.uml_model.model": data,
-		"attachments/fleet.png":                 []byte("\x89PNG\r\n\x1a\n fleet bytes"),
-	} {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := w.Write(content); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
-	}
 	model := filepath.Join(dir, "documents.mdzip")
-	if err := os.WriteFile(model, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -597,5 +576,58 @@ func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
 		t.Error("a failed run still wrote images")
+	}
+}
+
+// documentsMdzip packs the documents fixture with its attached image as an
+// mdzip in memory, so the migration has image files to write.
+func documentsMdzip(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, content := range map[string][]byte{
+		"com.nomagic.magicdraw.uml_model.model": data,
+		"attachments/fleet.png":                 []byte("\x89PNG\r\n\x1a\n fleet bytes"),
+	} {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// TestConvertImageSidecarCollision refuses to write a migration image over a
+// path the run already uses, here the input model itself.
+func TestConvertImageSidecarCollision(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "images"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	model := filepath.Join(dir, "images", "fleet.png")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+model) {
+		t.Errorf("colliding -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote the model")
+	}
+	if got, err := os.ReadFile(model); err != nil || !bytes.Equal(got, documentsMdzip(t)) {
+		t.Error("the input model was overwritten")
 	}
 }

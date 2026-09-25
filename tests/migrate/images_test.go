@@ -382,3 +382,27 @@ func TestDocGenParagraphBodyImage(t *testing.T) {
 	}
 	wantLine(t, r.Notation, `attribute redefines location = "https://example.org/plate.png";`)
 }
+
+// TestImageParagraphNotesExtraImages an image paragraph whose body holds
+// several <img>s shows the first and says how many more it left out.
+func TestImageParagraphNotesExtraImages(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data),
+		`body="Figure: the fleet at the depot"`,
+		`body="&lt;img src=&quot;https://a/x.png&quot;&gt;&lt;img src=&quot;https://a/y.png&quot;&gt;"`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the image comment")
+	}
+	r, err := migrate.Migrate("documents.xmi", []byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://a/x.png";`)
+	if strings.Contains(string(r.Notation), `location = "https://a/y.png"`) {
+		t.Error("the second image was planned too:\n" + string(r.Notation))
+	}
+	wantOneNote(t, r, "_st_note_image", migrate.Approximated, "1 more images in the body are left out")
+}

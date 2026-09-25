@@ -309,6 +309,9 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 	if cp.alt == "" {
 		cp.alt = cp.caption
 	}
+	if _, _, n := firstImg(commentRawBody(p.Comment)); n > 1 {
+		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", n-1))
+	}
 	cp.name = sec.names.claim("image")
 }
 

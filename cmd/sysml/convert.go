@@ -150,6 +150,14 @@ func runConvert(files []string) (int, error) {
 	if len(imageFiles) > 0 && info != nil && !info.Mode().IsRegular() {
 		return 0, fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
 	}
+	for _, name := range slices.Sorted(maps.Keys(imageFiles)) {
+		dest := filepath.Join(filepath.Dir(target), filepath.FromSlash(name))
+		for _, protected := range []string{input, migrationReport, migrationResults} {
+			if protected != "" && protected != "-" && samePath(dest, protected) {
+				return 0, fmt.Errorf("the migration's image %s would replace %s", dest, protected)
+			}
+		}
+	}
 	if err := writeMigrationFiles(filepath.Dir(target), imageFiles); err != nil {
 		return 0, err
 	}
