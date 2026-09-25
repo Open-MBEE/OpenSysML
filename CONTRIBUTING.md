@@ -56,6 +56,9 @@ make build-sysml
 make build-lsp
 make build-grpc
 
+# Build all three for both WebAssembly targets; see docs/reference/wasm.md
+make build-wasm
+
 # Install to $GOPATH/bin
 make install
 
@@ -95,6 +98,10 @@ make test-short
 
 # Specific package
 go test ./internal/syntax/parser
+
+# The WebAssembly gate: compiles and vets both wasm targets, links the commands
+# and runs them under Node (docs/reference/wasm.md)
+make wasm-check
 ```
 
 **Parser-specific tests:** When modifying the parser, ensure the four-layer test contract passes:
