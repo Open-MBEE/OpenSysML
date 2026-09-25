@@ -1,0 +1,19 @@
+{
+  "toolName": "ThermalSolver",
+  "version": "1.0",
+  "executable": "python3",
+  "variables": ["mass", "power", "ambient", "tMax", "margin"],
+  "invocation": {
+    "args": ["thermal.py", "--mass", "{mass}", "--power", "{power}", "--ambient", "{ambient}"],
+    "cwd": ".",
+    "stdin": "none"
+  },
+  "reply": {
+    "format": "csv",
+    "source": "stdout",
+    "outputs": {
+      "tMax": {"column": "tmax", "type": "number", "unitColumn": "tmaxUnit"},
+      "margin": {"column": "margin", "type": "number", "unit": "K"}
+    }
+  }
+}
