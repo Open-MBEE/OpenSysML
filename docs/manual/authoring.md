@@ -576,6 +576,38 @@ element's structure (Element / Kind / Type / Declared in) rather than a
 Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
 with.
 
+## Images
+
+An `Image` shows an image file under an optional caption:
+
+```sysml
+part plate : Image {
+	attribute redefines location = "images/mark.png";
+	attribute redefines caption = "Plate 1: the survey mark";
+	attribute redefines alt = "a brass survey mark";
+}
+```
+
+`location` is required and cannot be blank: it is a path relative to the
+document's source file — resolved the same way a relative link or stylesheet
+is, against the output file's directory — or an `http(s)` or `file` URL. The
+block above renders as:
+
+```markdown
+*Plate 1: the survey mark*
+
+![a brass survey mark](images/mark.png)
+```
+
+Markdown writes the CommonMark image of the location under its caption; HTML a
+`<figure class="sysml-image">` whose `<img>` carries the location verbatim,
+with `alt` the declared text alternative (the caption when none is declared)
+and the caption its `<figcaption>`; a PDF draws the file — a missing local
+location is a typed `missing-image` error naming the block, while an
+`http(s)` location is left for the engine to fetch. An `Image` is a content
+block like a `Table` or `Formula`: it takes no query, nests nothing, and a
+named one is a `Ref` target.
+
 ## Binding queries to blocks
 
 Every query-carrying block uses the same form:

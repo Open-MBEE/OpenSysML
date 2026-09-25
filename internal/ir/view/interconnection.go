@@ -61,12 +61,14 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out)}
+		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Style: r.styleOf(w.view, sym, w.out)}
 	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
 	}
 	w.nodes[sym] = node
+	r.notesOf(w.view, sym, node.ID, w.out)
 	if seen[sym] || depth >= maxTreeDepth {
 		return node
 	}
@@ -104,12 +106,12 @@ func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*s
 		}
 		resolved = append(resolved, node)
 	}
-	route := r.routeOf(view, connector, out)
+	route, style := r.routeOf(view, connector, out), r.edgeDress(view, connector, resolved[0].ID, resolved[1].ID, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
 				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind,
-				Origin: symbolOrigin(connector), Route: slices.Clone(route),
+				Origin: symbolOrigin(connector), Route: slices.Clone(route), Style: style,
 			})
 		}
 	}

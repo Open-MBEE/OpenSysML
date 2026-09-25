@@ -224,6 +224,10 @@ to read against the migrated model
 With \-convert from xmi, read this MTIP export (HUDS XML) and write the
 diagram geometry it records as DiagramLayout annotations in the migrated views
 .TP
+.BR \-image\-base\-url " \fIurl\fP"
+With \-convert from xmi, the http(s) URL a comment's relative <img src> is
+resolved against, such as the View Editor server
+.TP
 .BR \-compare\-results " \fIfile\fP"
 Run every configuration this \-migration\-results file indexes \(em or those
 \-action names \(em with its recorded runs and duration mode, or the \-runs
@@ -264,6 +268,11 @@ Where a graph form of a view some Layout positions puts the nodes none does:
 omit (default) leaves them undrawn in every form, strip draws them, in rows
 below the dot drawing; applies to \-render, \-render\-all and document
 diagrams
+.TP
+.BR \-render\-style " \fIstyle\fP"
+Drawing style of the dot form: pilot (default), the Pilot visualizer's black
+and white, or cameo, the look of Cameo Systems Modeler; applies to \-render,
+\-render\-all and document diagrams
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -279,8 +288,9 @@ Form the documents are written in: markdown (default), html or pdf, which
 drives an external converter
 .TP
 .BR \-diagram\-form " \fIform\fP"
-Form the documents' graph\-shaped diagrams are written in: mermaid (default),
-dot or plantuml; a table\-kind view is a table either way
+Form the documents' graph\-shaped diagrams are written in: mermaid, dot or
+plantuml; unset, a positioned view is dot and any other mermaid; a table\-kind
+view is a table either way
 .TP
 .B \-doc\-title\-page
 Put the document title on a page of its own (html or pdf)
@@ -766,6 +776,9 @@ sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
 # unpositioned nodes in a strip below
 sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
     \-render\-unplaced strip
+# drawn as Cameo draws it
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-style cameo
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 # several files, loaded as one model
@@ -791,14 +804,19 @@ neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
 black\-and\-white style of the SysML v2 Pilot visualizer; \-render\-palette
 fills their nodes by keyword family from a colourblind\-safe palette
 (okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
-viridis or cividis), keeping black text legible on every fill. A view whose
-members carry DiagramLayout positions draws the placed members and the edges
-between them in every graph form, and leaves a member with no position
-undrawn: the DOT form pins each at its stated place, so nothing lands on a
-positioned box, while Mermaid and PlantUML lay the same members out
-themselves. \-render\-unplaced strip draws the unplaced members too, in rows
-in a strip below a DOT drawing. The same setting shapes the diagrams of
-\-render\-document and \-render\-documents.
+viridis or cividis), keeping black text legible on every fill. \-render\-style
+names the look the DOT form draws in: pilot (default), the Pilot visualizer's,
+or cameo, the look of Cameo Systems Modeler \(em a diagram frame with a header
+tab, Arial text, gradient fills, compartments and the UML pseudo\-state
+symbols \(em for a diagram migrated from Cameo to keep its look. A
+DiagramLayout Style on a member colours it over either look, and a Note is
+drawn beside the member it is about. A view whose members carry DiagramLayout
+positions draws the placed members and the edges between them in every graph
+form, and leaves a member with no position undrawn: the DOT form pins each at
+its stated place, so nothing lands on a positioned box, while Mermaid and
+PlantUML lay the same members out themselves. \-render\-unplaced strip draws
+the unplaced members too, in rows in a strip below a DOT drawing. The same
+setting shapes the diagrams of \-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf
@@ -840,10 +858,14 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 .PP
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
-CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
-\-diagram\-form dot or plantuml writes every graph\-shaped one as Graphviz DOT
-or PlantUML instead, in Markdown and HTML alike, while a table\-kind view
-stays a table. Neither Graphviz nor PlantUML is needed to write it.
+CommonMark\-compatible Markdown. Its diagram blocks are chosen per diagram: a
+view some DiagramLayout::Layout or Route positions is drawn by Graphviz where
+it states, as inline SVG when dot is installed and as a dot fence otherwise,
+and every other graph\-shaped view is Mermaid source; with Graphviz absent a
+positioned view falls back to Mermaid under a notice saying so.
+\-diagram\-form mermaid, dot or plantuml writes every graph\-shaped one in
+that form instead, in Markdown and HTML alike, while a table\-kind view stays
+a table. Neither Graphviz nor PlantUML is needed to write a fence.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS

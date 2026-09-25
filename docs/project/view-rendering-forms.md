@@ -131,8 +131,8 @@ event feature (`accept :> shutDown`), keep their written text.
 ## Why DOT next to Mermaid
 
 Mermaid was chosen first because it draws where models are read — Markdown, documentation sites,
-editors — with nothing installed. It stays the default. DOT is offered beside it for what Mermaid
-is not:
+editors — with nothing installed. It stays the default of `-render` and of every document view
+nothing positions. DOT is offered beside it for what Mermaid is not:
 
 - **Graphviz toolchains.** Publishing pipelines that already run `dot`, `neato` or `fdp` take DOT
   as input and produce SVG, PDF or PNG with a layout Mermaid's browser renderer cannot match on a
@@ -149,6 +149,29 @@ runs the `dot` that `OPENSYSML_DOT` names (else the one on `PATH`) with `-Tsvg`,
 the block's `// layout:` header names, so a positioned view is drawn where its `Layout`s put
 it. Without a Graphviz the PDF keeps the DOT source under a notice, as it does without any
 optional tool — see [Surfaces](#surfaces).
+
+### The document default
+
+A document states no form; `-diagram-form` is chosen at render time, and when it is not stated the
+form is chosen **per diagram** (`docrender.DiagramOptions.formFor`):
+
+1. A stated `-diagram-form` (`%render-document <name> <form>`, `"diagramForm"` on
+   `opensysml/renderDocument`) applies to every graph-shaped block, as before.
+2. A graph-shaped view that `Rendering.Positioned` holds for — some `DiagramLayout::Layout` or
+   `Route` places a node of it, and its kind has a DOT form — is written as `dot`, so a migrated
+   or editor-laid-out diagram is drawn where it states, and when Graphviz is installed
+   (`OPENSYSML_DOT`, else `dot` on `PATH`) the Markdown and HTML backends inline the SVG that
+   Graphviz draws (`docpdf.Graphviz`, a `docrender.DiagramDrawer`) in a `<figure class="sysml-diagram">`
+   instead of the fence; the PDF backend draws it as it always did.
+3. Every other graph-shaped view is `mermaid`, as it was.
+4. A positioned view with no Graphviz installed is written as `mermaid` under a visible notice,
+   *drawn as Mermaid, not at its stated positions: Graphviz (dot) is not installed* — an emphasised
+   paragraph in Markdown, a `<p class="sysml-diagram-notice">` inside the figure in HTML, and so
+   in the PDF whichever engine — never silently.
+
+A document mixing positioned and unpositioned views therefore gets a Graphviz figure for each of
+the former and a Mermaid graph for each of the latter, and a table-kind view is a table in every
+case. The rule lives in `docrender` so the CLI, the REPL, the LSP and the PDF backend agree.
 
 ## What the DOT writer emits
 
@@ -215,7 +238,19 @@ touching how the graph is walked.
 
 ## Style
 
-The DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
+The DOT form draws in one of two **drawing styles** (`view.DrawingStyle`, `Options.Style`):
+`pilot`, the default and the one below, or [`cameo`](#the-cameo-style), the look of a diagram drawn
+by Cameo Systems Modeler. A style is chosen at render time — `-render-style`, `%render … dot
+[palette] cameo`, `"style"` on `opensysml/render`, the VS Code panel's **Style** list — and is
+independent of the palette, which recolours the plain nodes of whichever style is drawn. Over
+either style a `DiagramLayout::Style` on a member sets that node's or edge's own fill, pen, text
+colour, font, size, weight and slant, written after the skin's attributes so Graphviz takes it, and
+a `DiagramLayout::Note` is drawn beside the member it is about ([the annotations](diagram-layout-annotations.md)).
+The forms that draw no style write it as a notice (`%% not represented: style cameo; only the DOT
+form draws a diagram in a style`), and every form other than `dot` counts, in the same notice, the
+Styles and Notes it draws in part or not at all, so neither is dropped silently.
+
+By default the DOT form is drawn in the **Standard B&W style** of the OMG SysML v2 Pilot Implementation's
 PlantUML visualizer, after the `sysmlbw` PlantUML skin by Hisashi Miyashita (Mgnite Inc.) shipped
 with it — `github.com/himi/plantuml`, branch `psysml`,
 `bundles/net.sourceforge.plantuml.lib/skin/sysmlbw.skin` — and the edge rules of the Pilot's
@@ -245,10 +280,44 @@ translation to DOT is:
 
 Not translated, because Graphviz has no vocabulary for them: `Shadowing 0` (no shadows to turn
 off), `hide circle` (no class circles), `wrapWidth 300` (DOT does not wrap label text; the writer
-wraps only a head it fits to a stated box), and the 20-unit corner radius. Out of scope: the skin's notes, sequence, gantt, mindmap and wbs
-sections — the DOT form draws no notes and a sequence rendering has no DOT form. The Pilot's
+wraps only a head it fits to a stated box), and the 20-unit corner radius. Out of scope: the skin's sequence, gantt, mindmap and wbs
+sections — a sequence rendering has no DOT form; a note is drawn only where the model states a
+`DiagramLayout::Note`, as `shape=note` with a dashed, headless anchor edge — to the node it is
+about, or for a note about a connection or transition to an invisible point pinned at the middle
+of the edge's longest routed segment (to the edge's tail node when the edge has no route, since
+Graphviz cannot end an edge on an edge). The Pilot's
 `-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
 than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
+
+### The cameo style
+
+`cameo` draws the diagram as Cameo Systems Modeler draws it, for a document migrated from a
+`.mdzip` whose views carry the geometry Cameo drew them at, so the published figure is the one the
+authors saw. The look was measured from pages of a Cameo-published design document — a state
+machine, an activity and two block definition diagrams, rendered at 96 dpi — not taken from
+memory; each colour is the pixel value away from the anti-aliased edges, and each fill is Cameo's
+horizontal gradient, sampled at the left and right of a box. The constants live in
+`internal/ir/view/style.go`; the translation to DOT is:
+
+| Cameo, as measured | DOT |
+| --- | --- |
+| Diagram frame: a thin grey rectangle round the drawing with a header tab reading `stm [State Machine] Owner [ Diagram Name ]`, the kind abbreviation bold, the rest plain | `subgraph cluster_frame` with `label=<<b>stm</b> [State Machine] Owner [ Name ]>`, `labeljust=l`, `labelloc=t`, `color="#5B5B59"`, `penwidth=1`, `margin=8`; `bb` is the canvas when one is stated. The kind is `bdd` for a tree, `ibd` for an interconnection, `stm` for a state machine, `act` for an activity; the bracketed type is the context element's definition keyword, title-cased (`State Machine`, `Activity`, `Block`) |
+| Text: Arial, 11 px for names and body text, ~9 px for the `«stereotype»` line and edge labels, in `#424242` | `graph`, `node` and `edge` default `fontname="Arial"`, `fontcolor="#424242"`; `fontsize=11` on nodes and the frame, `fontsize=9` on edges and the keyword line |
+| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned. No `«state»` line: Cameo prints none |
+| State fill: pale yellow `#FFFFCC` at the left fading to `#FFFFF2` at the right; border `#5B5B59`, rounded corners | `style="rounded,filled"`, `fillcolor="#FFFFCC:#FFFFF2"`, `gradientangle=0`, `color="#5B5B59"`, `penwidth=1` on every `state` kind; a composite state or region is a cluster with the same fill and rounding, a region `style="rounded,dashed"` |
+| Action fill: pale green-grey `#E1E1C3` to `#F7F7EF`; border `#424242`, rounded corners | `fillcolor="#E1E1C3:#F7F7EF"`, `color="#424242"` on the `action` and `flow` families and the control nodes |
+| Block fill: orange `#FFCC99` to cream `#FFFAD4`; border `#99795C`, square corners | node default `fillcolor="#FFCC99:#FFFAD4"`, `color="#99795C"` — every kind not a state or action, `part def` and `part` alike |
+| Lines: `#424242`, 1 px, open arrowheads on transitions and flows | edge default `color="#424242"`, `penwidth=1`, `arrowhead=open`; a routed edge's spline is written with its `e,x,y` endpoint so the head is drawn at the stated end |
+| Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision a diamond, fork and join a 60×5 px filled bar, junction a dot | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`; a bar `shape=box, fillcolor=black, width=0.83, height=0.07, fixedsize=true` — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box |
+| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it | the `EdgeKind` label rules, placed with `lp` on the normal of the route's longest segment, clear of the line by half the label's extent plus 4 px, so a label never sits on a box a route hugs |
+| Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text, pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
+| Drop shadow: a 2 px light grey shadow under every box | dropped; Graphviz draws no shadow |
+| Corner radius: ~20 px on states and actions | Graphviz's fixed radius, as in the Pilot style |
+
+A `DiagramLayout::Style` on a member overrides the row above for that node or edge: its `fill`
+replaces the gradient with a solid colour, its `line` the pen, its `text` and `font` the type, and
+`bold`/`italic` wrap the label — a label already bold is not doubled. A palette recolours the plain
+nodes as under `pilot`, over the Cameo pens.
 
 ### Palettes
 
@@ -590,7 +659,8 @@ every palette, and text stays black.
 | REPL | `%render <view> dot\|plantuml [palette]`; `%help` names them; the form and, after a form that takes one, the palette complete | [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view) |
 | LSP | `"form": "dot"` or `"plantuml"` and `"palette": "<name>"` on `opensysml/render`; a palette also gives each node of the result its `fill` and `border`, so a client drawing its own SVG colours a node as these forms do (`Rendering.Fills`) | [`docs/reference/lsp.md`](../reference/lsp.md) |
 | VS Code | `SysML: Export Diagram` picks among the forms the server lists under its `openSysmlRenderForms` capability (the documented five for a server without it), sends the pick as `form`, and saves `.dot` or `.puml` (`.mmd`, `.md`, `.txt` for the others) | [`docs/guide/08-editors.md`](../guide/08-editors.md#exporting-a-diagram) |
-| VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
+| CLI, REPL, LSP, documents | `-render-style pilot\|cameo` beside `-render-palette`, on `-render`, `-render-all` and the document renderers; `%render <view> dot [palette] [pilot\|cameo]` and `%render-document <name> dot [style]`; `"style": "cameo"` on `opensysml/render`, the styles listed by the `openSysmlRenderStyles` capability; `docrender.MarkdownOptions.Style`/`HTMLOptions.Style` and `docpdf.Options.Style`. A form that draws no style writes a `not represented: style …` notice; an unknown name is a typed `*view.UnknownDrawingStyleError` naming the styles there are | [`docs/reference/cli.md`](../reference/cli.md#rendering-a-view), [`docs/reference/repl-commands.md`](../reference/repl-commands.md#rendering-a-view), [`docs/reference/lsp.md`](../reference/lsp.md) |
+| VS Code | The diagram panel's **Style** list and `opensysml.diagram.style`: `pilot` draws the panel's SVG under this section's B&W rules, `cameo` asks the server for the [Cameo look](#the-cameo-style), a palette name fills its nodes from the `fill` and `border` the server returns | [`editors/vscode/README.md`](../../editors/vscode/README.md#the-diagram-panel) |
 | Documents | `-render-document`/`-render-documents … -diagram-form dot\|plantuml`, `%render-document <name> dot\|plantuml`, `"diagramForm"` on `opensysml/renderDocument`: every graph-shaped diagram block as a ` ```dot ` or ` ```plantuml ` fence in Markdown, `<pre class="dot">` or `<pre class="plantuml">` in HTML; in PDF, a figure drawn by Graphviz (`OPENSYSML_DOT`, else `dot` on `PATH`; `-Tsvg` under the engine the `// layout:` header names) or by the PlantUML jar (`OPENSYSML_PLANTUML_JAR`, run by `OPENSYSML_JAVA` or the `java` on `PATH`, `-tsvg -pipe`), and the source under a notice naming the variable to set when the tool is absent; a tool that fails is the typed `tool-failed` error with its stderr, as `mmdc` is. The form is chosen at render time, not stated in the model: a `Diagram` block says what is drawn, not the notation — though it may state a `palette`, as it states a `direction`, which the DOT or PlantUML figure is filled with and the HTML figure carries as `data-palette` | [`docs/manual/authoring.md`](../manual/authoring.md#diagrams), [`docs/manual/outputs.md`](../manual/outputs.md), [`docs/reference/environment.md`](../reference/environment.md) |
 
 The gRPC service (`api/proto/sysml.proto`, `internal/frontend/grpc`) has no view-render RPC and no
@@ -705,11 +775,18 @@ and did not change. A view-render RPC added later would take the form as a strin
 - Producing PlantUML runs no jar. The goldens are checked by the in-test syntax walk; a jar on
   the machine is used by hand, or by the optional `-checkonly` check that `OPENSYSML_PLANTUML_JAR`
   turns on.
-- Node shapes are not yet specialised for action control nodes (fork, join, decision): those
-  take the default box with their kind in the label.
+- Under the `pilot` style a control node (fork, join, decision) with no stated box takes the
+  default box with its kind in the label; the symbol shapes are drawn for a stated box, and
+  always under `cameo`.
 - Graphviz has no corner radius, shadow or text wrapping, so the skin's `UsageRoundCorner 20`,
-  `Shadowing 0` and `wrapWidth 300` are approximated or dropped as the [style](#style) section
-  records.
+  `Shadowing 0` and `wrapWidth 300`, and Cameo's drop shadow and corner radius, are approximated
+  or dropped as the [style](#style) section records.
+- A `Style` is drawn whole only by the DOT form; the Mermaid and PlantUML forms take a node's
+  fill, line and text colour and not its font or an edge's Style, the text form none of it, and
+  each says so in a notice counting the styled nodes and edges. Notes are drawn by the DOT form
+  alone; the others count them.
+- A pasted raster image in a source diagram has no annotation and is not drawn; the migration
+  counts it as dropped.
 - Binding connectors are not drawn at the Pilot's thickness 5: the interconnection rendering
   has no edge kind for them.
 - A palette fills nodes by keyword family only; colouring by a data attribute or query result,

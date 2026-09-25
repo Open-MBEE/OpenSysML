@@ -292,6 +292,23 @@ func (e *evaluator) evaluateNode(node docplan.Content) (Content, error) {
 		}, nil
 	case docplan.ContentDiagram:
 		return e.evaluateDiagram(node)
+	case docplan.ContentImage:
+		if strings.TrimSpace(node.Location()) == "" {
+			return Content{}, &Error{
+				Kind:     ErrorMissingImageLocation,
+				Document: e.document,
+				Content:  node.Name(),
+				Origin:   node.Origin(),
+			}
+		}
+		return Content{
+			kind:    ContentImage,
+			name:    node.Name(),
+			source:  node.Location(),
+			caption: node.Caption(),
+			alt:     node.Alt(),
+			origin:  node.Origin(),
+		}, nil
 	default:
 		return Content{}, &Error{
 			Kind:     ErrorInvalidPlan,

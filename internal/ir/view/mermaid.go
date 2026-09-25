@@ -49,6 +49,12 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if options.Palette != "" {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
 	}
+	if options.Style != "" && options.Style != StylePilot {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", styleNotice(options.Style))
+	}
+	for _, notice := range r.visualNotices(noFontOrEdgeStyle, true) {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
+	}
 	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
 	case KindState:
@@ -169,6 +175,44 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		}
 		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", edge.From, mermaidArrow(edge.Kind), mermaidText(edge.Label), edge.To)
 	}
+	for _, root := range r.Roots {
+		writeMermaidStyles(b, root, false)
+	}
+}
+
+// writeMermaidStyles writes the colours a Style gives node and the nodes under
+// it: a flowchart's `style` statement, a state diagram's `classDef` and
+// `class` pair. A Style's font, and an edge's Style, Mermaid has no statement for.
+func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
+	if css := mermaidStyleCSS(node.Style); css != "" {
+		if state {
+			fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, css, node.ID, node.ID)
+		} else {
+			fmt.Fprintf(b, "  style %s %s\n", node.ID, css)
+		}
+	}
+	for _, child := range node.Children {
+		writeMermaidStyles(b, child, state)
+	}
+}
+
+// mermaidStyleCSS is a Style's colours as Mermaid's comma-separated CSS:
+// the fill, the stroke and the text colour; empty when the Style sets none.
+func mermaidStyleCSS(style *Style) string {
+	if style == nil {
+		return ""
+	}
+	var props []string
+	if style.Fill != "" {
+		props = append(props, "fill:"+style.Fill)
+	}
+	if style.Line != "" {
+		props = append(props, "stroke:"+style.Line)
+	}
+	if style.Text != "" {
+		props = append(props, "color:"+style.Text)
+	}
+	return strings.Join(props, ",")
 }
 
 // writeFlowchartNode writes one node: a subgraph when it holds others, a plain
@@ -227,6 +271,9 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 			continue
 		}
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
+	}
+	for _, root := range r.Roots {
+		writeMermaidStyles(b, root, true)
 	}
 }
 

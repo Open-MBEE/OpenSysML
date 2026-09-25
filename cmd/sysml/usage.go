@@ -362,6 +362,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-palette okabe-ito", ""),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-unplaced strip", "unpositioned nodes in a strip below"),
+				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form dot -render-style cameo", "drawn as Cameo draws it"),
 				usage.Ex("sysml model.sysml -render Views::vehicleView -render-form plantuml -o view.puml", ""),
 				usage.Ex("sysml types.sysml model.sysml -render Views::vehicleView", "several files, loaded as one model"),
 				usage.Ex("sysml model.sysml -render-all rendered", ""),
@@ -387,6 +388,12 @@ func doc() usage.Doc {
 					"fills their nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
 					"viridis or cividis), keeping black text legible on every fill. " +
+					"-render-style names the look the DOT form draws in: pilot (default), " +
+					"the Pilot visualizer's, or cameo, the look of Cameo Systems Modeler — a " +
+					"diagram frame with a header tab, Arial text, gradient fills, compartments " +
+					"and the UML pseudo-state symbols — for a diagram migrated from Cameo " +
+					"to keep its look. A DiagramLayout Style on a member colours it over " +
+					"either look, and a Note is drawn beside the member it is about. " +
 					"A view whose members carry DiagramLayout positions draws the placed " +
 					"members and the edges between them in every graph form, and leaves a " +
 					"member with no position undrawn: the DOT form pins each at its stated " +
@@ -419,10 +426,14 @@ func doc() usage.Doc {
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
 					"result is written as CommonMark-compatible Markdown. Its diagram " +
-					"blocks are Mermaid source; -diagram-form dot or plantuml writes every " +
-					"graph-shaped one as Graphviz DOT or PlantUML instead, in Markdown and HTML " +
-					"alike, while a table-kind view stays a table. Neither Graphviz nor " +
-					"PlantUML is needed to write it.",
+					"blocks are chosen per diagram: a view some DiagramLayout::Layout or Route " +
+					"positions is drawn by Graphviz where it states, as inline SVG when dot " +
+					"is installed and as a dot fence otherwise, and every other graph-shaped " +
+					"view is Mermaid source; with Graphviz absent a positioned view falls " +
+					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot " +
+					"or plantuml writes every graph-shaped one in that form instead, in " +
+					"Markdown and HTML alike, while a table-kind view stays a table. Neither " +
+					"Graphviz nor PlantUML is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -592,6 +603,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 	fs.StringVar(&layoutPath, "layout", "", "With -convert from xmi, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
+	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -convert from xmi, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
@@ -602,12 +614,13 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
+	fs.StringVar(&renderStyle, "render-style", "", "Drawing style of the dot form: pilot (default), the Pilot visualizer's black and white, or cameo, the look of Cameo Systems Modeler; applies to -render, -render-all and document diagrams")
 	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot or plantuml; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")
 	fs.BoolVar(&pdfTOC, "doc-toc", false, "Write a table of contents ahead of the content (html or pdf)")
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")
@@ -721,6 +734,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
 			usage.Opt("layout", fileArg),
+			usage.Opt("image-base-url", "<url>"),
 			usage.Opt("compare-results", fileArg),
 		},
 	}, {
@@ -738,6 +752,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("render-form", formArg),
 			usage.Opt("render-palette", "<palette>"),
 			usage.Opt("render-unplaced", "<placement>"),
+			usage.Opt("render-style", "<style>"),
 		},
 	}, {
 		Title: "Rendering documents",

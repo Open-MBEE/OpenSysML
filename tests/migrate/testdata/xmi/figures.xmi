@@ -21,6 +21,7 @@
             <transition xmi:type="uml:Transition" xmi:id="_t_init" source="_sm_init" target="_st_idle"/>
             <transition xmi:type="uml:Transition" xmi:id="_t_start" source="_st_idle" target="_st_running">
               <trigger xmi:type="uml:Trigger" xmi:id="_tr_start" event="_ev_start"/>
+              <ownedComment xmi:type="uml:Comment" xmi:id="_cmt_start" annotatedElement="_t_start" body="On demand."/>
             </transition>
           </region>
         </ownedBehavior>
@@ -109,6 +110,7 @@
                   <usedElements>_st_idle</usedElements>
                   <usedElements>_st_running</usedElements>
                   <usedElements>_t_start</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-modes"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
