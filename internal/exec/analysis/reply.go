@@ -672,11 +672,8 @@ func toolFault(tool string, kind runtime.ToolErrorKind, format string, args ...a
 
 // readExitCode is the process's exit status as the one output: true when it is among
 // success, or the status itself as an Integer.
-func (r *Reply) readExitCode(ex *execution, wanted map[string]bool) map[string]runtime.ToolValue {
+func (r *Reply) readExitCode(ex *execution) map[string]runtime.ToolValue {
 	variable := r.compiled.exitVariable
-	if wanted != nil && !wanted[variable] {
-		return map[string]runtime.ToolValue{}
-	}
 	o := r.Outputs[variable]
 	if o.Type == TypeInteger {
 		return map[string]runtime.ToolValue{variable: {Value: semantics.Value{Kind: semantics.ValInt, Int: int64(ex.exit)}}}
@@ -738,67 +735,74 @@ func (r *Reply) outputsOrdered(variables []string, wanted map[string]bool) []str
 	return names
 }
 
-// readJSON parses the one JSON value and resolves each output's pointer into it, the
-// refusal at errorPath first.
-func (r *Reply) readJSON(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
+// readJSON parses the one JSON value and resolves every mapped output's pointer into it,
+// the refusal at errorPath first. A fault one output earns goes to faults, keyed by its
+// variable, and the output is omitted; a document-level fault aborts the read.
+func (r *Reply) readJSON(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	if len(bytes.TrimSpace(source)) == 0 {
-		return nil, toolFault(tool, runtime.ToolMalformed, "wrote nothing")
+		return nil, nil, toolFault(tool, runtime.ToolMalformed, "wrote nothing")
 	}
 	dec := json.NewDecoder(bytes.NewReader(source))
 	dec.UseNumber()
 	var doc any
 	if err := dec.Decode(&doc); err != nil {
-		return nil, toolFault(tool, runtime.ToolMalformed, "the reply is not one JSON value: %v", err)
+		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is not one JSON value: %v", err)
 	}
 	var trailing json.RawMessage
 	if err := dec.Decode(&trailing); err != io.EOF {
-		return nil, toolFault(tool, runtime.ToolMalformed, "the reply is more than one JSON value")
+		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is more than one JSON value")
 	}
 	if path, twice := repeatedKey(source); twice {
-		return nil, toolFault(tool, runtime.ToolMalformed, "the reply names %s twice", path)
+		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply names %s twice", path)
 	}
 	if r.ErrorPath != "" {
 		if v, found := r.compiled.errorPath.resolve(doc); found {
 			message, isText := v.(string)
 			if !isText {
-				return nil, toolFault(tool, runtime.ToolMalformed, "errorPath %s holds %s, not a message",
+				return nil, nil, toolFault(tool, runtime.ToolMalformed, "errorPath %s holds %s, not a message",
 					r.ErrorPath, jsonKindOf(v))
 			}
 			if message != "" {
-				return nil, toolFault(tool, runtime.ToolRefused, "%s", message)
+				return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", message)
 			}
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
+	faults := make(map[string]error, len(r.Outputs))
+	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
 		o := r.Outputs[variable]
 		p := r.compiled.paths[variable]
 		v, found := p.resolve(doc)
 		if !found {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s at %s: nothing there", variable, p)
+			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s at %s: nothing there", variable, p)
+			continue
 		}
 		value, err := jsonOutputValue(o, v)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s at %s: %v", variable, p, err)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s at %s: %v", variable, p, err)
+			continue
 		}
 		if up, ok := r.compiled.unitPaths[variable]; ok {
 			u, found := up.resolve(doc)
 			if !found {
-				return nil, toolFault(tool, runtime.ToolMissingOutput, "%s at %s: nothing there", variable, up)
+				faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s at %s: nothing there", variable, up)
+				continue
 			}
 			unit, isText := u.(string)
 			if !isText {
-				return nil, toolFault(tool, runtime.ToolMalformed, "%s at %s: %s is not a unit", variable, up, jsonKindOf(u))
+				faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s at %s: %s is not a unit", variable, up, jsonKindOf(u))
+				continue
 			}
 			if unit == "" {
-				return nil, toolFault(tool, runtime.ToolMalformed, "%s at %s: an empty unit", variable, up)
+				faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s at %s: an empty unit", variable, up)
+				continue
 			}
 			value.Unit = unit
 		}
 		outputs[variable] = value
 	}
-	return outputs, nil
+	return outputs, faults, nil
 }
 
 // jsonKindOf names a decoded JSON value as an error does.
@@ -873,8 +877,10 @@ func jsonOutputValue(o *ReplyOutput, v any) (runtime.ToolValue, error) {
 	return out, nil
 }
 
-// readCSV parses the records and reads each output's cell: the refusal at errorColumn first.
-func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
+// readCSV parses the records and reads every mapped output's cell: the refusal at
+// errorColumn first. A fault one output earns goes to faults, keyed by its variable, and
+// the output is omitted; a record-level fault aborts the read.
+func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	source = bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
 	reader := csv.NewReader(bytes.NewReader(source))
@@ -882,13 +888,13 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, toolFault(tool, runtime.ToolMalformed, "the reply is not CSV: %v", err)
+		return nil, nil, toolFault(tool, runtime.ToolMalformed, "the reply is not CSV: %v", err)
 	}
 	if len(records) > 0 {
 		width := len(records[0])
 		for i, record := range records[1:] {
 			if len(record) != width {
-				return nil, toolFault(tool, runtime.ToolMalformed, "record %d has %d fields, not %d", i+2, len(record), width)
+				return nil, nil, toolFault(tool, runtime.ToolMalformed, "record %d has %d fields, not %d", i+2, len(record), width)
 			}
 		}
 	}
@@ -896,11 +902,11 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 	headerByName := make(map[string]int)
 	if r.compiled.header {
 		if len(records) == 0 {
-			return nil, toolFault(tool, runtime.ToolMalformed, "wrote no header record")
+			return nil, nil, toolFault(tool, runtime.ToolMalformed, "wrote no header record")
 		}
 		for i, name := range records[0] {
 			if _, dup := headerByName[name]; dup {
-				return nil, toolFault(tool, runtime.ToolMalformed, "the header names %s twice", name)
+				return nil, nil, toolFault(tool, runtime.ToolMalformed, "the header names %s twice", name)
 			}
 			headerByName[name] = i
 		}
@@ -928,52 +934,60 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 	if r.ErrorColumn != nil && len(data) > 0 {
 		col, err := indexOf(r.ErrorColumn)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%v", err)
+			return nil, nil, toolFault(tool, runtime.ToolMalformed, "%v", err)
 		}
 		if message := strings.TrimSpace(data[len(data)-1][col]); message != "" {
-			return nil, toolFault(tool, runtime.ToolRefused, "%s", message)
+			return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", message)
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
+	faults := make(map[string]error, len(r.Outputs))
+	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
 		o := r.Outputs[variable]
 		col, err := indexOf(o.Column)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s: %v", variable, o.Column, err)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s: %v", variable, o.Column, err)
+			continue
 		}
 		row, err := csvRow(o.Row, len(data))
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+			continue
 		}
 		if row < 0 || row >= len(data) {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(data))
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(data))
+			continue
 		}
 		cell := data[row][col]
 		if o.Type != TypeString {
 			cell = strings.TrimSpace(cell)
 		}
 		if cell == "" && o.Type != TypeString {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
+			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: an empty cell", variable, o.Column, o.Row)
+			continue
 		}
 		value, err := typeText(cell, o.Type)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
+			continue
 		}
 		value.Unit = o.Unit
 		if o.UnitColumn != nil {
 			ucol, err := indexOf(o.UnitColumn)
 			if err != nil {
-				return nil, toolFault(tool, runtime.ToolMalformed, "unit %v", err)
+				faults[variable] = toolFault(tool, runtime.ToolMalformed, "unit %v", err)
+				continue
 			}
 			unit := strings.TrimSpace(data[row][ucol])
 			if unit == "" {
-				return nil, toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %s is empty", o.UnitColumn, o.Row)
+				faults[variable] = toolFault(tool, runtime.ToolMalformed, "unit cell in column %s, row %s is empty", o.UnitColumn, o.Row)
+				continue
 			}
 			value.Unit = unit
 		}
 		outputs[variable] = value
 	}
-	return outputs, nil
+	return outputs, faults, nil
 }
 
 // csvRow is the data record a selector picks; false when there are none.
@@ -992,7 +1006,7 @@ func csvRow(row *Row, n int) (int, error) {
 
 // readLines parses `key = value` lines or matches the regex's named groups per line, the
 // refusal at errorKey first. Line numbers are 1-based.
-func (r *Reply) readLines(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	raw := strings.Split(string(source), "\n")
 	lines := make([]string, len(raw))
@@ -1000,7 +1014,7 @@ func (r *Reply) readLines(entry ToolEntry, source []byte, wanted map[string]bool
 		lines[i] = strings.TrimSuffix(line, "\r")
 	}
 	if r.compiled.regex != nil {
-		return r.readLinesRegex(entry, lines, wanted)
+		return r.readLinesRegex(entry, lines)
 	}
 	type hit struct {
 		value string
@@ -1021,40 +1035,46 @@ func (r *Reply) readLines(entry ToolEntry, source []byte, wanted map[string]bool
 	if r.ErrorKey != "" {
 		for _, h := range found[r.ErrorKey] {
 			if h.value != "" {
-				return nil, toolFault(tool, runtime.ToolRefused, "%s", h.value)
+				return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", h.value)
 			}
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
+	faults := make(map[string]error, len(r.Outputs))
+	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
 		o := r.Outputs[variable]
 		hits := found[o.Key]
 		if len(hits) == 0 {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s under key %s: no line", variable, o.Key)
+			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s under key %s: no line", variable, o.Key)
+			continue
 		}
 		if len(hits) > 1 {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s under key %s, lines %d and %d", variable, o.Key, hits[0].line, hits[1].line)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s under key %s, lines %d and %d", variable, o.Key, hits[0].line, hits[1].line)
+			continue
 		}
 		value, err := typeText(hits[0].value, o.Type)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s under key %s, line %d: %v", variable, o.Key, hits[0].line, err)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s under key %s, line %d: %v", variable, o.Key, hits[0].line, err)
+			continue
 		}
 		value.Unit = o.Unit
 		outputs[variable] = value
 	}
-	return outputs, nil
+	return outputs, faults, nil
 }
 
 // readLinesRegex reads each output from the named group matching it on exactly one line.
-func (r *Reply) readLinesRegex(entry ToolEntry, lines []string, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runtime.ToolValue, map[string]error, error) {
 	tool := entry.ToolName
 	re := r.compiled.regex
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
+	faults := make(map[string]error, len(r.Outputs))
+	for _, variable := range r.outputsOrdered(entry.Variables, nil) {
 		o := r.Outputs[variable]
 		group := re.SubexpIndex(variable)
 		var text string
 		matched, at := 0, 0
+		double := false
 		for i, line := range lines {
 			m := re.FindStringSubmatchIndex(line)
 			if m == nil || m[2*group] < 0 {
@@ -1065,18 +1085,25 @@ func (r *Reply) readLinesRegex(entry ToolEntry, lines []string, wanted map[strin
 			}
 			matched++
 			if matched == 2 {
-				return nil, toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
+				faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, lines %d and %d", variable, variable, at, i+1)
+				double = true
+				break
 			}
 		}
+		if double {
+			continue
+		}
 		if matched == 0 {
-			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s from group %s: no line", variable, variable)
+			faults[variable] = toolFault(tool, runtime.ToolMissingOutput, "%s from group %s: no line", variable, variable)
+			continue
 		}
 		value, err := typeText(text, o.Type)
 		if err != nil {
-			return nil, toolFault(tool, runtime.ToolMalformed, "%s from group %s, line %d: %v", variable, variable, at, err)
+			faults[variable] = toolFault(tool, runtime.ToolMalformed, "%s from group %s, line %d: %v", variable, variable, at, err)
+			continue
 		}
 		value.Unit = o.Unit
 		outputs[variable] = value
 	}
-	return outputs, nil
+	return outputs, faults, nil
 }

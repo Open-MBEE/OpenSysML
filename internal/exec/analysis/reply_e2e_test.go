@@ -220,6 +220,14 @@ var csvReplyOutputs = map[string]*ReplyOutput{
 	"note":  {Column: &Column{Name: "note"}, Type: TypeString},
 }
 
+var linesReplyOutputs = map[string]*ReplyOutput{
+	"T_max": {Key: "T_max", Type: TypeReal, Unit: "K"},
+	"v_out": {Key: "v_out", Type: TypeReal, Unit: "km/h"},
+	"done":  {Key: "done", Type: TypeBoolean},
+	"code":  {Key: "code", Type: TypeInteger},
+	"note":  {Key: "note", Type: TypeString},
+}
+
 // A CSV reply on standard output is read cell by cell; the unit column's `km/h` is
 // converted to the declared SpeedValue's coherent `m/s` by Bind.
 func TestToolReplyReadsCSVFromStdout(t *testing.T) {
@@ -462,5 +470,26 @@ func TestToolReplyReportsDivergence(t *testing.T) {
 	}
 	if d, ok := notes[0].(runtime.ToolDivergence); !ok || d.Tool != "Thermal" {
 		t.Fatalf("note %v, want Thermal diverging", notes[0])
+	}
+}
+
+// Chatter a reply's mapping does not read is not divergence: two runs whose lines differ
+// only in an unmapped line compare equal on the mapped outputs.
+func TestToolReplyIgnoresUnmappedChatter(t *testing.T) {
+	p := parseRProbe(t)
+	t.Setenv(ToolEnvPassthroughEnv, "TOOLREPLY_COUNTER")
+	t.Setenv("TOOLREPLY_COUNTER", filepath.Join(t.TempDir(), "count"))
+	entry := thermalEntry(toolreply(t), []string{"chatter"}, &Reply{Format: ReplyLines, Outputs: linesReplyOutputs})
+	out, ctx, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Twice")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	if got := runtime.FormatValue(out["T1"]); got != "341.2 [SI::K]" || runtime.FormatValue(out["T2"]) != got {
+		t.Errorf("T1 = %s, T2 = %s", runtime.FormatValue(out["T1"]), runtime.FormatValue(out["T2"]))
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(runtime.ToolDivergence); ok {
+			t.Fatalf("note %v, want none: the chatter is not a mapped output", note)
+		}
 	}
 }
