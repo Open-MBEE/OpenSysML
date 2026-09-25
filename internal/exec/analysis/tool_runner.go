@@ -36,6 +36,10 @@ type ToolUse struct {
 	Args []string
 	// Stdin is the request an entry without an invocation block read.
 	Stdin []byte
+	// Failed is the failure the call ended with, empty when it answered.
+	Failed string
+	// in is the context the call was made from.
+	in *runtime.Context
 }
 
 // String spells the call as one line: `ThermalSolver 2.3 from
@@ -50,16 +54,33 @@ func (u ToolUse) String() string {
 	}
 	text := head + ": " + u.Executable
 	if u.Args == nil {
-		return text + " < " + string(u.Stdin)
-	}
-	for _, arg := range u.Args {
-		if arg == "" || strings.ContainsAny(arg, " \t\r\n\"'") {
-			arg = strconv.Quote(arg)
+		text += " < " + string(u.Stdin)
+	} else {
+		for _, arg := range u.Args {
+			if arg == "" || strings.ContainsAny(arg, " \t\r\n\"'") {
+				arg = strconv.Quote(arg)
+			}
+			text += " " + arg
 		}
-		text += " " + arg
+	}
+	if u.Failed != "" {
+		text += " failed: " + u.Failed
 	}
 	return text
 }
+
+// ToolUseError is a tool call's failure carrying what the call ran: the performance
+// fails with Err as before, and the use joins the plan's provenance.
+type ToolUseError struct {
+	Use ToolUse
+	Err error
+}
+
+// Error is the failure's own text.
+func (e *ToolUseError) Error() string { return e.Err.Error() }
+
+// Unwrap exposes the failure to errors.Is and errors.As.
+func (e *ToolUseError) Unwrap() error { return e.Err }
 
 // newToolRunner is the runner of one plan over the held model, putting each computation to
 // the registry under the plan's selection.
@@ -82,17 +103,22 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
 	plan, err := t.registry.answer(t.ctx, t.model, q, t.budget, t.selection)
 	if err != nil {
+		t.noteUse(call, err)
 		if errors.Is(err, ErrNoEngine) {
 			return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 		}
 		return runtime.ToolAnswer{}, err
 	}
 	if plan.Refused() != nil {
-		return runtime.ToolAnswer{}, refusalOf(plan, call.ToolName)
+		err := refusalOf(plan, call.ToolName)
+		t.noteUse(call, err)
+		return runtime.ToolAnswer{}, err
 	}
 	if plan.Result.Tool != nil {
 		t.mu.Lock()
-		t.uses = append(t.uses, *plan.Result.Tool)
+		use := *plan.Result.Tool
+		use.in = call.Context()
+		t.uses = append(t.uses, use)
 		t.mu.Unlock()
 	}
 	outputs := make(map[string]runtime.Value, len(plan.Result.Values))
@@ -138,6 +164,19 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 		return false, nil
 	}
 	return earlier != answer, nil
+}
+
+// noteUse keeps the call's use when a ToolUseError carried one, attributed to the
+// context the call was made from.
+func (t *toolRunner) noteUse(call *runtime.ToolCall, err error) {
+	var useErr *ToolUseError
+	if !errors.As(err, &useErr) {
+		return
+	}
+	t.mu.Lock()
+	useErr.Use.in = call.Context()
+	t.uses = append(t.uses, useErr.Use)
+	t.mu.Unlock()
 }
 
 // used is every tool call the runner's runs made, in call order.

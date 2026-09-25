@@ -123,11 +123,10 @@ func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string
 		Verifications: run.verdicts,
 		Spell:         s.recordSpelling(contexts),
 	}
-	var tools []string
 	if run.plan != nil {
-		tools = run.plan.ToolTexts()
+		rec.Tools = run.plan.ToolTexts()
 	}
-	res, rerr := s.recordRuns(fqn, kind, into, command, tools, []record.Run{rec})
+	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec})
 	return s.recorded(verdict, res, rerr, 0, nil)
 }
 
@@ -177,7 +176,7 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 		// Each row's values spell in its own context: instance ids restart per
 		// row, so a value means nothing read through another row's.
 		own := map[*runtime.Context]bool{row.Context: true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration:   i + 1,
 			Subject:     s.recordSubject(row.Subject, inv.object, own),
 			Inputs:      row.Inputs,
@@ -185,16 +184,16 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 			Verdicts:    row.Verdicts,
 			Evaluations: row.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if plan != nil {
+			rec.Tools = plan.ToolTextsIn(row.Context)
+		}
+		runs = append(runs, rec)
 	}
 	if len(runs) == 0 {
 		return s.recorded(verdict, record.Result{}, nil, skipped, []string{"nothing recorded: every row failed"})
 	}
-	var tools []string
-	if plan != nil {
-		tools = plan.ToolTexts()
-	}
-	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, tools, runs)
+	res, rerr := s.recordRuns(fqn, record.KindSweep, into, command, runs)
 	return s.recorded(verdict, res, rerr, skipped, nil)
 }
 
@@ -235,14 +234,18 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			continue
 		}
 		own := map[*runtime.Context]bool{run.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration: int(run.Number),
 			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
 			Outputs:   run.Outputs,
 			Verdicts:  run.Verdicts,
 			Spell:     s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			rec.Tools = answered.ToolTextsIn(run.Context())
+		}
+		runs = append(runs, rec)
 	}
 	// The sample's own record carries what the run rows cannot: the statistics,
 	// the result and the sample's checks of the case's conclusion.
@@ -252,7 +255,7 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	case len(sample.completed) > 0:
 		last := sample.last()
 		own := map[*runtime.Context]bool{last.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Kind:        record.KindSample,
 			Subject:     s.recordSubject(last.Subject, inv.object, own),
 			Inputs:      last.Inputs,
@@ -260,17 +263,17 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Verdicts:    concluded.Verdicts,
 			Evaluations: concluded.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			rec.Tools = answered.ToolTexts()
+		}
+		runs = append(runs, rec)
 	}
 	skipped += len(sample.table.Rows) - len(sample.completed)
 	if len(runs) == 0 {
 		return s.recorded(verdict, record.Result{}, nil, skipped, append(reasons, "nothing recorded: no run completed"))
 	}
-	var tools []string
-	if answered != nil {
-		tools = answered.ToolTexts()
-	}
-	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, tools, runs)
+	res, rerr := s.recordRuns(fqn, record.KindRuns, into, command, runs)
 	return s.recorded(verdict, res, rerr, skipped, reasons)
 }
 
@@ -301,9 +304,8 @@ func (s *Session) recordSubject(inst *runtime.Instance, label string, contexts m
 }
 
 // recordRuns generates the record declarations for runs of the case fqn names,
-// submits them, and returns what was generated. tools is what every external tool
-// call the runs made ran, in call order.
-func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string, tools []string, runs []record.Run) (record.Result, error) {
+// submits them, and returns what was generated.
+func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string, runs []record.Run) (record.Result, error) {
 	pkg, err := s.recordPackage(fqn, into)
 	if err != nil {
 		return record.Result{}, err
@@ -326,7 +328,6 @@ func (s *Session) recordRuns(fqn string, kind record.Kind, into, command string,
 			Tool:    s.toolVersion,
 			Command: command,
 			Kind:    kind,
-			Tools:   tools,
 		},
 		Runs:     runs,
 		Existing: existing,

@@ -17,4 +17,17 @@ package Records {
         attribute :>> subjectName = "P::block";
         attribute :>> tMax = 87.2;
     }
+    part heatCheck_run2 : HeatCheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "run";
+        }
+        attribute :>> caseName = "P::heatCheck";
+        attribute :>> kind = "run";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> subjectName = "P::block";
+        attribute :>> tMax = 84.9;
+    }
 }

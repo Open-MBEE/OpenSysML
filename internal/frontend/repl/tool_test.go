@@ -209,3 +209,61 @@ func TestRecordWritesTheToolsARunReached(t *testing.T) {
 	wants(t, out, "recorded Tools::Log::CheckHeating_run1")
 	wants(t, s.text(), `tools = ("Solver from `, "solver.sh")
 }
+
+// toolSweepSource is a tool-computed action and a case whose input sweeps it.
+const toolSweepSource = `package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	part def Block { attribute dummy : Real = 0.0; }
+	part block : Block;
+	action def Heating {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in mass : Real { @ToolVariable { name = "mass"; } }
+		out tMax : Real { @ToolVariable { name = "tMax"; } }
+	}
+	analysis def SweptHeating {
+		subject s : Block;
+		in mass : Real;
+		action h : Heating { in mass = mass; }
+		out result : Real = h.tMax;
+	}
+	analysis swept : SweptHeating { subject s = block; }
+}
+`
+
+// A sweep records each row's own tool calls: the run bound to 10 lists its argv
+// value, the run bound to 11 lists its own, not the other's.
+func TestRecordSweepWritesEachRowsOwnTools(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("the tool is a shell script")
+	}
+	s := loadSource(t, toolSweepSource)
+	dir := t.TempDir()
+	script := "#!/bin/sh\n" +
+		`printf '{"outputs":{"tMax":{"value":87.2}}}\n'` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "solver.sh"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	toolManifest(t, s, `{"kind":"tool","toolName":"Solver","executable":"`+filepath.Join(dir, "solver.sh")+`","variables":["mass","tMax"],`+
+		`"invocation":{"args":["--mass","{mass}"],"stdin":"none"}}`)
+
+	v := s.RecordSweep("Tools::swept", []string{"mass=10..11"}, "", "%record Tools::swept")
+	if v.Status != VerdictHolds {
+		t.Fatalf("verdict %+v", v)
+	}
+	var toolLines []string
+	for _, line := range strings.Split(s.text(), "\n") {
+		if strings.Contains(line, "tools = (") {
+			toolLines = append(toolLines, line)
+		}
+	}
+	if len(toolLines) != 2 {
+		t.Fatalf("record tool lines %v, want one per row", toolLines)
+	}
+	if !strings.Contains(toolLines[0], "--mass 10") || strings.Contains(toolLines[0], "--mass 11") {
+		t.Errorf("row 1's tools %q, want its own --mass 10 only", toolLines[0])
+	}
+	if !strings.Contains(toolLines[1], "--mass 11") || strings.Contains(toolLines[1], "--mass 10") {
+		t.Errorf("row 2's tools %q, want its own --mass 11 only", toolLines[1])
+	}
+}

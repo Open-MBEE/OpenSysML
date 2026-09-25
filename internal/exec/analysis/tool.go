@@ -171,32 +171,36 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 			return Result{}, err
 		}
 	}
+	use := &ToolUse{Tool: e.entry.ToolName, Version: e.entry.Version, File: e.entry.File,
+		Executable: path, Args: process.args}
+	if e.entry.Invocation == nil {
+		use.Stdin = request
+	}
+	failed := func(err error) (Result, error) {
+		use.Failed = err.Error()
+		return Result{}, &ToolUseError{Use: *use, Err: err}
+	}
 	timeout := e.timeout()
 	started := time.Now()
 	ex, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
 	if err != nil {
 		process.remove()
-		return Result{}, err
+		return failed(err)
 	}
 	reply, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
-		return Result{}, err
+		return failed(err)
 	}
 	bound, err := call.Bind(reply)
 	if err != nil {
-		return Result{}, err
+		return failed(err)
 	}
 	values := make([]Evaluation, 0, len(bound))
 	for name, value := range bound {
 		values = append(values, Evaluation{Name: name, Value: value})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Name < values[j].Name })
-	use := &ToolUse{Tool: e.entry.ToolName, Version: e.entry.Version, File: e.entry.File,
-		Executable: path, Args: process.args}
-	if e.entry.Invocation == nil {
-		use.Stdin = request
-	}
 	return Result{
 		Question: q,
 		Engine:   e.Name(),

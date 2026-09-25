@@ -52,6 +52,14 @@ type ToolOutput struct {
 	Declared *symbols.Symbol
 }
 
+// Context is the context the call's performance runs in, nil for a call built outside one.
+func (c *ToolCall) Context() *Context {
+	if c.exec == nil {
+		return nil
+	}
+	return c.exec.ctx
+}
+
 // ToolValue is one value as the tool protocol carries it: a number or truth in Value, or a
 // string in Text when Value is invalid, and for a quantity the unit expression it is measured in.
 type ToolValue struct {

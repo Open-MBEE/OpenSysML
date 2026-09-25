@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // Plan is how a question was answered: the selection made, every engine
@@ -37,6 +39,20 @@ func (p Plan) ToolTexts() []string {
 	texts := make([]string, 0, len(p.Tools))
 	for _, use := range p.Tools {
 		texts = append(texts, use.String())
+	}
+	return texts
+}
+
+// ToolTextsIn is the texts of the calls made from ctx, nil for a nil ctx.
+func (p Plan) ToolTextsIn(ctx *runtime.Context) []string {
+	if ctx == nil {
+		return nil
+	}
+	var texts []string
+	for _, use := range p.Tools {
+		if use.in == ctx {
+			texts = append(texts, use.String())
+		}
 	}
 	return texts
 }

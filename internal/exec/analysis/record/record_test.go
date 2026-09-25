@@ -182,22 +182,29 @@ func TestGenerateSweepRuns(t *testing.T) {
 	}
 }
 
-// A run that reached external tools records each call's tool line in call order.
+// A run that reached external tools records each call's tool line in call order;
+// a run that reached none records no tools.
 func TestGenerateToolRun(t *testing.T) {
-	prov := provenance(KindRun)
-	prov.Tools = []string{
-		"ThermalSolver 2.3 from /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5",
-		"EchoTool: /opt/bin/echo < {\"toolName\":\"EchoTool\"}",
-	}
 	res := golden(t, "tool_run.sysml.golden", Request{
-		Package: "Records", Case: "P::heatCheck", Provenance: prov,
-		Runs: []Run{{
-			Spell:   spell(),
-			Subject: Subject{Text: "P::block"},
-			Outputs: []runtime.CalcOutputValue{{Name: "tMax", Value: realValue(87.2)}},
-		}},
+		Package: "Records", Case: "P::heatCheck", Provenance: provenance(KindRun),
+		Runs: []Run{
+			{
+				Spell:   spell(),
+				Subject: Subject{Text: "P::block"},
+				Outputs: []runtime.CalcOutputValue{{Name: "tMax", Value: realValue(87.2)}},
+				Tools: []string{
+					"ThermalSolver 2.3 from /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5",
+					"EchoTool: /opt/bin/echo < {\"toolName\":\"EchoTool\"}",
+				},
+			},
+			{
+				Spell:   spell(),
+				Subject: Subject{Text: "P::block"},
+				Outputs: []runtime.CalcOutputValue{{Name: "tMax", Value: realValue(84.9)}},
+			},
+		},
 	})
-	if len(res.Records) != 1 {
+	if len(res.Records) != 2 {
 		t.Fatalf("records %v", res.Records)
 	}
 }
