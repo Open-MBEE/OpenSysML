@@ -403,13 +403,10 @@ func (m *migration) imageLocation(src string) (string, bool) {
 	return m.imageBase.ResolveReference(ref).String(), true
 }
 
-// imageInBody plans the first <img> of a paragraph body's as an Image block —
-// the body's text is its caption and the img's alt its alt — when the source
-// resolves in the archive or against the base URL; a body with several images
-// is noted for those left out.
-func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1.Element, body string) bool {
+// firstImg reads the first <img> of a raw body: its src and alt attributes,
+// and how many <img>s the body holds.
+func firstImg(body string) (src, alt string, n int) {
 	imgs := imgTagRe.FindAllString(body, -1)
-	var src, alt string
 	for _, tag := range imgs {
 		if match := imgSourceRe.FindStringSubmatch(tag); match != nil {
 			src = html.UnescapeString(match[1])
@@ -419,6 +416,15 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 			break
 		}
 	}
+	return src, alt, len(imgs)
+}
+
+// imageInBody plans the first <img> of a paragraph body's as an Image block —
+// the body's text is its caption and the img's alt its alt — when the source
+// resolves in the archive or against the base URL; a body with several images
+// is noted for those left out.
+func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1.Element, body string) bool {
+	src, alt, n := firstImg(body)
 	if src == "" {
 		return false
 	}
@@ -440,8 +446,8 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 	if cp.alt == "" {
 		cp.alt = cp.caption
 	}
-	if len(imgs) > 1 {
-		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", len(imgs)-1))
+	if n > 1 {
+		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", n-1))
 	}
 	cp.name = sec.names.claim("image")
 	return true
@@ -1993,10 +1999,16 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			continue
 		}
 		if empty := c.m.emptyView(v, form); empty != "" {
+			if c.noteImage(s, i, d, titles) {
+				continue
+			}
 			note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
 			verdict := Approximated
 			if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
 				verdict = Mapped
+			}
+			if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && c.m.imageBase == nil {
+				note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
 			}
 			if text := c.captionText(s, i); text != "" {
 				note += "; its caption stands alone"
@@ -2025,6 +2037,52 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
 		}
 	}
+}
+
+// noteImage plans a figure's Image block when the empty diagram's note holds
+// an <img> whose source resolves in the archive or against the base URL: its
+// title is the caption and the img's alt the alt text, and a note saying more
+// than the title follows as the caption paragraph.
+func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titles []string) bool {
+	src, alt, _ := firstImg(d.Documentation)
+	if src == "" {
+		return false
+	}
+	location, ok := c.m.imageFile(src, nil)
+	if !ok {
+		location, ok = c.m.imageLocation(src)
+	}
+	if !ok {
+		return false
+	}
+	title := strings.TrimSpace(d.Name)
+	if i < len(titles) && strings.TrimSpace(titles[i]) != "" {
+		title = strings.TrimSpace(titles[i])
+	}
+	cp := &contentPlan{kind: "Image", node: s.Node, label: "«Image» " + s.Node.Type,
+		location: location, caption: c.title(s, title), alt: alt}
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	cp.name = c.sec.names.claim("image")
+	c.sec.content = append(c.sec.content, cp)
+	if text := commentText(d.Documentation); text != "" && !sameFigureText(text, cp.caption) {
+		c.captionParagraph(s, "the paragraph is the note the figure's image carries", text)
+	}
+	if text := c.captionText(s, i); text != "" {
+		c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
+	}
+	c.m.report.Entries = append(c.m.report.Entries,
+		*c.m.nodeEntry(s.Node, s.Application, Approximated, "the figure shows the image the diagram's note carries, "+location))
+	return true
+}
+
+// sameFigureText reports two texts equal after whitespace normalization, or one
+// a prefix of the other, as a figure's note and its title read the same.
+func sameFigureText(a, b string) bool {
+	a = strings.Join(strings.Fields(a), " ")
+	b = strings.Join(strings.Fields(b), " ")
+	return a == b || strings.HasPrefix(a, b) || strings.HasPrefix(b, a)
 }
 
 // noDiagrams says why no diagram is current for an Image, as DocGen would
