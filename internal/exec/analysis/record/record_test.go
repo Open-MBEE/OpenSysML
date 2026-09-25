@@ -318,7 +318,7 @@ func TestGenerateInfinityValue(t *testing.T) {
 
 // The generated text is formatter-stable: formatting it changes nothing.
 func TestGeneratedSourceIsFormatterStable(t *testing.T) {
-	for _, name := range []string{"single_run.sysml.golden", "trade_run.sysml.golden", "sweep_runs.sysml.golden"} {
+	for _, name := range []string{"single_run.sysml.golden", "trade_run.sysml.golden", "sweep_runs.sysml.golden", "sequence_run.sysml.golden"} {
 		src, err := os.ReadFile(filepath.Join("testdata", name))
 		if err != nil {
 			t.Fatalf("%s missing; run with -update", name)
@@ -760,5 +760,110 @@ func TestGenerateInoutQuantityAndPlainNumber(t *testing.T) {
 		if strings.Count(res.Source, `Unit = "kg";`) != 1 {
 			t.Errorf("%s: want exactly one unit redefinition:\n%s", name, res.Source)
 		}
+	}
+}
+
+// seqOf builds a sequence value of the given elements.
+func seqOf(values ...runtime.Value) runtime.Value {
+	seq := runtime.NewSequence()
+	for _, v := range values {
+		seq.Append(v)
+	}
+	return runtime.NewSequenceValue(seq)
+}
+
+func kelvin(f float64) runtime.Value {
+	return runtime.NewQuantityValue(&runtime.Quantity{
+		Num:  semantics.Value{Kind: semantics.ValReal, Real: f},
+		Unit: semantics.Unit{Text: "K"},
+	})
+}
+
+// A sequence records as a list literal under a [0..*] member: numbers and
+// strings spell themselves, a quantity sequence shares one unit companion, and
+// Integer elements settle to Real.
+func TestGenerateSequenceRun(t *testing.T) {
+	res := golden(t, "sequence_run.sysml.golden", Request{
+		Package: "Records", Case: "P::profile", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Spell: spell(),
+			Outputs: []runtime.CalcOutputValue{
+				{Name: "profile", Value: seqOf(realValue(1.0), realValue(2.5), realValue(3.0))},
+				{Name: "temps", Value: seqOf(kelvin(300.0), kelvin(310.5))},
+				{Name: "mixed", Value: seqOf(integer(1), realValue(2.5))},
+				{Name: "labels", Value: seqOf(runtime.NewStringValue("a"), runtime.NewStringValue("b"))},
+			},
+		}},
+	})
+	if res.Definition != "Records::ProfileRun" {
+		t.Errorf("definition %q", res.Definition)
+	}
+}
+
+// An empty sequence is multi-valued though it holds nothing: it settles its
+// member to [0..*] and records `()`.
+func TestGenerateEmptySequence(t *testing.T) {
+	res, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Spell:   spell(),
+			Outputs: []runtime.CalcOutputValue{{Name: "xs", Value: seqOf()}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute xs : ScalarValues::ScalarValue[0..*];",
+		"attribute :>> xs = ();",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+}
+
+// A sequence and a single value cannot share a member, whichever order the
+// runs supply them.
+func TestGenerateSequenceAgainstASingleValue(t *testing.T) {
+	for name, runs := range map[string][]Run{
+		"sequence after scalar": {
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(1)}}},
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(2))}}},
+		},
+		"scalar after sequence": {
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(2))}}},
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(1)}}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := Generate(Request{
+				Package: "Records", Case: "P::check", Provenance: provenance(KindSweep),
+				Runs: runs,
+			})
+			if err == nil || !strings.Contains(err.Error(), "member") {
+				t.Fatalf("Generate = %v, want a member refusal", err)
+			}
+		})
+	}
+}
+
+// An existing definition declaring the member single-valued refuses the
+// sequence the runs need.
+func TestGenerateSequenceAgainstASingleValuedDefinition(t *testing.T) {
+	_, err := Generate(Request{
+		Package: "Records", Case: "P::check", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Spell:   spell(),
+			Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(2))}},
+		}},
+		Existing: Existing{
+			Definition: true,
+			Stem:       "check",
+			Attributes: map[string]Feature{"x": {TypeFQN: "ScalarValues::Real"}},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "single-valued") {
+		t.Fatalf("Generate = %v, want the single-valued refusal", err)
 	}
 }
