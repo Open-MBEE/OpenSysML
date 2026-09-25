@@ -128,7 +128,7 @@ write diverging units as above and keep the variant's values as defaults.
 
 ## The stress-test constellation, both ways
 
-`internal/stressmodel` (`cmd/stress-model`) generates the
+`tests/stressmodel` (`tools/cmd/stress-model`) generates the
 [satellite-network stress test](../project/satellite-network-stress-test.md)
 in both forms: `-fleet` selects the fleet form. Both state the same
 spacecraft — seven subsystems, twenty components with mass, power draw and
@@ -204,10 +204,10 @@ satisfy blockAMass by network.plane0.unit16;
 declarations the source makes:
 
 ```bash
-go run ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -stats > legacy.sysml
+go run -C tools ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -stats > legacy.sysml
 # satellites=1600 definitions=1600 units=1600 ground-stations=20 components=32080 connections=25400 requirements=4800 elements=294627 bytes=18135413
-go run ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -fleet -stats > fleet.sysml
-# satellites=1600 definitions=4 units=104 ground-stations=20 components=264 connections=220 requirements=12 elements=3203 bytes=191418
+go run -C tools ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -fleet -stats > fleet.sysml
+# satellites=1600 definitions=4 units=104 ground-stations=20 components=264 connections=220 requirements=12 elements=3203 bytes=192698
 ```
 
 | satellites | planes × per plane | form | definitions | units stating values | elements | source |
@@ -237,14 +237,14 @@ All figures below were taken on one machine — `Intel Xeon Platinum 8559C`,
 
 | satellites | form | elements | wall | allocated | peak RSS |
 | ---------- | ---- | -------- | ---- | --------- | -------- |
-| 1 600 | one definition per satellite | 294 627 | 17.5 s | 5.5 GiB | 2.6 GB |
-| 1 600 | fleet, 8 × 200 | 3 203 | 0.17 s | 93 MiB | 106 MB |
-| 12 800 | one definition per satellite | 2 354 827 | 301 s | 43.5 GiB | 20.1 GB |
-| 12 800 | fleet, 32 × 400 | 12 467 | 0.57 s | 254 MiB | 175 MB |
+| 1 600 | one definition per satellite | 294 627 | 22.7 s | 6.2 GiB | 2.5 GB |
+| 1 600 | fleet, 8 × 200 | 3 203 | 0.22 s | 102 MiB | 108 MB |
+| 12 800 | one definition per satellite | 2 354 827 | 331 s | 49.8 GiB | 20.3 GB |
+| 12 800 | fleet, 32 × 400 | 12 467 | 0.70 s | 289 MiB | 184 MB |
 
 Validation is a function of what the source declares, so the fleet form
-validates the 12 800-satellite constellation in **0.57 s and 175 MB** where
-the single-definition form takes 301 s and 20.1 GB. That is the whole
+validates the 12 800-satellite constellation in **0.70 s and 184 MB** where
+the single-definition form takes 331 s and 20.3 GB. That is the whole
 payoff of writing the model this way, and it is available today.
 
 ## What the runtime does with 12 800 occurrences today
@@ -258,17 +258,18 @@ between them. Measured on the same machine, same layouts as above:
 
 | satellites | operation | wall | allocated | peak RSS |
 | ---------- | --------- | ---- | --------- | -------- |
-| 1 600 | `-instantiate` the network | 0.47 s | 220 MiB | 168 MB |
-| 1 600 | `-satisfy`, 324 assertions | 0.95 s | 513 MiB | 269 MB |
-| 12 800 | `-instantiate` the network | 2.34 s | 1.0 GiB | 692 MB |
-| 12 800 | `-satisfy`, 2 412 assertions | 23.4 s | 14.4 GiB | 1.36 GB |
-| 12 800 | `%eval` of `sats.dryMass` in every plane | 252 s | 73.8 GiB | 4.9 GB |
+| 1 600 | `-instantiate` the network | 0.44 s | 238 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666 MiB | 306 MB |
+| 1 600 | `%eval` of `sats.dryMass` in every plane | 1.85 s | 2.9 GiB | 737 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB |
+| 12 800 | `%eval` of `sats.dryMass` in every plane | 42.7 s | 141.3 GiB | 5.2 GB |
 
 What the rows say about the current runtime:
 
 - **Instantiating** the network (`sysml -instantiate
   SatelliteNetwork::Constellation::network`) creates the object per
-  occurrence in every plane, 2.34 s and 692 MB — about 50 KB per
+  occurrence in every plane, 2.06 s and 801 MB — about 60 KB per
   occurrence, linear from 1 600 to 12 800. The run then warns that
   materialization is bounded: the walk that reads the created object's
   feature values stops at the runtime's materialization budget, so the
@@ -278,18 +279,15 @@ What the rows say about the current runtime:
   evaluates its summed mass and power, which materializes the unit's
   subsystems and components and starts their behaviors. Every check then
   drains the behaviors the network's objects run, so a check costs more the
-  more of the fleet earlier checks have touched: 0.9 MiB allocated per
-  assertion in a network of one plane of 400, 6 MiB in one of 32 planes. A
-  CPU profile of the 16-plane check spends 57% evaluating the requirements'
-  expressions (41% of the total in starting the behaviors of the parts that
-  evaluation materializes) and 31% polling running state machines for due
-  events. The 2 412 assertions of the 12 800-satellite fleet cost 23.4 s and
-  14.4 GiB allocated, against 83 s and 28.9 GiB for the 9 600 assertions of
-  a 3 200-satellite single-definition constellation; each assertion still
+  more of the fleet earlier checks have touched: 2 MiB allocated per
+  assertion in a network of 8 planes, 10 MiB in one of 32 planes. The 2 412
+  assertions of the 12 800-satellite fleet cost 8.84 s and 23.4 GiB
+  allocated, against 83 s and 28.9 GiB for the 9 600 assertions of a
+  3 200-satellite single-definition constellation; each assertion still
   pays for the fleet around it.
 - **Reading a value over every occurrence** — the dry mass of all 12 800
   satellites — evaluates the summed expression over the full component tree
-  of every occurrence, 252 s and 73.8 GiB allocated. This is the cost the
+  of every occurrence, 42.7 s and 141.3 GiB allocated. This is the cost the
   single-definition form paid at validation; the fleet form pays it at the
   first read instead.
 - A connector over the collection is realized as **one link whose ends hold
