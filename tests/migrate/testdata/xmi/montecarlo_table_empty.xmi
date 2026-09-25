@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_analysis" name="Blank Analysis">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g1">
+        <general href="MD_customization_for_SysML.mdzip#_mc">
+          <xmi:Extension extender="MagicDraw UML 2024x">
+            <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis" referentType="Class"/>
+          </xmi:Extension>
+        </general>
+      </generalization>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_bind">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindT" role="_t"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_bindMean">
+          <role href="MD_customization_for_SysML.mdzip#_mcMean">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::Mean" referentType="Property"/>
+            </xmi:Extension>
+          </role>
+        </end>
+      </ownedConnector>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_results" name="Results">
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_first" name="analysis of nothing" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_firstT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_firstTv" value="2.5"/>
+        </slot>
+        <slot xmi:type="uml:Slot" xmi:id="_firstN">
+          <definingFeature href="MD_customization_for_SysML.mdzip#_mcN">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="MD Customization for SysML::analysis patterns::MonteCarloAnalysis::N" referentType="Property"/>
+            </xmi:Extension>
+          </definingFeature>
+          <value xmi:type="uml:LiteralReal" xmi:id="_firstNv" value="2.5"/>
+        </slot>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_second" name="analysis of nothing else" classifier="_analysis">
+        <slot xmi:type="uml:Slot" xmi:id="_secondT" definingFeature="_t">
+          <value xmi:type="uml:LiteralReal" xmi:id="_secondTv" value="1.25"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_stats" name="Blank Statistics" ownerOfDiagram="_results">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_first</usedElements>
+                  <usedElements>_second</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_stats" base_Diagram="_diag_stats" scope="_results" includeSubtypesOfRowTypes="false" showScopeAsRoot="false">
+    <classifiers xmi:idref="_analysis"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>IColumn:_mcN</columnIds>
+    <columnIds>IColumn:_mcMean</columnIds>
+    <sort>IColumn:_mcN^Asc</sort>
+  </MagicDraw_Profile:InstanceTable>
+
+  <sysml:Block xmi:id="_s1" base_Class="_analysis"/>
+  <sysml:BindingConnector xmi:id="_s2" base_Connector="_bind"/>
+</xmi:XMI>

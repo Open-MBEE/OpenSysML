@@ -311,6 +311,7 @@ var constructFixtures = []string{
 	"montecarlo_case",
 	"montecarlo_homonym",
 	"montecarlo_table",
+	"montecarlo_table_empty",
 	"weighted_decision",
 	"tree_constraints",
 	"realized_interfaces",

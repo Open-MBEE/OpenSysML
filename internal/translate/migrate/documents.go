@@ -1606,7 +1606,8 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 				return prop, expr, ""
 			}
 		}
-		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host)
+		// The chain tracks no row classifiers, so any recorded case suffices.
+		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host, nil)
 		if s.why != "" {
 			return "", expr, s.why
 		}

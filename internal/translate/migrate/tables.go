@@ -72,7 +72,7 @@ func (m *migration) planTables() {
 		m.tableOf[t] = td
 		v.tables = append(v.tables, td)
 		for _, c := range t.Columns {
-			if s := m.columnKey(c, v.host); s.feature != nil && s.why == "" && !c.Hidden {
+			if s := m.columnKey(c, v.host, m.rowClassifiers(t.RowTypes)); s.feature != nil && s.why == "" && !c.Hidden {
 				m.expose(s.feature, "a column of the table '"+name+"' reads it")
 			}
 		}
@@ -435,7 +435,7 @@ type columnSource struct {
 
 // columnKey is what a column reads of a row as a query property, feature
 // name or member path, or why it reads nothing a query can.
-func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) columnSource {
+func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, classifiers []*sysmlv1.Element) columnSource {
 	switch c.Kind {
 	case sysmlv1.ColumnProperty:
 		if p, ok := queryProperties[c.Property]; ok {
@@ -448,7 +448,7 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) columnSou
 		case f == nil:
 			return columnSource{why: columnSubject + c.ID + " names no property of the document"}
 		case monteCarloFeature(f) != "":
-			return monteCarloColumn(monteCarloFeature(f))
+			return m.monteCarloColumn(monteCarloFeature(f), classifiers)
 		case !m.written(f):
 			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"}
 		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):
@@ -459,6 +459,20 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element) columnSou
 		return columnSource{why: columnSubject + c.ID + " reads a property of a property, which no Column expression reads"}
 	}
 	return columnSource{why: columnSubject + c.ID + " is of a form the migrator does not read"}
+}
+
+// rowClassifiers are the written classifiers the row types admit; nil when a
+// row type admits elements beyond them (a metaclass or stereotype) or all.
+func (m *migration) rowClassifiers(types []sysmlv1.ElementRef) []*sysmlv1.Element {
+	var classifiers []*sysmlv1.Element
+	for _, ref := range types {
+		f := m.typeFilter(ref)
+		if len(f.classifiers) == 0 {
+			return nil
+		}
+		classifiers = append(classifiers, f.classifiers...)
+	}
+	return classifiers
 }
 
 // sorted orders rows by the table's sort keys, least significant first so the
@@ -481,7 +495,7 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 		if col.Kind == sysmlv1.ColumnTool {
 			continue
 		}
-		src := m.columnKey(col, host)
+		src := m.columnKey(col, host, m.rowClassifiers(t.RowTypes))
 		if src.why != "" {
 			l.note(sortBySubject + s.Column + " is dropped: " + src.why)
 			continue
@@ -521,7 +535,7 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 			continue
 		}
 		shown++
-		src := m.columnKey(c, host)
+		src := m.columnKey(c, host, m.rowClassifiers(t.RowTypes))
 		if src.why != "" {
 			l.note(columnSubject + c.ID + " is omitted: " + src.why)
 			continue
