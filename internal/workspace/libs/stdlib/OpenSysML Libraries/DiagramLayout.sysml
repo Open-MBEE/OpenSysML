@@ -53,4 +53,20 @@ standard library package DiagramLayout {
         attribute width : ScalarValues::Real[0..1];
         attribute height : ScalarValues::Real[0..1];
     }
+
+    metadata def Picture {
+        doc /* A picture drawn on the drawing surface of the view it annotates:
+             * the file it is read from, relative to the file the view is
+             * written in, the top-left corner and size of the box it fills,
+             * in the units of Layout, an optional alternative text, and
+             * whether it is drawn over the elements it overlaps rather than
+             * under them. */
+        attribute location : ScalarValues::String;
+        attribute x : ScalarValues::Real;
+        attribute y : ScalarValues::Real;
+        attribute width : ScalarValues::Real;
+        attribute height : ScalarValues::Real;
+        attribute alt : ScalarValues::String[0..1];
+        attribute above : ScalarValues::Boolean[0..1];
+    }
 }

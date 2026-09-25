@@ -11,20 +11,21 @@ import (
 // Qualified names of the DiagramLayout metadata definitions in the bundled
 // library.
 const (
-	LayoutFQN = "DiagramLayout::Layout"
-	RouteFQN  = "DiagramLayout::Route"
-	CanvasFQN = "DiagramLayout::Canvas"
-	StyleFQN  = "DiagramLayout::Style"
-	NoteFQN   = "DiagramLayout::Note"
+	LayoutFQN  = "DiagramLayout::Layout"
+	RouteFQN   = "DiagramLayout::Route"
+	CanvasFQN  = "DiagramLayout::Canvas"
+	StyleFQN   = "DiagramLayout::Style"
+	NoteFQN    = "DiagramLayout::Note"
+	PictureFQN = "DiagramLayout::Picture"
 )
 
 // LayoutFQNs lists every DiagramLayout metadata definition.
-var LayoutFQNs = []string{LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN}
+var LayoutFQNs = []string{LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN, PictureFQN}
 
 // IsLayoutFQN reports whether fqn names a DiagramLayout metadata definition.
 func IsLayoutFQN(fqn string) bool {
 	switch fqn {
-	case LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN:
+	case LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN, PictureFQN:
 		return true
 	}
 	return false
@@ -78,6 +79,18 @@ type Note struct {
 	HasSize       bool
 }
 
+// Picture is one Picture annotation: a picture read from the file at Location,
+// relative to the file the annotation is written in, filling the box at X, Y
+// of Width by Height, with an alternative text and drawn over the elements it
+// overlaps when Above, else under them.
+type Picture struct {
+	Location      string
+	X, Y          float64
+	Width, Height float64
+	Alt           string
+	Above         bool
+}
+
 // LayoutProblem is a binding of a DiagramLayout annotation that could not be
 // read as the geometry it stands for, located at the node stating it.
 type LayoutProblem struct {
@@ -88,7 +101,7 @@ type LayoutProblem struct {
 // LayoutSite is one DiagramLayout annotation of an element: where it was
 // stated, the geometry it binds, and the bindings that could not be read.
 type LayoutSite struct {
-	// TypeFQN is LayoutFQN, RouteFQN, CanvasFQN, StyleFQN or NoteFQN.
+	// TypeFQN is LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN or PictureFQN.
 	TypeFQN string
 	// Node states the annotation; Scope is where it is declared.
 	Node  ast.Node
@@ -100,13 +113,14 @@ type LayoutSite struct {
 	// applies in that view alone; nil for an inline annotation and for an `about`
 	// one stated outside every view, which apply in every view.
 	View *symbols.Symbol
-	// Exactly one of Layout, Route, Canvas, Style and Note is set when the
-	// annotation reads; all are nil when a binding it needs has a Problem.
-	Layout *Layout
-	Route  *Route
-	Canvas *Canvas
-	Style  *Style
-	Note   *Note
+	// Exactly one of Layout, Route, Canvas, Style, Note and Picture is set when
+	// the annotation reads; all are nil when a binding it needs has a Problem.
+	Layout  *Layout
+	Route   *Route
+	Canvas  *Canvas
+	Style   *Style
+	Note    *Note
+	Picture *Picture
 	// PointCount is the number of values a Route binds to points, whether or
 	// not they read as waypoints.
 	PointCount int
@@ -119,7 +133,7 @@ type LayoutSite struct {
 
 // Applies reports whether the site carries geometry a rendering can use.
 func (s *LayoutSite) Applies() bool {
-	return s != nil && (s.Layout != nil || s.Route != nil || s.Canvas != nil || s.Style != nil || s.Note != nil)
+	return s != nil && (s.Layout != nil || s.Route != nil || s.Canvas != nil || s.Style != nil || s.Note != nil || s.Picture != nil)
 }
 
 // InView reports whether the site positions its element in view: an `about`
@@ -175,6 +189,8 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 			m.readStyle(site, bindings)
 		case NoteFQN:
 			m.readNote(site, bindings)
+		case PictureFQN:
+			m.readPicture(site, bindings)
 		}
 		out = append(out, site)
 	}
@@ -242,6 +258,23 @@ func (m *Model) NotesOf(view, elem *symbols.Symbol) []*LayoutSite {
 	var out []*LayoutSite
 	for _, site := range m.LayoutSitesOf(elem) {
 		if site.TypeFQN == NoteFQN && site.InView(view) {
+			out = append(out, site)
+		}
+	}
+	return out
+}
+
+// PicturesOf lists every Picture of view, in declaration order: those stated
+// in the view's body and those applying in every view. Every Picture is
+// drawn; a view may carry several. A Picture annotating anything but a view
+// draws nothing; the layout pass reports it.
+func (m *Model) PicturesOf(view *symbols.Symbol) []*LayoutSite {
+	if view == nil {
+		return nil
+	}
+	var out []*LayoutSite
+	for _, site := range m.LayoutSitesOf(view) {
+		if site.TypeFQN == PictureFQN && site.InView(view) {
 			out = append(out, site)
 		}
 	}
@@ -538,6 +571,57 @@ func (m *Model) readNote(site *LayoutSite, bindings []MetadataBinding) {
 	}
 	note.HasSize = hasWidth && hasHeight
 	site.Note = note
+}
+
+// readPicture reads a Picture body: location a required string, x, y, width
+// and height required reals, alt an optional string, above an optional boolean.
+func (m *Model) readPicture(site *LayoutSite, bindings []MetadataBinding) {
+	pic := &Picture{}
+	ok := true
+	read := map[string]bool{}
+	for _, b := range bindings {
+		switch b.Feature {
+		case "location":
+			read[b.Feature] = m.readString(site, b, &pic.Location)
+		case "x":
+			read[b.Feature] = m.readReal(site, b, &pic.X)
+		case "y":
+			read[b.Feature] = m.readReal(site, b, &pic.Y)
+		case "width":
+			read[b.Feature] = m.readReal(site, b, &pic.Width)
+		case "height":
+			read[b.Feature] = m.readReal(site, b, &pic.Height)
+		case "alt":
+			if b.Value != nil {
+				ok = m.readString(site, b, &pic.Alt) && ok
+			}
+		case "above":
+			ok = m.readBool(site, b, &pic.Above) && ok
+		}
+	}
+	if !bindsFeature(bindings, "location") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Picture binds no location to read the picture from"})
+	}
+	if !bindsFeature(bindings, "x") || !bindsFeature(bindings, "y") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Picture binds no x and y to place the picture at"})
+	}
+	if !bindsFeature(bindings, "width") || !bindsFeature(bindings, "height") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Picture binds no width and height to size the picture to"})
+	}
+	for _, feature := range []string{"location", "x", "y", "width", "height"} {
+		ok = ok && read[feature]
+	}
+	if read["location"] && pic.Location == "" {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "location of Picture is empty"})
+		ok = false
+	}
+	if (read["width"] && pic.Width <= 0) || (read["height"] && pic.Height <= 0) {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "width and height of Picture must be positive"})
+		ok = false
+	}
+	if ok {
+		site.Picture = pic
+	}
 }
 
 // readString reads one binding as a string, reporting a value that is not a
