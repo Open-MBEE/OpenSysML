@@ -27,6 +27,7 @@ type checks struct {
 	satisfy      optionalNames
 	calcs        stringSlice
 	analyses     stringSlice
+	toolDryRuns  stringSlice
 	records      stringSlice
 	recordInto   string
 	sweeps       stringSlice
@@ -233,7 +234,7 @@ func (a *advanceTime) Set(value string) error {
 func (c *checks) requested() bool {
 	return c.validate.given || c.jsonOut || c.advance.given || c.satisfy.given || len(c.instantiate) > 0 ||
 		len(c.constraints) > 0 || len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
-		len(c.records) > 0 ||
+		len(c.toolDryRuns) > 0 || len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 ||
 		c.sweeping() || c.running() || c.compare != "" || c.checker.given()
 }
@@ -358,7 +359,7 @@ func (c *checks) compareMisuse() string {
 	switch {
 	case len(c.states) > 0 || c.sweeping() || c.advance.given || c.checker.given() ||
 		c.validate.given || c.satisfy.given || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
-		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.records) > 0 || len(c.queries) > 0:
+		len(c.requirements) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 || len(c.toolDryRuns) > 0 || len(c.records) > 0 || len(c.queries) > 0:
 		return "-compare-results runs the migrated configurations the results index and compares the runs with the tool's; the other checks are made in a run of their own"
 	}
 	for _, pair := range c.observe {
@@ -412,6 +413,8 @@ func (c *checks) sweepMisuse() string {
 	}
 	targets := len(c.calcs) + len(c.analyses) + len(c.records)
 	switch {
+	case len(c.toolDryRuns) > 0:
+		return "-sweep runs an analysis case or a calc once per value; -tool-dry-run previews a tool call instead"
 	case targets == 0:
 		return "-sweep runs an analysis case or a calc; name one, as -analysis <name> or -calc <name>"
 	case targets > 1:
@@ -429,7 +432,7 @@ func (c *checks) sweepMisuse() string {
 func (c *checks) instantiatesOnly() bool {
 	return len(c.instantiate) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 && len(c.analyses) == 0 &&
-		len(c.records) == 0 &&
+		len(c.toolDryRuns) == 0 && len(c.records) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && !c.sweeping() && !c.running() && c.compare == "" && !c.checker.given()
 }
 
@@ -440,7 +443,7 @@ func (c *checks) instantiatesOnly() bool {
 func (c *checks) recordsOnly() bool {
 	return len(c.records) > 0 && !c.validate.given && !c.jsonOut && !c.advance.given && !c.satisfy.given &&
 		len(c.constraints) == 0 && len(c.requirements) == 0 && len(c.calcs) == 0 &&
-		len(c.analyses) == 0 && len(c.observe) == 0 &&
+		len(c.analyses) == 0 && len(c.toolDryRuns) == 0 && len(c.observe) == 0 &&
 		len(c.queries) == 0 && len(c.actions) == 0 && len(c.states) == 0 && c.compare == "" && !c.checker.given()
 }
 
@@ -475,7 +478,7 @@ func (c *checks) boundsMisuse() string {
 func (c *checks) checksOnly() bool {
 	return len(c.validate.targets) > 0 || len(c.instantiate) > 0 || len(c.constraints) > 0 ||
 		len(c.requirements) > 0 || len(c.satisfy.targets) > 0 || len(c.calcs) > 0 || len(c.analyses) > 0 ||
-		len(c.records) > 0 ||
+		len(c.toolDryRuns) > 0 || len(c.records) > 0 ||
 		len(c.queries) > 0 || len(c.actions) > 0 || len(c.states) > 0 || c.compare != ""
 }
 
@@ -753,6 +756,9 @@ func runChecks(files []string, exprs []string, c checks) int {
 		default:
 			rep.verdict(sess.RunAnalysis(invocation))
 		}
+	}
+	for _, target := range c.toolDryRuns {
+		rep.verdict(sess.ToolDryRun(target))
 	}
 	for _, invocation := range c.records {
 		rep.verdict(c.record(sess, invocation))

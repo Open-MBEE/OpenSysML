@@ -177,6 +177,7 @@ var metaCommandTable = []metaCommand{
 
 	{name: "%engines", group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
 	{name: "%engine", group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
+	{name: "%tool", group: groupEngines, args: "<case|action>[(<args>)] [<object>]", desc: "show what the external tool a case's or action's ToolExecution names would be given — manifest, executable, argv, environment, cwd, standard input, input file and reply mapping — with the model's current values, without starting the process"},
 
 	{name: "%check-diverge", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
@@ -386,6 +387,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngines(fields[1:]), false, nil), true
 	case "%engine":
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
+	case "%tool":
+		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
 	case "%check-diverge":
 		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
 	case "%check-property":
