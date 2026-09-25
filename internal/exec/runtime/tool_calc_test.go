@@ -43,6 +43,19 @@ const toolCalcModel = `package test {
 		in p = 10 [SI::W];
 	}
 
+	calc def Warned {
+		metadata ToolExecution { toolName = "Thermo"; uri = "w"; }
+		in m : MassValue   { @ToolVariable { name = "mass"; } }
+		in p : PowerValue  { @ToolVariable { name = "power"; } }
+		out warn : Boolean { @ToolVariable { name = "warn"; } }
+		out rating : PowerValue { @ToolVariable { name = "rating"; } }
+	}
+
+	calc w : Warned {
+		in m = 2 [SI::kg];
+		in p = 10 [SI::W];
+	}
+
 	part def Board {
 		attribute mass : MassValue = 2 [SI::kg];
 		attribute power : PowerValue = 10 [SI::W];
@@ -161,6 +174,37 @@ func TestToolCalcUsageReadsItsOutputsFromTheTool(t *testing.T) {
 	}
 	if FormatValue(result) != "340.0 [SI::K]" {
 		t.Fatalf("result = %s, want 340.0 [SI::K]", FormatValue(result))
+	}
+}
+
+// A calc declaring only `out` parameters asks the tool for those alone — no
+// `result` output is demanded — and its usage reads them as any usage's.
+func TestToolCalcOutOnlyAsksNoResult(t *testing.T) {
+	ctx, scope := analysisFixture(t, toolCalcModel)
+	runner := &recordingRunner{answer: map[string]ToolValue{
+		"warn":   {Value: semanticsBool(true)},
+		"rating": {Value: toolReal(30), Unit: "W"},
+	}}
+	ctx.SetToolRunner(runner)
+
+	outputs, err := ctx.CalcUsageOutputs(calcNamed(t, scope, "w"), scope, nil)
+	if err != nil {
+		t.Fatalf("CalcUsageOutputs: %v", err)
+	}
+	if len(runner.calls) != 1 {
+		t.Fatalf("tool invoked %d times, want once", len(runner.calls))
+	}
+	for _, out := range runner.calls[0].Outputs {
+		if out.Variable == "result" {
+			t.Fatalf("call demands a result output from an out-only calc: %+v", runner.calls[0].Outputs)
+		}
+	}
+	got := map[string]string{}
+	for _, out := range outputs {
+		got[out.Name] = FormatValue(out.Value)
+	}
+	if got["warn"] != "true" || got["rating"] != "30.0 [SI::W]" {
+		t.Fatalf("outputs %v, want warn = true and rating = 30 W", got)
 	}
 }
 

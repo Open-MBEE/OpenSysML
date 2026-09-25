@@ -256,11 +256,11 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
-	if tool, err := ctx.toolExecutionOf(sym); err != nil {
+	tool, err := ctx.toolExecutionOf(sym)
+	if err != nil {
 		return nil, err
-	} else {
-		shape.Tool = tool
 	}
+	shape.Tool = tool
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
@@ -702,7 +702,12 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	var result Value
 	var err error
 	if shape.Tool != nil {
-		result, _, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
+		var returned bool
+		var outputs map[string]Value
+		result, returned, outputs, err = ctx.computeCalcByTool(shape, ec.scope, locals.lookup)
+		if err == nil && !returned {
+			result, err = ctx.toolCalcResult(shape, frame, callerScope, self, activation, enclosing, outputs)
+		}
 	} else {
 		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
 	}
@@ -820,6 +825,27 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	}
 	// The invocation already holds this evaluation's nesting feature value.
 	run.onStack = true
+	return run.value(ctx, out)
+}
+
+// toolCalcResult resolves what an invocation of a tool-computed calc yields when
+// the calc declares no result parameter, as runCalcBody does for a body that
+// returned nothing: the designated output's value, read from the tool's answers.
+func (ctx *Context) toolCalcResult(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, outputs map[string]Value) (Value, error) {
+	out, err := shape.designatedOutput()
+	if err != nil {
+		return Value{}, err
+	}
+	run := newCalcRun(shape, callerScope, self, frame.locals())
+	run.activation, run.perf = activation, frame.host.performance()
+	if len(enclosing) > 0 {
+		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
+	}
+	// The invocation already holds this evaluation's nesting feature value.
+	run.onStack = true
+	for name, value := range outputs {
+		run.outputs[name] = value
+	}
 	return run.value(ctx, out)
 }
 

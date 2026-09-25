@@ -19,7 +19,8 @@ import (
 // and the result parameter is always an output — keyed by its ToolVariable name, else its
 // declared name, else `result`. The same refusals as a performance's call apply: an
 // unbound non-optional input is ErrUnboundParameter, a ToolVariable name two parameters
-// carry is a ToolError. The name the result is bound under is returned with the call.
+// carry is a ToolError. The name the result is bound under is returned with the call,
+// empty when the calc declares no result parameter — an out-only calc asks for none.
 func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, error) {
 	execution := shape.Tool
 	tool := execution.tool
@@ -70,8 +71,9 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 			call.Outputs = append(call.Outputs, ToolOutput{Variable: variable, Parameter: name, Declared: param.Symbol})
 		}
 	}
-	resultKey := resultOutputName
+	var resultKey string
 	if result != nil {
+		resultKey = resultOutputName
 		variable := resultOutputName
 		if result.Name != "" {
 			resultKey, variable = result.Name, result.Name
@@ -94,24 +96,25 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 
 // computeCalcByTool computes a tool-annotated calc: the tool shape.Tool names is invoked
 // once with the inputs held answers, its outputs stand as the calc's outputs, and the
-// result parameter's value is the calculation's result. The failures of a performance's
-// tool apply unchanged: an annotation naming no tool, or a context with no runner, is
-// not registered and the body never stands in.
-func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (Value, map[string]Value, error) {
+// result parameter's value is the calculation's result — returned=false for a calc
+// declaring no result parameter, as a body that returns nothing reports. The failures
+// of a performance's tool apply unchanged: an annotation naming no tool, or a context
+// with no runner, is not registered and the body never stands in.
+func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (result Value, returned bool, outputs map[string]Value, err error) {
 	tool := shape.Tool.tool
 	if tool == "" {
-		return Value{}, nil, &ToolNotRegisteredError{Tool: tool}
+		return Value{}, false, nil, &ToolNotRegisteredError{Tool: tool}
 	}
 	call, resultKey, err := ctx.calcToolCall(shape, scope, held)
 	if err != nil {
-		return Value{}, nil, err
+		return Value{}, false, nil, err
 	}
 	if ctx.tools == nil {
-		return Value{}, nil, &ToolNotRegisteredError{Tool: tool}
+		return Value{}, false, nil, &ToolNotRegisteredError{Tool: tool}
 	}
 	answer, err := ctx.tools.RunTool(call)
 	if err != nil {
-		return Value{}, nil, err
+		return Value{}, false, nil, err
 	}
 	if answer.Diverged {
 		ctx.note(ToolDivergence{
@@ -121,5 +124,5 @@ func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, he
 			Span:   shape.Tool.on.DeclSpan,
 		})
 	}
-	return answer.Outputs[resultKey], answer.Outputs, nil
+	return answer.Outputs[resultKey], resultKey != "", answer.Outputs, nil
 }

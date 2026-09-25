@@ -896,19 +896,23 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	// result parameter's answer its result, and reading an unanswered one is the
 	// reply's failure rather than a binding to evaluate.
 	if shape.Tool != nil {
-		result, outputs, err := ctx.computeCalcByTool(shape, ec.scope, env.lookup)
+		result, returned, outputs, err := ctx.computeCalcByTool(shape, ec.scope, env.lookup)
 		if err != nil {
 			if ec.trace != nil {
 				ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 			}
 			return nil, calcFrame(shape.Kind, shape.Name, err)
 		}
-		run.result, run.returned = result, true
+		run.result, run.returned = result, returned
 		for name, value := range outputs {
 			run.outputs[name] = value
 		}
 		if ec.trace != nil {
-			ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+			if returned {
+				ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+			} else {
+				ec.trace.RecordCalcUsageExit(shape.Kind, shape.Name)
+			}
 		}
 		return run, nil
 	}
