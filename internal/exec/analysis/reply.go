@@ -960,7 +960,8 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 	}
 	indexOf := func(c *Column) (int, error) {
 		if c.ByIndex {
-			if c.Index >= width {
+			// With no records there are no fields to be past.
+			if len(records) > 0 && c.Index >= width {
 				return 0, fmt.Errorf("column %d is past the %d fields of a record", c.Index, width)
 			}
 			return c.Index, nil
