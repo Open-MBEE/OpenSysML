@@ -57,4 +57,11 @@ package Site {
 		render asElementTable;
 		@Picture { location = "images/site.jpg"; x = 0; y = 0; width = 640; height = 480; }
 	}
+
+	// A picture at a URL: no drawing tool reads one, so it is not drawn.
+	view remoteView {
+		expose Site::Bench;
+		render asInterconnectionDiagram;
+		@Picture { location = "https://example.org/bench.png"; x = 0; y = 0; width = 400; height = 300; }
+	}
 }

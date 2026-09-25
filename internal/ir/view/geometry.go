@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -71,9 +70,9 @@ type Picture struct {
 }
 
 // Path is the picture's file as a path from the working directory: Location
-// under Dir, or Location itself when it is absolute, a URL, or Dir is unknown.
+// under Dir, or Location itself when it is absolute or Dir is unknown.
 func (p Picture) Path() string {
-	if p.Dir == "" || filepath.IsAbs(p.Location) || strings.Contains(p.Location, "://") {
+	if p.Dir == "" || filepath.IsAbs(p.Location) {
 		return p.Location
 	}
 	return filepath.Join(p.Dir, filepath.FromSlash(p.Location))

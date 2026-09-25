@@ -149,16 +149,12 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 	if !d.Drawn {
 		return p
 	}
-	unread := map[string]*sysmlv1.ImageError{}
-	for _, e := range d.ImageErrors {
-		unread[e.Symbol] = e
-	}
 	boxes := elementBoxes(d)
 	for i, sym := range d.Symbols {
 		if !sym.Free() {
 			continue
 		}
-		e := unread[sym.ID]
+		e := sym.ImageError
 		if len(sym.Image) == 0 && sym.Attachment == "" && e == nil {
 			continue
 		}

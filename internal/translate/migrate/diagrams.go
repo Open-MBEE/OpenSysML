@@ -719,14 +719,12 @@ func (m *migration) diagrams() {
 			m.w.lines(commentLines("not migrated: " + v.entry.Kind + " " + name + " — " + v.entry.Note))
 		}
 		m.report.Entries = append(m.report.Entries, *v.entry)
-		for _, e := range d.ImageErrors {
-			kind := "Symbol"
-			if sym := d.SymbolByID(e.Symbol); sym != nil {
-				kind = sym.Class
+		for _, sym := range d.Symbols {
+			if sym.ImageError != nil {
+				m.report.Entries = append(m.report.Entries, Entry{
+					ID: sym.ID, Kind: sym.Class, Name: v.entry.Name, Verdict: Unmapped, Note: sym.ImageError.Error(),
+				})
 			}
-			m.report.Entries = append(m.report.Entries, Entry{
-				ID: e.Symbol, Kind: kind, Name: v.entry.Name, Verdict: Unmapped, Note: e.Error(),
-			})
 		}
 	}
 	m.unplacedTables()

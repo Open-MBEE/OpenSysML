@@ -110,9 +110,10 @@ line, a `@Note { … }` on the view itself is free on the drawing surface. A not
 view's body — `about` a member or free on the view — is drawn in that view alone, its corner in
 that view's canvas; a note stated outside every view applies in every view. A `Picture` is an
 image pasted onto the drawing surface: the file it is read from, relative to the file the view is
-written in (an absolute path or a URL as given), the box it fills, an optional alternative text,
-and `above` when it lies over the element symbols it overlaps rather than under them, which is
-the default — a background picture with the boxes drawn on top. There is no order finer than
+written in (an absolute path as given; not a URL, which no drawing tool reads as a file, so a
+`Picture` whose `location` is one is refused by `diagram-layout-value`), the box it fills, an
+optional alternative text, and `above` when it lies over the element symbols it overlaps rather
+than under them, which is the default — a background picture with the boxes drawn on top. There is no order finer than
 that: a picture lies under every element symbol or over every one, never between two. A
 `Picture` belongs to a view alone, `@Picture { … }` in its body; a view carries as many as it
 shows, in declaration order: within each layer a later picture lies over an earlier one it
@@ -120,8 +121,8 @@ overlaps, and every picture over the element symbols lies over every one under t
 The graph-shaped renderings (interconnection, tree, state and action views) draw it; a table or
 sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
 each picture's file and box under `not drawn`.
-A `Picture` names a file the way a `DocumentQueries::Image` block's `location` does, and it is
-trusted the same way: the model's author states which files of theirs a rendering reads, so a
+A `Picture` names a file the way a `DocumentQueries::Image` block's `location` names a local
+one, and it is trusted the same way: the model's author states which files of theirs a rendering reads, so a
 document rendered from a model lets that model reach whatever the location names, as an
 `Image` block always has. What a rendering copies out of such a file is bounded, though: when a
 drawn diagram's pictures are inlined into a single-file document, a file is embedded as a data
@@ -276,7 +277,7 @@ flow.
 | Code | Severity | When |
 |---|---|---|
 | `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
-| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), a `Picture` without its `location`, `x` and `y`, or `width` and `height`, with an empty `location` or a `width` or `height` that is not positive, or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
+| `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), a `Picture` without its `location`, `x` and `y`, or `width` and `height`, with an empty `location`, a `location` that is a URL (`scheme://…` or `data:…`) or a `width` or `height` that is not positive, or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
 | `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. A `Picture` annotating anything that is not a view: it is drawn on no surface. |
 | `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. A `Note` or a `Picture` is never a duplicate: every one is drawn. |
 

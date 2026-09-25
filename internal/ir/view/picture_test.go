@@ -192,8 +192,31 @@ func TestPictureOnTableIsNoticedNotDrawn(t *testing.T) {
 	}
 }
 
+// A picture at a URL is not handed to Graphviz as a file: it is refused with
+// the reason, and the DOT form draws no image node for it.
+func TestPictureAtURLIsRefusedNotDrawn(t *testing.T) {
+	rendering := render(t, "pictures.sysml", "Site::remoteView")
+	if len(rendering.Pictures) != 0 {
+		t.Fatalf("pictures = %+v, want none", rendering.Pictures)
+	}
+	notice := "Picture annotation of view Site::remoteView is not applied: location of Picture is a URL, not the path of a file the drawing tools can read"
+	if len(rendering.Notices) != 1 || rendering.Notices[0] != notice {
+		t.Fatalf("notices = %q, want [%q]", rendering.Notices, notice)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(dot, "image=") || strings.Contains(dot, "example.org") {
+		t.Errorf("DOT hands the URL to Graphviz:\n%s", dot)
+	}
+	if !strings.Contains(dot, "// not represented: "+notice) {
+		t.Errorf("DOT drops the picture silently:\n%s", dot)
+	}
+}
+
 // A picture's path is its location resolved against the document's directory,
-// with absolute paths and URLs left as they are.
+// with an absolute path left as it is.
 func TestPicturePath(t *testing.T) {
 	abs := filepath.Join(string(filepath.Separator), "srv", "model", "images", "a.png")
 	cases := []struct {
@@ -203,7 +226,6 @@ func TestPicturePath(t *testing.T) {
 		{Picture{Location: "images/a.png", Dir: filepath.Join("srv", "model")}, filepath.Join("srv", "model", "images", "a.png")},
 		{Picture{Location: "images/a.png"}, "images/a.png"},
 		{Picture{Location: abs, Dir: "elsewhere"}, abs},
-		{Picture{Location: "https://example.org/a.png", Dir: "elsewhere"}, "https://example.org/a.png"},
 	}
 	for _, c := range cases {
 		if got := c.picture.Path(); got != c.want {

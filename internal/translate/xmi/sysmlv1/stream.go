@@ -44,6 +44,8 @@ type Symbol struct {
 	// Image holds a pasted image's own bytes when the tool serialized them in
 	// the stream; nil when it wrote only the file's name or they do not read.
 	Image []byte
+	// ImageError says why Image is nil though the tool wrote bytes; nil otherwise.
+	ImageError *ImageError
 	// Hidden reports a symbol the tool keeps but does not draw (visible false):
 	// it takes no room on the diagram, and a hidden frame does not bound it.
 	Hidden bool
@@ -115,9 +117,9 @@ type symbols struct {
 	list   []*Symbol
 	frame  *Bounds
 	shown  []string
+	hidden []string // listed elements the stream hides everywhere it names them
 	listed []*listing
 	free   map[string]int
-	images []*ImageError
 }
 
 // listing is an element a stream names, in stream order: the one a symbol stands
@@ -286,7 +288,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 					f.prop.apply(sym)
 				}
 			case len(stack) > 0 && stack[len(stack)-1].sym != nil:
-				syms.readSymbolField(stack[len(stack)-1].sym, f.tag, text, diagramID)
+				readSymbolField(stack[len(stack)-1].sym, f.tag, text, diagramID)
 			case len(stack) > 0 && stack[len(stack)-1].prop != nil:
 				p := stack[len(stack)-1].prop
 				switch {
@@ -309,8 +311,8 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 }
 
 // settle draws the conclusions a whole stream allows: a symbol inside a hidden one
-// is hidden, hidden symbols bound nothing and stand for nothing shown, and the
-// elements shown are the visible listings' in stream order, each once.
+// is hidden, hidden symbols bound nothing and stand for nothing shown, the elements
+// shown are the visible listings' in stream order, each once, and the rest listed are hidden.
 func (syms *symbols) settle(diagramID string) {
 	for _, s := range syms.list {
 		if s.Parent != nil && s.Parent.Hidden {
@@ -333,11 +335,17 @@ func (syms *symbols) settle(diagramID string) {
 			syms.shown = append(syms.shown, l.id)
 		}
 	}
+	for _, l := range syms.listed {
+		if !seen[l.id] {
+			seen[l.id] = true
+			syms.hidden = append(syms.hidden, l.id)
+		}
+	}
 }
 
 // readSymbolField reads a symbol's own child element: its geometry, the text of
 // a text box, the bytes of a pasted image or the file it was pasted from.
-func (syms *symbols) readSymbolField(sym *Symbol, tag, text, diagramID string) {
+func readSymbolField(sym *Symbol, tag, text, diagramID string) {
 	switch {
 	case tag == "geometry":
 		sym.Bounds, sym.Points = parseGeometry(text)
@@ -346,7 +354,7 @@ func (syms *symbols) readSymbolField(sym *Symbol, tag, text, diagramID string) {
 	case tag == "image" && text != "":
 		data, offset, octet := decodeOctets(text)
 		if octet != "" {
-			syms.images = append(syms.images, &ImageError{Diagram: diagramID, Symbol: sym.ID, Offset: offset, Octet: octet})
+			sym.ImageError = &ImageError{Diagram: diagramID, Symbol: sym.ID, Offset: offset, Octet: octet}
 			return
 		}
 		sym.Image = data
@@ -560,11 +568,19 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 		d.Free = syms.free
 		d.Symbols = syms.list
 		d.Frame = syms.frame
-		d.ImageErrors = syms.images
 		stood := map[*Element]bool{}
 		for _, id := range syms.shown {
 			if e := m.shown(id); e != nil {
 				stood[e] = true
+			}
+		}
+		// A listed element the stream hides is off the diagram, whatever its owner shows.
+		hidden, hiddenIDs := map[*Element]bool{}, map[string]bool{}
+		for _, id := range syms.hidden {
+			if e := m.shown(id); e != nil {
+				hidden[e] = true
+			} else {
+				hiddenIDs[id] = true
 			}
 		}
 		// Two spellings name one element when they resolve to it; ones resolving
@@ -587,7 +603,11 @@ func (m *Model) readStreams(entries map[string]*zip.File) {
 			shown = append(shown, ElementRef{ID: id})
 		}
 		for _, ref := range d.Shown {
-			if displayed(m.shown(ref.ID), stood) {
+			e := m.shown(ref.ID)
+			if hidden[e] || (e == nil && hiddenIDs[ref.ID]) {
+				continue
+			}
+			if displayed(e, stood) {
 				add(ref.ID)
 			}
 		}

@@ -619,6 +619,9 @@ func (m *Model) readPicture(site *LayoutSite, bindings []MetadataBinding) {
 	if read["location"] && pic.Location == "" {
 		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "location of Picture is empty"})
 		ok = false
+	} else if read["location"] && isURL(pic.Location) {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "location of Picture is a URL, not the path of a file the drawing tools can read"})
+		ok = false
 	}
 	if (read["width"] && pic.Width <= 0) || (read["height"] && pic.Height <= 0) {
 		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "width and height of Picture must be positive"})
@@ -627,6 +630,11 @@ func (m *Model) readPicture(site *LayoutSite, bindings []MetadataBinding) {
 	if ok {
 		site.Picture = pic
 	}
+}
+
+// isURL reports a location with a scheme, http(s) or data, which names no file.
+func isURL(location string) bool {
+	return strings.Contains(location, "://") || strings.HasPrefix(strings.ToLower(location), "data:")
 }
 
 // readString reads one binding as a string, reporting a value that is not a

@@ -398,10 +398,12 @@ func TestPicturesOfReportsAnIncompletePicture(t *testing.T) {
 		view a {
 			@Picture { x = 1; width = 10; }
 			@Picture { location = ""; x = 0; y = 0; width = 0; height = 10; }
+			@Picture { location = "https://example.org/a.png"; x = 0; y = 0; width = 10; height = 10; }
+			@Picture { location = "data:image/png;base64,iVBORw0KGgo="; x = 0; y = 0; width = 10; height = 10; }
 		}
 	`)
 	pics := m.PicturesOf(sym(t, p, "a"))
-	if len(pics) != 2 || pics[0].Picture != nil || pics[1].Picture != nil {
+	if len(pics) != 4 || pics[0].Picture != nil || pics[1].Picture != nil || pics[2].Picture != nil || pics[3].Picture != nil {
 		t.Fatalf("PicturesOf(a) = %+v", pics)
 	}
 	for i, want := range [][]string{{
@@ -411,6 +413,10 @@ func TestPicturesOfReportsAnIncompletePicture(t *testing.T) {
 	}, {
 		"location of Picture is empty",
 		"width and height of Picture must be positive",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
 	}} {
 		if len(pics[i].Problems) != len(want) {
 			t.Fatalf("picture %d problems = %+v", i, pics[i].Problems)

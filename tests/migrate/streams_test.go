@@ -231,6 +231,44 @@ func TestPictureOverPictureKeepsItsOrder(t *testing.T) {
 	}
 }
 
+// Pasted images the tool wrote without an xmi:id are told apart all the same: one
+// whose bytes do not read is reported, and the one after it is written and placed.
+func TestUnnamedPicturesAreToldApart(t *testing.T) {
+	patch := `
+  <mdElement elementClass="ImageShape">
+    <geometry>380, 140, 40, 40</geometry>
+    <image>zz</image>
+  </mdElement>
+  <mdElement elementClass="ImageShape">
+    <geometry>420, 140, 40, 40</geometry>
+    <image>` + cameoHex(plantPNG) + `</image>
+  </mdElement>
+`
+	streams := map[string]string{}
+	for k, v := range figureStreams {
+		streams[k] = v
+	}
+	streams["BINARY-modes"] = strings.Replace(streams["BINARY-modes"], "</mdOwnedViews>", patch+"</mdOwnedViews>", 1)
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	if !strings.Contains(string(r.Notation), `@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 420; y = 140; width = 40; height = 40; }`) {
+		t.Errorf("the unnamed picture after the unreadable one is not drawn:\n%s", r.Notation)
+	}
+	if strings.Contains(string(r.Notation), "x = 380; y = 140;") {
+		t.Errorf("the unreadable unnamed picture is placed:\n%s", r.Notation)
+	}
+	wantInOrder(t, "modes entry", reportText(t, r),
+		"_diag_modes", "3 pasted images written as images/Plant_from_the_north.png, 3 pasted images not written: ",
+		`the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is "xx", not a hexadecimal byte)`,
+		`the pasted image has bytes that do not read (octet 0 is "zz", not a hexadecimal byte)`)
+	if s := r.Report.Layout; s.Pictures != 8 || s.PicturesWritten != 4 {
+		t.Errorf("pictures = %d, written = %d; want 8 and 4", s.Pictures, s.PicturesWritten)
+	}
+}
+
 // A pasted image whose geometry has no area — a zero or negative side — is not
 // written: a Picture needs a box to fill, and the report says why it has none.
 func TestPictureWithoutAreaIsNotWritten(t *testing.T) {

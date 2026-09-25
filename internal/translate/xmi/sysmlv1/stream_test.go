@@ -349,8 +349,9 @@ func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
 // or for an ancestor, as a compartment's — drops the listed elements none
 // displays, and gains the elements the symbols draw beyond the list, however
 // the two spell an element's href, while hrefs into two modules stay two
-// elements though their fragments agree; one whose symbols stand for no element
-// shows nothing, whatever its list names; one whose stream is absent or
+// elements though their fragments agree; one whose list names a compartment row the
+// stream hides drops it though its owner is shown; one whose symbols stand for no
+// element shows nothing, whatever its list names; one whose stream is absent or
 // unreadable stays unread with its list as written.
 func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	model := strings.Replace(string(diagramDocument(bddDiagram+`
@@ -384,6 +385,20 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
                   <usedElements>_b</usedElements>
                   <usedElements>_a_m</usedElements>
                   <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-blank"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_veiled" name="Veiled" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmi:id="_d_veiled_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents xmi:id="_d_veiled_contents">
+                  <usedElements>_a</usedElements>
+                  <usedElements>_a_b</usedElements>
+                  <usedElements>_a_m</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-veiled"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -430,8 +445,11 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 			`<mdElement elementClass="Class"><elementID href="ModuleA.xmi#_shared"/></mdElement>` +
 			`<mdElement elementClass="Class"><elementID href="ModuleB.xmi#_shared"/></mdElement></mdOwnedViews>`),
 		"BINARY-blank": []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_blank"/></mdElement><mdElement elementClass="TextBox"/></mdOwnedViews>`),
-		"BINARY-lost":  []byte("\xff\xfe not a stream"),
-		"BINARY-cut":   []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
+		"BINARY-veiled": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_a"/><mdOwnedViews>` +
+			`<mdElement elementClass="Part"><visible xmi:value="false"/><elementID xmi:idref="_a_b"/></mdElement>` +
+			`<mdElement elementClass="Part"><elementID xmi:idref="_a_m"/></mdElement></mdOwnedViews></mdElement></mdOwnedViews>`),
+		"BINARY-lost": []byte("\xff\xfe not a stream"),
+		"BINARY-cut":  []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -462,6 +480,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	}
 	if d := byID["_d_blank"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
 		t.Errorf("blank diagram: drawn %v, shown %q, free %v; want the list dropped, since no symbol displays what it names", d.Drawn, shown(d), d.Free)
+	}
+	if d := byID["_d_veiled"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_a", "_a_m"}) {
+		t.Errorf("veiled diagram: drawn %v, shown %q; want the hidden compartment row dropped though its owner is shown", d.Drawn, shown(d))
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())
@@ -538,7 +559,8 @@ func pngHex(t *testing.T) ([]byte, string) {
 }
 
 // A pasted image's bytes are read from its image tag, padded or not, apart from
-// its file name; unreadable octets are noted, never failing the stream.
+// its file name; unreadable octets are noted on the symbol itself, never failing
+// the stream nor touching another symbol, however the two are identified.
 func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 	data, hex := pngHex(t)
 	stream := `<?xml version='1.0' encoding='UTF-8'?>
@@ -582,6 +604,14 @@ func TestReadSymbolsDecodesPastedImages(t *testing.T) {
     <geometry>10, 800, 300, 200</geometry>
     <image>bench.png</image>
   </mdElement>
+  <mdElement elementClass='ImageShape'>
+    <geometry>10, 1000, 300, 200</geometry>
+    <image>zz</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape'>
+    <geometry>10, 1200, 300, 200</geometry>
+    <image>` + hex + `</image>
+  </mdElement>
 </mdOwnedViews>`
 	syms, err := readSymbols([]byte(stream), "_diag")
 	if err != nil {
@@ -589,7 +619,9 @@ func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 	}
 	byID := map[string]*Symbol{}
 	for _, s := range syms.list {
-		byID[s.ID] = s
+		if s.ID != "" {
+			byID[s.ID] = s
+		}
 	}
 	if img := byID["_img"]; !bytes.Equal(img.Image, data) || img.Attachment != "Screen Shot 2013-12-08 at 9.46.18 PM.png" || img.ImageType() != "image/png" || !reflect.DeepEqual(img.Bounds, &Bounds{0, 0, 823, 577}) {
 		t.Errorf("image symbol = %+v (%d bytes, type %q)", img, len(img.Image), img.ImageType())
@@ -600,23 +632,32 @@ func TestReadSymbolsDecodesPastedImages(t *testing.T) {
 	if n := byID["_named"]; n.Image != nil || n.Attachment != "bench.png" || n.ImageType() != "" {
 		t.Errorf("named image symbol = %+v", n)
 	}
-	for _, id := range []string{"_bad", "_long", "_name_as_bytes"} {
-		if s := byID[id]; s.Image != nil || s.Attachment != "" || s.Bounds == nil {
-			t.Errorf("%s = %+v; want bounds and neither bytes nor a name", id, s)
+	for _, s := range []*Symbol{byID["_img"], byID["_padded"], byID["_named"]} {
+		if s.ImageError != nil {
+			t.Errorf("%s: image error %v, want none", s.ID, s.ImageError)
 		}
 	}
-	want := []*ImageError{
-		{Diagram: "_diag", Symbol: "_bad", Offset: 4, Octet: "zz"},
-		{Diagram: "_diag", Symbol: "_long", Offset: 0, Octet: "895"},
-		{Diagram: "_diag", Symbol: "_name_as_bytes", Offset: 0, Octet: "bench.png"},
+	want := map[string]*ImageError{
+		"_bad":           {Diagram: "_diag", Symbol: "_bad", Offset: 4, Octet: "zz"},
+		"_long":          {Diagram: "_diag", Symbol: "_long", Offset: 0, Octet: "895"},
+		"_name_as_bytes": {Diagram: "_diag", Symbol: "_name_as_bytes", Offset: 0, Octet: "bench.png"},
 	}
-	if !reflect.DeepEqual(syms.images, want) {
-		t.Errorf("image errors = %v, want %v", syms.images, want)
+	for id, e := range want {
+		if s := byID[id]; s.Image != nil || s.Attachment != "" || s.Bounds == nil || !reflect.DeepEqual(s.ImageError, e) {
+			t.Errorf("%s = %+v (error %+v); want bounds, the error %+v and neither bytes nor a name", id, s, s.ImageError, e)
+		}
 	}
-	if got := syms.images[0].Error(); got != `the pasted image's bytes do not read: octet 4 is "zz", not a hexadecimal byte` {
+	if got := byID["_bad"].ImageError.Error(); got != `the pasted image's bytes do not read: octet 4 is "zz", not a hexadecimal byte` {
 		t.Errorf("error = %q", got)
 	}
-	if want := map[string]int{"ImageShape": 6}; !reflect.DeepEqual(syms.free, want) {
+	if n := len(syms.list); n != 8 {
+		t.Fatalf("%d symbols, want 8", n)
+	}
+	if bad, good := syms.list[6], syms.list[7]; bad.Image != nil || !reflect.DeepEqual(bad.ImageError, &ImageError{Diagram: "_diag", Offset: 0, Octet: "zz"}) ||
+		!bytes.Equal(good.Image, data) || good.ImageError != nil {
+		t.Errorf("unnamed symbols = %+v, %+v; want the first noted and the second read", bad, good)
+	}
+	if want := map[string]int{"ImageShape": 8}; !reflect.DeepEqual(syms.free, want) {
 		t.Errorf("free = %v, want %v", syms.free, want)
 	}
 }
