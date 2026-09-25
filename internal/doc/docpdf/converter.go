@@ -212,6 +212,11 @@ type toolRun struct {
 
 // run runs the tool in dir with SOURCE_DATE_EPOCH pinned for determinism; a
 // failure is a typed error carrying the tool's stderr.
+//
+// The path comes from tool.locate, which refuses on a host that can start no
+// process (internal/exec/hostcap) with the reason a reader can act on; a toolRun
+// built from any other path would skip that answer and fail on the platform's own
+// words instead.
 func (r toolRun) run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), toolTimeout)
 	defer cancel()
