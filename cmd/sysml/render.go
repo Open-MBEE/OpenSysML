@@ -8,8 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chzyer/readline"
-
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
@@ -279,15 +277,14 @@ func artifactWidth(output string, width int) int {
 // terminalWidth is stdout's width, and view.WidthUnbounded where stdout is no
 // terminal.
 func terminalWidth() int {
-	width, _, err := readline.GetSize(int(os.Stdout.Fd()))
-	if err != nil || width <= 0 {
-		return view.WidthUnbounded
+	if width := terminalWidthOf(int(os.Stdout.Fd())); width > 0 {
+		return width
 	}
-	return width
+	return view.WidthUnbounded
 }
 
 // atStdoutTerminal reports whether the artifact is written to a terminal.
-func atStdoutTerminal() bool { return readline.IsTerminal(int(os.Stdout.Fd())) }
+func atStdoutTerminal() bool { return isTerminal(int(os.Stdout.Fd())) }
 
 // formList names the forms -render-form takes, as its help and errors spell them.
 func formList() string { return view.FormNames(view.Forms()) }

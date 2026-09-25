@@ -5,8 +5,6 @@ import (
 	"io"
 	"os"
 	"sync"
-
-	"github.com/chzyer/readline"
 )
 
 // stdin holds the model read from standard input: the stream can be read only
@@ -41,10 +39,4 @@ func readStdin() ([]byte, error) {
 		stdin.data, stdin.err = io.ReadAll(os.Stdin)
 	})
 	return stdin.data, stdin.err
-}
-
-// isTerminal reports whether f is a terminal. It asks the device itself rather
-// than reading a mode bit, which /dev/null and every other character device set.
-func isTerminal(f *os.File) bool {
-	return readline.IsTerminal(int(f.Fd()))
 }

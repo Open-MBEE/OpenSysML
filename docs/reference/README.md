@@ -28,3 +28,5 @@ reading order.
   each v1 construct becomes, and the migration report
 - **[OSLC Query text](oslc-query.md)** — element-identification query syntax and semantics
 - **[Grammar](grammar/README.md)** — how each grammar production maps to the parser
+- **[WebAssembly builds](wasm.md)** — the two targets, how to build and run them, what works,
+  and what a WebAssembly host refuses with

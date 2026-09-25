@@ -6,7 +6,9 @@ orbs:
 executors:
   go-executor:
     docker:
-      - image: cimg/go:1.25
+      # The -node variant of the same image: the WebAssembly gate runs the wasm
+      # binaries under Node, and an absent runtime would make it skip.
+      - image: cimg/go:1.25-node
     resource_class: medium
   
   python-executor:
@@ -316,6 +318,9 @@ jobs:
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             # Same for the solver installed above: absent means failure, not skip.
             OPENSYSML_REQUIRE_SMT: "1"
+            # Same for Node, which the executor carries: the WebAssembly gate runs
+            # the wasm binaries rather than skipping without a runtime (tests/wasm).
+            OPENSYSML_REQUIRE_WASM: "1"
 
   # A second, race-free pass, because the profile the scan reads is written
   # with -coverpkg, which is too slow to instrument under -race.
@@ -342,6 +347,9 @@ jobs:
             OPENSYSML_REQUIRE_FUML_SUITE: "1"
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
             OPENSYSML_REQUIRE_SMT: "1"
+            # Node is on the executor, so the WebAssembly gate runs rather than
+            # skips without a runtime (tests/wasm).
+            OPENSYSML_REQUIRE_WASM: "1"
 
       - persist_to_workspace:
           root: .
@@ -536,6 +544,22 @@ jobs:
                 exit 1
               }
             done
+
+      # The WebAssembly gate: both wasm targets compiled and vetted, the commands
+      # linked and then run. Node is on the executor, so the require variable makes
+      # an absent runtime a failure and the check below makes a skip one too.
+      - run:
+          name: Run the WebAssembly gate
+          command: |
+            set -o pipefail
+            node --version
+            go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+            if grep -qE '^\s*--- SKIP' wasm-gate.log; then
+              echo "error: the WebAssembly gate skipped" >&2
+              exit 1
+            fi
+          environment:
+            OPENSYSML_REQUIRE_WASM: "1"
 
       # The conformance suite: the runner builds and starts sysml-grpc itself, so
       # this gate proves the whole path a client takes, not a pre-started service.

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/chzyer/readline"
-
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
@@ -32,20 +30,6 @@ var (
 	BuildTime = "unknown"
 	GoVersion = "unknown"
 )
-
-type rlReader struct{ rl *readline.Instance }
-
-func (r *rlReader) ReadLine(prompt string) (string, error) {
-	r.rl.SetPrompt(prompt)
-	line, err := r.rl.Readline()
-	if err == readline.ErrInterrupt { // Ctrl-C clears line (continue REPL)
-		return "", nil
-	}
-	if err == io.EOF { // Ctrl-D exits REPL
-		return "", io.EOF
-	}
-	return line, err
-}
 
 // sessionCompleter completes prompt input from the session: meta commands,
 // declared and library names, and file paths after %load and %save.
@@ -762,17 +746,11 @@ func newSession() *repl.Session {
 // prompt that opens is where it gets fixed.
 func runInteractiveWithFiles(files []string) int {
 	sess := newSession()
-	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "sysml> ",
-		HistoryFile:     historyPath(),
-		AutoComplete:    &sessionCompleter{sess: sess},
-		InterruptPrompt: "^C",
-		EOFPrompt:       "bye",
-	})
+	input, closeInput, err := newLineInput(sess)
 	if err != nil {
 		return fail(err)
 	}
-	defer rl.Close()
+	defer func() { _ = closeInput() }()
 
 	loaded, err := loadFiles(sess, files)
 	if err != nil {
@@ -781,7 +759,7 @@ func runInteractiveWithFiles(files []string) int {
 	terminal := atTerminal()
 
 	fmt.Println("SysML v2 REPL — %help for commands, Ctrl-D to exit")
-	if err := repl.Loop(&rlReader{rl: rl}, os.Stdout, sess); err != nil {
+	if err := repl.Loop(input, os.Stdout, sess); err != nil {
 		return fail(err)
 	}
 	return sessionStatus(loaded, terminal, sess.MaterializationFailures())
