@@ -923,3 +923,48 @@ func TestGenerateSequenceAgainstASingleValuedDefinition(t *testing.T) {
 		t.Fatalf("Generate = %v, want the single-valued refusal", err)
 	}
 }
+
+// A sequence of literals of the one enum spells its list under the enum-typed member;
+// literals of different enums fall back to the string of the whole value.
+func TestGenerateSequenceOfEnumerationLiterals(t *testing.T) {
+	file := parser.New(source.New("<test>", []byte(
+		`package P {
+			enum def Grade { enum high = 3; enum low = 1; }
+			enum def Scale { enum big = 4; enum small = 2; }
+		}`))).ParseFile()
+	scope := symbols.Build(file)
+	p, _ := scope.LookupLocal("P")
+	grade, _ := p.Scope.LookupLocal("Grade")
+	scale, _ := p.Scope.LookupLocal("Scale")
+	high, _ := grade.Scope.LookupLocal("high")
+	low, _ := grade.Scope.LookupLocal("low")
+	big, ok := scale.Scope.LookupLocal("big")
+	if !ok {
+		t.Fatal("enum literal not built")
+	}
+	res, err := Generate(Request{
+		Package: "P::Records", Case: "P::mix", Provenance: provenance(KindRun),
+		Runs: []Run{{
+			Outputs: []runtime.CalcOutputValue{
+				{Name: "grades", Value: seqOf(runtime.EnumeratedValue(high, integer(3)), runtime.EnumeratedValue(low, integer(1)))},
+				{Name: "mixed", Value: seqOf(runtime.EnumeratedValue(high, integer(3)), runtime.EnumeratedValue(big, integer(4)))},
+			},
+			Spell: spell(),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+	for _, want := range []string{
+		"attribute grades : P::Grade[0..*] ordered nonunique;",
+		"attribute :>> grades = (P::Grade::high, P::Grade::low);",
+		"attribute mixed : ScalarValues::String;",
+	} {
+		if !strings.Contains(res.Source, want) {
+			t.Errorf("source is missing %q:\n%s", want, res.Source)
+		}
+	}
+	if _, err := format.Source("<test>", []byte(res.Source), format.DefaultOptions); err != nil {
+		t.Errorf("generated source does not parse: %v", err)
+	}
+}
