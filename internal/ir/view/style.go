@@ -106,7 +106,7 @@ func (r *Rendering) countStyled() (nodes, edges int) {
 	return nodes, edges
 }
 
-// visualNotices are the notices a form writes for the Styles and Notes the
+// visualNotices are the notices a form writes for the Styles, Notes and Pictures the
 // rendering carries and it does not draw, so neither is dropped silently: what
 // says which part of a Style the form leaves out; notes are left out of the
 // notice when the form writes them itself.
@@ -118,7 +118,20 @@ func (r *Rendering) visualNotices(what string, withNotes bool) []string {
 	if withNotes && len(r.Notes) > 0 {
 		notices = append(notices, fmt.Sprintf("%d note(s); the dot form draws notes", len(r.Notes)))
 	}
+	if withNotes && len(r.Pictures) > 0 {
+		notices = append(notices, pictureNotice(r.Pictures, "the dot form draws pictures"))
+	}
 	return notices
+}
+
+// pictureNotice names the pictures a form or kind does not draw, with their
+// bounds, and says why (what does draw them, or that the kind draws none).
+func pictureNotice(pictures []Picture, why string) string {
+	placed := make([]string, len(pictures))
+	for i, p := range pictures {
+		placed[i] = fmt.Sprintf("%s at (%s, %s) size %s×%s", p.Location, formatCoord(p.X), formatCoord(p.Y), formatCoord(p.Width), formatCoord(p.Height))
+	}
+	return fmt.Sprintf("%d picture(s) not drawn: %s; %s", len(pictures), strings.Join(placed, ", "), why)
 }
 
 // What each form leaves out of a Style, for visualNotices.

@@ -269,6 +269,34 @@ func TestDiagramLayoutStyleAndNoteAnnotations(t *testing.T) {
 		`fill of Style is "orange", not a colour written #RRGGBB`)
 }
 
+// Several Pictures on one view are all drawn; one on anything but a view draws
+// nothing, and one missing its bounds or naming a URL is a value error.
+func TestDiagramLayoutPictureAnnotations(t *testing.T) {
+	src := layoutModel(`	part def Pump {
+		@Picture { location = "images/pump.png"; x = 0; y = 0; width = 10; height = 10; }
+	}
+	view def Diagram;
+	view wiring : Diagram {
+		render asInterconnectionDiagram;
+		expose Pump;
+		@Picture { location = "images/bench.png"; x = 0; y = 0; width = 823; height = 577; }
+		@Picture { location = "images/logo.png"; x = 700; y = 20; width = 80; height = 40; above = true; }
+		@Picture { location = "images/torn.png"; x = 1; y = 1; }
+		@Picture { location = "https://example.org/logo.png"; x = 1; y = 1; width = 80; height = 40; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 3 {
+		t.Fatalf("got %d diagnostics, want 3: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityError, "diagram-layout-canvas", 5,
+		"Picture annotates part def P::Pump, which is no view")
+	wantLayoutDiag(t, src, diags[1], diag.SeverityError, "diagram-layout-value", 13,
+		"Picture binds no width and height to size the picture to")
+	wantLayoutDiag(t, src, diags[2], diag.SeverityError, "diagram-layout-value", 14,
+		"location of Picture is a URL, not the path of a file the drawing tools can read")
+}
+
 func TestDiagramLayoutViewLocalAnnotationsJudgedByTheViewsRendering(t *testing.T) {
 	src := layoutModel(`	part def Pump;
 	part def Tank;

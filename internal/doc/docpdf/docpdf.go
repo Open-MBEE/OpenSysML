@@ -25,6 +25,10 @@ type Options struct {
 	// NumberSections numbers the section headings hierarchically.
 	NumberSections bool
 
+	// NumberFigures numbers the figures and tables in their captions, as
+	// docrender.HTMLOptions.NumberFigures.
+	NumberFigures bool
+
 	// Theme names the HTML backend's bundled theme laid under the print
 	// stylesheet, with the theme's print companion, when it carries one, laid
 	// over the print stylesheet; empty is the default sheet alone.
@@ -40,7 +44,8 @@ type Options struct {
 
 	// BaseDir is the directory a reader stylesheet's relative url() and
 	// @import references resolve against, the current directory when empty:
-	// the PDF's own, as an HTML page's sheets resolve against the page's.
+	// the PDF's own, as an HTML page's sheets resolve against the page's; and
+	// an image block's relative location when its source is no file on disk.
 	BaseDir string
 
 	// Lang is the document language, "en" when empty.
@@ -123,6 +128,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
 			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
+			OutputDir: base, NumberFigures: opts.NumberFigures,
 		})
 		if err != nil {
 			return nil, err
@@ -131,11 +137,11 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		if err := os.WriteFile(filepath.Join(dir, doc.MarkdownFile), []byte(markdown), 0o600); err != nil {
 			return nil, err
 		}
-		if doc.Filter, err = writeArtworkFilter(dir, images, math, docrender.Captions(document)); err != nil {
+		if doc.Filter, err = writeArtworkFilter(dir, images, math, docrender.Captions(document, opts.NumberFigures)); err != nil {
 			return nil, err
 		}
 	case InputHTML:
-		htmlOpts, err := htmlOptions(opts, forms.WithoutGraphviz, dir, images, math)
+		htmlOpts, err := htmlOptions(opts, forms.WithoutGraphviz, dir, base, images, math)
 		if err != nil {
 			return nil, err
 		}
@@ -177,8 +183,9 @@ func checkOptions(converter Converter, opts Options) error {
 // companion over that, the KaTeX stylesheet when formulas were typeset, then
 // the reader's sheets; the diagram images and typeset formulas take the place
 // of source. The page's base is the reader's directory, so the working
-// directory's files are referenced by file URL.
-func htmlOptions(opts Options, withoutGraphviz bool, dir string, images []string, math formulas) (docrender.HTMLOptions, error) {
+// directory's files are referenced by file URL and an image block's file
+// relative to that base.
+func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []string, math formulas) (docrender.HTMLOptions, error) {
 	var sheets []docrender.Stylesheet
 	if !opts.NoDefaultStylesheet {
 		sheets = append(sheets, docrender.InlineStylesheet(PrintStylesheet))
@@ -201,6 +208,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir string, images []string
 		TitlePage:           opts.TitlePage,
 		TOC:                 opts.TOC,
 		NumberSections:      opts.NumberSections,
+		NumberFigures:       opts.NumberFigures,
 		Lang:                opts.Lang,
 		DiagramForm:         opts.DiagramForm,
 		WithoutGraphviz:     withoutGraphviz,
@@ -208,6 +216,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir string, images []string
 		Style:               opts.Style,
 		DiagramImages:       images,
 		Math:                math.html,
+		OutputDir:           base,
 	}, nil
 }
 
@@ -224,33 +233,19 @@ func fileRefs(dir string, names []string) []string {
 }
 
 // checkImages requires every local image a document shows to exist where its
-// location resolves: a relative path against base, an absolute path or a
-// file URL as written; http(s) locations are left for the engine to fetch.
+// location resolves (docrender.Image.Path); remote locations are the engine's to fetch.
 func checkImages(images []docrender.Image, base string) error {
 	for _, image := range images {
-		location := image.Location
-		if isRemoteImageLocation(location) {
+		if image.Remote() {
 			continue
 		}
-		path := location
-		if u, err := url.Parse(location); err == nil && u.Scheme == "file" {
-			path = filepath.FromSlash(u.Path)
-		} else if !filepath.IsAbs(path) {
-			path = filepath.Join(base, filepath.FromSlash(path))
-		}
+		path := image.Path(base)
 		info, err := os.Stat(path)
 		if err != nil || info.IsDir() {
 			return &Error{Kind: ErrorImageMissing, Tool: image.Name, Detail: path}
 		}
 	}
 	return nil
-}
-
-// isRemoteImageLocation reports a location rendered where it stands: an
-// http(s) URL the engines fetch themselves.
-func isRemoteImageLocation(location string) bool {
-	lower := strings.ToLower(location)
-	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
 
 // dirURL is the file URL of an absolute directory with a trailing slash, so
