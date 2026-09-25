@@ -767,6 +767,16 @@ func (c *chain) haze(s *sysmlv1.DocGenStep, why string) {
 	c.holders = nil
 }
 
+// rows is the elements the chain is known to hold, or why they are unknown.
+func (c *chain) rows() (rowSet, string) {
+	for _, why := range []string{c.broken, c.vague, c.hazy} {
+		if why != "" {
+			return rowSet{}, why
+		}
+	}
+	return rowSet{listed: c.holders}, ""
+}
+
 func (c *chain) run(steps []*sysmlv1.DocGenStep) {
 	for _, s := range steps {
 		c.step(s)
@@ -1928,8 +1938,11 @@ func (c *chain) column(col *sysmlv1.DocGenStep) (prop string, expr columnExpr, w
 				return prop, expr, ""
 			}
 		}
-		// The chain tracks no scope or classifiers, so any recording individual suffices.
-		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host, rowSet{whole: true})
+		rs, unknown := c.rows()
+		if unknown != "" && monteCarloFeature(refs[0].Element) != "" {
+			return "", expr, "whether an instance the table lists records the statistic cannot be told: " + unknown
+		}
+		s := c.m.columnKey(sysmlv1.Column{Kind: sysmlv1.ColumnFeature, Feature: refs[0], ID: refs[0].ID}, c.dp.host, rs)
 		if s.why != "" {
 			return "", expr, s.why
 		}
