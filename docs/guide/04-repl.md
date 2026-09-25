@@ -131,7 +131,11 @@ non-interactive use, a load's diagnostics are errors, so a script that loads a m
 file fails rather than continuing against an empty session.
 
 Each loaded file is a document of its own, analysed as the editor and the checker analyse it,
-while everything typed at the prompt forms one transcript document. Two consequences follow.
+while everything typed at the prompt forms one transcript document. The transcript is kept
+under the name `<repl>`, which is therefore reserved: a file whose path is literally `<repl>`
+is refused by `%load` and by the command line (`cannot load <repl>: the name is reserved for the
+text typed at the prompt`) before anything is loaded, like a file that could not be read; name it
+`./<repl>` or from another directory to load it. Two consequences follow.
 
 A root-level import serves the file it is written in and no other: after `%load a.sysml`, a
 `private import ScalarValues::*;` at the top of `a.sysml` does not make `Real` resolvable in

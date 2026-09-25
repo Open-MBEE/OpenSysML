@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -284,4 +285,35 @@ func workspaceDiagnostics(t *testing.T, paths []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// The transcript is kept under one workspace name, so a file of that name is
+// refused at the load rather than sharing the document with the typed text.
+func TestLoadRefusesAFileNamedAsTheTranscript(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, docName), "package FromFile { part def X; }\n")
+	t.Chdir(dir)
+
+	s := NewSession()
+	s.Submit("package Typed { part def T; }")
+	before := s.Text()
+
+	_, err := s.LoadFilesSummary([]string{docName})
+	var reserved *ReservedNameError
+	if !errors.As(err, &reserved) || reserved.Name != docName {
+		t.Fatalf("LoadFilesSummary(%q) error = %v, want a *ReservedNameError naming it", docName, err)
+	}
+	if _, _, err := s.runMeta("%load " + docName); err == nil || !strings.Contains(err.Error(), "reserved") {
+		t.Fatalf("%%load %s error = %v, want the name refused as reserved", docName, err)
+	}
+	if _, err := s.LoadFile(docName); !errors.As(err, &reserved) {
+		t.Errorf("LoadFile(%q) error = %v, want a *ReservedNameError", docName, err)
+	}
+
+	if got := s.Text(); got != before {
+		t.Errorf("the refused load changed the transcript:\n%s\nwas:\n%s", got, before)
+	}
+	if got := strings.Join(s.List(), "\n"); strings.Contains(got, "FromFile") || !strings.Contains(got, "Typed") {
+		t.Errorf("the refused file's declarations must not enter the session; got %v", s.List())
+	}
 }
