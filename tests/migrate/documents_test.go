@@ -439,18 +439,19 @@ func TestMigratedDocumentsRender(t *testing.T) {
 func TestViewDocumentationOpensItsSection(t *testing.T) {
 	r := migrateFixtureFile(t, "documents")
 	notation := string(r.Notation)
-	for id, target := range map[string]string{
-		"_intro_doc":  "part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
-		"_safety_doc": "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
+	for view, target := range map[string]string{
+		"Introduction": "part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
+		"Safety":       "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
 	} {
 		var paragraphs []migrate.Entry
-		for _, e := range entriesFor(r, id) {
+		for _, e := range r.Report.Entries {
 			if e.Target == target {
 				paragraphs = append(paragraphs, e)
 			}
 		}
-		if len(paragraphs) != 1 || paragraphs[0].Verdict != migrate.Mapped || !strings.Contains(paragraphs[0].Note, "the documentation of the view Fleet Documents::") {
-			t.Errorf("entries for %s = %+v, want one mapped entry -> %s noting the view's documentation", id, entriesFor(r, id), target)
+		if len(paragraphs) != 1 || paragraphs[0].Verdict != migrate.Mapped || paragraphs[0].Name != "Fleet Documents::"+view+"::<Comment>" ||
+			paragraphs[0].Note != "the documentation of the view Fleet Documents::"+view {
+			t.Errorf("entries -> %s = %+v, want one mapped entry for the comment of %s noting the view's documentation", target, paragraphs, view)
 		}
 	}
 	wantInOrder(t, "Introduction section", notationSection(notation, "Introduction"),
@@ -459,7 +460,15 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 		`attribute redefines text = "The fleet, in brief.";`,
 		`attribute redefines caption = "Fleet Parts";`,
 		"part 'paragraph 2' : DocumentQueries::Paragraph {",
-		`attribute redefines text = "The parts of the fleet, by name.";`)
+		`attribute redefines text = "The parts of the fleet, by name.";`,
+		`/* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */`)
+	verdicts := map[migrate.Verdict]int{}
+	for _, e := range entriesFor(r, "_st_intro_named") {
+		verdicts[e.Verdict]++
+	}
+	if verdicts[migrate.Unmapped] != 1 || verdicts[migrate.Mapped] != 1 || len(verdicts) != 2 {
+		t.Errorf("a malformed collaborator over the view's documentation should be refused while the documentation is written: %+v", entriesFor(r, "_st_intro_named"))
+	}
 	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
 		`attribute redefines title = "Safety";`,
 		"part paragraph : DocumentQueries::Paragraph {",

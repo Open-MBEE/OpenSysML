@@ -233,9 +233,8 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c.run(steps)
 }
 
-// viewDocumentation plans the paragraph DocGen opens every view's section with:
-// the view's own documentation, the doc its v2 view carries, unless the same
-// comment is already one of the view's collaborator paragraphs.
+// viewDocumentation opens the section with the view's own documentation, unless a
+// well-formed collaborator paragraph shows that comment (its body is never empty).
 func (m *migration) viewDocumentation(sec *sectionPlan) {
 	v := sec.v
 	c := m.docComment(v.Class)
@@ -243,7 +242,7 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 		return
 	}
 	for _, p := range v.Paragraphs {
-		if p.Comment == c {
+		if p.Comment == c && p.Malformed == "" {
 			return
 		}
 	}

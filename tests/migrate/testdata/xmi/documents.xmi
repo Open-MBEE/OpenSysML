@@ -639,4 +639,5 @@
   <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_note_empty" base_Element="_note_empty" property="META:QPROP:Element:body" documentId="_doc_handbook" viewId="_doc_handbook" ownerId="_view_notes"/>
   <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_note_stray" base_Element="_note_first" property="META:QPROP:Element:body" documentId="_doc_handbook" viewId="_doc_handbook" ownerId="_view_gone"/>
   <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_note_other_doc" base_Element="_note_first" property="META:QPROP:Element:body" documentId="_doc_gone" viewId="_doc_gone" ownerId="_view_notes"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_intro_named" base_Element="_intro_doc" property="META:QPROP:Element:name" documentId="_doc_handbook" viewId="_doc_handbook" ownerId="_view_intro"/>
 </xmi:XMI>

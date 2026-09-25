@@ -435,6 +435,7 @@ package 'Fleet Documents' {
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
+            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
         }
         part Requirements : DocumentQueries::Section {
             attribute redefines title = "Requirements";
