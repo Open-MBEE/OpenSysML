@@ -408,11 +408,18 @@ func TestDOTNoteLabelFitsAStatedBox(t *testing.T) {
 		}
 	}
 	cameo := &dotWriter{labels: labeller{skin: skinOf(StyleCameo)}, skin: skinOf(StyleCameo)}
-	got := strings.Join(cameo.dotNoteLabel(Note{Text: "ok"}, box(200, 40)), ", ")
-	if want := `margin=0, label=<<font point-size="9">«comment»</font><br/>ok>`; got != want {
-		t.Errorf("cameo: dotNoteLabel = %q, want %q", got, want)
-	}
-	if got := strings.Join(cameo.dotNoteLabel(Note{Text: "ok"}, nil), ", "); got != `label=<<font point-size="9">«comment»</font><br/>ok>` {
-		t.Errorf("cameo unstated: dotNoteLabel = %q", got)
+	for _, tc := range []struct {
+		name string
+		note Note
+		box  *nodeBox
+		want string
+	}{
+		{"unstated", Note{Text: "ok"}, nil, `label=<<font point-size="9">«comment»</font><br/>ok>`},
+		{"header and a body line fit", Note{Text: "ok"}, box(100, 40), `margin=0, label=<<font point-size="9">«comment»</font><br/>ok>`},
+		{"header dropped when only one line fits", Note{Text: "doAcquisition"}, box(66, 14), `margin=0, label=<<font point-size="8">doAcquisition</font>>`},
+	} {
+		if got := strings.Join(cameo.dotNoteLabel(tc.note, tc.box), ", "); got != tc.want {
+			t.Errorf("cameo %s: dotNoteLabel = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

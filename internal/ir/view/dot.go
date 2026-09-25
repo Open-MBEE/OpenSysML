@@ -1614,8 +1614,8 @@ func (w *dotWriter) writeNotes(notes []Note, depth int) {
 }
 
 // dotNoteLabel is a note's label attributes: its text at the label size, or fitted
-// to a stated box as a node's label is, set outside as `xlabel` when the box holds
-// no line.
+// to a stated box as a node's label is — a Cameo header only when a body line still
+// fits below it — set outside as `xlabel` when the box holds no line.
 func (w *dotWriter) dotNoteLabel(note Note, box *nodeBox) []string {
 	lines := strings.Split(note.Text, "\n")
 	header := ""
@@ -1633,7 +1633,12 @@ func (w *dotWriter) dotNoteLabel(note Note, box *nodeBox) []string {
 		return []string{`label=""`, "xlabel=" + dotQuote(note.Text)}
 	}
 	if w.skin.cameo {
-		height = math.Max(height-cameoSmallPts*dotLineEm, dotFitFloor*dotLineEm)
+		body := height - cameoSmallPts*dotLineEm
+		if body >= dotFitFloor*dotLineEm {
+			height = body
+		} else {
+			header = ""
+		}
 	}
 	size, fitted, _ := dotFitText(lines, dotGlyphEm, width, height, w.labels.size())
 	return []string{"margin=0", dotLabelAttribute("<" + header + w.labels.sized(size, dotEscapeLines(fitted)) + ">")}

@@ -148,29 +148,43 @@ func TestActionNestedFlowNotesOnce(t *testing.T) {
 			t.Errorf("edge %s -> %s has an end no tree holds", edge.From, edge.To)
 		}
 	}
-	dot, err := rendering.DOT()
-	if err != nil {
-		t.Fatalf("DOT: %v", err)
-	}
-	checkDOTSyntax(t, dot)
-	if undeclared := dotUndeclaredEnds(t, dot); len(undeclared) != 0 {
-		t.Errorf("edge ends with no declaration: %v\n%s", undeclared, dot)
-	}
-	requireDotAccepts(t, dot)
 	// The note in the stated 66x14 box is fitted to it like a node's label.
 	idx := slices.IndexFunc(rendering.Notes, func(n Note) bool { return n.Text == "doAcquisition" })
 	if idx < 0 {
 		t.Fatalf("no note carries %q", "doAcquisition")
 	}
-	var noteLine string
-	for _, line := range strings.Split(dot, "\n") {
-		if strings.Contains(line, fmt.Sprintf(`"note:%d" [`, idx)) {
-			noteLine = line
+	tall := slices.IndexFunc(rendering.Notes, func(n Note) bool { return n.Text == "these values don't matter" })
+	for _, style := range []DrawingStyle{StylePilot, StyleCameo} {
+		dot, err := rendering.DOTWith(Options{Style: style})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", style, err)
 		}
-	}
-	for _, want := range []string{"margin=0", `<font point-size=`, "fixedsize=true"} {
-		if !strings.Contains(noteLine, want) {
-			t.Errorf("the stated note's line lacks %q: %s\n%s", want, noteLine, dot)
+		checkDOTSyntax(t, dot)
+		if undeclared := dotUndeclaredEnds(t, dot); len(undeclared) != 0 {
+			t.Errorf("%s: edge ends with no declaration: %v\n%s", style, undeclared, dot)
+		}
+		requireDotAccepts(t, dot)
+		var noteLine, tallLine string
+		for _, line := range strings.Split(dot, "\n") {
+			if strings.Contains(line, fmt.Sprintf(`"note:%d" [`, idx)) {
+				noteLine = line
+			}
+			if strings.Contains(line, fmt.Sprintf(`"note:%d" [`, tall)) {
+				tallLine = line
+			}
+		}
+		for _, want := range []string{"margin=0", `<font point-size=`, "fixedsize=true"} {
+			if !strings.Contains(noteLine, want) {
+				t.Errorf("%s: the stated note's line lacks %q: %s\n%s", style, want, noteLine, dot)
+			}
+		}
+		if style == StyleCameo {
+			if strings.Contains(noteLine, "«comment»") {
+				t.Errorf("%s: the one-line note keeps the header: %s", style, noteLine)
+			}
+			if !strings.Contains(tallLine, "«comment»") {
+				t.Errorf("%s: the tall note lost the header: %s", style, tallLine)
+			}
 		}
 	}
 	// Mermaid names the same nodes the DOT form declares, no other.
