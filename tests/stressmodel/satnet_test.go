@@ -18,8 +18,8 @@ func TestSatelliteNetworkValidates(t *testing.T) {
 	if stats.Satellites != 4 || stats.GroundStations != 1 {
 		t.Fatalf("stats = %+v, want 4 satellites and 1 station", stats)
 	}
-	if stats.Requirements != 3*stats.Satellites {
-		t.Errorf("Requirements = %d, want three per satellite", stats.Requirements)
+	if stats.Requirements != 3*stats.Satellites || stats.Assertions != stats.Requirements {
+		t.Errorf("Requirements = %d, Assertions = %d, want three per satellite", stats.Requirements, stats.Assertions)
 	}
 	if stats.Bytes != len(src) {
 		t.Errorf("Bytes = %d, want %d", stats.Bytes, len(src))
@@ -31,8 +31,8 @@ func TestSatelliteNetworkValidates(t *testing.T) {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
 	verdicts := s.CheckSatisfy("")
-	if len(verdicts) != stats.Requirements {
-		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Requirements)
+	if len(verdicts) != stats.Assertions {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Assertions)
 	}
 	for _, v := range verdicts {
 		if !v.Holds() {
@@ -74,8 +74,8 @@ func TestFleetValidates(t *testing.T) {
 	if stats.Definitions != 2 || stats.Units != 4 {
 		t.Errorf("stats = %+v, want 2 blocks and 4 diverging units", stats)
 	}
-	if stats.Requirements != 3*stats.Definitions {
-		t.Errorf("Requirements = %d, want three per block", stats.Requirements)
+	if stats.Requirements != 3*stats.Definitions || stats.Assertions != 3*(stats.Definitions+stats.Units) {
+		t.Errorf("Requirements = %d, Assertions = %d, want three per block and three more per unit", stats.Requirements, stats.Assertions)
 	}
 	if stats.Bytes != len(src) {
 		t.Errorf("Bytes = %d, want %d", stats.Bytes, len(src))
@@ -97,7 +97,7 @@ func TestFleetValidates(t *testing.T) {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
 	verdicts := s.CheckSatisfy("")
-	if want := 3 * (stats.Definitions + stats.Units); len(verdicts) != want {
+	if want := stats.Assertions; len(verdicts) != want {
 		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), want)
 	}
 	for _, v := range verdicts {
@@ -164,10 +164,10 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 		t.Fatalf("got %d files, want the library, %d planes and the network", len(files), n.Planes)
 	}
 	_, whole := n.Source()
-	if stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
+	if stats.Satellites != whole.Satellites || stats.Assertions != whole.Assertions || stats.Connections != whole.Connections {
 		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
 	}
-	validateFiles(t, files, stats.Requirements)
+	validateFiles(t, files, stats.Assertions)
 }
 
 // TestFleetFilesValidate keeps the split fleet form in step with the whole one:
@@ -181,10 +181,10 @@ func TestFleetFilesValidate(t *testing.T) {
 	}
 	_, whole := n.Source()
 	if stats.Elements != whole.Elements || stats.Definitions != whole.Definitions || stats.Units != whole.Units ||
-		stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
+		stats.Satellites != whole.Satellites || stats.Assertions != whole.Assertions || stats.Connections != whole.Connections {
 		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
 	}
-	validateFiles(t, files, 3*(stats.Definitions+stats.Units))
+	validateFiles(t, files, stats.Assertions)
 }
 
 // validateFiles opens files as one workspace and one session, wanting no

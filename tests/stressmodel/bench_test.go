@@ -70,7 +70,7 @@ func BenchmarkLoad(b *testing.B) {
 func BenchmarkSatisfy(b *testing.B) {
 	for _, n := range networkSizes {
 		src, stats := network(n).Source()
-		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, stats.Requirements), func(b *testing.B) {
+		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, stats.Assertions), func(b *testing.B) {
 			sess := loadNetwork(b, src)
 			check := func() {
 				for _, v := range sess.CheckSatisfy("") {
@@ -134,7 +134,7 @@ func BenchmarkFleetInstantiate(b *testing.B) {
 func BenchmarkFleetSatisfy(b *testing.B) {
 	for _, n := range networkSizes {
 		src, stats := fleet(n).Source()
-		assertions := 3 * (stats.Definitions + stats.Units)
+		assertions := stats.Assertions
 		b.Run(fmt.Sprintf("satellites=%d/assertions=%d", stats.Satellites, assertions), func(b *testing.B) {
 			sess := loadNetwork(b, src)
 			check := func() {

@@ -205,9 +205,9 @@ declarations the source makes:
 
 ```bash
 go run -C tools ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -stats > legacy.sysml
-# satellites=1600 definitions=1600 units=1600 ground-stations=20 components=32080 connections=25400 requirements=4800 elements=294627 bytes=18135413
+# satellites=1600 definitions=1600 units=1600 ground-stations=20 components=32080 connections=25400 requirements=4800 assertions=4800 elements=294627 bytes=18135413
 go run -C tools ./cmd/stress-model -planes 8 -satellites 200 -ground-stations 20 -fleet -stats > fleet.sysml
-# satellites=1600 definitions=4 units=104 ground-stations=20 components=264 connections=220 requirements=12 elements=3203 bytes=192698
+# satellites=1600 definitions=4 units=104 ground-stations=20 components=264 connections=220 requirements=12 assertions=324 elements=3203 bytes=192698
 ```
 
 | satellites | planes × per plane | form | definitions | units stating values | elements | source |

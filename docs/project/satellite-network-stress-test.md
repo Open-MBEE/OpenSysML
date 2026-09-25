@@ -19,7 +19,7 @@ smallest models carry ±30% of noise from the machine, which the trend does not.
 
 ```bash
 go run -C tools ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
-# satellites=200 ground-stations=20 components=4080 connections=3175 requirements=600 elements=37552 bytes=2297852
+# satellites=200 definitions=200 units=200 ground-stations=20 components=4080 connections=3175 requirements=600 assertions=600 elements=37552 bytes=2297852
 sysml -validate -memstats constellation.sysml
 sysml -satisfy -memstats constellation.sysml
 ```
@@ -192,16 +192,18 @@ planes and one downlink per plane and station — the collection connectors
 with `[1]` ends, so each link joins one satellite to one satellite or
 station, though not which to which — and the three requirements
 declared once per block and asserted on the block's configuration and on
-every diverging unit. `-stats` reports both forms alike; the two new fields
-are the spacecraft definitions and the units that state values of their own.
+every diverging unit. `-stats` reports both forms alike; the new fields are
+the spacecraft definitions, the units that state values of their own, and the
+satisfy assertions, which in the fleet form outnumber the requirements by
+three per unit.
 The guide chapter [modeling fleets](../guide/modeling-fleets.md) shows the
 source of both forms.
 
 ```bash
 go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
-# satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 elements=2354827 bytes=145364954
+# satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 assertions=38400 elements=2354827 bytes=145364954
 go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
-# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 elements=12467 bytes=770621
+# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 assertions=2412 elements=12467 bytes=770621
 ```
 
 | satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |

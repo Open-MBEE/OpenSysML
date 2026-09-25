@@ -36,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *stats {
-		fmt.Fprintf(os.Stderr, "satellites=%d definitions=%d units=%d ground-stations=%d components=%d connections=%d requirements=%d elements=%d bytes=%d\n",
-			s.Satellites, s.Definitions, s.Units, s.GroundStations, s.Components, s.Connections, s.Requirements, s.Elements, s.Bytes)
+		fmt.Fprintf(os.Stderr, "satellites=%d definitions=%d units=%d ground-stations=%d components=%d connections=%d requirements=%d assertions=%d elements=%d bytes=%d\n",
+			s.Satellites, s.Definitions, s.Units, s.GroundStations, s.Components, s.Connections, s.Requirements, s.Assertions, s.Elements, s.Bytes)
 	}
 }
