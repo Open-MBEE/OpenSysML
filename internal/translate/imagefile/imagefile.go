@@ -17,10 +17,11 @@ import (
 // svgNamespace is the XML namespace an SVG document's root element is in.
 const svgNamespace = "http://www.w3.org/2000/svg"
 
-// ContentType is the image/* type data's signature gives (PNG, JPEG, GIF, BMP,
-// WebP), image/svg+xml for one well-formed SVG document, or "" when data is no image.
+// ContentType is the type data's signature gives when it is one of the images
+// written (PNG, JPEG, GIF, BMP, WebP), image/svg+xml for one well-formed SVG
+// document, or "" when data is no such image.
 func ContentType(data []byte) string {
-	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
+	if ct := http.DetectContentType(data); len(extensions[ct]) > 0 {
 		return ct
 	}
 	if t := bytes.TrimSpace(data); bytes.HasPrefix(t, []byte("<")) && CheckSVG(t) == nil {

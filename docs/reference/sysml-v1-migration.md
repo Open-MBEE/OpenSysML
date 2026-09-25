@@ -435,7 +435,11 @@ record neither places nor routes (the export wins per element, the stream fills 
 the diagram's layout note and the summary's `streamSupplemented` count say when it did). A
 `-layout` file exported from a different project — no record joins — or one that is not a HUDS
 `<packet>` at all refuses with the mismatch stated; without `-layout` every diagram is laid out
-from its own stream alone.
+from its own stream alone. A symbol the stream keeps but does not draw (`visible` false), with
+every symbol nested in it and every part, region or compartment row it lists, shows nothing: the
+view does not expose its element for it, it takes no position or style, and a hidden frame does
+not bound the diagram. A symbol's position and style go to the element it names itself, not to
+the last part or region listed under it.
 
 #### Pictures pasted onto a diagram
 

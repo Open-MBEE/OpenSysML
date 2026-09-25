@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// icon is the header of a Windows icon, an image kind no picture is written as.
+const icon = "\x00\x00\x01\x00\x01\x00\x10\x10\x00\x00\x01\x00\x20\x00\x68\x04\x00\x00\x16\x00\x00\x00"
+
 func TestContentTypeReadsTheSignature(t *testing.T) {
 	cases := []struct {
 		name string
@@ -25,6 +28,7 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 		{"unclosed svg", `<svg xmlns="http://www.w3.org/2000/svg"><rect>`, ""},
 		{"two roots", `<svg xmlns="http://www.w3.org/2000/svg"/><svg xmlns="http://www.w3.org/2000/svg"/>`, ""},
 		{"text after svg", `<svg xmlns="http://www.w3.org/2000/svg"/>trailing`, ""},
+		{"icon, an image not written", icon, ""},
 		{"text", "Screen Shot 2013-12-08 at 9.46.18 PM.png", ""},
 		{"empty", "", ""},
 	}
@@ -35,6 +39,9 @@ func TestContentTypeReadsTheSignature(t *testing.T) {
 	}
 	if d := Described([]byte("just words")); d != "text/plain; charset=utf-8" {
 		t.Errorf("Described = %q", d)
+	}
+	if d := Described([]byte(icon)); d != "image/x-icon" {
+		t.Errorf("Described icon = %q", d)
 	}
 	if d := Described([]byte(`<?xml version="1.0"?><doc/>`)); d != "text/xml; charset=utf-8; no SVG document: a <doc> document" {
 		t.Errorf("Described xml = %q", d)

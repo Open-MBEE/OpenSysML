@@ -115,8 +115,31 @@ type symbols struct {
 	list   []*Symbol
 	frame  *Bounds
 	shown  []string
+	listed []*listing
 	free   map[string]int
 	images []*ImageError
+}
+
+// listing is an element a stream names, in stream order: the one a symbol stands
+// for or one listed under it (a nested part, a region, a compartment row).
+type listing struct {
+	id     string
+	sym    *Symbol // the symbol standing for or listing the element
+	hidden bool    // a listed entry marked not visible
+}
+
+// hiddenOnDiagram reports whether the listing is off the diagram: it is hidden
+// itself, or its symbol or one enclosing that is.
+func (l *listing) hiddenOnDiagram() bool {
+	if l.hidden {
+		return true
+	}
+	for s := l.sym; s != nil; s = s.Parent {
+		if s.Hidden {
+			return true
+		}
+	}
+	return false
 }
 
 // errNotSymbols reports a stream that is not a serialized diagram.
@@ -139,7 +162,8 @@ var attachmentTags = map[string]bool{
 // it is drawn with, and in its image the bytes of a pasted picture. A top-level
 // symbol naming no element is free content, a pasted image or text box,
 // counted by class; the frame symbol names the diagram itself and is neither.
-// A symbol marked not visible is read but hidden, and a hidden frame is no frame.
+// A symbol marked not visible is read but hidden, as is whatever it encloses or
+// lists: hidden symbols stand for nothing shown, and a hidden frame is no frame.
 // A stream that ends with a symbol open is torn, and what it drew is unknown;
 // an image whose bytes do not read is noted and the symbol read without them.
 func readSymbols(data []byte, diagramID string) (*symbols, error) {
@@ -150,12 +174,12 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 		tag    string
 		sym    *Symbol   // the symbol this mdElement is, nil for anything else
 		prop   *property // the property this mdElement is, nil for anything else
+		listed *listing  // the element this mdElement names, nil when it names none
 		text   strings.Builder
 		valued bool // whether a value child appeared
 	}
 	var stack []*frame
 	rooted := false
-	seen := map[string]bool{}
 	var symbolPath []*Symbol
 	// enclosing is the nearest open symbol, the one a tag belongs to.
 	enclosing := func() *Symbol {
@@ -204,18 +228,23 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 				symbolPath = append(symbolPath, f.sym)
 			case t.Name.Local == "mdElement" && enclosing() != nil:
 				f.prop = &property{class: attr(t, "elementClass")}
-			case t.Name.Local == "visible" && parentTag == "mdElement" && openProperty() == nil:
-				if sym := enclosing(); sym != nil && attr(t, "value") == "false" {
-					sym.Hidden = true
+			case t.Name.Local == "visible" && parentTag == "mdElement" && attr(t, "value") == "false":
+				owner := stack[len(stack)-1]
+				if owner.sym != nil {
+					owner.sym.Hidden = true
+				} else if owner.listed != nil {
+					owner.listed.hidden = true
 				}
 			case t.Name.Local == "elementID" && parentTag == "mdElement":
-				id := refOf(t)
-				if sym := enclosing(); sym != nil && id != "" {
-					sym.ElementID = id
-				}
-				if id != "" && id != diagramID && !seen[id] {
-					seen[id] = true
-					syms.shown = append(syms.shown, id)
+				owner := stack[len(stack)-1]
+				if id := refOf(t); id != "" {
+					if owner.sym != nil {
+						owner.sym.ElementID = id
+					}
+					if id != diagramID {
+						owner.listed = &listing{id: id, sym: enclosing()}
+						syms.listed = append(syms.listed, owner.listed)
+					}
 				}
 			case (t.Name.Local == "linkFirstEndID" || t.Name.Local == "linkSecondEndID") && parentTag == "mdElement":
 				if sym := enclosing(); sym != nil {
@@ -250,12 +279,6 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 			switch {
 			case f.sym != nil:
 				symbolPath = symbolPath[:len(symbolPath)-1]
-				if f.sym.Parent == nil && f.sym.Free() && !f.sym.Hidden {
-					syms.free[f.sym.Class]++
-				}
-				if f.sym.Class == "DiagramFrame" && f.sym.Bounds != nil && !f.sym.Hidden && syms.frame == nil {
-					syms.frame = f.sym.Bounds
-				}
 			case f.prop != nil:
 				if sym := enclosing(); sym != nil {
 					f.prop.apply(sym)
@@ -279,7 +302,35 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 	if len(stack) > 0 {
 		return nil, errTornSymbols
 	}
+	syms.settle(diagramID)
 	return syms, nil
+}
+
+// settle draws the conclusions a whole stream allows: a symbol inside a hidden one
+// is hidden, hidden symbols bound nothing and stand for nothing shown, and the
+// elements shown are the visible listings' in stream order, each once.
+func (syms *symbols) settle(diagramID string) {
+	for _, s := range syms.list {
+		if s.Parent != nil && s.Parent.Hidden {
+			s.Hidden = true
+		}
+		if s.Hidden {
+			continue
+		}
+		if s.Parent == nil && s.Free() {
+			syms.free[s.Class]++
+		}
+		if s.Class == "DiagramFrame" && s.Bounds != nil && syms.frame == nil {
+			syms.frame = s.Bounds
+		}
+	}
+	seen := map[string]bool{diagramID: true}
+	for _, l := range syms.listed {
+		if !seen[l.id] && !l.hiddenOnDiagram() {
+			seen[l.id] = true
+			syms.shown = append(syms.shown, l.id)
+		}
+	}
 }
 
 // readSymbolField reads a symbol's own child element: its geometry, the text of

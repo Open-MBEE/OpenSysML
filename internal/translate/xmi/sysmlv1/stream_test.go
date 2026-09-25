@@ -223,7 +223,8 @@ func TestReadSymbolsIgnoresMalformedGeometryAndColour(t *testing.T) {
 }
 
 // A symbol MagicDraw marks not visible is read but hidden: a hidden frame does not bound the
-// diagram and a hidden free symbol is not counted, while a property's own visible flag is not the symbol's.
+// diagram, a hidden free symbol is not counted, and neither a hidden symbol, one nested in it nor
+// a hidden listed part shows its element, while a property's own visible flag is not the symbol's.
 func TestReadSymbolsHidden(t *testing.T) {
 	stream := `<mdOwnedViews>
   <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
@@ -245,6 +246,25 @@ func TestReadSymbolsHidden(t *testing.T) {
       <mdElement elementClass='BooleanProperty'><propertyID>SHOW_NAME</propertyID><visible xmi:value='false'/></mdElement>
     </properties>
     <geometry>10, 10, 100, 50</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Part' xmi:id='_s2'>
+        <elementID xmi:idref='_b'/>
+        <visible xmi:value='false'/>
+        <geometry>20, 20, 40, 20</geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='Port' xmi:id='_s3'><elementID xmi:idref='_c'/><geometry>20, 25, 10, 10</geometry></mdElement>
+        </mdOwnedViews>
+      </mdElement>
+    </mdOwnedViews>
+    <parts>
+      <mdElement elementClass='Part' xmi:id='_p1'><elementID xmi:idref='_d'/><geometry>30, 40, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p2'><elementID xmi:idref='_e'/><visible xmi:value='false'/><geometry>30, 60, 40, 20</geometry></mdElement>
+    </parts>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_s4'>
+    <elementID xmi:idref='_f'/>
+    <visible xmi:value='false'/>
+    <geometry>200, 10, 100, 50</geometry>
   </mdElement>
 </mdOwnedViews>`
 	syms, err := readSymbols([]byte(stream), "_diag")
@@ -257,12 +277,19 @@ func TestReadSymbolsHidden(t *testing.T) {
 	if want := map[string]int{"ImageShape": 1}; !reflect.DeepEqual(syms.free, want) {
 		t.Errorf("free = %v, want %v", syms.free, want)
 	}
-	hidden := map[string]bool{}
+	hidden, stands := map[string]bool{}, map[string]string{}
 	for _, s := range syms.list {
 		hidden[s.ID] = s.Hidden
+		stands[s.ID] = s.ElementID
 	}
-	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false}; !reflect.DeepEqual(hidden, want) {
+	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false, "_s2": true, "_s3": true, "_s4": true}; !reflect.DeepEqual(hidden, want) {
 		t.Errorf("hidden = %v, want %v", hidden, want)
+	}
+	if want := map[string]string{"_frame": "_diag", "_img": "", "_tb": "", "_s1": "_a", "_s2": "_b", "_s3": "_c", "_s4": "_f"}; !reflect.DeepEqual(stands, want) {
+		t.Errorf("element ids = %v, want %v", stands, want)
+	}
+	if want := []string{"_a", "_d"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
 	}
 }
 
