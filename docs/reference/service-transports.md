@@ -30,6 +30,11 @@ unchanged.
 Connect, no gRPC-Web, no `curl`, health on `-health-port` only. It is an escape hatch, not the
 recommended path. `-transport stdio` is a prototype, described below.
 
+A WebAssembly build has no address to bind: its network reaches only the process it runs in, so
+`-transport grpc` and `-transport connect` are refused naming that, and `-transport stdio` —
+which binds no address — is what serves there (see
+[WebAssembly builds](wasm.md)).
+
 `grpc-go` itself is confined to that escape hatch, to tests, to the conformance runner's real
 `grpc-go` client, and to committed generated code. The service logic, the public Go API and the
 stdio prototype construct errors with `connect-go`, whose codes have the same numbers as the
