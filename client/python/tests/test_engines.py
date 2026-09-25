@@ -106,6 +106,24 @@ def test_list_engines_reads_every_engine():
     assert str(engines[1]) == "solve: proved, answers satisfiable; unavailable: z3 not found"
 
 
+def test_list_engines_round_trips_a_tools_protocol():
+    """A manifest tool's protocol spells its invocation and reply composition."""
+    stub = Mock()
+    stub.ListEngines.return_value = sysml_pb2.ListEnginesResponse(engines=[
+        sysml_pb2.EngineInfo(
+            name="tool:ThermalSolver", authority="observed", answers=["compute"],
+            kind="tool", protocol="argv+none/csv", ready=True,
+            source="/tools/thermal.json", command="/usr/bin/python3", version="1.0",
+            served=True,
+        ),
+    ])
+    conn = make_connection(stub, CURRENT)
+
+    engines = conn.list_engines()
+    assert engines[0].protocol == "argv+none/csv"
+    assert str(engines[0]).startswith("tool:ThermalSolver (tool, argv+none/csv): ")
+
+
 def test_list_engines_needs_the_capability():
     stub = Mock()
     conn = make_connection(stub, OLD)
