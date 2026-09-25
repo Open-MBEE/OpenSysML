@@ -11,3 +11,5 @@
 ![Plate 2: from the archive](https://example.test/plates/plate2.png)
 
 ![](<images/plate 3.png>)
+
+![odd name](<images/a%29 %3Cb%3E.png>)

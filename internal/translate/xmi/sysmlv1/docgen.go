@@ -268,13 +268,13 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 }
 
 // paragraphs reads the collaborator paragraphs placed in a view of the current
-// document (an old-schema viewId must name the document class), each moved
-// behind the paragraph its predecessor names.
+// document (a viewId must name the document class, in the 2022x schema as in
+// the old), each moved behind the paragraph its predecessor names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
 	for _, s := range r.comments[class.ID] {
-		if id := s.Tag("viewId"); id != "" && id != r.doc.ID && s.Tag("sectionId") == "" {
+		if id := s.Tag("viewId"); id != "" && id != r.doc.ID {
 			continue
 		}
 		r.placed[s] = true

@@ -252,9 +252,9 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	case cp.refused != "":
 	case p.Image:
 		m.planImage(sec, cp, p)
+	case m.imageInBody(sec, cp, p.Comment, commentRawBody(p.Comment)):
 	case cp.text == "":
 		cp.refused = "the paragraph's comment has no body"
-	case m.imageInBody(sec, cp, p.Comment, commentRawBody(p.Comment)):
 	}
 	if cp.refused == "" && cp.name == "" {
 		cp.name = sec.names.claim("paragraph")
@@ -274,34 +274,30 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 	cp.caption = cp.text
 	cp.text = ""
 	src, file := m.imageSource(p.Comment)
+	var location, reason string
 	switch {
 	case isRemoteImage(src):
-		cp.location = src
+		location = src
 	case file != "" || p.Comment.AttachedStream != "":
-		if location, ok := m.imageFile(file, p.Comment); ok {
-			cp.location = location
-		} else {
-			named := "the attached image " + strconv.Quote(file)
-			if file == "" {
-				named = "the attached image"
+		location, reason = m.imageFile(file, p.Comment)
+	}
+	if location == "" && src != "" && !isRemoteImage(src) {
+		location, reason = m.imageFile(src, p.Comment)
+		if location == "" {
+			if loc, ok := m.imageLocation(src); ok {
+				location, reason = loc, ""
 			}
-			m.fallbackImageParagraph(sec, cp, named+" is not in the archive")
 		}
-	case src != "":
-		location, ok := m.imageFile(src, p.Comment)
-		if !ok {
-			location, ok = m.imageLocation(src)
+	}
+	if location == "" {
+		if serverImagePath(src) && m.imageBase == nil {
+			reason = "the image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+		} else if reason == "" {
+			reason = "the image paragraph's comment names no attached file"
 		}
-		switch {
-		case ok:
-			cp.location = location
-		case serverImagePath(src) && m.imageBase == nil:
-			m.fallbackImageParagraph(sec, cp, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
-		default:
-			m.fallbackImageParagraph(sec, cp, "the attached image "+strconv.Quote(src)+" is not in the archive")
-		}
-	default:
-		m.fallbackImageParagraph(sec, cp, "the image paragraph's comment names no attached file")
+		m.fallbackImageParagraph(sec, cp, reason)
+	} else {
+		cp.location = location
 	}
 	if cp.kind != "Image" {
 		return
@@ -428,7 +424,8 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 	if src == "" {
 		return false
 	}
-	location, ok := m.imageFile(src, node)
+	location, _ := m.imageFile(src, node)
+	ok := location != ""
 	if !ok {
 		location, ok = m.imageLocation(src)
 	}
@@ -454,18 +451,42 @@ func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1
 }
 
 // imageFile locates the archive entry the comment's attachment names — its
-// stream, the tag's name, or an entry with that base name — and registers its
-// bytes for writing beside the notation under images/.
-func (m *migration) imageFile(name string, c *sysmlv1.Element) (string, bool) {
-	entry := m.findEntry(name, c)
+// stream, the tag's name, or the unique entry with that base name — and
+// registers image bytes for writing beside the notation under images/; reason
+// says why nothing was found when it returns "".
+func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason string) {
+	named := "the attached image " + strconv.Quote(name)
+	if name == "" {
+		named = "the attached image"
+	}
+	entry, ambiguous := m.findEntry(name, c)
+	if ambiguous > 1 {
+		return "", named + " matches " + strconv.Itoa(ambiguous) + " archive entries; the attachment names no stream"
+	}
 	if entry == "" {
-		return "", false
+		return "", named + " is not in the archive"
 	}
 	data, ok := m.model.Attachment(entry)
 	if !ok {
-		return "", false
+		return "", named + " is not in the archive"
 	}
-	return m.addFile(imageFileName(name, entry, data), data), true
+	if ct := imageContent(data); ct == "" {
+		return "", named + " is not an image (content type " + http.DetectContentType(data) + ")"
+	}
+	return m.addFile(imageFileName(name, entry, data), data), ""
+}
+
+// imageContent reports the archive bytes hold an image: an image/* content
+// type, or an SVG, which DetectContentType reads as text.
+func imageContent(data []byte) string {
+	if ct := http.DetectContentType(data); strings.HasPrefix(ct, "image/") {
+		return ct
+	}
+	t := bytes.TrimSpace(data)
+	if (bytes.HasPrefix(t, []byte("<?xml")) || bytes.HasPrefix(t, []byte("<svg"))) && bytes.Contains(t, []byte("<svg")) {
+		return "image/svg+xml"
+	}
+	return ""
 }
 
 // imageFileName names the written image: the tag's file name when it states
@@ -489,29 +510,33 @@ func imageFileName(name, entry string, data []byte) string {
 }
 
 // findEntry names the archive entry holding the attachment name names: the
-// comment's attached stream, the exact entry, or one whose base name equals
-// it.
-func (m *migration) findEntry(name string, c *sysmlv1.Element) string {
+// comment's attached stream, the exact entry, or the unique entry with that
+// base name; ambiguous reports a base name several entries share.
+func (m *migration) findEntry(name string, c *sysmlv1.Element) (entry string, ambiguous int) {
 	names := m.model.AttachmentNames()
 	if len(names) == 0 {
-		return ""
+		return "", 0
 	}
 	if c != nil && slices.Contains(names, c.AttachedStream) {
-		return c.AttachedStream
+		return c.AttachedStream, 0
 	}
 	if name == "" {
-		return ""
+		return "", 0
 	}
 	if slices.Contains(names, name) {
-		return name
+		return name, 0
 	}
 	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
 	for _, n := range names {
 		if path.Base(n) == base {
-			return n
+			entry = n
+			ambiguous++
 		}
 	}
-	return ""
+	if ambiguous > 1 {
+		return "", ambiguous
+	}
+	return entry, 0
 }
 
 // unsafeFileChars are the bytes replaced in a written image file's name.
@@ -2048,11 +2073,11 @@ func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titl
 	if src == "" {
 		return false
 	}
-	location, ok := c.m.imageFile(src, nil)
-	if !ok {
-		location, ok = c.m.imageLocation(src)
+	location, _ := c.m.imageFile(src, nil)
+	if location == "" {
+		location, _ = c.m.imageLocation(src)
 	}
-	if !ok {
+	if location == "" {
 		return false
 	}
 	title := strings.TrimSpace(d.Name)

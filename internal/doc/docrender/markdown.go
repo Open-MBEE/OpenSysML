@@ -309,7 +309,8 @@ func renderImage(node docir.Content) []string {
 		alt = node.Caption()
 	}
 	location := node.Location()
-	if strings.ContainsAny(location, " ()") && !strings.ContainsAny(location, "<>") {
+	location = strings.NewReplacer("<", "%3C", ">", "%3E", "(", "%28", ")", "%29", "\n", "%0A", "\r", "%0D").Replace(location)
+	if strings.Contains(location, " ") {
 		location = "<" + location + ">"
 	}
 	return append(blocks, "!["+inline(alt)+"]("+location+")")

@@ -21,6 +21,11 @@ package Pictures {
 			part spaced : Image {
 				attribute redefines location = "images/plate 3.png";
 			}
+
+			part tricky : Image {
+				attribute redefines location = "images/a) <b>.png";
+				attribute redefines alt = "odd name";
+			}
 		}
 	}
 }

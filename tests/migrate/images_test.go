@@ -52,8 +52,8 @@ func zipData(t *testing.T, data []byte, extra map[string][]byte) []byte {
 // whose location names the written sidecar file, and the archive's bytes are
 // registered for writing.
 func TestImageParagraphsFromArchive(t *testing.T) {
-	fleet := []byte("\x89PNG fleet bytes")
-	depot := []byte("\x89PNG depot bytes")
+	fleet := []byte("\x89PNG\r\n\x1a\n fleet bytes")
+	depot := []byte("\x89PNG\r\n\x1a\n depot bytes")
 	r, err := migrate.Migrate("documents.mdzip", zipWith(t, "testdata/xmi/documents.xmi", map[string][]byte{
 		"attachments/fleet.png": fleet,
 		"attachments/depot.png": depot,
@@ -242,4 +242,88 @@ func TestFigureNoteImage(t *testing.T) {
 	}
 	wantOneNote(t, r, "_st_pictures_image", migrate.Approximated,
 		`the note's image "/projects/z/png" is served by the View Editor; pass -image-base-url to show it`)
+}
+
+// TestImageOnlyBody plans an Image block for a body holding only an <img> —
+// the resolvable source wins over the empty-body refusal; an unresolvable
+// server path without a base URL still refuses.
+func TestImageOnlyBody(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `body="First note."`,
+		`body="&lt;img src=&quot;https://example.org/plate.png&quot;&gt;"`, 1)
+	r, err := migrate.Migrate("documents.xmi", []byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://example.org/plate.png";`)
+
+	doc = strings.Replace(string(data), `body="First note."`,
+		`body="&lt;img src=&quot;/projects/q/png&quot;&gt;"`, 1)
+	r, err = migrate.Migrate("documents.xmi", []byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOneNote(t, r, "_st_note_first", migrate.Unmapped, "the paragraph's comment has no body")
+}
+
+// TestImageTagMissingFallsToSrc resolves an image paragraph through its <img
+// src> when the AttachedFile tag names a file no archive entry holds.
+func TestImageTagMissingFallsToSrc(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `file="fleet.png"`, `file="missing.png"`, 1)
+	doc = strings.Replace(doc, `body="Figure: the fleet at the depot"`,
+		`body="&lt;img src=&quot;/projects/p/png&quot;&gt;Plate"`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the image tag")
+	}
+	r, err := migrate.MigrateOptions("documents.xmi", []byte(doc), migrate.Options{ImageBaseURL: "https://mms.example.org"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://mms.example.org/projects/p/png";`)
+	if len(r.Files) != 0 {
+		t.Errorf("Files = %v, want none for a remote image", keysOf(r.Files))
+	}
+}
+
+// TestImageAmbiguousBaseName refuses an attachment whose base name several
+// archive entries share, the reason saying so.
+func TestImageAmbiguousBaseName(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `file="fleet.png"`, `file="figure.png"`, 1)
+	r, err := migrate.Migrate("documents.mdzip", zipData(t, []byte(doc), map[string][]byte{
+		"a/figure.png": []byte("\x89PNG\r\n\x1a\n one"),
+		"b/figure.png": []byte("\x89PNG\r\n\x1a\n two"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOneNote(t, r, "_st_note_image", migrate.Approximated,
+		`the attached image "figure.png" matches 2 archive entries; the attachment names no stream`)
+}
+
+// TestImageNotAnImage refuses an attachment whose bytes are not an image, the
+// reason naming the content type it read.
+func TestImageNotAnImage(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := migrate.Migrate("documents.mdzip", zipData(t, data, map[string][]byte{
+		"attachments/fleet.png": []byte("a manifest, not a picture"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOneNote(t, r, "_st_note_image", migrate.Approximated,
+		`the attached image "fleet.png" is not an image (content type text/plain; charset=utf-8)`)
 }
