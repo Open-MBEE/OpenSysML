@@ -572,10 +572,8 @@ func repeatedKey(document []byte) (string, bool) {
 	}
 }
 
-// nullMember is the first member an object anywhere in a JSON document spells with the
-// value null, as the dotted path to it, which a struct decode would hide by leaving the
-// member's zero value. Only well-formed JSON is walked; anything else is left to the
-// decoder to report.
+// nullMember is the dotted path of the first member an object anywhere in a JSON document
+// sets to null, which a struct decode would hide as a zero value; malformed JSON is not walked.
 func nullMember(document []byte) (string, bool) {
 	dec := json.NewDecoder(bytes.NewReader(document))
 	// One frame per open object or array; only an object's frame has a key in hand.
