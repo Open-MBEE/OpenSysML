@@ -62,7 +62,8 @@ returned over the service yet.
   symbols to): each symbol's `elementID` is a shown element, and a symbol naming none — a
   pasted image, a text box, a note — is counted as free content, so a blank diagram is told
   from one drawing elements the list omits, and a list that names elements is completed with
-  the symbols the stream adds. The list also names what a symbol displays without one of its
+  the symbols the stream adds; a pasted image's bytes are written to a file the view draws
+  (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)). The list also names what a symbol displays without one of its
   own — a property in a compartment, a trigger on a transition — so a listed element is kept
   when a symbol stands for it or for an element it is owned under, and dropped when none
   does, since nothing drawn shows it. Layout and the rest of the extension —
@@ -286,7 +287,7 @@ returned over the service yet.
 | Activity diagram of a behavior written as an `action def`; state machine diagram of one written as a `state def` | `view 'Name' : StandardViewDefinitions::ActionFlowView` / `StateTransitionView` exposing the definition, whose graph the rendering draws — its nodes and edges are drawn, not exposed one by one — and the shown elements from elsewhere; rendered `asInterconnectionDiagram` | mapped |
 | ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
-| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells | approximated |
+| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells; a diagram of pasted pictures alone is a view drawing them (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)) | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
@@ -436,6 +437,32 @@ the diagram's layout note and the summary's `streamSupplemented` count say when 
 `<packet>` at all refuses with the mismatch stated; without `-layout` every diagram is laid out
 from its own stream alone.
 
+#### Pictures pasted onto a diagram
+
+A picture pasted onto a Cameo diagram is an `ImageShape` symbol of the diagram's stream that
+stands for no model element. MagicDraw serializes the picture's own bytes into the symbol's
+`<image>` tag as space-separated hexadecimal octets without zero padding (`89 50 4e 47 d a 1a a`
+opens a PNG), and keeps in the symbol's `IMAGE` file property only the name of the file the
+picture was pasted from — that file is not in the archive. The migration decodes the octets,
+recognizes the content type from the bytes (PNG, JPEG, GIF, BMP, WebP or SVG), and writes them
+beside the notation under `images/` as the pasted file's base name with the type's suffix
+(`Screen Shot.png` holding PNG bytes is `images/Screen_Shot.png`; a symbol with no file name is
+named by its symbol id), the same bytes pasted onto several diagrams written once, through the
+same `-o` requirement and dedup as a document's attached images. The view then draws the
+picture where Cameo drew it: `@DiagramLayout::Picture { location = "images/<name>.png"; x; y;
+width; height; alt = "<file name>"; }` in the view's body, in stream order under the element
+symbols, or `above = true` when an element symbol drawn before it in the stream lies under it —
+Cameo draws later symbols on top. A diagram of pictures alone becomes a view exposing nothing
+that draws them, so a document figure of it shows the pictures under the diagram's name as
+caption, through the same `Diagram` block as a figure of any other view; there is no separate
+`Image` block for it, so a hand-written view carrying a `Picture` and a migrated one render the
+same way. A symbol carrying a file name and no bytes is a picture the archive does not hold —
+the report names the file and the view draws nothing for it, as before; bytes that do not read
+as octets are an `unmapped` row for the symbol saying which octet is not hexadecimal, and the
+symbol is read without them. Each diagram's note says what was written (`1 pasted image written
+as images/Plant.png`) or why not, and the report's summary counts the pictures written and
+drawn (`# pasted images: 3 of 5 written as files and drawn by the view`) with the image files.
+
 ### Tables, matrices and relation maps
 
 A Cameo/MagicDraw table is a diagram with a definition: the «InstanceTable», «DiagramTable»
@@ -582,7 +609,7 @@ section, in the activity's order:
 | `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
 | a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
 | an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
-| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 The diagrams among the collected elements are no query's rows — a migrated diagram is a view —
