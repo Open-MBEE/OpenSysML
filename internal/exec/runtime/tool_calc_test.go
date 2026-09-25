@@ -83,6 +83,13 @@ const toolCalcModel = `package test {
 		return : Real = Custom(-4);
 	}
 
+	analysis def Surveyed {
+		metadata ToolExecution { toolName = "Thermo"; uri = "u"; }
+		return r : Real = 42;
+	}
+
+	analysis s : Surveyed;
+
 	part def Board {
 		attribute mass : MassValue = 2 [SI::kg];
 		attribute power : PowerValue = 10 [SI::W];
@@ -488,6 +495,19 @@ func TestToolCalcSpecializingALibraryFunctionComputesByTool(t *testing.T) {
 			t.Fatalf("result = %s, want the tool's 7.0", got)
 		}
 	})
+}
+
+// Annotating cases is deferred: an analysis case carrying ToolExecution runs
+// its body and verdicts as before, needing no runner and refusing none.
+func TestToolCalcAnnotatedCaseStillRunsItsBody(t *testing.T) {
+	ctx, scope := analysisFixture(t, toolCalcModel)
+	value, err := ctx.CalcUsageOutput(calcNamed(t, scope, "s"), "r", scope, nil)
+	if err != nil {
+		t.Fatalf("CalcUsageOutput: %v", err)
+	}
+	if got := FormatValue(value); got != "42" {
+		t.Fatalf("s.r = %s, want the body's 42", got)
+	}
 }
 
 // divergingCalcRunner answers the calc's call and reports the answer as changed.

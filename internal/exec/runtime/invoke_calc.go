@@ -256,11 +256,14 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
 	shape.Bindings = calcBindings(chain)
 	shape.ResultExpr = resultBindingExpr(shape.Bindings)
-	tool, err := ctx.toolExecutionOf(sym)
-	if err != nil {
-		return nil, err
+	// Annotating cases is deferred; only a calc computes by tool.
+	if kind == "calc" {
+		tool, err := ctx.toolExecutionOf(sym)
+		if err != nil {
+			return nil, err
+		}
+		shape.Tool = tool
 	}
-	shape.Tool = tool
 	// A calc computes nothing unless it returns or binds an output; a case also
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
