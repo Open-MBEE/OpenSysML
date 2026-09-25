@@ -1,8 +1,6 @@
 function value = conf_normalize(value, modelHash)
-%CONF_NORMALIZE Wire values that cannot be compared literally:
-%version -> ${version}, the model hash -> ${model_hash}, absolute paths ->
-%${path}; a self_id of 0/"0" is removed. Runtime ids are left for
-%conf_label_ids, which runs in one pass over the whole response.
+%CONF_NORMALIZE Wire values that cannot be compared literally become
+%${version}/${model_hash}/${path}; runtime ids are conf_label_ids' job.
 
     if isa(value, 'containers.Map')
         isInstance = (isKey(value, 'type_symbol_id') || isKey(value, 'typeSymbolId')) && ...

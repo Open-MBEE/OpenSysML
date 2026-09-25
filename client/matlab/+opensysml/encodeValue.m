@@ -1,8 +1,6 @@
 function v = encodeValue(x)
-%ENCODEVALUE Write a Value for a request. Structs carrying the decode shapes
-%are written back under their arm; every request list is a cell array —
-%jsonencode writes a 1x1 struct array as one object, and {} is the empty
-%list.
+%ENCODEVALUE Write a Value for a request. Request lists are cell arrays —
+%jsonencode writes a 1x1 struct array as one object; {} is the empty list.
 
     if islogical(x) && isscalar(x)
         v = struct('boolValue', x);

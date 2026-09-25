@@ -1198,9 +1198,9 @@ jobs:
 
   # Mirrors the CircleCI matlab-client job: the tests and the conformance suite
   # under GNU Octave — MATLAB itself is not available in CI, and its
-  # matlab.net.http path is exercised by no gate. Octave carries no Java, so the
-  # private-child path cannot run there: the job starts a service itself and
-  # hands the runner its address.
+  # matlab.net.http path is exercised by no gate. The CI build of Octave is
+  # built without Java, so the private-child path cannot run there: the job
+  # starts a service itself and hands the runner its address.
   matlab-client:
     name: MATLAB/Octave client tests
     needs: [changes, build]

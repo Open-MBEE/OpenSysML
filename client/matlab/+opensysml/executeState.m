@@ -1,7 +1,6 @@
 function answer = executeState(model, stateId, varargin)
-%EXECUTESTATE Run a state machine; 'events' is a cell of event names,
-%'schedule' the policy spelling. The answer is the wire record with every
-%Value inside decoded.
+%EXECUTESTATE Run a state machine; 'events' is a cell of names and
+%'schedule' the policy spelling. Values in the answer arrive decoded.
 
     request.modelHash = model.hash;
     request.stateMachineSymbolId = char(stateId);

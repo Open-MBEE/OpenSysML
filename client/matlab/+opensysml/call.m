@@ -1,9 +1,6 @@
 function out = call(conn, method, request)
-%CALL Post a Connect-JSON request and return the decoded answer.
-%   A non-200 status whose body is a Connect {"code","message"} object raises
-%   'opensysml:connect'; a transport failure, or an answer that is not JSON
-%   (the Content-Type is checked before parsing, per the wire contract),
-%   raises 'opensysml:transport'. The decoded answer is jsondecode output.
+%CALL Post a Connect-JSON request and return the decoded answer. A non-200
+%   Connect body raises 'opensysml:connect'; a non-JSON answer 'opensysml:transport'.
 
     [status, contentType, bodyText] = opensysml.callRaw(conn, method, jsonencode(request));
     isJson = ~isempty(strfind(lower(contentType), 'application/json'));

@@ -1,7 +1,6 @@
 function bin = resolveBinary()
-%RESOLVEBINARY Locate a sysml-grpc binary; never a download.
-%   $OPENSYSML_GRPC_BINARY, then ~/.opensysml/bin/sysml-grpc
-%   (sysml-grpc.exe on Windows), then PATH.
+%RESOLVEBINARY Locate a sysml-grpc binary, never a download:
+%   $OPENSYSML_GRPC_BINARY, ~/.opensysml/bin/sysml-grpc(.exe), then PATH.
 
     bin = getenv('OPENSYSML_GRPC_BINARY');
     if ~isempty(bin), return; end

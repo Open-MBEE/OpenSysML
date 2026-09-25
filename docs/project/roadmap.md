@@ -2342,9 +2342,10 @@ check).
 
 The Julia and MATLAB packages are **landed but unreleased** on `develop`: `client/julia/OpenSysML`
 (JSON over HTTP.jl + JSON.jl, Julia >= 1.10) and `client/matlab` (`+opensysml`, MATLAB R2019b+ and
-GNU Octave 7+, the Octave path over curl since Octave's Java-free build cannot spawn a private
-child). Both drive every conformance scenario through the public `call`/`callRaw` and write the
-shared report format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
+GNU Octave 7+, the Octave path over curl since an Octave built without Java (the snap and the
+CI build) cannot spawn a private child). Both drive every conformance
+scenario through the public `call`/`callRaw` and write the shared report
+format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
 a `julia-client` and a `matlab-client` job. The R package is **not started**. Publishing (CRAN,
 the Julia registry, File Exchange) is account-gated and goes with R2.
 

@@ -1,10 +1,6 @@
 function val = decodeValue(v)
 %DECODEVALUE Decode one wire Value: an object with exactly one of the
-%nineteen arm keys. Accepts every shape jsondecode produces — a struct for
-%one object, a struct array or cell array for a list of objects, [] for
-%null or an empty answer. Non-empty `null` strings, `infinity:false`, an
-%empty function.calcId and shape-mismatched array/tensor bodies are errors,
-%never default values.
+%nineteen arm keys. Contract violations are errors, never defaults.
 
     if isempty(v)
         val = [];

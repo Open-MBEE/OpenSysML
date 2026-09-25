@@ -1,8 +1,6 @@
 function [status, contentType, bodyText] = httpPost(url, requestJsonText, timeoutSec)
 %POST one Connect-JSON call and return the raw answer pieces.
-%   MATLAB uses matlab.net.http; without it (GNU Octave has no Java-backed
-%   HTTP toolbox either) the fallback is the curl binary, which carries no
-%   dependency a checkout of this repository does not already have.
+%   MATLAB uses matlab.net.http; where that is absent (GNU Octave) curl answers instead.
 
     if exist('matlab.net.http.RequestMessage', 'class')
         [status, contentType, bodyText] = post_matlab(url, requestJsonText, timeoutSec);
@@ -32,8 +30,7 @@ function [status, contentType, bodyText] = post_matlab(url, requestJsonText, tim
 end
 
 function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeoutSec)
-    % curl prints the status and content type after the body, on lines of
-    % their own; the marker separates the body from them.
+    % curl writes status and content type after the marker, on lines of their own.
     marker = sprintf('\n__OPENSYSML_STATUS__\n');
     bodyFile = [tempname '.json'];
     fid = fopen(bodyFile, 'w');

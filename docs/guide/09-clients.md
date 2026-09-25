@@ -1470,8 +1470,8 @@ built = opensysml.instantiate(model, 'Demo::Car');  % struct: id, type_symbol_id
 
 The package runs in MATLAB R2019b+ and GNU Octave 7+ — the same JSON-over-HTTP surface, with
 `matlab.net.http` under MATLAB and a `curl` subprocess under Octave. `opensysml.private` spawns the
-service through Java's `ProcessBuilder`, so an Octave built without Java cannot run a private
-child: use `opensysml.external(address)` or `OPENSYSML_SERVICE` instead, which is also what CI
+service through Java's `ProcessBuilder`, so an Octave built without Java (the snap and the CI
+build) cannot spawn a private child: use `opensysml.external(address)` or `OPENSYSML_SERVICE` instead, which is also what CI
 exercises. Errors are `MException`s with `opensysml:*` identifiers — `opensysml:connect`,
 `opensysml:transport`, `opensysml:diagnostics` — and `opensysml.call`/`callRaw` reach every RPC,
 the path the conformance runner drives. Request lists are cell arrays, because `jsonencode` writes

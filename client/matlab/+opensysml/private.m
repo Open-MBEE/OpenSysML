@@ -1,12 +1,6 @@
 function conn = private(varargin)
-%PRIVATE Start a child sysml-grpc and connect to it.
-%   opensysml.private() resolves the binary as opensysml.resolveBinary();
-%   opensysml.private('binary', path) names it.
-%   The child runs -port 0 -health-port 0 -report-address -exit-with-parent;
-%   its address is the first stdout line, and the connection holds the child's
-%   stdin open for its lifetime — that is the orphan guarantee. It needs Java
-%   (java.lang.ProcessBuilder): an Octave built without Java uses
-%   opensysml.external against a service started some other way.
+%PRIVATE Start a child sysml-grpc and connect to it. The spawn needs Java
+%   (ProcessBuilder); an Octave built without Java uses opensysml.external.
 
     binary = '';
     for i = 1:2:numel(varargin)
@@ -15,7 +9,7 @@ function conn = private(varargin)
     if isempty(binary), binary = opensysml.resolveBinary(); end
     if ~exist('java.lang.ProcessBuilder', 'class') && ~isJavaAvailable()
         error('opensysml:transport', ['a private service needs java.lang.ProcessBuilder; ' ...
-            'this interpreter has no Java — start a service yourself and use opensysml.external(address)']);
+            'this interpreter was built without Java — start a service yourself and use opensysml.external(address)']);
     end
     args = javaObject('java.util.ArrayList');
     args.add(javaObject('java.lang.String', binary));

@@ -1,7 +1,6 @@
 function opts = conf_args(args)
-%CONF_ARGS The runner's flags, in the single- and double-dash spellings:
-%--binary/--address/--scenarios/--fixtures/--run/--report take a value;
-%--allow-skips and -v are switches; -h/--help prints usage.
+%CONF_ARGS The runner's flags, single- and double-dash spellings:
+%value flags --binary/--address/--scenarios/--fixtures/--run/--report; switches --allow-skips, -v.
 
     opts.binary = ''; opts.address = '';
     opts.scenarios = ''; opts.fixtures = '';

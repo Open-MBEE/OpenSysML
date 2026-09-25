@@ -1007,8 +1007,9 @@ jobs:
 
   # The MATLAB client under GNU Octave: MATLAB has no CI image, so Octave is
   # the tested path (the matlab.net.http branch is exercised by no gate).
-  # Octave's Java-free build cannot spawn a private child, so the job starts a
-  # service itself and hands the runner its address.
+  # An Octave built without Java (the snap and the CI build) cannot spawn a
+  # private child, so the job starts a service itself and hands the runner its
+  # address.
   matlab-client:
     executor: octave-executor
     steps:

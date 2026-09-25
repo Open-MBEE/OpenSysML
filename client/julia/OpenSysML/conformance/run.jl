@@ -1,9 +1,5 @@
-# Conformance runner: drives every scenario in conformance/scenarios through
-# OpenSysML.call, so coverage is the whole RPC surface, not a typed subset.
-# Usage:
-#   julia --project=client/julia/OpenSysML client/julia/OpenSysML/conformance/run.jl \
-#       [--binary PATH | --address HOST:PORT] [--scenarios DIR] [--fixtures DIR] \
-#       [--run SUBSTRING] [--report FILE|-] [--allow-skips] [-v]
+# Conformance runner: drives every scenario through OpenSysML.call. Run with
+# julia --project=client/julia/OpenSysML run.jl [--binary P | --address H:P] [flags].
 
 module ConformanceRunner
 

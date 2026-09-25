@@ -1,7 +1,6 @@
 function inst = instantiate(model, typeId)
-%INSTANTIATE An Instance record: struct('id', int64, 'type_symbol_id', fqn,
-%'feature_values', containers.Map name -> decoded Value). A feature the
-%runtime could not compute carries its error text, as the wire does.
+%INSTANTIATE An Instance record: id (int64), type_symbol_id, feature_values
+%(containers.Map name -> decoded Value); a failed feature carries its error text.
 
     answer = opensysml.internal.checkError(opensysml.call(model.connection, 'Instantiate', ...
         struct('modelHash', model.hash, 'symbolId', char(typeId))), 'Instantiate');

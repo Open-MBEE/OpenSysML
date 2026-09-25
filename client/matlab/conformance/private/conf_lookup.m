@@ -1,7 +1,6 @@
 function [value, found] = conf_lookup(value, path)
-%CONF_LOOKUP Walk a dotted path over json_tree values. An expected key is
-%looked up exactly first, then lowerCamel — actual keys are never renamed,
-%so map keys such as feature names stay intact.
+%CONF_LOOKUP Walk a dotted path over json_tree values; expected keys are
+%tried exactly then lowerCamel — actual keys are never renamed.
 
     [value, found] = lookup_parts(value, strsplit(path, '.'));
 end

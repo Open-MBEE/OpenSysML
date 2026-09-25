@@ -14,9 +14,9 @@ runnable in **MATLAB R2019b+** and in **GNU Octave 7+**.
   written to the documented API but exercised by no CI, so Octave + curl is
   the tested path.
 - `opensysml.private` spawns the service through Java's
-  `ProcessBuilder`. Octave builds without Java support cannot spawn a
-  private child — start `sysml-grpc` yourself and use
-  `opensysml.external` (or set `OPENSYSML_SERVICE`).
+  `ProcessBuilder`. An Octave built without Java (the snap and the CI
+  build) cannot spawn a private child — start `sysml-grpc` yourself and
+  use `opensysml.external` (or set `OPENSYSML_SERVICE`).
 
 ## Install
 

@@ -1,7 +1,6 @@
 function model = parseSources(conn, documents, varargin)
-%PARSESOURCES Parse several documents as one model: documents is a cell of
-%{name, content} pairs; a request list is a cell array, so jsonencode writes
-%one object per entry.
+%PARSESOURCES Parse a cell of {name, content} pairs as one model; a cell
+%array is a request list, so jsonencode writes one object per entry.
 
     language = ''; strict = false;
     for i = 1:2:numel(varargin)

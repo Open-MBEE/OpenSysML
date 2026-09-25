@@ -1,10 +1,6 @@
 function [value, next] = json_tree(text)
-%JSON_TREE A faithful JSON reader for the conformance runner.
-%   jsondecode loses the distinctions the comparison rules live on — a
-%   one-object list vs an object, null vs an empty list, an int64 string vs
-%   a number — so the runner reads scenarios and answers with this instead.
-%   Objects become containers.Map, lists become cell arrays, strings char,
-%   numbers double, booleans logical, null [].
+%JSON_TREE A faithful JSON reader for the conformance runner: objects ->
+%   containers.Map, lists -> cell, null -> []; keeps what jsondecode loses.
 
     [value, next] = readValue(text, skipWs(text, 1));
 end

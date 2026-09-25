@@ -1,8 +1,6 @@
 function n = parseInt64(s)
-%PARSEINT64 Exact int64 from a decimal string, without Java and without a
-%double anywhere on the way — str2double/sscanf('%%ld') both go through
-%double and lose digits past 2^53. Digits accumulate in negative space so
-%"-9223372036854775808" stays exact despite integer saturation.
+%PARSEINT64 Exact int64 from a decimal string, without a double anywhere
+%on the way. Digits accumulate in negative space so "-9223372036854775808" stays exact.
 
     if isnumeric(s)
         n = int64(s);

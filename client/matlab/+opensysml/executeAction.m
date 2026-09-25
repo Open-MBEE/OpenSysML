@@ -1,7 +1,6 @@
 function answer = executeAction(model, actionId, varargin)
-%EXECUTEACTION Run an action; the answer is the wire record with every
-%Value inside decoded. 'inputs' is a containers.Map or struct name->value;
-%'schedule' is the policy spelling sysml -schedule takes.
+%EXECUTEACTION Run an action; 'inputs' is a containers.Map or struct and
+%'schedule' the policy spelling. Values in the answer arrive decoded.
 
     request.modelHash = model.hash;
     request.actionSymbolId = char(actionId);

@@ -1,10 +1,6 @@
 function failures = conf_compare(expect, actual)
-%CONF_COMPARE The conformance expectation rules over json_tree values:
-%response compared field by field (a named list must match exactly in
-%length; an absent field satisfies an all-default expectation), reals within
-%relative 1e-9, an expected integer equal to the int64 string the wire
-%writes, plus non_empty / absent / contains / contains_all / counts /
-%min_counts paths.
+%CONF_COMPARE The expectation rules over json_tree values: field-by-field
+%comparison (absent field = all-default expectation), plus the path forms.
 
     failures = {};
     if isKey(expect, 'response') && ~isempty(expect('response'))

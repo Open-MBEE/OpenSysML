@@ -1,7 +1,6 @@
 function out = decodeValues(x)
 %DECODEVALUES Decode every Value object nested inside a decoded response
-%tree, leaving the rest of the record's shape intact. A struct with exactly
-%one field naming a known arm is a Value; anything else is walked.
+%tree; a struct with exactly one field naming a known arm is a Value.
 
     if isstruct(x) && numel(x) == 1
         f = fieldnames(x);

@@ -1,7 +1,5 @@
-# Comparison and normalization rules shared by conformance/run.jl and the
-# package's unit tests. Operates on JSON.parse output: Dict{String,Any} objects,
-# Vector lists and typed scalars. Actual responses are proto3-JSON (lowerCamel);
-# expectations spell proto snake_case.
+# Comparison and normalization rules shared by conformance/run.jl and the unit
+# tests, over JSON.parse output. Actuals are proto3-JSON lowerCamel; expectations snake_case.
 
 function lower_camel(k::AbstractString)
     parts = split(k, '_')
@@ -109,9 +107,8 @@ end
 
 const RUNTIME_ID_KEYS = ["instance_id", "instanceId", "self_id", "selfId"]
 
-# Runtime ids: an Instance is an object carrying type_symbol_id/typeSymbolId,
-# feature_values/featureValues and id; its id, and every instance_id/self_id in
-# the response, become @1, @2, ... in order of first appearance.
+# Runtime ids (Instance ids, instance_id/self_id) become @1, @2, ... in order
+# of first appearance across the whole response.
 function label_instance_ids(value)
     labels = Dict{Int64,String}()
     _label_ids!(value, labels)

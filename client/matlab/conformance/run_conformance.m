@@ -1,16 +1,6 @@
 function run_conformance(varargin)
-%RUN_CONFORMANCE Drive every scenario in conformance/scenarios through the
-%client's public callRaw, the whole RPC surface with no subset skips.
-%
-%   run_conformance('--binary', 'bin/sysml-grpc')   start a private child
-%   run_conformance('--address', 'localhost:50051') use a running service
-%
-% plus --scenarios DIR --fixtures DIR (default: the repo's conformance/),
-% --run SUBSTRING, --report FILE ('-' is stdout), --allow-skips, -v.
-% Exit status is non-zero on any fail or error, or on a skip without
-% --allow-skips. In a script/function context call run_conformance(...) and
-% check the exit code it exits with; Octave: octave --no-gui --eval
-% "run_conformance('--binary','bin/sysml-grpc')".
+%RUN_CONFORMANCE Drive every scenario through the client's callRaw, the
+%whole RPC surface with no subset skips; --binary|--address selects the service.
 
     args = varargin;
     if isempty(args) && ~isempty(getenv('RUN_CONFORMANCE_ARGS'))

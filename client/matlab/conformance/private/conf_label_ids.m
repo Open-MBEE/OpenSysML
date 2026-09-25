@@ -1,8 +1,6 @@
 function value = conf_label_ids(value, labels)
 %CONF_LABEL_IDS Runtime instance ids -> @1, @2, ... in order of first
-%appearance across the whole response: an Instance's id (an object with
-%type_symbol_id/typeSymbolId + feature_values/featureValues + id) and every
-%instance_id/instanceId and self_id/selfId.
+%appearance across the whole response.
 
     if nargin < 2, labels = containers.Map('KeyType', 'double', 'ValueType', 'char'); end
     if isa(value, 'containers.Map')

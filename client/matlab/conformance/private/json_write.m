@@ -1,7 +1,6 @@
 function text = json_write(value)
-%JSON_WRITE Compact JSON for a json_tree value: containers.Map -> object,
-%cell -> list, char -> string, logical -> true/false, double -> number,
-%[] -> null. Requests are sent to the service as this text.
+%JSON_WRITE Compact JSON for a json_tree value: Map -> object, cell -> list,
+%char -> string, [] -> null. Requests are sent to the service as this text.
 
     if isa(value, 'containers.Map')
         keys = value.keys;
