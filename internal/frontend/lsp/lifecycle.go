@@ -56,6 +56,7 @@ func (s *Server) Initialize(ctx context.Context, params *protocol.InitializePara
 				CrossDocumentCapability:   true,
 				RenderPaletteCapability:   true,
 				RenderFormsCapability:     renderFormNames(),
+				RenderStylesCapability:    renderStyleNames(),
 			},
 			// Folders added mid-session are only indexed if the client reports them.
 			Workspace: &protocol.ServerCapabilitiesWorkspace{

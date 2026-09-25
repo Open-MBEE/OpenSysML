@@ -1060,3 +1060,84 @@ func TestRenderSnapshotsOneDocumentRevision(t *testing.T) {
 		}
 	}
 }
+
+// A drawing style in the request draws the DOT artifact in it and is named in
+// the result, the default pilot when none is asked; the styles are advertised
+// in initialize; Mermaid notes the style it does not draw; a style there is
+// none of is refused by name. A node's own Style annotation reaches the client
+// and wins over the palette's fill and border.
+func TestRenderDrawsInTheStyleAsked(t *testing.T) {
+	const styled = renderModel + `
+package StyledViews {
+	private import Views::*;
+	private import StandardViewDefinitions::*;
+	private import DiagramLayout::*;
+
+	view styledTree {
+		expose Kit::Widget;
+		metadata Style about Kit::Widget::cog { fill = "#FFE8BD"; line = "#333333"; bold = true; }
+	}
+}
+`
+	s, docURI := renderServer(t, "kit.sysml", styled)
+	res, err := s.Initialize(context.Background(), &protocol.InitializeParams{})
+	if err != nil {
+		t.Fatalf("Initialize err = %v", err)
+	}
+	experimental := res.Capabilities.Experimental.(map[string]any)
+	if advertised, _ := experimental[RenderStylesCapability].([]string); !slices.Equal(advertised, []string{"pilot", "cameo"}) {
+		t.Fatalf("%s = %#v, want pilot then cameo", RenderStylesCapability, experimental[RenderStylesCapability])
+	}
+	render := func(t *testing.T, view, form, style, palette string) renderResult {
+		t.Helper()
+		raw, err := call(t, s, MethodRender, &renderParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			View:         view, Form: form, Style: style, Palette: palette,
+		})
+		if err != nil {
+			t.Fatalf("render %s in %q: %v", form, style, err)
+		}
+		var out renderResult
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatalf("decode render result: %v", err)
+		}
+		return out
+	}
+	cameo := render(t, "KitViews::widgetTree", "dot", "cameo", "")
+	if cameo.Style != "cameo" || !strings.Contains(cameo.Artifact, `subgraph "cluster_frame"`) || !strings.Contains(cameo.Artifact, `fontname="Arial"`) {
+		t.Errorf("cameo result style %q, artifact:\n%s", cameo.Style, cameo.Artifact)
+	}
+	plain := render(t, "KitViews::widgetTree", "dot", "", "")
+	pilot := render(t, "KitViews::widgetTree", "dot", "pilot", "")
+	if plain.Style != "pilot" || pilot.Artifact != plain.Artifact || strings.Contains(plain.Artifact, "cluster_frame") {
+		t.Errorf("default style %q; the pilot artifact differs from the default or frames the diagram:\n%s", plain.Style, plain.Artifact)
+	}
+	mermaid := render(t, "KitViews::widgetTree", "mermaid", "cameo", "")
+	if !strings.Contains(mermaid.Artifact, "%% not represented: style cameo; only the DOT form draws a diagram in a style") {
+		t.Errorf("Mermaid does not note the style:\n%s", mermaid.Artifact)
+	}
+	_, err = call(t, s, MethodRender, &renderParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+		View:         "KitViews::widgetTree", Form: "dot", Style: "magicdraw",
+	})
+	if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"; the styles are pilot, cameo`) {
+		t.Errorf("err = %v, want it to refuse the style by name", err)
+	}
+
+	out := render(t, "StyledViews::styledTree", "dot", "", string(view.PaletteOkabeIto))
+	var cog *renderNode
+	for i := range out.Nodes {
+		if out.Nodes[i].Name == "cog" {
+			cog = &out.Nodes[i]
+		}
+	}
+	if cog == nil || cog.Style == nil || cog.Style.Fill != "#FFE8BD" || !cog.Style.Bold {
+		t.Fatalf("cog carries no Style: %+v", cog)
+	}
+	if cog.Fill != "#FFE8BD" || cog.Border != "#333333" {
+		t.Errorf("cog fill %q border %q: the Style does not win over the palette", cog.Fill, cog.Border)
+	}
+	if !strings.Contains(out.Artifact, `fillcolor="#FFE8BD"`) {
+		t.Errorf("the DOT artifact does not draw the Style:\n%s", out.Artifact)
+	}
+}

@@ -10,7 +10,7 @@ import {
   type RenderResult,
   type ToWebview,
 } from "../protocol";
-import { type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
+import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
 import { autoLayout, type AutoLayout } from "./autolayout";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
@@ -206,11 +206,12 @@ function fillStyles(): void {
 }
 
 // applyStyle draws what is on screen in a look: the pilot's rules take over from the
-// editor's theme under every look but `theme`, and a palette's fills ride on each shape.
+// editor's theme under every look but `theme`, Cameo's ride on them, and a palette's fills ride on each shape.
 function applyStyle(chosen: DiagramStyle): void {
   style = chosen;
   styler.value = chosen;
   diagram.classList.toggle("pilot", pilotLook(chosen));
+  diagram.classList.toggle("cameo", cameoLook(chosen));
   remember();
 }
 
