@@ -1,16 +1,20 @@
 package docpdf
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 )
 
 // svgNamespace is the namespace the root element of a drawn diagram must be in.
@@ -140,6 +144,48 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 		svgs[at[j]] = string(svg)
 	}
 	return svgs, nil
+}
+
+// svgImageRef matches the file reference of an SVG <image> element, the
+// href with or without the xlink prefix, as Graphviz writes it.
+var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)(")`)
+
+// embedImages rewrites the SVG file at path so each <image> that refers to a
+// file carries the file's bytes as a data URI instead, the relative paths
+// taken against base: the drawing is then self-contained wherever the SVG is
+// inlined or moved to. A reference that is a URL or a data URI already, or a
+// file that does not read, is left as written; so is an SVG the tool did not
+// write, for checkSVG to report.
+func embedImages(path, base string) error {
+	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
+	if err != nil {
+		return nil
+	}
+	if !svgImageRef.Match(svg) {
+		return nil
+	}
+	out := svgImageRef.ReplaceAllFunc(svg, func(ref []byte) []byte {
+		parts := svgImageRef.FindSubmatch(ref)
+		location := html.UnescapeString(string(parts[2]))
+		if location == "" || strings.HasPrefix(location, "data:") || strings.Contains(location, "://") {
+			return ref
+		}
+		file := filepath.FromSlash(location)
+		if !filepath.IsAbs(file) {
+			file = filepath.Join(base, file)
+		}
+		data, err := os.ReadFile(file) // #nosec G304 -- the path is one the drawn view states
+		if err != nil {
+			return ref
+		}
+		ct := imagefile.ContentType(data)
+		if ct == "" {
+			return ref
+		}
+		uri := "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(data)
+		return append(append(append([]byte(nil), parts[1]...), uri...), parts[3]...)
+	})
+	return os.WriteFile(path, out, 0o600)
 }
 
 // checkSVG requires the file a tool wrote to be well-formed XML with a single
