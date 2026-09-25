@@ -58,7 +58,7 @@ func NewTool(entry ToolEntry) External {
 			e.fault = &ManifestError{Path: at, Detail: err.Error()}
 		}
 	}
-	if r := entry.Reply; r != nil && r.compiled == nil {
+	if r := entry.Reply; r != nil && r.compiled == nil && e.fault == nil {
 		checked := *r
 		e.entry.Reply = &checked
 		if err := checkReply(&e.entry); err != nil {
