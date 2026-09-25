@@ -122,6 +122,9 @@ func runConvert(files []string) (int, error) {
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
+	if err := imageBaseURLMisuse(from); err != nil {
+		return 0, err
+	}
 	if err := layoutMisuse(from, input); err != nil {
 		return 0, err
 	}
@@ -225,6 +228,8 @@ func recordedConvertMisuse(input string) error {
 		return errors.New("-record-run converts the recorded session model; -migration-results does not apply")
 	case layoutPath != "":
 		return errors.New("-record-run converts the recorded session model; -layout does not apply")
+	case imageBaseURL != "":
+		return errors.New("-record-run converts the recorded session model; -image-base-url does not apply")
 	}
 	return nil
 }
@@ -358,6 +363,9 @@ func readBranch(ref flexo.BranchRef, to convert.Format) (int, error) {
 	if layoutPath != "" {
 		return 0, fmt.Errorf("-layout augments a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
 	}
+	if imageBaseURL != "" {
+		return 0, fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and a repository branch is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file")
+	}
 	repo, cfg, err := openBranch(ref)
 	if err != nil {
 		return 0, err
@@ -455,6 +463,9 @@ func pushBranch(input string, to convert.Format, ref flexo.BranchRef) (int, erro
 	if migrationReport != "" && from != convert.FormatXMI {
 		return 0, fmt.Errorf("-migration-report describes a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
 	}
+	if err := imageBaseURLMisuse(from); err != nil {
+		return 0, err
+	}
 	if err := migrationResultsMisuse(from, input); err != nil {
 		return 0, err
 	}
@@ -515,11 +526,19 @@ func recordBranchState(head string, state *reposync.State, scope reposync.Scope,
 	return exitHolds, nil
 }
 
+// imageBaseURLMisuse reports -image-base-url passed for input no migration reads.
+func imageBaseURLMisuse(from convert.Format) error {
+	if imageBaseURL != "" && from != convert.FormatXMI {
+		return fmt.Errorf("-image-base-url resolves images of a SysML v1 migration, and %s input is not migrated; pass it with -from xmi or a .xmi/.uml/.mdzip file", from)
+	}
+	return nil
+}
+
 // migrationOptions reads the -layout MTIP export into the migration's
 // options; none were given when the flag was not passed.
 func migrationOptions() (migrate.Options, error) {
 	if layoutPath == "" {
-		return migrate.Options{}, nil
+		return migrate.Options{ImageBaseURL: imageBaseURL}, nil
 	}
 	data, err := os.ReadFile(layoutPath)
 	if err != nil {
@@ -529,7 +548,7 @@ func migrationOptions() (migrate.Options, error) {
 	if err != nil {
 		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
 	}
-	return migrate.Options{Layout: layout, LayoutSource: layoutPath}, nil
+	return migrate.Options{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL}, nil
 }
 
 // layoutMisuse reports why -layout augments nothing: a v2 input has no

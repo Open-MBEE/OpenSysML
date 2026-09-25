@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"slices"
@@ -253,6 +254,7 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 		m.planImage(sec, cp, p)
 	case cp.text == "":
 		cp.refused = "the paragraph's comment has no body"
+	case m.imageInBody(sec, cp, p.Comment, commentRawBody(p.Comment)):
 	}
 	if cp.refused == "" && cp.name == "" {
 		cp.name = sec.names.claim("paragraph")
@@ -286,9 +288,16 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 			m.fallbackImageParagraph(sec, cp, named+" is not in the archive")
 		}
 	case src != "":
-		if location, ok := m.imageFile(src, p.Comment); ok {
+		location, ok := m.imageFile(src, p.Comment)
+		if !ok {
+			location, ok = m.imageLocation(src)
+		}
+		switch {
+		case ok:
 			cp.location = location
-		} else {
+		case serverImagePath(src) && m.imageBase == nil:
+			m.fallbackImageParagraph(sec, cp, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
+		default:
 			m.fallbackImageParagraph(sec, cp, "the attached image "+strconv.Quote(src)+" is not in the archive")
 		}
 	default:
@@ -334,19 +343,28 @@ func attachmentName(c *sysmlv1.Element) string {
 	return ""
 }
 
-var imgSourceRe = regexp.MustCompile(`(?i)<img[^>]+src\s*=\s*["']([^"']+)["']`)
+var (
+	imgTagRe    = regexp.MustCompile(`(?i)<img[^>]*>`)
+	imgSourceRe = regexp.MustCompile(`(?i)<img[^>]+src\s*=\s*["']([^"']+)["']`)
+	imgAltRe    = regexp.MustCompile(`(?i)\balt\s*=\s*["']([^"']*)["']`)
+)
 
-// imageSource reads the image an image-paragraph comment names: the first
-// <img src> in its body, and the AttachedFile tag's file name.
-func (m *migration) imageSource(c *sysmlv1.Element) (src, file string) {
+// commentRawBody is the comment's body as written, tags and all.
+func commentRawBody(c *sysmlv1.Element) string {
 	if c == nil {
-		return "", ""
+		return ""
 	}
 	body := c.Attrs["body"]
 	if o := firstOwned(c, "body"); o != nil && strings.TrimSpace(body) == "" {
 		body = o.Text
 	}
-	if match := imgSourceRe.FindStringSubmatch(body); match != nil {
+	return body
+}
+
+// imageSource reads the image an image-paragraph comment names: the first
+// <img src> in its body, and the AttachedFile tag's file name.
+func (m *migration) imageSource(c *sysmlv1.Element) (src, file string) {
+	if match := imgSourceRe.FindStringSubmatch(commentRawBody(c)); match != nil {
 		src = html.UnescapeString(match[1])
 	}
 	return src, attachmentName(c)
@@ -357,6 +375,76 @@ func (m *migration) imageSource(c *sysmlv1.Element) (src, file string) {
 func isRemoteImage(src string) bool {
 	lower := strings.ToLower(src)
 	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+}
+
+// serverImagePath reports a src the View Editor could serve: a root-relative
+// or relative path, not a URL or a Windows file path.
+func serverImagePath(src string) bool {
+	if src == "" || isRemoteImage(src) || strings.HasPrefix(src, `\\`) {
+		return false
+	}
+	u, err := url.Parse(src)
+	return err == nil && !u.IsAbs()
+}
+
+// imageLocation resolves an <img src> to a location the document renders where
+// it stands: the URL itself, or a server path resolved against the base URL.
+func (m *migration) imageLocation(src string) (string, bool) {
+	if isRemoteImage(src) {
+		return src, true
+	}
+	if m.imageBase == nil || !serverImagePath(src) {
+		return "", false
+	}
+	ref, err := url.Parse(src)
+	if err != nil {
+		return "", false
+	}
+	return m.imageBase.ResolveReference(ref).String(), true
+}
+
+// imageInBody plans the first <img> of a paragraph body's as an Image block —
+// the body's text is its caption and the img's alt its alt — when the source
+// resolves in the archive or against the base URL; a body with several images
+// is noted for those left out.
+func (m *migration) imageInBody(sec *sectionPlan, cp *contentPlan, node *sysmlv1.Element, body string) bool {
+	imgs := imgTagRe.FindAllString(body, -1)
+	var src, alt string
+	for _, tag := range imgs {
+		if match := imgSourceRe.FindStringSubmatch(tag); match != nil {
+			src = html.UnescapeString(match[1])
+			if match := imgAltRe.FindStringSubmatch(tag); match != nil {
+				alt = html.UnescapeString(match[1])
+			}
+			break
+		}
+	}
+	if src == "" {
+		return false
+	}
+	location, ok := m.imageFile(src, node)
+	if !ok {
+		location, ok = m.imageLocation(src)
+	}
+	if !ok {
+		if serverImagePath(src) && m.imageBase == nil {
+			cp.notes = append(cp.notes, "the image "+strconv.Quote(src)+" is served by the View Editor; pass -image-base-url to show it")
+		}
+		return false
+	}
+	cp.kind = "Image"
+	cp.location = location
+	cp.caption = cp.text
+	cp.text = ""
+	cp.alt = alt
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	if len(imgs) > 1 {
+		cp.notes = append(cp.notes, fmt.Sprintf("%d more images in the body are left out", len(imgs)-1))
+	}
+	cp.name = sec.names.claim("image")
+	return true
 }
 
 // imageFile locates the archive entry the comment's attachment names — its
@@ -1850,7 +1938,9 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 	}
 	if body := commentText(a.Tag("body")); body != "" {
 		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: body}
-		cp.name = c.sec.names.claim("paragraph")
+		if !c.m.imageInBody(c.sec, cp, s.Node, a.Tag("body")) {
+			cp.name = c.sec.names.claim("paragraph")
+		}
 		c.sec.content = append(c.sec.content, cp)
 		return
 	}

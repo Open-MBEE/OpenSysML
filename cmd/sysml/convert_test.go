@@ -491,3 +491,46 @@ func TestConvertLayoutAugment(t *testing.T) {
 		t.Errorf("the layout summary belongs on stderr:\n%s", out.stderr)
 	}
 }
+
+// TestConvertImageBaseURL resolves a comment's server-relative <img src>
+// against -image-base-url in a migration, refuses the flag on unmigrated
+// input, and refuses a base that is not an absolute http(s) URL.
+func TestConvertImageBaseURL(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `body="First note."`,
+		`body="&lt;p&gt;&lt;img src=&quot;/projects/y/png&quot;&gt;&lt;/p&gt;&lt;p&gt;Figure 1. Caption&lt;/p&gt;"`, 1)
+	model := filepath.Join(dir, "documents.xmi")
+	if err := os.WriteFile(model, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "https://mms.example.org"))
+	if res.status != 0 {
+		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+	}
+	migrated, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), `attribute redefines location = "https://mms.example.org/projects/y/png";`) {
+		t.Errorf("notation lacks the resolved image:\n%s", migrated)
+	}
+
+	v2 := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(v2, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, v2, "-convert", "sysml", "-image-base-url", "https://mms.example.org"))
+	if res.status == 0 || !strings.Contains(res.stderr, "-image-base-url resolves images of a SysML v1 migration") {
+		t.Errorf("v2 input: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "ftp://x"))
+	if res.status == 0 || !strings.Contains(res.stderr, "not an absolute http(s) URL") {
+		t.Errorf("ftp base: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+}

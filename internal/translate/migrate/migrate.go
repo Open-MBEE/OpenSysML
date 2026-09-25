@@ -5,6 +5,7 @@ package migrate
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -51,6 +52,9 @@ type Options struct {
 	// LayoutSource names the file Layout was read from, for the report and
 	// diagnostics.
 	LayoutSource string
+	// ImageBaseURL resolves a comment's relative <img src> to the server
+	// serving it; "" leaves such images out.
+	ImageBaseURL string
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -64,6 +68,9 @@ func Migrate(name string, data []byte) (*Result, error) {
 // whose diagram records match no diagram of the model is an error: the file
 // was exported from a different project.
 func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
+	if _, err := imageBaseURL(opts.ImageBaseURL); err != nil {
+		return nil, err
+	}
 	model, err := sysmlv1.Parse(data)
 	if err != nil {
 		return nil, err
@@ -73,6 +80,19 @@ func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
 			opts.LayoutSource, len(opts.Layout.Diagrams), name)
 	}
 	return FromModelOptions(name, model, opts), nil
+}
+
+// imageBaseURL parses the server a relative <img src> resolves against; it
+// must be an absolute http(s) URL.
+func imageBaseURL(raw string) (*url.URL, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, fmt.Errorf("image base URL %q is not an absolute http(s) URL", raw)
+	}
+	return u, nil
 }
 
 // layoutJoins counts the export's diagram records whose id is a diagram of the
@@ -174,6 +194,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		routeKinds:   routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
+	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
 			Source:       opts.LayoutSource,
@@ -406,6 +427,7 @@ type migration struct {
 	// layoutSummary the report's layout account.
 	layout        *mtip.Export
 	layoutSource  string
+	imageBase     *url.URL
 	layoutByID    map[string]*mtip.Diagram
 	diagramIDs    map[string]bool
 	layoutJoined  map[string]bool

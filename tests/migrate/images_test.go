@@ -140,3 +140,72 @@ func keysOf(files map[string][]byte) []string {
 	}
 	return keys
 }
+
+// TestImageParagraphServedByBaseURL migrates an image paragraph whose comment
+// embeds a server-relative <img src>: with -image-base-url the image resolves
+// to a remote location, without it the caption stands as the paragraph with
+// the note saying how to show it.
+func TestImageParagraphServedByBaseURL(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `xmi:id="_note_blank_image"/`,
+		`xmi:id="_note_blank_image" body="&lt;img src=&quot;/projects/x/png&quot;&gt;Figure A"/`, 1)
+	doc = strings.Replace(doc, `file="depot.png"`, `file=""`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the blank image comment")
+	}
+	r, err := migrate.MigrateOptions("documents.xmi", []byte(doc), migrate.Options{ImageBaseURL: "https://mms.example.org"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://mms.example.org/projects/x/png";`)
+	if len(r.Files) != 0 {
+		t.Errorf("Files = %v, want none for a remote image", keysOf(r.Files))
+	}
+
+	r, err = migrate.MigrateOptions("documents.xmi", []byte(doc), migrate.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantOneNote(t, r, "_st_note_blank_image", migrate.Approximated,
+		`the image "/projects/x/png" is served by the View Editor; pass -image-base-url to show it; its caption stands as the paragraph`)
+	wantLine(t, r.Notation, `attribute redefines text = "Figure A";`)
+}
+
+// TestParagraphBodyImageServedByBaseURL plans the first <img> of a regular
+// collaborator paragraph's body as an Image block: the body text is its
+// caption and the img's alt its alt text.
+func TestParagraphBodyImageServedByBaseURL(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `body="First note."`,
+		`body="&lt;p&gt;&lt;img alt=&quot;&quot; src=&quot;/projects/y/png&quot;&gt;&lt;/p&gt;&lt;p&gt;Figure 1. Caption&lt;/p&gt;"`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the first note")
+	}
+	r, err := migrate.MigrateOptions("documents.xmi", []byte(doc), migrate.Options{ImageBaseURL: "https://mms.example.org"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://mms.example.org/projects/y/png";`)
+	wantLine(t, r.Notation, `attribute redefines caption = "Figure 1. Caption";`)
+	wantLine(t, r.Notation, `attribute redefines alt = "Figure 1. Caption";`)
+}
+
+// TestImageBaseURLRejected validates the base URL is an absolute http(s) URL.
+func TestImageBaseURLRejected(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, base := range []string{"ftp://x", "mms.example.org"} {
+		if _, err := migrate.MigrateOptions("documents.xmi", data, migrate.Options{ImageBaseURL: base}); err == nil ||
+			!strings.Contains(err.Error(), "not an absolute http(s) URL") {
+			t.Errorf("ImageBaseURL %q: err = %v", base, err)
+		}
+	}
+}

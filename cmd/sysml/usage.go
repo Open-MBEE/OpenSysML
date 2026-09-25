@@ -590,6 +590,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&migrationReport, "migration-report", "", "With -convert from xmi, write the element-by-element migration report to this file: JSON when it ends in .json, text otherwise")
 	fs.StringVar(&migrationResults, "migration-results", "", "With -convert from xmi, write the run configurations and the result snapshots the simulation tool stored for them to this JSON file, for -compare-results to read against the migrated model")
 	fs.StringVar(&layoutPath, "layout", "", "With -convert from xmi, read this MTIP export (HUDS XML) and write the diagram geometry it records as DiagramLayout annotations in the migrated views")
+	fs.StringVar(&imageBaseURL, "image-base-url", "", "With -convert from xmi, the http(s) URL a comment's relative <img src> is resolved against, such as the View Editor server")
 	fs.StringVar(&modelChecks.compare, "compare-results", "", "Run every configuration this -migration-results file indexes — or those -action names — with its recorded runs and duration mode, or the -runs and -draws given, seeded from -seed, and table the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with their relative difference")
 
 	fs.StringVar(&compileCalc, "compile", "", "Compile this calc def to a native executable named by -o, as -compile Pkg::Fib")
@@ -718,6 +719,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("migration-report", fileArg),
 			usage.Opt("migration-results", fileArg),
 			usage.Opt("layout", fileArg),
+			usage.Opt("image-base-url", "<url>"),
 			usage.Opt("compare-results", fileArg),
 		},
 	}, {
