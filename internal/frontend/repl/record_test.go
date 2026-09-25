@@ -776,7 +776,9 @@ func TestRecordMonteCarloRecordsTheConclusionsToolCall(t *testing.T) {
 	if i < 0 {
 		t.Fatalf("the model holds no sample record:\n%s", text)
 	}
-	if !strings.Contains(text[i:min(i+800, len(text))], `"Thermo 1.0.0 from`) {
-		t.Errorf("the sample record's tools does not name the conclusion's call:\n%s", text[max(0, i-1200):])
+	// Each row evaluates the result's declared binding, and the conclusion
+	// evaluates it again in the last row's context: three calls, one text each.
+	if n := strings.Count(text[i:min(i+1600, len(text))], `"Thermo 1.0.0 from`); n != 3 {
+		t.Errorf("the sample record's tools names the calls made %d time(s), not the 3 it made:\n%s", n, text[max(0, i-1200):])
 	}
 }

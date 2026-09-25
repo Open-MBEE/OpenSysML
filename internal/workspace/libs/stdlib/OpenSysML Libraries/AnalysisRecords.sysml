@@ -19,7 +19,7 @@ library package AnalysisRecords {
 		attribute kind : String;
 		/* tools names each external tool a run reached, one element per call in call
 		 * order: its name and version, the manifest file, and the command composed. */
-		attribute tools : String[0..*];
+		attribute tools : String[0..*] ordered nonunique;
 	}
 
 	/* VerdictRecord is what one check of a recorded run decided: an
