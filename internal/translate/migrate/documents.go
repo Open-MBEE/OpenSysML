@@ -76,8 +76,8 @@ type contentPlan struct {
 	style string
 	// origin says what a text Paragraph stands for: a block's caption or a view's documentation.
 	origin string
-	// documentation marks a Paragraph made of the node's own documentation, so its
-	// report row names the comment and not a DocGen application over it.
+	// documentation marks a Paragraph made of the node's own documentation,
+	// reported on the comment's own entry rather than as a block of its own.
 	documentation bool
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds.
@@ -2272,7 +2272,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 		if cp.refused != "" {
 			continue
 		}
-		m.report.Entries = append(m.report.Entries, *m.blockEntry(cp))
+		m.reportBlock(cp)
 	}
 }
 
@@ -2471,7 +2471,7 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 		verdict = Approximated
 	}
 	var app *sysmlv1.Stereotype
-	if cp.node != nil && !cp.documentation {
+	if cp.node != nil {
 		app = cp.node.DocGen()
 	}
 	e := m.nodeEntry(cp.node, app, verdict, strings.Join(cp.notes, "; "))
@@ -2483,4 +2483,16 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 		e.Note = joinNotes(cp.origin, e.Note)
 	}
 	return e
+}
+
+// reportBlock records a written block: a documentation Paragraph joins the
+// comment's own entry, since the comment is one source element; every other
+// block is a row of its own.
+func (m *migration) reportBlock(cp *contentPlan) {
+	e := m.blockEntry(cp)
+	if cp.documentation {
+		m.add(cp.node, e.Verdict, e.Target, e.Note)
+		return
+	}
+	m.report.Entries = append(m.report.Entries, *e)
 }

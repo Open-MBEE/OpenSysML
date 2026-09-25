@@ -465,17 +465,8 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 	if es := entriesFor(r, "_st_intro_named"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
 		t.Errorf("a malformed collaborator over the view's documentation should be refused, and only refused: %+v", es)
 	}
-	paragraphs := 0
-	for _, e := range entriesFor(r, "_intro_doc") {
-		if e.Verdict != migrate.Mapped {
-			t.Errorf("the view's documentation comment should only be mapped: %+v", e)
-		}
-		if strings.HasSuffix(e.Target, "::Introduction::paragraph") {
-			paragraphs++
-		}
-	}
-	if paragraphs != 1 {
-		t.Errorf("the documentation shown beside a malformed collaborator should be mapped to its paragraph under the comment's own id: %+v", entriesFor(r, "_intro_doc"))
+	if es := entriesFor(r, "_intro_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped || !strings.HasSuffix(es[0].Target, "::Introduction::paragraph") {
+		t.Errorf("the view's documentation comment should have one entry, mapped to the paragraph it opens the section with: %+v", es)
 	}
 	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
 		`attribute redefines title = "Safety";`,
