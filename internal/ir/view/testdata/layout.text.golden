@@ -8,3 +8,11 @@ part def Plant::Loop
 
 connections:
   pump -- tank: supply via (400, 70) (450, 120) (500, 70)
+
+notes:
+  "always" on pump at (10, 90)
+  "anchored" on tank at (650, 40) size 100×30
+  "free" at (0, 700)
+
+not represented:
+  - 1 styled node(s) and 1 styled edge(s); colours and fonts are not written; the dot form draws every Style

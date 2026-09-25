@@ -1,6 +1,8 @@
 @startuml
 ' PlantViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 ' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does
+' not represented: 1 styled node(s) and 1 styled edge(s); a node's font and an edge's Style are not drawn; the dot form draws every Style
+' not represented: 3 note(s); the dot form draws notes
 <style>
 root {
   BackGroundColor white
@@ -46,7 +48,7 @@ hide stereotype
 ' layout: n2 x=500 y=40 w=120 h=60
 ' route: n1->n2 400,70 450,120 500,70
 rectangle "**Loop**\n<size:10>//«part def»//</size>" as n0 <<part def>> {
-  rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>>
+  rectangle "**pump : Pump**\n<size:10>//«part»//</size>" as n1 <<part>> <<usage>> #FFE8BD;line:333333
   rectangle "**tank : Tank**\n<size:10>//«part»//</size>" as n2 <<part>> <<usage>>
 }
 n1 -[thickness=3]- n2 : supply

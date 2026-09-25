@@ -15,8 +15,13 @@ digraph "PlantViews::placedView" {
     penwidth=0.5;
     bb="292,692,628,768";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
-    "n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
     "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
-  "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+  "note:0" [shape=note, label="always", pos="43.5,692!", pin=true, width=0.9305555555555556, height=0.5];
+  "note:1" [shape=note, label="anchored", pos="700,745!", pin=true, width=1.3888888888888888, height=0.4166666666666667, fixedsize=true];
+  "note:2" [shape=note, label="free", pos="27,82!", pin=true, width=0.75, height=0.5];
+  "n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];
+  "note:0" -> "n1" [style=dashed, arrowhead=none];
+  "note:1" -> "n2" [style=dashed, arrowhead=none];
 }

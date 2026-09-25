@@ -483,10 +483,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
 		// pump: top-left (300, 40), no size, so the centre of a 109x37 box fitted
 		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
-		`"n1" [style="rounded,filled", label=<<b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font>>, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
+		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
-		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
+		`"n1" -> "n2" [label="supply", arrowhead=none, penwidth=3, color="#0000FF", pos="400,730 400,730 450,680 450,680 450,680 500,730 500,730"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
@@ -504,7 +504,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 	for _, want := range []string{
 		"// layout: neato -n2\ndigraph",
 		"  graph [fontname=\"Helvetica\", inputscale=72, dpi=72];\n",
-		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
+		`"n1" [style="rounded,filled", label=<<b>pump<br/>: Pump</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, fillcolor="#FFFFDC", pos="60,-45!", pin=true, width=1.3888888888888888, height=0.6944444444444444, fixedsize=true];`,
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, pos="259,-45!", pin=true, width=1.6388888888888888, height=0.5138888888888888];`,
 		`pos="60,-45 60,-45 200,-45 200,-45"`,
 	} {
@@ -529,8 +529,8 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		"// not represented: 1 node(s) without a position, left undrawn, and 1 edge(s) at them\n// layout: neato -n2\ndigraph",
 		// off: three lines, 14pt, 10pt and 14pt, so a 75x54 box from its top-left (0, 0).
 		`[style="rounded,filled", label=<<b>off</b><br/><font point-size="10"><i>«state»</i></font><br/>initial>, pos="37.5,-27!", pin=true, width=1.0416666666666667, height=0.75];`,
-		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, margin=0, pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
-		`"n1" -> "n2" [label="off_on", pos="50,-10 50,-10 50,-90 50,-90"];`,
+		`[style="rounded,filled", label=<<b>on</b><br/><font point-size="10"><i>«state»</i></font>>, margin=0, fillcolor="#EBEBD7", pos="40,-120!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];`,
+		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="50,-10 50,-10 50,-90 50,-90"];`,
 		`"n2" -> "n1" [pos="30,-90 30,-90 30,-10 30,-10"];`,
 	} {
 		if !strings.Contains(machine, want) {
@@ -1136,8 +1136,10 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			tag := label[i+1 : i+end]
 			i += end
 			switch {
-			case tag == "br/":
-			case tag == "b" || tag == "i" || strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
+			case tag == "br/" || tag == "hr/":
+			case tag == "b" || tag == "i" || tag == "tr" || tag == "td" || tag == `td align="left"` ||
+				tag == `table border="0" cellborder="0" cellspacing="0" cellpadding="2"` ||
+				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
 				open = append(open, strings.Fields(tag)[0])
 			case strings.HasPrefix(tag, "/"):
 				if len(open) == 0 || open[len(open)-1] != tag[1:] {

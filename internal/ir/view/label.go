@@ -12,6 +12,7 @@ import (
 type labeller struct {
 	context []string         // the shared namespace's names, outermost first
 	owned   map[*Node]string // a node's name relative to the nearest drawn owner
+	skin    dotSkin          // the DOT skin labels are composed and measured for
 }
 
 // labelsOf finds the namespace the named roots share — the longest run of
