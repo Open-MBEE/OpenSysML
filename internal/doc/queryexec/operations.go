@@ -690,6 +690,9 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		}
 		return result, true, nil
 	}
+	if segments, ok := parseMemberPath(property); ok {
+		return e.memberPathValues(sym, segments)
+	}
 	return e.declaredFeatureValues(sym, property)
 }
 

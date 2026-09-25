@@ -6,6 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 const (
@@ -220,6 +221,8 @@ func (c *compiler) compileColumnExpression(
 			semantics.PrimUnknown, nil
 	case *ast.OperatorExpr:
 		return c.compileColumnOperator(query, owner, column, expression)
+	case *ast.FeatureChainExpr:
+		return c.compileColumnChain(query, owner, column, expression)
 	default:
 		return Expression{}, semantics.PrimUnknown, &Error{
 			Kind:   ErrorUnsupportedExpression,
@@ -265,6 +268,88 @@ func (c *compiler) compileColumnReference(
 		multiplicity: c.featureMultiplicity(target),
 		origin:       symbols.NodeOrigin(owner.DocName, expression),
 	}, c.staticPrimType(target), nil
+}
+
+// compileColumnChain compiles a feature chain — `stat.runs`, `'Monte
+// Carlo'.runs` — into a member-path read: each segment names a member nested
+// in the element the chain's head reaches, walked at execution. A head
+// resolving in the owner's scope names a feature the row must conform to, as
+// row-property does; an unresolved head — the common case, a member the row
+// element itself declares — is row-relative. Its multiplicity is unknown: the
+// feature the last segment names is found per row, so a member without a
+// value is an empty cell rather than a typed failure.
+func (c *compiler) compileColumnChain(
+	query *symbols.Symbol,
+	owner *symbols.Symbol,
+	column string,
+	expression *ast.FeatureChainExpr,
+) (Expression, semantics.PrimType, error) {
+	unsupported := func() error {
+		return &Error{
+			Kind:   ErrorUnsupportedExpression,
+			Query:  symbols.FQNOf(query),
+			Target: column,
+			Origin: symbols.NodeOrigin(owner.DocName, expression),
+		}
+	}
+	head, members, ok := columnChainParts(expression)
+	if !ok {
+		return Expression{}, semantics.PrimUnknown, unsupported()
+	}
+	var segments []string
+	declaring := ""
+	if target, resolved := c.resolver.ResolveQualified(owner.Scope, head); resolved && target != nil {
+		for _, param := range c.model.BehaviorParametersOf(query) {
+			if !param.IsResult && c.parameterIncludes(param.Symbol, target) {
+				return Expression{}, semantics.PrimUnknown, unsupported()
+			}
+		}
+		segments = append(segments, target.Name)
+		declaring = declaringTypeFQN(target)
+	} else {
+		for _, part := range head.Parts {
+			segments = append(segments, part.Text)
+		}
+	}
+	for _, member := range members {
+		for _, part := range member.Parts {
+			segments = append(segments, part.Text)
+		}
+	}
+	return Expression{
+		operation:    OperationRowMember,
+		target:       source.MemberPathOf(segments),
+		value:        declaring,
+		multiplicity: Multiplicity{},
+		origin:       symbols.NodeOrigin(owner.DocName, expression),
+	}, semantics.PrimUnknown, nil
+}
+
+// columnChainParts flattens a feature chain into its head name and the ordered
+// member names the chain then walks; the head must be a feature reference or
+// a bare qualified name.
+func columnChainParts(expression *ast.FeatureChainExpr) (*ast.QualifiedName, []*ast.QualifiedName, bool) {
+	var members []*ast.QualifiedName
+	node := ast.Node(expression)
+	for {
+		chain, ok := node.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		if chain.Member == nil || len(chain.Member.Parts) == 0 {
+			return nil, nil, false
+		}
+		members = append(members, chain.Member)
+		node = chain.Operand
+	}
+	head := ast.AsQualifiedName(node)
+	if head == nil || len(head.Parts) == 0 {
+		return nil, nil, false
+	}
+	for i, j := 0, len(members)-1; i < j; i, j = i+1, j-1 {
+		members[i], members[j] = members[j], members[i]
+	}
+	return head, members, true
 }
 
 // declaringTypeFQN names the type declaring a feature, so execution reads it

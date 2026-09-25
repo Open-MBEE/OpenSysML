@@ -122,7 +122,8 @@ func (e *executor) evaluateColumnCell(
 func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity {
 	one := queryplan.Multiplicity{Lower: 1, Upper: 1, Known: true}
 	switch expression.Operation() {
-	case queryplan.OperationRowProperty, queryplan.OperationParameter:
+	case queryplan.OperationRowProperty, queryplan.OperationRowMember,
+		queryplan.OperationParameter:
 		return expression.Multiplicity()
 	case queryplan.OperationLiteral:
 		if kind, _ := expression.Literal(); kind == queryplan.LiteralNull {
@@ -164,6 +165,8 @@ func (e *executor) evaluateColumnExpression(
 	switch expression.Operation() {
 	case queryplan.OperationRowProperty:
 		return e.rowPropertyValues(expression, row, tracker)
+	case queryplan.OperationRowMember:
+		return e.rowMemberValues(expression, row, tracker)
 	case queryplan.OperationLiteral:
 		value, err := e.evaluateLiteral(expression)
 		if err != nil {
@@ -234,6 +237,38 @@ func (e *executor) rowPropertyValues(
 		return nil, e.unevaluable(expression, property, ElementValue(sym), err)
 	}
 	return declared, nil
+}
+
+// rowMemberValues evaluates a member path — `stat.runs`, `'Monte
+// Carlo'.runs` — on the row element: each segment but the last names a
+// member nested in the element reached so far, own members first. Only
+// element rows carry members; a row of another kind reads the path as absent,
+// and a nonconforming row reads nothing, so ?? can default either.
+func (e *executor) rowMemberValues(
+	expression queryplan.Expression,
+	row Value,
+	tracker *propertyTracker,
+) ([]Value, error) {
+	path := expression.Target()
+	_, declaring := expression.Literal()
+	sym, isElement := row.Element()
+	if !isElement {
+		tracker.record(path, false)
+		return nil, nil
+	}
+	if declaring != "" && !e.rowConformsTo(sym, declaring) {
+		return nil, nil
+	}
+	segments, ok := parseMemberPath(path)
+	if !ok {
+		return nil, e.unevaluable(expression, path, row, nil)
+	}
+	values, present, err := e.memberPathValues(sym, segments)
+	if err != nil {
+		return nil, e.unevaluable(expression, path, row, err)
+	}
+	tracker.record(path, present)
+	return values, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.

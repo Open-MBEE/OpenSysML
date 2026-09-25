@@ -1464,22 +1464,37 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 			r.ResolveQualified(scope, v.TypeRef)
 		}
 	case *ast.FeatureChainExpr:
-		r.resolveFeatureChain(scope, v)
+		if r.columnChains == 0 || r.columnChainHeadResolves(scope, v) {
+			r.resolveFeatureChain(scope, v)
+		}
 	case *ast.IndexExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Index)
 	case *ast.InvocationExpr:
 		r.resolveExpr(scope, v.Operand)
+		var called *symbols.Symbol
 		if v.Type != nil {
-			r.ResolveInvocationName(scope, v.Type)
+			called, _ = r.ResolveInvocationName(scope, v.Type)
 		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
+		// A Column invocation's expression argument is evaluated on each
+		// projected row, so a feature chain in it may name members of the
+		// row element rather than a visible reference.
+		column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
+		for i, a := range v.Args {
+			if column && i == 1 {
+				r.resolveColumnExpression(scope, a)
+			} else {
+				r.resolveExpr(scope, a)
+			}
 		}
 		for _, na := range v.NamedArgs {
 			// Named argument names are parameter identifiers, not references
 			// Don't resolve na.Name - it's looked up in callee's parameter list
-			r.resolveExpr(scope, na.Value)
+			if column && na.Name != nil && na.Name.Text() == "expression" {
+				r.resolveColumnExpression(scope, na.Value)
+			} else {
+				r.resolveExpr(scope, na.Value)
+			}
 		}
 	case *ast.CollectExpr:
 		r.resolveExpr(scope, v.Operand)
@@ -1539,6 +1554,40 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.ResolveQualified(scope, v)
 	}
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
+}
+
+// resolveColumnExpression resolves a DocumentQueries::Column expression
+// argument: within it a feature chain whose head resolves in scope resolves
+// normally, while a row-relative chain — `stat.runs` or `'Monte
+// Carlo'.runs`, naming members each row element declares — is no reference
+// and records nothing.
+func (r *Resolver) resolveColumnExpression(scope *symbols.Scope, node ast.Node) {
+	r.columnChains++
+	defer func() { r.columnChains-- }()
+	r.resolveExpr(scope, node)
+}
+
+// columnChainHeadResolves reports whether a chain in a column expression
+// resolves in scope: the head is the name the chain's operand recursion ends
+// at, and a row-relative chain — one whose head resolves to nothing — reads
+// the row's members instead, so it resolves on no document reference.
+func (r *Resolver) columnChainHeadResolves(scope *symbols.Scope, fc *ast.FeatureChainExpr) bool {
+	operand := fc.Operand
+	for {
+		chain, ok := operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		operand = chain.Operand
+	}
+	head := ast.AsQualifiedName(operand)
+	if head == nil || len(head.Parts) == 0 {
+		return true
+	}
+	return r.probe(head, func() bool {
+		_, ok := r.ResolveQualified(scope, head)
+		return ok
+	})
 }
 
 // resolveFeatureChain resolves a FeatureChainExpr and returns its final symbol.
@@ -1767,6 +1816,10 @@ func (r *Resolver) getOperandSymbol(scope *symbols.Scope, e ast.Node) *symbols.S
 // baseThatFQN is the implicit `that` feature every usage takes from the base
 // usage Base::things ([KerML, 8.4.2]).
 const baseThatFQN = "Base::things::that"
+
+// documentColumnCalcFQN is the document-query library's column constructor,
+// whose expression argument evaluates on each projected row.
+const documentColumnCalcFQN = "DocumentQueries::Column"
 
 // featuringOf returns what a member chain from `that` reads its members from:
 // the usage enclosing the expression, whose value features the value being
