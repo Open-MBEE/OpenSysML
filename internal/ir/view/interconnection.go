@@ -19,7 +19,13 @@ import (
 // nested in it is not a second root.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{}, out: out}
-	descendants := r.exposedDescendants(exposed, r.interconnectionMembers)
+	var roots []*symbols.Symbol
+	for _, elem := range exposed {
+		if !r.drawsConnector(elem) && featureLike(elem) {
+			roots = append(roots, elem)
+		}
+	}
+	descendants := r.exposedDescendants(roots, r.interconnectionMembers)
 	for _, elem := range exposed {
 		switch {
 		case r.drawsConnector(elem):

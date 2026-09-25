@@ -148,6 +148,51 @@ func TestNestedFeatureWithoutDrawnParentStaysARoot(t *testing.T) {
 	}
 }
 
+// An exposed element an interconnection rendering does not draw — a package is
+// a notice, a connector an edge — does not suppress what is nested in it: a
+// part exposed beside the package holding it still stands as the root.
+func TestExposedPackageDoesNotSuppressTheFeatureItHolds(t *testing.T) {
+	rendering := render(t, "interconnection-exposed.sysml", "FixtureViews::packageIBD")
+	if len(rendering.Roots) != 1 {
+		t.Fatalf("roots = %d, want 1: %v", len(rendering.Roots), nodeNames(rendering.Roots))
+	}
+	root := rendering.Roots[0]
+	if root.Kind != "part def" || !strings.HasSuffix(root.Name, "Whole") {
+		t.Errorf("root = %s %s, want the part def Whole", root.Kind, root.Name)
+	}
+	names := nodeNames(rendering.Roots)
+	for _, want := range []string{"a", "b", "pa", "pb"} {
+		if !names[want] {
+			t.Errorf("no nested node %q; nodes: %v", want, names)
+		}
+	}
+	if len(rendering.Edges) != 1 {
+		t.Fatalf("edges = %v, want the one connection", rendering.Edges)
+	}
+	var pa, pb *Node
+	for _, node := range everyNode(rendering.Roots) {
+		switch node.Name {
+		case "pa":
+			pa = node
+		case "pb":
+			pb = node
+		}
+	}
+	edge := rendering.Edges[0]
+	if (edge.From != pa.ID || edge.To != pb.ID) && (edge.From != pb.ID || edge.To != pa.ID) {
+		t.Errorf("edge %s -> %s does not join the nested port nodes %s, %s", edge.From, edge.To, pa.ID, pb.ID)
+	}
+	var noticed bool
+	for _, notice := range rendering.Notices {
+		if strings.Contains(notice, "has no place in an interconnection rendering") && strings.Contains(notice, "Fixture") {
+			noticed = true
+		}
+	}
+	if !noticed {
+		t.Errorf("no notice for the exposed package; notices: %v", rendering.Notices)
+	}
+}
+
 // The order elements are exposed in does not change what is drawn nested:
 // ports exposed before the part that contains them are still drawn once.
 func TestExposeOrderDoesNotDuplicateNestedFeatures(t *testing.T) {
