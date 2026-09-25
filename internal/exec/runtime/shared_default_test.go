@@ -739,3 +739,54 @@ func TestRandomDrawsAreNotShared(t *testing.T) {
 		t.Errorf("shared verdicts taken = %d over a check that draws, want 0", taken)
 	}
 }
+
+const clockFleetSrc = `package test {
+	requirement def Early {
+		subject s : Sat;
+		require constraint { s.localClock.currentTime < 5.0 }
+	}
+	part def Sat {
+		attribute stamp : ScalarValues::Real = localClock.currentTime + 1.0;
+	}
+	part def Fleet {
+		part sats : Sat[3];
+	}
+	part fleet : Fleet {
+		satisfy Early by sats;
+	}
+}`
+
+// The clock is the run's, not the shape's: a default or a check reading a Clock's
+// currentTime is evaluated on every occurrence, at the instant it is read.
+func TestClockReadsAreNotShared(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, clockFleetSrc))
+	ctx.SetSharedDefaults(true)
+	fleet, err := ctx.Instantiate(lookupOne(t, idx, "test::fleet"))
+	if err != nil {
+		t.Fatalf("instantiate: %v", err)
+	}
+	for i := 1; i <= 2; i++ {
+		if got := read(t, ctx, fleet, "sats["+strconv.Itoa(i)+"]", "stamp"); got != "1.0" {
+			t.Errorf("sats[%d].stamp at t=0 = %s, want 1.0", i, got)
+		}
+	}
+	if _, err := ctx.Advance(10); err != nil {
+		t.Fatalf("advance: %v", err)
+	}
+	if got := read(t, ctx, fleet, "sats[3]", "stamp"); got != "11.0" {
+		t.Errorf("sats[3].stamp at t=10 = %s, want 11.0", got)
+	}
+	expectTaken(t, ctx, 0)
+	done := ctx.ShareVerdicts()
+	report, err := ctx.ValidateObject(fleet, []*symbols.Scope{idx.DocumentRoot("<test>")})
+	done()
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if report.Valid() {
+		t.Errorf("report valid at t=10, want every check failed: %+v", report.Verdicts)
+	}
+	if taken := ctx.SharedVerdictsTaken(); taken != 0 {
+		t.Errorf("shared verdicts taken = %d over a check that reads the clock, want 0", taken)
+	}
+}
