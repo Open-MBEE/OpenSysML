@@ -133,7 +133,7 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("column %s is not a name or a zero-based index", strings.TrimSpace(string(data)))
 	}
 	i, err := strconv.ParseInt(n.String(), 10, 64)
-	if err != nil || i < 0 {
+	if err != nil || i < 0 || i > math.MaxInt {
 		return fmt.Errorf("column %s is not a name or a zero-based index", n.String())
 	}
 	*c = Column{Index: int(i), ByIndex: true}
@@ -197,7 +197,7 @@ func (r *Row) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("row %s is not one of first, last and all, or a zero-based index", strings.TrimSpace(string(data)))
 	}
 	i, err := strconv.ParseInt(n.String(), 10, 64)
-	if err != nil || i < 0 {
+	if err != nil || i < 0 || i > math.MaxInt {
 		return fmt.Errorf("row %s is not one of first, last and all, or a zero-based index", n.String())
 	}
 	*r = Row{Kind: RowIndex, Index: int(i)}
@@ -914,7 +914,7 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 	}
 	indexOf := func(c *Column) (int, error) {
 		if c.ByIndex {
-			if c.Index >= width {
+			if c.Index < 0 || c.Index >= width {
 				return 0, fmt.Errorf("column %d is past the %d fields of a record", c.Index, width)
 			}
 			return c.Index, nil
@@ -945,7 +945,7 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) 
 		if err != nil {
 			return nil, toolFault(tool, runtime.ToolMissingOutput, "%s in column %s, row %s: %v", variable, o.Column, o.Row, err)
 		}
-		if row >= len(data) {
+		if row < 0 || row >= len(data) {
 			return nil, toolFault(tool, runtime.ToolMalformed, "%s in column %s, row %s: only %d rows", variable, o.Column, o.Row, len(data))
 		}
 		cell := data[row][col]

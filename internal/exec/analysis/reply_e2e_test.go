@@ -106,6 +106,13 @@ const replyDriver = `package ProbeR {
 	action def SignalOnce {
 		action step : Signal { in mass = 1500 [SI::kg]; }
 	}
+
+	action def Subsets {
+		first p;
+		then e;
+		action p : Probe;
+		action e : Exit;
+	}
 }`
 
 var replyVariables = []string{"mass", "T_max", "v_out", "done", "code", "note"}
@@ -355,6 +362,22 @@ func TestToolReplyReadsNoRequestedOutputs(t *testing.T) {
 	_, echoed := out["step.mass"]
 	if len(out) != 1 || !echoed {
 		t.Fatalf("outputs = %+v, want only the step's input echoed", out)
+	}
+}
+
+// Two performances asking for different outputs of one reply compare by what the tool
+// wrote, not by either subset: no divergence is noted.
+func TestToolReplySeesNoFalseDivergence(t *testing.T) {
+	p := parseRProbe(t)
+	entry := thermalEntry(toolreply(t), []string{"csv-stdout"}, &Reply{Format: ReplyCSV, Outputs: csvReplyOutputs})
+	_, ctx, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Subsets")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(runtime.ToolDivergence); ok {
+			t.Fatalf("note %v, want none: the subset bound is not the reply written", note)
+		}
 	}
 }
 

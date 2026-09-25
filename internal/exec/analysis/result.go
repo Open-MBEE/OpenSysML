@@ -335,8 +335,9 @@ type Result struct {
 	Reason string
 	// Values are the feature values, outputs, rows or answers the question asked for.
 	Values []Evaluation
-	// Reply is what an external process answered, spelt canonically, when the engine ran one
-	// for a Compute; invocations of equal inputs compare by it.
+	// Reply is what an external process answered — spelt canonically under the object
+	// protocol, verbatim otherwise — when the engine ran one for a Compute; invocations of
+	// equal inputs compare by it.
 	Reply   string
 	Elapsed time.Duration
 	// Workers is how many workers the plan built for the engine's runs, and Warming the

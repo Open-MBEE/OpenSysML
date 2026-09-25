@@ -673,8 +673,8 @@ how the answer is read — still the one JSON object by default, or an RFC 6901 
 JSON document, a CSV cell, a `key = value` line or regex group, or the exit status itself,
 read from standard output or a file under `{outputDir}` — and each output carries its `type`
 and unit into the same `ToolCall.Bind` conversion the object protocol uses. The timeout, the
-size bounds and the divergence report — which compares the parsed `ToolValue`s, not the reply
-bytes — are the same code path whatever the format; an entry without the blocks starts the
+size bounds and the divergence report — which compares the reply as the tool wrote it, not
+either call's bound subset — are the same code path whatever the format; an entry without the blocks starts the
 executable exactly as before.
 
 ## User surface

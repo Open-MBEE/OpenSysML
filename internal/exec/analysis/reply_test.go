@@ -607,6 +607,26 @@ func TestReplyReadsRequestedOutputs(t *testing.T) {
 	}
 }
 
+// A programmatic selector below zero is the same malformed fault as one too large, not
+// a panic.
+func TestReplyNegativeSelectors(t *testing.T) {
+	source := "T_max,code\n1,2\n"
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Index: -1, ByIndex: true}},
+	}})
+	if _, err := readReply(t, r, entry, source); replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "past the 2 fields") {
+		t.Errorf("negative column: %v", err)
+	}
+	r, entry = replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Name: "T_max"}, Row: &Row{Kind: RowIndex, Index: -1}},
+	}})
+	if _, err := readReply(t, r, entry, source); replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "only 1 rows") {
+		t.Errorf("negative row: %v", err)
+	}
+}
+
 // The empty pointer selects the whole document, so a bare scalar is the output.
 func TestReplyReadsJSONRootPointer(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
