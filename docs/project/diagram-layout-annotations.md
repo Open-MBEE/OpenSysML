@@ -115,7 +115,8 @@ and `above` when it lies over the element symbols it overlaps rather than under 
 the default — a background picture with the boxes drawn on top. There is no order finer than
 that: a picture lies under every element symbol or over every one, never between two. A
 `Picture` belongs to a view alone, `@Picture { … }` in its body; a view carries as many as it
-shows, in declaration order.
+shows, in declaration order: within each layer a later picture lies over an earlier one it
+overlaps, and every picture over the element symbols lies over every one under them.
 The graph-shaped renderings (interconnection, tree, state and action views) draw it; a table or
 sequence rendering has no drawing surface for it, so it keeps its rows and states in its notices
 each picture's file and box under `not drawn`.

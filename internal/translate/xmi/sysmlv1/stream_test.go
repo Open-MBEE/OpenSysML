@@ -224,7 +224,8 @@ func TestReadSymbolsIgnoresMalformedGeometryAndColour(t *testing.T) {
 
 // A symbol MagicDraw marks not visible is read but hidden: a hidden frame does not bound the
 // diagram, a hidden free symbol is not counted, and neither a hidden symbol, one nested in it nor
-// a hidden listed part shows its element, while a property's own visible flag is not the symbol's.
+// a hidden listed part shows its element, whichever of its visible flag and elementID comes
+// first, while a property's own visible flag is not the symbol's.
 func TestReadSymbolsHidden(t *testing.T) {
 	stream := `<mdOwnedViews>
   <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
@@ -259,6 +260,8 @@ func TestReadSymbolsHidden(t *testing.T) {
     <parts>
       <mdElement elementClass='Part' xmi:id='_p1'><elementID xmi:idref='_d'/><geometry>30, 40, 40, 20</geometry></mdElement>
       <mdElement elementClass='Part' xmi:id='_p2'><elementID xmi:idref='_e'/><visible xmi:value='false'/><geometry>30, 60, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p3'><visible xmi:value='false'/><elementID xmi:idref='_g'/><geometry>30, 80, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p4'><visible xmi:value='true'/><elementID xmi:idref='_h'/></mdElement>
     </parts>
   </mdElement>
   <mdElement elementClass='Class' xmi:id='_s4'>
@@ -288,7 +291,7 @@ func TestReadSymbolsHidden(t *testing.T) {
 	if want := map[string]string{"_frame": "_diag", "_img": "", "_tb": "", "_s1": "_a", "_s2": "_b", "_s3": "_c", "_s4": "_f"}; !reflect.DeepEqual(stands, want) {
 		t.Errorf("element ids = %v, want %v", stands, want)
 	}
-	if want := []string{"_a", "_d"}; !reflect.DeepEqual(syms.shown, want) {
+	if want := []string{"_a", "_d", "_h"}; !reflect.DeepEqual(syms.shown, want) {
 		t.Errorf("shown = %q, want %q", syms.shown, want)
 	}
 }

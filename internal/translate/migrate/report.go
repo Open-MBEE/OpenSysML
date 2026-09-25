@@ -261,7 +261,7 @@ func (r *Report) WriteText(w io.Writer) error {
 		if l.Pictures > 0 {
 			fmt.Fprintf(&b, "# pasted images: %d of %d written as files and drawn by the view", l.PicturesWritten, l.Pictures)
 			if l.PicturesUnderlaid > 0 {
-				fmt.Fprintf(&b, " (%d under element symbols they lay over)", l.PicturesUnderlaid)
+				fmt.Fprintf(&b, " (%d under symbols they lay over)", l.PicturesUnderlaid)
 			}
 			if l.PicturesUndrawn > 0 {
 				fmt.Fprintf(&b, ", %d written on a view whose table rendering does not draw them", l.PicturesUndrawn)

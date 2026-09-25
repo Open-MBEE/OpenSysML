@@ -176,9 +176,82 @@ func TestPictureBetweenSymbolsIsDrawnUnder(t *testing.T) {
 	wantInOrder(t, "modes entry", reportText(t, r),
 		"_diag_modes", "2 pasted images written as images/Plant_from_the_north.png, 1 pasted image drawn under the 1 element symbol it lay over, since symbols drawn after it lie over it")
 	wantInOrder(t, "layout summary", reportText(t, r),
-		"# pasted images: 3 of 6 written as files and drawn by the view (1 under element symbols they lay over)")
+		"# pasted images: 3 of 6 written as files and drawn by the view (1 under symbols they lay over)")
 	if r.Report.Layout.PicturesUnderlaid != 1 {
 		t.Errorf("underlaid = %d, want 1", r.Report.Layout.PicturesUnderlaid)
+	}
+}
+
+// A picture pasted after one that lies over an element symbol, overlapping that picture
+// but no element symbol, is drawn over the element symbols too, so it keeps its place
+// over the earlier picture; one an element symbol drawn after it covers cannot be, and is reported.
+func TestPictureOverPictureKeepsItsOrder(t *testing.T) {
+	patch := `
+  <mdElement elementClass="ImageShape" xmi:id="_sym_patch">
+    <geometry>380, 140, 40, 40</geometry>
+    <image>` + cameoHex(plantPNG) + `</image>
+  </mdElement>
+`
+	streams := map[string]string{}
+	for k, v := range figureStreams {
+		streams[k] = v
+	}
+	streams["BINARY-modes"] = strings.Replace(streams["BINARY-modes"], "</mdOwnedViews>", patch+"</mdOwnedViews>", 1)
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	wantInOrder(t, "pictures in stream order, both over the element symbols", string(r.Notation),
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }`,
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 380; y = 140; width = 40; height = 40; above = true; }`)
+	if r.Report.Layout.PicturesUnderlaid != 0 {
+		t.Errorf("underlaid = %d, want none", r.Report.Layout.PicturesUnderlaid)
+	}
+
+	// Drawn after the patch, the note lies over it in the tool: the patch goes under the
+	// element symbols, so the sticker over them covers it, which the report says.
+	modes := figureStreams["BINARY-modes"]
+	note := modes[strings.Index(modes, `<mdElement elementClass="Note" xmi:id="_sym_note">`):]
+	note = note[:strings.Index(note, `<mdElement elementClass="Note" xmi:id="_sym_note_start">`)]
+	modes = strings.Replace(modes, note, "", 1)
+	note = strings.Replace(note, "<geometry>40, 200, 150, 40</geometry>", "<geometry>395, 150, 40, 40</geometry>", 1)
+	streams["BINARY-modes"] = strings.Replace(modes, "</mdOwnedViews>", patch+note+"\n</mdOwnedViews>", 1)
+	if r, err = migrate.Migrate("figures.mdzip", mdzip(t, streams)); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	if !strings.Contains(string(r.Notation), `x = 380; y = 140; width = 40; height = 40; }`) {
+		t.Errorf("the covered patch is not drawn under the element symbols:\n%s", r.Notation)
+	}
+	wantInOrder(t, "modes entry", reportText(t, r),
+		"_diag_modes", "3 pasted images written as images/Plant_from_the_north.png, 1 pasted image drawn under the 1 pasted image it lay over, since symbols drawn after it lie over it")
+	if r.Report.Layout.PicturesUnderlaid != 1 {
+		t.Errorf("underlaid = %d, want 1", r.Report.Layout.PicturesUnderlaid)
+	}
+}
+
+// A pasted image whose geometry has no area — a zero or negative side — is not
+// written: a Picture needs a box to fill, and the report says why it has none.
+func TestPictureWithoutAreaIsNotWritten(t *testing.T) {
+	streams := map[string]string{}
+	for k, v := range figureStreams {
+		streams[k] = v
+	}
+	streams["BINARY-modes"] = strings.Replace(streams["BINARY-modes"], "<geometry>350, 120, 40, 40</geometry>", "<geometry>350, 120, 0, -40</geometry>", 1)
+	r, err := migrate.Migrate("figures.mdzip", mdzip(t, streams))
+	if err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	wantClean(t, "figures.sysml", r)
+	if strings.Contains(string(r.Notation), "x = 350; y = 120;") {
+		t.Errorf("a picture without area is placed:\n%s", r.Notation)
+	}
+	wantInOrder(t, "modes entry", reportText(t, r),
+		"_diag_modes", "1 pasted image written as images/Plant_from_the_north.png, 3 pasted images not written: ",
+		"the pasted image of symbol _sym_sticker has no area to fill (0 by -40)")
+	if s := r.Report.Layout; s.Pictures != 6 || s.PicturesWritten != 2 {
+		t.Errorf("pictures = %d, written = %d; want 6 and 2", s.Pictures, s.PicturesWritten)
 	}
 }
 

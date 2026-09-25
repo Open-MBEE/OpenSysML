@@ -23,6 +23,20 @@ package Site {
 		@Picture { location = "images/logo.png"; x = 700; y = 20; width = 80; height = 40; above = true; }
 	}
 
+	// Pictures under and over the parts, interleaved: each layer keeps its
+	// declaration order, the later picture over the earlier it overlaps.
+	view layeredView {
+		expose Site::Table;
+		render asInterconnectionDiagram;
+		@Canvas { unit = "px"; width = 900; height = 600; }
+		metadata Layout about Site::Table::bench { x = 100; y = 200; width = 120; height = 60; }
+		metadata Layout about Site::Table::camera { x = 400; y = 200; width = 120; height = 60; }
+		@Picture { location = "images/bench.png"; x = 0; y = 0; width = 600; height = 400; }
+		@Picture { location = "images/logo.png"; x = 100; y = 220; width = 80; height = 40; above = true; }
+		@Picture { location = "images/site.jpg"; x = 300; y = 300; width = 400; height = 200; }
+		@Picture { location = "images/logo.png"; x = 140; y = 240; width = 80; height = 40; above = true; }
+	}
+
 	// A picture under parts nothing places: the parts are drawn below it.
 	view unplacedView {
 		expose Site::Table;

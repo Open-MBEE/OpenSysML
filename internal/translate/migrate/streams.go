@@ -121,13 +121,14 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	return &merged, src
 }
 
-// picture is a pasted image the view draws: its symbol, its file, whether it lies over the
-// symbols it overlaps, and how many it lay over in the tool yet is drawn under (later ones cover it).
+// picture is a pasted image the view draws: its symbol, its file, whether it lies over the element
+// symbols it overlaps, and how many element symbols and pictures it lay over yet is drawn under.
 type picture struct {
 	sym      *sysmlv1.Symbol
 	location string
 	above    bool
 	under    int
+	covered  int
 }
 
 // pictures is what became of the pasted images of one diagram's stream: those
@@ -190,6 +191,10 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 			p.lost = append(p.lost, named+" has no geometry to place it by")
 			continue
 		}
+		if sym.Bounds.Width <= 0 || sym.Bounds.Height <= 0 {
+			p.lost = append(p.lost, fmt.Sprintf("%s has no area to fill (%s by %s)", named, layoutNumber(sym.Bounds.Width), layoutNumber(sym.Bounds.Height)))
+			continue
+		}
 		fallback := sym.ID
 		if entry != "" {
 			fallback = entry
@@ -197,13 +202,25 @@ func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
 		before, after := overlapping(sym.Bounds, boxes, i)
 		pic := picture{sym: sym, location: m.addFile(imagefile.Name(sym.Attachment, fallback, ct), data)}
 		if after == 0 {
-			pic.above = before > 0
+			pic.above = before > 0 || p.overAbove(sym.Bounds) > 0
 		} else {
-			pic.under = before
+			pic.under, pic.covered = before, p.overAbove(sym.Bounds)
 		}
 		p.drawn = append(p.drawn, pic)
 	}
 	return p
+}
+
+// overAbove counts the pictures drawn so far that lie over the element symbols and share
+// area with b: a later picture over them stays over those, one under them is covered by them.
+func (p *pictures) overAbove(b *sysmlv1.Bounds) int {
+	n := 0
+	for _, pic := range p.drawn {
+		if pic.above && overlaps(b, pic.sym.Bounds) {
+			n++
+		}
+	}
+	return n
 }
 
 // elementBox is the bounds of an element symbol and its place in the stream.
@@ -227,8 +244,7 @@ func elementBoxes(d *sysmlv1.Diagram) []elementBox {
 // and after the one at index in the stream: the tool draws later symbols on top.
 func overlapping(b *sysmlv1.Bounds, boxes []elementBox, index int) (before, after int) {
 	for _, box := range boxes {
-		o := box.bounds
-		if !(b.X < o.X+o.Width && o.X < b.X+b.Width && b.Y < o.Y+o.Height && o.Y < b.Y+b.Height) {
+		if !overlaps(b, box.bounds) {
 			continue
 		}
 		if box.index < index {
@@ -240,16 +256,22 @@ func overlapping(b *sysmlv1.Bounds, boxes []elementBox, index int) (before, afte
 	return before, after
 }
 
-// underlaid counts the drawn pictures that lay between element symbols in the
-// tool and the symbols they lay over that they are drawn under.
-func (p *pictures) underlaid() (sandwiched, under int) {
+// overlaps reports whether two boxes share area.
+func overlaps(b, o *sysmlv1.Bounds) bool {
+	return b.X < o.X+o.Width && o.X < b.X+b.Width && b.Y < o.Y+o.Height && o.Y < b.Y+b.Height
+}
+
+// underlaid counts the drawn pictures that lay between element symbols in the tool, and
+// the element symbols and pictures they lay over that they are drawn under.
+func (p *pictures) underlaid() (sandwiched, under, covered int) {
 	for _, pic := range p.drawn {
-		if pic.under > 0 {
+		if pic.under > 0 || pic.covered > 0 {
 			sandwiched++
 			under += pic.under
+			covered += pic.covered
 		}
 	}
-	return sandwiched, under
+	return sandwiched, under, covered
 }
 
 // pictureLine writes p's Picture annotation: file, bounds, the pasted file's
@@ -294,8 +316,15 @@ func picturesClause(p *pictures, form viewForm) []string {
 			clause += ", which a view rendered " + form.rendering + " does not draw"
 		}
 		clauses = append(clauses, clause)
-		if sandwiched, under := p.underlaid(); sandwiched > 0 && form.drawsPictures() {
-			clauses = append(clauses, plural(sandwiched, "pasted image")+" drawn under the "+plural(under, "element symbol")+
+		if sandwiched, under, covered := p.underlaid(); sandwiched > 0 && form.drawsPictures() {
+			var over []string
+			if under > 0 {
+				over = append(over, plural(under, "element symbol"))
+			}
+			if covered > 0 {
+				over = append(over, plural(covered, "pasted image"))
+			}
+			clauses = append(clauses, plural(sandwiched, "pasted image")+" drawn under the "+strings.Join(over, " and ")+
 				" it lay over, since symbols drawn after it lie over it")
 		}
 	}
@@ -412,7 +441,7 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf fu
 	}
 	dress.pictures, dress.lost = len(pics.drawn), len(pics.lost)
 	if form.drawsPictures() {
-		dress.underlaid, _ = pics.underlaid()
+		dress.underlaid, _, _ = pics.underlaid()
 	} else {
 		dress.pictures, dress.undrawn = 0, dress.pictures
 	}

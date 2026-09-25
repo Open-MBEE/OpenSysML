@@ -42,6 +42,28 @@ func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 	}
 }
 
+// Pictures under and over the parts interleaved in declaration order are written
+// as two layers, each in declaration order: under the parts, a later picture lies
+// over an earlier one it overlaps, and so over the parts.
+func TestPictureLayersKeepDeclarationOrder(t *testing.T) {
+	rendering := render(t, "pictures.sysml", "Site::layeredView")
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	at := func(id string) int {
+		i := strings.Index(dot, `"`+id+`" [shape=none`)
+		if i < 0 {
+			t.Fatalf("DOT lacks %s:\n%s", id, dot)
+		}
+		return i
+	}
+	under0, over1, under2, over3, parts := at("picture:0"), at("picture:1"), at("picture:2"), at("picture:3"), strings.Index(dot, `label=<`)
+	if !(under0 < under2 && under2 < parts && parts < over1 && over1 < over3) {
+		t.Errorf("pictures are not written under the parts then over them, each layer in declaration order:\n%s", dot)
+	}
+}
+
 // A picture places no node: a view whose nodes nothing positions draws them
 // all, in a strip below the picture in DOT, whole in the other forms.
 func TestPictureAloneLeavesNoNodeUndrawn(t *testing.T) {

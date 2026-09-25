@@ -175,6 +175,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 		sym    *Symbol   // the symbol this mdElement is, nil for anything else
 		prop   *property // the property this mdElement is, nil for anything else
 		listed *listing  // the element this mdElement names, nil when it names none
+		hidden bool      // marked not visible, kept for a listing its elementID has yet to open
 		text   strings.Builder
 		valued bool // whether a value child appeared
 	}
@@ -230,6 +231,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 				f.prop = &property{class: attr(t, "elementClass")}
 			case t.Name.Local == "visible" && parentTag == "mdElement" && attr(t, "value") == "false":
 				owner := stack[len(stack)-1]
+				owner.hidden = true
 				if owner.sym != nil {
 					owner.sym.Hidden = true
 				} else if owner.listed != nil {
@@ -242,7 +244,7 @@ func readSymbols(data []byte, diagramID string) (*symbols, error) {
 						owner.sym.ElementID = id
 					}
 					if id != diagramID {
-						owner.listed = &listing{id: id, sym: enclosing()}
+						owner.listed = &listing{id: id, sym: enclosing(), hidden: owner.hidden}
 						syms.listed = append(syms.listed, owner.listed)
 					}
 				}

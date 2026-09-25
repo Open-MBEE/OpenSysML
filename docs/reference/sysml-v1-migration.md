@@ -458,11 +458,15 @@ same `-o` requirement and dedup as a document's attached images. The view then d
 picture where Cameo drew it: `@DiagramLayout::Picture { location = "images/<name>.png"; x; y;
 width; height; alt = "<file name>"; }` in the view's body, in stream order under the element
 symbols, or `above = true` when an element symbol drawn before it in the stream lies under it —
-Cameo draws later symbols on top. A `Picture` lies either under or over every element symbol it
-overlaps, so a picture pasted over one symbol and under another drawn after it is written under
-both: the element symbols stay visible, the diagram is approximated, and its note says so (`1
-pasted image drawn under the 1 element symbol it lay over, since symbols drawn after it lie
-over it`). A diagram of pictures alone becomes a view exposing nothing
+Cameo draws later symbols on top — or when it overlaps an earlier picture drawn over them and no
+element symbol drawn after it, so that it stays over that picture. A `Picture` lies either under or
+over every element symbol it overlaps, so a picture pasted over one symbol and under another
+drawn after it is written under both: the element symbols stay visible, the diagram is
+approximated, and its note says so (`1 pasted image drawn under the 1 element symbol it lay
+over, since symbols drawn after it lie over it`) — likewise when a picture drawn over the element
+symbols covers a later one they in turn cover (`drawn under the 1 pasted image it lay over`). A
+symbol without area (a zero or negative width or height) is not written: `has no area to fill
+(0 by -40)`. A diagram of pictures alone becomes a view exposing nothing
 that draws them, so a document figure of it shows the pictures under the diagram's name as
 caption, through the same `Diagram` block as a figure of any other view; there is no separate
 `Image` block for it, so a hand-written view carrying a `Picture` and a migrated one render the
