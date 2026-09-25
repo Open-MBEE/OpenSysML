@@ -74,8 +74,11 @@ type contentPlan struct {
 	text  string
 	caption,
 	style string
-	// captionNote says which block's caption a caption Paragraph is.
-	captionNote string
+	// origin says what a text Paragraph stands for: a block's caption or a view's documentation.
+	origin string
+	// documentation marks a Paragraph made of the node's own documentation,
+	// reported on the comment's own entry rather than as a block of its own.
+	documentation bool
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds.
 	query string
@@ -187,11 +190,13 @@ func claimed(sec *sectionPlan, into columnNames) {
 	}
 }
 
-// planSection lowers a view's method into the section's content, then plans
-// its child views as sections after the content, in declaration order.
+// planSection opens a section with its view's documentation, lowers the view's
+// method into the section's content, then plans its child views as sections
+// after the content, in declaration order.
 func (m *migration) planSection(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
 	dp.notes = append(dp.notes, v.Malformed...)
+	m.viewDocumentation(sec)
 	m.planMethod(dp, sec)
 	for _, p := range v.Paragraphs {
 		sec.content = append(sec.content, m.collaboratorParagraph(sec, p))
@@ -229,6 +234,33 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c := &chain{m: m, dp: dp, sec: sec, active: []*sysmlv1.Element{v.Method}}
 	c.start(v)
 	c.run(steps)
+}
+
+// viewDocumentation opens the section with the view's own documentation, unless a
+// well-formed collaborator paragraph shows that comment (its body is never empty).
+func (m *migration) viewDocumentation(sec *sectionPlan) {
+	v := sec.v
+	c := m.docComment(v.Class)
+	if c == nil {
+		return
+	}
+	for _, p := range v.Paragraphs {
+		if p.Comment == c && p.Malformed == "" {
+			return
+		}
+	}
+	cp := &contentPlan{
+		kind:          "Paragraph",
+		node:          c,
+		label:         "Comment",
+		text:          commentBody(c),
+		origin:        "the documentation of the view " + qualifiedName(v.Class),
+		documentation: true,
+	}
+	if !m.imageInBody(sec, cp, c, commentRawBody(c)) {
+		cp.name = sec.names.claim("paragraph")
+	}
+	sec.content = append(sec.content, cp)
 }
 
 // start sets the chain's elements to what DocGen feeds a view's method: what
@@ -1799,7 +1831,7 @@ func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
 // captionParagraph plans the Paragraph holding a block's caption, which a
 // document prints under the block; note says whose caption it is.
 func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, note, text string) {
-	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, captionNote: note}
+	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, origin: note}
 	cp.name = c.sec.names.claim("paragraph")
 	c.sec.content = append(c.sec.content, cp)
 }
@@ -2198,7 +2230,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 		if cp.refused != "" {
 			continue
 		}
-		m.report.Entries = append(m.report.Entries, *m.blockEntry(cp))
+		m.reportBlock(cp)
 	}
 }
 
@@ -2405,8 +2437,26 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 	if cp.query != "" {
 		e.Note = joinNotes("its rows are the query "+writeName(cp.query), e.Note)
 	}
-	if cp.captionNote != "" {
-		e.Note = joinNotes(cp.captionNote, e.Note)
+	if cp.origin != "" {
+		e.Note = joinNotes(cp.origin, e.Note)
 	}
 	return e
+}
+
+// reportBlock records a written block. A documentation Paragraph joins the
+// comment's own entry, since the comment is one source element; where the view
+// is placed again, the further paragraph is noted on it. Every other block is a
+// row of its own.
+func (m *migration) reportBlock(cp *contentPlan) {
+	e := m.blockEntry(cp)
+	if !cp.documentation {
+		m.report.Entries = append(m.report.Entries, *e)
+		return
+	}
+	if i, ok := m.indexed[cp.node.ID]; ok {
+		if t := m.report.Entries[i].Target; t != "" && t != e.Target {
+			e.Note = "also written as " + e.Target
+		}
+	}
+	m.add(cp.node, e.Verdict, e.Target, e.Note)
 }
