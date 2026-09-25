@@ -453,10 +453,8 @@ func verdictsWithin(verdicts []AnalysisVerdict, marked []bool) []AnalysisVerdict
 	return kept
 }
 
-// conclude binds outOfSpec over the settled run, then reports the case's outputs and
+// Conclude binds outOfSpec over the settled run, then reports the case's outputs and
 // the verdicts of the sample's checks, judged over the results and all four statistics.
-// Conclude concludes the case in the run's context with the sample's checks,
-// after SettleMonteCarloRuns settled the runs.
 func (r *MonteCarloRun) Conclude(stats MonteCarloStatistics, sample []bool) (AnalysisResult, error) {
 	ctx := r.ctx
 	defer ctx.beginRun()()
