@@ -265,8 +265,8 @@ func classify(v runtime.Value, r *Run) shape {
 
 // classifySequence spells a sequence as a list literal of its elements' shapes: every
 // element the same kind — Integer and Real settling to Real, quantities sharing one unit.
-// An element that is unset, an object, an enum literal or itself a sequence has no literal
-// spelling beside its kind, so the whole value falls back to its text. The empty sequence
+// An element that is unset, an object or itself a sequence has no literal spelling
+// beside its kind, so the whole value falls back to its text. The empty sequence
 // is unset but multi-valued: it settles a member to [0..*] and spells `()`.
 func classifySequence(v runtime.Value, r *Run) shape {
 	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
@@ -282,14 +282,15 @@ func classifySequence(v runtime.Value, r *Run) shape {
 	var settled shape
 	for i, element := range elements {
 		es := classify(element, r)
-		if es.multi || es.kind == kindUnset || es.kind == kindRef || es.kind == kindEnum {
+		if es.multi || es.kind == kindUnset || es.kind == kindRef {
 			return fallback
 		}
 		switch {
 		case i == 0:
 			settled = es
-		case es.kind == settled.kind && es.unit == settled.unit:
-			// Same kind; for a quantity es.unit == settled.unit holds the share.
+		case es.kind == settled.kind && es.unit == settled.unit && (es.kind != kindEnum || es.typ == settled.typ):
+			// Same kind; for a quantity es.unit == settled.unit holds the share, and
+			// enumeration literals must spell literals of the one enum.
 		case numericPair(es.typ, settled.typ):
 			settled = shape{kind: kindReal, typ: scalarValuesReal}
 		default:

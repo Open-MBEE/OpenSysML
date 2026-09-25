@@ -45,6 +45,16 @@ const sequenceModel = `package test {
 		action s : One {}
 		bind one = s.one;
 	}
+
+	action def Reps {
+		metadata ToolExecution { toolName = "MC"; uri = "u"; }
+		out reps : Real[0..*] nonunique { @ToolVariable { name = "reps"; } }
+	}
+	action def RunReps {
+		out reps : Real[0..*] nonunique;
+		action s : Reps {}
+		bind reps = s.reps;
+	}
 }`
 
 func toolSeq(items ...ToolValue) ToolValue {
@@ -230,6 +240,32 @@ func TestToolOutputEmptySequenceKeepsItsUnit(t *testing.T) {
 		var failure *ToolError
 		if !errors.As(err, &failure) || failure.Kind != ToolMalformed {
 			t.Fatalf("ExecuteAction = %v, want malformed naming the unit", err)
+		}
+	})
+}
+
+// A sequence written to a unique parameter is judged by it: repeated items are a
+// uniqueness refusal, while a nonunique parameter keeps them all.
+func TestToolOutputSequenceHonorsUniqueness(t *testing.T) {
+	repeat := toolSeq(ToolValue{Value: toolReal(1)}, ToolValue{Value: toolReal(1)})
+	t.Run("unique", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"few": repeat}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "RunFew"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed || !strings.Contains(failure.Detail, "unique") {
+			t.Fatalf("ExecuteAction = %v, want malformed naming the uniqueness", err)
+		}
+	})
+	t.Run("nonunique", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{"reps": repeat}})
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, "RunReps"))
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		if got := FormatValue(out["reps"]); got != "[1.0, 1.0]" {
+			t.Fatalf("reps = %s, want [1.0, 1.0]", got)
 		}
 	})
 }
