@@ -36,8 +36,9 @@ func availableMemory() int64 {
 	}
 }
 
+// readFile is the file's bytes, nil when it cannot be read; the paths are the kernel's own.
 func readFile(path string) []byte {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- fixed /proc and /sys paths
 	if err != nil {
 		return nil
 	}
