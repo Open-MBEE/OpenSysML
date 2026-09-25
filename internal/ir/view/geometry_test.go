@@ -4,6 +4,7 @@ import (
 	"maps"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -482,6 +483,38 @@ func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
 	text := rendering.Text()
 	if !strings.Contains(text, `"check pressure" on pump -> tank at (420, 140)`) {
 		t.Errorf("the connector's note is not listed on its edge:\n%s", text)
+	}
+}
+
+// A Note about a nested action anchors to the node drawn for it, once: the
+// body's own flow renders under the same node, so the anchor never dangles.
+func TestNestedActionNoteAnchorsToItsDrawnNode(t *testing.T) {
+	rendering := render(t, "action_note.sysml", "NoteViews::nestedNoteView")
+	if len(rendering.Roots) != 1 {
+		t.Fatalf("roots = %d, want 1", len(rendering.Roots))
+	}
+	var a *Node
+	for _, child := range rendering.Roots[0].Children {
+		if child.Name == "a" {
+			a = child
+		}
+	}
+	if a == nil {
+		t.Fatalf("no node named a under the root")
+	}
+	want := []Note{{Text: "watch", Anchor: a.ID, X: 30, Y: 30}}
+	if !reflect.DeepEqual(rendering.Notes, want) {
+		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	}
+	dot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	anchors := regexp.MustCompile(`"note:\d+" -> "([^"]+)"`)
+	for _, m := range anchors.FindAllStringSubmatch(dot, -1) {
+		if !strings.Contains(dot, `"`+m[1]+`" [`) {
+			t.Errorf("note anchor %q declares no node:\n%s", m[1], dot)
+		}
 	}
 }
 

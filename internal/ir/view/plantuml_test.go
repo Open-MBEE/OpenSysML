@@ -195,13 +195,13 @@ func TestPlantUMLActionUsesStateGrammar(t *testing.T) {
 		"\nhide empty description\n",
 		"state \"**Drive**\\n<size:10>//«action def»//</size>\" as n0 <<action def>> {\n",
 		"  state \"**initial**\" as n1 <<start>>\n",
-		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n8 <<fork>>\n",
-		"  state \"**final**\" as n10 <<end>>\n",
-		"  state \"**check**\\n<size:10>//«decision»//</size>\" as n12 <<choice>>\n",
+		"  state \"**split**\\n<size:10>//«fork»//</size>\" as n7 <<fork>>\n",
+		"  state \"**final**\" as n9 <<end>>\n",
+		"  state \"**check**\\n<size:10>//«decision»//</size>\" as n11 <<choice>>\n",
 		"  state \"**monitor**\\n<size:10>//«action»//</size>\\nown flow\" as n3 <<action>> <<usage>> {\n",
 		"\nn2 -[dashed]-> n3 : torque to reading\n",
-		"\nn12 --> n10 : [speed <U+003E> 0]\n",
-		"\nn1 --> n8\n",
+		"\nn11 --> n9 : [speed <U+003E> 0]\n",
+		"\nn1 --> n7\n",
 	} {
 		if !strings.Contains(puml, want) {
 			t.Errorf("action PlantUML lacks %q:\n%s", want, puml)

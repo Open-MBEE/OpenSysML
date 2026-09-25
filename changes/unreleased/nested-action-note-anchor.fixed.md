@@ -1,0 +1,1 @@
+- **A note anchored to a nested action node is drawn once, on that node.** A `DiagramLayout::Note` about an action with a body of its own was emitted twice, the second anchored to a node the rendering discarded, so Graphviz failed a positioned view over an undeclared node; the note is drawn once now, on the node the action is drawn as.

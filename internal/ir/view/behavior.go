@@ -465,29 +465,48 @@ type actionSubject struct {
 	elem *symbols.Symbol
 }
 
+// actionGraph lowers an action's flow to a graph, or reports why it does not
+// lower; a nested node's statements are no shortcoming of the rendering.
+func (r *Renderer) actionGraph(subject actionSubject, out *Rendering, depth int) (*lower.ActionGraph, bool) {
+	graph, err := lower.ToActionGraphWith(subject.decl, subject.scope, r.resolver)
+	if err != nil {
+		if depth > 0 && errors.Is(err, lower.ErrStatementOutsideFlow) {
+			return nil, false
+		}
+		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", subject.kind, subject.name, err))
+		return nil, false
+	}
+	return graph, true
+}
+
 // actionNode renders one lowered action: its nodes as nested nodes, its
 // successions and object flows as edges. A nested action declaring a body of its
 // own is lowered in turn, so the rendering shows the flow within it as well.
 func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Rendering,
 	lowered map[ast.Node]bool, depth int) (*Node, bool) {
-	decl, kind, name, scope, doc := subject.decl, subject.kind, subject.name, subject.scope, subject.doc
-	graph, err := lower.ToActionGraphWith(decl, scope, r.resolver)
-	if err != nil {
-		// A node performing statements holds no flow of its own to render, which is
-		// no shortcoming of the rendering; only an exposed action is reported.
-		if depth > 0 && errors.Is(err, lower.ErrStatementOutsideFlow) {
-			return nil, false
-		}
-		out.Notices = append(out.Notices, fmt.Sprintf("%s %s does not lower to an action graph: %v", kind, name, err))
+	graph, ok := r.actionGraph(subject, out, depth)
+	if !ok {
 		return nil, false
 	}
+	decl, kind, name, doc := subject.decl, subject.kind, subject.name, subject.doc
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
 		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
 	r.declaredDress(subject.view, subject.elem, decl, root, out)
-	lowered[decl] = true
+	r.actionBody(subject, graph, root, ids, out, lowered, depth)
+	if len(root.Children) == 0 {
+		root.Detail = detailWith(root.Detail, "declares no nodes")
+	}
+	return root, true
+}
+
+// actionBody renders a lowered action's nodes under root and its edges; a
+// nested action with a body of its own recurses, keeping the node already drawn.
+func (r *Renderer) actionBody(subject actionSubject, graph *lower.ActionGraph, root *Node, ids *nodeIDs,
+	out *Rendering, lowered map[ast.Node]bool, depth int) {
+	lowered[subject.decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
-		nodeDoc := docOf(graph, node, doc)
+		nodeDoc := docOf(graph, node, subject.doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
@@ -497,23 +516,19 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
 			nestedScope := graph.Scopes[node]
 			if nestedScope == nil {
-				nestedScope = actionScope(scope, nested)
+				nestedScope = actionScope(subject.scope, nested)
 			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
 				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem}
-			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
-			if ok {
-				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
+			if nestedGraph, ok := r.actionGraph(nestedSubject, out, depth+1); ok {
+				r.actionBody(nestedSubject, nestedGraph, child, ids, out, lowered, depth+1)
+				child.Detail = detailWith(child.Detail, "own flow")
 				// The nested flow's own edges belong to the nested nodes, which the
-				// sub-rendering already added to out.Edges.
+				// nested body already added to out.Edges.
 			}
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
-	if len(root.Children) == 0 {
-		root.Detail = detailWith(root.Detail, "declares no nodes")
-	}
-	return root, true
 }
 
 // actionEdges draws the action's successions and object flows between its own

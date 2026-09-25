@@ -32,28 +32,28 @@ digraph "FlowViews::driveView" {
         color="#424242";
         penwidth=1;
         "n3" [shape=point, style=invis, width=0, height=0, label=""];
-        "n5" [shape=circle, fillcolor=black, width=0.2, label=""];
-        "n6" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>record</b>>];
+        "n4" [shape=circle, fillcolor=black, width=0.2, label=""];
+        "n5" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>record</b>>];
       }
-      "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>tally</b>>];
-      "n8" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="split"];
-      "n9" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="sync"];
-      "n10" [shape=doublecircle, fillcolor=black, width=0.2, label=""];
-      "n11" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>park</b>>];
-      "n12" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="check"];
+      "n6" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>tally</b>>];
+      "n7" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="split"];
+      "n8" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="sync"];
+      "n9" [shape=doublecircle, fillcolor=black, width=0.2, label=""];
+      "n10" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>park</b>>];
+      "n11" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="check"];
     }
   }
-  "n5" -> "n6";
-  "n1" -> "n8";
-  "n2" -> "n9";
+  "n4" -> "n5";
+  "n1" -> "n7";
+  "n2" -> "n8";
   "n2" -> "n3" [label="torque to reading", style=dashed, lhead="cluster_n3"];
-  "n3" -> "n9" [ltail="cluster_n3"];
-  "n7" -> "n9";
-  "n8" -> "n2";
-  "n8" -> "n3" [lhead="cluster_n3"];
-  "n8" -> "n7";
-  "n9" -> "n12";
+  "n3" -> "n8" [ltail="cluster_n3"];
+  "n6" -> "n8";
+  "n7" -> "n2";
+  "n7" -> "n3" [lhead="cluster_n3"];
+  "n7" -> "n6";
+  "n8" -> "n11";
+  "n10" -> "n9";
+  "n11" -> "n9" [label="[speed > 0]"];
   "n11" -> "n10";
-  "n12" -> "n10" [label="[speed > 0]"];
-  "n12" -> "n11";
 }

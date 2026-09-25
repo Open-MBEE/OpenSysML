@@ -12,26 +12,26 @@ flowchart TD
     n2["provide : Provide<br>«action»"]
     subgraph n3 ["monitor<br>«action»<br>own flow"]
       direction TD
-      n5["initial"]
-      n6["record<br>«action»"]
+      n4["initial"]
+      n5["record<br>«action»"]
     end
-    n7["tally<br>«action»"]
-    n8["split<br>«fork»"]
-    n9["sync<br>«join»"]
-    n10["final"]
-    n11["park<br>«action»"]
-    n12["check<br>«decision»"]
+    n6["tally<br>«action»"]
+    n7["split<br>«fork»"]
+    n8["sync<br>«join»"]
+    n9["final"]
+    n10["park<br>«action»"]
+    n11["check<br>«decision»"]
   end
-  n5 --> n6
-  n1 --> n8
-  n2 --> n9
+  n4 --> n5
+  n1 --> n7
+  n2 --> n8
   n2 -.->|"torque to reading"| n3
-  n3 --> n9
-  n7 --> n9
-  n8 --> n2
-  n8 --> n3
-  n8 --> n7
-  n9 --> n12
+  n3 --> n8
+  n6 --> n8
+  n7 --> n2
+  n7 --> n3
+  n7 --> n6
+  n8 --> n11
+  n10 --> n9
+  n11 -->|"[speed #gt; 0]"| n9
   n11 --> n10
-  n12 -->|"[speed #gt; 0]"| n10
-  n12 --> n11
