@@ -21,6 +21,8 @@ type Data struct {
 	Rows    []RowData
 	// Canvas is the drawing surface the view states, nil for none.
 	Canvas *Canvas
+	// Notes are the note boxes drawn on the canvas, anchored to a node ID or free.
+	Notes []Note
 	// Notices are what the rendering could not represent.
 	Notices []string
 }
@@ -39,6 +41,8 @@ type NodeData struct {
 	Origin Origin
 	// Geometry is where the node is drawn, nil when no Layout positions it.
 	Geometry *Geometry
+	// Style is how the node is drawn, nil when no Style colours it.
+	Style *Style
 }
 
 // EdgeData is one edge of a rendering, joining two node IDs.
@@ -50,6 +54,8 @@ type EdgeData struct {
 	Origin Origin
 	// Route is the waypoints the edge follows, empty when no Route gives any.
 	Route []Point
+	// Style is how the edge is drawn, nil when no Style colours it.
+	Style *Style
 }
 
 // RowData is one row of a tabular rendering: its cells, one per column, and
@@ -67,6 +73,7 @@ func (r *Rendering) Data() Data {
 		Stated:  r.Stated,
 		Columns: r.Columns,
 		Canvas:  r.Canvas,
+		Notes:   r.Notes,
 		Notices: r.Notices,
 	}
 	for _, root := range r.Roots {
@@ -92,7 +99,7 @@ func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Parent: parent, Origin: node.Origin, Geometry: node.Geometry,
+		Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
 	})
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID)

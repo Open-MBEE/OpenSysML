@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -203,8 +204,11 @@ func (r *Row) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// MarshalJSON writes the row as it is read.
+// MarshalJSON writes the row as it is read: a name, or the index as a JSON integer.
 func (r Row) MarshalJSON() ([]byte, error) {
+	if r.Kind == RowIndex {
+		return json.Marshal(r.Index)
+	}
 	return json.Marshal(r.String())
 }
 
@@ -373,6 +377,9 @@ func checkReply(entry *ToolEntry) error {
 		if !ok {
 			continue
 		}
+		if o == nil {
+			return fmt.Errorf("reply.outputs.%s is null", name)
+		}
 		if err := checkReplyOutput(format, name, o); err != nil {
 			return err
 		}
@@ -425,6 +432,12 @@ func checkReplySource(entry *ToolEntry, compiled *compiledReply) error {
 	if entry.Invocation == nil || entry.Invocation.compiled == nil || !entry.Invocation.compiled.outputDir {
 		return errors.New("reply.source names {outputDir} but no invocation template hands it to the tool")
 	}
+	if f := entry.Invocation.InputFile; f != nil {
+		rendered, err := t.render(scope{outputDir: "D"})
+		if err == nil && filepath.Clean(rendered) == filepath.Clean(filepath.Join("D", f.Name)) {
+			return fmt.Errorf("reply.source %q is the invocation's inputFile, which the tool did not write", r.Source)
+		}
+	}
 	compiled.source = t
 	return nil
 }
@@ -435,7 +448,7 @@ func checkReplyObject(r *Reply) error {
 		name string
 		set  bool
 	}{
-		{"outputs", len(r.Outputs) > 0},
+		{"outputs", r.Outputs != nil},
 		{"header", r.Header != nil},
 		{"delimiter", r.Delimiter != ""},
 		{"regex", r.Regex != ""},
@@ -520,7 +533,7 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 
 // checkReplyJSON parses the pointers: each output's path and unitPath, and errorPath.
 func checkReplyJSON(r *Reply, variables []string, compiled *compiledReply) error {
-	for _, variable := range r.outputsOrdered(variables) {
+	for _, variable := range r.outputsOrdered(variables, nil) {
 		o := r.Outputs[variable]
 		p, err := parsePointer(o.Path)
 		if err != nil {
@@ -558,7 +571,7 @@ func checkReplyCSV(r *Reply, variables []string, compiled *compiledReply) error 
 		compiled.delimiter = d
 	}
 	if !compiled.header {
-		for _, variable := range r.outputsOrdered(variables) {
+		for _, variable := range r.outputsOrdered(variables, nil) {
 			o := r.Outputs[variable]
 			if o.Column != nil && !o.Column.ByIndex {
 				return fmt.Errorf("reply.outputs.%s.column %q names a column but header is false", variable, o.Column.Name)
@@ -585,8 +598,11 @@ func validDelimiter(d rune) bool {
 func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) error {
 	if r.Regex == "" {
 		byKey := make(map[string]string, len(r.Outputs))
-		for _, variable := range r.outputsOrdered(variables) {
+		for _, variable := range r.outputsOrdered(variables, nil) {
 			o := r.Outputs[variable]
+			if o.Key == "" {
+				o.Key = variable
+			}
 			if other, taken := byKey[o.Key]; taken {
 				return fmt.Errorf("reply.outputs.%s and reply.outputs.%s share the key %q", other, variable, o.Key)
 			}
@@ -594,8 +610,8 @@ func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) erro
 		}
 		return nil
 	}
-	for _, variable := range r.outputsOrdered(variables) {
-		if o := r.Outputs[variable]; o.Key != "" && o.Key != variable {
+	for _, variable := range r.outputsOrdered(variables, nil) {
+		if o := r.Outputs[variable]; o.Key != "" {
 			return fmt.Errorf("reply.outputs.%s.key is not read beside regex", variable)
 		}
 	}
@@ -614,9 +630,12 @@ func checkReplyLines(r *Reply, variables []string, compiled *compiledReply) erro
 		if _, ok := r.Outputs[name]; !ok {
 			return fmt.Errorf("reply.regex names group %q, which outputs does not list", name)
 		}
+		if named[name] {
+			return fmt.Errorf("reply.regex names group %q twice", name)
+		}
 		named[name] = true
 	}
-	for _, variable := range r.outputsOrdered(variables) {
+	for _, variable := range r.outputsOrdered(variables, nil) {
 		if !named[variable] {
 			return fmt.Errorf("reply.outputs.%s is named by no group of reply.regex", variable)
 		}
@@ -630,7 +649,7 @@ func checkReplyExitCode(r *Reply, variables []string, compiled *compiledReply) e
 	if len(r.Outputs) != 1 {
 		return fmt.Errorf("reply.outputs names %d variables; exitcode reads exactly one", len(r.Outputs))
 	}
-	compiled.exitVariable = r.outputsOrdered(variables)[0]
+	compiled.exitVariable = r.outputsOrdered(variables, nil)[0]
 	compiled.success = make(map[int]bool, len(r.Success))
 	if r.Success == nil {
 		compiled.success[0] = true
@@ -707,10 +726,10 @@ func typeText(text string, t ValueType) (runtime.ToolValue, error) {
 
 // outputsOrdered is each output's variable in the entry's variables order, so the first
 // failure of a read or a load check is deterministic.
-func (r *Reply) outputsOrdered(variables []string) []string {
+func (r *Reply) outputsOrdered(variables []string, wanted map[string]bool) []string {
 	names := make([]string, 0, len(r.Outputs))
 	for _, name := range variables {
-		if _, ok := r.Outputs[name]; ok {
+		if _, ok := r.Outputs[name]; ok && (wanted == nil || wanted[name]) {
 			names = append(names, name)
 		}
 	}
@@ -719,7 +738,7 @@ func (r *Reply) outputsOrdered(variables []string) []string {
 
 // readJSON parses the one JSON value and resolves each output's pointer into it, the
 // refusal at errorPath first.
-func (r *Reply) readJSON(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readJSON(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
 	tool := entry.ToolName
 	if len(bytes.TrimSpace(source)) == 0 {
 		return nil, toolFault(tool, runtime.ToolMalformed, "wrote nothing")
@@ -750,7 +769,7 @@ func (r *Reply) readJSON(entry ToolEntry, source []byte) (map[string]runtime.Too
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables) {
+	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
 		o := r.Outputs[variable]
 		p := r.compiled.paths[variable]
 		v, found := p.resolve(doc)
@@ -902,7 +921,7 @@ func jsonScalar(o *ReplyOutput, v any) (runtime.ToolValue, string, error) {
 }
 
 // readCSV parses the records and reads each output's cell: the refusal at errorColumn first.
-func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readCSV(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
 	tool := entry.ToolName
 	source = bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
 	reader := csv.NewReader(bytes.NewReader(source))
@@ -963,7 +982,7 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables) {
+	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
 		o := r.Outputs[variable]
 		col, err := indexOf(o.Column)
 		if err != nil {
@@ -1060,7 +1079,7 @@ func csvRow(row *Row, n int) (int, error) {
 
 // readLines parses `key = value` lines or matches the regex's named groups per line, the
 // refusal at errorKey first. Line numbers are 1-based.
-func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readLines(entry ToolEntry, source []byte, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
 	tool := entry.ToolName
 	raw := strings.Split(string(source), "\n")
 	lines := make([]string, len(raw))
@@ -1068,7 +1087,7 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 		lines[i] = strings.TrimSuffix(line, "\r")
 	}
 	if r.compiled.regex != nil {
-		return r.readLinesRegex(entry, lines)
+		return r.readLinesRegex(entry, lines, wanted)
 	}
 	type hit struct {
 		value string
@@ -1094,7 +1113,7 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables) {
+	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
 		o := r.Outputs[variable]
 		hits := found[o.Key]
 		if len(hits) == 0 {
@@ -1114,11 +1133,11 @@ func (r *Reply) readLines(entry ToolEntry, source []byte) (map[string]runtime.To
 }
 
 // readLinesRegex reads each output from the named group matching it on exactly one line.
-func (r *Reply) readLinesRegex(entry ToolEntry, lines []string) (map[string]runtime.ToolValue, error) {
+func (r *Reply) readLinesRegex(entry ToolEntry, lines []string, wanted map[string]bool) (map[string]runtime.ToolValue, error) {
 	tool := entry.ToolName
 	re := r.compiled.regex
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
-	for _, variable := range r.outputsOrdered(entry.Variables) {
+	for _, variable := range r.outputsOrdered(entry.Variables, wanted) {
 		o := r.Outputs[variable]
 		group := re.SubexpIndex(variable)
 		var text string

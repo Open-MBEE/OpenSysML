@@ -141,8 +141,8 @@ func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string,
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
-// the palette -render-palette names and the placement -render-unplaced names,
-// each of which must be one there is.
+// the palette -render-palette names, the placement -render-unplaced names and
+// the drawing style -render-style names, each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
 	if renderPalette != "" {
@@ -157,7 +157,25 @@ func renderOptions(width int) (view.Options, error) {
 		return view.Options{}, err
 	}
 	options.Unplaced = unplaced
+	style, err := styleOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Style = style
 	return options, nil
+}
+
+// styleOption is the drawing style -render-style names for a DOT drawing,
+// which must be one there is; none named is the default, the Pilot look.
+func styleOption() (view.DrawingStyle, error) {
+	if renderStyle == "" {
+		return "", nil
+	}
+	style, ok := view.ParseDrawingStyle(renderStyle)
+	if !ok {
+		return "", fmt.Errorf("-render-style: %w", &view.UnknownDrawingStyleError{Name: renderStyle})
+	}
+	return style, nil
 }
 
 // unplacedOption is the placement -render-unplaced names for the nodes a

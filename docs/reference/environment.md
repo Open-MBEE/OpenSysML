@@ -13,7 +13,7 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_MAX_ELEMENTS` | `1000000` | Collection elements one evaluation may hold — the bound on the memory a run holds rather than on the work it does |
 | `OPENSYSML_MAX_CALC_DEPTH` | `10000` (ceiling `25000`) | Nested `calc` invocations one run may hold on the stack, which is what a recursion spends |
 | `OPENSYSML_MAX_SWEEP_RUNS` | `1000` | Runs one parameter sweep or sample may make (`-sweep`/`-samples`, `%sweep`/`%samples`, `RunSweep`), each a whole analysis or calc run with the budgets above of its own |
-| `OPENSYSML_JOBS` | the number of CPUs | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
+| `OPENSYSML_JOBS` | one per CPU, fewer where the memory available leaves less than 512 MiB per worker | Runs of one check that may go concurrently (`-jobs`, `%jobs`; the gRPC service reads it at startup), each on a worker of its own over the shared model. Bounds how many runs go at once, not the work or memory of any one of them: a fleet of `n` workers may hold `n` times `OPENSYSML_MAX_ELEMENTS`. The result of a check does not depend on it |
 | `OPENSYSML_CALC_COMPILE` | unset (on) | Set to `0`, `false`, `off` or `no` to run every `calc` on the reference evaluator, instead of compiling a pure scalar body to a closure fast path on its first invocation; results, errors and step counts are the same either way, so this is a bisecting aid |
 | `OPENSYSML_SMT` | unset (look for `z3`, then `cvc5`, on `PATH`) | Executable the `smt` and `solve` engines (`-engine smt`, `%engine smt`) and `%check`, `%explain`, `%solve`, `%configure` and `%optimize` drive as their SMT solver, speaking SMT-LIB2 on standard input (experimental); `%optimize` needs `z3` in particular, as `(minimize …)`/`(maximize …)` is a z3 extension cvc5 does not implement |
 | `OPENSYSML_SMT_TIMEOUT` | `10s` | How long one solver query may take, as a Go duration (`5s`, `500ms`), after which the verdict is `unknown`; a check's `-check-timeout` (`%check-bounds timeout=`) takes its place for the `smt` engine's queries |
@@ -171,11 +171,11 @@ CSV, `key = value` lines or its exit status:
 | Member | Meaning |
 |---|---|
 | `format` | `"object"` (the default), `"json"`, `"csv"`, `"lines"` or `"exitcode"`: how the reply is read. `object` admits no other member but `source`; the others require `outputs` |
-| `source` | `"stdout"` (the default) or `"file:<template>"`, whose template may name `{outputDir}` alone — the path must then be under that directory, a regular file the tool wrote, and an `invocation` must hand `{outputDir}` to the tool |
+| `source` | `"stdout"` (the default) or `"file:<template>"`, whose template may name `{outputDir}` alone — the path must then be under that directory, a regular file the tool wrote, and an `invocation` must hand `{outputDir}` to the tool. It may not be the invocation's `inputFile`, which the tool did not write, and symbolic links under `{outputDir}` are not followed out of it |
 | `outputs` | An object mapping each output's tool variable to the selector finding its value |
 | `header` | `csv`: whether the first record names the columns (default `true`) |
 | `delimiter` | `csv`: the field separator, one character (default `,`) |
-| `regex` | `lines`: an RE2 expression whose named groups are the outputs; exclusive with `key` and `errorKey` |
+| `regex` | `lines`: an RE2 expression whose named groups are the outputs, each named exactly once; exclusive with `key` and `errorKey` |
 | `success` | `exitcode`: the exit statuses that render `true` (default `[0]`) |
 | `errorPath`, `errorColumn`, `errorKey` | `json`, `csv`, `lines`: where the tool's own refusal message is; a non-empty value there fails the performance with the tool's message, checked before any output |
 
@@ -190,6 +190,9 @@ Each member of `outputs` is a selector:
 | `type` | all but `object` | What the text is read as: `"number"` (the default), `"integer"`, `"real"`, `"boolean"` or `"string"`. Under `exitcode` only `boolean` (the default) and `integer` are admitted |
 | `unit` | all but `object`, `exitcode` | The value's unit as a fixed expression (`K`, `km/h`) |
 | `unitPath`, `unitColumn` | `json`, `csv` | Where a string holding the unit is read from; exclusive with `unit` |
+
+Only the outputs the performance declares are read; other mapped outputs may be absent
+from the reply without fault.
 
 A unit found either way goes through the same conversion as the JSON protocol's `unit`: it
 is read as a SysML unit expression and converted to the coherent unit of the parameter's

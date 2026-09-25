@@ -20,7 +20,7 @@ func renderedFigureForm(t *testing.T, caption string, rendering *view.Rendering,
 
 func renderedFigureOptions(t *testing.T, caption string, rendering *view.Rendering, options view.Options, form view.Form) string {
 	t.Helper()
-	w := &htmlWriter{form: form}
+	w := &htmlWriter{forms: DiagramOptions{Form: form}}
 	if err := w.writeFigure("", "d", caption, rendering, options); err != nil {
 		t.Fatalf("writeFigure: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestHTMLDiagramDotForm(t *testing.T) {
 	if strings.Contains(renderedFigureForm(t, "", graphRendering(view.KindTree), "", view.FormDot), "data-palette") {
 		t.Errorf("an unfilled figure carries a palette attribute")
 	}
-	w := &htmlWriter{form: view.FormDot}
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormDot}}
 	var typed *Error
 	if err := w.writeFigure("", "d", "", graphRendering(view.KindSequence), view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm {
 		t.Fatalf("sequence as dot: error = %v", err)
@@ -139,7 +139,7 @@ func TestHTMLDiagramTableKind(t *testing.T) {
 // TestHTMLDiagramErrors checks the typed errors for a diagram with no
 // rendering and for a kind no renderer can draw.
 func TestHTMLDiagramErrors(t *testing.T) {
-	w := &htmlWriter{form: view.FormMermaid}
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}}
 	var typed *Error
 	if err := w.writeFigure("", "d", "", nil, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)

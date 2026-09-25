@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -42,18 +43,25 @@ type toolEngine struct {
 }
 
 // NewTool returns the `tool:<name>` engine of a manifest entry. It registers whether or not
-// the executable is found and refuses through Covers while it is not. An invocation block
-// not yet checked by a manifest load is checked here; a faulty one refuses every question.
+// the executable is found and refuses through Covers while it is not. An invocation or reply
+// block not yet checked by a manifest load is checked here; a faulty one refuses every question.
 func NewTool(entry ToolEntry) External {
 	e := toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	dir, at := "", e.Name()
+	if entry.File != "" {
+		dir, at = filepath.Dir(entry.File), entry.File
+	}
 	if inv := entry.Invocation; inv != nil && inv.compiled == nil {
 		checked := *inv
 		e.entry.Invocation = &checked
-		dir, at := "", e.Name()
-		if entry.File != "" {
-			dir, at = filepath.Dir(entry.File), entry.File
-		}
 		if err := checkInvocation(&e.entry, dir); err != nil {
+			e.fault = &ManifestError{Path: at, Detail: err.Error()}
+		}
+	}
+	if r := entry.Reply; r != nil && r.compiled == nil && e.fault == nil {
+		checked := *r
+		e.entry.Reply = &checked
+		if err := checkReply(&e.entry); err != nil {
 			e.fault = &ManifestError{Path: at, Detail: err.Error()}
 		}
 	}
@@ -170,7 +178,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		process.remove()
 		return Result{}, err
 	}
-	reply, err := e.read(ex, process)
+	reply, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -283,7 +291,7 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 
 // read parses the execution's reply as the entry's reply block says, reading the file a
 // `file:` source names before the invocation's directory is removed.
-func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
 	tool := e.entry.ToolName
 	r := e.entry.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
@@ -300,13 +308,17 @@ func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.T
 	if err != nil {
 		return nil, err
 	}
+	wanted := make(map[string]bool, len(call.Outputs))
+	for _, out := range call.Outputs {
+		wanted[out.Variable] = true
+	}
 	if r.Format == ReplyJSON {
-		return r.readJSON(e.entry, source)
+		return r.readJSON(e.entry, source, wanted)
 	}
 	if r.Format == ReplyCSV {
-		return r.readCSV(e.entry, source)
+		return r.readCSV(e.entry, source, wanted)
 	}
-	return r.readLines(e.entry, source)
+	return r.readLines(e.entry, source, wanted)
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —
@@ -339,11 +351,38 @@ func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
 	case !info.Mode().IsRegular():
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: rel + " is not a regular file"}
-	case info.Size() > int64(e.outputLimit()):
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
-			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", e.outputLimit(), rel, OutputLimitEnv)}
 	}
-	return os.ReadFile(path) // #nosec G304 -- a file under the invocation's own directory
+	// Symlinks among the path's ancestors may not lead out of {outputDir} either.
+	real, err := filepath.EvalSymlinks(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
+	case err != nil:
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	realDir, err := filepath.EvalSymlinks(outputDir)
+	if err != nil {
+		realDir = outputDir
+	}
+	if !within(realDir, real) {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
+	}
+	f, err := os.Open(path) // #nosec G304 -- a file under the invocation's own directory
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	defer f.Close() // the read below is the only use; a close error cannot lose data
+	limit := e.outputLimit()
+	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	if len(data) > limit {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", limit, rel, OutputLimitEnv)}
+	}
+	return data, nil
 }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.
