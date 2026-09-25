@@ -437,6 +437,24 @@ func TestWasmRuns(t *testing.T) {
 				}
 			})
 
+			t.Run("answers an element query", func(t *testing.T) {
+				got := r.run(t, bins["sysml"], fixture(t, "model.sysml"), "-query", `sysml:name="Widget"`)
+				if got.code != 0 || !strings.Contains(got.output, "Widget") {
+					t.Errorf("sysml -query exited %d:\n%s", got.code, got.output)
+				}
+			})
+
+			t.Run("converts a model to turtle", func(t *testing.T) {
+				out := filepath.Join(t.TempDir(), "model.ttl")
+				got := r.run(t, bins["sysml"], fixture(t, "model.sysml"), "-convert", "ttl", "-o", out)
+				if got.code != 0 {
+					t.Errorf("sysml -convert ttl exited %d:\n%s", got.code, got.output)
+				}
+				if data, err := os.ReadFile(out); err != nil || !bytes.HasPrefix(data, []byte("@prefix")) {
+					t.Errorf("the Turtle written is %v bytes (%v), want a graph", len(data), err)
+				}
+			})
+
 			t.Run("runs the prompt", func(t *testing.T) {
 				got := r.runWithInput(t, bins["sysml"], readFile(t, "repl.txt"))
 				if got.code != 0 {
