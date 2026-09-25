@@ -70,10 +70,28 @@ func NewWithKind(name string, content []byte, kind Kind) *SourceFile {
 // Name returns the file name.
 func (sf *SourceFile) Name() string { return sf.name }
 
-// Dir is the directory of a source file's name when it is a path on disk; ""
-// for empty, a `<placeholder>` such as standard input's, or a URI.
+// Locate answers the file on disk a span of the named document was read from,
+// or "" for text that came from no file: a buffer, standard input, a library.
+type Locate func(doc string, span Span) string
+
+// FileNamed is the Locate for documents named after the file they hold: the
+// name itself when IsFile, else "".
+func FileNamed(doc string, _ Span) string {
+	if !IsFile(doc) {
+		return ""
+	}
+	return doc
+}
+
+// IsFile reports whether a source file's name is a path on disk rather than
+// empty, a `<placeholder>` such as standard input's, or a URI.
+func IsFile(name string) bool {
+	return name != "" && !strings.HasPrefix(name, "<") && !strings.Contains(name, "://")
+}
+
+// Dir is the directory of a source file's name when IsFile, else "".
 func Dir(name string) string {
-	if name == "" || strings.HasPrefix(name, "<") || strings.Contains(name, "://") {
+	if !IsFile(name) {
 		return ""
 	}
 	return filepath.Dir(name)

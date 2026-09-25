@@ -184,7 +184,7 @@ func Images(document *docir.Document) []Image {
 
 // imageOf is the image block a content node is.
 func imageOf(node docir.Content) Image {
-	return Image{Name: node.Name(), Location: node.Location(), Dir: source.Dir(node.Origin().Doc), Alt: node.Alt(), Caption: node.Caption()}
+	return Image{Name: node.Name(), Location: node.Location(), Dir: source.Dir(node.File()), Alt: node.Alt(), Caption: node.Caption()}
 }
 
 // Remote reports a location rendered where it stands: an http(s) URL an

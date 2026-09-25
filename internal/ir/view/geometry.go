@@ -82,7 +82,7 @@ func (p Picture) Path() string {
 // picturesOf adds to out the Pictures drawn on view, in the order the view
 // states them; one that does not read is noticed.
 func (r *Renderer) picturesOf(view *symbols.Symbol, out *Rendering) {
-	dir := source.Dir(view.Origin().Doc)
+	dir := source.Dir(r.model.SourceFileOf(view.Origin()))
 	for _, site := range r.model.PicturesOf(view) {
 		r.noteLayoutProblems(site, view, out)
 		if site.Picture == nil {

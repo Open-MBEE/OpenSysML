@@ -146,6 +146,7 @@ type Content struct {
 	source      string
 	caption     string
 	alt         string
+	file        string
 	style       ListStyle
 	anchor      string
 	groupBy     string
@@ -183,6 +184,10 @@ func (c Content) Location() string { return c.source }
 
 // Alt returns the text alternative an image states, empty for none.
 func (c Content) Alt() string { return c.alt }
+
+// File returns the file on disk an image block was declared in, which its
+// relative location is stated against; "" when it was declared in none.
+func (c Content) File() string { return c.file }
 
 // Caption returns the caption of a table, formula, diagram or image.
 func (c Content) Caption() string { return c.caption }
@@ -274,6 +279,7 @@ func cloneContent(content []Content) []Content {
 			source:      child.source,
 			caption:     child.caption,
 			alt:         child.alt,
+			file:        child.file,
 			style:       child.style,
 			anchor:      child.anchor,
 			groupBy:     child.groupBy,

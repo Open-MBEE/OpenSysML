@@ -1231,6 +1231,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
+	sem.SetSourceFile(s.sessionSourceFile)
 	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
