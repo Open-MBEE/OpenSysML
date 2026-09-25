@@ -429,6 +429,15 @@ func buildFeatures(req *Request) ([]feature, error) {
 			if sh.kind == kindUnset && !sh.multi {
 				continue
 			}
+			if cur.kind == kindUnset && cur.multi && !sh.multi {
+				// An empty sequence claimed the member multi-valued; a single
+				// value cannot settle it.
+				f := feature{name: m.name}
+				applyShape(&f, cur)
+				if err := compatible(&f, sh); err != nil {
+					return nil, fmt.Errorf("case %s: member %q: %w", req.Case, m.name, err)
+				}
+			}
 			if cur.kind == kindUnset {
 				// An unset member takes the settling value's shape; a run's empty
 				// sequence keeps the member multi-valued whichever settles it.

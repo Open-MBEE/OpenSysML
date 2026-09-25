@@ -792,6 +792,7 @@ func TestGenerateSequenceRun(t *testing.T) {
 				{Name: "temps", Value: seqOf(kelvin(300.0), kelvin(310.5))},
 				{Name: "mixed", Value: seqOf(integer(1), realValue(2.5))},
 				{Name: "labels", Value: seqOf(runtime.NewStringValue("a"), runtime.NewStringValue("b"))},
+				{Name: "peak", Value: seqOf(realValue(300.0))},
 			},
 		}},
 	})
@@ -857,6 +858,10 @@ func TestGenerateSequenceAgainstASingleValue(t *testing.T) {
 		},
 		"scalar after sequence": {
 			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf(realValue(1), realValue(2))}}},
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(1)}}},
+		},
+		"scalar after empty sequence": {
+			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: seqOf()}}},
 			{Spell: spell(), Outputs: []runtime.CalcOutputValue{{Name: "x", Value: realValue(1)}}},
 		},
 	} {
