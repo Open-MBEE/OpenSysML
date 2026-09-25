@@ -556,11 +556,16 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 		if len(answered.Items) == 0 && answered.Unit != "" {
 			// An empty sequence has no element to carry the unit: it is
 			// measured in the parameter's coherent unit itself.
-			_, coherent, err := e.toolMeasuredUnits(malformed, out, answered.Unit)
+			from, to, err := e.toolMeasuredUnits(malformed, out, answered.Unit)
 			if err != nil {
 				return Value{}, err
 			}
-			value = NewEmptySequenceOf(coherent)
+			// The unit is the only thing to check: a zero magnitude meets the
+			// same commensurability refusal an answered element would.
+			if _, err := semantics.ConvertQuantity(Quantity{Num: semantics.Value{Kind: semantics.ValReal}, Unit: from}, to); err != nil {
+				return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
+			}
+			value = NewEmptySequenceOf(to)
 		} else {
 			elements := make([]Value, 0, len(answered.Items))
 			for i, item := range answered.Items {

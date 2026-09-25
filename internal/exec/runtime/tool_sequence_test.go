@@ -210,6 +210,17 @@ func TestToolOutputEmptySequenceKeepsItsUnit(t *testing.T) {
 			t.Fatalf("ExecuteAction = %v, want malformed naming a non-quantity parameter", err)
 		}
 	})
+	t.Run("measured against another dimension", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"speeds": {Unit: "K", Items: make([]ToolValue, 0)},
+		}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "RunProfile"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed || !strings.Contains(failure.Detail, "does not measure") {
+			t.Fatalf("ExecuteAction = %v, want malformed naming the incommensurable unit", err)
+		}
+	})
 	t.Run("an unknown unit", func(t *testing.T) {
 		ctx, scope := analysisFixture(t, sequenceModel)
 		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
