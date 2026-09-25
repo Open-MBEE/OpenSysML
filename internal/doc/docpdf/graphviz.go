@@ -25,9 +25,8 @@ func (g *graphvizRasterizer) prepare(string) error {
 	return nil
 }
 
-// draw runs Graphviz in dir with the pictures' search path set to the current
-// directory: a view's picture paths are relative to it, as the model's own
-// path was, while dir is the temporary directory the SVG lands in.
+// draw runs Graphviz in dir, the temporary directory the SVG lands in, with
+// the pictures' search path kept at the current directory their paths are relative to.
 func (g *graphvizRasterizer) draw(dir, source, output string) error {
 	input := strings.TrimSuffix(output, ".svg") + ".dot"
 	if err := os.WriteFile(filepath.Join(dir, input), []byte(source+"\n"), 0o600); err != nil {

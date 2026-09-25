@@ -190,11 +190,8 @@ func imagePathArg(t *testing.T) string {
 	return "-Gimagepath=" + cwd
 }
 
-// TestEmbedImagesInlinesThePicturesAnSVGRefers checks the <image> file
-// references Graphviz writes into a drawn SVG are replaced by the files'
-// bytes as data URIs, relative paths taken against the given directory, so
-// the SVG is self-contained; URLs, data URIs and files that do not exist are
-// left as written.
+// TestEmbedImagesInlinesThePicturesAnSVGRefers checks file references become
+// data URIs, relative to the given directory; URLs, data URIs and missing files stay.
 func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
 	base := t.TempDir()
 	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")

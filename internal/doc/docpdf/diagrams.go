@@ -150,12 +150,8 @@ func DrawSVG(diagrams []docrender.Diagram) ([]string, error) {
 // href with or without the xlink prefix, as Graphviz writes it.
 var svgImageRef = regexp.MustCompile(`(<image\b[^>]*?\s(?:xlink:)?href=")([^"]*)(")`)
 
-// embedImages rewrites the SVG file at path so each <image> that refers to a
-// file carries the file's bytes as a data URI instead, the relative paths
-// taken against base: the drawing is then self-contained wherever the SVG is
-// inlined or moved to. A reference that is a URL or a data URI already, or a
-// file that does not read, is left as written; so is an SVG the tool did not
-// write, for checkSVG to report.
+// embedImages inlines each file an SVG's <image> refers to (relative to base) as
+// a data URI, so the drawing is self-contained; URLs, data URIs and unread files stay as written.
 func embedImages(path, base string) error {
 	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
 	if err != nil {
