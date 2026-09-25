@@ -136,8 +136,9 @@ value as the request would carry it (a number, `true`/`false` or the string itse
 `{inputFile}` is the input file's path and `{outputDir}` the invocation's directory, made empty
 for the process to write into; `{{` and `}}` are literal braces. A placeholder naming a variable
 not in `variables`, an `{inputFile}` without an `inputFile` member, a malformed placeholder,
-and a `cwd` outside the manifest directory are manifest faults; a `variables` entry spelled
-like a reserved placeholder is refused beside the block. A declared variable the performance
+and a `cwd` outside the manifest directory are manifest faults; beside the block a `variables`
+entry spelled like a reserved placeholder or containing a period, brace or space is refused
+too, so `{mass.unit}` always means the unit of `mass` and a CSV header never repeats. A declared variable the performance
 did not send fails it before the process starts (`tool 'Dynamics': input not carried: the
 invocation names {mass} but the call sent no value for mass`).
 The invocation's directory is removed once the reply is read unless `OPENSYSML_TOOL_KEEP=1`.

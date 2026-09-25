@@ -123,6 +123,10 @@ func TestManifestInvocationRefusedShapes(t *testing.T) {
 		"cwd escapes":         {entryText(`{"cwd": "../elsewhere"}`), `invocation cwd "../elsewhere" names a path outside the manifest directory`},
 		"reserved variable": {`{"toolName": "A", "executable": "a", "variables": ["uri"], "invocation": {}}`,
 			`variables names "uri", which an invocation template reserves`},
+		"dotted variable": {`{"toolName": "A", "executable": "a", "variables": ["mass", "mass.unit"], "invocation": {}}`,
+			`variables names "mass.unit"; with an invocation block a variable name has no period, brace or space`},
+		"braced variable": {`{"toolName": "A", "executable": "a", "variables": ["{x}"], "invocation": {}}`,
+			`variables names "{x}"; with an invocation block`},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -136,6 +140,36 @@ func TestManifestInvocationRefusedShapes(t *testing.T) {
 				t.Errorf("error %q, want it to say %q", err, tc.detail)
 			}
 		})
+	}
+}
+
+// An entry built in code, not read from a manifest, has its block checked by NewTool: a sound
+// one composes the command, a faulty one refuses every question with the manifest fault.
+func TestNewToolChecksAProgrammaticInvocation(t *testing.T) {
+	call := &runtime.ToolCall{ToolName: "Echo", Inputs: []runtime.ToolInput{{Variable: "mass"}}}
+	question := Question{Kind: Compute, Compute: &ComputeAsk{Call: call}}
+
+	sound := NewTool(echoEntry(echo(t), &Invocation{Args: []string{"{mass}", "{outputDir}"}}))
+	if c := sound.Covers(nil, question); !c.Covered {
+		t.Fatalf("sound block: %+v, want covered", c)
+	}
+	out := parseProbe(t).perform(t, registered(t, NewRun(), sound))
+	if !strings.HasPrefix(out["argv"], `["1500",`) {
+		t.Errorf("argv %s, want the block's arguments rendered", out["argv"])
+	}
+
+	for name, inv := range map[string]*Invocation{
+		"undeclared variable": {Args: []string{"{speed}"}},
+		"relative cwd":        {Cwd: "work"},
+	} {
+		faulty := NewTool(echoEntry(echo(t), inv))
+		c := faulty.Covers(nil, question)
+		if c.Covered || !errors.Is(c.Refusal, ErrManifest) || !strings.Contains(c.Refusal.Error(), "tool:Echo") {
+			t.Errorf("%s: %+v, want the refusal a ManifestError naming tool:Echo", name, c)
+		}
+		if _, err := faulty.Run(context.Background(), nil, question, Budget{}); !errors.Is(err, ErrManifest) {
+			t.Errorf("%s: run %v, want the ManifestError", name, err)
+		}
 	}
 }
 
