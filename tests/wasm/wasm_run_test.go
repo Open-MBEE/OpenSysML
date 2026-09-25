@@ -422,6 +422,16 @@ func TestWasmRuns(t *testing.T) {
 				}
 			})
 
+			t.Run("validates a model", func(t *testing.T) {
+				// The check tier end to end: parse, resolve, analyse, report. It is the
+				// command a user runs first, so it is the one that has to work on the
+				// target rather than merely link.
+				got := r.run(t, bins["sysml"], fixture(t, "model.sysml"), "-validate")
+				if got.code != 0 || !strings.Contains(got.output, "no errors") {
+					t.Errorf("sysml -validate exited %d:\n%s", got.code, got.output)
+				}
+			})
+
 			t.Run("runs the prompt", func(t *testing.T) {
 				got := r.runWithInput(t, bins["sysml"], readFile(t, "repl.txt"))
 				if got.code != 0 {
