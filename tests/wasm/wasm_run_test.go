@@ -252,9 +252,14 @@ type session struct {
 	waited chan error
 }
 
-// start begins a session for the binary and its arguments.
+// start begins a session for the binary and its arguments. A session needs a pipe
+// driven target — Node's WASI cannot block on one — so only the js target has one
+// here, and every case that starts a session is that target's.
 func (r runner) start(t *testing.T, binary string, args ...string) *session {
 	t.Helper()
+	if r.stdin != stdinPipe {
+		t.Fatalf("%s is driven with files, and a session needs a pipe it can block on", r.target.name)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), runTimeout)
 	cmd := r.command(ctx, binary, args...)
 	stdin, err := cmd.StdinPipe()
