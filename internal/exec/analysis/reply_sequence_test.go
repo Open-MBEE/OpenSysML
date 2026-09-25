@@ -71,7 +71,7 @@ func TestReplyReadsCSVAllRows(t *testing.T) {
 // A JSON array reads as a sequence of its scalars, every element the same wire kind.
 func TestReplyReadsJSONArray(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
-		"T_max": {Path: "/results/temps", UnitPath: "/units/T_max"},
+		"T_max": {Path: jsonPath("/results/temps"), UnitPath: "/units/T_max"},
 	}})
 	source := `{"results":{"temps":[300,310.5,341.2]},"units":{"T_max":"K"}}`
 	out, err := readReply(t, r, entry, source)
