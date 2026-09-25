@@ -72,7 +72,7 @@ func (m *migration) planTables() {
 		m.tableOf[t] = td
 		v.tables = append(v.tables, td)
 		for _, c := range t.Columns {
-			if s := m.columnKey(c, v.host, m.rowClassifiers(t.RowTypes)); s.feature != nil && s.why == "" && !c.Hidden {
+			if s := m.columnKey(c, v.host, m.rowSetOf(t)); s.feature != nil && s.why == "" && !c.Hidden {
 				m.expose(s.feature, "a column of the table '"+name+"' reads it")
 			}
 		}
@@ -435,7 +435,7 @@ type columnSource struct {
 
 // columnKey is what a column reads of a row as a query property, feature
 // name or member path, or why it reads nothing a query can.
-func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, classifiers []*sysmlv1.Element) columnSource {
+func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, rows rowSet) columnSource {
 	switch c.Kind {
 	case sysmlv1.ColumnProperty:
 		if p, ok := queryProperties[c.Property]; ok {
@@ -448,7 +448,7 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, classifie
 		case f == nil:
 			return columnSource{why: columnSubject + c.ID + " names no property of the document"}
 		case monteCarloFeature(f) != "":
-			return m.monteCarloColumn(monteCarloFeature(f), classifiers)
+			return m.monteCarloColumn(monteCarloFeature(f), rows)
 		case !m.written(f):
 			return columnSource{why: "the column's " + kindOf(f) + " " + qualifiedName(f) + " is not migrated"}
 		case f.Parent == nil || f.Type != "Property" || !m.isDefinition(f.Parent):
@@ -459,6 +459,47 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, classifie
 		return columnSource{why: columnSubject + c.ID + " reads a property of a property, which no Column expression reads"}
 	}
 	return columnSource{why: columnSubject + c.ID + " is of a form the migrator does not read"}
+}
+
+// rowSet is what a table's row query admits: the scope's descendants (or the
+// whole model's) and the rows it lists, typed by the classifiers — nil
+// classifiers when a row type admits elements beyond them or all.
+type rowSet struct {
+	whole       bool
+	scope       []*sysmlv1.Element
+	listed      []*sysmlv1.Element
+	classifiers []*sysmlv1.Element
+}
+
+// admits reports whether e could be a row the table queries: under its scope,
+// listed, or anything when it takes the whole model.
+func (rows rowSet) admits(e *sysmlv1.Element) bool {
+	if rows.whole || slices.Contains(rows.listed, e) {
+		return true
+	}
+	for p := e.Parent; p != nil; p = p.Parent {
+		if slices.Contains(rows.scope, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// rowSetOf is the row set a table's query admits: its scope roots, listed rows
+// and row classifiers.
+func (m *migration) rowSetOf(t *sysmlv1.Table) rowSet {
+	rows := rowSet{whole: t.WholeModel, classifiers: m.rowClassifiers(t.RowTypes)}
+	for _, ref := range t.Scope {
+		if name, _ := m.namedRoot(ref, "scope"); name != "" {
+			rows.scope = append(rows.scope, ref.Element)
+		}
+	}
+	for _, ref := range t.Rows {
+		if ref.Element != nil && m.written(ref.Element) {
+			rows.listed = append(rows.listed, ref.Element)
+		}
+	}
+	return rows
 }
 
 // rowClassifiers are the written classifiers the row types admit; nil when a
@@ -495,7 +536,7 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 		if col.Kind == sysmlv1.ColumnTool {
 			continue
 		}
-		src := m.columnKey(col, host, m.rowClassifiers(t.RowTypes))
+		src := m.columnKey(col, host, m.rowSetOf(t))
 		if src.why != "" {
 			l.note(sortBySubject + s.Column + " is dropped: " + src.why)
 			continue
@@ -535,7 +576,7 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 			continue
 		}
 		shown++
-		src := m.columnKey(c, host, m.rowClassifiers(t.RowTypes))
+		src := m.columnKey(c, host, m.rowSetOf(t))
 		if src.why != "" {
 			l.note(columnSubject + c.ID + " is omitted: " + src.why)
 			continue

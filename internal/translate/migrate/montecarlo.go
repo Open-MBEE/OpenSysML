@@ -76,13 +76,13 @@ type monteCarloBinding struct {
 // member-path Column reading the statistic off the row's nested 'Monte Carlo'
 // analysis, captioned by the v1 statistic's name. A statistic no listed
 // instance records would read nothing, so the column stays a note.
-func (m *migration) monteCarloColumn(stat string, classifiers []*sysmlv1.Element) columnSource {
+func (m *migration) monteCarloColumn(stat string, rows rowSet) columnSource {
 	member, ok := monteCarloMembers[stat]
 	if !ok {
 		return columnSource{why: "the column's " + monteCarloAnalysisBlock + "::" + stat +
 			" is no statistic the analysis records"}
 	}
-	if !m.monteCarloRowsRecord(classifiers) {
+	if !m.monteCarloRowsRecord(rows) {
 		return columnSource{why: "the column's " + monteCarloAnalysisBlock + "::" + stat +
 			" is recorded by no instance the table lists, so the column would read nothing"}
 	}
@@ -93,27 +93,31 @@ func (m *migration) monteCarloColumn(stat string, classifiers []*sysmlv1.Element
 	}
 }
 
-// monteCarloRowsRecord reports whether an instance the row classifiers admit
-// records a statistic; no classifiers means rows may be anything, so any
-// recorded analysis counts.
-func (m *migration) monteCarloRowsRecord(classifiers []*sysmlv1.Element) bool {
-	recorded := m.monteCarloRecording()
-	if len(classifiers) == 0 {
-		return len(recorded) > 0
-	}
-	for _, cs := range recorded {
+// monteCarloRowsRecord reports whether an instance the table's rows admit
+// records an analysis, as the row query would reach it.
+func (m *migration) monteCarloRowsRecord(rows rowSet) bool {
+	for _, e := range m.monteCarloRecording() {
+		if !rows.admits(e) {
+			continue
+		}
+		if len(rows.classifiers) == 0 {
+			return true
+		}
+		_, classifiers, _ := m.individualClassifiers(e)
 		for _, c := range classifiers {
-			if cs.block == c || m.inherits(cs.block, c) {
-				return true
+			for _, k := range rows.classifiers {
+				if c == k || m.inherits(c, k) {
+					return true
+				}
 			}
 		}
 	}
 	return false
 }
 
-// monteCarloRecording lists, lazily, the analyses some written individual
-// records a statistic into.
-func (m *migration) monteCarloRecording() []*monteCarloCase {
+// monteCarloRecording lists, lazily, the written individuals that record an
+// analysis: a recorded case and at least one statistic slot.
+func (m *migration) monteCarloRecording() []*sysmlv1.Element {
 	if m.mcRecordedDone {
 		return m.mcRecorded
 	}
@@ -129,13 +133,12 @@ func (m *migration) monteCarloRecording() []*monteCarloCase {
 		if cat, _ := m.classify(e); cat != catIndividualDef && cat != catValue {
 			return
 		}
-		cs := m.recordedCase(e)
-		if cs == nil {
+		if m.recordedCase(e) == nil {
 			return
 		}
 		for _, slot := range e.Owned("slot") {
 			if monteCarloFeature(m.model.Ref(slot, "definingFeature")) != "" {
-				m.mcRecorded = append(m.mcRecorded, cs)
+				m.mcRecorded = append(m.mcRecorded, e)
 				return
 			}
 		}
