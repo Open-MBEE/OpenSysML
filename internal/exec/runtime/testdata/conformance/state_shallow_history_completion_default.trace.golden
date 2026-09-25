@@ -1,0 +1,82 @@
+exit: start
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);"
+enter: one (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);"
+      eval literal "one(entry);" -> "one(entry);"
+    eval operator + -> "outer(entry);one(entry);"
+transition: start -> outer (event: accept Go)
+exit: one
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);"
+enter: away
+transition: one -> away (event: accept Leave)
+exit: away
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);"
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);"
+enter: one (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);"
+      eval literal "one(entry);" -> "one(entry);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);"
+transition: away -> one (event: accept Back)
+exit: one
+enter: second
+transition: one -> second (event: accept Next)
+exit: second
+enter: done
+transition: second -> done (event: accept Finish)
+exit: done
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);"
+      eval literal "completion(effect);" -> "completion(effect);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);"
+enter: outer (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);"
+      eval literal "outer(entry);" -> "outer(entry);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);"
+      eval literal "default(effect);" -> "default(effect);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);"
+enter: third (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);"
+      eval literal "third(entry);" -> "third(entry);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);third(entry);"
+transition: done -> third
+exit: third
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);third(entry);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);one(entry);outer(exit);outer(entry);one(entry);outer(exit);completion(effect);outer(entry);default(effect);third(entry);outer(exit);"
+enter: done
+transition: third -> done (event: accept End)

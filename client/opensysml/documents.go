@@ -8,7 +8,8 @@ import (
 )
 
 // Cell is one typed document-query value: Element, Object, String, Int, Real,
-// Bool, Infinity or DocumentVerdict. A type switch over them is exhaustive.
+// Bool, Quantity, Infinity, DocumentVerdict, DocumentState or DocumentEvent. A
+// type switch over them is exhaustive.
 type Cell interface {
 	isCell()
 }
@@ -72,14 +73,67 @@ type DocumentVerdict struct {
 	Verification []string
 }
 
+// DocumentState is a row a `States` query answered: one active leaf state of
+// the state machine Object exhibits as Machine. It is answered, never bound.
+type DocumentState struct {
+	// Object is the object whose state the row reports.
+	Object Object
+	// Machine is the exhibited state usage's name ("lp"), or the state
+	// definition's when the object performs one directly.
+	Machine string
+	// Name is the active leaf state's name ("dim").
+	Name string
+	// Path is the leaf's dotted path from the machine's top level ("on.dim").
+	Path string
+	// State is the leaf's declaration; its ID is empty for an anonymous state.
+	State Element
+	// Region is the orthogonal region declaring the leaf ("light"); empty for a
+	// leaf outside any region.
+	Region string
+	// Enclosing are the active composite states above the leaf, outermost first.
+	Enclosing []string
+}
+
+// DocumentEvent is a row an `Events` query answered: one record of a session's
+// trace. It is answered, never bound.
+type DocumentEvent struct {
+	// Kind is "accept", "send", "transition", "entry", "exit", "do", "choice"
+	// or "guard".
+	Kind string
+	// Time is the run's clock when the record was made: a Quantity when the
+	// clock carries a unit, a Real otherwise.
+	Time Cell
+	// Object is the object the record is about; nil for a record of none.
+	Object *Object
+	// Machine is the state machine the record is about, as DocumentState.Machine names it.
+	Machine string
+	// State is the state entered, exited or performing, by path; From and To
+	// are a transition's source and target.
+	State, From, To string
+	// Target is the object a send was addressed to; nil for any other record.
+	Target *Object
+	// Event is the signal accepted or sent.
+	Event string
+	// Payload is the accepted signal's arguments as "name = value", by name.
+	Payload []string
+	// Alternatives are a choice's candidates as offered; Taken is the one drawn.
+	Alternatives []string
+	Taken        string
+	// Text is the record as the trace prints it.
+	Text string
+}
+
 func (Element) isCell()         { /* marker: closed Cell set */ }
 func (Object) isCell()          { /* marker: closed Cell set */ }
 func (Infinity) isCell()        { /* marker: closed Cell set */ }
 func (DocumentVerdict) isCell() { /* marker: closed Cell set */ }
+func (DocumentState) isCell()   { /* marker: closed Cell set */ }
+func (DocumentEvent) isCell()   { /* marker: closed Cell set */ }
 func (String) isCell()          { /* marker: closed Cell set */ }
 func (Int) isCell()             { /* marker: closed Cell set */ }
 func (Real) isCell()            { /* marker: closed Cell set */ }
 func (Bool) isCell()            { /* marker: closed Cell set */ }
+func (Quantity) isCell()        { /* marker: closed Cell set */ }
 
 // String is the element as a binding names it, its qualified name.
 func (e Element) String() string { return e.ID }
@@ -103,6 +157,20 @@ func (v DocumentVerdict) String() string {
 		return v.Text + ": " + v.Status
 	}
 	return v.Text + " on " + v.Path + ": " + v.Status
+}
+
+// String is the state in one line: "lamp1.lp in on.dim".
+func (s DocumentState) String() string {
+	return s.Object.String() + "." + s.Machine + " in " + s.Path
+}
+
+// String is the event as the trace prints it, prefixed by its time:
+// "1 s: accept Dim".
+func (e DocumentEvent) String() string {
+	if e.Time == nil {
+		return e.Text
+	}
+	return CellText(e.Time) + ": " + e.Text
 }
 
 // Binding binds one entry parameter of a document query. Several values bind a
@@ -138,6 +206,12 @@ type Row struct {
 	// Verdict is the verdict a row a `Verdicts` query answered carries; nil for
 	// any other row.
 	Verdict *DocumentVerdict
+	// State is the state a row a `States` query answered carries; nil for any
+	// other row.
+	State *DocumentState
+	// Event is the trace record a row an `Events` query answered carries; nil
+	// for any other row.
+	Event *DocumentEvent
 	// Cells holds each column's values, in column order.
 	Cells [][]Cell
 }
@@ -183,6 +257,16 @@ func (c *client) RunDocumentQuery(
 		case DocumentVerdict:
 			converted.Element = selected.Assertion
 			converted.Verdict = &selected
+		case DocumentState:
+			converted.Element = selected.Object.Element
+			converted.Object = &selected.Object
+			converted.State = &selected
+		case DocumentEvent:
+			if selected.Object != nil {
+				converted.Element = selected.Object.Element
+				converted.Object = selected.Object
+			}
+			converted.Event = &selected
 		}
 		for _, cell := range row.Cells {
 			values := make([]Cell, 0, len(cell.Values))
@@ -208,8 +292,8 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 	return resp.Markdown, nil
 }
 
-// cellToProto marshals a bound value. Infinity and DocumentVerdict are refused
-// here, as the service refuses them: queries answer them, nothing binds them.
+// cellToProto marshals a bound value; infinity and the verdict, state and event
+// rows are refused here as the service refuses them: queries answer, nothing binds.
 func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 	switch value := cell.(type) {
 	case nil:
@@ -231,6 +315,12 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_RealValue{RealValue: float64(value)}}, nil
 	case Bool:
 		return &pb.DocumentValue{Kind: &pb.DocumentValue_BoolValue{BoolValue: bool(value)}}, nil
+	case Quantity:
+		quantity, err := quantityToProto(value)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.DocumentValue{Kind: &pb.DocumentValue_Quantity{Quantity: quantity}}, nil
 	case Infinity:
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
@@ -240,6 +330,16 @@ func cellToProto(cell Cell) (*pb.DocumentValue, error) {
 		return nil, &StatusError{
 			Code:    CodeInvalidArgument,
 			Message: "a verdict is answered by queries, not bound to them",
+		}
+	case DocumentState:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "a state row is answered by queries, not bound to them",
+		}
+	case DocumentEvent:
+		return nil, &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: "an event row is answered by queries, not bound to them",
 		}
 	default:
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: "unknown document value kind"}
@@ -258,12 +358,14 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 		return Real(kind.RealValue)
 	case *pb.DocumentValue_BoolValue:
 		return Bool(kind.BoolValue)
-	case *pb.DocumentValue_Object:
-		object := Object{ID: kind.Object.GetInstanceId(), Path: kind.Object.GetPath()}
-		if element, ok := cellFromProto(kind.Object.GetElement()).(Element); ok {
-			object.Element = element
+	case *pb.DocumentValue_Quantity:
+		quantity, ok := quantityFromProto(kind.Quantity)
+		if !ok {
+			return nil
 		}
-		return object
+		return quantity
+	case *pb.DocumentValue_Object:
+		return objectFromProto(kind.Object)
 	case *pb.DocumentValue_Infinity:
 		return Infinity{}
 	case *pb.DocumentValue_Verdict:
@@ -280,9 +382,53 @@ func cellFromProto(value *pb.DocumentValue) Cell {
 			verdict.Assertion = assertion
 		}
 		return verdict
+	case *pb.DocumentValue_State:
+		state := DocumentState{
+			Object:    objectFromProto(kind.State.GetObject()),
+			Machine:   kind.State.GetMachine(),
+			Name:      kind.State.GetName(),
+			Path:      kind.State.GetStatePath(),
+			Region:    kind.State.GetRegion(),
+			Enclosing: append([]string(nil), kind.State.GetEnclosing()...),
+		}
+		if declaration, ok := cellFromProto(kind.State.GetState()).(Element); ok {
+			state.State = declaration
+		}
+		return state
+	case *pb.DocumentValue_Event:
+		event := DocumentEvent{
+			Kind:         kind.Event.GetKind(),
+			Time:         cellFromProto(kind.Event.GetTime()),
+			Machine:      kind.Event.GetMachine(),
+			State:        kind.Event.GetState(),
+			From:         kind.Event.GetFrom(),
+			To:           kind.Event.GetTo(),
+			Event:        kind.Event.GetEvent(),
+			Payload:      append([]string(nil), kind.Event.GetPayload()...),
+			Alternatives: append([]string(nil), kind.Event.GetAlternatives()...),
+			Taken:        kind.Event.GetTaken(),
+			Text:         kind.Event.GetText(),
+		}
+		if kind.Event.GetObject() != nil {
+			object := objectFromProto(kind.Event.GetObject())
+			event.Object = &object
+		}
+		if kind.Event.GetTarget() != nil {
+			target := objectFromProto(kind.Event.GetTarget())
+			event.Target = &target
+		}
+		return event
 	default:
 		return nil
 	}
+}
+
+func objectFromProto(object *pb.DocumentObject) Object {
+	out := Object{ID: object.GetInstanceId(), Path: object.GetPath()}
+	if element, ok := cellFromProto(object.GetElement()).(Element); ok {
+		out.Element = element
+	}
+	return out
 }
 
 // CellText renders one cell value as a report writes it, the way the CLI's
@@ -303,9 +449,15 @@ func CellText(cell Cell) string {
 		return strconv.FormatFloat(float64(value), 'g', -1, 64)
 	case Bool:
 		return strconv.FormatBool(bool(value))
+	case Quantity:
+		return value.String()
 	case Infinity:
 		return "*"
 	case DocumentVerdict:
+		return value.String()
+	case DocumentState:
+		return value.String()
+	case DocumentEvent:
 		return value.String()
 	default:
 		return ""

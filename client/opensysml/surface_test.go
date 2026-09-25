@@ -5,13 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 const behaviorSource = `package Test {
@@ -673,6 +674,29 @@ func TestAFormatAliasIsAnsweredCanonically(t *testing.T) {
 	}
 	if conversion.Experimental {
 		t.Error("a notation-to-notation conversion reports itself as experimental")
+	}
+}
+
+func TestConvertFileMigratesSysMLv1(t *testing.T) {
+	client := newClient(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
+	conversion, err := client.ConvertFile(context.Background(), xmi, opensysml.FormatSysML)
+	if err != nil {
+		t.Fatalf("ConvertFile: %v", err)
+	}
+	if conversion.From != opensysml.FormatXMI || conversion.To != opensysml.FormatSysML {
+		t.Errorf("conversion = %s to %s, want xmi to sysml", conversion.From, conversion.To)
+	}
+	if !strings.Contains(conversion.Content, "part def Vehicle") {
+		t.Errorf("conversion does not carry the migrated model:\n%s", conversion.Content)
+	}
+	if !conversion.Experimental || !strings.Contains(conversion.ExperimentalNotice, "SysML v1 migration") {
+		t.Errorf("a migration does not report itself as experimental: %q", conversion.ExperimentalNotice)
+	}
+
+	_, err = client.ConvertFile(context.Background(), xmi, opensysml.FormatXMI)
+	if !errors.Is(err, opensysml.CodeInvalidArgument) {
+		t.Errorf("writing xmi: err = %v, want CodeInvalidArgument", err)
 	}
 }
 

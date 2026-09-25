@@ -1,17 +1,17 @@
 ---
 name: testing-doc-counts
-description: How to end-to-end test the generated documentation figures (cmd/doc-counts + internal/doccounts + `make docs-counts`, and the build-time suite figures of scripts/mkdocs_suite_figures.py) on Linux — proving `-check` is a real gate, that the block consumers cannot drift, that marker mutations fail loudly, that the site renders the tree's figures, and that no measured number moved.
+description: How to end-to-end test the generated documentation figures (tools/cmd/doc-counts + tools/census/doccounts + `make docs-counts`, and the build-time suite figures of scripts/mkdocs_suite_figures.py) on Linux — proving `-check` is a real gate, that the block consumers cannot drift, that marker mutations fail loudly, that the site renders the tree's figures, and that no measured number moved.
 ---
 
-# Testing the generated documentation figures (`cmd/doc-counts`)
+# Testing the generated documentation figures (`tools/cmd/doc-counts`)
 
-`cmd/doc-counts` regenerates three kinds of derived documentation:
+`tools/cmd/doc-counts` regenerates three kinds of derived documentation:
 
 1. single-copy baseline lines in `README.md` (`**Reference differential:**`, `**Rejection oracle:**`),
    from the committed baselines;
 2. the HTML-comment-delimited named block `<!-- doc-counts:begin refereed-figures -->` …
    `<!-- doc-counts:end refereed-figures -->`, rendered from **one** template in
-   `internal/doccounts/doccounts.go` into **two** consumers (`README.md` and
+   `tools/census/doccounts/doccounts.go` into **two** consumers (`README.md` and
    `docs/internals/architecture.md`), differing only by `Block.LinkPrefix`
    (`docs/project/` vs `../project/`);
 3. the README's `**Behavioral execution:**` figure, the **inline** block
@@ -19,16 +19,16 @@ description: How to end-to-end test the generated documentation figures (cmd/doc
    — the one suite figure still committed, because it moves only with `known_failures.txt`.
 
 The rest of the test-suite figures are **site blocks** (`doccounts.SiteBlocks()`, named in
-`siteSuiteBlocks` in `internal/doccounts/suite_blocks.go`): the compliance map's `**Test Coverage:**`
+`siteSuiteBlocks` in `tools/census/doccounts/suite_blocks.go`): the compliance map's `**Test Coverage:**`
 inventory (`inventory-conformance`, `-robustness`, `-runtime-tests`, `-golden-asts`, `-traces`,
 `-negatives`, `-grpc`, `-tests`) and the LSP `**Measured coverage:**` line (`lsp-tests`). In git each
-holds a sentence naming what is counted and **no digit**; `go run ./cmd/doc-counts -check` refuses
+holds a sentence naming what is counted and **no digit**; `go run -C tools ./cmd/doc-counts -check` refuses
 one that states a figure (`the block named "inventory-robustness" states a figure`). The figures
-are rendered when the site builds: `go run ./cmd/doc-counts -site-blocks` prints
+are rendered when the site builds: `go run -C tools ./cmd/doc-counts -site-blocks` prints
 `{"docs/project/spec-compliance.md": {"inventory-robustness": "470 runtime robustness cases (…)", …}}`
 and `scripts/mkdocs_suite_figures.py` (an `on_pre_build` + `on_page_markdown` hook in
 `mkdocs.yml`) splices the text into the blocks, dropping the markers. Their inputs are the
-**tree**, read by `doccounts.ReadSuiteCounts` the way the gates enumerate them: `internal/fixtures`
+**tree**, read by `doccounts.ReadSuiteCounts` the way the gates enumerate them: `tests/fixtures`
 lists the conformance cases (the same package `TestExecutionConformance` and the gRPC conformance
 gate iterate), the parse and trace goldens are stat'ed against the case that owns them, and the
 robustness, negative and `Test`-function figures are counted from the `_test.go` files with
@@ -40,7 +40,7 @@ run can state it, so the prose does not quote one.
 
 A third consumer, `<!-- doc-counts:begin analysis-libraries -->` in `docs/project/spec-compliance.md`,
 renders the per-library table from `docs/project/analysis-library-census.json`, which
-`TestAnalysisLibraryCensus` (`internal/core/runtime/library_census_test.go`) writes under
+`TestAnalysisLibraryCensus` (`internal/exec/runtime/library_census_test.go`) writes under
 `-update-library-census` and otherwise asserts. Its inputs are `doccounts.ReadFigures`
 (the refereed baselines plus the census); the same stale/marker/read-only checks below apply to it,
 and a census JSON mutated by hand (a declaration dropped from `evaluated`) must fail both `-check`
@@ -49,7 +49,7 @@ and a census JSON mutated by hand (a declaration dropped from `evaluated`) must 
 The compliance map's own row census (`The map below tracks N semantic rules: …`) is **not** committed
 anywhere: `scripts/mkdocs_census.py` counts it from the rows and fills the
 `<!-- doc-counts:begin census -->` block in `docs/project/spec-compliance.md` while the site builds
-(`make docs`). `doc-counts` and the `cmd/pilot-diff` guard only refuse a `🚧` row. Test the hook with
+(`make docs`). `doc-counts` and the `tools/referee/diff` guard only refuse a `🚧` row. Test the hook with
 `python3 scripts/mkdocs_census-test.py`, and prove it live by grepping the built
 `site/project/spec-compliance/index.html` for `semantic rules:` after adding a row.
 
@@ -78,9 +78,9 @@ Inputs to the refereed figures are the three committed baselines
 `docs/project/spec-compliance.md` is read to refuse a `🚧` row and, since it carries the inventory
 blocks, is also a consumer.
 
-`make docs-counts` = generate → `go run ./cmd/doc-counts -check` → `go run ./cmd/validation-census
--check` → `go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts
-./cmd/validation-census`.
+`make docs-counts` = generate → `go run -C tools ./cmd/doc-counts -check` → `go run -C tools ./cmd/validation-census
+-check` → `go test -C tools -count=1 ./census/doccounts ./census/validation` →
+`go test -C tools -count=1 ./referee/diff ./referee/reject`.
 
 Adding a test or fixture anywhere in the module moves a site figure and **nothing committed**:
 `-check` stays `already current`, `-site-blocks` and the built site change. Only a baseline, the
@@ -110,7 +110,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
 - **Idempotence:** `make docs-counts` twice; both must print `doc-counts: already current` for the
   generate *and* the `-check` step, and `git status --short` must stay empty.
 - **`-check` is a gate, not decoration:** perturb one number *inside* the block in one consumer.
-  `go run ./cmd/doc-counts -check` must exit **1**, print `doc-counts: <that path> is stale` plus a
+  `go run -C tools ./cmd/doc-counts -check` must exit **1**, print `doc-counts: <that path> is stale` plus a
   `--- <path> (current) / +++ <path> (generated)` diff with `@@ line N @@` hunks, name **only** that
   file, and leave the file's `sha256sum` unchanged. Then the plain generator must restore it
   byte-identically to the committed hash.
@@ -138,9 +138,9 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   add a second copy on a line of its own (`duplicate markers of the block named`), and drop the
   end marker (`missing or unterminated`).
 - **Tree propagation goes to the site, not to git:** drop a `state_probe.expected.json` into
-  `internal/core/runtime/testdata/conformance/`, or a
+  `internal/exec/runtime/testdata/conformance/`, or a
   `robustness_zz_probe_test.go` with a two-subtest `TestRuntimeRobustnessProbe` into
-  `internal/core/runtime/`, or a `TestSomething` into any `_test.go`: `-check` must still print
+  `internal/exec/runtime/`, or a `TestSomething` into any `_test.go`: `-check` must still print
   `already current` and `git status --short` must show only the probe, while `-site-blocks`
   moves the matching figure (`state×228` → `state×229`, `470 runtime robustness cases` → `472`,
   the `Test`-function figure by one) and `make docs` renders the new number into
@@ -158,7 +158,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   its real-tree case (not skip it).
 - **The site shows the tree's figures:** after `make docs`, grep
   `site/project/spec-compliance/index.html` for `runtime robustness cases` and
-  `functions in <code>internal/lsp`; each must carry a number, no `doc-counts:begin inventory-`
+  `functions in <code>internal/frontend/lsp`; each must carry a number, no `doc-counts:begin inventory-`
   or `lsp-tests` marker may remain (only the committed `analysis-libraries` markers do), and
   none of the placeholder sentences (`the runtime robustness cases`) may be visible. Open the
   served page in a browser to confirm the inventory reads naturally with the numbers spliced
@@ -173,11 +173,11 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   runs no subtest is passed over, and so are the goldens of a case `known_failures.txt` lists,
   since `TestExecutionTrace` skips the case.
 - **The figures are the gates' figures** (read them from `-site-blocks`): `go test -count=1 -v
-  -run 'TestExecutionConformance$' ./internal/core/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'`
+  -run 'TestExecutionConformance$' ./internal/exec/runtime | grep -cE '^=== RUN   TestExecutionConformance/[^/]+$'`
   must equal the conformance figure; the same shape with `TestRuntimeRobustness` and
-  `TestGRPCRobustness` (in `./internal/grpc`) — unanchored, summing the first-level `=== RUN`
+  `TestGRPCRobustness` (in `./internal/frontend/grpc`) — unanchored, summing the first-level `=== RUN`
   lines of every function the prefix matches — `TestGolden$` and `Negative` (in
-  `./internal/core/parser`, summing per function) must equal theirs; and
+  `./tests/parser` and `./internal/syntax/parser`, summing per function) must equal theirs; and
   `go test -list '.*' ./... | grep -c '^Test'` must equal the `Test`-function figure. Test names
   carry digits (`TestF62F63Negative`), so match `[^/ ]+`, not `[A-Za-z_]+`.
 - **Every landing link resolves on the built site:** grep the `href`s out of
@@ -203,7 +203,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
   `go test -v` enumeration does not reproduce is a counting bug, not a fixture landing.
 - **Live oracle reproduction is a separate claim** from doc↔baseline consistency: the guards read
   only committed JSON. Run all three under a fresh cache
-  (`XDG_CACHE_HOME=$(mktemp -d) go run ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
+  (`XDG_CACHE_HOME=$(mktemp -d) go run -C tools ./cmd/pilot-{xpect,reject,diff} -out /tmp/oN`) and `cmp`
   each against its committed baseline.
 
 ## Gotchas
@@ -220,7 +220,7 @@ Copy **all** `build/pilot-*` dirs together: the validator launchers resolve the 
 
 ## Recording
 
-The `cmd/doc-counts` checks are shell-only; no GUI, so no recording is needed. If the change
+The `tools/cmd/doc-counts` checks are shell-only; no GUI, so no recording is needed. If the change
 touches `overrides/home.html` or the site blocks, the built page must be verified in a browser
 (band renders, links navigate, light/dark, narrow viewport; the compliance map's inventory shows
 numbers, not placeholder sentences) — record that part. Serve the build

@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/analysis"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 )
 
 // The prefix this command reports a failure under, as `prog: ` does in any Unix
@@ -228,6 +228,8 @@ type checkSearch struct {
 	Divergent  []checkDivergent `json:"divergent"`
 	// Outcomes are the distinct final outcomes complete schedules reached.
 	Outcomes []string `json:"outcomes"`
+	// MassLowerBound reports the violations' masses are lower bounds.
+	MassLowerBound bool `json:"massLowerBound"`
 }
 
 // checkViolation is one violation the search found, with the schedule reaching it.
@@ -238,6 +240,9 @@ type checkViolation struct {
 	// Error is the deadlock or failure as reported, empty for a property.
 	Error string `json:"error,omitempty"`
 	Depth int    `json:"depth"`
+	// Mass is the probability of the schedules reaching this violation, a lower
+	// bound while the report's massLowerBound holds.
+	Mass float64 `json:"mass"`
 	// Witness is the choices that fix the schedule, Draws the random values it drew,
 	// and Path where the witness file was written, empty without a directory.
 	Witness []string `json:"witness"`
@@ -383,17 +388,18 @@ func checkSearchOf(checked *analysis.Checked) *checkSearch {
 	}
 	report := checked.Report
 	out := &checkSearch{
-		Verdict:    report.Verdict.String(),
-		States:     report.States,
-		Moves:      report.Moves,
-		Depth:      report.MaxDepth,
-		BoundsHit:  append([]string{}, report.BoundsHit...),
-		Violations: make([]checkViolation, 0, len(report.Violations)),
-		Divergent:  make([]checkDivergent, 0, len(report.Divergent)),
-		Outcomes:   make([]string, 0, len(report.Finals)),
+		Verdict:        report.Verdict.String(),
+		States:         report.States,
+		Moves:          report.Moves,
+		Depth:          report.MaxDepth,
+		BoundsHit:      append([]string{}, report.BoundsHit...),
+		MassLowerBound: report.MassBounded,
+		Violations:     make([]checkViolation, 0, len(report.Violations)),
+		Divergent:      make([]checkDivergent, 0, len(report.Divergent)),
+		Outcomes:       make([]string, 0, len(report.Finals)),
 	}
 	for i, v := range report.Violations {
-		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Witness: choiceStrings(v.Witness.Choices), Draws: drawStrings(v.Witness.Draws), Path: pathAt(checked.Violations, i)}
+		violation := checkViolation{Kind: v.Kind.String(), Name: v.Name, Depth: v.Depth, Mass: v.Mass, Witness: choiceStrings(v.Witness.Choices), Draws: drawStrings(v.Witness.Draws), Path: pathAt(checked.Violations, i)}
 		if v.Err != nil {
 			violation.Error = v.Err.Error()
 		}
@@ -451,6 +457,9 @@ type checkOutcome struct {
 	// Error is what stopped the runs reaching this outcome, empty for one they completed.
 	Error          string `json:"error,omitempty"`
 	Linearizations int    `json:"linearizations"`
+	// Probability is the share of the schedule space reaching this outcome, a
+	// lower bound while the exploration's probabilitiesLowerBound holds.
+	Probability float64 `json:"probability"`
 	// Witness is one run's choice sequence, a choice per entry in run order.
 	Witness []string `json:"witness"`
 }
@@ -461,6 +470,8 @@ type checkExploration struct {
 	Runs     int  `json:"runs"`
 	// BudgetsHit names the budgets hit, `runs` before `depth`; empty when complete.
 	BudgetsHit []string `json:"budgetsHit"`
+	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower bounds.
+	ProbabilitiesLowerBound bool `json:"probabilitiesLowerBound"`
 }
 
 // checkOutcomes converts the outcomes of an exploration into the reported form.
@@ -474,6 +485,7 @@ func checkOutcomes(outcomes []repl.VerdictOutcome) []checkOutcome {
 			Values:         namedValues(o.Values),
 			Error:          o.Error,
 			Linearizations: o.Linearizations,
+			Probability:    o.Probability,
 			Witness:        append([]string{}, o.Witness...),
 		})
 	}
@@ -486,9 +498,10 @@ func checkExplorationOf(x *repl.VerdictExploration) *checkExploration {
 		return nil
 	}
 	return &checkExploration{
-		Complete:   x.Complete,
-		Runs:       x.Runs,
-		BudgetsHit: append([]string{}, x.BudgetsHit...),
+		Complete:                x.Complete,
+		Runs:                    x.Runs,
+		BudgetsHit:              append([]string{}, x.BudgetsHit...),
+		ProbabilitiesLowerBound: x.ProbabilitiesBounded,
 	}
 }
 

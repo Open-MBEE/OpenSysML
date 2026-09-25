@@ -52,7 +52,7 @@ func TestPerformedByRunsOnTheObjectAPathReaches(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ExecuteState on %s: %v", test.performer, err)
 		}
-		if got := run.Visited[len(run.Visited)-1]; got != test.final {
+		if run.Visited[len(run.Visited)-1] != test.final {
 			t.Errorf("ExecuteState on %s visited %v, want to end in %s", test.performer, run.Visited, test.final)
 		}
 		exploration, err := client.ExploreState(ctx, model, "Wire::Craft::modes", nil, opensysml.PerformedBy(test.performer))

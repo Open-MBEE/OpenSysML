@@ -1,0 +1,31 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "events": [
+    {
+      "signal": "First"
+    },
+    {
+      "signal": "Second"
+    },
+    {
+      "signal": "Reset"
+    }
+  ],
+  "finalState": "idle",
+  "stateVisits": [
+    "busy",
+    "lstart",
+    "rstart",
+    "done",
+    "done",
+    "idle"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "l;r;busy;"
+    }
+  },
+  "trace": true
+}

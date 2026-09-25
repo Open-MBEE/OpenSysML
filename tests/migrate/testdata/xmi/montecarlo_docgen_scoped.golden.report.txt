@@ -1,0 +1,48 @@
+# SysML v1 to v2 migration report: montecarlo_docgen_scoped.xmi
+# migrated 42 element(s): 30 mapped, 12 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (12)
+«Block» Class	DocGen Analysis	_analysis	-> 'DocGen Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'DocGen Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
+«BindingConnector» Connector	DocGen Analysis::<Connector>	_bind	-> 'DocGen Analysis Monte Carlo'::observed	(the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'DocGen Analysis Monte Carlo' as the observed value, of which Mean is returned)
+«Document» Class	Documents::Statistics Report	_doc_report	-> Documents::'Statistics Report'	(a plain UML class without «Block» is written as a part def)
+«Document» Class	Documents::Statistics Report	_s8	-> part def Documents::'Statistics Report Document'	(the «Document» is written as a Document definition of 2 section(s); the column «TablePropertyColumn» Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::Mean is not written: the column's MonteCarloAnalysis::Mean is recorded by no instance the table lists, so the column would read nothing; Project lists its properties first: name, documentation precede the other columns)
+Activity	Viewpoints::Statistics Viewpoint::Statistics Method	_act_stats	-> Viewpoints::'Statistics Viewpoint'::'Statistics Method'	(the classifier behavior is run by every object of Viewpoints::Statistics Viewpoint as its usage statistics Method)
+ObjectFlow	Viewpoints::Statistics Viewpoint::Statistics Method::<ObjectFlow>	_stats_o1	(an object flow into 'Statistics' is written as a succession)
+«CollectOwnedElements» CallBehaviorAction	Viewpoints::Statistics Viewpoint::Statistics Method::Collect Owned Elements	_stats_collect	-> 'Collect Owned Elements'	(a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'result' holds no value)
+OutputPin	Viewpoints::Statistics Viewpoint::Statistics Method::Collect Owned Elements::result	_stats_collect_out	-> Viewpoints::'Statistics Viewpoint'::'Statistics Method'::'Collect Owned Elements'.result	(it is declared admitting no value: the action calls no behavior, so nothing computes it)
+«TableStructure» StructuredActivityNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics	_d2	-> part Documents::'Statistics Report Document'::'Scoped Statistics'::table	(its rows are the query 'Statistics Report Statistics Rows'; the column «TablePropertyColumn» Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::Mean is not written: the column's MonteCarloAnalysis::Mean is recorded by no instance the table lists, so the column would read nothing)
+«TableStructure» StructuredActivityNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics	_d2	-> part Documents::'Statistics Report Document'::'Recorded Statistics'::table	(its rows are the query 'Statistics Report Statistics Rows 2'; Project lists its properties first: name, documentation precede the other columns)
+«TablePropertyColumn» CallBehaviorAction	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::Mean	_stats_col_mean	-> Mean	(a step with no behavior and no duration; it passes the token on)
+«TableAttributeColumn» CallBehaviorAction	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::Name	_stats_col_name	-> Name	(a step with no behavior and no duration; it passes the token on)
+
+## mapped (30)
+Property	DocGen Analysis::t	_t	-> 'DocGen Analysis'::t
+Package	Documents	_docs	-> Documents
+Property	Documents::Statistics Report::recorded	_doc_recorded	-> Documents::'Statistics Report'::recorded
+Property	Documents::Statistics Report::scoped	_doc_scoped	-> Documents::'Statistics Report'::scoped
+Model	Model	_m	(the root model's members are written at the top level)
+Package	ResultsA	_resultsA	-> ResultsA
+InstanceSpecification	ResultsA::analysis of 6 runs	_run	-> ResultsA::'analysis of 6 runs'
+Slot	ResultsA::analysis of 6 runs::<Slot>	_runMean	-> ResultsA::'analysis of 6 runs'::'Monte Carlo'::mean
+Slot	ResultsA::analysis of 6 runs::<Slot>	_runT	-> ResultsA::'analysis of 6 runs'::t
+Package	ResultsB	_resultsB	-> ResultsB
+InstanceSpecification	ResultsB::analysis unrecorded	_blank	-> ResultsB::'analysis unrecorded'
+Slot	ResultsB::analysis unrecorded::<Slot>	_blankT	-> ResultsB::'analysis unrecorded'::t
+Package	Viewpoints	_viewpoints	-> Viewpoints
+«Viewpoint» Class	Viewpoints::Statistics Viewpoint	_vp_stats	-> Viewpoints::'Statistics Viewpoint'
+ActivityFinalNode	Viewpoints::Statistics Viewpoint::Statistics Method::<ActivityFinalNode>	_stats_final	-> final
+ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::<ControlFlow>	_stats_e2
+ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::<ControlFlow>	_stats_e3
+InitialNode	Viewpoints::Statistics Viewpoint::Statistics Method::<InitialNode>	_stats_init	-> start
+«TableStructure» StructuredActivityNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics	_stats_table	-> Statistics
+ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<ControlFlow>	_stats_table_e2
+ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<ControlFlow>	_stats_table_e3
+FlowFinalNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<FlowFinalNode>	_stats_table_final	-> done	(a flow final ends the token, as done does)
+InitialNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<InitialNode>	_stats_table_init	-> start
+Package	Views	_views	-> Views
+«Expose» Dependency	Views::<Dependency>	_expose_scoped	-> Views::'Scoped Statistics'
+«Expose» Dependency	Views::<Dependency>	_expose_recorded	-> Views::'Recorded Statistics'
+«View» Class	Views::Recorded Statistics	_view_recorded	-> Views::'Recorded Statistics'
+«Conform» Generalization	Views::Recorded Statistics::<Generalization>	_gen_recorded	-> Views::'Recorded Statistics'
+«View» Class	Views::Scoped Statistics	_view_scoped	-> Views::'Scoped Statistics'
+«Conform» Generalization	Views::Scoped Statistics::<Generalization>	_gen_scoped	-> Views::'Scoped Statistics'

@@ -1,0 +1,12 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "ReferenceUsage::Rig",
+  "slots": {
+    "own.id": {"type": "Integer", "value": 1},
+    "peer": {"error": "uninitialized feature value: peer"},
+    "chosen": {"type": "Instance"},
+    "chosen.id": {"type": "Integer", "value": 1}
+  },
+  "materialization": {}
+}

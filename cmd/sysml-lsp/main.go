@@ -10,10 +10,10 @@ import (
 	"net"
 	"os"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/conformance"
-	"github.com/Open-MBEE/OpenSysML/internal/core/model"
-	"github.com/Open-MBEE/OpenSysML/internal/lsp"
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/lsp"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 var (
@@ -84,7 +84,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUnservable
 	}
 
-	return serve(stderr, conformance.ModeOf(opts.strict))
+	return serve(stderr, diag.ConformanceModeOf(opts.strict))
 }
 
 // printUsage writes the help to w, which the caller chooses: help asked for is
@@ -96,7 +96,7 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 // serve speaks the protocol over stdin/stdout until the client ends it, and
 // reports the status the session earned: the one the client's exit notification
 // asks for, or 1 for a session that ended in a protocol error.
-func serve(stderr io.Writer, mode conformance.Mode) int {
+func serve(stderr io.Writer, mode diag.ConformanceMode) int {
 	ws := model.NewWorkspace(model.WithConformanceMode(mode))
 	srv := lsp.NewServer(ws)
 	err := srv.Run(context.Background(), stdio{})

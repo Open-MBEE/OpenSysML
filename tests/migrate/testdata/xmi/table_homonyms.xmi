@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MagicDraw_Profile="http://www.omg.org/spec/UML/20131001/MagicDrawProfile"
+         xmlns:Dependency_Matrix_Profile="http://www.magicdraw.com/schemas/Dependency_Matrix_Profile.xmi"
+         xmlns:Shop_Profile="http://example.com/schemas/Shop_Profile.xmi"
+         xmlns:MagicDraw_Custom="http://www.omg.org/spec/UML/20131001/MagicDrawProfile/Custom"
+         xmlns:Document_Custom="http://www.magicdraw.com/schemas/manual/Document_Profile_Custom.xmi"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- A user profile whose stereotypes are spelled as the tool's table and
+         document stereotypes are, on its own URI. -->
+    <packagedElement xmi:type="uml:Profile" xmi:id="_shop_profile" name="Shop Profile" URI="http://example.com/schemas/Shop_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_shop_table" name="TableStructure">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shop_table_base" name="base_Class" association="_ext_shop_table">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shop_table_rows" name="rows">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_shop_table" memberEnd="_st_shop_table_base _ext_shop_table_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_shop_table_end" name="extension_TableStructure" type="_st_shop_table" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_shop_instances" name="InstanceTable">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shop_instances_base" name="base_Class" association="_ext_shop_instances">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shop_instances_scope" name="scope">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_shop_instances" memberEnd="_st_shop_instances_base _ext_shop_instances_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_shop_instances_end" name="extension_InstanceTable" type="_st_shop_instances" aggregation="composite"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_shop_document" name="Document">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_shop_document_base" name="base_Class" association="_ext_shop_document">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext_shop_document" memberEnd="_st_shop_document_base _ext_shop_document_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_shop_document_end" name="extension_Document" type="_st_shop_document" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_shop" name="Shop">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_catalog" name="Catalog">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_price" name="price">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#Real"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_ledger" name="Ledger"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_report" name="Report">
+        <!-- Two used modules whose elements share the fragment _shared. -->
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_report_a" name="a">
+          <type xmi:type="uml:Class" href="http://example.com/modules/Warehouse.xmi#_shared"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_report_b" name="b">
+          <type xmi:type="uml:Class" href="http://example.com/modules/Storefront.xmi#_shared"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_seasonal" name="SeasonalCatalog">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_seasonal" general="_blk_catalog"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_c1" name="c1" classifier="_blk_catalog">
+        <slot xmi:type="uml:Slot" xmi:id="_slot_c1_price" definingFeature="_prop_price">
+          <value xmi:type="uml:LiteralReal" xmi:id="_slot_c1_price_v" value="4.5"/>
+        </slot>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <!-- Table diagrams whose only table definitions are homonyms. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_shop_table" name="Catalog Table" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_inst_c1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_custom_table" name="Custom Table" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_catalog</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <!-- Table diagrams whose exact-profile definitions are malformed. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_dangling" name="Dangling Scope" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ambiguous" name="Ambiguous Scope" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bad_sort" name="Bad Sort" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_inst_c1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_no_classifier" name="No Classifier" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Instance Table" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ghost_column" name="Ghost Column" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Generic Table" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_catalog</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_broken_matrix" name="Broken Matrix" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Dependency Matrix" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_catalog</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_orphan_matrix" name="Orphan Matrix" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Dependency Matrix" umlType="Class Diagram">
+                <diagramContents/>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_deep_map" name="Deep Map" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Relation Map" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_catalog</usedElements>
+                  <usedElements>_blk_seasonal</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <!-- A sound relation map beside the malformed ones. -->
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_catalog_map" name="Catalog Map" ownerOfDiagram="_pkg_shop">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Relation Map" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_catalog</usedElements>
+                  <usedElements>_blk_seasonal</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_st_blk_catalog" base_Class="_blk_catalog"/>
+  <sysml:Block xmi:id="_st_blk_ledger" base_Class="_blk_ledger"/>
+  <sysml:Block xmi:id="_st_blk_report" base_Class="_blk_report"/>
+  <sysml:Block xmi:id="_st_blk_seasonal" base_Class="_blk_seasonal"/>
+
+  <!-- Homonyms on the user profile: ordinary metadata, never a table. -->
+  <Shop_Profile:TableStructure xmi:id="_app_shop_table" base_Class="_blk_ledger" rows="12"/>
+  <Shop_Profile:InstanceTable xmi:id="_app_shop_instances" base_Class="_blk_catalog" scope="Shop"/>
+  <Shop_Profile:Document xmi:id="_app_shop_document" base_Class="_blk_report"/>
+
+  <!-- Homonyms on look-alike URIs the archive does not define: tool-profile
+       comments, never a table or a document. -->
+  <MagicDraw_Custom:InstanceTable xmi:id="_app_custom_instances" base_Diagram="_diag_shop_table" scope="_pkg_shop">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Custom:InstanceTable>
+  <MagicDraw_Custom:DiagramTable xmi:id="_app_custom_table" base_Diagram="_diag_custom_table" scope="_pkg_shop">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Custom:DiagramTable>
+  <Document_Custom:Document xmi:id="_app_custom_document" base_Class="_blk_report"/>
+
+  <!-- Malformed definitions on the exact tool profiles. -->
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_dangling" base_Diagram="_diag_dangling" scope="_nowhere">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:InstanceTable>
+  <!-- A bare module id two used modules' hrefs share: it names neither. -->
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_ambiguous" base_Diagram="_diag_ambiguous" scope="_shared">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:InstanceTable>
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_bad_sort" base_Diagram="_diag_bad_sort" scope="_pkg_shop">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>IColumn:_prop_price</columnIds>
+    <sort>IColumn:_prop_price^Sideways</sort>
+    <sort>price</sort>
+  </MagicDraw_Profile:InstanceTable>
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_no_classifier" base_Diagram="_diag_no_classifier" scope="_pkg_shop">
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:InstanceTable>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_ghost_column" base_Diagram="_diag_ghost_column" scope="_pkg_shop">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <columnIds>IColumn:_no_such_property</columnIds>
+  </MagicDraw_Profile:DiagramTable>
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_no_diagram" base_Diagram="_no_such_diagram" scope="_pkg_shop">
+    <classifiers xmi:idref="_blk_catalog"/>
+    <columnIds>QPROP:Element:name</columnIds>
+  </MagicDraw_Profile:InstanceTable>
+
+  <Dependency_Matrix_Profile:DependencyMatrix xmi:id="_mx_broken" base_Diagram="_diag_broken_matrix" direction="Row to column" showElements="All">
+    <dependencyCriteria>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="relationExpressionSpecification" metaclass="Generalization" direction="DIRECT"
+</dependencyCriteria>
+  </Dependency_Matrix_Profile:DependencyMatrix>
+  <Dependency_Matrix_Profile:MatrixFilter xmi:id="_mf_broken" base_Diagram="_diag_broken_matrix" rowScope="_pkg_shop" columnScope="_pkg_shop" rowScopeDefined="true" columnScopeDefined="true">
+    <rowElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <columnElementType href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+  </Dependency_Matrix_Profile:MatrixFilter>
+
+  <Dependency_Matrix_Profile:DependencyMatrix xmi:id="_mx_orphan" base_Diagram="_diag_orphan_matrix" direction="Row to column" showElements="All">
+    <dependencyCriteria>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Generalization&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="relationExpressionSpecification" metaclass="Generalization" direction="DIRECT" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</dependencyCriteria>
+  </Dependency_Matrix_Profile:DependencyMatrix>
+
+  <MagicDraw_Profile:RelationMap xmi:id="_map_deep" base_Diagram="_diag_deep_map" depth="deep" contextElement="_blk_catalog" includeSubtypes="true">
+    <elementTypes href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <relationCriterion>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Generalization&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="relationExpressionSpecification" metaclass="Generalization" direction="REVERSED" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</relationCriterion>
+  </MagicDraw_Profile:RelationMap>
+
+  <MagicDraw_Profile:RelationMap xmi:id="_map_catalog" base_Diagram="_diag_catalog_map" depth="1" contextElement="_blk_catalog" includeSubtypes="true">
+    <elementTypes href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+    <relationCriterion>&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;callExpressionSpecification xmlns="http://www.nomagic.com/schemas/MagicDraw/StructuredExpression/2013"&gt;
+    &lt;taggedValues&gt;
+        &lt;entry key="name"&gt;
+            &lt;value&gt;Generalization&lt;/value&gt;
+        &lt;/entry&gt;
+    &lt;/taggedValues&gt;
+    &lt;argument xsi:type="lookupExpressionSpecification" symbol="THIS" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+    &lt;expression xsi:type="relationExpressionSpecification" metaclass="Generalization" direction="REVERSED" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/&gt;
+&lt;/callExpressionSpecification&gt;
+</relationCriterion>
+  </MagicDraw_Profile:RelationMap>
+</xmi:XMI>

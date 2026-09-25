@@ -1,0 +1,12 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"modelSeed": 7,
+	"events": [{"call": "route", "args": {"priority": {"type": "Real", "value": 0.25}}}],
+	"outcomes": [
+		{"finalState": "slow", "outputs": {"log": {"type": "Real", "value": 1.0}}, "probability": 0.25},
+		{"finalState": "fast", "outputs": {"log": {"type": "Real", "value": 2.0}}, "probability": 0.75}
+	],
+	"admissible": "Two transitions out of one state enabled by one event: exactly one fires, which one is open"
+}

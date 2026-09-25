@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:diagram="http://www.example.com/tool/diagram">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_structure" name="Structure">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_engine" name="engine" type="_blk_engine" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_wheel" name="wheel" type="_blk_wheel" aggregation="composite"/>
+        <ownedConnector xmi:type="uml:Connector" xmi:id="_conn_drive" name="drive">
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_1" role="_prop_engine"/>
+          <end xmi:type="uml:ConnectorEnd" xmi:id="_ce_drive_2" role="_prop_wheel"/>
+        </ownedConnector>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_engine" name="Engine"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_wheel" name="Wheel"/>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg_behavior" name="Behavior">
+      <packagedElement xmi:type="uml:Activity" xmi:id="_act_drive" name="Drive">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_act_step" name="step">
+          <language>JavaScript</language>
+          <body>going = true;</body>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_f1" source="_init" target="_act_step"/>
+      </packagedElement>
+    </packagedElement>
+
+    <xmi:Extension extender="Example UML Tool 1.0">
+      <modelExtension>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bdd" name="Vehicle Structure" ownerOfDiagram="_pkg_structure">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_blk_engine</usedElements>
+                  <usedElements>_blk_wheel</usedElements>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_conn_drive</usedElements>
+                  <usedElements>_act_step</usedElements>
+                  <usedElements>_ghost</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_ibd" name="Vehicle Internals" ownerOfDiagram="_blk_vehicle">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="SysML Internal Block Diagram" umlType="Composite Structure Diagram">
+                <diagramContents>
+                  <usedElements>_blk_vehicle</usedElements>
+                  <usedElements>_prop_engine</usedElements>
+                  <usedElements>_prop_wheel</usedElements>
+                  <usedElements>_conn_drive</usedElements>
+                  <usedElements>_f1</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+      </modelExtension>
+    </xmi:Extension>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_vehicle" base_Class="_blk_vehicle"/>
+  <sysml:Block xmi:id="_s_engine" base_Class="_blk_engine"/>
+  <sysml:Block xmi:id="_s_wheel" base_Class="_blk_wheel"/>
+</xmi:XMI>

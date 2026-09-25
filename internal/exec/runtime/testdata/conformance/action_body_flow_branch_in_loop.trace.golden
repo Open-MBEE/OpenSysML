@@ -1,0 +1,42 @@
+step 1: token 1@iterate
+stmt for i
+    eval literal 1 -> 1
+    eval literal 3 -> 3
+  eval operator .. -> (1, 2, 3)
+  iteration 1
+    stmt if
+        eval feature i -> 1
+        eval literal 1 -> 1
+      eval operator > -> false
+  iteration 2
+    stmt if
+        eval feature i -> 2
+        eval literal 1 -> 1
+      eval operator > -> true
+enter action node: branch body of action node iterate
+      stmt assign v
+          eval feature i -> 2
+          eval literal 10 -> 10
+        eval operator * -> 20
+      stmt assign total
+          eval feature total -> 0
+          eval chain v -> 20
+        eval operator + -> 20
+leave action node: branch body of action node iterate
+  iteration 3
+    stmt if
+        eval feature i -> 3
+        eval literal 1 -> 1
+      eval operator > -> true
+enter action node: branch body of action node iterate
+      stmt assign v
+          eval feature i -> 3
+          eval literal 10 -> 10
+        eval operator * -> 30
+      stmt assign total
+          eval feature total -> 20
+          eval chain v -> 30
+        eval operator + -> 50
+leave action node: branch body of action node iterate
+step 2: token 1@done
+step 3: no active tokens

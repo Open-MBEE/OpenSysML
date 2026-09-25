@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 )
 
 // documentModel declares a document over the query model's part tree, so
@@ -65,7 +65,7 @@ func TestRenderDocumentFlag(t *testing.T) {
 		"# Telescope Mass Report",
 		"Mass rollup for the telescope assembly.",
 		"## Heavy Subsystems",
-		"<!-- caption -->\n*Heavy subsystems by mass*",
+		"*Heavy subsystems by mass*",
 		"| name | mass |",
 		"| --- | --- |",
 		"| mount | 15 |")
@@ -88,14 +88,14 @@ func TestRenderDocumentFlag(t *testing.T) {
 // to act on.
 func TestRenderDocumentDiagramForm(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
 	goldens := map[string]string{
 		"mermaid":  "telescope_report.golden.md",
 		"dot":      "telescope_report.dot.golden.md",
 		"plantuml": "telescope_report.plantuml.golden.md",
 	}
 	for form, name := range goldens {
-		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", name))
+		golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -133,8 +133,8 @@ func TestRenderDocumentDiagramForm(t *testing.T) {
 // through the binary's full analysis, matching the committed golden Markdown.
 func TestRenderDocumentCommittedFixture(t *testing.T) {
 	binary := buildCLI(t)
-	fixture := filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.sysml")
-	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "core", "docrender", "testdata", "telescope_report.golden.md"))
+	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.sysml")
+	golden, err := os.ReadFile(filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "telescope_report.golden.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

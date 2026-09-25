@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"os"
 
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/stdiorpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/stdiorpc"
 )
 
 // runStdio serves one client over stdin/stdout and reports the exit status the

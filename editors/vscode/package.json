@@ -22,6 +22,16 @@
     "onLanguage:kerml",
     "onWebviewPanel:opensysml.diagram"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "In Restricted Mode the language server is only started from `opensysml.server.path` or `PATH`, never from the workspace's own `bin/` directory, and the server settings are read from user settings only.",
+      "restrictedConfigurations": [
+        "opensysml.server.path",
+        "opensysml.server.args"
+      ]
+    }
+  },
   "contributes": {
     "languages": [
       {
@@ -89,30 +99,115 @@
           ],
           "default": "off",
           "description": "Trace the communication with the language server."
+        },
+        "opensysml.diagram.autoOpen": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Open the diagram of a SysML or KerML file beside its editor as soon as the file is shown. A diagram you close stays closed for that file until you run **SysML: Open Diagram** on it again."
+        },
+        "opensysml.diagram.style": {
+          "type": "string",
+          "default": "theme",
+          "enum": [
+            "theme",
+            "pilot",
+            "cameo",
+            "okabe-ito",
+            "tol-bright",
+            "tol-muted",
+            "tol-light",
+            "brewer-set2",
+            "brewer-dark2",
+            "viridis",
+            "cividis"
+          ],
+          "enumDescriptions": [
+            "Follow the VS Code colour theme.",
+            "The pilot visualizer's Standard B&W: white canvas, black text, thin dark borders, square definitions and rounded usages.",
+            "Cameo Systems Modeler's look: 11px Arial, pale-yellow gradient fills with thin dark borders, and a DOT export drawn in the server's cameo style.",
+            "The pilot look, filled by keyword family from the Okabe–Ito palette.",
+            "The pilot look, filled by keyword family from Paul Tol's bright palette.",
+            "The pilot look, filled by keyword family from Paul Tol's muted palette.",
+            "The pilot look, filled by keyword family from Paul Tol's light palette.",
+            "The pilot look, filled by keyword family from ColorBrewer Set2.",
+            "The pilot look, filled by keyword family from ColorBrewer Dark2.",
+            "The pilot look, filled by keyword family from the viridis colour map.",
+            "The pilot look, filled by keyword family from the cividis colour map."
+          ],
+          "markdownDescription": "The look every diagram is drawn in, also chosen from the **Style** list in the diagram panel. A palette colours definitions with their keyword family's colour and usages with a lighter tint of it, the same colours the DOT and PlantUML exports take; text stays black. `cameo` draws Cameo Systems Modeler's look and asks the server for its cameo drawing style when the diagram is exported as DOT."
         }
       }
     },
     "commands": [
       {
         "command": "opensysml.restartServer",
-        "title": "SysML: Restart Language Server"
+        "category": "SysML",
+        "title": "Restart Language Server"
       },
       {
         "command": "opensysml.openDiagram",
-        "title": "SysML: Open Diagram",
-        "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
+        "category": "SysML",
+        "title": "Open Diagram",
+        "icon": "$(open-preview)"
       },
       {
         "command": "opensysml.exportDiagram",
-        "title": "SysML: Export Diagram",
-        "enablement": "opensysml.renderSupported && (editorLangId == sysml || editorLangId == kerml)"
+        "category": "SysML",
+        "title": "Export Diagram"
       },
       {
         "command": "opensysml.renderDocument",
-        "title": "SysML: Render Document",
+        "category": "SysML",
+        "title": "Render Document",
         "enablement": "opensysml.renderDocumentSupported"
       }
-    ]
+    ],
+    "keybindings": [
+      {
+        "command": "opensysml.openDiagram",
+        "key": "alt+d",
+        "when": "editorTextFocus && (editorLangId == sysml || editorLangId == kerml) || activeWebviewPanelId == opensysml.diagram"
+      },
+      {
+        "command": "opensysml.openDiagram",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorTextFocus && (editorLangId == sysml || editorLangId == kerml) || activeWebviewPanelId == opensysml.diagram"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation",
+          "when": "resourceLangId == sysml || resourceLangId == kerml"
+        },
+        {
+          "command": "opensysml.exportDiagram",
+          "group": "1_diagram",
+          "when": "resourceLangId == sysml || resourceLangId == kerml"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation@10",
+          "when": "editorLangId == sysml || editorLangId == kerml"
+        },
+        {
+          "command": "opensysml.exportDiagram",
+          "group": "navigation@11",
+          "when": "editorLangId == sysml || editorLangId == kerml"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "opensysml.openDiagram",
+          "group": "navigation@10",
+          "when": "resourceExtname == .sysml || resourceExtname == .kerml"
+        }
+      ]
+    }
   },
   "scripts": {
     "grammar": "go run ./tools/gengrammar -out syntaxes",
@@ -123,6 +218,7 @@
     "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
   },
   "dependencies": {
+    "elkjs": "0.12.0",
     "vscode-languageclient": "9.0.1"
   },
   "devDependencies": {

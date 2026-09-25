@@ -1,0 +1,7 @@
+{
+	"type": "state",
+	"schedule": "reverse",
+	"libraries": true,
+	"finalState": "ldone+active",
+	"stateVisits": ["waiting", "active", "ldone"]
+}

@@ -1,0 +1,5 @@
+{
+	"verdict": "divergent",
+	"divergent": {"count": ["1000", "1001", "1011", "1101", "1111"]},
+	"agreed": {"finalState": "idle"}
+}

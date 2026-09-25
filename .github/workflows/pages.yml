@@ -34,7 +34,7 @@ jobs:
           cache: pip
           cache-dependency-path: docs-requirements.txt
 
-      # The test-suite figures are counted from the tree by cmd/doc-counts as the
+      # The test-suite figures are counted from the tree by tools/cmd/doc-counts as the
       # site is built, so the build needs the Go toolchain.
       - name: Set up Go
         uses: actions/setup-go@v5

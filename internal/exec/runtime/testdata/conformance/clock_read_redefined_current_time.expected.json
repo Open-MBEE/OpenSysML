@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::supervisor",
+  "outputs": {
+    "before": {"type": "Real", "value": 0.0},
+    "later": {"type": "Real", "value": 1.5},
+    "stamped": {"type": "Real", "value": 1.5}
+  }
+}

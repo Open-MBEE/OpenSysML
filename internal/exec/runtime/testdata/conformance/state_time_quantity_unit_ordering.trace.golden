@@ -1,0 +1,36 @@
+exit: start
+enter: Working
+choice entering Working: next sstart(entry), fstart(entry) (unordered; took sstart(entry) first)
+enter: sstart
+enter: fstart
+transition: start -> Working
+exit: sstart
+enter: sWaiting
+  eval literal 1 -> 1
+eval index -> 1 [min]
+transition: sstart -> sWaiting
+exit: fstart
+enter: fWaiting
+  eval literal 30 -> 30
+eval index -> 30 [s]
+transition: fstart -> fWaiting
+exit: fWaiting
+enter: fDone (entry action)
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+transition: fWaiting -> fDone (event: time)
+exit: sWaiting
+enter: sDone (entry action)
+stmt action body
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
+transition: sWaiting -> sDone (event: time)

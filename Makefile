@@ -8,7 +8,9 @@ BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 GO_VERSION ?= $(shell go version | awk '{print $$3}')
 
 # Build flags
-LDFLAGS := -X main.Version=$(VERSION) \
+# -s -w drop the symbol table and DWARF; version stamps, build info and stack traces stay.
+LDFLAGS := -s -w \
+           -X main.Version=$(VERSION) \
            -X main.Commit=$(COMMIT) \
            -X main.BuildTime=$(BUILD_TIME) \
            -X main.GoVersion=$(GO_VERSION)
@@ -43,13 +45,13 @@ endef
 
 # Build output directory
 BIN_DIR := bin
-PYTHON_DIR := clients/python
-NODE_DIR := clients/node
+PYTHON_DIR := client/python
+NODE_DIR := client/node
 # The TypeScript protobuf plugin, installed by `npm ci` from the client's lockfile.
 PROTOC_GEN_ES := $(NODE_DIR)/node_modules/.bin/protoc-gen-es
 VSCODE_DIR := editors/vscode
 PYTHON ?= python3
-# buf.gen.python.yaml starts the interpreter this names.
+# api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
 SITE_DIR := site
 # Where make self-model writes the architecture self-model's rendered views.
@@ -57,11 +59,14 @@ SELF_MODEL_DIR := examples/self-model
 SELF_MODEL_OUT ?= build/self-model
 # Where the commands the Go tests build and run write their coverage counters.
 GO_COUNTER_DIR := $(CURDIR)/build/gocoverdir
-LIBS_DIR := internal/core/libs
+LIBS_DIR := internal/workspace/libs
+# The development tools are a nested module; go's ./... at the root stops at
+# its go.mod, so every whole-tree target runs go a second time in it.
+TOOLS_DIR := tools
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc
-MAN_DIR := man/man1
+MAN_DIR := packaging/man/man1
 MAN_PAGES := $(addprefix $(MAN_DIR)/,$(addsuffix .1,$(COMMANDS)))
 
 # Installation paths, as a distribution's packaging expects to set them.
@@ -135,18 +140,18 @@ pgo-profile: ## Regenerate cmd/*/default.pgo, the CPU profile go build optimizes
 conformance: ## Run the language-independent conformance suite against sysml-grpc
 	@echo "Running the conformance suite..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(BIN_DIR)/conformance-report.json -junit $(BIN_DIR)/conformance-report.xml
+	go run -C $(TOOLS_DIR) ./cmd/conformance -withhold-capabilities strict_conformance,oslc_query -report $(CURDIR)/$(BIN_DIR)/conformance-report.json -junit $(CURDIR)/$(BIN_DIR)/conformance-report.xml
 	@echo "✓ Conformance suite passed ($(BIN_DIR)/conformance-report.json, $(BIN_DIR)/conformance-report.xml)"
 
 conformance-rust: ## Run the conformance suite with the blocking Rust client
 	$(MAKE) build
 	@mkdir -p $(BIN_DIR)
-	OPENSYSML_GRPC_BINARY="$(CURDIR)/$(BIN_DIR)/sysml-grpc" cargo run --manifest-path clients/rust/Cargo.toml -p opensysml-conformance -- -binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" -report "$(CURDIR)/$(BIN_DIR)/conformance-report-rust.json"
+	OPENSYSML_GRPC_BINARY="$(CURDIR)/$(BIN_DIR)/sysml-grpc" cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- -binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" -report "$(CURDIR)/$(BIN_DIR)/conformance-report-rust.json"
 
 conformance-pkg: ## Run the conformance suite through the public Go API (client/opensysml)
 	@echo "Running the conformance suite through client/opensysml..."
 	@mkdir -p $(BIN_DIR)
-	go run ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(BIN_DIR)/conformance-pkg-report.json
+	go run -C $(TOOLS_DIR) ./cmd/conformance -protocols pkg,pkg-connect -allow-skips -report $(CURDIR)/$(BIN_DIR)/conformance-pkg-report.json
 	@echo "✓ Conformance suite passed through client/opensysml ($(BIN_DIR)/conformance-pkg-report.json)"
 
 test: ## Run Go tests with race detection and coverage
@@ -154,6 +159,7 @@ test: ## Run Go tests with race detection and coverage
 	@# Per-package timeout: under -race, passes and model run within 1% of go's 10m default.
 	@# -pgo=off: coverage plus cmd/*/default.pgo trips golang/go#80891 (link: fingerprint mismatch).
 	go test -v -race -pgo=off -timeout 30m -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 30m ./...
 
 coverage: ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -163,13 +169,17 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# make test above runs instead. -pgo=off as in make test.
 	@# -count=1: a replayed result carries zero blocks for the -coverpkg packages it does
 	@# not link, keyed to the sources of its own run, so they go stale as those change.
-	@# Tests that run a built command (internal/testutil/gobuild) instrument it and point
+	@# Tests that run a built command (tests/testutil/gobuild) instrument it and point
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
 	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> coverage.txt
+	@# The tools' tests exercise product packages too; their profile credits those.
+	go test -C $(TOOLS_DIR) -count=1 -pgo=off -timeout 30m -coverpkg=github.com/Open-MBEE/OpenSysML/... -coverprofile=../coverage-tools.txt -covermode=atomic ./...
+	tail -n +2 coverage-tools.txt >> coverage.txt
+	rm coverage-tools.txt
 	@# -coverpkg repeats every block once per test binary; see the script's header.
 	python3 scripts/dedupe-coverage.py coverage.txt
 	@go tool cover -func=coverage.txt | tail -n 1
@@ -177,21 +187,24 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 lint: ## Run static analysis (staticcheck + gosec), as CI does
 	@echo "Running staticcheck..."
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
+	go run -C $(TOOLS_DIR) honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION) ./...
 	@echo "Running gosec..."
 	@# Generated protobuf code is excluded: its unsafe.Pointer use (G103) comes
 	@# from protoc-gen-go and is not ours to change.
 	go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
+	go run -C $(TOOLS_DIR) github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) -quiet -exclude-generated ./...
 	@echo "✓ Lint passed"
 
 test-short: ## Run Go tests without race detection
 	@echo "Running Go tests without race detection..."
 	go test -v ./...
+	go test -C $(TOOLS_DIR) -v ./...
 
 stdlib-snapshot: ## Regenerate the embedded snapshot of the bundled library after editing $(LIBS_DIR)/stdlib
 	go generate ./$(LIBS_DIR)
 
 stdlib-snapshot-check: ## Verify the committed library snapshot matches the bundled library, as CI does
-	go run ./$(LIBS_DIR)/gensnapshot -check -out $(LIBS_DIR)/stdlib.snapshot
+	go run -C $(TOOLS_DIR) ./gen/snapshot -check
 	@echo "✓ stdlib.snapshot is current"
 
 fuml-expected: ## Regenerate docs/project/fuml-referee-expected.json from the pinned fUML reference implementation (needs a JDK)
@@ -240,36 +253,37 @@ proto: proto-buf python-proto proto-ts proto-rust ## Regenerate all protobuf stu
 # The Java plugin is a remote one, so this needs the Buf Schema Registry.
 proto-buf: ## Regenerate the Go and Java protobuf stubs
 	@echo "Regenerating Go and Java protobuf stubs..."
-	$(BUF) generate
+	$(BUF) generate api/proto --template api/proto/buf.gen.yaml
 	@echo "✓ Regenerated Go and Java stubs"
 
 python-proto: ## Regenerate Python protobuf stubs
 	@echo "Regenerating Python protobuf stubs..."
 	@$(PYTHON) -c "import grpc_tools.protoc" >/dev/null 2>&1 || { echo "Error: grpcio-tools not installed. Run: $(PYTHON) -m pip install grpcio-tools"; exit 1; }
-	$(BUF) generate --template buf.gen.python.yaml
+	$(BUF) generate api/proto --template api/proto/buf.gen.python.yaml
 	@echo "✓ Regenerated Python stubs"
 
-proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in clients/node ships
+proto-ts: $(PROTOC_GEN_ES) ## Regenerate the TypeScript stubs the npm client in client/node ships
 	@echo "Regenerating TypeScript protobuf stubs..."
-	$(BUF) generate --template buf.gen.ts.yaml
+	$(BUF) generate api/proto --template api/proto/buf.gen.ts.yaml
 	@echo "✓ Regenerated TypeScript stubs"
 
 $(PROTOC_GEN_ES): $(NODE_DIR)/package-lock.json
 	cd $(NODE_DIR) && npm ci --ignore-scripts
 
 proto-rust: ## Generate Rust stubs and the descriptor for the Rust clients
-	$(BUF) generate --template buf.gen.rust.yaml
-	$(BUF) build -o clients/rust/conformance/sysml.descriptor.binpb
+	$(BUF) generate api/proto --template api/proto/buf.gen.rust.yaml
+	$(BUF) build api/proto -o client/rust/conformance/sysml.descriptor.binpb
 
 proto-lint: ## Lint the protobuf schema
-	$(BUF) lint
+	$(BUF) lint api/proto
 	@echo "✓ Proto lint passed"
 
 proto-breaking: ## Check the protobuf schema for wire-breaking changes against develop
 	@# An archive, not the .git directory: buf would clone that, which a blobless (CI) checkout cannot serve.
+	@# The subtree as the tree-ish, not a pathspec: a pathspec walks the whole tree and lazily fetches its blobs.
 	baseline=$$(mktemp -t proto-baseline.XXXXXX) && trap 'rm -f "$$baseline"' EXIT && \
-	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF)' api/proto && \
-	$(BUF) breaking --against "$$baseline#format=tar,subdir=api/proto"
+	git archive --format=tar -o "$$baseline" '$(BUF_BREAKING_REF):api/proto' && \
+	$(BUF) breaking api/proto --against "$$baseline#format=tar"
 	@echo "✓ No breaking schema changes"
 
 python-install: ## Install the Python client in editable mode
@@ -291,7 +305,7 @@ python-coverage: ## Run Python client tests and write coverage-python.xml
 
 # The repository scripts the checks run, measured the same way. Each script runs
 # the way CI runs it, so the report credits what the checks execute. The release
-# scripts under clients/python/scripts are loaded by path, so their tests run here too.
+# scripts under client/python/scripts are loaded by path, so their tests run here too.
 SCRIPTS_COVERAGE := $(PYTHON) -m coverage run --append --rcfile=scripts/coverage-scripts.ini
 
 scripts-coverage: ## Run the repository scripts and their tests under coverage and write coverage-scripts.xml
@@ -319,7 +333,7 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-vscode-grammar: ## Regenerate the VS Code TextMate grammars from the lexer keywords
+vscode-grammar: ## Regenerate the VS Code TextMate grammars from the keyword lists
 	@echo "Generating TextMate grammars..."
 	go run ./$(VSCODE_DIR)/tools/gengrammar -out $(VSCODE_DIR)/syntaxes
 	@echo "✓ Grammars generated"
@@ -329,9 +343,10 @@ vscode-build: ## Type-check and bundle the VS Code extension
 	cd $(VSCODE_DIR) && npm ci && npm run typecheck && npm run build
 	@echo "✓ Built $(VSCODE_DIR)/dist/extension.js"
 
-vscode-package: ## Package the VS Code extension as a .vsix for side-loading
+vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VSIX_VERSION= stamps a version other than the manifest's)
 	@echo "Packaging the VS Code extension..."
-	cd $(VSCODE_DIR) && npm ci && npm run package
+	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
+	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
 	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
 
 self-model: build-sysml ## Render the architecture self-model's views (see examples/self-model/README.md)
@@ -347,10 +362,10 @@ self-model: build-sysml ## Render the architecture self-model's views (see examp
 
 docs-counts: ## Regenerate and verify the committed documentation counts; the test-suite figures are counted when the site is built
 	@echo "Regenerating the documentation count lines and refereed figures..."
-	go run ./cmd/doc-counts
-	go run ./cmd/doc-counts -check
-	go run ./cmd/validation-census -check
-	go test -count=1 ./cmd/pilot-diff ./cmd/pilot-reject ./cmd/doc-counts ./cmd/validation-census
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts
+	go run -C $(TOOLS_DIR) ./cmd/doc-counts -check
+	go run -C $(TOOLS_DIR) ./cmd/validation-census -check
+	go test -C $(TOOLS_DIR) -count=1 ./census/doccounts ./census/validation ./referee/diff ./referee/reject
 	@echo "✓ Documentation counts and refereed figures are current"
 
 docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle figures, changelog fragments and the build-time census and test-suite figures

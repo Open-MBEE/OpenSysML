@@ -1,0 +1,44 @@
+# SysML v1 to v2 migration report: metaclass_tables.xmi
+# exported by Example UML Tool
+# migrated 37 element(s): 32 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+«DiagramTable» Diagram	Tables::Classifiers	_tbl_classifiers	-> part def Tables::'Classifiers Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Classifiers Rows'; the views diagrams became and the action defs operations became are listed too)
+«DiagramTable» Diagram	Tables::Diagrams	_tbl_diagrams	-> part def Tables::'Diagrams Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Diagrams Rows'; views a «View» class became are listed with the diagrams' views)
+«DiagramTable» Diagram	Tables::Namespaces	_tbl_namespaces	-> part def Tables::'Namespaces Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Namespaces Rows'; the views diagrams became are listed too; transitions and structured activity nodes are not)
+«DiagramTable» Diagram	Tables::Packageable Elements	_tbl_packageable	-> part def Tables::'Packageable Elements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Packageable Elements Rows'; the views diagrams became and the action defs operations became are listed too; instances of value types, written as attributes, are not)
+«DiagramTable» Diagram	Tables::Types	_tbl_types	-> part def Tables::'Types Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Types Rows'; the views diagrams became and the action defs operations became are listed too)
+
+## mapped (32)
+Model	Model	_m	(the root model's members are written at the top level)
+Diagram	Model Overview	_diag_model	-> 'Model Overview'	(a SysML Package Diagram written as a view rendered asTreeDiagram)
+Package	Plant	_pkg_plant	-> Plant
+Package	Plant::Structure	_pkg_structure	-> Plant::Structure
+Enumeration	Plant::Structure::Mode	_enum_mode	-> Plant::Structure::Mode
+EnumerationLiteral	Plant::Structure::Mode::off	_lit_off	-> Plant::Structure::Mode::off
+EnumerationLiteral	Plant::Structure::Mode::on	_lit_on	-> Plant::Structure::Mode::on
+«Block» Class	Plant::Structure::Pump	_blk_pump	-> Plant::Structure::Pump
+Comment	Plant::Structure::Pump::<Comment>	_cmt_pump
+StateMachine	Plant::Structure::Pump::Cycle	_sm_cycle	-> Plant::Structure::Pump::Cycle
+Region	Plant::Structure::Pump::Cycle::main	_rg_main	(the one region is written as the body of its owner)
+Pseudostate	Plant::Structure::Pump::Cycle::main::<Pseudostate>	_ps_init	(written as the entry of the region)
+Transition	Plant::Structure::Pump::Cycle::main::<Transition>	_tr_init
+Transition	Plant::Structure::Pump::Cycle::main::<Transition>	_tr_start
+State	Plant::Structure::Pump::Cycle::main::Idle	_st_idle	-> Idle
+State	Plant::Structure::Pump::Cycle::main::Running	_st_running	-> Running
+Property	Plant::Structure::Pump::mass	_prop_mass	-> Plant::Structure::Pump::mass
+Operation	Plant::Structure::Pump::prime	_op_prime	-> Plant::Structure::Pump::prime	(its owner's usage prime 2 performs it, as a call on an object does)
+Property	Plant::Structure::Pump::valve	_prop_valve	-> Plant::Structure::Pump::valve
+«Block» Class	Plant::Structure::Valve	_blk_valve	-> Plant::Structure::Valve
+Dependency	Plant::Structure::needs	_dep_pump_valve	-> Plant::Structure::needs
+InstanceSpecification	Plant::Structure::p1	_inst_p1	-> Plant::Structure::p1
+Slot	Plant::Structure::p1::<Slot>	_slot_p1_mass	-> Plant::Structure::p1::mass
+Package	Plant::Views	_pkg_views	-> Plant::Views
+«Viewpoint» Class	Plant::Views::Operations	_vp_operations	-> Plant::Views::Operations
+«View» Class	Plant::Views::Overview	_view_overview	-> Plant::Views::Overview
+Package	Tables	_pkg_tables	-> Tables
+Diagram	Tables::Classifiers	_diag_classifiers	-> Tables::Classifiers	(a Generic Table written as a view rendered asElementTable)
+Diagram	Tables::Diagrams	_diag_diagrams	-> Tables::Diagrams	(a Generic Table written as a view rendered asElementTable)
+Diagram	Tables::Namespaces	_diag_namespaces	-> Tables::Namespaces	(a Generic Table written as a view rendered asElementTable)
+Diagram	Tables::Packageable Elements	_diag_packageable	-> Tables::'Packageable Elements'	(a Generic Table written as a view rendered asElementTable)
+Diagram	Tables::Types	_diag_types	-> Tables::Types	(a Generic Table written as a view rendered asElementTable)

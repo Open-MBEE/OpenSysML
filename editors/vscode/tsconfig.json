@@ -7,9 +7,11 @@
     "types": ["node", "vscode"],
     "outDir": "out",
     "strict": true,
+    "resolveJsonModule": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
+    "skipLibCheck": true,
     "sourceMap": true
   },
   "include": ["src"],

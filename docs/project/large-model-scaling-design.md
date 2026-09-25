@@ -140,7 +140,7 @@ instead of one pair per `AnalyzeWithOptions` call. Both are already memo
 tables keyed by `ast.Node` and `*symbols.Symbol`; the change is their
 lifetime, not their shape. The REPL already works this way one level
 up: a submission supersedes only the earlier declarations whose names it
-redeclares (`internal/repl/session.go`, `acceptFrom`), a debugging session
+redeclares (`internal/frontend/repl/session.go`, `acceptFrom`), a debugging session
 ends only when the behavior it steps or the object it runs over is among
 them (`dropStaleDebugSessions`), and object identities survive the rebuilt
 runtime context (`keepIdentitiesOf`) — so the repository has a precedent for

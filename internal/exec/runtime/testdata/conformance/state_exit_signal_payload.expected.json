@@ -1,0 +1,10 @@
+{
+  "type": "state",
+  "events": [{"signal": "Level", "value": {"type": "Integer", "value": 7}}],
+  "finalState": "done",
+  "stateVisits": ["idle", "alerting", "done"],
+  "outputs": {
+    "exited": {"type": "Integer", "value": 7},
+    "effect": {"type": "Integer", "value": 7}
+  }
+}

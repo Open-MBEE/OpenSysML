@@ -38,13 +38,42 @@ DISPLAY=:0 nohup code --no-sandbox --disable-gpu "$PWD" &   # $PWD = repo root, 
 DISPLAY=:0 wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz
 ```
 
-Workspace trust must be granted — Restricted Mode silently disables the extension (no LSP, no outline).
-The trust banner appears on the Welcome tab; "Manage" → "Trust" reloads the window.
+**Choose workspace trust deliberately.** The extension declares limited support in Restricted Mode:
+SysML/KerML recognition and TextMate highlighting remain available, but the workspace's own
+`bin/sysml-lsp` is never selected. Only a User-configured server path or PATH server may run;
+workspace `opensysml.server.path` and `opensysml.server.args` are ignored. Older VSIX builds
+without this declaration can disable even language recognition, showing Plain Text.
 
-**Always open the repo *folder*, not a lone `.sysml` file.** `code <file.sysml>` gives the window no
-workspace folder, so `resolveServer` skips the `<workspace>/bin/sysml-lsp` fallback, finds nothing on
-PATH, and you get an empty "SysML v2" channel plus 0 problems — which looks exactly like a broken
-server. Launch with the repo root as the argument, then open the file from the Explorer.
+For the trust boundary test, use a fresh scratch folder outside all trusted roots. Copy the
+real server to its `bin/sysml-lsp`, clear User `opensysml.server.path`, and ensure no server
+is on PATH. Keep trust enabled (do not use `security.workspace.trust.enabled: false`).
+Open a `.sysml` file: the status bar must say SysML v2 with colors, the SysML v2 Output
+channel must log that the workspace build is skipped, the missing-server warning must appear,
+and no workspace server process should exist. Banner **Manage → Trust** must then start the
+workspace binary automatically, without a manual restart. Confirm its `Starting ...` Output
+line plus live symbol hover and an unresolved-reference edit/undo.
+
+To repeat the test, **Workspaces: Manage Workspace Trust → Don't Trust** resets the folder
+(the button may be below the fold), or use another fresh folder. For a User-path regression,
+keep the second folder untrusted and configure the absolute server path through User Settings.
+A workspace settings file containing a nonexistent alternate path and invalid argument makes
+the restricted-configuration assertion non-vacuous: the User server must still start, its argv
+must not contain the workspace argument, and hover/diagnostics must work.
+
+**Choose server discovery deliberately for folder versus lone-file testing.** Opening the repo
+folder enables the `<workspace>/bin/sysml-lsp` fallback. For a lone `.sysml` file or a scratch
+folder outside the repo, set User `opensysml.server.path` to the freshly built absolute binary
+path (or put it on PATH). Otherwise an empty Problems panel may merely mean no server started.
+In an empty window, use File > Open File and keep Explorer's "No Folder Opened" visible.
+Confirm a real server process and resolved symbol hover; mutate a reference to an undefined
+name and undo to prove diagnostics are live.
+
+For unsaved-buffer authority during sibling indexing, use `main.sysml` above a
+`parts/lib.sysml`. Open only the library, change its declaration without saving, then restart
+the language server. Open the parent main file: its first directory scan revisits the already
+open library. The unsaved declaration must resolve and the disk-only declaration must not.
+Simply opening both files and restarting does not establish which buffer was open first.
+Revert both files before changing to folder-open mode.
 
 ## Server discovery (`editors/vscode/src/extension.ts`)
 
@@ -85,7 +114,7 @@ empty the Outline view, but keep TextMate colors. Clearing the setting auto-rest
 `[Error - hh:mm:ss] Server process exited with code 0.` in the channel is benign shutdown noise from
 vscode-languageclient after a clean stop — not a crash.
 
-## Completion expectations (`internal/lsp/completion.go`)
+## Completion expectations (`internal/frontend/lsp/completion.go`)
 
 Trigger characters are `.` and `:`. Inside a body:
 - `engine.` → only that type's members with real kinds/details (`power` → `attributeUsage`,
@@ -98,7 +127,7 @@ Trigger characters are `.` and `:`. Inside a body:
   empty line shows LSP items with `keyword` details and `{}` library packages.
 - `ScalarValues::` → library members (`Real`, `Boolean`, `Integer`, ... with `attributeDef` detail).
 
-## Semantic tokens (`internal/lsp/semantictokens.go`, `internal/core/highlight`)
+## Semantic tokens (`internal/frontend/lsp/semantictokens.go`, `internal/semantic/highlight`)
 
 The client enables `textDocument/semanticTokens/full` automatically; only `editor.semanticHighlighting.enabled`
 gates it (note a workspace `.vscode/settings.json` value overrides the User setting — flip it in the
@@ -117,7 +146,7 @@ gives type names the same `#4EC9B0` the semantic `class` gets, so compare a **ke
 Deltas (`semanticTokens/full/delta`) are deliberately unimplemented — the server answers -32601;
 verify that over stdio JSON-RPC, not from the GUI.
 
-## Quick-fix code actions (`internal/lsp/codeaction.go`, `internal/core/resolve/fixes.go`)
+## Quick-fix code actions (`internal/frontend/lsp/codeaction.go`, `internal/semantic/resolve/fixes.go`)
 
 Cursor on the diagnostic + **Ctrl+.** (`ctrl+period` via xdotool works). Copilot always injects its
 own `Fix`/`Explain` entries, so "no server fix offered" looks like a menu with *only* those two —
@@ -132,13 +161,17 @@ not the "No code actions available" message. Expected titles/edits:
 A fast way to learn exact titles/ranges before driving the GUI is a small stdio JSON-RPC probe
 script against `bin/sysml-lsp` (initialize → didOpen → semanticTokens/full → codeAction).
 
-## Lifecycle / process-leak testing (`cmd/sysml-lsp/main.go`, `internal/lsp/lifecycle.go`)
+## Lifecycle / process-leak testing (`cmd/sysml-lsp/main.go`, `internal/frontend/lsp/lifecycle.go`)
 
 - The client always appends `--stdio` (`vscode-languageclient/lib/node/main.js`: `TransportKind.stdio`
   → `args.push('--stdio')`), so the server binary must accept that flag or the client crash-loops.
 - `pgrep -af sysml-lsp` run from a shell whose own command line contains the string `sysml-lsp`
   matches that bash process and gives a false positive. Put the check in a tiny script
   (`/tmp/lspcheck.sh`) and call it, so the output is only real servers.
+- `pgrep -a -x sysml-lsp` avoids shell-command false positives. On a shared machine, inspect
+  each PID's PPID/argv before attributing it to VS Code: another agent's direct LSP probe can
+  run the same binary concurrently. The extension's server has `--stdio` and an extension-host
+  parent; scope both absence and restart assertions to the editor under test.
 - Expected argv while a window is open: exactly one `<repo>/bin/sysml-lsp --stdio`. After **File →
   Close Window** it must disappear within a few seconds; a surviving process is the leak bug.
 - Cheap, high-signal stdio probe for exit statuses (no GUI): initialize → `shutdown` → any request
@@ -165,7 +198,7 @@ script against `bin/sysml-lsp` (initialize → didOpen → semanticTokens/full �
 - Undo a stray edit with Command Palette **"File: Revert File"** — it is far more reliable than
   counting Ctrl+Z presses, and leaves the git tree clean.
 
-## Multi-file / workspace-indexing testing (`internal/lsp/files.go`, `sync.go`)
+## Multi-file / workspace-indexing testing (`internal/frontend/lsp/files.go`, `sync.go`)
 
 The cleanest fixture is a **throwaway folder outside the repo** (e.g. `/home/ubuntu/ws-multifile`)
 holding only a couple of tiny models, so the Problems count is entirely about the feature:
@@ -233,7 +266,7 @@ main.sysml  package Main { import Lib::*; part w : Widget; }
   A **declared** `render asElementTable` view (`LanderViews::partsTable`) does render — a probe from a
   workspace holding only `views-demo.sysml` reports it `supported:true`, `form=markdown`. It only lists
   `supported:false` when the workspace *is this repository*, because the parser fixture
-  `internal/core/parser/testdata/parse/view_expose.sysml` declares a `package Views` that shadows the
+  `tests/parser/testdata/parse/view_expose.sysml` declares a `package Views` that shadows the
   standard library's, so `render asElementTable` no longer resolves to a standard rendering. Test the
   diagram panel from a scratch folder, not the repo root, or expect that shadowing.
 - "Never blank" needs the webview-state cache. Hiding the panel (switching the other tab group to a
@@ -313,21 +346,21 @@ asserting the contextual list, and a separate fixture with them for the "still o
 Confirm the whole expected list cheaply first with a stdio JSON-RPC completion probe against
 `bin/sysml-lsp`, then prove it in the GUI.
 
-## Name resolution / alias / rename testing (`internal/core/resolve`, `internal/lsp/rename.go`)
+## Name resolution / alias / rename testing (`internal/semantic/resolve`, `internal/frontend/lsp/rename.go`)
 
-- **Never name a fixture package after a standard-library package.** `internal/core/libs/stdlib`
+- **Never name a fixture package after a standard-library package.** `internal/workspace/libs/stdlib`
   ships `Domain Libraries/Geometry/ShapeItems.sysml`, which itself declares
   `alias Box for RectangularCuboid`. A fixture `package ShapeItems { ... alias Box for Cube; }`
   therefore collides: `%explain ShapeItems::Box` reports `is ambiguous`, and a broken
   `ShapeItems::Box` reference can still resolve (to the stdlib alias), silently masking failures.
   Use a unique package name (`Shapes`, `Demo`) and re-run any assertion first taken with a colliding
   name. Grep before choosing a name:
-  `grep -rn "\balias Box\b" internal/core/libs/`.
-- **LSP rename/references do NOT go through `internal/core/edit/rename.go`.** `Server.Rename` uses
+  `grep -rn "\balias Box\b" internal/workspace/libs/`.
+- **LSP rename/references do NOT go through `internal/check/edit/rename.go`.** `Server.Rename` uses
   `Workspace.ResolveReferenceNameSegmentsInDoc` (the name a segment *wrote*, so an alias use belongs
   to the alias) and `References` unions that with `ResolveReferenceSegmentsInDoc`, comparing with
   `symbols.SameElement`. A resolver change to segment identity therefore changes rename/references
-  even when `go test ./internal/core/edit` is green: test both in the editor *and* with a probe.
+  even when `go test ./internal/check/edit` is green: test both in the editor *and* with a probe.
 - Cheap oracle before driving the GUI: a stdio JSON-RPC probe that sends `textDocument/rename`
   (with `newName`) and `textDocument/references` for both the alias declaration and the target
   declaration, printing `(line, char, newText)` per edit. Run the same probe against a
@@ -353,7 +386,7 @@ Confirm the whole expected list cheaply first with a stdio JSON-RPC completion p
   `length/width/height` with `attributeUsage` details) even though the file is momentarily a syntax
   error; keep the fixture otherwise valid and `Escape` + revert the line afterwards.
 
-### Overload / ambiguous-call navigation (`internal/lsp/definition.go`, `hover.go`, `references.go`, `rename.go`)
+### Overload / ambiguous-call navigation (`internal/frontend/lsp/definition.go`, `hover.go`, `references.go`, `rename.go`)
 
 - A compact fixture: two packages each declaring `calc def pick { in x : Integer; ... }`, one of them
   also `calc def pick { in x : String; ... }`, and a `package Use` importing both with
@@ -376,7 +409,7 @@ Confirm the whole expected list cheaply first with a stdio JSON-RPC completion p
 - `ctrl+shift+m` (Problems), `ctrl+g` (Go to Line `line:col`), `F2`, `F12`, `ctrl+comma` all reach
   VS Code via xdotool; `F1` opens the Command Palette (use it for "References: Find All References").
 
-## Metadata annotation body testing (`internal/lsp/metadata.go`, `internal/core/model/metadata.go`)
+## Metadata annotation body testing (`internal/frontend/lsp/metadata.go`, `internal/workspace/model/metadata.go`)
 
 For `@Anno { x = ...; }` bodies (KerML 7.4.7 implicit redefinition), a compact fixture is
 `metadata def Base { attribute inherited; }` / `metadata def Anno :> Base { attribute own : ScalarValues::Integer; }`
@@ -403,7 +436,7 @@ degradation case.
 
 ### Sequence diagrams and the pseudo-view picker
 
-- Ready-made sequence fixtures live in `internal/core/view/testdata/`: `sequence.sysml`
+- Ready-made sequence fixtures live in `internal/ir/view/testdata/`: `sequence.sysml`
   (`SequenceViews::pubSubView`, 3 participants `part producer/server/consumer`) and
   `sequence-vehicle.sysml` (`VehicleSequenceViews::startVehicleView`, 2 participants
   `part driver (Driver)` / `part vehicle (Vehicle)`). Copy them into a scratch workspace; both
@@ -414,7 +447,7 @@ degradation case.
   is a click, and no `Layout` is written. `npm test` (`src/webview/canvas.test.ts`) draws the same
   shapes under jsdom and is the cheapest pre-GUI check.
 - The picker's pseudo-view entries come from the server's `opensysml/views` → `pseudoViews`
-  (`internal/lsp/render.go`, `view.PseudoViewSpecs()`), labelled by
+  (`internal/frontend/lsp/render.go`, `view.PseudoViewSpecs()`), labelled by
   `PSEUDO_VIEW_LABELS` in `editors/vscode/src/diagram.ts` — e.g. `#sequence` →
   `Message sequence (no view declared)`. A pre-#624 server omits the field and the client falls back
   to a 5-entry historical list, which makes a **server build from before the change the perfect
@@ -422,7 +455,7 @@ degradation case.
 - An **unsupported** view (`geometry`) is rendered as a *disabled* `<option>` with text suffix
   `(not drawable)`, and its `reason` is also written under the diagram in a `1 view not drawable`
   collapsible (`#undrawable`) — expand it to assert the reason text on screen, rather than hovering
-  the option's `title`. A geometry-view fixture is `internal/core/view/testdata/errors.sysml`
+  the option's `title`. A geometry-view fixture is `internal/ir/view/testdata/errors.sysml`
   (`ErrorViews::geometryView`); `examples/views-demo.sysml` no longer declares any unsupported view
   (all 7 of its views are `supported:true` when opened from a scratch folder).
 - To exercise the **pluralised** summary (`N views not drawable`) no committed fixture has two
@@ -478,13 +511,13 @@ Cheap message-flow oracles that need no devtools (all three strings are produced
 guarded handler):
 - the picker filling with 13 entries for `examples/views-demo.sysml` (7 declared + 6 pseudo-views);
 - the status line `<path>: declares 7 views (…); name the one to render` — that text comes from
-  `internal/core/model/render.go`, i.e. a server error relayed as a `{type:"error"}` message;
+  `internal/workspace/model/render.go`, i.e. a server error relayed as a `{type:"error"}` message;
 - opened from a *scratch* folder that file has **0 Problems** (the ~13 problems in the skill above are
   the repo-root `package Views` shadowing), so use a deliberate error such as
   `port broken : NoSuchPort;` (expect `unresolved reference: NoSuchPort`) as the LSP smoke oracle
   rather than a non-zero problem count.
 
-## Hover presentation testing (`internal/lsp/hover.go`)
+## Hover presentation testing (`internal/frontend/lsp/hover.go`)
 
 VS Code advertises `hover.contentFormat: ["markdown", ...]`, so the GUI always exercises the
 Markdown branch (fenced ```sysml block + prose). The plain-text branch is only reachable from a
@@ -514,7 +547,7 @@ probe that advertises `["plaintext"]` — test it there, not in the editor.
   invalid signature like `partDef Wheel` renders as one plain identifier.
 - Hover popups are sticky: `mouse_move` to an empty area, wait ~2 s, then move onto the target, or
   you will screenshot the previous symbol's popup and think the hover is wrong.
-- Completion `detail` comes from the same `Notation()` (`internal/lsp/completion.go`), so
+- Completion `detail` comes from the same `Notation()` (`internal/frontend/lsp/completion.go`), so
   `Wheel → part def` / `w → part : Wheel` in the detail column is the cheap second surface.
   Note the completion **documentation** panel still shows the raw comment text with `/*` `*/`
   (`symbolDocumentation` does no stripping) — that is unrelated to a hover fix, do not report it as
@@ -531,9 +564,9 @@ Record the VS Code window maximized (wmctrl above). Verify visual claims by `zoo
 (language indicator "SysML v2"/"KerML", problem counts) and the completion popup — the popup's detail
 column is too small to read in a 1024x768 full screenshot.
 
-## Document-query authoring / `opensysml/renderDocument` (`internal/lsp/document.go`, `editors/vscode/src/document.ts`)
+## Document-query authoring / `opensysml/renderDocument` (`internal/frontend/lsp/document.go`, `editors/vscode/src/document.ts`)
 
-- The fixture in `internal/lsp/document_test.go` (`package Observatory` with `DocumentQueries::*`,
+- The fixture in `internal/frontend/lsp/document_test.go` (`package Observatory` with `DocumentQueries::*`,
   `KerML::Root::Element`, `Subsystems`/`SubsystemTable :> Query`, `MassReport :> Document`) works
   verbatim in a scratch workspace with 0 Problems — copy it and every expected value (documents list
   `Observatory::MassReport`, markdown `# Telescope Mass Report` + `| optics | 8.5 |`, error
@@ -553,7 +586,7 @@ column is too small to read in a 1024x768 full screenshot.
   `Subsystem`. In binding-name position (delete `root` before `= telescope`) the list is exactly
   one item `root` with detail `attribute : Element`.
 
-## References / rename latency testing on a large workspace (`internal/core/model/refindex.go`)
+## References / rename latency testing on a large workspace (`internal/workspace/model/refindex.go`)
 
 - The training corpus `examples/sysml-v2-training` (100 files, fetch with
   `./scripts/download-training-examples.sh`) is a ready-made large workspace. Open that *folder*; it has
@@ -581,6 +614,79 @@ column is too small to read in a 1024x768 full screenshot.
 - `make vscode-package` runs `npm ci` first and takes several minutes; when backgrounded, wait for
   the ` DONE  Packaged: opensysml-sysml.vsix` line before `ls editors/vscode/*.vsix`, or you will
   conclude the build failed while it is still installing node modules.
+
+## Diagram authoring (`opensysml/applyModelEdit`)
+
+- Use a small interconnection fixture with **explicit private imports** and expose the owner,
+  not only its children:
+  ```sysml
+  package Vehicle {
+      private import StandardViewDefinitions::*;
+      private import Views::*;
+      port def FuelPort;
+      part def Tank { port fuelOut : FuelPort; }
+      part def Engine { port fuelIn : FuelPort; }
+      part def Car {
+          part tank : Tank;
+          part engine : Engine;
+      }
+      view carView : GeneralView {
+          expose Car;
+          render asInterconnectionDiagram;
+      }
+  }
+  ```
+  Without the imports the view names are unresolved; imports without visibility produce
+  diagnostics. `expose Car::*` renders tank/engine as separate roots, leaving no shared
+  rendered owner for a connection. `expose Car` retains the Car node and its children.
+- Keep the Problems panel visible: this fixture should start and remain at zero. An
+  empty Problems panel alone is not sufficient; confirm the diagram and live server too.
+- Palette **Add part…** uses the source cursor owner. Put the cursor on the Car declaration
+  after its indentation, then verify the prompt title says `Add part to Vehicle::Car`
+  before typing a name. Part prompts for a type; connection prompts allow an empty name.
+- The custom context menu labels are **Connection from here…**, **Rename…**, **Delete…**.
+  Connection target quick-pick also matches type details: typing `engine` can match both
+  `engine : Engine` and `battery : Engine`, so explicitly choose the intended label.
+- All Delete actions first show a native confirmation dialog. Referenced deletion then
+  shows a second dialog with **Delete all**. Unreferenced deletion should not show the
+  second cascade dialog. Canceling the first dialog does not exercise server refusal.
+- Focus the source editor before Ctrl+Z / Ctrl+Y. One undo should remove one diagram
+  operation (e.g. connection), the next the preceding operation (e.g. added part); each
+  diagram update should arrive automatically, without Refresh.
+- For duplicate refusal, use the current name after any rename. Expect a bottom-right
+  toast such as `Vehicle::Car already declares "motor"` and `Model edit refused:` in
+  **Output: Show Output Channels… → SysML v2**. The displayed message need not include
+  the protocol's failure-code spelling.
+- Table rendering is non-SVG, but may still receive a full member/connection palette.
+  Check the current palette table in `internal/frontend/lsp/render.go` rather than
+  assuming non-SVG means authoring is hidden.
+
+## Edit-latency and semantic-token comparisons
+
+- Use the same scratch workspace and isolated keystrokes for both server builds.
+  Keep ambiguous wildcard imports at document level as well as inside a package;
+  include a resolved root wildcard import so there are actual root re-exports.
+  Start from the current index invalidation reproducer rather than assuming a
+  nested-only import triggers document-root invalidation. Small fixtures may
+  still not reproduce the reported multi-second stall; report this limitation.
+- Measure `didChange` to `publishDiagnostics` with a transparent framed stdio
+  relay or timestamped client trace, keeping payloads unchanged. Distinguish
+  server transport latency from visible screen repaint and editor debounce.
+  For publications without versions, isolate changes with settled intervals;
+  do not attribute a queued older publication to the newest edit.
+- A relay must forward/handle EOF and termination so changing the server setting
+  does not leave orphan servers. Check the actual child executable, not merely
+  the setting value. Separate logs for each server/workload.
+- Disable word-based suggestions to prove newly declared names come from the
+  LSP, but leave ordinary quick suggestions enabled when checking popup behavior.
+  Type a prefix with the list open to prove it does not block editing.
+- Inspect the reference with **Developer: Inspect Editor Tokens and Colors**
+  after renaming and shifting source lines. Check exact identifier length and
+  semantic token type; matching syntax colour alone does not prove a semantic
+  token arrived. A finite GUI sequence cannot exclude every scheduling race.
+- Show the normal hover before typing with it open. A disappearing hover and
+  inserted text prove input was not blocked; the diagnostic squiggle and Problems
+  entry are not modal notifications.
 
 ## Devin Secrets Needed
 

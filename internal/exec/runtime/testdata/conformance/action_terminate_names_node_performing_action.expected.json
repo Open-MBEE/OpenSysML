@@ -1,0 +1,12 @@
+{
+	"type": "action",
+	"evaluate": "test::host",
+	"libraries": true,
+	"trace": true,
+	"outputs": {
+		"entered": {"type": "Integer", "value": 3},
+		"napped": {"type": "Integer", "value": 0},
+		"passed": {"type": "Integer", "value": 3},
+		"later": {"type": "Integer", "value": 3}
+	}
+}

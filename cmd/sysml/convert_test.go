@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -11,8 +12,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/migrate"
-	"github.com/Open-MBEE/OpenSysML/internal/testutil/gobuild"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 var (
@@ -212,6 +213,30 @@ func TestConvertErrors(t *testing.T) {
 	}
 }
 
+// TestConvertIDFormMisuse checks -id is refused, as a usage error, on every
+// conversion but SysML notation to an RDF form.
+func TestConvertIDFormMisuse(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string][]string{
+		"without convert":       {model, "-id", "uuid"},
+		"to notation":           {model, "-convert", "sysml", "-id", "uuid"},
+		"from interchange json": {model, "-from", "api-json", "-convert", "api-json", "-id", "uuid"},
+		"from xmi":              {model, "-from", "xmi", "-convert", "sysml", "-id", "uuid"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			res := runCommand(t, exec.Command(binary, args...))
+			if res.status != 2 || !strings.Contains(res.stderr, "-id") {
+				t.Errorf("%v: status %d, stderr:\n%s", args, res.status, res.stderr)
+			}
+		})
+	}
+}
+
 // TestConvertRDFIsMarkedExperimental checks every RDF conversion says so on
 // stderr — including one the mapping refuses — and that the notice never lands
 // in the converted model on stdout.
@@ -231,7 +256,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if to.status != 0 {
 		t.Fatalf("converting to Turtle failed: %s%s", to.stdout, to.stderr)
 	}
-	if !strings.Contains(to.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(to.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("no experimental notice on stderr:\n%s", to.stderr)
 	}
 	if strings.Contains(to.stdout, "experimental") {
@@ -241,7 +266,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	turtle := filepath.Join(dir, "model.ttl")
 	run(t, binary, model, "-convert", "ttl", "-o", turtle)
 	from := runCommand(t, exec.Command(binary, turtle, "-convert", "sysml"))
-	if !strings.Contains(from.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(from.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("reading RDF is experimental too, but was not marked:\n%s", from.stderr)
 	}
 
@@ -254,7 +279,7 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 	if refused.status == 0 {
 		t.Fatalf("expected the mapping to refuse the duplicate declaration:\n%s", refused.stdout)
 	}
-	if !strings.Contains(refused.stderr, "RDF conversion is experimental") {
+	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)
 	}
 }
@@ -277,7 +302,7 @@ func run(t *testing.T, binary string, args ...string) string {
 func TestConvertMigratesXMI(t *testing.T) {
 	binary := buildCLI(t)
 	dir := t.TempDir()
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	model := filepath.Join(dir, "model.sysml")
 	if err := os.WriteFile(model, []byte(sampleModel), 0o644); err != nil {
 		t.Fatal(err)
@@ -299,6 +324,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 	textReport := filepath.Join(dir, "report.txt")
 	jsonReport := filepath.Join(dir, "report.json")
+	layoutExport := filepath.Join(dir, "layout.xml")
 	turtle := filepath.Join(dir, "model.ttl")
 	run(t, binary, xmi, "-convert", "ttl", "-o", turtle, "-migration-report", textReport)
 	run(t, binary, xmi, "-from", "xmi", "-convert", "sysml", "-o", model, "-migration-report", jsonReport)
@@ -360,6 +386,11 @@ func TestConvertMigratesXMI(t *testing.T) {
 		"output over the input, spelled differently":   {[]string{v1, "-convert", "sysml", "-o", filepath.Join(dir, ".", "v1.xmi")}, "-o names the model being migrated"},
 		"output over the input through a link":         {[]string{v1, "-convert", "sysml", "-o", symlinkTo(t, dir, "v1-link", v1)}, "-o names the model being migrated"},
 		"output over the input through a hard link":    {[]string{v1, "-convert", "sysml", "-o", hardLink}, "-o names the model being migrated"},
+		"layout without convert":                       {[]string{model, "-layout", layoutExport}, "-layout accompanies -convert"},
+		"layout without xmi":                           {[]string{model, "-convert", "ttl", "-layout", layoutExport}, "-layout augments a SysML v1 migration"},
+		"layout over the model":                        {[]string{xmi, "-convert", "sysml", "-o", layoutExport, "-layout", layoutExport}, "-layout and -o both name"},
+		"layout over the report":                       {[]string{xmi, "-convert", "sysml", "-migration-report", layoutExport, "-layout", layoutExport}, "-layout and -migration-report both name"},
+		"layout over the input":                        {[]string{xmi, "-convert", "sysml", "-layout", xmi}, "names the model being migrated"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			out, err := exec.Command(binary, tc.args...).CombinedOutput()
@@ -375,7 +406,7 @@ func TestConvertMigratesXMI(t *testing.T) {
 
 func TestLoadingXMIDirectlyPointsAtMigration(t *testing.T) {
 	binary := buildCLI(t)
-	xmi := filepath.Join("..", "..", "internal", "core", "migrate", "testdata", "xmi", "vehicle.xmi")
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "vehicle.xmi")
 	for _, args := range [][]string{
 		{xmi, "-validate"},
 		{xmi, "-eval", "1"},
@@ -436,4 +467,284 @@ func danglingLink(t *testing.T, dir, name, target string) string {
 		t.Skipf("cannot make a symbolic link: %v", err)
 	}
 	return link
+}
+
+// TestConvertLayoutAugment migrates the layout fixture with its MTIP export:
+// the views carry the export's geometry as DiagramLayout metadata.
+func TestConvertLayoutAugment(t *testing.T) {
+	binary := buildCLI(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.xmi")
+	layout := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "layout.layout.xml")
+	out := runCommand(t, exec.Command(binary, xmi, "-convert", "sysml", "-layout", layout))
+	if out.status != 0 {
+		t.Fatalf("migrating with -layout failed: %s%s", out.stdout, out.stderr)
+	}
+	for _, want := range []string{
+		"metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; height = 40; }",
+		"metadata DiagramLayout::Route about drive { points = (120, 30, 200, 30); }",
+		`@DiagramLayout::Canvas { unit = "px";`,
+	} {
+		if !strings.Contains(out.stdout, want) {
+			t.Errorf("migrated notation lacks %q:\n%s", want, out.stdout)
+		}
+	}
+	if !strings.Contains(out.stderr, "laid out 2 of 2 diagrams") {
+		t.Errorf("the layout summary belongs on stderr:\n%s", out.stderr)
+	}
+}
+
+// TestConvertImageBaseURL resolves a comment's server-relative <img src>
+// against -image-base-url in a migration, refuses the flag on unmigrated
+// input, and refuses a base that is not an absolute http(s) URL.
+func TestConvertImageBaseURL(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data), `body="First note."`,
+		`body="&lt;p&gt;&lt;img src=&quot;/projects/y/png&quot;&gt;&lt;/p&gt;&lt;p&gt;Figure 1. Caption&lt;/p&gt;"`, 1)
+	model := filepath.Join(dir, "documents.xmi")
+	if err := os.WriteFile(model, []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "https://mms.example.org"))
+	if res.status != 0 {
+		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+	}
+	migrated, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(migrated), `attribute redefines location = "https://mms.example.org/projects/y/png";`) {
+		t.Errorf("notation lacks the resolved image:\n%s", migrated)
+	}
+
+	v2 := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(v2, []byte(sampleModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, v2, "-convert", "sysml", "-image-base-url", "https://mms.example.org"))
+	if res.status == 0 || !strings.Contains(res.stderr, "-image-base-url resolves images of a SysML v1 migration") {
+		t.Errorf("v2 input: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-o", out, "-image-base-url", "ftp://x"))
+	if res.status == 0 || !strings.Contains(res.stderr, "not an absolute http(s) URL") {
+		t.Errorf("ftp base: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+}
+
+// TestConvertImagesLandBesideResolvedOutput a symlinked -o writes the
+// migration's image files beside the model the link resolves to, and -o
+// naming a directory fails rather than scattering images into its parent.
+func TestConvertImagesLandBesideResolvedOutput(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	models := filepath.Join(dir, "models")
+	if err := os.MkdirAll(models, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := symlinkTo(t, dir, "out.sysml", filepath.Join(models, "report.sysml"))
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", link))
+	if res.status != 0 {
+		t.Fatalf("converting: %s%s", res.stdout, res.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(models, "images", "fleet.png")); err != nil {
+		t.Errorf("the image did not land beside the resolved output: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
+		t.Error("images were written beside the link, not its target")
+	}
+	if _, err := os.Stat(filepath.Join(models, "report.sysml")); err != nil {
+		t.Errorf("the model did not land at the resolved output: %v", err)
+	}
+
+	outDir := filepath.Join(dir, "adir")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	res = runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", outDir))
+	if res.status == 0 || !strings.Contains(res.stderr, "which is not a file") {
+		t.Errorf("directory -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "images")); err == nil {
+		t.Error("a failed run still wrote images")
+	}
+}
+
+// documentsMdzip packs the documents fixture with its attached image as an
+// mdzip in memory, so the migration has image files to write.
+func documentsMdzip(t *testing.T) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "documents.xmi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	// Entries in a fixed order so two calls yield byte-identical archives.
+	for _, entry := range []struct {
+		name    string
+		content []byte
+	}{
+		{"com.nomagic.magicdraw.uml_model.model", data},
+		{"attachments/fleet.png", []byte("\x89PNG\r\n\x1a\n fleet bytes")},
+	} {
+		w, err := zw.Create(entry.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(entry.content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// TestConvertImageSidecarCollision refuses to write a migration image over a
+// path the run already uses, here the input model itself.
+func TestConvertImageSidecarCollision(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "images"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	model := filepath.Join(dir, "images", "fleet.png")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(dir, "documents.sysml")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+model) {
+		t.Errorf("colliding -o: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote the model")
+	}
+	if got, err := os.ReadFile(model); err != nil || !bytes.Equal(got, documentsMdzip(t)) {
+		t.Error("the input model was overwritten")
+	}
+}
+
+// TestConvertImageSidecarIsTheModel refuses a -o an image would land on,
+// here through an images/ link back to the model's directory.
+func TestConvertImageSidecarIsTheModel(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(dir, filepath.Join(dir, "images")); err != nil {
+		t.Skip(err)
+	}
+	out := filepath.Join(dir, "fleet.png")
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 || !strings.Contains(res.stderr, "would replace "+out) {
+		t.Errorf("-o at an image's path: status %d, stderr:\n%s", res.status, res.stderr)
+	}
+	if _, err := os.Stat(out); err == nil {
+		t.Error("a refused run still wrote to the model's path")
+	}
+}
+
+// TestConvertModelFailureKeepsImages a migration whose model cannot be saved
+// leaves the images beside the previous model as they were: the model and its
+// images are committed only once every one of them is written.
+func TestConvertModelFailureKeepsImages(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores file permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := []byte("the previous model's image")
+	if err := os.WriteFile(filepath.Join(images, "fleet.png"), old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(outDir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(outDir, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("saving into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(filepath.Join(images, "fleet.png")); err != nil || !bytes.Equal(got, old) {
+		t.Errorf("the failed model save replaced the previous model's image (%v)", err)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced (%v)", err)
+	}
+	entries, err := os.ReadDir(images)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("staged files were left behind in %s: %v", images, entries)
+	}
+}
+
+// TestConvertImageFailureKeepsModel an image that cannot be written leaves the
+// previous model in place too, rather than a model referring to an image that
+// was never saved.
+func TestConvertImageFailureKeepsModel(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores directory permissions")
+	}
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "documents.mdzip")
+	if err := os.WriteFile(model, documentsMdzip(t), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outDir := filepath.Join(dir, "out")
+	images := filepath.Join(outDir, "images")
+	if err := os.MkdirAll(images, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := filepath.Join(outDir, "report.sysml")
+	if err := os.WriteFile(out, []byte("package Previous;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(images, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(images, 0o700) })
+	res := runCommand(t, exec.Command(binary, model, "-convert", "sysml", "-from", "mdzip", "-o", out))
+	if res.status == 0 {
+		t.Fatalf("writing an image into a closed directory succeeded:\n%s", res.stderr)
+	}
+	if got, err := os.ReadFile(out); err != nil || string(got) != "package Previous;\n" {
+		t.Errorf("the previous model was replaced although its image was not written (%v)", err)
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("staged files were left behind in %s: %v", outDir, entries)
+	}
 }

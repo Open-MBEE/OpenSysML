@@ -1,0 +1,18 @@
+step 1: token 1@node
+stmt assign before
+  eval literal 1 -> 1
+stmt if
+    eval feature before -> 1
+    eval literal 1 -> 1
+  eval operator == -> true
+  stmt node forked
+enter action node: forked
+    stmt assign inner
+      eval literal 2 -> 2
+    stmt terminate
+terminate action node node: dropped token 3@waiter, token 4@quit
+step 2: token 1@tail
+stmt assign after
+  eval literal 5 -> 5
+step 3: token 1@done
+step 4: no active tokens

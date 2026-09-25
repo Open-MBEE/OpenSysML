@@ -471,6 +471,9 @@ message Outcome {
   // it could not evaluate, as RunAnalysisResponse.diagnostics reports them for
   // one run.
   repeated Diagnostic diagnostics = 7;
+  // The probability of the linearizations reaching this outcome, as explore
+  // computes it; a lower bound when the exploration is incomplete.
+  double probability = 8;
 }
 
 // ExplorationStatus is how an exploration ended: whether every linearization
@@ -486,6 +489,9 @@ message ExplorationStatus {
   // one run may resolve before the rest take their first alternative.
   int32 runs_budget = 4;
   int32 depth_budget = 5;
+  // True when the outcomes' probabilities are lower bounds: a budget kept some
+  // linearizations unexplored.
+  bool probabilities_lower_bound = 6;
 }
 
 // ListEnginesRequest asks for the analysis engines registered in this build.
@@ -759,11 +765,14 @@ message ConvertRequest {
     string content = 2;
     string model_hash = 6;
   }
-  // "sysml", "kerml", "text", "ttl", "turtle" or "rdf". Empty infers from
-  // file_path's extension, and is notation for a model_hash, since that is what
-  // parse reads; inline content has neither, so it must say.
+  // "sysml", "kerml", "text", "ttl", "turtle", "rdf", "api-json" or "json", or
+  // "xmi", "uml" or "mdzip" for a SysML v1 model, which is read and migrated to
+  // v2 and never written. Empty infers from file_path's extension, and is
+  // notation for a model_hash, since that is what parse reads; inline content
+  // has neither, so it must say.
   string from_format = 3;
-  // Format to write, named as in from_format. Empty is rejected.
+  // Format to write, named as in from_format; the v1 names are refused, since
+  // a v2 model has no v1 form. Empty is rejected.
   string to_format = 4;
   // Write notation back out even when the parser could not read all of it,
   // reporting its syntax errors as diagnostics. Notation to notation only:
@@ -783,10 +792,12 @@ message ConvertResponse {
   // Syntax errors tolerated under tolerate_syntax_errors, or those that failed
   // the conversion.
   repeated Diagnostic diagnostics = 5;
-  // Set when either format is RDF, whose mapping is experimental: it covers
-  // model structure and the behavior its bodies state, refuses what it cannot
-  // write back, and its vocabulary may change without a compatibility path.
-  // Notation to notation is stable and leaves this unset.
+  // Set when either format is RDF or the API's JSON element form, whose
+  // mapping is experimental: it covers model structure and the behavior its
+  // bodies state, refuses what it cannot write back, and its vocabulary may
+  // change without a compatibility path. Also set when the source is SysML v1,
+  // whose migration is experimental in the same sense. Notation to notation is
+  // stable and leaves this unset.
   bool experimental = 6;
   // What is experimental about the conversion, in the wording every surface
   // reports it in. Empty when experimental is false.
@@ -1638,6 +1649,8 @@ message DocumentValue {
     Quantity quantity = 8;   // magnitude in a unit, `2290000 [kg]`
     DocumentVerdict verdict = 9;  // a row Verdicts answered; answered, never bound
     DocumentObject object = 10;   // an object Instantiate created; bound and answered
+    DocumentState state = 11;     // a row States answered; answered, never bound
+    DocumentEvent event = 12;     // a row Events answered; answered, never bound
   }
   // Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
   string element_type = 7;
@@ -1691,6 +1704,61 @@ message DocumentVerdict {
   repeated string verification = 8;
 }
 
+// DocumentState is one row a `States` query answered: an active leaf state of
+// the state machine `object` exhibits, which the row stands for as its `element`
+// when the model declares it.
+message DocumentState {
+  // The object in the state, with the path the session reaches it by.
+  DocumentObject object = 1;
+  // The state machine, by the name the object exhibits it under (`lp`), else
+  // its declared name.
+  string machine = 2;
+  // The leaf state's name.
+  string name = 3;
+  // The leaf state's path in its machine, composite states first (`on.dim`).
+  string state_path = 4;
+  // The leaf state's declaration as an element value; empty when the machine
+  // declares no element for it.
+  DocumentValue state = 5;
+  // The orthogonal region the leaf is declared in; empty outside one.
+  string region = 6;
+  // The composite states enclosing the leaf, outermost first; each is active.
+  repeated string enclosing = 7;
+}
+
+// DocumentEvent is one row an `Events` query answered: one record of the
+// session's trace, in the order the run made it.
+message DocumentEvent {
+  // "accept", "send", "transition", "entry", "exit", "do", "choice" or "guard".
+  string kind = 1;
+  // The clock's instant when the record was made: a quantity in the clock's
+  // unit when the library reduces one, else a bare real of clock units.
+  DocumentValue time = 2;
+  // The object whose behavior made the record; unset for the run's own
+  // records (a due-order choice, a message posted from outside the model).
+  DocumentObject object = 3;
+  // The behavior the record is about, by the name the object exhibits it
+  // under, else its declared name; empty for the run's own records.
+  string machine = 4;
+  // The state entered, exited or stepped by an entry, exit or do record.
+  string state = 5;
+  // A fired transition's source and target states.
+  string from = 6;
+  string to = 7;
+  // The object a send was addressed to; unset for every other kind and a
+  // send addressed to no object.
+  DocumentObject target = 8;
+  // The signal or event accepted or sent, or the trigger a transition fired on.
+  string event = 9;
+  // An accept's payload, one `name = value` entry per parameter in name order.
+  repeated string payload = 10;
+  // A choice's alternatives, in the order they were offered, and the one taken.
+  repeated string alternatives = 11;
+  string taken = 12;
+  // The line the trace prints for the record.
+  string text = 13;
+}
+
 // DocumentQueryColumn is one projected property, in projection order.
 message DocumentQueryColumn {
   string name = 1;
@@ -1706,7 +1774,8 @@ message DocumentQueryCell {
 message DocumentQueryRow {
   // The selected element itself, an element value with its qualified name; an
   // object value for a row over an object the service holds; a verdict value
-  // for a row `Verdicts` answered.
+  // for a row `Verdicts` answered; a state value for a row `States` answered;
+  // an event value for a row `Events` answered.
   DocumentValue element = 1;
   repeated DocumentQueryCell cells = 2;
 }
@@ -1721,17 +1790,24 @@ message RunDocumentQueryResponse {
 }
 
 // RenderDocumentRequest renders a named document — a part def specializing
-// DocumentQueries::Document — to Markdown. A document binds its queries'
-// parameters in the model, so the request carries none.
+// DocumentQueries::Document — to Markdown or HTML. A document binds its
+// queries' parameters in the model, so the request carries none.
 message RenderDocumentRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document to render. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
   string document_id = 2;
+  // Form to render: "markdown" (the default when empty) or "html", the
+  // standalone page with the default stylesheet that the CLI's -doc-form html
+  // writes. Any other form fails with INVALID_ARGUMENT; PDF needs the CLI's
+  // converter toolchain and is not offered here.
+  string form = 3;
 }
 
-// RenderDocumentResponse carries the rendered Markdown, byte-for-byte what the
-// CLI's -render-document writes.
+// RenderDocumentResponse carries the rendered document in the form requested,
+// byte-for-byte what the CLI's -render-document writes: markdown for the
+// Markdown form, html for the HTML form, the other left empty.
 message RenderDocumentResponse {
   string markdown = 1;
+  string html = 2;
 }

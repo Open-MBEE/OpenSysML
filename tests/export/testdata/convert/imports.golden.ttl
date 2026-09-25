@@ -1,0 +1,116 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Importer
+    a sysml:Package ;
+    sysml:qualifiedName "Importer" ;
+    sysml:elementId "Importer" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Importer" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Importer___400, elmt:Importer___401, elmt:Importer___402, elmt:Importer__Deep_om ;
+    sysml:ownedImport elmt:Importer___400, elmt:Importer___401, elmt:Importer___402 ;
+    sysml:ownedMember elmt:Importer__Deep ;
+    sysml:ownedMembership elmt:Importer__Deep_om ;
+    sysx:sourceText "package Importer {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Importer___400\"},{\"@id\":\"Importer___401\"},{\"@id\":\"Importer___402\"},{\"@id\":\"Importer__Deep_om\"}]" ;
+    json:ownedImport "[{\"@id\":\"Importer___400\"},{\"@id\":\"Importer___401\"},{\"@id\":\"Importer___402\"}]" .
+
+elmt:Importer___400
+    a sysml:NamespaceImport ;
+    sysml:qualifiedName "Importer::@0" ;
+    sysml:elementId "Importer___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer ;
+    sysml:owner elmt:Importer ;
+    sysml:owningRelatedElement elmt:Importer ;
+    sysml:importOwningNamespace elmt:Importer ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace <urn:sysmlv2:element:3fcc2ef4-a31c-522b-b69d-717d74bccfa6> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ISQ::*;\n" .
+
+elmt:Importer___401
+    a sysml:MembershipImport ;
+    sysml:qualifiedName "Importer::@1" ;
+    sysml:elementId "Importer___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer ;
+    sysml:owner elmt:Importer ;
+    sysml:owningRelatedElement elmt:Importer ;
+    sysml:importOwningNamespace elmt:Importer ;
+    sysml:visibility "private" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership elmt:ab72a695-5fe9-58a3-9d48-9e9a8711862d ;
+    sysx:sourceText "    private import ScalarValues::Real;\n" .
+
+elmt:Importer___402
+    a sysml:MembershipImport ;
+    sysml:qualifiedName "Importer::@2" ;
+    sysml:elementId "Importer___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer ;
+    sysml:owner elmt:Importer ;
+    sysml:owningRelatedElement elmt:Importer ;
+    sysml:importOwningNamespace elmt:Importer ;
+    sysml:visibility "private" ;
+    sysml:isRecursive "true"^^xsd:boolean ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:importedMembership elmt:Importer__Deep_om ;
+    sysx:sourceText "    private import Deep::**;\n" .
+
+elmt:Importer__Deep
+    a sysml:Package ;
+    sysml:qualifiedName "Importer::Deep" ;
+    sysml:elementId "Importer__Deep" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer ;
+    sysml:owner elmt:Importer ;
+    sysml:owningRelationship elmt:Importer__Deep_om ;
+    sysml:owningMembership elmt:Importer__Deep_om ;
+    sysml:declaredName "Deep" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Importer__Deep__Item ;
+    sysml:ownedMembership elmt:Importer__Deep__Item_om ;
+    sysml:ownedRelationship elmt:Importer__Deep__Item_om ;
+    sysx:sourceText "    package Deep {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Importer__Deep_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Importer__Deep_om" ;
+    sysml:owner elmt:Importer ;
+    sysml:memberElement elmt:Importer__Deep ;
+    sysml:ownedMemberElement elmt:Importer__Deep ;
+    sysml:ownedRelatedElement elmt:Importer__Deep ;
+    sysml:owningRelatedElement elmt:Importer ;
+    sysml:membershipOwningNamespace elmt:Importer .
+
+elmt:Importer__Deep__Item
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "Importer::Deep::Item" ;
+    sysml:elementId "Importer__Deep__Item" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Importer__Deep ;
+    sysml:owner elmt:Importer__Deep ;
+    sysml:owningRelationship elmt:Importer__Deep__Item_om ;
+    sysml:owningMembership elmt:Importer__Deep__Item_om ;
+    sysml:declaredName "Item" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        part def Item;\n" .
+
+elmt:Importer__Deep__Item_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Importer__Deep__Item_om" ;
+    sysml:owner elmt:Importer__Deep ;
+    sysml:memberElement elmt:Importer__Deep__Item ;
+    sysml:ownedMemberElement elmt:Importer__Deep__Item ;
+    sysml:ownedRelatedElement elmt:Importer__Deep__Item ;
+    sysml:owningRelatedElement elmt:Importer__Deep ;
+    sysml:membershipOwningNamespace elmt:Importer__Deep .

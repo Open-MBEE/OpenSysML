@@ -4,12 +4,12 @@
 written.*
 
 The repository ships one engine behind four surfaces, and they do not offer the same operations.
-`sysml` (the CLI and REPL) and `sysml-lsp` call `internal/core/*` directly. `sysml-grpc` hosts
-`internal/grpc.Service` over gRPC, Connect and stdio. The public Go package `client/opensysml`
+`sysml` (the CLI and REPL) and `sysml-lsp` call `internal/*` directly. `sysml-grpc` hosts
+`internal/frontend/grpc.Service` over gRPC, Connect and stdio. The public Go package `client/opensysml`
 wraps that same `Service` in-process (`New`) or dials it (`Dial`), so the package and the wire
 already agree with each other by construction. The REPL and the editor agree with neither, except
-where a test pins them to (`internal/grpc/oslc_query_repl_test.go` holds `Query` to the REPL's
-`%query`; `internal/lsp/library_invocation_test.go` holds the editor's diagnostics to the REPL's
+where a test pins them to (`internal/frontend/grpc/oslc_query_repl_test.go` holds `Query` to the REPL's
+`%query`; `internal/frontend/lsp/library_invocation_test.go` holds the editor's diagnostics to the REPL's
 evaluation).
 
 This note inventories the mismatch, sorts every difference into one of five classes — shared
@@ -38,14 +38,14 @@ proto shapes would be the lossy conversion AGENTS.md forbids.
 
 **Statefulness.** A REPL session accumulates declarations, supersedes earlier ones by name,
 carries a debugger across unrelated submissions and ends it only when the behavior it steps is
-gone (`dropStaleDebugSessions` in `internal/repl/session.go`). The editor holds open documents
+gone (`dropStaleDebugSessions` in `internal/frontend/repl/session.go`). The editor holds open documents
 and edits them incrementally. `Service` is a cache of immutable models keyed by hash. These are
 different lifecycles, and the mismatch they cause is intentional.
 
 ## 2. Inventory
 
 Every operation the REPL, CLI and editor expose, against what the package and the wire expose
-today. "Same code" means the surfaces reach one `internal/core` entry point; "own code" means the
+today. "Same code" means the surfaces reach one `internal/` layer entry point; "own code" means the
 surface reimplements the assembly around the core call.
 
 ### 2.1 Shared already
@@ -55,7 +55,7 @@ surface reimplements the assembly around the core call.
 | Parse, resolve, diagnose | `%load`, `-validate`, submit | `didOpen`/`didChange` → diagnostics | `ParseFile`, `ParseSources`, `GetDiagnostics` | `ParseFile`, `ParseSource(s)`, `ParseDocuments`, `Diagnostics` | yes — `model`, `passes` |
 | Symbol lookup | `%print`, `%features` | hover, definition, symbols | `GetSymbol` | `LookupSymbol` | yes — `symbols`, `resolve`; the REPL's qualified-name suggestions (`qualsuggest.go`) are its own |
 | Expression evaluation | `%eval`, `-eval`, `-e` | — | `Evaluate` | `Evaluate` | yes — `runtime` |
-| Instantiate | `%instantiate`, `-instantiate` | — | `Instantiate` | `Instantiate` | yes; the REPL's instance graph is drawn through `grpc.InstanceGraphToProtoWithin` (`internal/repl/features.go`) |
+| Instantiate | `%instantiate`, `-instantiate` | — | `Instantiate` | `Instantiate` | yes; the REPL's instance graph is drawn through `grpc.InstanceGraphToProtoWithin` (`internal/frontend/repl/features.go`) |
 | Run an action / state machine to completion | `%action`, `%state` without stepping; `-action`, `-state`, `-schedule`, `-seed` | — | `ExecuteAction`, `ExecuteState` with `schedule` | `ExecuteAction`, `ExecuteState`, `ExploreAction`, `ExploreState` | yes — `lower`, `runtime`, `analysis` |
 | Calc evaluation | `%calc`, `-calc` | — | `EvaluateCalc` | `EvaluateCalc`, `Calculate` | yes |
 | Constraint / requirement / satisfy | `%constraint`, `%requirement`, `%satisfy`, and the flags | — | `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction` | `Verify*` | yes — `runtime` verdicts |
@@ -81,14 +81,14 @@ can perform today.
 
 | Operation | Where it lives | What the wire lacks | Stage |
 |---|---|---|---|
-| Satisfiability: `%check`, `%solve`, `%explain`, `%optimize`, `%configure` | `internal/repl/check.go`, `explain.go`, `optimize.go` over `internal/core/solve`; the `solve` engine answers `analysis.Satisfiable` | No RPC asks a `Satisfiable` question. `ListEngines` advertises `solve`, but `RunAnalysis`, `Verify*` and the rest only pose `Evaluate`, `Outcomes`, `Holds`, `Sensitive` and `Sweep`. A remote caller can see the engine and cannot use it. (The `smt` engine, which proves `Holds`, *is* reachable: `VerifyConstraint` with `engine: smt`.) | 2 |
+| Satisfiability: `%check`, `%solve`, `%explain`, `%optimize`, `%configure` | `internal/frontend/repl/check.go`, `explain.go`, `optimize.go` over `internal/exec/solve`; the `solve` engine answers `analysis.Satisfiable` | No RPC asks a `Satisfiable` question. `ListEngines` advertises `solve`, but `RunAnalysis`, `Verify*` and the rest only pose `Evaluate`, `Outcomes`, `Holds`, `Sensitive` and `Sweep`. A remote caller can see the engine and cannot use it. (The `smt` engine, which proves `Holds`, *is* reachable: `VerifyConstraint` with `engine: smt`.) | 2 |
 | Model-checker configuration: `%check-diverge`, `%check-property`, `%check-input`, `%check-assume`, `%check-witness`, `%check-bounds`, and the `-check-*` flags | REPL session state, read when a check runs | No fields. The `check` engine runs on the wire with defaults only; a caller cannot name the properties, assumptions, bounds or witness directory | 2 |
 | Replay a recorded schedule: `%replay`, `-schedule replay:` | REPL and CLI | `schedule` is a string field, so `replay:<path>` would name a server-side path. The wire needs the witness *inline* | 2 |
-| View rendering (diagrams): `%view`, `%render`, `-render`, `-render-all`, `-render-form`, `-render-palette` | `internal/core/view`; the editor's `opensysml/render`, `opensysml/views`, `opensysml/renderChanged` | No RPC. `RenderDocument` renders documents, not views. The editor's diagram protocol is the most complete client of `view` and is reachable only from an LSP client | 2 |
-| Library search: `%search`, `%builtins` | `internal/core/suggest`, `libs` | No RPC. `GetSymbol` needs a name; there is no way to ask "what declares something like this" | 2 |
+| View rendering (diagrams): `%view`, `%render`, `-render`, `-render-all`, `-render-form`, `-render-palette` | `internal/ir/view`; the editor's `opensysml/render`, `opensysml/views`, `opensysml/renderChanged` | No RPC. `RenderDocument` renders documents, not views. The editor's diagram protocol is the most complete client of `view` and is reachable only from an LSP client | 2 |
+| Library search: `%search`, `%builtins` | `internal/semantic/suggest`, `libs` | No RPC. `GetSymbol` needs a name; there is no way to ask "what declares something like this" | 2 |
 | XMI migration report: `-convert -from xmi -migration-report` | `cmd/sysml` over `export` | `Convert` from XMI answers with the model; the element-by-element report of what the conversion kept, renamed and dropped is written only to a local file | 3 |
-| Code generation: `-compile`, `-target` | `internal/core/codegen` | No RPC, no package method. The output is a file tree, which fits `Convert`'s shape (a format, bytes out) once the format list is open | 3 |
-| Conformance runs: `internal/repl/conformance.go` | REPL | Not an API; the REPL exposes it for the harness | — |
+| Code generation: `-compile`, `-target` | `internal/translate/codegen` | No RPC, no package method. The output is a file tree, which fits `Convert`'s shape (a format, bytes out) once the format list is open | 3 |
+| Conformance runs: `internal/frontend/repl/conformance.go` | REPL | Not an API; the REPL exposes it for the harness | — |
 
 ### 2.3 Interactive: a session, not a call
 
@@ -116,9 +116,9 @@ no cursor, and an editor already has the protocol.
 
 What the editor *computes* is another matter. Hover shows a symbol's type and documentation;
 `GetSymbol` returns the same facts. Completion ranks candidates from `symbols` and `suggest`;
-`%search` would use the same ranking. Code actions apply `internal/core/edit` operations;
+`%search` would use the same ranking. Code actions apply `internal/check/edit` operations;
 `ApplyEdits` applies the same. Stage 1 gives these one implementation each; the editor's
-`internal/lsp` files then translate positions in and protocol shapes out, and nothing else.
+`internal/frontend/lsp` files then translate positions in and protocol shapes out, and nothing else.
 
 The editor's custom methods (`opensysml/render`, `opensysml/views`, `opensysml/renderChanged`,
 `opensysml/renderDocument`, `opensysml/applyModelEdit`, `opensysml/documents`,
@@ -131,7 +131,7 @@ gives their model-level operations RPCs, and the editor keeps its methods as thi
 | Operation | Why it stays local |
 |---|---|
 | `%load <path>`, `%save <file>`, `-o`, `-output` | Paths on the caller's disk. The wire takes and returns bytes (`ParseSources`, `Convert`) and that is the right shape |
-| `-sync-*` (project sync with a repository), `internal/core/project`, `internal/interop/reposync` | Operates on a checked-out project and its remote; a workspace model with identity and history. Out of scope for a model-in/answer-out service until a workspace API is designed on its own terms |
+| `-sync-*` (project sync with a repository), `internal/workspace/project`, `internal/translate/interop/reposync` | Operates on a checked-out project and its remote; a workspace model with identity and history. Out of scope for a model-in/answer-out service until a workspace API is designed on its own terms |
 | `-cpuprofile`, `-memprofile`, `-memstats`, `-debug` | Process introspection |
 | `%help`, `%verbosity`, tab completion, unknown-command suggestion | Presentation |
 | `-html-*`, `-pdf-*`, `-doc-*` | Renderer options. `RenderDocument` takes a form; the options that shape a form should travel with it (stage 2) rather than stay flags, but the *files* the renderer writes (assets, a PDF) are local |
@@ -144,13 +144,13 @@ order, and 4 is independent of 2 and 3.
 
 ### Stage 1 — one assembly per operation
 
-For each shared row in §2.1, one function in `internal/core` (or a new `internal/core/ops`
+For each shared row in §2.1, one function in the layer packages (or a new `internal/workspace/ops`
 package if no existing package owns it) that takes a resolved model plus a plain-Go request and
-returns a plain-Go result, and that `internal/repl`, `internal/lsp` and `internal/grpc` all call.
+returns a plain-Go result, and that `internal/frontend/repl`, `internal/frontend/lsp` and `internal/frontend/grpc` all call.
 The REPL's job becomes: parse the meta-command, call, print. The service's job becomes: decode the
 proto, call, encode. The editor's: translate the position, call, shape the protocol reply.
 
-Concretely, for verification: `internal/grpc/verify.go` and `internal/repl/verification.go` each
+Concretely, for verification: `internal/frontend/grpc/verify.go` and `internal/frontend/repl/verification.go` each
 resolve the constraint and its subject, choose an engine through `analysis`, run it and grade the
 outcome into a verdict. They become one `VerifyConstraint(model, Request) Result` with a `Request`
 of symbol, subject, engine and budget, and a `Result` of verdict, standing, plan and diagnostics.
@@ -164,7 +164,7 @@ The same for `Instantiate`, `Evaluate`, `EvaluateCalc`, `RunAnalysis`, `RunSweep
 Rules for the shared layer:
 
 - Plain Go in, plain Go out. No proto types, no REPL types. `Value` stays `runtime.Value`;
-  the wire's `Value` message is `internal/grpc`'s projection of it, as now.
+  the wire's `Value` message is `internal/frontend/grpc`'s projection of it, as now.
 - No I/O. The REPL passes bytes it read; the service passes bytes it received.
 - Every failure is a typed error or an in-band diagnostic; the caller decides whether that is a
   Connect code, a REPL notice or an LSP diagnostic. The classification the wire contract
@@ -173,7 +173,7 @@ Rules for the shared layer:
 - The `Service` cache and the REPL session stay where they are: they are the two lifecycles that
   own a model; the shared layer is handed a model and owns nothing.
 
-Definition of done: `internal/repl` and `internal/lsp` import nothing from `internal/grpc`
+Definition of done: `internal/frontend/repl` and `internal/frontend/lsp` import nothing from `internal/frontend/grpc`
 (the instance-graph helper in `features.go` moves down), and no operation in §2.1 is assembled
 in more than one package. The existing cross-surface tests (`oslc_query_repl_test.go`,
 `library_invocation_test.go`) keep passing; they become regression guards for the refactor rather
@@ -209,7 +209,7 @@ already does for an unavailable capability, rather than failing on an unknown me
    located in source. The editor's `opensysml/render` and `opensysml/views` become translations
    of these; `%view`, `%render` and `-render*` call the shared function. Capability `views`.
 5. **Search.** `SearchSymbols(model_hash, text, kinds, limit)` over `suggest` and the frozen
-   standard-library index every model already shares (`internal/grpc/libindex.go`). `%search` and
+   standard-library index every model already shares (`internal/frontend/grpc/libindex.go`). `%search` and
    `%builtins` call it; editor completion draws its candidates from the same ranking. Capability
    `search`.
 6. **Renderer options.** The `-html-*`, `-pdf-*` and `-doc-*` flags as fields of
@@ -251,9 +251,19 @@ positions this note takes:
 
 The design goes in its own note before code is written, as the analysis framework's did.
 
+The public Go package has the in-process half of this today: `opensysml.OpenSession` opens a
+`Session` over a model a `New` client parsed, and the session keeps the clock, the schedule and
+the objects it instantiated between `Instantiate`, `Send`, `Advance`, `Perform`, `Feature` and
+`Evaluate` calls, answering facts (transitions and triggers by name, whether a guard holds, the
+choice points of a run, the branch a decision left by) rather than engine graphs. It is not a
+`Client` method — no RPC answers it, so `Dial` refuses it with `CodeUnimplemented` — which keeps
+the parity contract on `Client` exact. The wire session this stage designs would answer the same
+fact-shaped messages, and the in-process `Session` would then become one of its two
+implementations.
+
 ### Stage 5 — parity as a test
 
-Extend `cmd/conformance` so that every scenario runs on a third protocol beside `pkg` and
+Extend `tools/cmd/conformance` so that every scenario runs on a third protocol beside `pkg` and
 `pkg-connect`: `repl`, which submits the scenario's model to a REPL session and issues the
 meta-command that corresponds to the RPC, then compares the REPL's machine-readable output
 (`-json` where the CLI has it; a `SolveReport`, a `Verdict`) to the scenario's expected response
@@ -267,7 +277,7 @@ result type to project) and on the shared conformance fixtures of the roadmap's 
 ## 4. What this does not change
 
 - **The binaries keep calling the engine in-process.** No stage puts a socket between `sysml` or
-  `sysml-lsp` and `internal/core`. Stage 1 makes them call the same functions the service calls;
+  `sysml-lsp` and the layer packages. Stage 1 makes them call the same functions the service calls;
   it does not make them call the service.
 - **The public package's contract.** `New` and `Dial` keep the same interface and the same
   semantics; new methods arrive with capabilities and are refused with `CodeUnimplemented`
@@ -275,7 +285,7 @@ result type to project) and on the shared conformance fixtures of the roadmap's 
 - **The wire contract.** Every existing field keeps its meaning. New RPCs and fields are additive
   and documented in `docs/reference/wire-contract.md` as they land; the Buf breaking-change check
   stays the gate.
-- **The editor's protocol.** `internal/lsp` keeps speaking LSP and its custom methods to VS Code.
+- **The editor's protocol.** `internal/frontend/lsp` keeps speaking LSP and its custom methods to VS Code.
   What changes is what it calls underneath.
 - **The REPL's language.** Meta-command names, arguments and printed forms are unchanged; the
   changelog records any output that a stage makes agree with the wire where it did not before.

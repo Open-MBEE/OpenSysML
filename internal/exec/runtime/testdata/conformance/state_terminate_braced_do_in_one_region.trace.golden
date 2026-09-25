@@ -1,0 +1,29 @@
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+do: lwork
+stmt action body
+  stmt assign a
+    eval literal 1 -> 1
+do: rwork
+stmt action body
+  stmt assign b
+    eval literal 1 -> 1
+choice do round at t=0.0: states lwork, rwork react (unordered; took lwork first)
+do: lwork
+  stmt terminate
+terminate state behavior <anonymous>: no token dropped
+do: rwork
+  stmt assign b
+      eval feature b -> 1
+      eval literal 1 -> 1
+    eval operator + -> 2
+exit: lwork
+enter: ldone
+transition: lwork -> ldone
+do: rwork
+  stmt assign b
+      eval feature b -> 2
+      eval literal 1 -> 1
+    eval operator + -> 3
+exit: rwork
+enter: rdone
+transition: rwork -> rdone

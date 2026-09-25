@@ -1,0 +1,4 @@
+version: v2
+plugins:
+  - remote: buf.build/community/neoeinstein-prost:v0.5.0
+    out: client/rust/opensysml/src/proto

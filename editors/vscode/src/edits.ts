@@ -4,6 +4,7 @@
 import {
   admits,
   type ApplyModelEditParams,
+  declaredHere,
   type EdgePlacement,
   type EditPalette,
   type ModelEditOperation,
@@ -12,6 +13,7 @@ import {
   type RenderEdge,
   type RenderNode,
   type RenderOwner,
+  type RenderRow,
   type WorkspaceEdit,
 } from "./protocol";
 
@@ -26,15 +28,19 @@ export interface Rendering {
   view?: string;
   version: number;
   palette?: EditPalette;
+  /** The element rows of a table-kind rendering; absent for a drawn kind. */
+  rows?: RenderRow[];
 }
 
 /**
  * placementOperations turns where a gesture left nodes and edges into the layout
  * and route operations of one edit: a Layout in the view's body for a rendering
  * of a declared view, inline on the element for a pseudo-view. An element no
- * qualified name reaches is targeted by its declaration and placed inline, since
- * a view body cannot name it. Undefined when something placed is not declared by
- * the document, since no annotation can reach it.
+ * qualified name reaches is targeted by its declaration, in the document its
+ * origin names, and placed inline, since a view body cannot name it. The server
+ * writes each annotation into the document that declares what holds it, this
+ * one or another of the workspace. Undefined when something placed no workspace
+ * document declares, since no annotation can reach it.
  */
 export function placementOperations(
   rendering: Rendering,
@@ -46,9 +52,9 @@ export function placementOperations(
   for (const placement of nodes) {
     const node = rendering.nodes.find((candidate) => candidate.id === placement.id);
     if (node?.fqn) {
-      operations.push({ kind: "setLayout", target: node.fqn, view, layout: placement.layout });
+      operations.push({ kind: "setLayout", target: node.fqn, ...declaredIn(node), view, layout: placement.layout });
     } else if (node?.declaration) {
-      operations.push({ kind: "setLayout", declaration: node.declaration, layout: placement.layout });
+      operations.push({ kind: "setLayout", declaration: node.declaration, ...declaredIn(node), layout: placement.layout });
     } else {
       return undefined;
     }
@@ -56,14 +62,19 @@ export function placementOperations(
   for (const placement of edges) {
     const edge = rendering.edges?.[placement.index];
     if (edge?.fqn) {
-      operations.push({ kind: "setRoute", target: edge.fqn, view, route: placement.route });
+      operations.push({ kind: "setRoute", target: edge.fqn, ...declaredIn(edge), view, route: placement.route });
     } else if (edge?.declaration) {
-      operations.push({ kind: "setRoute", declaration: edge.declaration, route: placement.route });
+      operations.push({ kind: "setRoute", declaration: edge.declaration, ...declaredIn(edge), route: placement.route });
     } else {
       return undefined;
     }
   }
   return operations;
+}
+
+/** declaredIn names the document declaring a node or edge, and the digest of its text as rendered, when the rendering located it: the server places the target in that text or answers stale. */
+function declaredIn(element: RenderNode | RenderEdge): { declaredIn?: string; digest?: string } {
+  return element.origin ? { declaredIn: element.origin.uri, digest: element.origin.digest } : {};
 }
 
 /** A node's ancestors, nearest first, ending at a root. */
@@ -87,12 +98,12 @@ export function ownerOf(node: RenderNode | undefined, nodes: RenderNode[]): Rend
   if (!node) {
     return undefined;
   }
-  return [node, ...ancestors(node, nodes)].find((candidate) => candidate.fqn);
+  return [node, ...ancestors(node, nodes)].find(declaredHere);
 }
 
 /** rootOwner is the rendering's one declared root, or nothing when there are several. */
 export function rootOwner(nodes: RenderNode[]): RenderNode | undefined {
-  const roots = nodes.filter((node) => !node.parent && node.fqn);
+  const roots = nodes.filter((node) => !node.parent && declaredHere(node));
   return roots.length === 1 ? roots[0] : undefined;
 }
 
@@ -101,7 +112,7 @@ export const DOCUMENT_ROOT: RenderOwner = { fqn: "", feature: false };
 
 /** ownersOf: the namespaces declaring node, nearest first, the document last; undefined for a node the document does not declare. */
 export function ownersOf(node: RenderNode): RenderOwner[] | undefined {
-  return node.fqn === undefined ? undefined : [...(node.owners ?? []), DOCUMENT_ROOT];
+  return declaredHere(node) ? [...(node.owners ?? []), DOCUMENT_ROOT] : undefined;
 }
 
 /** Destination is a namespace a move may put a node into: a drawn node, or the document itself, which no node draws. */
@@ -116,7 +127,7 @@ export interface Destination {
  * owner; the document when it admits the notation and does not already own the node.
  */
 export function moveDestinations(node: RenderNode, rendering: Rendering): Destination[] {
-  if (node.fqn === undefined || node.notation === undefined) {
+  if (!declaredHere(node) || node.notation === undefined) {
     return [];
   }
   const notation = node.notation;
@@ -124,7 +135,7 @@ export function moveDestinations(node: RenderNode, rendering: Rendering): Destin
   const offered = new Set<string>([node.fqn, owner.fqn]);
   const out: Destination[] = [];
   for (const candidate of rendering.nodes) {
-    if (candidate.fqn === undefined || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
+    if (!declaredHere(candidate) || offered.has(candidate.fqn) || !admits(rendering.palette, notation, candidate)) {
       continue;
     }
     if (
@@ -144,7 +155,26 @@ export function moveDestinations(node: RenderNode, rendering: Rendering): Destin
 
 /** moveOperation is the one operation that puts node into the namespace owner names; "" is the document. */
 export function moveOperation(node: RenderNode, owner: string): ModelEditOperation | undefined {
-  return node.fqn === undefined ? undefined : { kind: "move", target: node.fqn, owner };
+  return declaredHere(node) ? { kind: "move", target: node.fqn, owner } : undefined;
+}
+
+// reparentOperations is a drop on another node as one edit: the drag's placements, then the
+// move into the target; undefined unless Move to… would offer that target.
+export function reparentOperations(
+  rendering: Rendering,
+  id: string,
+  into: string,
+  nodes: NodePlacement[],
+  edges: EdgePlacement[],
+): ModelEditOperation[] | undefined {
+  const node = rendering.nodes.find((candidate) => candidate.id === id);
+  const owner = rendering.nodes.find((candidate) => candidate.id === into);
+  if (!node || owner?.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
+    return undefined;
+  }
+  const placed = placementOperations(rendering, nodes, edges);
+  const move = moveOperation(node, owner.fqn);
+  return placed && move ? [...placed, move] : undefined;
 }
 
 /** nameSegments splits a qualified name at `::` outside quotes: `'P::Q'::x` is two segments. */
@@ -201,7 +231,7 @@ function localName(fqn: string): string {
 export function endpointPath(node: RenderNode, owner: RenderOwner): string | undefined {
   const owners = ownersOf(node);
   const below = owners?.findIndex((step) => step.fqn === owner.fqn) ?? -1;
-  if (!owners || below < 0 || node.fqn === undefined) {
+  if (!owners || below < 0 || !declaredHere(node)) {
     return undefined;
   }
   const steps: RenderOwner[] = [{ fqn: node.fqn, feature: false }, ...owners.slice(0, below)].reverse();
@@ -210,11 +240,12 @@ export function endpointPath(node: RenderNode, owner: RenderOwner): string | und
 
 /** What the user is told when an action names a rendering that has been replaced. */
 export const REDRAWN_MESSAGE =
-  "The document changed after the diagram was drawn; it is redrawn now, so repeat the action on it.";
+  "The diagram was redrawn after the action was offered on it; repeat the action on the diagram shown now.";
 
-/** offeredOn reports whether an action taken on rendering version `offered` still names `rendering`. */
-export function offeredOn(rendering: Rendering, offered: number): boolean {
-  return offered === rendering.version;
+// offeredOn reports whether an action taken on drawing `offered` still names the panel's drawing
+// `drawn`. Node ids are local to a drawing; zero is a restored drawing no render has numbered yet.
+export function offeredOn(drawn: number, offered: number): boolean {
+  return offered > 0 && offered === drawn;
 }
 
 // editParams pins the request to the version the operations were read from: a later

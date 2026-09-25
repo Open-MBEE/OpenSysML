@@ -1,0 +1,37 @@
+# SysML v1 to v2 migration report: property_markers.xmi
+# exported by Example UML Tool
+# migrated 26 element(s): 24 mapped, 2 approximated, 0 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+Constraint	Fleet::MaxSpeed::<Constraint>	_ms_rule	-> Fleet::MaxSpeed	(opaque expression copied verbatim (language SysML))
+«SharedProperty» Property	Fleet::Vehicle::spare	_spare	-> Fleet::Vehicle::spare	(shared aggregation is written as a reference part)
+
+## mapped (24)
+Package	Fleet	_sys	-> Fleet
+«Block» Class	Fleet::Engine	_engine_def	-> Fleet::Engine
+«ConstraintBlock» Class	Fleet::MaxSpeed	_maxspeed	-> Fleet::MaxSpeed
+«ValueProperty» Property	Fleet::MaxSpeed::hub	_ms_hub	-> Fleet::MaxSpeed::hub
+«ReferenceProperty» Property	Fleet::MaxSpeed::k	_ms_k	-> Fleet::MaxSpeed::k
+«ValueProperty» Property	Fleet::MaxSpeed::v	_ms_v	-> Fleet::MaxSpeed::v
+«PartProperty» Property	Fleet::MaxSpeed::wheel	_ms_wheel	-> Fleet::MaxSpeed::wheel
+Enumeration	Fleet::Mode	_modes	-> Fleet::Mode
+EnumerationLiteral	Fleet::Mode::eco	_modes_eco	-> Fleet::Mode::eco
+EnumerationLiteral	Fleet::Mode::sport	_modes_sport	-> Fleet::Mode::sport
+«Block» Class	Fleet::Vehicle	_vehicle	-> Fleet::Vehicle
+«PartProperty» Property	Fleet::Vehicle::axle	_axle	-> Fleet::Vehicle::axle
+«PartProperty» Property	Fleet::Vehicle::cabin	_cabin	-> Fleet::Vehicle::cabin
+«PartProperty» Property	Fleet::Vehicle::engine	_engine	-> Fleet::Vehicle::engine
+«ReferenceProperty» Property	Fleet::Vehicle::lead	_lead	-> Fleet::Vehicle::lead
+«ConstraintProperty» Property	Fleet::Vehicle::limit	_limit	-> Fleet::Vehicle::limit
+«ValueProperty» Property	Fleet::Vehicle::mass	_mass	-> Fleet::Vehicle::mass
+«ValueProperty» Property	Fleet::Vehicle::mode	_mode	-> Fleet::Vehicle::mode
+«ValueProperty» Property	Fleet::Vehicle::odd	_odd	-> Fleet::Vehicle::odd
+«ValueProperty» Property	Fleet::Vehicle::serial	_serial	-> Fleet::Vehicle::serial	(«ValueProperty» from http://example.com/legacy/customization is applied from a profile the document does not define; the application is kept as a comment)
+«Block» Class	Fleet::Wheel	_wheel	-> Fleet::Wheel
+Model	Model	_m	(the root model's members are written at the top level)
+Profile	Vehicle Profile	_vp	-> 'Vehicle Profile'
+Stereotype	Vehicle Profile::PartProperty	_vp_part	-> 'Vehicle Profile'::PartProperty
+
+## skipped (2)
+Extension	Vehicle Profile::<Extension>	_vp_ext	(an extension binds a stereotype to the metaclass it extends; v2 metadata applies to any element)
+Property	Vehicle Profile::PartProperty::base_Property	_vp_part_base	(an extension end names the metaclass the stereotype extends; v2 metadata applies to any element)

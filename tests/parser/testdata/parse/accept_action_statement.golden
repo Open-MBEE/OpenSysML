@@ -1,0 +1,47 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="Accepting" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="EngineStart"))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="EngineOff"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="Signals"))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Drive"
+          (Membership visibility="default"
+            (Usage kind="port" name="signals" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Signals
+                (*ast.QualifiedName))))
+          (WhileLoopActionNode kind="loop" variable=""
+            (Membership visibility="default"
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="engineStart" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=EngineStart
+                      (*ast.QualifiedName))))))
+            (Membership visibility="default"
+              (Usage kind="action" name="engineStopped" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="engineOff" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=EngineOff
+                      (*ast.QualifiedName))))))
+            (SuccessionEdge source="@action" target="engineStopped")
+            (Membership visibility="default"
+              (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="restart" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=EngineStart
+                      (*ast.QualifiedName))))))
+            (SuccessionEdge source="engineStopped" target="@action")
+            (Membership visibility="default"
+              (Usage kind="action" name="watched" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                (Relationship kind="via" target=signals
+                  (*ast.QualifiedName))
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="engineStart" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                    (Relationship kind="typing" target=EngineStart
+                      (*ast.QualifiedName))))
+                (Membership visibility="default"
+                  (Documentation locale=""))))
+            (SuccessionEdge source="@action" target="watched")))))))

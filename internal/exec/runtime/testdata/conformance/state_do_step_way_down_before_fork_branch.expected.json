@@ -1,0 +1,16 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [
+    {"signal": "Go"}
+  ],
+  "outcomes": [
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "did a(entry) b(entry) "}}},
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "did b(entry) a(entry) "}}},
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "a(entry) did b(entry) "}}},
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "b(entry) did a(entry) "}}},
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "a(entry) b(entry) did "}}},
+    {"finalState": "a+b", "outputs": {"log": {"type": "String", "value": "b(entry) a(entry) did "}}}
+  ],
+  "admissible": "A composite's own do step and its substates' entries due inside its entry: which goes first is open"
+}

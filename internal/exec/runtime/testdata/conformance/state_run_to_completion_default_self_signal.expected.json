@@ -1,0 +1,7 @@
+{
+  "type": "state",
+  "finalState": "done",
+  "stateVisits": ["start", "working", "step", "done"],
+  "outputs": {"hits": {"type": "Integer", "value": 1}},
+  "trace": true
+}

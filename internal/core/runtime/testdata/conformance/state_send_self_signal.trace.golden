@@ -1,7 +1,0 @@
-exit: start
-enter: waiting (entry action)
-stmt send
-transition: start -> waiting
-exit: waiting
-enter: done
-transition: waiting -> done (event: accept Ping)

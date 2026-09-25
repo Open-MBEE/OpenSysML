@@ -12,7 +12,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
-	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/grpc"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
 const measurementRefSource = `package M {

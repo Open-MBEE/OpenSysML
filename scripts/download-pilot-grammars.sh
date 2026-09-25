@@ -75,4 +75,4 @@ printf '%s\n' "$pin" >"$staged/.pilot-pin"
 pilot_install_dir "$staged" "$target"
 
 echo "Measure our production coverage against them with:"
-echo "  go run ./cmd/grammar-coverage"
+echo "  go run -C tools ./cmd/grammar-coverage"

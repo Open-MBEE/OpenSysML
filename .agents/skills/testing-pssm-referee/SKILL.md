@@ -1,6 +1,6 @@
 ---
 name: testing-pssm-referee
-description: How to verify the PSSM state-machine referee (cmd/pssm-referee + scripts/download-pssm-suite.sh + internal/pssm) end to end on Linux — provisioning the pinned OMG test suite, reproducing the committed bucket counts, proving the determinism, count and trace-disagreement detectors are live, and the adversarial paths (bad checksum, missing suite, a hand-broken translation) that distinguish working from broken.
+description: How to verify the PSSM state-machine referee (tools/cmd/pssm-referee + scripts/download-pssm-suite.sh + tools/referee/pssm) end to end on Linux — provisioning the pinned OMG test suite, reproducing the committed bucket counts, proving the determinism, count and trace-disagreement detectors are live, and the adversarial paths (bad checksum, missing suite, a hand-broken translation) that distinguish working from broken.
 ---
 
 # Testing the PSSM referee
@@ -9,7 +9,7 @@ The referee reads the OMG PSSM 1.0 test suite (`ptc/18-11-06`, `PSSM_TestSuite.x
 tests), translates each state-machine test that has a SysML v2 spelling into textual notation
 in memory, runs it under the runtime's own state-machine driver with the `explore` schedule,
 and compares the set of `log` values reachable against the suite's expected traces. It files
-each test as `pass`, `fail`, `not-expressible`, `terminate-gap` or `differs-by-design`.
+each test as `pass`, `fail`, `not-expressible` or `differs-by-design`.
 
 A pass checks that the runtime reproduces UML behavior where the model has a defensible
 SysML v2 mapping, provides a second opinion on the tool-choice rows of
@@ -35,7 +35,7 @@ over HTTPS only, checks the sha256 in a staging directory and only then moves th
 - The early exit also hashes the file: `truncate -s -1 build/pssm/PSSM_TestSuite.xmi` with
   the stamp intact makes the next run print `Corrupt suite at ...; re-downloading.` and
   restore the pinned bytes (check with `sha256sum`).
-- The Go side reads the same pin the same way: `PSSM_SUITE_SHA256=0000… go run
+- The Go side reads the same pin the same way: `PSSM_SUITE_SHA256=0000… go run -C tools
   ./cmd/pssm-referee` refuses the downloaded file (`has sha256 c355b2…, not the pinned
   0000…`) rather than verifying against the script's default, so the downloader and the
   referee can never disagree about which pin is in force.
@@ -62,11 +62,11 @@ Record pre-existing untracked files before testing and do not remove them.
 ## Run
 
 ```sh
-go run ./cmd/pssm-referee                 # < 1 s wall for the whole suite
-go run ./cmd/pssm-referee -check          # exit 0 iff the bucket counts match the baseline
-go run ./cmd/pssm-referee -json           # the full report, byte-stable
-go run ./cmd/pssm-referee -filter "Deferred 006"
-go run ./cmd/pssm-referee -keep /tmp/pssm-models   # writes every translated .sysml
+go run -C tools ./cmd/pssm-referee                 # < 1 s wall for the whole suite
+go run -C tools ./cmd/pssm-referee -check          # exit 0 iff the bucket counts match the baseline
+go run -C tools ./cmd/pssm-referee -json           # the full report, byte-stable
+go run -C tools ./cmd/pssm-referee -filter "Deferred 006"
+go run -C tools ./cmd/pssm-referee -keep /tmp/pssm-models   # writes every translated .sysml
 ```
 
 `-h` must open with the `meaning` field from the committed baseline, verbatim
@@ -85,12 +85,12 @@ The summary prints the counts, then every non-passing test under its bucket with
 reasons: `reached a trace the suite does not admit: …` and `admitted trace not reached: …`
 for a trace-set disagreement, `run error: …` for a typed runtime error or an exhausted
 budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
-(`internal/pssm/rows.go`) maps the test to an alignment-note row.
+(`tools/referee/pssm/rows.go`) maps the test to an alignment-note row.
 
 ## Checks that actually distinguish working from broken
 
-- **Determinism.** `go run ./cmd/pssm-referee -json -jobs 1 | sha256sum` equals the same
-  with `-jobs 8`, and two `-jobs 8` runs agree. `go run -race ./cmd/pssm-referee -jobs 8`
+- **Determinism.** `go run -C tools ./cmd/pssm-referee -json -jobs 1 | sha256sum` equals the same
+  with `-jobs 8`, and two `-jobs 8` runs agree. `go run -race -C tools ./cmd/pssm-referee -jobs 8`
   prints no `DATA RACE`. `TestRefereeDeterministic` pins the JSON across job counts in-process.
 - **The count gate is live.** Copy the baseline aside, edit one count (`"pass": 36` → `35`
   and `"fail": 23` → `24`, keeping the total), run `-check`: exit 1 with `does not
@@ -103,7 +103,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
 - **Provenance is compared before counts.** Edit `"suiteDigest"` in the copy: `-check`
   reports `provenance: baseline measured …, this run …` and does not attribute the movement
   to the runtime.
-- **`-update` is reproducible.** `go run ./cmd/pssm-referee -update -develop <sha>` followed
+- **`-update` is reproducible.** `go run -C tools ./cmd/pssm-referee -update -develop <sha>` followed
   by `git diff --stat docs/project/pssm-referee-baseline.json` changes only the `recorded`
   date (and `develop` if you passed a different sha); there may be no change when
   both match the baseline already. Restore deliberate baseline mutations before
@@ -129,7 +129,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
   exact runtime result, temporarily log `row.Bucket`, `row.Reasons`, and `row.Runs`
   after the fixture call and run with `-v -count=1`; the reason should name
   `exploration incomplete: runs budget 1 hit after 1 runs`. Restore the logging.
-- **The step budget follows the environment.** `OPENSYSML_MAX_STEPS=200000 go run
+- **The step budget follows the environment.** `OPENSYSML_MAX_STEPS=200000 go run -C tools
   ./cmd/pssm-referee -filter "History 002-D"` reports `evaluation step limit exceeded
   (200000 steps; …)` where the unset default reports `100000 steps`; the raised budget does
   not rescue the test, because the machine loops. `OPENSYSML_MAX_STEPS=plenty` is an error
@@ -138,13 +138,13 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
 
 ## Adversarial paths
 
-- **Missing suite.** `go run ./cmd/pssm-referee -suite /tmp/empty` (an existing directory
+- **Missing suite.** `go run -C tools ./cmd/pssm-referee -suite /tmp/empty` (an existing directory
   with no XMI) → exit **0**, prints `PSSM test suite is absent at /tmp/empty/PSSM_TestSuite.xmi;
   run ./scripts/download-pssm-suite.sh to provision it`, and writes nothing. With
   `OPENSYSML_REQUIRE_PSSM_SUITE=1` the same command exits **1** with `OPENSYSML_REQUIRE_PSSM_SUITE
   is set: PSSM test suite is absent …`. The Go gates (`TestSuiteRead`,
   `TestSuiteClassification`, `TestEmitSuite`) skip with the same message and fail with the
-  variable set: `OPENSYSML_REQUIRE_PSSM_SUITE=1 go test ./internal/pssm -run TestEmitSuite`
+  variable set: `OPENSYSML_REQUIRE_PSSM_SUITE=1 go test -C tools ./referee/pssm -run TestEmitSuite`
   against an absent `build/pssm` must fail, not skip. Use a fresh `-suite` path for
   the CLI so an existing `build/pssm` cannot make the assertion vacuous. The Go
   gates have no suite-root override: temporarily move `build/pssm` aside, install
@@ -161,10 +161,10 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
   rather than measured; `TestRefereeRefusesASuiteReadInPart` pins that.
 - **A hand-broken translation.** The emitter runs in memory, so break it at the source, then
   put it back:
-  1. In `internal/pssm/emit.go`, change the `"::"` separator in the `trace` translation to
-     `"--"`. `OPENSYSML_REQUIRE_PSSM_SUITE=1 go test ./internal/pssm -run TestEmitSuite` still
+  1. In `tools/referee/pssm/emit.go`, change the `"::"` separator in the `trace` translation to
+     `"--"`. `OPENSYSML_REQUIRE_PSSM_SUITE=1 go test -C tools ./referee/pssm -run TestEmitSuite` still
      passes (the model is syntactically fine), and that is the point: the parse gate cannot
-     see it. `go run ./cmd/pssm-referee` then moves every multi-segment `pass` to `fail`
+     see it. `go run -C tools ./cmd/pssm-referee` then moves every multi-segment `pass` to `fail`
      with `reached a trace the suite does not admit: S1(entry)--…` — `-check` exits 1 with
      `pass: baseline 36, this run <n>`. Restore the file; `-check` is green again.
   2. Write a model the front end rejects: in `emit.go` change `attribute log : String = ""`
@@ -178,7 +178,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
      Inspect the current rejection cases before choosing a mutation; do not
      assume structured payloads or operation arguments are unsupported.
 - **Reclassification is pinned.** `TestSuiteClassification` pins the per-area and total
-  counts (31 standard / 30 extension / 3 terminate-gap / 39 not-expressible). Moving one
+  counts (34 standard / 31 extension / 38 not-expressible). Moving one
   construct between buckets in `classify.go` fails it with the area that moved; the note's
   test-suite section and `docs/project/pssm-referee.md` must move with it — they are the
   record of every move and its reason.
@@ -187,7 +187,7 @@ budget, and `reports on SM<n> (<title>): <verdict>` when the committed row table
 
 The pull-request workflow provisions the suite (`./scripts/download-pssm-suite.sh`, cached on
 the pin), sets `OPENSYSML_REQUIRE_PSSM_SUITE=1` so the Go gates cannot skip, and runs
-`go run ./cmd/pssm-referee -check` as its own step so the counts are legible in the log. A
+`go run -C tools ./cmd/pssm-referee -check` as its own step so the counts are legible in the log. A
 movement in any bucket fails that step until the baseline is regenerated with `-update` and
 the movement adjudicated in the pull-request body. It never gates on all-pass.
 

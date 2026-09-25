@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telescope Mass Report</title>
+<style>
+/* The default OpenSysML document stylesheet. Every value comes from a
+   --sysml-* token on .sysml-document, and the whole sheet is in the
+   opensysml cascade layer, so unlayered reader CSS overrides it without
+   specificity fights or !important. */
+@layer opensysml;
+
+@layer opensysml {
+  .sysml-document {
+    --sysml-font-body: system-ui, sans-serif;
+    --sysml-font-mono: ui-monospace, monospace;
+    --sysml-font-size: 1rem;
+    --sysml-line-height: 1.55;
+    --sysml-measure: 42rem;
+    --sysml-space: 1rem;
+    --sysml-space-tight: 0.35rem;
+    --sysml-text: #16191d;
+    --sysml-muted: #5a6472;
+    --sysml-accent: #1f4e79;
+    --sysml-rule: #cfd6de;
+    --sysml-surface: #f4f6f8;
+    --sysml-cell-padding: 0.35rem 0.6rem;
+    --sysml-code-font-size: 0.9em;
+    --sysml-caption-font-size: 0.9em;
+    --sysml-border-width: 1px;
+    --sysml-table-width: 100%;
+    --sysml-title-page-height: 60vh;
+    --sysml-group-heading-weight: 600;
+    --sysml-term-weight: 600;
+    --sysml-formula-align: center;
+    --sysml-image-max-width: 100%;
+
+    box-sizing: border-box;
+    max-width: var(--sysml-measure);
+    margin: var(--sysml-space) auto;
+    padding: 0 var(--sysml-space);
+    font-family: var(--sysml-font-body);
+    font-size: var(--sysml-font-size);
+    line-height: var(--sysml-line-height);
+    color: var(--sysml-text);
+  }
+
+  .sysml-document .sysml-title {
+    color: var(--sysml-accent);
+  }
+
+  .sysml-document .sysml-title-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: var(--sysml-title-page-height);
+    text-align: center;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .sysml-document .sysml-section-number {
+    color: var(--sysml-muted);
+    margin-right: var(--sysml-space-tight);
+  }
+
+  .sysml-document .sysml-toc ol {
+    list-style: none;
+    padding-left: var(--sysml-space);
+  }
+
+  .sysml-document .sysml-toc > ol {
+    padding-left: 0;
+  }
+
+  .sysml-document .sysml-toc a {
+    color: inherit;
+  }
+
+  .sysml-document .sysml-paragraph {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-table {
+    border-collapse: collapse;
+    width: var(--sysml-table-width);
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-table th,
+  .sysml-document .sysml-table td {
+    border: var(--sysml-border-width) solid var(--sysml-rule);
+    padding: var(--sysml-cell-padding);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .sysml-document .sysml-table thead th {
+    background: var(--sysml-surface);
+  }
+
+  .sysml-document .sysml-group-heading th {
+    background: var(--sysml-surface);
+    color: var(--sysml-muted);
+    font-weight: var(--sysml-group-heading-weight);
+  }
+
+  .sysml-document .sysml-caption {
+    color: var(--sysml-muted);
+    font-size: var(--sysml-caption-font-size);
+    text-align: left;
+  }
+
+  .sysml-document .sysml-list {
+    margin: var(--sysml-space) 0;
+    padding-left: var(--sysml-space);
+  }
+
+  .sysml-document .sysml-definitions {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-entry {
+    margin: var(--sysml-space-tight) 0;
+  }
+
+  .sysml-document .sysml-term {
+    font-weight: var(--sysml-term-weight);
+  }
+
+  .sysml-document .sysml-description {
+    margin: 0 0 0 var(--sysml-space);
+  }
+
+  .sysml-document .sysml-diagram {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image {
+    margin: var(--sysml-space) 0;
+  }
+
+  .sysml-document .sysml-image img {
+    max-width: var(--sysml-image-max-width);
+  }
+
+  .sysml-document .sysml-formula {
+    margin: var(--sysml-space) 0;
+    text-align: var(--sysml-formula-align);
+  }
+
+  .sysml-document .sysml-formula .sysml-math {
+    overflow-x: auto;
+  }
+
+  .sysml-document .sysml-diagram pre {
+    overflow-x: auto;
+    font-family: var(--sysml-font-mono);
+  }
+
+  .sysml-document code {
+    font-family: var(--sysml-font-mono);
+    font-size: var(--sysml-code-font-size);
+  }
+
+  .sysml-document .sysml-link,
+  .sysml-document .sysml-ref {
+    color: var(--sysml-accent);
+  }
+}
+</style>
+</head>
+<body>
+<article class="sysml-document" data-document="Observatory::MassReport">
+<h1 class="sysml-title">Telescope Mass Report</h1>
+<p class="sysml-paragraph" data-content="paragraph" data-name="intro">Mass rollup for the telescope assembly. Masses are in kg | not #grams, *not* _lbs_, `raw`, &lt;b&gt;&amp;plain&lt;/b&gt;.</p>
+<p class="sysml-paragraph" data-content="paragraph" data-name="formatted">Reading order: <em>em*ph*asis</em> <strong>bold_move</strong> <code>mass &gt;= `limit`</code> <a class="sysml-link" href="https://example.com/spec(v2).md">the [spec]</a> <a class="sysml-ref" href="#breakdown">Subsystem Masses | by *name*</a> <a class="sysml-ref" href="#zones">the zone groups</a></p>
+<table class="sysml-table" id="zones" data-content="table" data-name="zones" data-query="Observatory::ZonedSubsystems" data-group-by="zone">
+<caption class="sysml-caption">Subsystems grouped by zone</caption>
+<thead>
+<tr>
+<th scope="col" data-column="zone">zone</th>
+<th scope="col" data-column="name">name</th>
+<th scope="col" data-column="mass">mass</th>
+</tr>
+</thead>
+<tbody class="sysml-group" data-group="zone" data-group-key="support | *frame*">
+<tr class="sysml-group-heading"><th scope="rowgroup" colspan="3"><span class="sysml-group-column">zone</span>: <span class="sysml-group-key">support | *frame*</span></th></tr>
+<tr class="sysml-row" data-element="Observatory::telescope::baffle|shroud *tricky*" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="zone" data-value-kind="string"><span class="sysml-value" data-value-kind="string">support | *frame*</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">baffle|shroud *tricky*</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">1.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::mount" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="zone" data-value-kind="string"><span class="sysml-value" data-value-kind="string">support | *frame*</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">mount</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">15</span></td>
+</tr>
+</tbody>
+<tbody class="sysml-group" data-group="zone" data-group-key="payload">
+<tr class="sysml-group-heading"><th scope="rowgroup" colspan="3"><span class="sysml-group-column">zone</span>: <span class="sysml-group-key">payload</span></th></tr>
+<tr class="sysml-row" data-element="Observatory::telescope::optics" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="zone" data-value-kind="string"><span class="sysml-value" data-value-kind="string">payload</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">optics</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">8.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="zone" data-value-kind="string"><span class="sysml-value" data-value-kind="string">payload</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">segmentControl</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">20</span></td>
+</tr>
+</tbody>
+</table>
+<section class="sysml-section" id="breakdown" data-content="section" data-name="breakdown">
+<h2>Subsystem Masses | by *name*</h2>
+<table class="sysml-table" data-content="table" data-name="masses" data-query="Observatory::SubsystemTable">
+<caption class="sysml-caption">All subsystems by mass</caption>
+<thead>
+<tr>
+<th scope="col" data-column="name">name</th>
+<th scope="col" data-column="mass">mass</th>
+</tr>
+</thead>
+<tbody>
+<tr class="sysml-row" data-element="Observatory::telescope::baffle|shroud *tricky*" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">baffle|shroud *tricky*</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">1.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::mount" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">mount</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">15</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::optics" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">optics</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">8.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">segmentControl</span></td>
+<td class="sysml-cell" data-column="mass" data-value-kind="real"><span class="sysml-value" data-value-kind="real">20</span></td>
+</tr>
+</tbody>
+</table>
+<table class="sysml-table" data-content="table" data-name="margins" data-query="Observatory::MassMargins">
+<caption class="sysml-caption">Mass margins (allocated - estimated)</caption>
+<thead>
+<tr>
+<th scope="col" data-column="name">name</th>
+<th scope="col" data-column="label">label</th>
+<th scope="col" data-column="margin">margin</th>
+</tr>
+</thead>
+<tbody>
+<tr class="sysml-row" data-element="Observatory::telescope::baffle|shroud *tricky*" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">baffle|shroud *tricky*</span></td>
+<td class="sysml-cell" data-column="label" data-value-kind="string"><span class="sysml-value" data-value-kind="string">subsystem: baffle|shroud *tricky*</span></td>
+<td class="sysml-cell" data-column="margin" data-value-kind="real"><span class="sysml-value" data-value-kind="real">-1.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::mount" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">mount</span></td>
+<td class="sysml-cell" data-column="label" data-value-kind="string"><span class="sysml-value" data-value-kind="string">subsystem: mount</span></td>
+<td class="sysml-cell" data-column="margin" data-value-kind="real"><span class="sysml-value" data-value-kind="real">0</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::optics" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">optics</span></td>
+<td class="sysml-cell" data-column="label" data-value-kind="string"><span class="sysml-value" data-value-kind="string">subsystem: optics</span></td>
+<td class="sysml-cell" data-column="margin" data-value-kind="real"><span class="sysml-value" data-value-kind="real">1.5</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">segmentControl</span></td>
+<td class="sysml-cell" data-column="label" data-value-kind="string"><span class="sysml-value" data-value-kind="string">subsystem: segmentControl</span></td>
+<td class="sysml-cell" data-column="margin" data-value-kind="real"><span class="sysml-value" data-value-kind="real">5.5</span></td>
+</tr>
+</tbody>
+</table>
+<table class="sysml-table" data-content="table" data-name="notesTable" data-query="Observatory::SubsystemNotes">
+<caption class="sysml-caption">Subsystem notes</caption>
+<thead>
+<tr>
+<th scope="col" data-column="shortName">shortName</th>
+<th scope="col" data-column="name">name</th>
+<th scope="col" data-column="documentation">documentation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="sysml-row" data-element="Observatory::telescope::baffle|shroud *tricky*" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="shortName"></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">baffle|shroud *tricky*</span></td>
+<td class="sysml-cell" data-column="documentation"></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::mount" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="shortName" data-value-kind="string"><span class="sysml-value" data-value-kind="string">M3|*</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">mount</span></td>
+<td class="sysml-cell" data-column="documentation"></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::optics" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="shortName" data-value-kind="string"><span class="sysml-value" data-value-kind="string">M1</span></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">optics</span></td>
+<td class="sysml-cell" data-column="documentation" data-value-kind="string"><span class="sysml-value" data-value-kind="string">The primary mirror assembly.</span><span class="sysml-separator">, </span><span class="sysml-value" data-value-kind="string">Collects light | not *heat* from the target.</span></td>
+</tr>
+<tr class="sysml-row" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">
+<td class="sysml-cell" data-column="shortName"></td>
+<td class="sysml-cell" data-column="name" data-value-kind="string"><span class="sysml-value" data-value-kind="string">segmentControl</span></td>
+<td class="sysml-cell" data-column="documentation" data-value-kind="string"><span class="sysml-value" data-value-kind="string">Actuators that phase the mirror segments.</span></td>
+</tr>
+</tbody>
+</table>
+<dl class="sysml-definitions" data-content="definitions" data-name="notes" data-query="Observatory::SubsystemNotes">
+<div class="sysml-entry" data-element="Observatory::telescope::baffle|shroud *tricky*" data-element-kind="partUsage">
+<dt class="sysml-term"></dt>
+<dd class="sysml-description"></dd>
+</div>
+<div class="sysml-entry" data-element="Observatory::telescope::mount" data-element-kind="partUsage">
+<dt class="sysml-term">M3|*</dt>
+<dd class="sysml-description"></dd>
+</div>
+<div class="sysml-entry" data-element="Observatory::telescope::optics" data-element-kind="partUsage">
+<dt class="sysml-term">M1</dt>
+<dd class="sysml-description">The primary mirror assembly. Collects light | not *heat* from the target.</dd>
+</div>
+<div class="sysml-entry" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">
+<dt class="sysml-term"></dt>
+<dd class="sysml-description">Actuators that phase the mirror segments.</dd>
+</div>
+</dl>
+<section class="sysml-section" id="breakdown-heavy" data-content="section" data-name="heavy">
+<h3>Heavy Subsystems</h3>
+<p class="sysml-paragraph" data-content="paragraph" data-name="summary" data-query="Observatory::HeavySubsystemNames">mount segmentControl</p>
+<ol class="sysml-list" data-content="list" data-name="heavyItems" data-query="Observatory::HeavySubsystemNames">
+<li class="sysml-item" data-element="Observatory::telescope::mount" data-element-kind="partUsage">mount</li>
+<li class="sysml-item" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage">segmentControl</li>
+</ol>
+<p class="sysml-paragraph" data-content="paragraph" data-name="styledSummary" data-query="Observatory::StyledHeavyNames"><strong>mount</strong> <a class="sysml-link" href="https://example.com/parts#mount">mount</a> <strong>segmentControl</strong> <a class="sysml-link" href="https://example.com/parts#segmentControl">segmentControl</a></p>
+<ul class="sysml-list" data-content="list" data-name="codeItems" data-query="Observatory::StyledHeavyNames">
+<li class="sysml-item" data-element="Observatory::telescope::mount" data-element-kind="partUsage"><code>mount</code></li>
+<li class="sysml-item" data-element="Observatory::telescope::segmentControl" data-element-kind="partUsage"><code>segmentControl</code></li>
+</ul>
+</section>
+<section class="sysml-section" id="breakdown-missing" data-content="section" data-name="missing">
+<h3>Missing Subsystems</h3>
+<table class="sysml-table" data-content="table" data-name="missingTable" data-query="Observatory::MissingSubsystems">
+<thead>
+<tr>
+<th scope="col" data-column="name">name</th>
+<th scope="col" data-column="mass">mass</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+<ul class="sysml-list" data-content="list" data-name="missingItems" data-query="Observatory::MissingSubsystems">
+</ul>
+<dl class="sysml-definitions" data-content="definitions" data-name="missingNotes" data-query="Observatory::MissingSubsystems">
+</dl>
+</section>
+</section>
+<section class="sysml-section" id="diagrams" data-content="section" data-name="diagrams">
+<h2>Diagrams</h2>
+<figure class="sysml-diagram" data-content="diagram" data-name="imaging" data-view="Observatory::interconnectView" data-diagram-kind="interconnection">
+<pre class="mermaid">---
+config:
+  flowchart:
+    subGraphTitleMargin:
+      bottom: 24
+---
+%% Observatory::interconnectView — interconnection rendering (render asInterconnectionDiagram)
+flowchart LR
+  subgraph n0 [&#34;imagingChain&lt;br&gt;«part»&#34;]
+    direction LR
+    n1[&#34;camera : Camera&lt;br&gt;«part»&#34;]
+    n2[&#34;recorder : Recorder&lt;br&gt;«part»&#34;]
+  end
+  n1 ---|&#34;link&#34;| n2</pre>
+<figcaption class="sysml-caption">Imaging chain interconnection</figcaption>
+</figure>
+<figure class="sysml-diagram" data-content="diagram" data-name="states" data-diagram-kind="state" data-direction="LR">
+<pre class="mermaid">%% state rendering (the diagram states kind &#34;state&#34;)
+stateDiagram-v2
+  direction LR
+  state &#34;operatingStates : ObservatoryStates&lt;br&gt;«state»&#34; as n0 {
+    state &#34;idle&lt;br&gt;«state»&lt;br&gt;initial&#34; as n1
+    state &#34;observing&lt;br&gt;«state»&#34; as n2
+    [*] --&gt; n1
+  }
+  n1 --&gt; n2
+  n2 --&gt; n1</pre>
+<figcaption class="sysml-caption">Observatory states, left to right</figcaption>
+</figure>
+</section>
+<section class="sysml-section" id="typing" data-content="section" data-name="typing">
+<h2>Declared Types</h2>
+<p class="sysml-paragraph" data-content="paragraph" data-name="note">The declared type of the telescope, by relationship traversal.</p>
+<table class="sysml-table" data-content="table" data-name="typeTable" data-query="Observatory::DeclaredTypes">
+<caption class="sysml-caption">Type of telescope</caption>
+<thead>
+<tr>
+<th scope="col" data-column="element">element</th>
+</tr>
+</thead>
+<tbody>
+<tr class="sysml-row" data-element="Observatory::Assembly *frame*" data-element-kind="partDef">
+<td class="sysml-cell" data-column="element" data-value-kind="element"><span class="sysml-value sysml-element" data-value-kind="element" data-element="Observatory::Assembly *frame*" data-element-kind="partDef">Observatory::Assembly *frame*</span></td>
+</tr>
+</tbody>
+</table>
+<ul class="sysml-list" data-content="list" data-name="typeItems" data-query="Observatory::DeclaredTypes">
+<li class="sysml-item" data-element="Observatory::Assembly *frame*" data-element-kind="partDef">Assembly *frame*</li>
+</ul>
+</section>
+</article>
+</body>
+</html>

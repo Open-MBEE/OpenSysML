@@ -1,1 +1,0 @@
-sysml: cannot convert the element <urn:sysmlv2:element:Payloads__Ctx___402>: it has no sysx:endForm, and the ends it relates are written in the form the head states, so no valid declaration can be written for it

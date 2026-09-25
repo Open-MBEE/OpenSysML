@@ -1,0 +1,17 @@
+/* report: the print companion, laid over the PDF backend's print sheet so the
+   theme's Charter face, 1.0625rem text and heading scale reach paper. */
+@layer opensysml-print-theme {
+  .sysml-document {
+    --sysml-font-body: Charter, "Bitstream Charter", "Source Serif Pro", Georgia, "Times New Roman", "Liberation Serif", serif;
+    --sysml-font-heading: Charter, "Bitstream Charter", "Source Serif Pro", Georgia, "Times New Roman", "Liberation Serif", serif;
+    --sysml-font-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sysml-font-size: 1.0625rem;
+    --sysml-line-height: 1.6;
+    --sysml-space: 1.25rem;
+    --sysml-title-font-size: 2.25em;
+    --sysml-heading-font-size: 2.25em;
+    --sysml-subheading-font-size: 1.5em;
+    --sysml-subsubheading-font-size: 1.2em;
+    --sysml-title-page-height: 70vh;
+  }
+}

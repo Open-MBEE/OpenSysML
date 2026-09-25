@@ -1,0 +1,9 @@
+{
+  "verdict": "divergent",
+  "divergent": {
+    "hits": ["0", "1"]
+  },
+  "agreed": {
+    "finalState": "done"
+  }
+}

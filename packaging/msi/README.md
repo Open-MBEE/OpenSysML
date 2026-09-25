@@ -1,29 +1,48 @@
 # Windows installer (MSI)
 
-`opensysml.wxs` is the [WiX Toolset v5](https://wixtoolset.org/) source of the
+`opensysml.wxs` (package, features, files) and `wizard.wxs` (the setup
+wizard) are the [WiX Toolset v5](https://wixtoolset.org/) source of the
 per-machine x64 installer published with every release as
 `opensysml-<x.y.z>-windows-amd64.msi` (and, once SignPath signing is
 configured, `opensysml-<x.y.z>-windows-amd64-signed.msi`). It is a plain MSI:
-no Burn bootstrapper bundle, no custom actions.
+no Burn bootstrapper bundle and no custom-action code.
 
 ## What it installs
 
 | Feature | Files | Default | Notes |
 |---|---|---|---|
-| **OpenSysML** (required) | `sysml.exe`, `sysml-lsp.exe`, `LICENSE.txt` | on | `%ProgramFiles%\OpenSysML` is appended to the system `PATH`. |
+| **OpenSysML** (required) | `sysml.exe`, `sysml-lsp.exe`, `LICENSE.txt` | on | The install folder (`%ProgramFiles%\OpenSysML` unless changed in the wizard) is appended to the system `PATH` and recorded under `HKLM\Software\Open-MBEE\OpenSysML\InstallFolder`, so upgrades propose the same folder. |
 | **gRPC service (sysml-grpc)** | `sysml-grpc.exe` | on | Optional because the release bundle `opensysml-windows-amd64.zip` does not carry it either: the Python/Node/Java/Rust clients download their own verified copy, so it is only needed to run the service by hand. |
-| **SMT solver (Z3)** | `z3\z3.exe`, `z3\msvcp140.dll`, `z3\vcruntime140.dll`, `z3\vcruntime140_1.dll`, `z3\LICENSE-z3.txt` | on | `%ProgramFiles%\OpenSysML\z3` is appended to the system `PATH`, so `sysml` finds `z3.exe` by PATH discovery. Deselect it to use your own solver (`OPENSYSML_SMT`). |
+| **SMT solver (Z3)** | `z3\z3.exe`, `z3\msvcp140.dll`, `z3\vcruntime140.dll`, `z3\vcruntime140_1.dll`, `z3\LICENSE-z3.txt` | on | The `z3` subfolder of the install folder is appended to the system `PATH`, so `sysml` finds `z3.exe` by PATH discovery. Deselect it to use your own solver (`OPENSYSML_SMT`). |
 
-The MSI authors no dialogs of its own (see *Licensing*), so double-clicking
-it installs every feature with Windows Installer's basic progress UI. Choose
-features from an elevated prompt with the standard `ADDLOCAL`/`REMOVE`
-properties:
+## The setup wizard
+
+Double-clicking the MSI runs a wizard: *Welcome* → *Destination Folder*
+(with *Change...* to browse or create a folder) → *Choose components*
+(a feature tree with descriptions) → *Ready to install* → progress → a
+*Completed* page that names the install folder and reminds you to open a new
+terminal for the updated `PATH`. Running the MSI again on a machine where
+that version is installed offers *Repair* and *Remove*; a newer MSI upgrades
+in place after the same wizard, proposing the previously chosen folder. If
+`sysml`, `sysml-lsp`, or `sysml-grpc` is running during an upgrade, it is
+listed on a *Files in use* page. An `INSTALLFOLDER` command-line value wins
+over the remembered folder.
+
+The wizard is authored in `wizard.wxs` from the standard Windows Installer
+dialog controls only (see *Licensing* for why the stock `WixUI_*` sets are
+not used). There are no banner or dialog bitmaps and no icons, which keeps
+the `Binary` table empty.
+
+The usual command-line surface is unchanged: choose features from an
+elevated prompt with the standard `ADDLOCAL`/`REMOVE` properties, and the
+install folder with `INSTALLFOLDER`:
 
 ```powershell
-msiexec /i opensysml-0.5.0-windows-amd64.msi                      # everything
-msiexec /i opensysml-0.5.0-windows-amd64.msi REMOVE=Z3            # bring your own solver
-msiexec /i opensysml-0.5.0-windows-amd64.msi ADDLOCAL=Core /qn    # silent, sysml + sysml-lsp only
-msiexec /x opensysml-0.5.0-windows-amd64.msi /qn                  # uninstall
+msiexec /i opensysml-0.5.0-windows-amd64.msi                                  # wizard
+msiexec /i opensysml-0.5.0-windows-amd64.msi REMOVE=Z3                        # wizard, solver pre-deselected
+msiexec /i opensysml-0.5.0-windows-amd64.msi INSTALLFOLDER=D:\Tools\OpenSysML /qn  # silent, custom folder
+msiexec /i opensysml-0.5.0-windows-amd64.msi ADDLOCAL=Core /qn                # silent, sysml + sysml-lsp only
+msiexec /x opensysml-0.5.0-windows-amd64.msi /qn                              # uninstall
 ```
 
 Feature ids: `Core`, `GrpcService`, `Z3`.
@@ -137,10 +156,14 @@ To move to a new release:
 - **WiX Toolset** is licensed under the Microsoft Reciprocal License
   (MS-RL). It is build tooling only: a plain MSI built with `wix build`
   contains none of WiX's code, so the MS-RL does not attach to the installer
-  or to OpenSysML. This is also why the MSI authors no dialogs: the stock
-  `WixUI_*` dialog sets embed a small WiX custom-action DLL (`WixUiCa`, for
-  the license dialog's Print button), which would put MS-RL code in the MSI.
-  The `Binary` and `CustomAction` tables of the built MSI are empty.
+  or to OpenSysML. This is also why the wizard is hand-authored in
+  `wizard.wxs` instead of using the stock `WixUI_*` dialog sets: those embed
+  a small WiX custom-action DLL (`WixUiCa`, for the license dialog's Print
+  button and install-path validation), which would put MS-RL code in the
+  MSI. Dialog, control and sequence table rows are data, not code. The
+  `Binary` table is absent, and the `CustomAction` table holds one type-51
+  (set-property) row for the remembered install folder; that row is data,
+  not code. Check with `msiinfo tables` and `msidump`.
 - **OpenSysML** is Apache-2.0; the MSI installs `LICENSE.txt`.
 - **Z3** is MIT-licensed by Microsoft Corporation. The MSI ships its
   `LICENSE.txt` as `z3\LICENSE-z3.txt` next to `z3.exe`, satisfying the MIT

@@ -1,6 +1,6 @@
 // The palette's and a node's context menu's entries, built from the palette the
 // server sent with the rendering.
-import { admits, type EditAction, type EditPalette, type RenderNode } from "../protocol";
+import { admits, declaredHere, type EditAction, type EditPalette, type RenderNode } from "../protocol";
 
 /** What a menu entry does when chosen. */
 export type MenuCommand = EditAction | { kind: "reveal"; id: string };
@@ -27,13 +27,13 @@ export function paletteItems(palette: EditPalette): MenuItem[] {
   ];
 }
 
-/** nodeMenu: a located node is revealed; a declared one is also added to, connected from, renamed, moved, deleted. */
+/** nodeMenu: a located node is revealed; one the document declares is also added to, connected from, renamed, moved, deleted. */
 export function nodeMenu(node: RenderNode, palette: EditPalette | undefined): MenuItem[] {
   const items: MenuItem[] = [{ label: node.name || node.kind, heading: true }];
   if (node.origin) {
     items.push({ label: "Go to declaration", command: { kind: "reveal", id: node.id } });
   }
-  if (node.fqn && palette) {
+  if (declaredHere(node) && palette) {
     const members = palette.members.filter((memberKind) => admits(palette, memberKind, node));
     if (members.length > 0) {
       items.push({ label: "", separator: true });

@@ -63,6 +63,7 @@ bound predicate that is not in this table:
 | `sysml:documentation` | `documentation` |
 | `sysml:owner` | `owner` |
 | `sysml:isAbstract` | `isAbstract` |
+| `sysml:isIndividual` | `isIndividual` |
 | `sysml:type` | `type` |
 | `sysml:multiplicityLower` | `multiplicityLower` |
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
@@ -96,9 +97,9 @@ a `*` value would be a wildcard, which this implementation does not evaluate, so
 is refused rather than compared lexically and silently matching nothing.
 
 OSLC compound terms have no `or`, so OSLC text and the structured API Query
-are deliberately not interchangeable: structured queries keep their
-`and`/`or` constraint tree, while OSLC text provides the OSLC grammar and
-operators.
+are deliberately not interchangeable; [Which query is
+which](../manual/query-kinds.md#the-api-query-over-a-project) places the two
+beside the project's other query surfaces.
 
 ## Unsupported constructs
 

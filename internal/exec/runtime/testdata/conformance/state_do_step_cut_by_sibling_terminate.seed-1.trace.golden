@@ -1,0 +1,31 @@
+exit: idle
+enter: work (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> ""
+      eval literal "work(entry) " -> "work(entry) "
+    eval operator + -> "work(entry) "
+choice entering work: next l1(entry), r1(entry) (unordered; took r1(entry) first)
+enter: r1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "work(entry) "
+      eval literal "r1(entry) " -> "r1(entry) "
+    eval operator + -> "work(entry) r1(entry) "
+enter: l1 (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "work(entry) r1(entry) "
+      eval literal "l1(entry) " -> "l1(entry) "
+    eval operator + -> "work(entry) r1(entry) l1(entry) "
+transition: idle -> work (event: accept Go)
+do: l1
+stmt action body
+enter action node: state behavior <anonymous>
+  stmt assign log
+      eval feature log -> "work(entry) r1(entry) l1(entry) "
+      eval literal "l1(partI) " -> "l1(partI) "
+    eval operator + -> "work(entry) r1(entry) l1(entry) l1(partI) "
+exit: r1
+transition: r1 -> stop
+terminate: stop (do behavior abandoned: l1)

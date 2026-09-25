@@ -1,0 +1,10 @@
+model: tools/referee/exec/testdata/models/behavior_scope.sysml
+
+# Behave::machine.p.n is a known divergence (pilot 1, ours errors); report it, not fix it.
+dot-part-attr ::  :: Behave::cc.count
+dot-machine-attr ::  :: Behave::machine.count
+dot-perform-out ::  :: Behave::machine.p.n
+dot-flow-a ::  :: Behave::Flow.a
+in-flow-target :: Behave::Flow :: cc.count
+bump-out-target :: Behave::Bump :: n
+dot-bump-out ::  :: Behave::Bump.n

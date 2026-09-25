@@ -1,6 +1,6 @@
 # The pilot as a referee for *behavioral* conformance
 
-`cmd/pilot-diff` uses the pinned OMG pilot as an external referee for parsing, resolution and
+`tools/referee/diff` uses the pinned OMG pilot as an external referee for parsing, resolution and
 validation. This document answers a different question: **how far does the pinned pilot's
 *execution* surface reach, and which of the behavior rows in
 [spec compliance](spec-compliance.md) can it adjudicate?**
@@ -19,7 +19,7 @@ unpacks, at
 
 | Behavior area | Verdict | Why |
 |---------------|---------|-----|
-| **Expression evaluation** | **Can adjudicate** — for model-level expressions | `SysMLInteractive.eval` (the `%eval` magic) evaluates literals, operators, library functions, `calc` invocations and feature *default values*, headlessly, deterministically. This is a genuine second opinion, and `cmd/pilot-exec-diff` uses it |
+| **Expression evaluation** | **Can adjudicate** — for model-level expressions | `SysMLInteractive.eval` (the `%eval` magic) evaluates literals, operators, library functions, `calc` invocations and feature *default values*, headlessly, deterministically. This is a genuine second opinion, and `tools/referee/exec` uses it |
 | **Action / token-flow execution** | **Cannot speak to it** | No interpreter exists in the artifact. `%eval` refuses an action def or usage as a target |
 | **State-machine execution** | **Cannot speak to it** | Same: no state execution, no transition firing, no trace output. `%eval` refuses a state def or an `exhibit`ed state |
 | **Classifier behaviors (`exhibit`/`perform`)** | **Cannot speak to it** for execution; **can corroborate** the *declared* value of a performed action's `out` parameter | `%eval` reads `machine.p.n` as the model-level value of the parameter's default expression, which is not an execution: no performer object exists, nothing is stepped |
@@ -114,7 +114,7 @@ OperatorExpression + (e2642709-e92b-484f-bb0c-03331ad7ca9e)
 `Probe::q` is `3.0 [SI::kg]` and `Probe::Quant()` is `3.0 [SI::kg] + 1.0 [SI::kg]`; OpenSysML
 answers `3.00 [SI::kg]` and `4.00 [SI::kg]`. The pilot is not disagreeing — it is not
 evaluating. Unit-carrying values are therefore out of the referee's reach, and
-`cmd/pilot-exec-diff` buckets them `pilot-unevaluated` rather than as a disagreement.
+`tools/referee/exec` buckets them `pilot-unevaluated` rather than as a disagreement.
 
 It is **deterministic**: two runs of the same cases in separate JVMs differ only in the UUIDs.
 
@@ -178,14 +178,14 @@ evaluated over declarations — no object was materialized and no action ran.
   declaration's default expression evaluates to. Frames, shadowing and values written by a
   running body are unobservable to the pilot.
 - **Expression Evaluation rows.** Genuinely adjudicable, within the limits below; this is what
-  `cmd/pilot-exec-diff` compares.
+  `tools/referee/exec` compares.
 
 No compliance row's status flag is changed on the strength of this work.
 
 ## Limits of the comparison (read before trusting a bucket)
 
 - **Reals are compared to two decimal places**, a tolerance of the harness itself (both sides
-  are rounded in `cmd/pilot-exec-diff`, `roundedReal`). A divergence below 2dp is invisible to
+  are rounded in `tools/referee/exec`, `roundedReal`). A divergence below 2dp is invisible to
   this harness. It is no longer a display limit — we now print `1.0 / 3.0` as
   `0.3333333333333333`, the same digits the pilot reports as `LiteralRational`, so the
   tolerance can be tightened on its own once the buckets it moves are adjudicated.
@@ -212,10 +212,10 @@ No compliance row's status flag is changed on the strength of this work.
   scalar/singleton difference, if one exists, would be invisible here.
 - **UUID identity is the only thing normalized away** on the pilot side.
 
-Run it with `go run ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evaluator.sh`; with the
+Run it with `go run -C tools ./cmd/pilot-exec-diff` after `./scripts/download-pilot-evaluator.sh`; with the
 execution artifact absent it prints a provisioning instruction, exits 0 and writes nothing, so
-`cmd/pilot-diff` and its committed baseline are untouched. The bucket counts below are as measured
-when this record was last updated and are not the current baseline — `go run ./cmd/pilot-exec-diff`
+`tools/referee/diff` and its committed baseline are untouched. The bucket counts below are as measured
+when this record was last updated and are not the current baseline — `go run -C tools ./cmd/pilot-exec-diff`
 prints the current ones. State of the 446 committed cases, the original 32, the 62 the
 expression round added (one of them, `intdiv`, since moved to `integer_quotient.cases`), the 14 of
 `value_classification.cases`, the 3 of `contextual_names.cases`, the 14 of `rational_terms.cases`,
@@ -314,7 +314,7 @@ whose own `Comment::body` and `Comment::locale` are the strings. Three agree:
 not a semantic difference: the pilot prints `LiteralString Turns.  (<uuid>)`, a body with a
 trailing space before its two-space id separator, which normalizes to `Turns. ` against the
 runtime's `"Turns."`: the pilot keeps the blank before `*/`, the runtime reads the body the way
-`Element::documentation` and LSP hover always have (`lexer.CommentBody`, delimiters and
+`Element::documentation` and LSP hover always have (`source.CommentBody`, delimiters and
 margin off), so the runtime's answer stands and the referee's normalizer is left honest rather
 than taught to trim. `.documentation.qualifiedName` is `pilot-silent`: the pilot prints nothing
 for it, and the runtime answers `()`, which is what `Element::qualifiedName` derives to for an

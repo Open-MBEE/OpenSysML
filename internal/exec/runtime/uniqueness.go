@@ -1,0 +1,44 @@
+package runtime
+
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
+
+// uniquenessRefusal says which value repeats in a sequence written to a unique
+// feature, by set equality judged in the context, or is empty; a set-held
+// feature drops repeats instead.
+func (ctx *Context) uniquenessRefusal(unique, holdsSet bool, value *Value) string {
+	if !unique || holdsSet || value.Kind != ValSequence {
+		return ""
+	}
+	elements := elementsOf(*value)
+	seen := NewSetIn(ctx)
+	for i, element := range elements {
+		if !seen.Contains(element) {
+			seen.Add(element)
+			continue
+		}
+		first := 0
+		for first < i && !ctx.valueEqual(elements[first], element) {
+			first++
+		}
+		return semantics.UniquenessViolation(ctx.elementText(element), first+1, i+1)
+	}
+	return ""
+}
+
+// multiValued reports whether a declared multiplicity admits more than one value.
+func multiValued(mult semantics.Range) bool {
+	return !mult.AtMostOne()
+}
+
+// declaredUniquenessRefusal is uniquenessRefusal for the value a standalone
+// multi-valued feature declares, read outside any instance.
+func (ctx *Context) declaredUniquenessRefusal(sym *symbols.Symbol, value *Value) string {
+	mult, stated := ctx.statedMultiplicity(sym)
+	if !stated || !multiValued(mult) {
+		return ""
+	}
+	return ctx.uniquenessRefusal(ctx.model.semantics.IsUnique(sym), ctx.holdsSet(sym, ctx.findOwnerType(sym), mult), value)
+}

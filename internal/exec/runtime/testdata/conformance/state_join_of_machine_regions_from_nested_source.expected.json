@@ -1,0 +1,32 @@
+{
+  "type": "state",
+  "trace": true,
+  "events": [{"signal": "Go"}],
+  "outcomes": [
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "a(exit) c(exit) inner(exit) a b(exit) b sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "b(exit) b a(exit) c(exit) inner(exit) a sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "b(exit) b c(exit) a(exit) inner(exit) a sync"}
+      }
+    },
+    {
+      "finalState": "done",
+      "outputs": {
+        "log": {"type": "String", "value": "c(exit) a(exit) inner(exit) a b(exit) b sync"}
+      }
+    }
+  ],
+  "admissible": "Transitions into a join: each exits its source and runs its effect before the owner is left, in which order is open"
+}

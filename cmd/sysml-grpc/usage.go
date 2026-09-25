@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/Open-MBEE/OpenSysML/internal/usage"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
 const grpcCommand = "sysml-grpc"

@@ -1,0 +1,45 @@
+exit: a (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);"
+      eval literal "a(exit);" -> "a(exit);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);"
+      eval literal "up(effect);" -> "up(effect);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);"
+transition: a -> outer (event: accept Up)
+exit: b (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);"
+      eval literal "b(exit);" -> "b(exit);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);"
+      eval literal "down(effect);" -> "down(effect);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);"
+transition: b -> outer (event: accept Down)
+exit: outer (exit action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);"
+      eval literal "outer(exit);" -> "outer(exit);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);outer(exit);"
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);outer(exit);"
+      eval literal "leave(effect);" -> "leave(effect);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);outer(exit);leave(effect);"
+enter: later (entry action)
+stmt action body
+  stmt assign log
+      eval feature log -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);outer(exit);leave(effect);"
+      eval literal "later(entry);" -> "later(entry);"
+    eval operator + -> "outer(entry);a(entry);b(entry);a(exit);up(effect);b(exit);down(effect);outer(exit);leave(effect);later(entry);"
+transition: outer -> later (event: accept Leave)
+exit: later
+enter: done
+transition: later -> done (event: accept Finish)

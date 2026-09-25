@@ -21,7 +21,7 @@ $ curl -s -X POST http://localhost:50099/sysml.SysMLService/<Method> \
     -H 'Content-Type: application/json' -d '<request>'
 ```
 
-The Python client's decoding (`clients/python/opensysml/values.py`, `errors.py`) is the
+The Python client's decoding (`client/python/opensysml/values.py`, `errors.py`) is the
 reference for what follows; where this page says a client *must* do something, that is what
 the Python client does, stated so that it can be reproduced in a language that has no
 client.
@@ -135,7 +135,7 @@ HTTP/1.1 400 Bad Request
 
 A model hash is the lowercase hex SHA-256 (64 characters) of the request that produced it: the
 conformance mode (`default` or `strict`), the number of documents, and each document's name,
-language and content, length-delimited (`internal/grpc/service.go`, `parseSources`). It is
+language and content, length-delimited (`internal/frontend/grpc/service.go`, `parseSources`). It is
 **deterministic**: the same documents in the same order with the same flag give the same hash
 from any service of the same version, so a client may compute nothing and simply compare
 hashes to know whether two models are the same text. It is also *only* a hash of the
@@ -154,7 +154,7 @@ in the guide.
 ### How long a hash is valid
 
 The service keeps parsed models in an in-memory **LRU cache of fixed capacity**
-(`internal/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
+(`internal/frontend/grpc/cache.go`), sized by the `-cache-size` flag, **default 100**. There is no
 time-to-live: a model stays until it is one of the least recently *used* when the cache is full
 and a new model arrives, or until the process exits. Every call that names a hash counts as a
 use, so a model in active use is not evicted. Re-parsing a model the cache still holds returns
@@ -802,7 +802,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -1009,9 +1009,14 @@ carry the same field with the same spellings and the same refusals.
 `outputs` the response carries `outcomes`, every distinct outcome any linearization reaches, and
 `exploration`, how the search ended. The service replays the run from the start, each replay a
 fresh executor over the same lowered model, following the recorded choices of an earlier run up
-to a frontier and taking the next untried alternative there, depth-first, until no alternative
-is untried or a budget is hit. Two runs that agree on the observables — an action's outputs — are
-one outcome, with `linearizations` counting how many reached it and `witness` the choice sequence
+to a frontier and taking the next untried alternative there — the first run's choice points each
+varied once, earliest first, before any is varied twice — until no alternative is untried or a
+budget is hit. Two runs that agree on the observables — an action's outputs — are
+one outcome, with `linearizations` counting how many reached it, `probability` the share of the
+schedule space its linearizations cover (a weighted pick's stated weight's share, an unweighted
+choice's uniform `1/n`, multiplied along a run and summed over the runs reaching the outcome —
+the model's own probability where every choice point is weighted, a uniform assumption over the
+scheduling choices the library leaves open otherwise), and `witness` the choice sequence
 of one that did, one entry per choice point spelling the alternatives and the one taken;
 `diagnostics` is what that witness run noted, shaped as the single-run `diagnostics` above.
 Outcomes are in canonical order — by outputs, sorted by name and value — so the same model
@@ -1020,10 +1025,10 @@ three branches `a`, `b`, `c` each assigning `winner`):
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::tally","schedule":"explore"}'
-{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"leftCount":{"intValue":"1"},"rightCount":{"intValue":"10"}},"linearizations":2,"probability":1.0,"witness":["step 3: 2@left first of 2@left, 3@right"],"diagnostics":[{"severity":"info","message":"choice point: step 3: tokens 2@left, 3@right (unordered; took 2@left first)","span":{"file":"tally.sysml",…},"code":"choice-point"}]}],"exploration":{"complete":true,"runs":2,"runsBudget":1024,"depthBudget":64}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"1"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 3@b first of 2@a, 3@b, 4@c","step 4: 4@c first of 2@a, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"2"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 4@c first of 3@b, 4@c"],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":2,"probability":0.3333333333333333,"witness":["step 3: 2@a first of 2@a, 3@b, 4@c","step 4: 3@b first of 3@b, 4@c"],"diagnostics":[…]}],"exploration":{"complete":true,"runs":6,"runsBudget":1024,"depthBudget":64}}
 ```
 
 `tally`'s two orders write two different features, so its two linearizations are one outcome;
@@ -1031,17 +1036,18 @@ $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race
 with no choice point explores in exactly one run.
 
 `exploration.complete` is true when every linearization within the budget was run, so
-`outcomes` is the whole set. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
+`outcomes` is the whole set and their `probability` values sum to `1`. The budget is spelled in the policy, `"explore:runs=<n>,depth=<d>"`
 in either order and either alone — `runs` bounds how many runs the search makes (default 1024),
 `depth` how many choice points one run may resolve before the rest take their first alternative
 (default 64). Hitting either ends the search with `complete` false and the budget named in
-`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed;
+`budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
+`probabilitiesLowerBound` true, since the unexplored runs can only add mass;
 `runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
 error and never silent:
 
 ```console
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=2"}'
-{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64}}
+{"outcomes":[{"outputs":{"winner":{"intValue":"2"}},"linearizations":1,"witness":[…],"diagnostics":[…]},{"outputs":{"winner":{"intValue":"3"}},"linearizations":1,"witness":[…],"diagnostics":[…]}],"exploration":{"runs":2,"budgetsHit":["runs"],"runsBudget":2,"depthBudget":64,"probabilitiesLowerBound":true}}
 
 $ … /ExecuteAction -d '{"modelHash":"81b1…73fc","actionSymbolId":"Test::race","schedule":"explore:runs=0"}'
 HTTP/1.1 400 Bad Request
@@ -1765,6 +1771,55 @@ $ … /VerifyConstraint -d '{"modelHash":"b4e0…ded9","symbolId":"Demo::Vehicle
 The Python client reads them as `Verdict.engine`, `Verdict.strength` and `Verdict.bounds`
 and lists engines with `Connection.list_engines()`.
 
+## Conversion: `Convert`
+
+`Convert` writes a model out in another representation, and needs the `convert` capability. The
+request names its source in a `oneof`: a `filePath` the service reads afresh, `content` carried
+inline, or a `modelHash` whose parsed source is converted. `toFormat` is required and is one of
+`sysml`, `kerml`, `text` (SysML v2 notation), `ttl`, `turtle`, `rdf` (RDF in Turtle) or `api-json`,
+`json` (the API's JSON element form). `fromFormat` takes the same names, plus `xmi`, `uml` or
+`mdzip` for a SysML v1 model — UML XMI 2.5.1 with the SysML profile applied, an Eclipse UML2 `.uml`
+file, or a `.mdzip` archive — which is read and **migrated** to v2 on the way out. Omitted,
+`fromFormat` is inferred from `filePath`'s extension (`.sysml`, `.kerml`, `.ttl`, `.turtle`,
+`.json`, `.xmi`, `.uml`, `.mdzip`), is notation for a `modelHash`, and is `invalid_argument` for
+inline `content`, which has no extension. Inline content is a proto `string`, so it carries XMI or
+`.uml` text; a `.mdzip` archive is binary and is named by `filePath`.
+
+```console
+$ … /Convert -d '{"filePath":"Vehicle.xmi","toFormat":"sysml"}'
+{
+  "content": "doc /* Author: demo team\n * Created: 2026-09-05\n */\npackage 'Vehicle Design' {\n    doc /* Structural model of the demo v…",
+  "fromFormat": "xmi",
+  "toFormat": "sysml",
+  "experimental": true,
+  "experimentalNotice": "SysML v1 migration is experimental: the mapping covers structure, ports and connectors, requirements, constraints, instances and allocations, reports every element it approximates or leaves behind, and what it writes for a v1 element may change without a compatibility path; see docs/reference/sysml-v1-migration.md § Status"
+}
+```
+
+`fromFormat` and `toFormat` come back **canonical** — `sysml`, `ttl`, `api-json` or `xmi` whichever
+alias was sent — so a client that let the format be inferred learns what it was read as.
+`experimental` is set, and `experimentalNotice` says why, when either format is RDF or the API's
+JSON form or the source is SysML v1; notation to notation leaves both unset. It is set on a refusal
+too, so read it before `error`. The Python client raises `ExperimentalFeatureWarning` from it. The
+migration report the `sysml` command writes with `-migration-report` is **not** on the wire: a
+client that needs the element-by-element account runs the command. What the migration maps,
+approximates and leaves behind is in [sysml-v1-migration.md](sysml-v1-migration.md).
+
+A conversion that could not be done is HTTP 200 with `error` set and `content` absent; its
+`diagnostics` explain a syntax error in notation input, with spans. Malformed XMI is reported in
+`error` alone:
+
+```text
+{"fromFormat":"xmi","toFormat":"sysml","error":"<content>: the XMI document holds no model: expected a uml:Model or uml:Package under the xmi:XMI root","experimental":true,"experimentalNotice":"SysML v1 migration is experimental: …"}
+```
+
+A request the service will not attempt is a Connect error instead: `toFormat` naming a v1 format
+is `invalid_argument` with `cannot write xmi: SysML v1 XMI is read and migrated, never written;
+convert to sysml or ttl`, since a v2 model has no v1 form; an unknown format name and a missing
+`fromFormat` for inline content are `invalid_argument` too; an unreadable `filePath` is
+`not_found` with `file not found:`, and a stale `modelHash` is `not_found` as described under
+[the model hash](#how-long-a-hash-is-valid).
+
 ## Queries
 
 Two query surfaces exist and answer differently shaped tables. Their semantics — what may be
@@ -1773,7 +1828,7 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [Native document queries and rendering over gRPC](api.md#native-document-queries-and-rendering-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
 `oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
-`render_document`.
+`render_document`, and `render_document_html` too when its `form` is `html`.
 
 ### `Query`
 
@@ -1873,7 +1928,7 @@ A row that is an object, and a cell whose value is one, is answered with the **`
 `instanceId`, `path` (the label the object is reached under, from the binding down —
 `Garage::car.wheels[2]`, or `#1.wheels[2]` when the binding was by id) and `element`, the
 usage the object stands for as an `elementId` `DocumentValue` with its `elementType`. Model
-`0ff2…48a0` is `internal/core/docrender/testdata/object_report.sysml`; after
+`0ff2…48a0` is `internal/doc/docrender/testdata/object_report.sysml`; after
 `Instantiate` of `Garage::car` (answered id `1`, its engine `2` and wheels `3` and `4`) and of
 `Garage::spare` (`5`), `Drive` projects the car's `name`, `engine` and `wheels`:
 
@@ -2124,7 +2179,7 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 ## Minimal clients: four illustrations
 
-The four snippets below are **illustrations, not shipped code**. They are not in `clients/`, not
+The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
 and where its pitfalls lie. A real client for any of these languages is one that passes the
 scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client

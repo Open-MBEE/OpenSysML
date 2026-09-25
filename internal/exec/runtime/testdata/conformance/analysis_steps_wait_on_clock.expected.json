@@ -1,0 +1,10 @@
+{
+  "libraries": true,
+  "type": "analysis",
+  "evaluate": "test::voyage",
+  "trace": true,
+  "outputs": {
+    "total": {"type": "Real", "value": 2.0},
+    "arrival": {"type": "Real", "value": 60.0}
+  }
+}
