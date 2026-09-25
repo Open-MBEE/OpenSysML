@@ -171,12 +171,15 @@ func documentOptions() docrender.HTMLOptions {
 		DiagramForm:         view.Form(diagramForm),
 		Unplaced:            view.Unplaced(renderUnplaced),
 		Style:               view.DrawingStyle(renderStyle),
+		Drawer:              docpdf.Graphviz{},
 	}
 }
 
 // markdownOptions carries the flags shaping a Markdown document.
 func markdownOptions() docrender.MarkdownOptions {
-	return docrender.MarkdownOptions{DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle)}
+	return docrender.MarkdownOptions{
+		DiagramForm: view.Form(diagramForm), Unplaced: view.Unplaced(renderUnplaced), Style: view.DrawingStyle(renderStyle), Drawer: docpdf.Graphviz{},
+	}
 }
 
 // checkDiagramForm rejects a -diagram-form value naming no diagram form, a

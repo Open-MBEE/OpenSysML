@@ -260,15 +260,20 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	wantInOrder(t, "Plant Handbook Markdown", md,
 		"# Plant Handbook",
 		"## Behaviors",
-		"*Pump Modes*", "```mermaid", "Idle", "Running", "How the pump behaves",
+		"*Pump Modes*", "```dot", "// layout: neato -n2", "Idle", "Running", "How the pump behaves",
 		"*Priming*", "```mermaid", "Fill", "Vent", "How the pump is primed",
 		"## Pictures",
 		"Nothing to see",
 		"The plant, photographed",
-		"*Unlisted*", "```mermaid", "Plant::Unlisted — tree rendering", "%% layout: n0 x=100 y=100 w=120 h=60", `"Tank<br>«part def»"`,
-		"*Stale*", "```mermaid", "Plant::Stale — tree rendering", `"Tank<br>«part def»"`)
-	if n := strings.Count(md, "```mermaid"); n != 4 {
-		t.Errorf("Plant Handbook draws %d figures, want 4:\n%s", n, md)
+		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "<b>Tank</b>", "«part def»", `pos="160,480!"`,
+		"*Stale*", "```dot", "// view: Plant::Stale", "<b>Tank</b>", "«part def»")
+	// The stream positions three of the four diagrams, so those are drawn
+	// by Graphviz where they state; the unpositioned activity stays Mermaid.
+	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 3 || mermaid != 1 {
+		t.Errorf("Plant Handbook draws %d dot and %d mermaid figures, want 3 and 1:\n%s", dot, mermaid, md)
+	}
+	if strings.Contains(md, "drawn as Mermaid") {
+		t.Errorf("a Graphviz fallback notice appears where no drawer was asked:\n%s", md)
 	}
 	if stale := md[strings.Index(md, "*Stale*"):]; strings.Contains(stale[:strings.Index(stale, "## Shown")], "Pump") {
 		t.Errorf("the figure of Stale draws the element no symbol displays:\n%s", stale)

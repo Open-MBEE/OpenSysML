@@ -23,7 +23,7 @@ digraph "MachineViews::vehicleStates" {
       penwidth=1;
       "n0" [shape=point, style=invis, width=0, height=0, label=""];
       "n5" [shape=point, fillcolor=black, label=""];
-      "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>off</b></td></tr><hr/><tr><td align="left">initial</td></tr></table>>];
+      "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>off</b>>];
       subgraph "cluster_n2" {
         label=<<b>operating</b>>;
         style="rounded,filled";
@@ -33,7 +33,7 @@ digraph "MachineViews::vehicleStates" {
         penwidth=1;
         "n2" [shape=point, style=invis, width=0, height=0, label=""];
         "n6" [shape=point, fillcolor=black, label=""];
-        "n3" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>idle</b></td></tr><hr/><tr><td align="left">initial</td></tr></table>>];
+        "n3" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>idle</b>>];
         "n4" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>moving</b>>];
       }
     }

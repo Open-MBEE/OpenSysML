@@ -272,6 +272,12 @@ func (r *Rendering) Empty() bool {
 	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
 }
 
+// Positioned reports whether a Layout or Route places some node of a
+// graph-shaped rendering, so the DOT form draws it where the diagram states.
+func (r *Rendering) Positioned() bool {
+	return r != nil && r.Kind.SupportsForm(FormDot) && placeRendering(r).count > 0
+}
+
 // Render renders view in the kind it states, defaulting to a tree when it
 // states none. A view that is no view is semantics.ErrNotAView, and a
 // recognized kind this package does not produce is an *UnsupportedKindError —

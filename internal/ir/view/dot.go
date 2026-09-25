@@ -474,13 +474,40 @@ func dotStyledLabel(attr string, style *Style) string {
 		return attr
 	}
 	inner := strings.TrimSuffix(strings.TrimPrefix(attr, "label=<"), ">")
-	if style.Italic {
+	if style.Italic && !dotWrapped(inner, "i") {
 		inner = "<i>" + inner + "</i>"
 	}
-	if style.Bold {
+	if style.Bold && !dotWrapped(inner, "b") {
 		inner = "<b>" + inner + "</b>"
 	}
 	return "label=<" + inner + ">"
+}
+
+// dotWrapped reports whether an HTML-like label is one element of the tag.
+func dotWrapped(inner, tag string) bool {
+	open, close := "<"+tag+">", "</"+tag+">"
+	return strings.HasPrefix(inner, open) && strings.HasSuffix(inner, close) &&
+		!strings.Contains(inner[len(open):len(inner)-len(close)], close)
+}
+
+// dotOverridden drops every attribute a later one of the same name replaces,
+// so a Style's fill or pen stands alone rather than after the skin's.
+func dotOverridden(attrs []string) []string {
+	kept := attrs[:0:0]
+	for i, attr := range attrs {
+		name, _, _ := strings.Cut(attr, "=")
+		later := false
+		for _, other := range attrs[i+1:] {
+			if otherName, _, _ := strings.Cut(other, "="); otherName == name {
+				later = true
+				break
+			}
+		}
+		if !later {
+			kept = append(kept, attr)
+		}
+	}
+	return kept
 }
 
 // dotColorAttr and dotFontAttr are the quoted `color` and `fontname` attributes.
@@ -849,7 +876,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	for i, attr := range attrs {
 		attrs[i] = dotStyledLabel(attr, node.Style)
 	}
-	attrs = append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...)
+	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...))
 	if box, ok := w.boxes[node.ID]; ok {
 		width, height := w.labels.dotBox(node)
 		attrs = append(attrs, w.dotPin(box.centre()))

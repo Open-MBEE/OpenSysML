@@ -118,7 +118,7 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 	}
 	for _, want := range []string{
 		`"n5" [shape=point, fillcolor=black, label=""];`,
-		`<hr/><tr><td align="left">initial</td></tr></table>>];`,
+		`label=<<b>off</b>>];`,
 		"style=\"rounded,filled\";\n      fillcolor=\"" + cameoStateFill + "\";",
 	} {
 		if !strings.Contains(state, want) {
@@ -138,8 +138,9 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 
 // A state's compartment names each behaviour, `do / initialize`, by the
 // behaviour's own name or else its type's, and by its kind alone when it has
-// neither, in both styles; the Cameo state is set in 11pt Arial, the Pilot's
-// 14pt Helvetica and keyword line untouched.
+// neither, in both styles; the Cameo compartment sets each behaviour on its own
+// line and leaves the initial marker to the dot, in 11pt Arial; the Pilot's
+// 14pt Helvetica and keyword line are untouched.
 func TestDOTStateBehaviourNames(t *testing.T) {
 	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
 	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
@@ -153,15 +154,15 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 	for _, want := range []string{
 		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
 	} {
-		for style, dot := range map[string]string{"cameo": cameo, "pilot": pilot} {
-			if !strings.Contains(dot, want) {
-				t.Errorf("%s DOT lacks %q:\n%s", style, want, dot)
-			}
+		if !strings.Contains(pilot, want) {
+			t.Errorf("pilot DOT lacks %q:\n%s", want, pilot)
 		}
 	}
 	for _, want := range []string{
 		`fontname="Arial", fontsize=11,`,
-		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">initial, do / initialize</td></tr>`,
+		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">do / initialize</td></tr>`,
+		`<hr/><tr><td align="left">entry / Warm<br/>do<br/>exit / cool</td></tr>`,
+		`<hr/><tr><td align="left">do<br/>exit / wrap</td></tr>`,
 		`<tr><td><b>Booting</b></td></tr><hr/><tr><td align="left">do / InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(cameo, want) {

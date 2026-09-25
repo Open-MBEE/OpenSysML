@@ -49,7 +49,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, decl ast.Node) *Node {
 		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
-		node.NameSynthesized = r.declaredNameSynthesized(machine, decl)
+		node.NameSynthesized = node.NameSynthesized || r.declaredNameSynthesized(machine, decl)
 		return r.declaredDress(view, machine, decl, node, out)
 	}
 

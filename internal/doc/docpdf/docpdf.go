@@ -46,8 +46,10 @@ type Options struct {
 	// Lang is the document language, "en" when empty.
 	Lang string
 
-	// DiagramForm is the source graph-shaped diagrams are drawn from, Mermaid
-	// when empty.
+	// DiagramForm is the source graph-shaped diagrams are drawn from. Empty
+	// picks per diagram: DOT drawn by Graphviz for a rendering a Layout or
+	// Route positions when Graphviz is installed, Mermaid otherwise, the
+	// document stating each fallback.
 	DiagramForm view.Form
 
 	// Unplaced is where a diagram some Layout positions puts the nodes none
@@ -88,7 +90,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := converter.Available(); err != nil {
 		return nil, err
 	}
-	diagrams, err := docrender.Diagrams(document, opts.DiagramForm, opts.Unplaced, opts.Style)
+	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style}
+	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
+	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +102,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	drawn, err := drawDiagrams(dir, diagrams, opts.DiagramForm)
+	drawn, err := drawDiagrams(dir, diagrams)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +118,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style})
+		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
+			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -122,11 +128,11 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		if err := os.WriteFile(filepath.Join(dir, doc.MarkdownFile), []byte(markdown), 0o600); err != nil {
 			return nil, err
 		}
-		if doc.Filter, err = writeArtworkFilter(dir, opts.DiagramForm, images, math, docrender.Captions(document)); err != nil {
+		if doc.Filter, err = writeArtworkFilter(dir, images, math, docrender.Captions(document)); err != nil {
 			return nil, err
 		}
 	case InputHTML:
-		htmlOpts, err := htmlOptions(opts, dir, images, math)
+		htmlOpts, err := htmlOptions(opts, forms.WithoutGraphviz, dir, images, math)
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +175,7 @@ func checkOptions(converter Converter, opts Options) error {
 // the reader's sheets; the diagram images and typeset formulas take the place
 // of source. The page's base is the reader's directory, so the working
 // directory's files are referenced by file URL.
-func htmlOptions(opts Options, dir string, images []string, math formulas) (docrender.HTMLOptions, error) {
+func htmlOptions(opts Options, withoutGraphviz bool, dir string, images []string, math formulas) (docrender.HTMLOptions, error) {
 	var sheets []docrender.Stylesheet
 	if !opts.NoDefaultStylesheet {
 		sheets = append(sheets, docrender.InlineStylesheet(PrintStylesheet))
@@ -194,6 +200,7 @@ func htmlOptions(opts Options, dir string, images []string, math formulas) (docr
 		NumberSections:      opts.NumberSections,
 		Lang:                opts.Lang,
 		DiagramForm:         opts.DiagramForm,
+		WithoutGraphviz:     withoutGraphviz,
 		Unplaced:            opts.Unplaced,
 		Style:               opts.Style,
 		DiagramImages:       images,

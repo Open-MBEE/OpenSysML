@@ -2,6 +2,7 @@ package view
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -157,7 +158,36 @@ func (l labeller) lines(node *Node) []string {
 		lines = append(lines, "«"+node.Kind+"»")
 	}
 	if node.Detail != "" {
+		if l.skin.cameo && node.Kind == "state" {
+			return append(lines, cameoStateDetails(node.Detail)...)
+		}
 		lines = append(lines, node.Detail)
 	}
 	return lines
+}
+
+// cameoStateDetails splits a state's detail into Cameo's compartment lines, one
+// per behaviour, and drops the `initial` marker the initial dot already draws.
+func cameoStateDetails(detail string) []string {
+	var lines []string
+	for _, part := range strings.Split(detail, ", ") {
+		switch {
+		case part == "initial":
+		case len(lines) > 0 && !stateDetailKeyword(part):
+			lines[len(lines)-1] += ", " + part
+		default:
+			lines = append(lines, part)
+		}
+	}
+	return lines
+}
+
+// stateDetailKeyword reports whether a detail part opens a behaviour line.
+func stateDetailKeyword(part string) bool {
+	word, _, _ := strings.Cut(part, " ")
+	switch word {
+	case "entry", "do", "exit", "defers":
+		return true
+	}
+	return false
 }

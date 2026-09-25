@@ -426,10 +426,14 @@ func doc() usage.Doc {
 				"A document is a part def specializing DocumentQueries::Document. Its " +
 					"queries are bound in the model and run against it, and the " +
 					"result is written as CommonMark-compatible Markdown. Its diagram " +
-					"blocks are Mermaid source; -diagram-form dot or plantuml writes every " +
-					"graph-shaped one as Graphviz DOT or PlantUML instead, in Markdown and HTML " +
-					"alike, while a table-kind view stays a table. Neither Graphviz nor " +
-					"PlantUML is needed to write it.",
+					"blocks are chosen per diagram: a view some DiagramLayout::Layout or Route " +
+					"positions is drawn by Graphviz where it states, as inline SVG when dot " +
+					"is installed and as a dot fence otherwise, and every other graph-shaped " +
+					"view is Mermaid source; with Graphviz absent a positioned view falls " +
+					"back to Mermaid under a notice saying so. -diagram-form mermaid, dot " +
+					"or plantuml writes every graph-shaped one in that form instead, in " +
+					"Markdown and HTML alike, while a table-kind view stays a table. Neither " +
+					"Graphviz nor PlantUML is needed to write a fence.",
 				"-doc-form html writes semantic HTML instead, carrying each element's " +
 					"identity and kind, styled by a stylesheet in a cascade layer your " +
 					"own CSS overrides without !important.",
@@ -614,7 +618,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
 	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
-	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
+	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid, dot or plantuml; unset, a positioned view is dot and any other mermaid; a table-kind view is a table either way")
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")
 	fs.BoolVar(&pdfTOC, "doc-toc", false, "Write a table of contents ahead of the content (html or pdf)")
 	fs.BoolVar(&pdfNumbering, "doc-number-sections", false, "Number the section headings hierarchically (html or pdf)")

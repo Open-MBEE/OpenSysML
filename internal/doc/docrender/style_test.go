@@ -44,7 +44,7 @@ func TestDocumentDiagramsTakeADrawingStyle(t *testing.T) {
 		if want := `data-style="` + string(style) + `"`; strings.Contains(page, want) != (style != "") {
 			t.Errorf("HTML(%q) figure states %s = %v, want %v:\n%s", style, want, style == "", style != "", page)
 		}
-		diagrams, err := Diagrams(document, view.FormDot, "", style)
+		diagrams, err := Diagrams(document, DiagramOptions{Form: view.FormDot, Style: style})
 		if err != nil {
 			t.Fatalf("Diagrams(%q): %v", style, err)
 		}
@@ -74,7 +74,7 @@ func TestDocumentDiagramsTakeADrawingStyle(t *testing.T) {
 		case "html":
 			_, err = HTML(document, HTMLOptions{DiagramForm: view.FormDot, Style: "magicdraw"})
 		default:
-			_, err = Diagrams(document, view.FormDot, "", "magicdraw")
+			_, err = Diagrams(document, DiagramOptions{Form: view.FormDot, Style: "magicdraw"})
 		}
 		if err == nil || !strings.Contains(err.Error(), `unknown drawing style "magicdraw"`) {
 			t.Errorf("%s: an unknown drawing style is not refused: %v", backend, err)

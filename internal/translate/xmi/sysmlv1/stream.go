@@ -321,11 +321,13 @@ func javaColor(value string) (string, bool) {
 	if err != nil || n < -1<<31 || n > 1<<32-1 {
 		return "", false
 	}
-	argb := uint32(n)
-	if argb>>24 == 0 {
+	if n < 0 {
+		n += 1 << 32
+	}
+	if n>>24 == 0 {
 		return "", false
 	}
-	return fmt.Sprintf("#%06X", argb&0xFFFFFF), true
+	return fmt.Sprintf("#%06X", n&0xFFFFFF), true
 }
 
 // parseGeometry reads a MagicDraw geometry: "x, y, width, height" for a shape,

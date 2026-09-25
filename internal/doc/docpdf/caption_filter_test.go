@@ -133,7 +133,7 @@ func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) stri
 	if err := os.WriteFile(filepath.Join(dir, markdownFileName), []byte(markdown), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	filter, err := writeArtworkFilter(dir, view.FormMermaid, nil, formulas{}, captions)
+	filter, err := writeArtworkFilter(dir, nil, formulas{}, captions)
 	if err != nil {
 		t.Fatal(err)
 	}

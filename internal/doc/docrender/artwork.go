@@ -1,6 +1,7 @@
 package docrender
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
@@ -12,26 +13,101 @@ import (
 // captions it sets, in the order and with the sources the HTML and Markdown
 // backends write them.
 
-// Diagram is one graph-shaped diagram of a document: its declared name and
-// its source in the requested diagram form.
+// Diagram is one graph-shaped diagram of a document: its declared name, the
+// form it is written in, its source in that form, and, when the form is the
+// automatic choice's Mermaid fallback, the reason stated in the output.
 type Diagram struct {
-	Name   string
-	Source string
+	Name     string
+	Form     view.Form
+	Source   string
+	Fallback string
+}
+
+// DiagramOptions is how a render writes its graph-shaped diagrams: the part
+// of MarkdownOptions and HTMLOptions Diagrams lists them by.
+type DiagramOptions struct {
+	// Form is the form every diagram is written in; empty picks per diagram:
+	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
+	Form view.Form
+
+	// WithoutGraphviz records that no Graphviz draws DOT for this render, so
+	// the automatic choice falls back to Mermaid for positioned diagrams too,
+	// stating so in the output. An explicit Form is written regardless.
+	WithoutGraphviz bool
+
+	// Unplaced is where a diagram some Layout positions puts the nodes none
+	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
+	Unplaced view.Unplaced
+
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty; the other forms draw one look.
+	Style view.DrawingStyle
+}
+
+// check rejects a form there is none of and a drawing style there is none of.
+func (o DiagramOptions) check() error {
+	if o.Form != "" && !slices.Contains(view.DiagramForms(), o.Form) {
+		return &Error{Kind: ErrorUnknownForm, DiagramForm: o.Form}
+	}
+	return checkStyle(o.Style)
+}
+
+// formFor is the form rendering is written in: the one asked for, else DOT
+// for a positioned view and Mermaid for the rest — and for a positioned view
+// too without Graphviz, a fallback the output states.
+func (o DiagramOptions) formFor(rendering *view.Rendering) (form view.Form, fallback string) {
+	switch {
+	case o.Form != "":
+		return o.Form, ""
+	case !rendering.Positioned():
+		return view.FormMermaid, ""
+	case o.WithoutGraphviz:
+		return view.FormMermaid, "drawn as Mermaid, not at its stated positions: Graphviz (dot) is not installed"
+	}
+	return view.FormDot, ""
+}
+
+// DiagramDrawer draws a document's DOT diagrams to SVG ahead of a render, for
+// the HTML and Markdown backends to write inline where the automatic choice
+// picks DOT; the PDF backend's Graphviz is one.
+type DiagramDrawer interface {
+	// Available reports whether Graphviz is installed to draw with.
+	Available() bool
+	// Draw is the SVG of each DOT diagram, in order, empty for the others.
+	Draw(diagrams []Diagram) ([]string, error)
+}
+
+// drawAutomatic settles the automatic choice for a render given a drawer: with
+// Graphviz at hand, every positioned diagram's SVG; without one, the Mermaid
+// fallback. An explicit form, SVG drawn already, or no drawer (a caller that
+// drew the diagrams itself and set WithoutGraphviz) is left as it is.
+func drawAutomatic(document *docir.Document, opts *DiagramOptions, drawer DiagramDrawer, svg *[]string) error {
+	if opts.Form != "" || *svg != nil || drawer == nil {
+		return nil
+	}
+	if !drawer.Available() {
+		opts.WithoutGraphviz = true
+		return nil
+	}
+	diagrams, err := Diagrams(document, *opts)
+	if err != nil {
+		return err
+	}
+	if len(diagrams) == 0 {
+		return nil
+	}
+	*svg, err = drawer.Draw(diagrams)
+	return err
 }
 
 // Diagrams lists the document's graph-shaped diagrams in document order, each
-// with the source the backends write for it in form (Mermaid when empty) with
-// unplaced nodes placed as unplaced says. A table-kind view is a table, not a
-// diagram, and is left out.
-func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced, style view.DrawingStyle) ([]Diagram, error) {
+// with the source the backends write for it as opts says. A table-kind view
+// is a table, not a diagram, and is left out.
+func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) {
 	if document == nil {
 		return nil, &Error{Kind: ErrorNilDocument}
 	}
-	resolved, err := diagramForm(form)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkStyle(style); err != nil {
+	if err := opts.check(); err != nil {
 		return nil, err
 	}
 	var diagrams []Diagram
@@ -54,11 +130,12 @@ func Diagrams(document *docir.Document, form view.Form, unplaced view.Unplaced, 
 			if !rendering.Kind.Supported() {
 				return &Error{Kind: ErrorUnrenderableDiagram, Content: node.Name(), Actual: string(rendering.Kind)}
 			}
-			source, err := diagramSource(node.Name(), rendering, figureOptions(node, unplaced, style), resolved)
+			form, fallback := opts.formFor(rendering)
+			source, err := diagramSource(node.Name(), rendering, figureOptions(node, opts), form)
 			if err != nil {
 				return err
 			}
-			diagrams = append(diagrams, Diagram{Name: node.Name(), Source: source})
+			diagrams = append(diagrams, Diagram{Name: node.Name(), Form: form, Source: source, Fallback: fallback})
 		}
 		return nil
 	}

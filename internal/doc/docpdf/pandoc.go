@@ -28,17 +28,21 @@ const (
 // writeArtworkFilter writes the filter for a document with diagrams (drawn,
 // or kept as source under a notice), typeset formulas or captions, returning
 // its name; a document with none needs no filter, and "" is returned.
-func writeArtworkFilter(dir string, form view.Form, images []string, math formulas, captions []string) (string, error) {
+func writeArtworkFilter(dir string, images []string, math formulas, captions []string) (string, error) {
 	if len(images) == 0 && len(math.html) == 0 && len(captions) == 0 {
 		return "", nil
-	}
-	if form == "" {
-		form = view.FormMermaid
 	}
 	var b strings.Builder
 	b.WriteString("-- Marks the captions, swaps the diagram fences for the images drawn from\n")
 	b.WriteString("-- them and the formulas for their typeset HTML, in document order.\n")
-	b.WriteString("local form = " + luaString(string(form)) + "\n")
+	b.WriteString("local forms = {")
+	for i, form := range view.DiagramForms() {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(string(form) + " = true")
+	}
+	b.WriteString("}\n")
 	b.WriteString("local images = {")
 	for i, image := range images {
 		if i > 0 {
@@ -99,12 +103,26 @@ local function isDisplayMath(block)
     and block.content[1].mathtype == "DisplayMath"
 end
 
+-- The diagram form a fenced code block is written in, nil for other code.
+local function formOf(block)
+  if block.t ~= "CodeBlock" then
+    return nil
+  end
+  for _, class in ipairs(block.classes) do
+    if forms[class] then
+      return class
+    end
+  end
+  return nil
+end
+
 local function isGroupKey(block)
   return block ~= nil and block.t == "Para" and #block.content == 1 and block.content[1].t == "Strong"
 end
 
--- The HTML comment a table-kind diagram's rendering opens with; the Markdown
--- backend writes no other, since prose escapes "<".
+-- The HTML comment a table-kind diagram's rendering opens with, or one
+-- stating a diagram's fallback form; the Markdown backend writes no other,
+-- since prose escapes "<".
 local function isRenderingComment(block)
   return block.t == "RawBlock" and block.format == "html" and block.text:sub(1, 4) == "<!--"
 end
@@ -117,7 +135,7 @@ local function isCaptioned(blocks, i)
     return false
   end
   return block.t == "Table" or isDisplayMath(block) or isRenderingComment(block)
-    or (block.t == "CodeBlock" and block.classes:includes(form))
+    or formOf(block) ~= nil
     or (isGroupKey(block) and blocks[i + 1] ~= nil and blocks[i + 1].t == "Table")
 end
 
@@ -162,7 +180,8 @@ return {
       return nil
     end,
     CodeBlock = function(el)
-      if not el.classes:includes(form) then
+      local form = formOf(el)
+      if form == nil then
         return nil
       end
       drawn = drawn + 1
