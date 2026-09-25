@@ -74,6 +74,8 @@ end
 method_of(scenario) = last(split(scenario["rpc"], '/'))
 
 function fixture_path(dir, name)
+    (isabspath(name) || occursin('\\', name) || occursin(r"^[A-Za-z]:", name)) &&
+        error("fixture $(repr(name)) is outside $dir")
     parts = split(name, '/')
     any(p -> p == "..", parts) && error("fixture $(repr(name)) is outside $dir")
     return joinpath(dir, parts...)

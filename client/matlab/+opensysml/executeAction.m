@@ -8,7 +8,9 @@ function answer = executeAction(model, actionId, varargin)
     schedule = getArg(varargin, 'schedule', '');
     if ~isempty(schedule), request.schedule = schedule; end
     answer = opensysml.internal.checkError(opensysml.call(model.connection, 'ExecuteAction', request), 'ExecuteAction');
-    answer = opensysml.internal.decodeValues(answer);
+    if isfield(answer, 'outputs')
+        answer.outputs = opensysml.internal.decodeValueMap(answer.outputs);
+    end
 end
 
 function inputs = encodeInputs(map)

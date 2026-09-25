@@ -6,7 +6,7 @@ function out = call(conn, method, request)
     isJson = ~isempty(strfind(lower(contentType), 'application/json'));
     if status ~= 200
         if isJson
-            out = jsondecode(bodyText);
+            out = decode_body(bodyText, method, status);
             code = 'unknown'; message = '';
             if isfield(out, 'code'), code = out.code; end
             if isfield(out, 'message'), message = out.message; end
@@ -17,5 +17,13 @@ function out = call(conn, method, request)
     if ~isJson
         error('opensysml:transport', '%s answered HTTP 200 with a non-JSON body', method);
     end
-    out = jsondecode(bodyText);
+    out = decode_body(bodyText, method, status);
+end
+
+function out = decode_body(bodyText, method, status)
+    try
+        out = jsondecode(bodyText);
+    catch
+        error('opensysml:transport', '%s answered HTTP %d with undecodable JSON', method, status);
+    end
 end

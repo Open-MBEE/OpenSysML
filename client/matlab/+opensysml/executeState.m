@@ -9,7 +9,9 @@ function answer = executeState(model, stateId, varargin)
     schedule = getArg(varargin, 'schedule', '');
     if ~isempty(schedule), request.schedule = schedule; end
     answer = opensysml.internal.checkError(opensysml.call(model.connection, 'ExecuteState', request), 'ExecuteState');
-    answer = opensysml.internal.decodeValues(answer);
+    if isfield(answer, 'finalContext')
+        answer.finalContext = opensysml.internal.decodeValueMap(answer.finalContext);
+    end
 end
 
 function v = getArg(args, name, default)

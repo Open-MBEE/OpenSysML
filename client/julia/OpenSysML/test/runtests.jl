@@ -1,5 +1,7 @@
 using Test
 using JSON
+using Sockets
+using HTTP
 using OpenSysML
 
 include(joinpath(@__DIR__, "..", "conformance", "compare.jl"))
@@ -148,6 +150,30 @@ end
     @test actual["instances"][2]["id"] == "@2"
     @test actual["value"]["instanceId"] == "@2"
     @test actual["function"]["selfId"] == "@1"
+end
+
+@testset "canned service" begin
+    listener = listen(ip"127.0.0.1", 0)
+    port = getsockname(listener)[2]
+    close(listener)
+    canned = Ref{String}("{}")
+    server = HTTP.serve!(ip"127.0.0.1", port) do req
+        HTTP.Response(200, ["Content-Type" => "application/json"], canned[])
+    end
+    conn = OpenSysML.external("127.0.0.1:$(port)")
+    model = Model(conn, "hash", Diagnostic[])
+    try
+        canned[] = "{broken"
+        @test_throws TransportError call(conn, "X", Dict{String,Any}())
+        canned[] = """{"outputs":{"intValue":{"intValue":"7"}}}"""
+        @test execute_action(model, "A")["outputs"]["intValue"] == 7
+        canned[] = """{"finalContext":{"intValue":{"intValue":"3"}},"statesVisited":["s"]}"""
+        answer = execute_state(model, "S")
+        @test answer["finalContext"]["intValue"] == 3
+        @test answer["statesVisited"] == ["s"]
+    finally
+        close(server)
+    end
 end
 
 # Live tests need a service binary; they skip with a message without one.

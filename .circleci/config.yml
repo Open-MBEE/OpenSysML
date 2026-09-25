@@ -1036,7 +1036,7 @@ jobs:
             for i in $(seq 1 100); do [ -s bin/octave-svc-addr ] && break; sleep 0.1; done
             test -s bin/octave-svc-addr
             cd client/matlab/tests
-            OPENSYSML_SERVICE="$(cat ../../bin/octave-svc-addr)" octave --no-gui --eval "run_tests"
+            OPENSYSML_SERVICE="$(cat ../../../bin/octave-svc-addr)" octave --no-gui --eval "run_tests"
             rc=$?
             kill $svc_pid 2>/dev/null || true
             exit $rc

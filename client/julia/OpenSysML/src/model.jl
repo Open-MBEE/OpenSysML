@@ -88,7 +88,9 @@ function execute_action(model::Model, action_id::AbstractString; inputs=Dict(), 
                                "inputs" => _encoded_inputs(inputs))
     isempty(schedule) || (request["schedule"] = String(schedule))
     answer = _check_error(call(model.connection, "ExecuteAction", request), "ExecuteAction")
-    return decode_values(answer)
+    haskey(answer, "outputs") &&
+        (answer["outputs"] = Dict{String,Any}(String(n) => decode_value(v) for (n, v) in answer["outputs"]))
+    return answer
 end
 
 function execute_state(model::Model, state_id::AbstractString; events=Any[], schedule::AbstractString="")
@@ -96,7 +98,9 @@ function execute_state(model::Model, state_id::AbstractString; events=Any[], sch
                                "events" => Any[String(e) for e in events])
     isempty(schedule) || (request["schedule"] = String(schedule))
     answer = _check_error(call(model.connection, "ExecuteState", request), "ExecuteState")
-    return decode_values(answer)
+    haskey(answer, "finalContext") &&
+        (answer["finalContext"] = Dict{String,Any}(String(n) => decode_value(v) for (n, v) in answer["finalContext"]))
+    return answer
 end
 
 function query(model::Model, query_text::AbstractString)

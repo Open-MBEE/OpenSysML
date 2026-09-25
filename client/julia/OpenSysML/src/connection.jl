@@ -89,13 +89,21 @@ function call(conn::Connection, method::AbstractString, request)
     is_json = occursin("application/json", content_type)
     if response.status != 200
         if is_json
-            out = JSON.parse(String(response.body))
+            out = _parse_json(String(response.body), method, response.status)
             throw(ConnectError(get(out, "code", "unknown"), get(out, "message", ""), response.status))
         end
         throw(TransportError("$(method) answered HTTP $(response.status) with a non-JSON body"))
     end
     is_json || throw(TransportError("$(method) answered HTTP 200 with a non-JSON body"))
-    return JSON.parse(String(response.body))
+    return _parse_json(String(response.body), method, response.status)
+end
+
+function _parse_json(text::AbstractString, method::AbstractString, status::Integer)
+    return try
+        JSON.parse(text)
+    catch
+        throw(TransportError("$(method) answered HTTP $(status) with undecodable JSON"))
+    end
 end
 
 function server_info(conn::Connection)

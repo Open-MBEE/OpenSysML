@@ -14,11 +14,22 @@ function n = parseInt64(s)
     elseif ~isempty(s) && s(1) == '+'
         s = s(2:end);
     end
+    if isempty(s) || ~all(s >= '0' & s <= '9')
+        error('opensysml:transport', 'not an int64 literal: %s', s);
+    end
+    digits = regexprep(s, '^0+', '');
+    limit = '9223372036854775807';
+    if neg, limit = '9223372036854775808'; end
+    tooBig = numel(digits) > numel(limit);
+    if ~tooBig && numel(digits) == numel(limit)
+        d = find(digits ~= limit, 1);
+        tooBig = ~isempty(d) && digits(d) > limit(d);
+    end
+    if tooBig
+        error('opensysml:transport', 'int64 out of range: %s', s);
+    end
     acc = int64(0);
-    for c = s
-        if c < '0' || c > '9'
-            error('opensysml:transport', 'not an int64 literal: %s', s);
-        end
+    for c = digits
         acc = acc * int64(10) - int64(c - '0');
     end
     if neg
