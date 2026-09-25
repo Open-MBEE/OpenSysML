@@ -71,8 +71,9 @@ func (m *migration) planTables() {
 		td.query = m.viewName(v.host, name+rowsSuffix)
 		m.tableOf[t] = td
 		v.tables = append(v.tables, td)
+		rs := m.rowSetOf(t)
 		for _, c := range t.Columns {
-			if s := m.columnKey(c, v.host, m.rowSetOf(t)); s.feature != nil && s.why == "" && !c.Hidden {
+			if s := m.columnKey(c, v.host, rs); s.feature != nil && s.why == "" && !c.Hidden {
 				m.expose(s.feature, "a column of the table '"+name+"' reads it")
 			}
 		}
@@ -519,6 +520,7 @@ func (m *migration) rowClassifiers(types []sysmlv1.ElementRef) []*sysmlv1.Elemen
 // sorted orders rows by the table's sort keys, least significant first so the
 // stable sorts compose.
 func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) qx {
+	rs := m.rowSetOf(t)
 	for i := len(t.Sorts) - 1; i >= 0; i-- {
 		s := t.Sorts[i]
 		col, ok := columnByID(t, s.Column)
@@ -536,7 +538,7 @@ func (m *migration) sorted(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *
 		if col.Kind == sysmlv1.ColumnTool {
 			continue
 		}
-		src := m.columnKey(col, host, m.rowSetOf(t))
+		src := m.columnKey(col, host, rs)
 		if src.why != "" {
 			l.note(sortBySubject + s.Column + " is dropped: " + src.why)
 			continue
@@ -571,12 +573,13 @@ func columnByID(t *sysmlv1.Table, id string) (sysmlv1.Column, bool) {
 func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) qx {
 	p := &projection{}
 	shown := 0
+	rs := m.rowSetOf(t)
 	for _, c := range t.Columns {
 		if c.Hidden || c.Kind == sysmlv1.ColumnTool {
 			continue
 		}
 		shown++
-		src := m.columnKey(c, host, m.rowSetOf(t))
+		src := m.columnKey(c, host, rs)
 		if src.why != "" {
 			l.note(columnSubject + c.ID + " is omitted: " + src.why)
 			continue
