@@ -207,6 +207,10 @@ func (e *queryEval) positionalNames(cached *CachedModel) {
 	}
 	cached.positionalOnce.Do(func() {
 		candidates := make(map[string]map[*symbols.Symbol]bool)
+		type positionalCandidate struct {
+			name string
+			sym  *symbols.Symbol
+		}
 		for _, doc := range cached.Documents {
 			if doc == nil || doc.Source == nil {
 				continue
@@ -231,7 +235,10 @@ func (e *queryEval) positionalNames(cached *CachedModel) {
 				seen[current] = true
 				for _, sym := range current.AllMembers() {
 					if sym == nil || sym.DocName != doc.Source.Name() ||
-						(e.identifies(sym)) || (sym.Name != "" && !sym.EffectiveName()) || sym.Decl == nil {
+						e.identifies(sym) || sym.Decl == nil {
+						continue
+					}
+					if sym.Name != "" && !sym.EffectiveName() && sym.Owner() == nil {
 						continue
 					}
 					name, ok := names[sym.Decl.Span()]
@@ -249,18 +256,41 @@ func (e *queryEval) positionalNames(cached *CachedModel) {
 			}
 			walk(scope)
 		}
-		cached.positional = make(map[*symbols.Symbol]string)
-		cached.byPositional = make(map[string]*symbols.Symbol)
+
+		accepted := make([]positionalCandidate, 0, len(candidates))
 		for name, claims := range candidates {
-			var syms []*symbols.Symbol
-			for sym := range claims {
-				syms = append(syms, sym)
-			}
-			if len(syms) != 1 {
+			if len(claims) != 1 {
 				continue
 			}
-			cached.positional[syms[0]] = name
-			cached.byPositional[name] = syms[0]
+			for sym := range claims {
+				accepted = append(accepted, positionalCandidate{name: name, sym: sym})
+			}
+		}
+		slices.SortFunc(accepted, func(a, b positionalCandidate) int {
+			aDepth, bDepth := strings.Count(a.name, "::"), strings.Count(b.name, "::")
+			if aDepth < bDepth {
+				return -1
+			}
+			if aDepth > bDepth {
+				return 1
+			}
+			return strings.Compare(a.name, b.name)
+		})
+
+		cached.positional = make(map[*symbols.Symbol]string)
+		cached.byPositional = make(map[string]*symbols.Symbol)
+		for _, candidate := range accepted {
+			sym := candidate.sym
+			owner := sym.Owner()
+			if sym.Name != "" && !sym.EffectiveName() {
+				if owner == nil || cached.positional[owner] == "" {
+					continue
+				}
+			} else if owner != nil && !e.identifies(owner) && cached.positional[owner] == "" {
+				continue
+			}
+			cached.positional[sym] = candidate.name
+			cached.byPositional[candidate.name] = sym
 		}
 	})
 }
@@ -309,7 +339,7 @@ func (w *elementWalk) scope(s *symbols.Scope) {
 		return
 	}
 	w.walked[s] = true
-	for _, sym := range append(s.Members(), s.AnonymousMembers()...) {
+	for _, sym := range s.AllMembers() {
 		w.visit(sym)
 	}
 	for _, child := range s.Children() {

@@ -11,6 +11,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -141,6 +142,44 @@ func TestQueryScopeRestrictsToAnElementAndItsNested(t *testing.T) {
 	if !slices.Equal(ids, want) {
 		t.Errorf("scoped elements = %v, want %v", ids, want)
 	}
+}
+
+func TestQueryPreservesDeclarationOrderForNamedAndAnonymousMembers(t *testing.T) {
+	t.Run("unscoped", func(t *testing.T) {
+		model := `package Demo {
+			connect a to b;
+			part a;
+			part b;
+		}`
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{})
+		var got []string
+		for _, element := range resp.Elements {
+			got = append(got, element.Id)
+		}
+		want := []string{"Demo", "Demo::@0", "Demo::a", "Demo::b"}
+		if !slices.Equal(got, want) {
+			t.Errorf("element ids = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("scoped to a part", func(t *testing.T) {
+		model := `package Demo {
+			part host {
+				connect a to b;
+				part a;
+				part b;
+			}
+		}`
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{Scope: []string{"Demo::host"}})
+		var got []string
+		for _, element := range resp.Elements {
+			got = append(got, element.Id)
+		}
+		want := []string{"Demo::host", "Demo::host::@0", "Demo::host::a", "Demo::host::b"}
+		if !slices.Equal(got, want) {
+			t.Errorf("scoped element ids = %v, want %v", got, want)
+		}
+	})
 }
 
 // TestQueryScopeAndWhereCombine verifies a scope and a constraint apply
@@ -564,6 +603,51 @@ package Anon {
 	}
 }
 
+func TestQueryUsesPositionalIdentityForNamedChildOfUnnamedOwner(t *testing.T) {
+	model := `package Demo {
+		part {
+			part wheel;
+		}
+	}`
+	srv, modelHash, resp := runQueryOnSource(t, model, &pb.Query{})
+	want := []string{"Demo", "Demo::@0", "Demo::@0::wheel"}
+	var got []string
+	for _, element := range resp.Elements {
+		got = append(got, element.Id)
+		if element.Id == "Demo::@0::wheel" {
+			if owner := element.Properties[QueryPropOwner]; owner != "Demo::@0" {
+				t.Errorf("wheel owner = %q, want Demo::@0", owner)
+			}
+		}
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("element ids = %v, want %v", got, want)
+	}
+
+	for _, scope := range []struct {
+		id   string
+		want []string
+	}{
+		{id: "Demo::@0", want: []string{"Demo::@0", "Demo::@0::wheel"}},
+		{id: "Demo::@0::wheel", want: []string{"Demo::@0::wheel"}},
+	} {
+		scoped, err := srv.Query(context.Background(), &pb.QueryRequest{
+			ModelHash: modelHash,
+			Query:     &pb.Query{Scope: []string{scope.id}},
+		})
+		if err != nil {
+			t.Fatalf("Query with scope %q: %v", scope.id, err)
+		}
+		got := make([]string, 0, len(scoped.Elements))
+		for _, element := range scoped.Elements {
+			got = append(got, element.Id)
+		}
+		if !slices.Equal(got, scope.want) {
+			t.Errorf("scope %q returned %v, want %v", scope.id, got, scope.want)
+		}
+	}
+}
+
 const satisfyQueryModel = `package Demo {
 	part def Toaster;
 	requirement def EnergyReq { subject t : Toaster; }
@@ -729,6 +813,67 @@ func TestQuerySatisfyWithoutByAndFeatureChain(t *testing.T) {
 			t.Errorf("satisfyingFeature = %q, want Demo::Vehicle::heater", got)
 		}
 	})
+}
+
+func TestQueryOmitsSatisfyingFeatureWithoutQueryIdentity(t *testing.T) {
+	model := `package Demo {
+		requirement r;
+		action def A {
+			if true {
+				action step;
+				assert satisfy r by step;
+			}
+		}
+	}`
+	srv, modelHash, resp := runQueryOnSource(t, model, satisfyUsageQuery(QueryPropSatisfyingFeature))
+	if len(resp.Elements) != 1 {
+		t.Fatalf("satisfy elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	}
+	if _, ok := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; ok {
+		t.Errorf("satisfyingFeature = %q, want absent", resp.Elements[0].Properties[QueryPropSatisfyingFeature])
+	}
+
+	cached, ok := srv.cache.Get(modelHash)
+	if !ok {
+		t.Fatalf("model %q was not cached", modelHash)
+	}
+	sc := cached.SymbolContext()
+	unlock := sc.Lock()
+	defer unlock()
+	var satisfy *symbols.Symbol
+	var target ast.Node
+	var walk func(*symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		for _, sym := range scope.AllMembers() {
+			decl, ok := sym.Decl.(*ast.Usage)
+			if !ok || decl.Kind != ast.UsageSatisfy {
+				continue
+			}
+			satisfy = sym
+			for _, rel := range decl.Relationships {
+				if rel != nil && rel.Kind == ast.RelSubject {
+					target = rel.Target
+				}
+			}
+		}
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	for _, root := range cached.DocumentRoots() {
+		walk(root)
+	}
+	if satisfy == nil || target == nil {
+		t.Fatal("model has no satisfy usage with a by target")
+	}
+	resolved, ok := sc.Resolver.ResolveTarget(satisfy.OwnerScope, target)
+	if !ok || resolved == nil || resolved.Name != "step" {
+		t.Fatalf("by target resolved to %v, want body-local step", resolved)
+	}
+	eval := &queryEval{sc: sc, cached: cached}
+	if id := eval.identity(resolved); id != "" {
+		t.Fatalf("body-local step identity = %q, want absent", id)
+	}
 }
 
 func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {

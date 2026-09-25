@@ -877,9 +877,12 @@ property an element does not have is **absent**, not empty. Named elements use
 their qualified name as `@id`; an unnamed declaration uses the same positional
 qualified name as the RDF and API-JSON export, such as `Demo::@4`. That ID can
 also be used as a `scope`. A positionally identified element has no
-`qualifiedName`. An unnamed element is omitted when its document cannot be
-parsed or exported, when its positional name collides with a qualified name in
-the model, or when more than one declaration claims that name.
+`qualifiedName`. A named child of a positional element also uses the export's
+positional path, such as `Demo::@0::wheel` for `wheel` inside an unnamed part;
+its ID can also be used as a `scope`. A declaration requiring a positional
+identity is omitted when its document cannot be parsed or exported, when its
+positional name collides with a qualified name in the model, when more than one
+declaration claims that name, or when its unnamed owner was omitted.
 
 Neither is one declared inside an action body — a branch of an `if`, a loop body —
 since the body is owned by no element and so names its declarations only locally

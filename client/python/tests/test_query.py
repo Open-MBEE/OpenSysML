@@ -329,7 +329,7 @@ class TestQueryAgainstRealService:
                 "package Anon { doc /* unnamed */ part def Rig; part : Rig; }"
             ).query()
         ids = [e.id for e in elements]
-        assert ids[:2] == ["Anon", "Anon::Rig"]
+        assert ids[:2] == ["Anon", "Anon::@0"]
         assert sum("::@" in element_id for element_id in ids) == 2
 
     def test_satisfy_query_reports_both_ends(self, real_service):

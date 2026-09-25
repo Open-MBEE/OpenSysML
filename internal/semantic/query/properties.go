@@ -160,9 +160,7 @@ func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.N
 
 func (r *PropertyReader) elementIdentity(sym *symbols.Symbol) string {
 	if r.identity != nil {
-		if identity := r.identity(sym); identity != "" {
-			return identity
-		}
+		return r.identity(sym)
 	}
 	return r.index.GetFQN(sym)
 }
