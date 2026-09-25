@@ -54,10 +54,14 @@ type ToolOutput struct {
 
 // ToolValue is one value as the tool protocol carries it: a number or truth in Value, or a
 // string in Text when Value is invalid, and for a quantity the unit expression it is measured in.
+// A non-nil Items makes the value a sequence: each item is a scalar (its own Value/Text, Unit
+// empty — the sequence's Unit is shared by every item); an empty sequence is a non-nil empty
+// slice. Readers always allocate Items non-nil.
 type ToolValue struct {
 	Value semantics.Value
 	Text  string
 	Unit  string
+	Items []ToolValue
 }
 
 // ToolAnswer is what one invocation established: the values bound to the call's outputs by
@@ -534,18 +538,45 @@ func (c *ToolCall) Bind(outputs map[string]ToolValue) (map[string]Value, error) 
 
 // toolOutput reads one answered value as the parameter's: a string or bare number as is,
 // a quantity converted to the coherent unit of the parameter's declared quantity kind,
-// spelt as the declared type prefers. A unit is refused unless the parameter is a quantity,
-// and a value the parameter's declaration cannot hold is malformed.
+// spelt as the declared type prefers; a sequence answer binds each item likewise under the
+// shared unit. A unit is refused unless the parameter is a quantity, a sequence answered to
+// a single-valued parameter or a scalar to a multi-valued one is malformed, and a value the
+// parameter's declaration cannot hold — count included — is malformed.
 func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolValue) (Value, error) {
 	malformed := func(format string, args ...any) error {
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	value, err := e.toolOutputValue(malformed, out, answered)
-	if err != nil {
-		return Value{}, err
-	}
 	mult, _ := e.ctx.extractMultiplicity(out.Declared)
+	var value Value
+	if answered.Items != nil {
+		if mult.AtMostOne() {
+			return Value{}, malformed("%d values answered but %s holds at most one value (multiplicity %s)", len(answered.Items), out.Parameter, mult.Text())
+		}
+		seq := NewSequence()
+		for i, item := range answered.Items {
+			item.Unit = answered.Unit
+			// Items are named by their zero-based index, as JSON pointer indices are.
+			itemErr := func(format string, args ...any) error {
+				return malformed("element %d: "+format, append([]any{i}, args...)...)
+			}
+			element, err := e.toolOutputValue(itemErr, out, item)
+			if err != nil {
+				return Value{}, err
+			}
+			seq.Append(element)
+		}
+		value = NewSequenceValue(seq)
+	} else {
+		if !mult.AtMostOne() {
+			return Value{}, malformed("one value answered but %s holds a sequence (multiplicity %s)", out.Parameter, mult.Text())
+		}
+		var err error
+		value, err = e.toolOutputValue(malformed, out, answered)
+		if err != nil {
+			return Value{}, err
+		}
+	}
 	target := &writeTarget{name: out.Parameter, typ: e.ctx.extractType(out.Declared), mult: mult}
 	if err := e.ctx.checkWrite(e.ctx.protocolScope(e.root.scope), out.Parameter, target, &value); err != nil {
 		return Value{}, malformed("%v", err)
