@@ -157,3 +157,68 @@ func TestToolOutputSequenceBadItemNamesTheElement(t *testing.T) {
 		t.Fatalf("ExecuteAction = %v, want malformed naming element 1", err)
 	}
 }
+
+// A sequence's elements are counted against the collection-element budget like any
+// materialization: over the ceiling the run fails the element limit, not a malformed answer.
+func TestToolOutputSequenceCountsAgainstTheElementBudget(t *testing.T) {
+	ctx, scope := analysisFixture(t, sequenceModel)
+	if err := ctx.SetBudgets(Budgets{
+		MaxSteps: DefaultMaxSteps, MaxActionSteps: DefaultMaxActionSteps,
+		MaxStateEvents: DefaultMaxStateEvents, MaxDoSteps: DefaultMaxDoSteps,
+		MaxElements: 2, MaxCalcDepth: DefaultMaxCalcDepth, MaxSweepRuns: DefaultMaxSweepRuns,
+	}); err != nil {
+		t.Fatalf("SetBudgets: %v", err)
+	}
+	ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+		"speeds": toolSeq(ToolValue{Value: toolReal(1)}, ToolValue{Value: toolReal(2)}, ToolValue{Value: toolReal(3)}),
+	}})
+	_, err := ctx.ExecuteAction(calcNamed(t, scope, "RunProfile"))
+	var failure *ToolError
+	if errors.As(err, &failure) {
+		t.Fatalf("ExecuteAction = %v, want the element limit, not a malformed answer", err)
+	}
+	if !errors.Is(err, ErrElementLimitExceeded) {
+		t.Fatalf("ExecuteAction = %v, want ErrElementLimitExceeded", err)
+	}
+}
+
+// An empty sequence answering a unit keeps the unit: it is measured in the parameter's
+// coherent unit, the same as the elements a non-empty answer would carry.
+func TestToolOutputEmptySequenceKeepsItsUnit(t *testing.T) {
+	t.Run("measured", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"speeds": {Unit: "km/h", Items: make([]ToolValue, 0)},
+		}})
+		out, err := ctx.ExecuteAction(calcNamed(t, scope, "RunProfile"))
+		if err != nil {
+			t.Fatalf("ExecuteAction: %v", err)
+		}
+		unit, ok := out["speeds"].Sequence().ElementUnit()
+		if !ok || unit.String() != "SI::'m/s'" {
+			t.Fatalf("element unit = %v (%v), want SI::'m/s'", unit, ok)
+		}
+	})
+	t.Run("measured but not a quantity", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"few": {Unit: "K", Items: make([]ToolValue, 0)},
+		}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "RunFew"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed || !strings.Contains(failure.Detail, "is not a quantity to be measured in") {
+			t.Fatalf("ExecuteAction = %v, want malformed naming a non-quantity parameter", err)
+		}
+	})
+	t.Run("an unknown unit", func(t *testing.T) {
+		ctx, scope := analysisFixture(t, sequenceModel)
+		ctx.SetToolRunner(&recordingRunner{answer: map[string]ToolValue{
+			"speeds": {Unit: "furlongs/fortnight", Items: make([]ToolValue, 0)},
+		}})
+		_, err := ctx.ExecuteAction(calcNamed(t, scope, "RunProfile"))
+		var failure *ToolError
+		if !errors.As(err, &failure) || failure.Kind != ToolMalformed {
+			t.Fatalf("ExecuteAction = %v, want malformed naming the unit", err)
+		}
+	})
+}

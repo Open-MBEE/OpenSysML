@@ -553,20 +553,34 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 		if mult.AtMostOne() {
 			return Value{}, malformed("%d values answered but %s holds at most one value (multiplicity %s)", len(answered.Items), out.Parameter, mult.Text())
 		}
-		seq := NewSequence()
-		for i, item := range answered.Items {
-			item.Unit = answered.Unit
-			// Items are named by their zero-based index, as JSON pointer indices are.
-			itemErr := func(format string, args ...any) error {
-				return malformed("element %d: "+format, append([]any{i}, args...)...)
-			}
-			element, err := e.toolOutputValue(itemErr, out, item)
+		if len(answered.Items) == 0 && answered.Unit != "" {
+			// An empty sequence has no element to carry the unit: it is
+			// measured in the parameter's coherent unit itself.
+			_, coherent, err := e.toolMeasuredUnits(malformed, out, answered.Unit)
 			if err != nil {
 				return Value{}, err
 			}
-			seq.Append(element)
+			value = NewEmptySequenceOf(coherent)
+		} else {
+			elements := make([]Value, 0, len(answered.Items))
+			for i, item := range answered.Items {
+				item.Unit = answered.Unit
+				// Items are named by their zero-based index, as JSON pointer indices are.
+				itemErr := func(format string, args ...any) error {
+					return malformed("element %d: "+format, append([]any{i}, args...)...)
+				}
+				element, err := e.toolOutputValue(itemErr, out, item)
+				if err != nil {
+					return Value{}, err
+				}
+				elements = append(elements, element)
+			}
+			var err error
+			value, err = e.ctx.newSequence(elements)
+			if err != nil {
+				return Value{}, err
+			}
 		}
-		value = NewSequenceValue(seq)
 	} else {
 		if !mult.AtMostOne() {
 			return Value{}, malformed("one value answered but %s holds a sequence (multiplicity %s)", out.Parameter, mult.Text())
@@ -608,30 +622,40 @@ func (e *ActionExecutor) toolOutputValue(malformed func(string, ...any) error, o
 	if !answered.Value.IsNumeric() {
 		return Value{}, malformed("a truth is measured in %s", answered.Unit)
 	}
-	unit, err := e.toolUnit(answered.Unit)
-	switch {
-	case errors.Is(err, ErrNoExpressionParser):
+	from, to, err := e.toolMeasuredUnits(malformed, out, answered.Unit)
+	if err != nil {
 		return Value{}, err
-	case err != nil:
-		return Value{}, malformed("%v", err)
 	}
-	q := Quantity{Num: answered.Value, Unit: unit}
-	dim, ok := e.ctx.model.semantics.DimensionOfFeature(out.Declared)
-	if !ok {
-		if !e.ctx.quantityTyped(out.Declared) {
-			return Value{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, answered.Unit)
-		}
-		return quantityResult(q, nil)
-	}
-	coherent, ok := e.ctx.model.semantics.CoherentUnitFor(dim, out.Declared)
-	if !ok {
-		return NewQuantityValue(&q), nil
-	}
-	converted, err := semantics.ConvertQuantity(q, coherent)
+	converted, err := semantics.ConvertQuantity(Quantity{Num: answered.Value, Unit: from}, to)
 	if err != nil {
 		return Value{}, malformed("%s does not measure %s: %v", answered.Unit, out.Parameter, err)
 	}
 	return quantityResult(converted, nil)
+}
+
+// toolMeasuredUnits reads a unit the answer spells and resolves the unit its
+// parameter measures in: from is the unit as spelled, to the coherent unit of
+// the declared parameter's dimension, or the unit as spelled when the parameter
+// declares none but a quantity anyway.
+func (e *ActionExecutor) toolMeasuredUnits(malformed func(string, ...any) error, out ToolOutput, text string) (from semantics.Unit, to semantics.Unit, err error) {
+	unit, err := e.toolUnit(text)
+	switch {
+	case errors.Is(err, ErrNoExpressionParser):
+		return semantics.Unit{}, semantics.Unit{}, err
+	case err != nil:
+		return semantics.Unit{}, semantics.Unit{}, malformed("%v", err)
+	}
+	dim, ok := e.ctx.model.semantics.DimensionOfFeature(out.Declared)
+	if !ok {
+		if !e.ctx.quantityTyped(out.Declared) {
+			return semantics.Unit{}, semantics.Unit{}, malformed("%s is not a quantity to be measured in %s", out.Parameter, text)
+		}
+		return unit, unit, nil
+	}
+	if coherent, ok := e.ctx.model.semantics.CoherentUnitFor(dim, out.Declared); ok {
+		return unit, coherent, nil
+	}
+	return unit, unit, nil
 }
 
 // quantityTyped reports a feature one of whose types is a scalar quantity value type, so it
