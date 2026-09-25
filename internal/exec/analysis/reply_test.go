@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -188,24 +189,39 @@ func replyOf(t *testing.T, r *Reply) (*Reply, ToolEntry) {
 }
 
 // readReply parses source with a compiled reply; requested names the outputs the call
-// asks for, all of them when none is given. The kind of a fault is checked by callers.
+// asks for, all of them when none is given. It selects faults as tool.go's read does:
+// the first requested variable's, in sorted order. The kind of a fault is checked by callers.
 func readReply(t *testing.T, r *Reply, entry ToolEntry, source string, requested ...string) (map[string]runtime.ToolValue, error) {
 	t.Helper()
-	var wanted map[string]bool
-	if len(requested) > 0 {
-		wanted = make(map[string]bool, len(requested))
-		for _, name := range requested {
-			wanted[name] = true
-		}
-	}
+	var outputs map[string]runtime.ToolValue
+	var faults map[string]error
+	var err error
 	switch r.Format {
 	case ReplyJSON:
-		return r.readJSON(entry, []byte(source), wanted)
+		outputs, faults, err = r.readJSON(entry, []byte(source))
 	case ReplyCSV:
-		return r.readCSV(entry, []byte(source), wanted)
+		outputs, faults, err = r.readCSV(entry, []byte(source))
 	default:
-		return r.readLines(entry, []byte(source), wanted)
+		outputs, faults, err = r.readLines(entry, []byte(source))
 	}
+	if err != nil {
+		return nil, err
+	}
+	if len(requested) == 0 {
+		requested = r.outputsOrdered(entry.Variables, nil)
+	}
+	sorted := append([]string(nil), requested...)
+	sort.Strings(sorted)
+	bound := make(map[string]runtime.ToolValue, len(sorted))
+	for _, variable := range sorted {
+		if fault, ok := faults[variable]; ok {
+			return nil, fault
+		}
+		if value, ok := outputs[variable]; ok {
+			bound[variable] = value
+		}
+	}
+	return bound, nil
 }
 
 func replyKind(err error) runtime.ToolErrorKind {
@@ -459,14 +475,14 @@ func TestReplyReadsExitCode(t *testing.T) {
 	r, _ := replyOf(t, &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{
 		"done": {Type: TypeBoolean}}})
 	for code, want := range map[int]bool{0: true, 3: true, 1: false} {
-		out := r.readExitCode(&execution{exit: code}, nil)
+		out := r.readExitCode(&execution{exit: code})
 		if out["done"].Value.Bool != want {
 			t.Errorf("exit %d = %+v; want %v", code, out["done"], want)
 		}
 	}
 	r, _ = replyOf(t, &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{
 		"code": {Type: TypeInteger}}})
-	out := r.readExitCode(&execution{exit: 3}, nil)
+	out := r.readExitCode(&execution{exit: 3})
 	if out["code"].Value.Int != 3 {
 		t.Errorf("exit 3 as integer = %+v", out["code"])
 	}
@@ -605,6 +621,43 @@ func TestReplyReadsRequestedOutputs(t *testing.T) {
 	out, err = readReply(t, r, entry, `{"T_max": 341.2, "v_out": 36}`, "T_max", "done")
 	if err != nil || len(out) != 1 {
 		t.Errorf("an unmapped request: %v, %+v", err, out)
+	}
+}
+
+// A fault one unrequested output earns is recorded, not raised; the same fault on a
+// requested output fails the read with it.
+func TestReplyFaultsApplyOnlyToRequestedOutputs(t *testing.T) {
+	source := `{"T_max": 341.2}`
+	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
+		"T_max": {Path: jsonPath("/T_max")},
+		"v_out": {Path: jsonPath("/v_out")},
+	}})
+	if _, err := readReply(t, r, entry, source, "T_max"); err != nil {
+		t.Errorf("the unrequested missing output: %v, want no fault", err)
+	}
+	if _, err := readReply(t, r, entry, source, "T_max", "v_out"); replyKind(err) != runtime.ToolMissingOutput ||
+		!strings.Contains(err.Error(), "v_out") {
+		t.Errorf("the requested missing output: %v, want missing", err)
+	}
+}
+
+// A programmatic selector below zero is the same malformed fault as one too large, not
+// a panic.
+func TestReplyNegativeSelectors(t *testing.T) {
+	source := "T_max,code\n1,2\n"
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Index: -1, ByIndex: true}},
+	}})
+	if _, err := readReply(t, r, entry, source); replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "past the 2 fields") {
+		t.Errorf("negative column: %v", err)
+	}
+	r, entry = replyOf(t, &Reply{Format: ReplyCSV, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Name: "T_max"}, Row: &Row{Kind: RowIndex, Index: -1}},
+	}})
+	if _, err := readReply(t, r, entry, source); replyKind(err) != runtime.ToolMalformed ||
+		!strings.Contains(err.Error(), "only 1 rows") {
+		t.Errorf("negative row: %v", err)
 	}
 }
 

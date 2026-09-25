@@ -178,7 +178,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		process.remove()
 		return Result{}, err
 	}
-	reply, err := e.read(call, ex, process)
+	reply, wrote, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -198,14 +198,14 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Claim:    ClaimValue,
 		Strength: Observed,
 		Values:   values,
-		Reply:    renderReply(reply),
+		Reply:    wrote,
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil
 }
 
-// renderReply spells the tool's reply canonically, by variable name, as it was written and
-// before binding: two invocations of equal inputs compare by it.
+// renderReply spells a reply's outputs canonically, by variable name, as it was written
+// and before binding: two invocations of equal inputs compare by it.
 func renderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
@@ -290,35 +290,58 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 }
 
 // read parses the execution's reply as the entry's reply block says, reading the file a
-// `file:` source names before the invocation's directory is removed.
-func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+// `file:` source names before the invocation's directory is removed. Only the outputs the
+// call requests are bound, the first requested variable's fault failing; the divergence
+// text is the canonical rendering of every mapped output the reply yielded.
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, string, error) {
 	tool := e.entry.ToolName
 	r := e.entry.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
 		source, err := e.replySource(ex, process)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		return ToolReplyOf(tool, source)
+		parsed, err := ToolReplyOf(tool, source)
+		if err != nil {
+			return nil, "", err
+		}
+		return parsed, renderReply(parsed), nil
 	}
-	wanted := make(map[string]bool, len(call.Outputs))
-	for _, out := range call.Outputs {
-		wanted[out.Variable] = true
-	}
+	var outputs map[string]runtime.ToolValue
+	var faults map[string]error
 	if r.Format == ReplyExitCode {
-		return r.readExitCode(ex, wanted), nil
+		outputs = r.readExitCode(ex)
+	} else {
+		source, err := e.replySource(ex, process)
+		if err != nil {
+			return nil, "", err
+		}
+		if r.Format == ReplyJSON {
+			outputs, faults, err = r.readJSON(e.entry, source)
+		} else if r.Format == ReplyCSV {
+			outputs, faults, err = r.readCSV(e.entry, source)
+		} else {
+			outputs, faults, err = r.readLines(e.entry, source)
+		}
+		if err != nil {
+			return nil, "", err
+		}
 	}
-	source, err := e.replySource(ex, process)
-	if err != nil {
-		return nil, err
+	requested := make([]string, 0, len(call.Outputs))
+	for _, out := range call.Outputs {
+		requested = append(requested, out.Variable)
 	}
-	if r.Format == ReplyJSON {
-		return r.readJSON(e.entry, source, wanted)
+	sort.Strings(requested)
+	bound := make(map[string]runtime.ToolValue, len(requested))
+	for _, variable := range requested {
+		if fault, ok := faults[variable]; ok {
+			return nil, "", fault
+		}
+		if value, ok := outputs[variable]; ok {
+			bound[variable] = value
+		}
 	}
-	if r.Format == ReplyCSV {
-		return r.readCSV(e.entry, source, wanted)
-	}
-	return r.readLines(e.entry, source, wanted)
+	return bound, renderReply(outputs), nil
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —
