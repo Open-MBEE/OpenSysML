@@ -503,10 +503,8 @@ package 'Fleet Documents' {
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "Second note.";
             }
-            part 'paragraph 3' : DocumentQueries::Paragraph {
-                attribute redefines text = "Figure: the fleet at the depot";
-            }
-            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file */
+            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "fleet.png" is not in the archive */
+            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" is not in the archive */
             /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
         }

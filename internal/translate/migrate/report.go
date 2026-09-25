@@ -81,6 +81,9 @@ type Report struct {
 	// Layout accounts for the MTIP export the migration was augmented with;
 	// nil when none was.
 	Layout *LayoutSummary `json:"layout,omitempty"`
+	// Images counts the attached image files the migration wrote beside the
+	// notation for its Image blocks.
+	Images int `json:"images,omitempty"`
 }
 
 // LayoutSummary accounts for what an MTIP export contributed to a migration:
@@ -158,6 +161,9 @@ func (r *Report) Summary() string {
 		s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed",
 			r.Layout.DiagramsJoined, r.Layout.DiagramsJoined+r.Layout.ViewsWithoutLayout, r.Layout.Source,
 			commas(r.Layout.PlacementsWritten), commas(r.Layout.RoutesWritten))
+	}
+	if r.Images > 0 {
+		s += fmt.Sprintf("; wrote %d image file(s)", r.Images)
 	}
 	return s
 }

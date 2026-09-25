@@ -1,7 +1,10 @@
 package migrate
 
 import (
+	"bytes"
 	"fmt"
+	"html"
+	"path"
 	"regexp"
 	"slices"
 	"strconv"
@@ -75,6 +78,9 @@ type contentPlan struct {
 	// the query-backed kinds.
 	query string
 	rows  qx
+	// location and alt are what an Image block shows and says for it.
+	location string
+	alt      string
 	// source is the view a Diagram shows; anchor the Document's usage of the
 	// definition holding it, when one does.
 	source  *view
@@ -228,7 +234,8 @@ func (c *chain) start(v *sysmlv1.DocGenView) {
 }
 
 // collaboratorParagraph plans a paragraph the View Editor attached to a view:
-// its comment's body, verbatim, or a comment saying why not.
+// its comment's body, verbatim, or a comment saying why not; an image
+// paragraph becomes an Image block when the attached file can be located.
 func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenParagraph) *contentPlan {
 	cp := &contentPlan{kind: "Paragraph", node: p.Comment, label: "«Paragraph» Comment"}
 	if p.Image {
@@ -241,14 +248,12 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	}
 	switch {
 	case cp.refused != "":
-	case p.Image && cp.text == "":
-		cp.refused = "the attached image " + attachedFile(p.Comment) + " has no caption, and a Diagram shows a view, not an image file"
 	case p.Image:
-		cp.notes = append(cp.notes, "the attached image "+attachedFile(p.Comment)+" is not written, since a Diagram shows a view, not an image file; its caption stands as the paragraph")
+		m.planImage(sec, cp, p)
 	case cp.text == "":
 		cp.refused = "the paragraph's comment has no body"
 	}
-	if cp.refused == "" {
+	if cp.refused == "" && cp.name == "" {
 		cp.name = sec.names.claim("paragraph")
 	}
 	if cp.refused != "" {
@@ -257,17 +262,172 @@ func (m *migration) collaboratorParagraph(sec *sectionPlan, p *sysmlv1.DocGenPar
 	return cp
 }
 
-// attachedFile names the file the tool attached to comment c, quoted; "an
-// unnamed file" when the attachment names none.
-func attachedFile(c *sysmlv1.Element) string {
+// planImage turns an image paragraph's plan into an Image block: the comment's
+// <img src>, or its AttachedFile tag, names the file the archive holds; the
+// comment's body is the caption and the file name the alt text. An http(s)
+// source needs no bytes: the document renders it at view time.
+func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocGenParagraph) {
+	cp.kind = "Image"
+	cp.caption = cp.text
+	cp.text = ""
+	src, file := m.imageSource(p.Comment)
+	switch {
+	case isRemoteImage(src):
+		cp.location = src
+	case file != "":
+		if location, ok := m.imageFile(file, p.Comment); ok {
+			cp.location = location
+		} else {
+			cp.refused = "the attached image " + strconv.Quote(file) + " is not in the archive"
+			return
+		}
+	case src != "":
+		if location, ok := m.imageFile(src, p.Comment); ok {
+			cp.location = location
+		} else {
+			cp.refused = "the attached image " + strconv.Quote(src) + " is not in the archive"
+			return
+		}
+	default:
+		cp.refused = "the image paragraph's comment names no attached file"
+		return
+	}
+	cp.alt = file
+	if cp.alt == "" {
+		cp.alt = src
+	}
+	if cp.alt == "" {
+		cp.alt = cp.caption
+	}
+	cp.name = sec.names.claim("image")
+}
+
+// attachmentName is the raw file name the AttachedFile tag states.
+func attachmentName(c *sysmlv1.Element) string {
 	for _, s := range c.Stereotypes {
 		if s.Name == "AttachedFile" && s.Namespace == sysmlv1.MagicDrawProfileNS {
 			if f := strings.TrimSpace(s.Tag("file")); f != "" {
-				return strconv.Quote(f)
+				return f
 			}
 		}
 	}
-	return "an unnamed file"
+	return ""
+}
+
+var imgSourceRe = regexp.MustCompile(`(?i)<img[^>]+src\s*=\s*["']([^"']+)["']`)
+
+// imageSource reads the image an image-paragraph comment names: the first
+// <img src> in its body, and the AttachedFile tag's file name.
+func (m *migration) imageSource(c *sysmlv1.Element) (src, file string) {
+	if c == nil {
+		return "", ""
+	}
+	body := c.Attrs["body"]
+	if o := firstOwned(c, "body"); o != nil && strings.TrimSpace(body) == "" {
+		body = o.Text
+	}
+	if match := imgSourceRe.FindStringSubmatch(body); match != nil {
+		src = html.UnescapeString(match[1])
+	}
+	return src, attachmentName(c)
+}
+
+// isRemoteImage reports a location rendered where it stands: an http(s) URL
+// the archive need not hold.
+func isRemoteImage(src string) bool {
+	lower := strings.ToLower(src)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
+}
+
+// imageFile locates the archive entry name names, by exact name, then base
+// name, then an entry path carrying the comment's element id, and registers
+// its bytes for writing beside the notation under images/.
+func (m *migration) imageFile(name string, c *sysmlv1.Element) (string, bool) {
+	entry := m.findEntry(name, c)
+	if entry == "" {
+		return "", false
+	}
+	data, ok := m.model.Attachment(entry)
+	if !ok {
+		return "", false
+	}
+	return m.addFile(path.Base(strings.ReplaceAll(name, "\\", "/")), data), true
+}
+
+// findEntry names the archive entry holding the attachment name names: the
+// exact entry, one whose base name equals it, or one whose path carries an id
+// of the attaching element.
+func (m *migration) findEntry(name string, c *sysmlv1.Element) string {
+	names := m.model.AttachmentNames()
+	if len(names) == 0 || name == "" {
+		return ""
+	}
+	if slices.Contains(names, name) {
+		return name
+	}
+	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	for _, n := range names {
+		if path.Base(n) == base {
+			return n
+		}
+	}
+	if c != nil {
+		for _, id := range append([]string{c.ID}, stereotypeIDs(c)...) {
+			if id == "" {
+				continue
+			}
+			for _, n := range names {
+				if strings.Contains(n, id) {
+					return n
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// stereotypeIDs lists the ids of c's stereotype applications, so an
+// attachment stored under its application's id is found.
+func stereotypeIDs(c *sysmlv1.Element) []string {
+	ids := make([]string, 0, len(c.Stereotypes))
+	for _, s := range c.Stereotypes {
+		if s.ID != "" {
+			ids = append(ids, s.ID)
+		}
+	}
+	return ids
+}
+
+// unsafeFileChars are the bytes replaced in a written image file's name.
+var unsafeFileChars = strings.NewReplacer("\\", "_", "/", "_", ":", "_", " ", "_", "?", "_", "#", "_", "%", "_")
+
+// addFile registers data for writing beside the notation as images/<name>,
+// sanitized and deduplicated: identical bytes already registered reuse the
+// path, a colliding name gains a numeric suffix.
+func (m *migration) addFile(name string, data []byte) string {
+	base := unsafeFileChars.Replace(name)
+	if base == "" || base == "." || base == ".." {
+		base = "image"
+	}
+	if path, ok := m.fileContents[string(data)]; ok {
+		return path
+	}
+	ext := path.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	path := "images/" + base
+	for i := 2; ; i++ {
+		if have, taken := m.files[path]; !taken {
+			break
+		} else if !bytes.Equal(have, data) {
+			path = "images/" + stem + "-" + strconv.Itoa(i) + ext
+		} else {
+			break
+		}
+	}
+	m.files[path] = data
+	m.fileContents[string(data)] = path
+	m.imagesWritten++
+	return path
 }
 
 // strayParagraph reports a collaborator paragraph attached to no document view.
@@ -1875,6 +2035,7 @@ var libraryMembers = map[string][]string{
 	"Table":     {"caption", "groupBy", "rows"},
 	"List":      {"style", "items"},
 	"Diagram":   {"caption", "kind", "direction", "palette", "source"},
+	"Image":     {"location", "caption", "alt"},
 }
 
 // blockNames is the member set of a block of the library kind whose own
@@ -1954,6 +2115,16 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		m.blockPart(dp.host, cp.name, "Diagram", nil, func() {
 			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
 			m.w.line("ref redefines source = " + m.diagramSource(dp, cp) + ";")
+		})
+	case "Image":
+		m.blockPart(dp.host, cp.name, "Image", nil, func() {
+			m.w.line("attribute redefines location = " + stringLiteral(cp.location) + ";")
+			if cp.caption != "" {
+				m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
+			}
+			if cp.alt != "" {
+				m.w.line("attribute redefines alt = " + stringLiteral(cp.alt) + ";")
+			}
 		})
 	}
 	return cp.notes

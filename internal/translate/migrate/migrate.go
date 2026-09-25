@@ -37,6 +37,10 @@ type Result struct {
 	Notation []byte
 	Report   *Report
 	Results  *simresults.Results
+	// Files are the attached image files the documents' Image blocks show, by
+	// the relative path they are written under (images/<name>); a caller
+	// writes them beside the notation, empty when none was attached.
+	Files map[string][]byte
 }
 
 // Options carries the optional inputs of a migration: an MTIP export whose
@@ -138,6 +142,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		indexed:      map[string]int{},
 		userProfiles: map[*sysmlv1.Element]bool{},
 		defsWritten:  map[*sysmlv1.Element]bool{},
+		files:        map[string][]byte{},
+		fileContents: map[string]string{},
 		pending:      map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
@@ -203,7 +209,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.diagrams()
 	m.layoutReport()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
+	m.report.Images = m.imagesWritten
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results, Files: m.files}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -368,6 +375,12 @@ type migration struct {
 	indexed map[string]int
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
+	// files are the attached image files the documents' Image blocks show, by
+	// the relative path they are written under; fileContents deduplicates by
+	// content, and imagesWritten counts them for the report's summary.
+	files         map[string][]byte
+	fileContents  map[string]string
+	imagesWritten int
 	// userProfiles memoizes which profiles are a user's own; see userProfile.
 	userProfiles map[*sysmlv1.Element]bool
 	// namespacesOf lists the XML namespaces each profile's stereotypes are applied under.

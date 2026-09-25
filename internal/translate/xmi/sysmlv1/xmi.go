@@ -145,6 +145,9 @@ type Model struct {
 	// names for applied stereotypes, by namespace and name.
 	stereotypeHrefs map[stereotypeKey]string
 	ancestors       map[*Element][]*Element
+	// entries are the archive's entries by name, for reading attachments;
+	// nil when the model was not read from an archive.
+	entries map[string]*zip.File
 }
 
 // stereotypeKey identifies an applied stereotype by the namespace it is
@@ -426,11 +429,40 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
 	}
 	m.readStreams(entries)
+	m.entries = entries
 	model, err := m.finish()
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)
 	}
 	return model, nil
+}
+
+// Attachment returns the archive entry named name read in full; false when
+// the model was not read from an archive or names no such entry.
+func (m *Model) Attachment(name string) ([]byte, bool) {
+	if m.entries == nil {
+		return nil, false
+	}
+	f := m.entries[name]
+	if f == nil {
+		return nil, false
+	}
+	data, err := readEntry(f)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// AttachmentNames lists the archive's entries by name; empty when the model
+// was not read from an archive.
+func (m *Model) AttachmentNames() []string {
+	names := make([]string, 0, len(m.entries))
+	for name := range m.entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // readEntry reads one archive entry within the size bound.

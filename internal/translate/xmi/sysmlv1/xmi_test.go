@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -811,5 +812,39 @@ func TestStereotypeAncestry(t *testing.T) {
 	}
 	if got := names(m.Ancestors(m.Lookup("_pong"))); got != "Ping Pong" {
 		t.Errorf("Pong ancestors = %q", got)
+	}
+}
+
+// TestAttachments reads arbitrary archive entries — here an attached image —
+// after the model parsed; a model not read from an archive has none.
+func TestAttachments(t *testing.T) {
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob := []byte("\x89PNG fleet")
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"com.nomagic.magicdraw.uml_model.model": data,
+		"attachments/fleet.png":                 blob,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := m.Attachment("attachments/fleet.png")
+	if !ok || !bytes.Equal(got, blob) {
+		t.Errorf("Attachment = %q, %v", got, ok)
+	}
+	if _, ok := m.Attachment("missing.png"); ok {
+		t.Error("a missing entry reported an attachment")
+	}
+	if !slices.Contains(m.AttachmentNames(), "attachments/fleet.png") {
+		t.Errorf("AttachmentNames = %v", m.AttachmentNames())
+	}
+	plain, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plain.Attachment("attachments/fleet.png"); ok || len(plain.AttachmentNames()) != 0 {
+		t.Error("a plain-XMI model reported attachments")
 	}
 }

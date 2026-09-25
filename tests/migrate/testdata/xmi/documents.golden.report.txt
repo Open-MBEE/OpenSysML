@@ -1,9 +1,10 @@
 # SysML v1 to v2 migration report: documents.xmi
 # exported by Example UML Tool
-# migrated 317 element(s): 236 mapped, 65 approximated, 16 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 317 element(s): 236 mapped, 64 approximated, 17 unmapped (4 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## unmapped (16)
-«CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file)
+## unmapped (17)
+«CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_image	(the attached image "fleet.png" is not in the archive)
+«CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_blank_image	(the attached image "depot.png" is not in the archive)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_named	(property "META:QPROP:Element:name" is not the comment body)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_empty	(the paragraph's comment has no body)
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_stray	(ownerId "_view_gone" names no view of the document)
@@ -20,12 +21,11 @@ CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Oddities Method::Missin
 «Dynamic_View» CallBehaviorAction	Fleet Viewpoints::Oddities Viewpoint::Per Truck::Per Truck Again	_st_per_truck	(the «Dynamic_View» Activity Fleet Viewpoints::Oddities Viewpoint::Per Truck calls itself, and a recursive section has no static spelling)
 Activity	Fleet Viewpoints::Severed Viewpoint::Severed Method	_act_severed	(the method Fleet Viewpoints::Severed Viewpoint::Severed Method is not migrated: ControlFlow _severed_e2's target "_severed_gone" names no node)
 
-## approximated (65)
+## approximated (64)
 «Document» Class	Fleet Documents::Fleet Brief	_doc_brief	-> 'Fleet Documents'::'Fleet Brief'	(a plain UML class without «Block» is written as a part def)
 «Document» Class	Fleet Documents::Fleet Handbook	_doc_handbook	-> 'Fleet Documents'::'Fleet Handbook'	(a plain UML class without «Block» is written as a part def)
-«Document» Class	Fleet Documents::Fleet Handbook	_st_doc_handbook	-> part def 'Fleet Documents'::'Fleet Handbook Document'	(the «Document» is written as a Document definition of 9 section(s); the column «TableExpressionColumn» Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Owner Name is not written: the expression "owner.name" is not a bare query property (name, documentation, qualifiedName, owner, id); the column name is written as name 2: column names are unique; Project lists its properties first: name, qualifiedName, documentation precede the other columns; elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id); each item's documentation follows its name; the attached image "fleet.png" is not written, since a Diagram shows a view, not an image file; its caption stands as the paragraph; Conform general "_vp_gone" names no element)
+«Document» Class	Fleet Documents::Fleet Handbook	_st_doc_handbook	-> part def 'Fleet Documents'::'Fleet Handbook Document'	(the «Document» is written as a Document definition of 9 section(s); the column «TableExpressionColumn» Fleet Viewpoints::Parts Viewpoint::Parts Method::Fleet Parts::Owner Name is not written: the expression "owner.name" is not a bare query property (name, documentation, qualifiedName, owner, id); the column name is written as name 2: column names are unique; Project lists its properties first: name, qualifiedName, documentation precede the other columns; elements of the stereotypes specializing «Safety» are kept too; the column «TableExpressionColumn» Fleet Viewpoints::Safety Viewpoint::Safety Method::Safety Requirements::Owner is not written: the expression "owner.oclAsType(NamedElement).name" is not a bare query property (name, documentation, qualifiedName, owner, id); each item's documentation follows its name; Conform general "_vp_gone" names no element)
 «View» Class	Fleet Documents::Notes	_view_notes	-> 'Fleet Documents'::Notes	(a generalization refers to nothing in the document)
-«CollaboratorImageParagraph» Comment	Fleet Documents::Notes::<Comment>	_st_note_image	-> part 'Fleet Documents'::'Fleet Handbook Document'::Notes::'paragraph 3'	(the attached image "fleet.png" is not written, since a Diagram shows a view, not an image file; its caption stands as the paragraph)
 Activity	Fleet Viewpoints::Broken Viewpoint::Broken Method	_act_broken	-> 'Fleet Viewpoints'::'Broken Viewpoint'::'Broken Method'	(the classifier behavior is run by every object of Fleet Viewpoints::Broken Viewpoint as its usage broken Method)
 «Paragraph» CallBehaviorAction	Fleet Viewpoints::Broken Viewpoint::Broken Method::Paragraph	_broken_para	-> Paragraph	(no edge leads to the node, so it starts with the activity; a step with no behavior and no duration; it passes the token on)
 Activity	Fleet Viewpoints::Figure Owners Viewpoint::Figure Owners Method	_act_owners	-> 'Fleet Viewpoints'::'Figure Owners Viewpoint'::'Figure Owners Method'	(the classifier behavior is run by every object of Fleet Viewpoints::Figure Owners Viewpoint as its usage figure Owners Method)
