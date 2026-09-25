@@ -63,6 +63,11 @@ func goFor(t *testing.T, target wasmTarget, args ...string) ([]byte, error) {
 // link builds cmd/<name> for the target, stamped, and checks the artifact is a
 // WebAssembly module: the four bytes every runtime dispatches on. The binary is
 // returned for the run gate to execute.
+//
+// It is a plain `go build`, not tests/testutil/gobuild: that helper adds -cover so a
+// process it starts credits the coverage profile, and a WebAssembly process has
+// nowhere to write Go's counters to — instrumenting these would buy nothing and make
+// the link slower.
 func link(t *testing.T, target wasmTarget, name, dir string) string {
 	t.Helper()
 	out := filepath.Join(dir, name+".wasm")
