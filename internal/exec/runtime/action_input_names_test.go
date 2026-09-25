@@ -78,10 +78,12 @@ const mixModel = `action mix {
 	out attribute c;
 }`
 
-// TestActionInputsBindsPositionalAfterNamed: the positional arguments bind the
-// first input parameters no named argument covered, in declaration order; more
-// positional arguments than parameters left is ErrActionArity.
-func TestActionInputsBindsPositionalAfterNamed(t *testing.T) {
+// TestActionInputsBindsAsAnInvocationDoes: positional arguments bind the first
+// input parameters in declaration order and named ones the rest; a parameter
+// two arguments would bind is ErrDuplicateArgument, a name no parameter carries
+// is ErrUnknownParameter, and more positional arguments than parameters is
+// ErrActionArity.
+func TestActionInputsBindsAsAnInvocationDoes(t *testing.T) {
 	model, resolver, root := parseAndBuildModel(t, mixModel)
 	ctx := NewContext(typedModel(model, resolver), 1000)
 	mix := resolveSymbol(t, root, "mix")
@@ -89,18 +91,26 @@ func TestActionInputsBindsPositionalAfterNamed(t *testing.T) {
 	if got := ctx.ActionInputNames(mix); fmt.Sprint(got) != "[a b]" {
 		t.Fatalf("ActionInputNames = %v, want [a b]", got)
 	}
-	inputs, err := ctx.ActionInputs(mix, []Value{constInt(7)}, map[string]Value{"b": constInt(9)})
+	inputs, err := ctx.ActionInputs(mix, []Value{constInt(7)}, map[string]Value{"b": constInt(3)})
 	if err != nil {
 		t.Fatalf("ActionInputs: %v", err)
 	}
-	if inputs["a"].Const.Int != 7 || inputs["b"].Const.Int != 9 {
-		t.Fatalf("inputs = %+v, want a = 7 bound positionally, b = 9 by name", inputs)
+	if inputs["a"].Const.Int != 7 || inputs["b"].Const.Int != 3 {
+		t.Fatalf("inputs = %+v, want a = 7 bound positionally, b = 3 by name", inputs)
 	}
-	_, err = ctx.ActionInputs(mix, []Value{constInt(1), constInt(2)}, map[string]Value{"a": constInt(3)})
+	_, err = ctx.ActionInputs(mix, []Value{constInt(7)}, map[string]Value{"a": constInt(3)})
+	if !errors.Is(err, ErrDuplicateArgument) {
+		t.Fatalf("positional and named a = %v, want ErrDuplicateArgument", err)
+	}
+	_, err = ctx.ActionInputs(mix, nil, map[string]Value{"c": constInt(1)})
+	if !errors.Is(err, ErrUnknownParameter) {
+		t.Fatalf("named c = %v, want ErrUnknownParameter", err)
+	}
+	_, err = ctx.ActionInputs(mix, []Value{constInt(1), constInt(2), constInt(3)}, nil)
 	if !errors.Is(err, ErrActionArity) {
-		t.Fatalf("one named and two positional = %v, want ErrActionArity", err)
+		t.Fatalf("three positional = %v, want ErrActionArity", err)
 	}
-	if !strings.Contains(err.Error(), "takes 2 argument(s), got 3") {
+	if !strings.Contains(err.Error(), "takes 2 input parameter(s), got 3 argument(s)") {
 		t.Errorf("error = %v, want the arity spelled", err)
 	}
 }

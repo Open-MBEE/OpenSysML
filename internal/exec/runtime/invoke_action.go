@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -546,30 +548,35 @@ func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
 	return in
 }
 
-// ActionInputs is the inputs an invocation of sym binds: the named arguments,
-// then the positional ones to the first `in` parameters no named argument
-// covered. More positional arguments than parameters left is ErrActionArity.
+// ActionInputs is the inputs an invocation of sym binds, as bindArgumentList
+// binds them: the positional arguments to the first `in` parameters in
+// declaration order, then the named ones in sorted order. More positional
+// arguments than parameters is ErrActionArity, a name no `in` parameter carries
+// is ErrUnknownParameter, and one a positional argument already bound is
+// ErrDuplicateArgument.
 func (ctx *Context) ActionInputs(sym *symbols.Symbol, positional []Value, named map[string]Value) (map[string]Value, error) {
 	names := ctx.ActionInputNames(sym)
-	namedIn := 0
-	var free []string
-	for _, name := range names {
-		if _, taken := named[name]; taken {
-			namedIn++
-			continue
-		}
-		free = append(free, name)
+	if len(positional) > len(names) {
+		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
+			ErrActionArity, symbolText(sym), len(names), len(positional))
 	}
-	if len(positional) > len(free) {
-		return nil, fmt.Errorf("%w: action %s takes %d argument(s), got %d",
-			ErrActionArity, symbolText(sym), len(names), len(positional)+namedIn)
-	}
-	inputs := make(map[string]Value, len(named)+len(positional))
-	for name, value := range named {
-		inputs[name] = value
-	}
+	inputs := make(map[string]Value, len(names))
+	bound := make(map[string]bool, len(names))
 	for i, value := range positional {
-		inputs[free[i]] = value
+		inputs[names[i]] = value
+		bound[names[i]] = true
+	}
+	for _, name := range slices.Sorted(maps.Keys(named)) {
+		if !slices.Contains(names, name) {
+			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
+				ErrUnknownParameter, symbolText(sym), name)
+		}
+		if bound[name] {
+			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
+				ErrDuplicateArgument, name, symbolText(sym))
+		}
+		bound[name] = true
+		inputs[name] = named[name]
 	}
 	return inputs, nil
 }

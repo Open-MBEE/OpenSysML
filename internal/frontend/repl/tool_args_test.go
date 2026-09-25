@@ -11,5 +11,5 @@ func TestToolBindsAnActionsArguments(t *testing.T) {
 
 	wants(t, run(t, s, "%tool Tools::Heating(30)"), "mass = 30")
 	wants(t, run(t, s, "%tool Tools::Heating(mass=30)"), "mass = 30")
-	wants(t, run(t, s, "%tool Tools::Heating(1,2)"), "argument count mismatch", "takes 1 argument(s), got 2")
+	wants(t, run(t, s, "%tool Tools::Heating(1,2)"), "argument count mismatch", "takes 1 input parameter(s), got 2 argument(s)")
 }
