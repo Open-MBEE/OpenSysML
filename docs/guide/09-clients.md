@@ -24,7 +24,7 @@ exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
 
-## The same task, five ways
+## The same task, seven ways
 
 One model, one task, in each language: parse a file, evaluate an attribute against an object, look
 up a definition, instantiate it. Pick your language in the tabs; the sections after them go into
@@ -87,7 +87,26 @@ package Demo {
 
     Not published yet, so take it from git or a path. Rust 1.83 or later.
 
-The four service clients each need a `sysml-grpc` binary to start, and they share the cache they
+=== "Julia"
+
+    ```julia
+    using Pkg; Pkg.develop(path="client/julia/OpenSysML")
+    using OpenSysML
+    ```
+
+    Not in the registry yet, so take it as a path package. Julia 1.10 or later; `HTTP.jl` and
+    `JSON.jl` are the only dependencies.
+
+=== "MATLAB"
+
+    ```matlab
+    addpath('client/matlab')
+    ```
+
+    No installation step beyond the path: the package is plain `.m` files. MATLAB R2019b+ or GNU
+    Octave 7+.
+
+The six service clients each need a `sysml-grpc` binary to start, and they share the cache they
 find one in — `~/.opensysml/bin/sysml-grpc`, then `$PATH`, with a release downloaded into that
 cache when `$OPENSYSML_GRPC_VERSION` asks for one. An explicit path comes first, from a variable
 that differs by client: `$OPENSYSML_BINARY` for Python and Node, `$OPENSYSML_GRPC_BINARY` for Java
@@ -169,6 +188,32 @@ one. The Go API needs none: it is the engine.
     let built = model.instantiate("Demo::Vehicle")?;
 
     println!("{}", built.instance.type_symbol_id());  // Demo::Vehicle
+    ```
+
+=== "Julia"
+
+    ```julia
+    using OpenSysML
+
+    conn = connect()
+    model = parse_file(conn, "vehicle.sysml")
+
+    evaluate(model, "mass"; subject="Demo::sedan")   # 1800.0
+    vehicle = symbol(model, "Demo::Vehicle")         # partDef, Demo::Vehicle
+    built = instantiate(model, "Demo::Vehicle")
+    built.type_symbol_id                             # Demo::Vehicle
+    ```
+
+=== "MATLAB"
+
+    ```matlab
+    conn = opensysml.connect();
+    model = opensysml.parseFile(conn, 'vehicle.sysml');
+
+    mass = opensysml.evaluate(model, 'mass', 'subject', 'Demo::sedan');  % 1800
+    vehicle = opensysml.symbol(model, 'Demo::Vehicle');                  % partDef, Demo::Vehicle
+    built = opensysml.instantiate(model, 'Demo::Vehicle');
+    built.type_symbol_id                                               % Demo::Vehicle
     ```
 
 Names differ, answers do not: one engine parses the file and one runtime computes `mass`, so
@@ -1382,6 +1427,58 @@ generated `ExecuteActionRequest` with its `schedule` field and the `Outcome` and
 
 [The Rust API reference](../reference/rust-api.md) documents the API, the error variants and the one
 gap in its release verification.
+
+## From Julia
+
+```julia
+using OpenSysML
+
+conn = connect()                                    # $OPENSYSML_SERVICE, else a private child
+model = parse_source(conn, "package Demo { part def Car { attribute mass = 1500.0; } }")
+
+evaluate(model, "2 + 2")                            # 4, as an Int64
+car = symbol(model, "Demo::Car")
+built = instantiate(model, "Demo::Car")             # Instance: id, type_symbol_id, feature_values
+```
+
+The client is thin: JSON over HTTP against the Connect-JSON surface, with `HTTP.jl` and `JSON.jl`
+as its only dependencies. `connect()` honours `$OPENSYSML_SERVICE` and otherwise spawns a private
+child (`sysml-grpc -port 0 -health-port 0 -report-address -exit-with-parent`), holding the child's
+stdin open so the service dies with the process however it dies; `close(conn)` closes the pipe and
+reaps it. `private()` and `external(address)` are the explicit forms. Errors surface as
+`ConnectError` (a refused call), `TransportError` (the service never answered JSON) and
+`DiagnosticError` (the call answered, and the model failed). `call(conn, "Method", request)`
+reaches every RPC, whether or not a named function wraps it — that is what the conformance runner
+drives. The declared floor is Julia 1.10.
+
+[The Julia API reference](../reference/julia-api.md) documents the surface, the `Value` decoding
+and the conformance runner.
+
+## From MATLAB
+
+```matlab
+addpath('client/matlab')
+
+conn = opensysml.connect();                         % $OPENSYSML_SERVICE, else a private child
+model = opensysml.parseSource(conn, 'package Demo { part def Car { attribute mass = 1500.0; } }', ...
+    'name', 'demo.sysml');
+
+opensysml.evaluate(model, '2 + 2')                  % int64(4)
+car = opensysml.symbol(model, 'Demo::Car');
+built = opensysml.instantiate(model, 'Demo::Car');  % struct: id, type_symbol_id, feature_values
+```
+
+The package runs in MATLAB R2019b+ and GNU Octave 7+ — the same JSON-over-HTTP surface, with
+`matlab.net.http` under MATLAB and a `curl` subprocess under Octave. `opensysml.private` spawns the
+service through Java's `ProcessBuilder`, so an Octave built without Java cannot run a private
+child: use `opensysml.external(address)` or `OPENSYSML_SERVICE` instead, which is also what CI
+exercises. Errors are `MException`s with `opensysml:*` identifiers — `opensysml:connect`,
+`opensysml:transport`, `opensysml:diagnostics` — and `opensysml.call`/`callRaw` reach every RPC,
+the path the conformance runner drives. Request lists are cell arrays, because `jsonencode` writes
+a 1x1 struct as one object.
+
+[The MATLAB API reference](../reference/matlab-api.md) documents the surface, the `Value` decoding
+and what differs under Octave.
 
 ---
 

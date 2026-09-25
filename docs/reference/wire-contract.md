@@ -2181,7 +2181,10 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
-and where its pitfalls lie. A real client for any of these languages is one that passes the
+and where its pitfalls lie. The Julia and MATLAB illustrations have since grown into the shipped
+[`client/julia`](../../client/julia/OpenSysML/README.md) and
+[`client/matlab`](../../client/matlab/README.md) packages, which run the conformance suite
+through their own APIs; the R and C snippets remain illustrations only. A real client for any of these languages is one that passes the
 scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client
 does ([Every client runs the same conformance suite](clients.md#every-client-runs-the-same-conformance-suite)).
 Each snippet is a POST helper that classifies Connect errors, plus the `Value` decoder from

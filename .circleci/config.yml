@@ -32,6 +32,19 @@ executors:
       - image: cimg/node:22.12
     resource_class: medium
 
+  # Julia 1.10 is the client's declared [compat] floor.
+  julia-executor:
+    docker:
+      - image: julia:1.10
+    resource_class: medium
+
+  # GNU Octave on the smallest base: MATLAB itself has no CI image, and
+  # Octave >= 7 is the floor the client supports.
+  octave-executor:
+    docker:
+      - image: cimg/base:current
+    resource_class: medium
+
 commands:
   # The solver is an external process: without one on PATH the
   # solver-dependent tests would skip rather than run.
@@ -962,6 +975,88 @@ jobs:
           path: bin/conformance-report-rust.json
           destination: conformance-report-rust.json
 
+  # The Julia client: Pkg.test plus the conformance suite, against a service
+  # binary built here (this executor has no Go toolchain, so the orb installs
+  # it like the Rust job does).
+  julia-client:
+    executor: julia-executor
+    steps:
+      - checkout
+
+      - go/install:
+          version: "1.25.0"
+
+      - run:
+          name: Build sysml-grpc
+          command: make build-grpc
+
+      - run:
+          name: Run Julia tests
+          command: |
+            cd client/julia/OpenSysML
+            OPENSYSML_GRPC_BINARY="$PWD/../../../bin/sysml-grpc" \
+              julia --project=. -e 'using Pkg; Pkg.test()'
+
+      - run:
+          name: Run Julia conformance
+          command: make conformance-julia
+
+      - store_artifacts:
+          path: bin/conformance-report-julia.json
+          destination: conformance-report-julia.json
+
+  # The MATLAB client under GNU Octave: MATLAB has no CI image, so Octave is
+  # the tested path (the matlab.net.http branch is exercised by no gate).
+  # Octave's Java-free build cannot spawn a private child, so the job starts a
+  # service itself and hands the runner its address.
+  matlab-client:
+    executor: octave-executor
+    steps:
+      - checkout
+
+      - go/install:
+          version: "1.25.0"
+
+      - run:
+          name: Install GNU Octave
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y octave
+
+      - run:
+          name: Build sysml-grpc
+          command: make build-grpc
+
+      - run:
+          name: Run MATLAB client tests
+          command: |
+            bin/sysml-grpc -port 0 -health-port 0 -report-address > bin/octave-svc-addr &
+            svc_pid=$!
+            for i in $(seq 1 100); do [ -s bin/octave-svc-addr ] && break; sleep 0.1; done
+            test -s bin/octave-svc-addr
+            cd client/matlab/tests
+            OPENSYSML_SERVICE="$(cat ../../bin/octave-svc-addr)" octave --no-gui --eval "run_tests"
+            rc=$?
+            kill $svc_pid 2>/dev/null || true
+            exit $rc
+
+      - run:
+          name: Run MATLAB conformance
+          command: |
+            bin/sysml-grpc -port 0 -health-port 0 -report-address > bin/octave-svc-addr &
+            svc_pid=$!
+            for i in $(seq 1 100); do [ -s bin/octave-svc-addr ] && break; sleep 0.1; done
+            test -s bin/octave-svc-addr
+            addr=$(cat bin/octave-svc-addr)
+            octave --no-gui --eval "addpath('client/matlab'); addpath('client/matlab/conformance'); addpath('client/matlab/conformance/private'); run_conformance('--address','$addr','--report','bin/conformance-report-matlab.json')"
+            rc=$?
+            kill $svc_pid 2>/dev/null || true
+            exit $rc
+
+      - store_artifacts:
+          path: bin/conformance-report-matlab.json
+          destination: conformance-report-matlab.json
+
   # The Java client: unit tests, the conformance suite over both Connect
   # encodings, and the committed stubs checked against what buf generates.
   java-test:
@@ -1825,6 +1920,14 @@ workflows:
           filters: *integration-branches
       - rust-test:
           name: Rust client tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - julia-client:
+          name: Julia client tests
+          requires: *scan-inputs
+          filters: *integration-branches
+      - matlab-client:
+          name: MATLAB client tests
           requires: *scan-inputs
           filters: *integration-branches
       - java-test:
