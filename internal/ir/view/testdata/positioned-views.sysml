@@ -45,6 +45,7 @@ package Quoted {
 	action def 'First Line\nSecond Line';
 	part def 'It\'s';
 	part def 'back\\slash';
+	part def 'ctl\bx\fy\rz';
 }
 
 package PositionedViews {
@@ -121,11 +122,20 @@ package PositionedViews {
 		@Note { text = "small"; x = 400; y = 400; width = 50; height = 30; }
 	}
 
+	// An inner frame note declared before the outer one still paints after it.
+	view nestedNoteFrameView {
+		expose Compartment::Outer;
+		metadata Layout about Compartment::Outer { x = 40; y = 40; width = 20; height = 20; }
+		@Note { text = "inner"; x = 20; y = 20; width = 100; height = 100; }
+		@Note { text = "outer"; x = 0; y = 0; width = 200; height = 200; }
+	}
+
 	// Quoted names whose escapes decode in the label.
 	view escapedView {
 		expose Quoted::'First Line\nSecond Line';
 		expose Quoted::'It\'s';
 		expose Quoted::'back\\slash';
+		expose Quoted::'ctl\bx\fy\rz';
 	}
 
 	// Leaves the first exposed element unplaced: the frame header names the

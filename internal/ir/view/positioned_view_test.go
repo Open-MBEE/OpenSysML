@@ -254,6 +254,34 @@ func TestEnclosingNotePaintsBehindTheNodes(t *testing.T) {
 	}
 }
 
+// An inner frame note declared before its outer frame still paints after it:
+// the outer note is written first, then the inner, then the node, each frame
+// captioned at its top.
+func TestNestedEnclosingNotesPaintOutermostFirst(t *testing.T) {
+	rendering := render(t, "positioned-views.sysml", "PositionedViews::nestedNoteFrameView")
+	outer := findNode(t, rendering.Roots, "Compartment::Outer")
+	dot, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	inner, outerNote, node := strings.Index(dot, `"note:0"`), strings.Index(dot, `"note:1"`), strings.Index(dot, `"`+outer.ID+`" [`)
+	if inner < 0 || outerNote < 0 || node < 0 {
+		t.Fatalf("missing a node or note box: inner %d, outer %d, node %d:\n%s", inner, outerNote, node, dot)
+	}
+	if !(outerNote < inner && inner < node) {
+		t.Errorf("note order = outer %d, inner %d, node %d, want outer < inner < node:\n%s", outerNote, inner, node, dot)
+	}
+	line := func(at int) string {
+		end := strings.IndexByte(dot[at:], '\n')
+		return dot[at : at+end]
+	}
+	for i, at := range []int{inner, outerNote} {
+		if !strings.Contains(line(at), "labelloc=t") {
+			t.Errorf("note:%d's caption is not set at its top:\n%s", i, line(at))
+		}
+	}
+}
+
 // A quoted name's escapes decode in the label: `\n` a line break, `\'` a
 // quote, `\\` one backslash — in every form, the quotes kept.
 func TestQuotedNameEscapesDecodeInLabels(t *testing.T) {
@@ -262,13 +290,20 @@ func TestQuotedNameEscapesDecodeInLabels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{"First Line<br/>Second Line", "It&#39;s", `back\slash`} {
+	for _, want := range []string{"First Line<br/>Second Line", "It&#39;s", `back\slash`, "ctlxy<br/>z"} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	if mermaid := rendering.Mermaid(); !strings.Contains(mermaid, "First Line<br>Second Line") {
+	if strings.ContainsAny(dot, "\b\f\r") {
+		t.Errorf("DOT carries a control escape:\n%s", dot)
+	}
+	mermaid := rendering.Mermaid()
+	if !strings.Contains(mermaid, "First Line<br>Second Line") {
 		t.Errorf("Mermaid lacks a <br> break:\n%s", mermaid)
+	}
+	if strings.ContainsAny(mermaid, "\b\f\r") {
+		t.Errorf("Mermaid carries a control escape:\n%s", mermaid)
 	}
 	plantuml, err := rendering.PlantUML()
 	if err != nil {
@@ -276,6 +311,9 @@ func TestQuotedNameEscapesDecodeInLabels(t *testing.T) {
 	}
 	if !strings.Contains(plantuml, `First Line\nSecond Line`) {
 		t.Errorf("PlantUML lacks a \\n break:\n%s", plantuml)
+	}
+	if strings.ContainsAny(plantuml, "\b\f\r") {
+		t.Errorf("PlantUML carries a control escape:\n%s", plantuml)
 	}
 	path, err := exec.LookPath("dot")
 	if err != nil {
