@@ -63,7 +63,7 @@ Out of scope, and stated as such in the report where they apply:
 
 - **Data nondeterminism.** Inputs, `in` parameters and unbound features are fixed at the values
   the caller gave; the checker explores scheduling, not the value domain. Value-domain questions
-  are the SMT layer's (`internal/core/solve`), which reasons about constraints and requirements
+  are the SMT layer's (`internal/exec/solve`), which reasons about constraints and requirements
   over free variables and has no notion of a behavior's state. The two are complementary and stay
   separate here; [SMT bounded model checking](smt-model-checking.md) is the design that gives the
   solver that notion, with this engine as its referee.
@@ -91,7 +91,7 @@ scheduler has a choice:
 | Messages in flight | `Context.messages` (the message bus `send` posts to and `accept` consumes from, oldest first) | The bus contents in arrival order |
 | State configuration | `StateExecutor.activeConfig`, `stateStack`, `history`, `stateAttrs`, `stateData` | All of it |
 | Event queue | `StateExecutor.eventQueue` (a heap ordered by timestamp, completion first, then arrival), `deferred`, `timerScheduled`, `changeFired`, `changeWaits` | The queue as a sequence in dispatch order; the latches |
-| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each |
+| `do` behaviors | `StateExecutor.doActions` (in state-entry order, one action per round) | The pending statements of each, and where its flow paused between token moves |
 | Virtual time | `Context.clock` (`now` and the waiters on it), shared by every executor of the context | Captured, not explored |
 
 Not captured: the memo tables (`calcShapes`, `writeTargets`, `invocationTargets`, literal
@@ -156,17 +156,25 @@ time. Two consequences:
   `right { x := 2 }` admit `y = 2`. The checker takes the coarser reading — one body, one atomic
   step — and says so in the report. Statement-level interleaving multiplies the state space by
   the product of body lengths for no property a systems model states; the coarse reading is
-  also the one the executor implements, so the checker's outcomes are a superset of the
-  executor's rather than of a finer semantics it does not have. A later stage may add a
+  also the one the executor implements, so for an action the checker's outcomes are a superset
+  of the executor's rather than of a finer semantics it does not have. A later stage may add a
   `-granularity statement` mode if a property needs it.
 
 For a state machine the atomic unit is **one dispatch**: take one event off the queue, select
 the transitions it enables in the active configuration, fire them, run entries and effects, and
-stop. A `do` round is one atomic unit per do behavior: one **do step** runs one due body until
-it completes or waits. Every executor on the invocation's clock — the behaviors started and the
+stop. A **do step** is one token move of one due `do` behavior's flow, and the dispatch owed is drawn
+against each. Every executor on the invocation's clock — the behaviors started and the
 machines of the objects they materialize — moves one unit at a time, and the checker draws
 which moves as the clock's `runDue` draws it (`ChoiceDueOrder`): the executor drawn holds the
 turn until it has no move left at the instant, then the order is drawn again.
+
+A do step moves one token of the body's flow, and after each move the machine may dispatch or
+move the flow again, a recorded choice (`ChoiceStepOrder`); the fixed policies instead advance
+every steppable token of the flow once a round and dispatch between rounds. That run — the whole
+round, then the dispatch — is one path of the checker's enumeration, so for a machine with a
+looping `do` the checker's outcomes are a superset of the fixed policies'
+(`state_do_action_loop_timed_exit` searches to completion over its four; see the
+[do-step site](region-order-scheduling.md#the-do-step-site)).
 
 ### The choice points
 
@@ -333,7 +341,7 @@ Two moves in different `actionFrame`s that read and write only their own frame's
 independent by construction; this is the common case for fork branches that compute into their
 own pins and meet at a join, and it is what makes the reduction effective on real models.
 
-Footprints are computed once per node when the graph is lowered, in `internal/core/lower`, and
+Footprints are computed once per node when the graph is lowered, in `internal/ir/lower`, and
 stored beside `Bodies` as `Footprints map[ast.Node]Footprint`. The lowering layer already
 resolves every name a statement uses (`Assign.Scope`, `Send.TargetSym`, `AssignTarget.Steps`);
 the footprint is a projection of what it has, not a new analysis. That keeps the executor's
@@ -398,7 +406,9 @@ The overall verdict is one of:
   the bounds hit are listed.
 - `no violation, exhaustive` — every schedule ended complete and no bound was hit. This is the
   only verdict that is a proof, and it is a proof relative to the atomicity rule and the
-  properties given.
+  properties given: a machine's `do` behavior is stepped one token move at a time and the
+  dispatch is drawn against each move, so the fixed policies' whole round then the dispatch is
+  one of the schedules ([design note](region-order-scheduling.md#the-do-step-site)).
 - `violation` — with the property, the state, and a witness schedule.
 - `divergent` — no violation, but a named feature ends differently on different schedules.
 

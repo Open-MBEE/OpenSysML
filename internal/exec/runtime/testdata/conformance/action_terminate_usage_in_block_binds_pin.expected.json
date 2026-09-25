@@ -1,0 +1,9 @@
+{
+	"type": "action",
+	"libraries": true,
+	"outputs": {
+		"result": {"type": "Integer", "value": 42},
+		"y": {"type": "Integer", "value": 0},
+		"z": {"type": "Integer", "value": 3}
+	}
+}

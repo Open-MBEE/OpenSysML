@@ -1,14 +1,14 @@
 ---
 name: testing-pilot-corpora-gate
-description: How to verify the four OMG corpus gates (internal/core/model/corpus_gate_test.go + pilot_corpora_test.go + training_examples_test.go and their testdata expectations) end to end on Linux — running both gates, proving the baselines are reproducible/machine-independent, the adversarial mutations that must fail, absence handling per root, and exercising the shared pilot-pin.sh downloader.
+description: How to verify the four OMG corpus gates (tests/corpus/corpus_gate_test.go + pilot_corpora_test.go + training_examples_test.go and their testdata expectations) end to end on Linux — running both gates, proving the baselines are reproducible/machine-independent, the adversarial mutations that must fail, absence handling per root, and exercising the shared pilot-pin.sh downloader.
 ---
 
 # Testing the OMG corpus gates (training assertion + pilot-corpora ratchet)
 
-Shell-only; no GUI or recording needed. One full `./internal/core/model` run is ~60s; the two
+Shell-only; no GUI or recording needed. One full `./internal/workspace/model` run is ~60s; the two
 corpus tests alone are ~4s, so iterate with `-run` and only do the full run at the start/end.
 
-Four pinned OMG model roots, **one mechanism, two policies** (`internal/core/model/corpus_gate_test.go`):
+Four pinned OMG model roots, **one mechanism, two policies** (`tests/corpus/corpus_gate_test.go`):
 
 | root | dir | policy | expectation file |
 |---|---|---|---|
@@ -23,7 +23,7 @@ Four pinned OMG model roots, **one mechanism, two policies** (`internal/core/mod
 ./scripts/download-training-examples.sh   # examples/sysml-v2-training  (untracked/gitignored)
 ./scripts/download-pilot-corpora.sh       # examples/pilot-corpora      (untracked/gitignored)
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
-  go test -count=1 -v ./internal/core/model
+  go test -count=1 -v ./internal/workspace/model
 ```
 
 The corpora are gitignored, so **copy them aside first** (`cp -a examples/pilot-corpora
@@ -46,21 +46,21 @@ output with `grep -E "a|b"` breaks when a pattern starts with `-`; use `grep -E 
 ## Reproducibility of the baselines
 
 ```bash
-go test -count=1 ./internal/core/model -run TestPilotCorporaDiagnostics    -update-pilot-corpora
-go test -count=1 ./internal/core/model -run TestTrainingExamplesSemanticErrors -update-training
-git diff --exit-code -- internal/core/model/testdata/
+go test -count=1 ./tests/corpus -run TestPilotCorporaDiagnostics    -update-pilot-corpora
+go test -count=1 ./tests/corpus -run TestTrainingExamplesSemanticErrors -update-training
+git diff --exit-code -- internal/workspace/model/testdata/
 ```
 
 Regeneration must be byte-identical across runs, from a different cwd
 (`cd /tmp && XDG_CACHE_HOME=$(mktemp -d) go test -C <repo> ...`) and with a fresh `XDG_CACHE_HOME` —
 each test sets `XDG_CACHE_HOME` to a temp dir itself, which is what makes it machine-independent.
 Also check no absolute paths leak:
-`grep -nE '(^|[[:space:]])/(home|tmp|Users)' internal/core/model/testdata/*_expected.txt` must find nothing.
+`grep -nE '(^|[[:space:]])/(home|tmp|Users)' tests/corpus/testdata/*_expected.txt` must find nothing.
 
 ## Adversarial mutations that must each fail (restore with `git checkout --` after each)
 
-Mutate `internal/core/model/testdata/pilot_corpora_expected.txt` and re-run
-`OPENSYSML_REQUIRE_PILOT_CORPORA=1 go test -count=1 ./internal/core/model -run TestPilotCorporaDiagnostics`:
+Mutate `tests/corpus/testdata/pilot_corpora_expected.txt` and re-run
+`OPENSYSML_REQUIRE_PILOT_CORPORA=1 go test -count=1 ./tests/corpus -run TestPilotCorporaDiagnostics`:
 
 | mutation | expected message |
 |---|---|
@@ -106,7 +106,7 @@ For each of the four roots, in three shapes (moved aside / empty-but-present / o
   `... holds no model files: ...`
 - without it → exit 0 with `--- SKIP` plus the `!!! GATE NOT RUN` stderr banner naming the right
   fetch script for that gate.
-- CI catch: `go test -count=1 -v ./internal/core/model -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log`
+- CI catch: `go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log`
   then `grep -qE '^\s*--- SKIP' corpus-gate.log`. Note an absent **pilot** root surfaces in that CI
   command only as `--- SKIP: TestCorpusGatesCacheStateIndependent/pilot-corpora` (the ratchet test
   itself is not in the `-run` pattern) — the grep still catches it, and that is worth verifying.
@@ -174,7 +174,7 @@ checkout so the gate does not skip):
    and keep a genuine violation of the same check nearby as the negative control, so "fixed" is
    distinguished from "check dropped".
 
-Print spans for one corpus file by dropping a scratch `*_test.go` into `internal/core/model`: the
+Print spans for one corpus file by dropping a scratch `*_test.go` into `internal/workspace/model`: the
 gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)` /
 `.counts(t, files)`), diagnostics carry byte offsets only, so map them with
 `source.New(name, content).Lines().PosAt(d.Span.Offset)`.
@@ -182,9 +182,9 @@ gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)`
 ## Tooling on this box
 
 `actionlint`, `shellcheck`, `python3 scripts/check-doc-links.py`, `gofmt`, `go vet`,
-`go run ./cmd/pilot-diff` (validators pre-downloaded; ~4min, prints e.g.
+`go run -C tools ./cmd/pilot-diff` (validators pre-downloaded; ~4min, prints e.g.
 the headline the committed baseline holds — `379 file(s), 347 fully agreeing; 38 agreed
-diagnostic(s), 38 only ours, 1247 only the pilot's` after the Legend of the Red Dragon example round at the `2026-08` pin, so read it from
+diagnostic(s), 38 only ours, 1582 only the pilot's` at the `2026-08` pin, so read it from
 `docs/project/pilot-differential-baseline.json` rather than from this line)
 and `make lint` (staticcheck+gosec, ~2min) all work. There is **no** `yamllint` and **no**
 `circleci` CLI, so `.circleci/config.yml` can only be parsed as YAML, not schema-validated — say so

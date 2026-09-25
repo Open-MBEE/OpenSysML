@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 import * as manifest from "../package.json";
 import { AUTO_OPEN_SETTING } from "./autoopen";
+import { DEFAULT_STYLE, STYLE_SETTING, STYLES } from "./style";
 import { MODEL_LANGUAGES, PANEL_TYPE } from "./target";
 
 interface Keybinding {
@@ -128,4 +129,36 @@ test("the diagram opens on its own by default, and the setting that turns it off
   assert.equal(setting.type, "boolean");
   assert.equal(setting.default, true);
   assert.ok(setting.description || setting.markdownDescription, "the setting is described");
+});
+
+test("Restricted Mode is supported, with only the executable-naming settings restricted", () => {
+  const { capabilities, contributes } = manifest as {
+    capabilities: {
+      untrustedWorkspaces: {
+        supported: string;
+        restrictedConfigurations: string[];
+      };
+    };
+    contributes: { configuration: { properties: Record<string, unknown> } };
+  };
+  assert.equal(capabilities.untrustedWorkspaces.supported, "limited");
+  const { properties } = contributes.configuration;
+  const executableSettings = Object.keys(properties).filter((name) => name === "opensysml.server.path" || name === "opensysml.server.args");
+  for (const name of capabilities.untrustedWorkspaces.restrictedConfigurations) {
+    assert.ok(properties[name], `${name} is not a declared setting`);
+  }
+  assert.deepEqual([...capabilities.untrustedWorkspaces.restrictedConfigurations].sort((a, b) => a.localeCompare(b)), [...executableSettings].sort((a, b) => a.localeCompare(b)));
+});
+
+test("the style setting offers every look the panel does, each described, and follows the theme by default", () => {
+  const { properties } = manifest.contributes.configuration as {
+    properties: Record<string, { type: string; default: unknown; enum?: string[]; enumDescriptions?: string[]; markdownDescription?: string }>;
+  };
+  const setting = properties[STYLE_SETTING];
+  assert.ok(setting, `${STYLE_SETTING} is declared`);
+  assert.equal(setting.type, "string");
+  assert.equal(setting.default, DEFAULT_STYLE);
+  assert.deepEqual(setting.enum, [...STYLES]);
+  assert.equal(setting.enumDescriptions?.length, STYLES.length);
+  assert.ok(setting.markdownDescription, "the setting is described");
 });

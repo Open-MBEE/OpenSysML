@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:MD_Customization_for_SysML__additional_stereotypes="http://www.magicdraw.com/spec/Customization/180/SysML"
+         xmlns:Vehicle_Profile="http://example.com/schemas/Vehicle_Profile.xmi"
+         xmlns:Legacy_Tool="http://example.com/legacy/customization">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Profile" xmi:id="_vp" name="Vehicle Profile" URI="http://example.com/schemas/Vehicle_Profile.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_vp_part" name="PartProperty">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_vp_part_base" name="base_Property" association="_vp_ext">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Property"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_vp_ext" memberEnd="_vp_part_base _vp_ext_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_vp_ext_end" name="extension_PartProperty" type="_vp_part" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Package" xmi:id="_sys" name="Fleet">
+      <packagedElement xmi:type="uml:Class" xmi:id="_vehicle" name="Vehicle">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_mass" name="mass">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_mode" name="mode" type="_modes"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_engine" name="engine" type="_engine_def" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_spare" name="spare" type="_wheel" aggregation="shared"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_lead" name="lead" type="_wheel"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_limit" name="limit" type="_maxspeed" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_odd" name="odd" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_axle" name="axle" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_cabin" name="cabin" type="_engine_def" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_serial" name="serial">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.String"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_engine_def" name="Engine"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_wheel" name="Wheel"/>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_modes" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_modes_eco" name="eco"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_modes_sport" name="sport"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_maxspeed" name="MaxSpeed">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_v" name="v">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_wheel" name="wheel" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_hub" name="hub" type="_wheel" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_ms_k" name="k">
+          <type href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML_dataType.Real"/>
+        </ownedAttribute>
+        <ownedRule xmi:type="uml:Constraint" xmi:id="_ms_rule" constrainedElement="_maxspeed">
+          <specification xmi:type="uml:OpaqueExpression" xmi:id="_ms_spec">
+            <body>v &lt;= 120.0</body>
+            <language>SysML</language>
+          </specification>
+        </ownedRule>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_a_vehicle" base_Class="_vehicle"/>
+  <sysml:Block xmi:id="_a_engine" base_Class="_engine_def"/>
+  <sysml:Block xmi:id="_a_wheel" base_Class="_wheel"/>
+  <sysml:ConstraintBlock xmi:id="_a_maxspeed" base_Class="_maxspeed"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_mass" base_Property="_mass"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_mode" base_Property="_mode"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_engine" base_Property="_engine"/>
+  <MD_Customization_for_SysML__additional_stereotypes:SharedProperty xmi:id="_mk_spare" base_Property="_spare"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_mk_lead" base_Property="_lead"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ConstraintProperty xmi:id="_mk_limit" base_Property="_limit"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_ms_v" base_Property="_ms_v"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_ms_wheel" base_Property="_ms_wheel"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_ms_hub" base_Property="_ms_hub"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ReferenceProperty xmi:id="_mk_ms_k" base_Property="_ms_k"/>
+  <MD_Customization_for_SysML__additional_stereotypes:ValueProperty xmi:id="_mk_odd" base_Property="_odd"/>
+  <MD_Customization_for_SysML__additional_stereotypes:PartProperty xmi:id="_mk_axle" base_Property="_axle" ordering="rear"/>
+  <Vehicle_Profile:PartProperty xmi:id="_mk_cabin" base_Property="_cabin"/>
+  <Legacy_Tool:ValueProperty xmi:id="_mk_serial" base_Property="_serial"/>
+</xmi:XMI>

@@ -1,0 +1,17 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "trace": true,
+  "events": [
+    {"signal": "Go", "args": null},
+    {"signal": "Next", "args": null},
+    {"signal": "Up", "args": null},
+    {"signal": "Leave", "args": null},
+    {"signal": "Back", "args": null},
+    {"signal": "Finish", "args": null}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "String", "value": "outer(entry);idle(entry);b(entry);inner(entry);a(entry);c(entry);b(exit);d(entry);a(exit);c(exit);inner(exit);up(effect);d(exit);outer(exit);leave(effect);away(entry);back(effect);outer(entry);idle(entry);d(entry);d(exit);outer(exit);"}
+  }
+}

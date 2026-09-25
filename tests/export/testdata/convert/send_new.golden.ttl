@@ -1,0 +1,677 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:SendNew
+    a sysml:Package ;
+    sysml:qualifiedName "SendNew" ;
+    sysml:elementId "SendNew" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "SendNew" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:SendNew__Telemetry, elmt:SendNew__Command, elmt:SendNew__Radio, elmt:SendNew__Station, elmt:SendNew__Downlink ;
+    sysml:ownedMembership elmt:SendNew__Telemetry_om, elmt:SendNew__Command_om, elmt:SendNew__Radio_om, elmt:SendNew__Station_om, elmt:SendNew__Downlink_om ;
+    sysml:ownedRelationship elmt:SendNew__Telemetry_om, elmt:SendNew__Command_om, elmt:SendNew__Radio_om, elmt:SendNew__Station_om, elmt:SendNew__Downlink_om ;
+    sysx:sourceText "package SendNew {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"SendNew__Telemetry\"},{\"@id\":\"SendNew__Command\"},{\"@id\":\"SendNew__Radio\"},{\"@id\":\"SendNew__Station\"},{\"@id\":\"SendNew__Downlink\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Telemetry_om\"},{\"@id\":\"SendNew__Command_om\"},{\"@id\":\"SendNew__Radio_om\"},{\"@id\":\"SendNew__Station_om\"},{\"@id\":\"SendNew__Downlink_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Telemetry_om\"},{\"@id\":\"SendNew__Command_om\"},{\"@id\":\"SendNew__Radio_om\"},{\"@id\":\"SendNew__Station_om\"},{\"@id\":\"SendNew__Downlink_om\"}]" .
+
+elmt:SendNew__Telemetry
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "SendNew::Telemetry" ;
+    sysml:elementId "SendNew__Telemetry" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew ;
+    sysml:owner elmt:SendNew ;
+    sysml:owningRelationship elmt:SendNew__Telemetry_om ;
+    sysml:owningMembership elmt:SendNew__Telemetry_om ;
+    sysml:declaredName "Telemetry" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:SendNew__Telemetry__frames ;
+    sysml:ownedMembership elmt:SendNew__Telemetry__frames_om ;
+    sysml:ownedRelationship elmt:SendNew__Telemetry__frames_om ;
+    sysml:ownedFeature elmt:SendNew__Telemetry__frames ;
+    sysml:ownedFeatureMembership elmt:SendNew__Telemetry__frames_om ;
+    sysx:sourceText "    item def Telemetry {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:SendNew__Telemetry_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Telemetry_om" ;
+    sysml:owner elmt:SendNew ;
+    sysml:memberElement elmt:SendNew__Telemetry ;
+    sysml:ownedMemberElement elmt:SendNew__Telemetry ;
+    sysml:ownedRelatedElement elmt:SendNew__Telemetry ;
+    sysml:owningRelatedElement elmt:SendNew ;
+    sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Telemetry__frames
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "SendNew::Telemetry::frames" ;
+    sysml:elementId "SendNew__Telemetry__frames" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew__Telemetry ;
+    sysml:owner elmt:SendNew__Telemetry ;
+    sysml:owningRelationship elmt:SendNew__Telemetry__frames_om ;
+    sysml:owningMembership elmt:SendNew__Telemetry__frames_om ;
+    sysml:declaredName "frames" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "        attribute frames;\n" .
+
+elmt:SendNew__Telemetry__frames_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "SendNew__Telemetry__frames_om" ;
+    sysml:owner elmt:SendNew__Telemetry ;
+    sysml:memberElement elmt:SendNew__Telemetry__frames ;
+    sysml:ownedMemberElement elmt:SendNew__Telemetry__frames ;
+    sysml:ownedRelatedElement elmt:SendNew__Telemetry__frames ;
+    sysml:owningRelatedElement elmt:SendNew__Telemetry ;
+    sysml:membershipOwningNamespace elmt:SendNew__Telemetry ;
+    sysml:ownedMemberFeature elmt:SendNew__Telemetry__frames ;
+    sysml:owningType elmt:SendNew__Telemetry .
+
+elmt:SendNew__Command
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "SendNew::Command" ;
+    sysml:elementId "SendNew__Command" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew ;
+    sysml:owner elmt:SendNew ;
+    sysml:owningRelationship elmt:SendNew__Command_om ;
+    sysml:owningMembership elmt:SendNew__Command_om ;
+    sysml:declaredName "Command" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    item def Command;\n" .
+
+elmt:SendNew__Command_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Command_om" ;
+    sysml:owner elmt:SendNew ;
+    sysml:memberElement elmt:SendNew__Command ;
+    sysml:ownedMemberElement elmt:SendNew__Command ;
+    sysml:ownedRelatedElement elmt:SendNew__Command ;
+    sysml:owningRelatedElement elmt:SendNew ;
+    sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Radio
+    a sysml:PortDefinition ;
+    sysml:qualifiedName "SendNew::Radio" ;
+    sysml:elementId "SendNew__Radio" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew ;
+    sysml:owner elmt:SendNew ;
+    sysml:owningRelationship elmt:SendNew__Radio_om ;
+    sysml:owningMembership elmt:SendNew__Radio_om ;
+    sysml:declaredName "Radio" ;
+    sysml:ownedRelationship elmt:SendNew__Radio_conjugated_om ;
+    sysml:ownedMember elmt:SendNew__Radio_conjugated ;
+    sysml:ownedMembership elmt:SendNew__Radio_conjugated_om ;
+    sysml:conjugatedPortDefinition elmt:SendNew__Radio_conjugated ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    port def Radio;\n" .
+
+elmt:SendNew__Radio_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Radio_om" ;
+    sysml:owner elmt:SendNew ;
+    sysml:memberElement elmt:SendNew__Radio ;
+    sysml:ownedMemberElement elmt:SendNew__Radio ;
+    sysml:ownedRelatedElement elmt:SendNew__Radio ;
+    sysml:owningRelatedElement elmt:SendNew ;
+    sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Radio_conjugated
+    a sysml:ConjugatedPortDefinition ;
+    sysml:elementId "SendNew__Radio_conjugated" ;
+    sysml:qualifiedName "SendNew::Radio::'~Radio'" ;
+    sysml:declaredName "~Radio" ;
+    sysml:owner elmt:SendNew__Radio ;
+    sysml:owningRelationship elmt:SendNew__Radio_conjugated_om ;
+    sysml:owningMembership elmt:SendNew__Radio_conjugated_om ;
+    sysml:ownedRelationship elmt:SendNew__Radio_conjugated_pc ;
+    sysml:ownedPortConjugator elmt:SendNew__Radio_conjugated_pc .
+
+elmt:SendNew__Radio_conjugated_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Radio_conjugated_om" ;
+    sysml:owner elmt:SendNew__Radio ;
+    sysml:memberElement elmt:SendNew__Radio_conjugated ;
+    sysml:ownedMemberElement elmt:SendNew__Radio_conjugated ;
+    sysml:ownedRelatedElement elmt:SendNew__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:SendNew__Radio ;
+    sysml:membershipOwningNamespace elmt:SendNew__Radio .
+
+elmt:SendNew__Radio_conjugated_pc
+    a sysml:PortConjugation ;
+    sysml:elementId "SendNew__Radio_conjugated_pc" ;
+    sysml:conjugatedType elmt:SendNew__Radio_conjugated ;
+    sysml:originalType elmt:SendNew__Radio ;
+    sysml:originalPortDefinition elmt:SendNew__Radio ;
+    sysml:owner elmt:SendNew__Radio_conjugated ;
+    sysml:owningRelatedElement elmt:SendNew__Radio_conjugated ;
+    sysml:relatedElement elmt:SendNew__Radio_conjugated, elmt:SendNew__Radio ;
+    sysml:source elmt:SendNew__Radio_conjugated ;
+    sysml:target elmt:SendNew__Radio ;
+    json:relatedElement "[{\"@id\":\"SendNew__Radio_conjugated\"},{\"@id\":\"SendNew__Radio\"}]" .
+
+elmt:SendNew__Station
+    a sysml:PartDefinition ;
+    sysml:qualifiedName "SendNew::Station" ;
+    sysml:elementId "SendNew__Station" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew ;
+    sysml:owner elmt:SendNew ;
+    sysml:owningRelationship elmt:SendNew__Station_om ;
+    sysml:owningMembership elmt:SendNew__Station_om ;
+    sysml:declaredName "Station" ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    part def Station;\n" .
+
+elmt:SendNew__Station_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Station_om" ;
+    sysml:owner elmt:SendNew ;
+    sysml:memberElement elmt:SendNew__Station ;
+    sysml:ownedMemberElement elmt:SendNew__Station ;
+    sysml:ownedRelatedElement elmt:SendNew__Station ;
+    sysml:owningRelatedElement elmt:SendNew ;
+    sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Downlink
+    a sysml:ActionDefinition ;
+    sysml:qualifiedName "SendNew::Downlink" ;
+    sysml:elementId "SendNew__Downlink" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew ;
+    sysml:owner elmt:SendNew ;
+    sysml:owningRelationship elmt:SendNew__Downlink_om ;
+    sysml:owningMembership elmt:SendNew__Downlink_om ;
+    sysml:declaredName "Downlink" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:SendNew__Downlink__antenna, elmt:SendNew__Downlink__ground, elmt:SendNew__Downlink___402, elmt:SendNew__Downlink___403 ;
+    sysml:ownedMembership elmt:SendNew__Downlink__antenna_om, elmt:SendNew__Downlink__ground_om, elmt:SendNew__Downlink___402_om, elmt:SendNew__Downlink___403_om ;
+    sysml:ownedRelationship elmt:SendNew__Downlink__antenna_om, elmt:SendNew__Downlink__ground_om, elmt:SendNew__Downlink___402_om, elmt:SendNew__Downlink___403_om ;
+    sysml:ownedFeature elmt:SendNew__Downlink__antenna, elmt:SendNew__Downlink__ground, elmt:SendNew__Downlink___402, elmt:SendNew__Downlink___403 ;
+    sysml:ownedFeatureMembership elmt:SendNew__Downlink__antenna_om, elmt:SendNew__Downlink__ground_om, elmt:SendNew__Downlink___402_om, elmt:SendNew__Downlink___403_om ;
+    sysx:sourceText "    action def Downlink {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"SendNew__Downlink__antenna\"},{\"@id\":\"SendNew__Downlink__ground\"},{\"@id\":\"SendNew__Downlink___402\"},{\"@id\":\"SendNew__Downlink___403\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Downlink__antenna_om\"},{\"@id\":\"SendNew__Downlink__ground_om\"},{\"@id\":\"SendNew__Downlink___402_om\"},{\"@id\":\"SendNew__Downlink___403_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink__antenna_om\"},{\"@id\":\"SendNew__Downlink__ground_om\"},{\"@id\":\"SendNew__Downlink___402_om\"},{\"@id\":\"SendNew__Downlink___403_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"SendNew__Downlink__antenna\"},{\"@id\":\"SendNew__Downlink__ground\"},{\"@id\":\"SendNew__Downlink___402\"},{\"@id\":\"SendNew__Downlink___403\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"SendNew__Downlink__antenna_om\"},{\"@id\":\"SendNew__Downlink__ground_om\"},{\"@id\":\"SendNew__Downlink___402_om\"},{\"@id\":\"SendNew__Downlink___403_om\"}]" .
+
+elmt:SendNew__Downlink_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Downlink_om" ;
+    sysml:owner elmt:SendNew ;
+    sysml:memberElement elmt:SendNew__Downlink ;
+    sysml:ownedMemberElement elmt:SendNew__Downlink ;
+    sysml:ownedRelatedElement elmt:SendNew__Downlink ;
+    sysml:owningRelatedElement elmt:SendNew ;
+    sysml:membershipOwningNamespace elmt:SendNew .
+
+elmt:SendNew__Downlink__antenna
+    a sysml:PortUsage ;
+    sysml:qualifiedName "SendNew::Downlink::antenna" ;
+    sysml:elementId "SendNew__Downlink__antenna" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew__Downlink ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:owningRelationship elmt:SendNew__Downlink__antenna_om ;
+    sysml:owningMembership elmt:SendNew__Downlink__antenna_om ;
+    sysml:declaredName "antenna" ;
+    sysml:type elmt:SendNew__Radio ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:SendNew__Downlink__antenna_ft0 ;
+    sysml:ownedSpecialization elmt:SendNew__Downlink__antenna_ft0 ;
+    sysml:ownedRelationship elmt:SendNew__Downlink__antenna_ft0 ;
+    sysx:sourceText "        port antenna : Radio;\n" .
+
+elmt:SendNew__Downlink__antenna_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "SendNew__Downlink__antenna_om" ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:memberElement elmt:SendNew__Downlink__antenna ;
+    sysml:ownedMemberElement elmt:SendNew__Downlink__antenna ;
+    sysml:ownedRelatedElement elmt:SendNew__Downlink__antenna ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink ;
+    sysml:ownedMemberFeature elmt:SendNew__Downlink__antenna ;
+    sysml:owningType elmt:SendNew__Downlink .
+
+elmt:SendNew__Downlink__ground
+    a sysml:PartUsage ;
+    sysml:qualifiedName "SendNew::Downlink::ground" ;
+    sysml:elementId "SendNew__Downlink__ground" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew__Downlink ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:owningRelationship elmt:SendNew__Downlink__ground_om ;
+    sysml:owningMembership elmt:SendNew__Downlink__ground_om ;
+    sysml:declaredName "ground" ;
+    sysml:type elmt:SendNew__Station ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:SendNew__Downlink__ground_ft0 ;
+    sysml:ownedSpecialization elmt:SendNew__Downlink__ground_ft0 ;
+    sysml:ownedRelationship elmt:SendNew__Downlink__ground_ft0 ;
+    sysx:sourceText "        part ground : Station;\n" .
+
+elmt:SendNew__Downlink__ground_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "SendNew__Downlink__ground_om" ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:memberElement elmt:SendNew__Downlink__ground ;
+    sysml:ownedMemberElement elmt:SendNew__Downlink__ground ;
+    sysml:ownedRelatedElement elmt:SendNew__Downlink__ground ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink ;
+    sysml:ownedMemberFeature elmt:SendNew__Downlink__ground ;
+    sysml:owningType elmt:SendNew__Downlink .
+
+elmt:SendNew__Downlink___402
+    a sysml:SendActionUsage ;
+    sysml:qualifiedName "SendNew::Downlink::@2" ;
+    sysml:elementId "SendNew__Downlink___402" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew__Downlink ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:owningRelationship elmt:SendNew__Downlink___402_om ;
+    sysml:owningMembership elmt:SendNew__Downlink___402_om ;
+    sysx:payload expr:SendNew__Downlink___402_ppayload ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402_ppayload_om, expr:SendNew__Downlink___402_preceiver_om ;
+    sysml:ownedMembership expr:SendNew__Downlink___402_ppayload_om, expr:SendNew__Downlink___402_preceiver_om ;
+    sysx:receiver expr:SendNew__Downlink___402_preceiver ;
+    sysx:isVia "true"^^xsd:boolean ;
+    sysx:sourceText "        send new Telemetry(frames = 3) via antenna;\n" ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___402_ppayload_om\"},{\"@id\":\"SendNew__Downlink___402_preceiver_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Downlink___402_ppayload_om\"},{\"@id\":\"SendNew__Downlink___402_preceiver_om\"}]" .
+
+elmt:SendNew__Downlink___402_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "SendNew__Downlink___402_om" ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:memberElement elmt:SendNew__Downlink___402 ;
+    sysml:ownedMemberElement elmt:SendNew__Downlink___402 ;
+    sysml:ownedRelatedElement elmt:SendNew__Downlink___402 ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink ;
+    sysml:ownedMemberFeature elmt:SendNew__Downlink___402 ;
+    sysml:owningType elmt:SendNew__Downlink .
+
+expr:SendNew__Downlink___402_ppayload
+    a sysml:ConstructorExpression ;
+    sysx:sourceText "new Telemetry(frames = 3)" ;
+    sysml:elementId "SendNew__Downlink___402_ppayload" ;
+    sysml:function elmt:SendNew__Telemetry ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402_ppayload_pfunction, expr:SendNew__Downlink___402_ppayload_pin0_om, expr:SendNew__Downlink___402_ppayload_pout_om ;
+    sysml:argument expr:SendNew__Downlink___402_ppayload_pn0 ;
+    sysml:ownedMembership expr:SendNew__Downlink___402_ppayload_pin0_om, expr:SendNew__Downlink___402_ppayload_pout_om ;
+    sysml:ownedFeatureMembership expr:SendNew__Downlink___402_ppayload_pin0_om, expr:SendNew__Downlink___402_ppayload_pout_om ;
+    sysml:ownedFeature expr:SendNew__Downlink___402_ppayload_pin0, expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:parameter expr:SendNew__Downlink___402_ppayload_pin0, expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:input expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:result expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:owner elmt:SendNew__Downlink___402 ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_ppayload_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_ppayload_om ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___402_ppayload_pfunction\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Downlink___402_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"SendNew__Downlink___402_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"SendNew__Downlink___402_ppayload_pin0\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pout\"}]" ;
+    json:parameter "[{\"@id\":\"SendNew__Downlink___402_ppayload_pin0\"},{\"@id\":\"SendNew__Downlink___402_ppayload_pout\"}]" .
+
+expr:SendNew__Downlink___402_ppayload_pfunction
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pfunction" ;
+    sysml:memberElement elmt:SendNew__Telemetry ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_ppayload .
+
+expr:SendNew__Downlink___402_ppayload_pn0
+    a sysml:LiteralInteger ;
+    sysx:sourceText "3" ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pn0" ;
+    sysml:value "3"^^xsd:integer ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_ppayload_pn0_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_ppayload_pn0_om ;
+    sysx:argumentName "frames" .
+
+expr:SendNew__Downlink___402_ppayload_pin0
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_ppayload_pin0_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_ppayload_pin0_om ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402_ppayload_pn0_om ;
+    sysml:ownedMembership expr:SendNew__Downlink___402_ppayload_pn0_om .
+
+expr:SendNew__Downlink___402_ppayload_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pin0_om" ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload ;
+    sysml:memberElement expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_ppayload ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___402_ppayload ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___402_ppayload_pin0 .
+
+expr:SendNew__Downlink___402_ppayload_pn0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pn0_om" ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:memberElement expr:SendNew__Downlink___402_ppayload_pn0 ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_ppayload_pn0 ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_ppayload_pn0 ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:featureWithValue expr:SendNew__Downlink___402_ppayload_pin0 ;
+    sysml:value expr:SendNew__Downlink___402_ppayload_pn0 .
+
+expr:SendNew__Downlink___402_ppayload_pout
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_ppayload_pout_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_ppayload_pout_om .
+
+expr:SendNew__Downlink___402_ppayload_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_pout_om" ;
+    sysml:owner expr:SendNew__Downlink___402_ppayload ;
+    sysml:memberElement expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_ppayload ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___402_ppayload ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___402_ppayload_pout ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___402_ppayload_pout .
+
+expr:SendNew__Downlink___402_ppayload_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Downlink___402_ppayload_om" ;
+    sysml:owner elmt:SendNew__Downlink___402 ;
+    sysml:memberElement expr:SendNew__Downlink___402_ppayload ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_ppayload ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_ppayload ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink___402 ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink___402 .
+
+expr:SendNew__Downlink___402_preceiver
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "antenna" ;
+    sysml:elementId "SendNew__Downlink___402_preceiver" ;
+    sysml:referent elmt:SendNew__Downlink__antenna ;
+    sysml:ownedRelationship expr:SendNew__Downlink___402_preceiver_pout_om, expr:SendNew__Downlink___402_preceiver_preferent ;
+    sysml:ownedMembership expr:SendNew__Downlink___402_preceiver_pout_om ;
+    sysml:ownedFeatureMembership expr:SendNew__Downlink___402_preceiver_pout_om ;
+    sysml:ownedFeature expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:parameter expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:result expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:owner elmt:SendNew__Downlink___402 ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_preceiver_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_preceiver_om ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___402_preceiver_pout_om\"},{\"@id\":\"SendNew__Downlink___402_preceiver_preferent\"}]" .
+
+expr:SendNew__Downlink___402_preceiver_pout
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___402_preceiver_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:SendNew__Downlink___402_preceiver ;
+    sysml:owningRelationship expr:SendNew__Downlink___402_preceiver_pout_om ;
+    sysml:owningMembership expr:SendNew__Downlink___402_preceiver_pout_om .
+
+expr:SendNew__Downlink___402_preceiver_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "SendNew__Downlink___402_preceiver_pout_om" ;
+    sysml:owner expr:SendNew__Downlink___402_preceiver ;
+    sysml:memberElement expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_preceiver ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___402_preceiver ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___402_preceiver_pout ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___402_preceiver_pout .
+
+expr:SendNew__Downlink___402_preceiver_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Downlink___402_preceiver_om" ;
+    sysml:owner elmt:SendNew__Downlink___402 ;
+    sysml:memberElement expr:SendNew__Downlink___402_preceiver ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___402_preceiver ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___402_preceiver ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink___402 ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink___402 .
+
+elmt:SendNew__Downlink___403
+    a sysml:SendActionUsage ;
+    sysml:qualifiedName "SendNew::Downlink::@3" ;
+    sysml:elementId "SendNew__Downlink___403" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:SendNew__Downlink ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:owningRelationship elmt:SendNew__Downlink___403_om ;
+    sysml:owningMembership elmt:SendNew__Downlink___403_om ;
+    sysx:payload expr:SendNew__Downlink___403_ppayload ;
+    sysml:ownedRelationship expr:SendNew__Downlink___403_ppayload_om, expr:SendNew__Downlink___403_preceiver_om ;
+    sysml:ownedMembership expr:SendNew__Downlink___403_ppayload_om, expr:SendNew__Downlink___403_preceiver_om ;
+    sysx:receiver expr:SendNew__Downlink___403_preceiver ;
+    sysx:sourceText "        send new Command(7) to ground;\n" ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___403_ppayload_om\"},{\"@id\":\"SendNew__Downlink___403_preceiver_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Downlink___403_ppayload_om\"},{\"@id\":\"SendNew__Downlink___403_preceiver_om\"}]" .
+
+elmt:SendNew__Downlink___403_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "SendNew__Downlink___403_om" ;
+    sysml:owner elmt:SendNew__Downlink ;
+    sysml:memberElement elmt:SendNew__Downlink___403 ;
+    sysml:ownedMemberElement elmt:SendNew__Downlink___403 ;
+    sysml:ownedRelatedElement elmt:SendNew__Downlink___403 ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink ;
+    sysml:ownedMemberFeature elmt:SendNew__Downlink___403 ;
+    sysml:owningType elmt:SendNew__Downlink .
+
+expr:SendNew__Downlink___403_ppayload
+    a sysml:ConstructorExpression ;
+    sysx:sourceText "new Command(7)" ;
+    sysml:elementId "SendNew__Downlink___403_ppayload" ;
+    sysml:function elmt:SendNew__Command ;
+    sysml:ownedRelationship expr:SendNew__Downlink___403_ppayload_pfunction, expr:SendNew__Downlink___403_ppayload_pin0_om, expr:SendNew__Downlink___403_ppayload_pout_om ;
+    sysml:argument expr:SendNew__Downlink___403_ppayload_pa0 ;
+    sysml:ownedMembership expr:SendNew__Downlink___403_ppayload_pin0_om, expr:SendNew__Downlink___403_ppayload_pout_om ;
+    sysml:ownedFeatureMembership expr:SendNew__Downlink___403_ppayload_pin0_om, expr:SendNew__Downlink___403_ppayload_pout_om ;
+    sysml:ownedFeature expr:SendNew__Downlink___403_ppayload_pin0, expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:parameter expr:SendNew__Downlink___403_ppayload_pin0, expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:input expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:result expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:owner elmt:SendNew__Downlink___403 ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_ppayload_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_ppayload_om ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___403_ppayload_pfunction\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pout_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"SendNew__Downlink___403_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pout_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"SendNew__Downlink___403_ppayload_pin0_om\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pout_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"SendNew__Downlink___403_ppayload_pin0\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pout\"}]" ;
+    json:parameter "[{\"@id\":\"SendNew__Downlink___403_ppayload_pin0\"},{\"@id\":\"SendNew__Downlink___403_ppayload_pout\"}]" .
+
+expr:SendNew__Downlink___403_ppayload_pfunction
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pfunction" ;
+    sysml:memberElement elmt:SendNew__Command ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_ppayload .
+
+expr:SendNew__Downlink___403_ppayload_pa0
+    a sysml:LiteralInteger ;
+    sysx:sourceText "7" ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pa0" ;
+    sysml:value "7"^^xsd:integer ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_ppayload_pa0_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_ppayload_pa0_om .
+
+expr:SendNew__Downlink___403_ppayload_pin0
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_ppayload_pin0_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_ppayload_pin0_om ;
+    sysml:ownedRelationship expr:SendNew__Downlink___403_ppayload_pa0_om ;
+    sysml:ownedMembership expr:SendNew__Downlink___403_ppayload_pa0_om .
+
+expr:SendNew__Downlink___403_ppayload_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pin0_om" ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload ;
+    sysml:memberElement expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_ppayload ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___403_ppayload ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___403_ppayload_pin0 .
+
+expr:SendNew__Downlink___403_ppayload_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pa0_om" ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:memberElement expr:SendNew__Downlink___403_ppayload_pa0 ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_ppayload_pa0 ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_ppayload_pa0 ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:featureWithValue expr:SendNew__Downlink___403_ppayload_pin0 ;
+    sysml:value expr:SendNew__Downlink___403_ppayload_pa0 .
+
+expr:SendNew__Downlink___403_ppayload_pout
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_ppayload_pout_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_ppayload_pout_om .
+
+expr:SendNew__Downlink___403_ppayload_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_pout_om" ;
+    sysml:owner expr:SendNew__Downlink___403_ppayload ;
+    sysml:memberElement expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_ppayload ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___403_ppayload ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___403_ppayload_pout ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___403_ppayload_pout .
+
+expr:SendNew__Downlink___403_ppayload_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Downlink___403_ppayload_om" ;
+    sysml:owner elmt:SendNew__Downlink___403 ;
+    sysml:memberElement expr:SendNew__Downlink___403_ppayload ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_ppayload ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_ppayload ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink___403 ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink___403 .
+
+expr:SendNew__Downlink___403_preceiver
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "ground" ;
+    sysml:elementId "SendNew__Downlink___403_preceiver" ;
+    sysml:referent elmt:SendNew__Downlink__ground ;
+    sysml:ownedRelationship expr:SendNew__Downlink___403_preceiver_pout_om, expr:SendNew__Downlink___403_preceiver_preferent ;
+    sysml:ownedMembership expr:SendNew__Downlink___403_preceiver_pout_om ;
+    sysml:ownedFeatureMembership expr:SendNew__Downlink___403_preceiver_pout_om ;
+    sysml:ownedFeature expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:parameter expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:result expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:owner elmt:SendNew__Downlink___403 ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_preceiver_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_preceiver_om ;
+    json:ownedRelationship "[{\"@id\":\"SendNew__Downlink___403_preceiver_pout_om\"},{\"@id\":\"SendNew__Downlink___403_preceiver_preferent\"}]" .
+
+expr:SendNew__Downlink___403_preceiver_pout
+    a sysml:Feature ;
+    sysml:elementId "SendNew__Downlink___403_preceiver_pout" ;
+    sysml:direction "out" ;
+    sysml:owner expr:SendNew__Downlink___403_preceiver ;
+    sysml:owningRelationship expr:SendNew__Downlink___403_preceiver_pout_om ;
+    sysml:owningMembership expr:SendNew__Downlink___403_preceiver_pout_om .
+
+expr:SendNew__Downlink___403_preceiver_pout_om
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "SendNew__Downlink___403_preceiver_pout_om" ;
+    sysml:owner expr:SendNew__Downlink___403_preceiver ;
+    sysml:memberElement expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_preceiver ;
+    sysml:membershipOwningNamespace expr:SendNew__Downlink___403_preceiver ;
+    sysml:ownedMemberFeature expr:SendNew__Downlink___403_preceiver_pout ;
+    sysml:ownedMemberParameter expr:SendNew__Downlink___403_preceiver_pout .
+
+expr:SendNew__Downlink___403_preceiver_om
+    a sysml:OwningMembership ;
+    sysml:elementId "SendNew__Downlink___403_preceiver_om" ;
+    sysml:owner elmt:SendNew__Downlink___403 ;
+    sysml:memberElement expr:SendNew__Downlink___403_preceiver ;
+    sysml:ownedMemberElement expr:SendNew__Downlink___403_preceiver ;
+    sysml:ownedRelatedElement expr:SendNew__Downlink___403_preceiver ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink___403 ;
+    sysml:membershipOwningNamespace elmt:SendNew__Downlink___403 .
+
+elmt:SendNew__Downlink__antenna_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "SendNew__Downlink__antenna_ft0" ;
+    sysml:typedFeature elmt:SendNew__Downlink__antenna ;
+    sysml:owningFeature elmt:SendNew__Downlink__antenna ;
+    sysml:specific elmt:SendNew__Downlink__antenna ;
+    sysml:source elmt:SendNew__Downlink__antenna ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink__antenna ;
+    sysml:type elmt:SendNew__Radio ;
+    sysml:general elmt:SendNew__Radio ;
+    sysml:target elmt:SendNew__Radio ;
+    sysml:owner elmt:SendNew__Downlink__antenna ;
+    sysml:relatedElement elmt:SendNew__Downlink__antenna, elmt:SendNew__Radio ;
+    json:relatedElement "[{\"@id\":\"SendNew__Downlink__antenna\"},{\"@id\":\"SendNew__Radio\"}]" .
+
+elmt:SendNew__Downlink__ground_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "SendNew__Downlink__ground_ft0" ;
+    sysml:typedFeature elmt:SendNew__Downlink__ground ;
+    sysml:owningFeature elmt:SendNew__Downlink__ground ;
+    sysml:specific elmt:SendNew__Downlink__ground ;
+    sysml:source elmt:SendNew__Downlink__ground ;
+    sysml:owningRelatedElement elmt:SendNew__Downlink__ground ;
+    sysml:type elmt:SendNew__Station ;
+    sysml:general elmt:SendNew__Station ;
+    sysml:target elmt:SendNew__Station ;
+    sysml:owner elmt:SendNew__Downlink__ground ;
+    sysml:relatedElement elmt:SendNew__Downlink__ground, elmt:SendNew__Station ;
+    json:relatedElement "[{\"@id\":\"SendNew__Downlink__ground\"},{\"@id\":\"SendNew__Station\"}]" .
+
+expr:SendNew__Downlink___402_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___402_preceiver_preferent" ;
+    sysml:memberElement elmt:SendNew__Downlink__antenna ;
+    sysml:owner expr:SendNew__Downlink___402_preceiver ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___402_preceiver .
+
+expr:SendNew__Downlink___403_preceiver_preferent
+    a sysml:Membership ;
+    sysml:elementId "SendNew__Downlink___403_preceiver_preferent" ;
+    sysml:memberElement elmt:SendNew__Downlink__ground ;
+    sysml:owner expr:SendNew__Downlink___403_preceiver ;
+    sysml:owningRelatedElement expr:SendNew__Downlink___403_preceiver .

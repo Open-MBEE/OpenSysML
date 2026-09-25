@@ -1,0 +1,19 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "BehaviorConnectionBoundPortEnd::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "",
+      "events": [{"signal": "Go"}],
+      "finalState": "fired",
+      "stateVisits": ["idle", "firing", "fired"]
+    },
+    {
+      "path": "bound",
+      "finalState": "heard",
+      "stateVisits": ["idle", "heard"]
+    }
+  ]
+}

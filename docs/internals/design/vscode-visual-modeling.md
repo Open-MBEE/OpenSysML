@@ -15,15 +15,15 @@ carried over the wire, tier 2 needs the source-rewriting layer widened, tier 3 n
 layout to be written back into the model.
 
 **Status.** All three tiers are built. The panel (`editors/vscode/src/diagram.ts`,
-`src/webview/`), the rendering requests (`internal/lsp/render.go`) and the
-authoring request (`internal/lsp/modeledit.go` over `internal/core/edit` and
+`src/webview/`), the rendering requests (`internal/frontend/lsp/render.go`) and the
+authoring request (`internal/frontend/lsp/modeledit.go` over `internal/check/edit` and
 `model.Workspace.ApplyEdit`) are what [docs/reference/lsp.md](../../reference/lsp.md)
 and the extension's README describe. Tier 3 is the SVG canvas in
 `src/webview/{layout,canvas}.ts` over the `setLayout`, `setRoute` and `setCanvas`
-operations of `internal/core/edit/layout.go`, writing the `DiagramLayout`
+operations of `internal/check/edit/layout.go`, writing the `DiagramLayout`
 annotations of [Diagram layout annotations](../../project/diagram-layout-annotations.md);
 its section below is the design as built. Re-parenting is `edit.OpMove`
-(`internal/core/edit/move.go`), the `move` operation of `applyModelEdit` and the
+(`internal/check/edit/move.go`), the `move` operation of `applyModelEdit` and the
 node menu's **Move to…**, which offers the drawn declarations whose body admits the
 node's kind, and the <kbd>Shift</kbd>-drop of a node on another, which issues it for
 the node under the pointer; the `CustomTextEditorProvider` registration is not
@@ -32,7 +32,7 @@ sections are the design as written before the work, kept for the reasoning behin
 
 ## What exists today
 
-- **`internal/core/view`** renders a view of the semantic model into a `Rendering`:
+- **`internal/ir/view`** renders a view of the semantic model into a `Rendering`:
   nodes, edges, table rows, and the notices for what the kind could not represent.
   Five kinds are produced — `tree`, `interconnection`, `state`, `action`, `table` —
   read from `semantics.Model.ExposedElements`, the model's connectors, and the
@@ -40,20 +40,20 @@ sections are the design as written before the work, kept for the reasoning behin
   writes it as `text`, `mermaid` or `markdown`.
 - **The frontends that use it** are `sysml <model> -render <view> -render-form
   mermaid` and the REPL's `%view`/`%render`. `Session.viewRenderer`
-  (`internal/repl/view.go`) is the pattern: build a resolver and a
+  (`internal/frontend/repl/view.go`) is the pattern: build a resolver and a
   `semantics.Model` over the browse index, hand `view.NewRenderer` a `SourceText`
   so verbatim labels read as written.
-- **`internal/lsp`** serves completion, hover, diagnostics, document and workspace
+- **`internal/frontend/lsp`** serves completion, hover, diagnostics, document and workspace
   symbols, semantic tokens, definition, references, rename, formatting and code
   actions over one `model.Workspace`. `Server.applyDidChange` folds each keystroke
   into the workspace and republishes diagnostics, debounced for the other open
   documents.
-- **`internal/core/edit`** rewrites the source a model was parsed from without
+- **`internal/check/edit`** rewrites the source a model was parsed from without
   disturbing its comments or layout: an `Operation` names an element by FQN, only
   the bytes the parse says carry that element's name or value are replaced, and the
   result is re-parsed and re-analyzed before it is handed back — an edit that would
   make the model unreadable is refused. It has two operations, `OpSetValue` and
-  `OpRename`, and one caller, `internal/grpc/edit.go`.
+  `OpRename`, and one caller, `internal/frontend/grpc/edit.go`.
 - **`editors/vscode`** contributes the two grammars, the language configuration,
   the `opensysml.*` settings, one `SysML: Restart Language Server` command, and a
   `LanguageClient` over `sysml-lsp` found on the setting, in the workspace's `bin/`,
@@ -126,7 +126,7 @@ older extension drags no unpinned name and an older server loses no menu.
 ### The Go side
 
 - `view.Node` and `view.Edge` grow an origin. `Rendering` grows a `JSON()`-shaped
-  companion in `internal/core/view` — a plain data type in `view`, marshaled by the
+  companion in `internal/ir/view` — a plain data type in `view`, marshaled by the
   LSP layer, so `view` keeps no protocol knowledge.
 - `model.Workspace` grows `RenderView(doc, fqn string) (*view.Rendering, *Document, error)`
   — the document returned is the snapshot the rendering was made from, read under
@@ -135,7 +135,7 @@ older extension drags no unpinned name and an older server loses no menu.
   `Session.viewRenderer` builds its own, with `SourceText` reading the workspace's
   content for the document. This is where the REPL and the LSP converge: the REPL's
   helper stays, but both go through one workspace-level entry point.
-- `internal/lsp` gains `render.go` handling the two requests and emitting the
+- `internal/frontend/lsp` gains `render.go` handling the two requests and emitting the
   notification, wired through the same `changeHandler`/`AsyncHandler` chain. A
   request naming no view renders the single view in the document, and reports the
   ambiguity when there are several.
@@ -151,9 +151,10 @@ passed to the renderer directly.
 
 ### The extension side
 
-- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document,
-  retained across tab switches with `retainContextWhenHidden` off and state restored
-  through `setState`/`getState`. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
+- `SysML: Open Diagram` opens a `WebviewPanel` beside the editor, one per document
+  and view, retained across tab switches with `retainContextWhenHidden` off and
+  state (`{uri, view}`) restored through `setState`/`getState`, so a reload brings
+  every panel back on its view. The command is bound to <kbd>Alt</kbd>+<kbd>D</kbd> and
   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (the PlantUML and Markdown-preview
   conventions) with `when` clauses that hold only for a model editor or the panel
   itself, and sits in the editor title bar and the editor and Explorer context menus.
@@ -161,28 +162,55 @@ passed to the renderer directly.
   to the source), the active editor, or the one model editor in view — in that order
   — and is registered whether or not the server draws, so a key or menu always
   answers, with a diagram or with the reason there is none.
+- Which view a panel opens on is decided client-side, in `views.ts`, as pure
+  functions over the `opensysml/views` listing (`chooseView`): the view the
+  document implies (its sole drawable view, `#tree` when it declares none); else
+  the drawable view whose declaration `range` holds the editor's cursor; else the
+  view last chosen for that document, kept in `workspaceState` under
+  `opensysml.diagram.chosenViews` keyed by document URI and forgotten when the
+  document no longer declares it; else a quick pick of the drawable views (label
+  the name, detail the kind), then **All views**, then the pseudo-views. A view
+  the server cannot draw is left out of the quick pick — its items cannot be
+  disabled — and the panel's own picker lists it disabled with the reason.
+  Cancelling opens nothing. The server never receives an
+  empty `view` for a multi-view document: the client always names one. Servers
+  whose listing carries no `range` skip the cursor step.
+- `DiagramPanels` keys panels by `panelKey(uri, view)`; `renderChanged` and the
+  cursor highlight go to every panel of the document, and panels are titled
+  `Diagram: <file> — <view>` while the document has more than one. Opening the
+  view a panel already draws reveals it; a different view opens another panel
+  beside the source. The in-panel picker retargets its panel to the chosen view,
+  and re-keys it — unless another panel already draws that view, which is
+  revealed instead, so a document never has two panels of one view. Export uses
+  the document's one panel's view, and asks when there are none or several.
 - The panel is open by default. A model file shown in an editor gets its diagram
   without being asked — on activation, on every change of active editor, and, for
   a file made active while the server was still starting, when the client attaches.
   The decision is one pure function (`src/autoopen.ts`, `shouldAutoOpen`) over the
   `opensysml.diagram.autoOpen` setting, whether a drawing server is attached,
-  whether the document already has a panel (a panel restored by the serializer
-  counts, so a reload does not double-open), whether the user dismissed it, and
+  whether the document already has a panel of any view (a panel restored by the
+  serializer counts, so a reload does not double-open), whether the user dismissed it, and
   what the editor is: only a `file:` document in a model language, sitting in an
   editor group, whose active tab is a plain text tab. That rules out untitled
   buffers, `git:` revisions, diff tabs and the peek editor of a hover. An
   automatic open is silent — no "server not running" or "too old" warning, those
   belong to the explicit command — and never takes focus; when a document declares
-  several views it draws what `DiagramPanels.open` draws, and never asks.
-- Placement: one panel per document, all in one editor group. The first diagram
-  opens `Beside` its source; every later one, automatic or explicit, opens in the
-  group an existing diagram already occupies, so switching between model files
-  adds a tab to the diagram column rather than a column to the layout. One panel
-  per document (not one reused panel) keeps each panel's view choice and its
-  serialized state, and lets two diagrams be compared by dragging one out; one
-  group keeps the layout calm. An explicit Open Diagram on a document that already
-  has a panel reveals it in that group.
-- Dismissal: a panel whose tab the user closes records its document URI under
+  several views it runs the same choice as the command up to the quick pick — the
+  implied view, the one under the cursor, the remembered one — and opens nothing
+  rather than ask. The eligibility is checked again once the listing returns, so a
+  panel opened or an editor switched meanwhile is not doubled; a listing that
+  fails opens nothing (the command falls back to the server's own choice), and
+  ranges listed before an edit are not matched against the cursor after it.
+- Placement: one panel per document and view, all in one editor group. The first
+  diagram opens `Beside` its source; every later one, automatic or explicit, opens
+  in the group an existing diagram already occupies (`diagramColumn`), so switching
+  between model files or views adds a tab to the diagram column rather than a
+  column to the layout. One panel per view (not one reused panel) keeps each
+  panel's view choice and its serialized state, and lets two diagrams be compared
+  by dragging one out; one group keeps the layout calm. An explicit Open Diagram
+  on a view that already has a panel reveals it in that group.
+- Dismissal is per document, whatever the number of its panels: closing the
+  document's last panel records its document URI under
   `workspaceState` (`opensysml.diagram.dismissed`), and the document is not
   auto-opened again — across editor switches and across window reloads — until an
   explicit Open Diagram, which clears the entry and opens the panel. Only the user's
@@ -193,13 +221,15 @@ passed to the renderer directly.
   open, as it does today — a diagram is a document of its own, with a way back to
   the source. A rename (`workspace.onDidRenameFiles`) carries a dismissal to the
   new URI and moves an open panel with it — the panel is recreated under the new
-  URI in the same group with the same view, an extension-caused replacement, so it
-  is not a dismissal; a delete clears the dismissal, so a file recreated under the
+  URI in the same group with the same view, each of the document's panels in
+  turn, an extension-caused replacement, so it is not a dismissal; a delete clears the dismissal, so a file recreated under the
   same name starts fresh. VS Code reports a folder rename or delete as the folder
   alone, so both apply to every document below it (`renamedUri`). `Dismissals`
   keeps the list in memory and writes it to `workspaceState` in order, so the
   un-awaited mutations of a multi-file rename or delete cannot overwrite one
-  another, and a failed write does not hold up the next.
+  another, and a failed write does not hold up the next. The view chosen for a
+  document (`ChosenViews`, `opensysml.diagram.chosenViews`) follows the same
+  rename and delete, with the same ordered writes.
 - The webview bundles Mermaid locally (no CDN, and a `Content-Security-Policy` with
   a nonce and no `connect-src`), renders the artifact, and re-renders on the
   extension's `postMessage`.
@@ -215,13 +245,17 @@ passed to the renderer directly.
 
 ### Test contract
 
-- `internal/core/view`: origins are covered by the existing render tests, extended
+- `internal/ir/view`: origins are covered by the existing render tests, extended
   to assert that each node's origin spans the declaration it was built from, and
   that the text/Mermaid goldens are unchanged.
-- `internal/lsp/render_test.go`: request/response over the in-process server for
+- `internal/frontend/lsp/render_test.go`: request/response over the in-process server for
   each kind, for a pseudo-view, for a document with no views, for an unsupported
   kind (asserting the reason), and for a stale-version request. Plus a
   didChange → `renderChanged` ordering test.
+- `editors/vscode/src/views.test.ts`: the view choice (cursor in a declaration,
+  the remembered view and its staleness, the fallbacks, "All views" expansion),
+  the panel keying as pure functions, and the chosen-view store's
+  remember/clear/rename semantics.
 - `editors/vscode/src/autoopen.test.ts`: `shouldAutoOpen` over every input, the
   dismissal store's record/clear/rename semantics, and the `Lifecycle` distinction
   between a disposal the extension asked for and a tab the user closed;
@@ -241,7 +275,7 @@ The diagram gains a palette and a context menu whose actions are *text edits*: t
 rendering of what the file now says. This is the tier that makes "create models
 visually" true without a graphical editor's bookkeeping.
 
-### Widening `internal/core/edit`
+### Widening `internal/check/edit`
 
 As built, the operations below carry a few more fields than sketched here
 (`OpAddMember` also takes a multiplicity, a value and specializations;
@@ -254,7 +288,7 @@ way symbols name it, splice bytes the parse located, re-analyze before returning
   end of the owner's body span, indented to the body's own level, and an owner
   declared without a body gets one. The notation is emitted by a small writer in
   `edit`. The whole document is deliberately not passed through
-  `internal/core/format`: source-preserving edits keep every byte outside edited
+  `internal/syntax/format`: source-preserving edits keep every byte outside edited
   spans identical, so the writer detects indentation only for its insertion.
 - `OpAddConnection{Owner, Kind, From, To, Name}` inserts a `connect a to b;`,
   `flow`, `interface`, `succession` or `transition` into the owner's body, with the
@@ -339,10 +373,10 @@ palette rewritten.
 
 ### Test contract
 
-- `internal/core/edit`: per operation, a golden pair (source in, source out) proving
+- `internal/check/edit`: per operation, a golden pair (source in, source out) proving
   comments, blank lines and indentation survive; a refusal test per new-error class;
   a cascade-delete test; an idempotence test through `format`.
-- `internal/lsp`: `applyModelEdit` returning a `WorkspaceEdit` whose application
+- `internal/frontend/lsp`: `applyModelEdit` returning a `WorkspaceEdit` whose application
   reproduces the golden output, a stale-version rejection, and a refusal shape.
 - GUI: add a part and a connection from the palette, check the file, `ctrl+z`, check
   the file again.
@@ -378,7 +412,7 @@ The consequences for the editor:
 
 ### The write-back
 
-`internal/core/edit` gained `SetLayout`, `SetRoute` and `SetCanvas`
+`internal/check/edit` gained `SetLayout`, `SetRoute` and `SetCanvas`
 (`layout.go`), each a source-preserving splice: an annotation already there has
 its values rewritten in place, one added goes where the writer puts it — the view's
 body for a view-local one, the element's own body for an inline one, opening a
@@ -496,6 +530,24 @@ pipeline's diagram output — and nothing there changed. The panel is a
 is edited as text with the diagram in step, and the editor's dirty state, undo and
 save are the text document's.
 
+The canvas has two looks, chosen by `opensysml.diagram.style` and the panel's
+**Style** list (`src/style.ts`): `theme`, which takes its colours from the VS Code
+theme, and the pilot visualizer's Standard B&W that the DOT and PlantUML forms
+follow (`docs/project/view-rendering-forms.md#style`), as CSS on the `pilot` class
+— white canvas, black text, 0.5 px `#181818` borders, square definitions and
+rounded usages by a class the node's kind gives its box, heavier packages, dashed
+regions, bold names over an italic keyword, 3 px arrowless connections, dashed
+flows, filled pseudo-states. The class changes no geometry the theme look draws (a
+definition alone is square there); the pilot rules square its packages and regions.
+A rendering answered after the setting moved is dropped, since the change queued a
+render in the new style. A palette is that look plus the `fill` and `border`
+the server puts on each node when the render request names one; the canvas sets
+each it is given as a custom property on the node's shape (a sequence participant
+comes with the fill alone) and computes no colour itself, so
+the panel, DOT and PlantUML of one view agree hex for hex and the contrast rule
+lives in one place. The server advertises `openSysmlRenderPalette`; without it the
+panel asks for no palette, draws `pilot`, and says why under the diagram.
+
 ### Test contract
 
 - `edit`: goldens for a new annotation in a view body and inline, an update in
@@ -504,15 +556,15 @@ save are the text document's.
   document, an element in another document placed inline, a `Canvas` on a view
   elsewhere, a clearing elsewhere, several documents in one request, the refusals
   for an unheld and a library document, and the atomic refusal when the second
-  document's result is invalid (`internal/core/edit/layout_test.go`).
+  document's result is invalid (`internal/check/edit/layout_test.go`).
 - LSP: a render → `setLayout` → apply → re-render round trip that sees the new
   `x` and `y`, one versioned `TextDocumentEdit` on the document, and a refusal shape
-  (`internal/lsp/modeledit_test.go`); a view drawing another document's parts, whose
+  (`internal/frontend/lsp/modeledit_test.go`); a view drawing another document's parts, whose
   drag writes the view's document alone, a route by declaration range that writes the
   other document at the version the server holds, a direct rendering that writes the
   other document and not its own, a disk-only document written at no version, the
   library refusal, and the atomic refusal when the other document would become
-  invalid (`internal/lsp/modeledit_cross_document_test.go`).
+  invalid (`internal/frontend/lsp/modeledit_cross_document_test.go`).
 - Extension: a node another document declares is placed by its qualified name, a
   declaration range travels with the document it is one of, and the edit is applied
   only while every document it names is open at the version it carries
@@ -537,7 +589,7 @@ save are the text document's.
 
 ## Known limitations, stated rather than hidden
 
-- The `geometry` view kind is not rendered by `internal/core/view` and no tier here
+- The `geometry` view kind is not rendered by `internal/ir/view` and no tier here
   adds it; the panel reports it as unsupported.
 - Multi-document models render per document. A view exposing elements from another
   file draws them and places them in its own body; a document drawn directly places

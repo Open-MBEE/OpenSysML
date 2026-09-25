@@ -327,25 +327,44 @@ is listed under `Waiting on the clock`; an advance with nothing waiting just mov
 `%continue` runs an action to completion on its own, moving the clock to each of its waits as it
 reaches them, and moving with it every other behavior of the same runtime that comes due.
 
+<a id="reading-the-clock"></a>
+**Reading the clock.** A body reads the clock through the standard
+library's own form: every occurrence has a `localClock` (`Occurrences::Occurrence::localClock`,
+the `Clocks::universalClock` unless the model binds another), and the clock's `currentTime` is
+the instant the runtime's clock stands at — so `assign started := localClock.currentTime;`
+stamps a `Real` attribute with the simulation time in seconds, and
+`assign elapsed := localClock.currentTime - started;` measures the time a stretch of the flow
+took. `this.localClock.currentTime` and `part.localClock.currentTime` read the same clock through
+another object; a part holding no object has no clock to read, and the read is empty. The
+attribute is one `-observe`/`%runs` table beside `clock` — the total of a run — so a workflow
+that times one of its stretches reports it per run. The clock is read only: an assignment to
+`currentTime` is refused with `a clock's currentTime advances with the run and is not assigned`,
+since `%advance` and the waits move it.
+
 **What a state's behaviors may do.** A state's `entry`, `do` and `exit` behaviors are actions,
 and their bodies may hold whatever an action body holds: a flow of nodes joined by successions
 (`first start; then …` or, with one node no succession leads to, the flow starts there),
 forks, joins and decisions, timed and signal accepts, sends, nested action nodes with flows of
 their own, and typed usages with pin bindings (`do action poll : Poll { inout n = ticks; }`). A
-body stating no flow still runs its statements in declaration order. The three behaviors differ
+body stating no flow still runs its statements in declaration order. A braced block without the
+keyword — `entry { … }`, `do { … }`, `exit { … }`, and a transition's `do { … }` — is one
+anonymous action with that body, the same as `entry action { … }`: an attribute declared inside
+the block is local to it and shadows the state's, and a `terminate;` in it ends the whole block
+([below](#terminate-ending-an-action-early)). The three behaviors differ
 in *when* they run: entry and exit are performed whole at the instant the state is entered or
 left (as is a transition's `do` effect), so a body of theirs that waits on the clock is refused
 with `state behavior waits for the clock`; the `do` behavior runs while the state is active,
-one action per round, and may wait. An `accept after` in a do body parks it on the shared clock
-and `%advance` moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig`
-takes it though no transition fires on it, reporting that the do behavior goes on. A do behavior
-performs once — when its body ends, the state has completed and a completion transition out of
-it, if any, fires — and leaving the state for any other reason abandons what is left of it: its
-waits leave the clock, nothing after the wait runs, and an `inout` pin writes its value back to
-the bound attribute only when the performance ends (an `inout` pin valued by an enumeration
-literal or another constant, `inout mode = Mode::idle`, starts from that value and writes back
-nowhere). `Poll` below counts once at `t=3.0`, the
-state is left at `t=10.0`, and `ticks` reads `1`:
+one statement per round — each statement of a `for` or `while` iteration and of a nested block
+or branch its own, one step of a flow the body states, each of its tokens one node — and may wait. An `accept after` in a do body parks it on the shared clock and `%advance`
+moves it; an `accept Sig` parks it until a matching signal is sent — `%send Sig` takes it though
+no transition fires on it, reporting that the do behavior goes on. A do behavior performs once —
+when its body ends, the state has completed and a completion transition out of it, if any, fires
+— and leaving the state for any other reason abandons what is left of it: the statements after
+the one it last ran do not run, its waits leave the clock, and an `inout` pin writes its value
+back to the bound attribute only when the performance ends (an `inout` pin valued by an
+enumeration literal or another constant, `inout mode = Mode::idle`, starts from that value and
+writes back nowhere). `Poll` below counts once at `t=3.0`, the state is left at `t=10.0`, and
+`ticks` reads `1`:
 
 ```sysml
 sysml> package Watch {
@@ -409,6 +428,111 @@ states left, right react`), explored like any other ([below](#when-a-model-has-m
 A do body that binds an `in` pin to nothing, or to a feature the state does not declare, is
 refused when the behavior starts, naming the pin.
 
+**An exit that reads what fired the transition.** A transition's accepted data — the `d` of
+`accept d : Dim`, the `p1` of `accept op(p1)` — is a feature of the transition, visible by its
+simple name to the transition's own guard and effect, and by the transition's name too: the
+guard is evaluated within the transition's performance, once the accepter has accepted, so
+`transition raise first idle accept l : Level if raise.l > 5 then high;` reads the payload it
+is about to carry, and `if raise.d.level > 5` a member of it. The exit of the state the transition
+leaves runs before that effect, but as a step of the same transition performance, so it reads
+the data qualified by the transition's name, and an exit shared by several leaving transitions
+reads whichever is being taken with `??`, a transition not being taken reading as nothing:
+
+```sysml
+state idle {
+    exit action {
+        in level : Integer = warn.w ?? alarm.a;
+        assign exits := exits * 100 + level;
+    }
+}
+transition warn first idle accept w : Warning then warned;
+transition alarm first idle accept a : Alarm then alarmed;
+```
+
+A transition leaving a composite state binds the exits of the substates it leaves the same
+way, and a completion transition, or one whose trigger carries no data, binds nothing — the
+parameter keeps its default. A read of a transition not being taken, with no `??` to fall back
+on, leaves the parameter without a value and is refused when the exit runs, as is a payload of
+the wrong type; a guard comparing such a read is refused as the operator's type error, not
+taken as false. A compound transition — an accepting segment into a choice or junction, guarded
+segments out of it — is one performance, so a segment's guard reads the accepting segment's
+payload by that segment's name (`transition up first pick if raise.l > 5 then high;`), as the
+segment's effect does. The entered state's `entry` and `do` read the transition that entered it the
+same way, the do behavior for its whole run (the state performance holds the transfer that
+triggered the transition into it, `StatePerformance::incomingTransitionTrigger`), whether its
+first step is drawn before or after the entries of the substates entered with it.
+
+<a id="ending-a-state-machine-with-terminate"></a>
+**Ending a state machine with `terminate`.** A transition whose target is a terminate action
+usage — `transition first watching accept Abort then stop; action stop terminate;`, the
+spelling §7.18.3 gives "to immediately terminate the containing state performance" — ends the
+machine's performance where the transition arrives, short of any final state. The transition
+itself runs as any transition does: its source is exited (the source's `exit` behavior runs,
+since that state *is* left) and its `do` effect runs, and a terminate usage declared inside a
+composite state entered on the way runs that composite's `entry` behavior. Then nothing else
+happens: no other state is exited, no other exit behavior runs, every do behavior still under
+way — the sibling region's, the enclosing composite's, the machine's own — is abandoned where
+it stands, and no state is active. A choice, junction or join whose way on leads into the
+usage ends the machine the same way once the compound transition completes; a fork's branches
+enter states, so one leading into a terminate usage is refused. The debugger reports it apart
+from completion, and `%current` shows no state and the data as it stood:
+
+```sysml
+sysml> package Guard {
+  ...>     private import ScalarValues::*;
+  ...>     attribute def Abort;
+  ...>     state def Sentry {
+  ...>         attribute log : String = "";
+  ...>         entry; then watching;
+  ...>         state watching {
+  ...>             do { assign log := log + "watch;"; accept after 5 [SI::s]; assign log := log + "watched;"; }
+  ...>             exit { assign log := log + "watching(exit);"; }
+  ...>         }
+  ...>         transition first watching accept Abort do assign log := log + "abort;" then stop;
+  ...>         action stop terminate;
+  ...>     }
+  ...> }
+✓ package Guard
+
+sysml> %state Guard::Sentry
+✓ Started state machine executor for "Guard::Sentry"
+  Current state: watching
+  Time: 0.0
+  Events: 0
+
+sysml> %send Abort
+✓ Sent Abort to state machine "Guard::Sentry"
+  Accepted by state machine "Sentry" in state watching: transition watching -> stop fires on it
+
+sysml> %advance 1
+✓ Advanced to 1.0 (1 event(s) processed)
+  Current state: <none>
+  Last event at: 0.0
+  Remaining events: 0
+  Do behavior actions run: 1
+
+✓ State machine terminated (a `terminate` ended its performance short of a final state; no state is active)
+
+sysml> %current
+Current state: <none>
+Time: 1.0
+Last event at: 0.0
+Execution state: Terminated
+
+State data:
+  log = "watch;watching(exit);abort;"
+```
+
+The do behavior's `watched;` never ran: its wait was abandoned with the machine. From the
+command line (`sysml -state Guard::Sentry -advance 1 …`) the run ends with the same `State
+machine terminated` line and reports `state` as `<none>`, and an exploration or a `check` sees
+the run as terminated (`Outcome.Terminated`, its final state empty) rather than as having
+reached `done`, so a model that can end either way has two outcomes. `%trace` records the transition into the usage, `terminate stop`, and each do
+behavior abandoned. A `terminate` written *inside* a state's `entry`, `do` or `exit` body is
+something else — it ends that behavior only, the whole braced block where the body is one
+(`do { assign d := 1; terminate; assign d := 9; }` leaves `d` at 1)
+([below](#terminate-ending-an-action-early)).
+
 **Action debugging commands:**
 - `%action <name> [<object>]` — Start an action debugging session, optionally performed by an instantiated object
 - `%step` — Advance all tokens one step; a token waiting only on the clock is reported with the `%advance` that would move it
@@ -463,7 +587,7 @@ the whole set of outcomes it admits.
 
 The examples below are one fixture from the conformance suite, three branches writing one feature
 between a fork and a join,
-[`action_explore_three_writers.sysml`](../../internal/core/runtime/testdata/conformance/action_explore_three_writers.sysml):
+[`action_explore_three_writers.sysml`](../../internal/exec/runtime/testdata/conformance/action_explore_three_writers.sysml):
 
 ```sysml
 package test {
@@ -543,8 +667,14 @@ token 2 stepped last. The other kinds read the same way: a decision with two hol
 `choice step 2: decision select branches 1->warn, 2->alarm hold (unordered; took 1->warn)`, two
 transitions out of one state enabled by one event are `choice state idle on accept Go: transitions
 1->left, 2->right (unordered; took 1->left)`, and two regions reacting to one event are
-`choice on accept Go: states a1, b1 react (unordered; took a1 first)` — `reverse` and `declared`
-take the regions in declaration order and report the pick, and `seed:<n>` may take `b1` first —
+`choice on accept Go: next a1(exit), b1(exit) (unordered; took a1(exit) first)` — each firing
+is drawn a unit at a time, its source's exit, its effect, its target's entry, so two firings may
+interleave; `reverse` and `declared` take the regions whole in declaration order and report each
+pick, and `seed:<n>` may take `b1(exit)` first. Entering a state of two regions draws the order
+of their entries the same way, `choice entering work: next left(entry), right(entry)
+(unordered; took left(entry) first)`, a fork's branches under `fork <name>` and the regions a
+state leaves under `exiting <state>`; the fixed policies take declaration order there too, so a
+model that ran before these draws were recorded runs the same and gains only the `choice` lines —
 and two executors due at one instant of the clock are `choice at t=5.0: due action watcher, state
 machine blinking of object #1 (unordered; ran state machine blinking of object #1 first)`. One
 executor alone due at an instant is not a choice and is not reported, so a model with a single
@@ -610,27 +740,36 @@ runs no seed you tried happened to take.
 
 `explore` replays the behavior once per linearization. The first run records the alternative
 taken at each choice point; each later run is a fresh executor of the same loaded model — no
-object, message, clock, calc memo or note carries over — that follows the recorded prefix and
-takes the next untried alternative at the frontier, depth-first, until every choice sequence is
-spent or a budget is hit:
+object, message, clock, calc memo or note carries over — that follows a recorded prefix and
+takes an untried alternative at its end, until every choice sequence is spent or a budget is
+hit. The runs vary every choice point of the first run once, earliest first, before any is
+varied twice, so a choice met early is varied by the second run however many choices follow it:
 
 ```console
 $ sysml -schedule explore -action test::race action_explore_three_writers.sysml
 ✓ package test
 ✓ explored test::race: 3 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 1 | 2              | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
-aRan = true; bRan = true; cRan = true; x = 2 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 2              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+outcome                                      | linearizations | probability        | witness
+---------------------------------------------+----------------+--------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 1 | 2              | 0.3333333333333333 | step 3: 3@b first of 2@a, 3@b, 4@c; step 4: 4@c first of 2@a, 4@c
+aRan = true; bRan = true; cRan = true; x = 2 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | 0.3333333333333333 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
 complete (6 runs)
 ```
 
 Runs that agree on what the conformance harness compares — an action's outputs; a state machine's
 final state, states visited and values; an analysis case's outputs and verdicts — are one
 *outcome*, and the table has one sorted row per distinct outcome: the outcome, how many
-linearizations reached it, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
-4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). Six
+linearizations reached it, its *probability*, and the choice sequence of one *witness* run (`3@b first of 2@a, 3@b,
+4@c` is the first pick, then `4@c first of 2@a, 4@c` among the two that remained). A
+linearization's probability is the product of the shares its picks resolved with — a
+`@Probability`-weighted pick its stated weight's share of the weights drawn over, an unweighted
+choice point the uniform `1/n` a `seed:<n>` takes each alternative with — and an outcome's is the
+sum over its runs, so the column totals `1` when the exploration is complete: it is the model's
+own probability where every choice point is weighted, and where they are not it assumes the
+scheduling choices the library leaves open are taken uniformly at random. An incomplete
+exploration prefixes each figure `≥` and the status line adds `; probabilities are lower bounds`,
+since the runs not taken can only add. Six
 linearizations, three outcomes, two each; `complete (6 runs)` says every choice sequence was
 tried. Under `explore` an action step is one token advancing one node — not, as under the fixed
 policies, every steppable token moving once — so the picks fall in consecutive steps and a branch
@@ -641,8 +780,29 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `witness`) and
-`exploration` (`complete`, `runs`, `budgetsHit`) beside the table's lines.
+(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, `probability`, `witness`) and
+`exploration` (`complete`, `runs`, `budgetsHit`, `probabilitiesLowerBound`) beside the table's lines.
+
+<a id="a-do-behavior-under-explore-and-check"></a>
+A state's `do` behavior is stepped the same way under `explore` and `check`: one token at a time —
+a due `do` behavior moves one token, and after each move the machine either dispatches the event
+at the head of its pool or moves the `do` flow again, a recorded choice (`at t=…: next do
+<state>, dispatch accept <signal> (unordered; took … first)` in the witness). Under the fixed
+policies (`reverse`, `declared`, `seed:<n>`) a `do` behavior's flow instead advances every
+steppable token once a round, and the machine dispatches only between rounds — one of the
+interleavings `check` and `explore` table, so the exhaustive set is a superset of every fixed
+policy's outcome, and a transition that interrupts a `do` behavior after any of its token moves
+is another. A `do` body parked at an `accept` offers no move until its occurrence is dispatched,
+and a `do` flow that never rests against a queued dispatch ends each run at the dispatch or at
+the do-step budget. A `do` behavior starts as its state's entry ends, before the state's
+substates are entered, and runs beside the entries still to come: each of its token moves is
+drawn against the sibling regions' remaining entry units and against the state's own substates'
+at the same `entering <state>` (or `fork <name>`) draw, `entering work: next do left, right(entry)
+(unordered; took do left first)` for a region's `do` against its sibling's entry, `entering work:
+next do work, w1(entry) (unordered; took do work first)` for a composite's own against its
+substate's, until no entry is left in the move; the fixed policies enter every state whole and
+run the `do` round after, as before. The witnesses such a check writes replay as any other
+([design note](../internals/design/region-order-scheduling.md)).
 
 The order of executors due at one instant of the clock is explored like any other choice:
 `sysml -schedule explore -instantiate Demo::beacon -action Demo::watcher -state
@@ -666,14 +826,14 @@ The budget is 1024 runs and 64 choice points per run unless `explore:runs=N,dept
 otherwise, and hitting it is never silent:
 
 ```console
-$ sysml -schedule explore:runs=2 -action test::race action_explore_three_writers.sysml
+$ sysml -schedule explore:runs=3 -action test::race action_explore_three_writers.sysml
 ✓ package test
 ? explored test::race: 2 outcomes
-outcome                                      | linearizations | witness
----------------------------------------------+----------------+------------------------------------------------------------------
-aRan = true; bRan = true; cRan = true; x = 2 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
-aRan = true; bRan = true; cRan = true; x = 3 | 1              | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
-incomplete: runs budget 2 hit after 2 runs
+outcome                                      | linearizations | probability           | witness
+---------------------------------------------+----------------+-----------------------+------------------------------------------------------------------
+aRan = true; bRan = true; cRan = true; x = 2 | 1              | ≥ 0.16666666666666666 | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 4@c first of 3@b, 4@c
+aRan = true; bRan = true; cRan = true; x = 3 | 2              | ≥ 0.3333333333333333  | step 3: 2@a first of 2@a, 3@b, 4@c; step 4: 3@b first of 3@b, 4@c
+incomplete: runs budget 3 hit after 3 runs; probabilities are lower bounds
 $ echo $?
 2
 ```
@@ -683,7 +843,12 @@ far and no more, the check is unresolved (`?`) and the exit status is `2` — th
 that decided nothing, as for an unevaluable verdict. Raise the budget it names
 (`explore:runs=4096`, `explore:depth=128`, or both) and run again; a model whose exploration stays
 incomplete at any budget you can afford has more linearizations than a table can carry, and a
-seed is the way to look at some of them.
+seed is the way to look at some of them. The two budgets bound different things: a choice point
+met past the `depth` budget takes its first alternative in every run and is never varied, however
+many runs remain, so a run of more choice points than `depth` — the witness column lists every
+one its run met — needs `depth` raised to at least that many before more runs can help; within
+`depth`, a `runs` budget of one more than the first run's choice points varies each of them at
+least once.
 
 The same spelling explores over the wire, where the response carries `outcomes` and an
 `exploration` status ([wire contract](../reference/wire-contract.md)), and from every client
@@ -741,7 +906,7 @@ no file of the caller's and `"replay:…"` is `INVALID_ARGUMENT`.
 ### Writing a test that admits several outcomes
 
 A conformance case (see the
-[conformance README](../../internal/core/runtime/testdata/conformance/README.md)) that pins one
+[conformance README](../../internal/exec/runtime/testdata/conformance/README.md)) that pins one
 outcome of a model with choice points pins the default policy's linearization, which is fine when
 that is what you mean. When the model admits several, say so with three things beside the
 `.sysml`:
@@ -828,7 +993,7 @@ simulation tool often means something else by a branch — *the acquisition succ
 in ten* — and by a duration — *the settle takes between one and eighty seconds* — and SysML v2
 has no notation for either. OpenSysML supplies one as an extension library, in standard SysML v2
 that any other tool reads as ordinary metadata and a function call: two library packages,
-`Stochastic` and `RandomFunctions` under `internal/core/libs/stdlib/OpenSysML Libraries/`, both
+`Stochastic` and `RandomFunctions` under `internal/workspace/libs/stdlib/OpenSysML Libraries/`, both
 marked NON-NORMATIVE, with the vendored OMG files untouched. What they state is *modeled*
 randomness, and the runtime keeps it apart from the scheduling kind: a weighted branch is drawn
 by its weights, a scheduling choice never is, and the two draw from two independent streams,
@@ -871,8 +1036,16 @@ enforces, each violation a typed error before anything runs:
 - each `p` lies in `0.0..1.0`;
 - where every `p` out of one decision is a constant — a literal or arithmetic over literals,
   `1.0 - 0.3` as much as `0.7` — they sum to `1.0` within `1e-6`; a `p` that is an expression
-  over the action's features is evaluated when the decision is reached and refused then, as an
-  `invalid branch weights` error, if it is no probability;
+  over the action's features is evaluated when the decision is reached and refused then, as a
+  typed `invalid branch weights` error naming the decision and the branch, if it is no number,
+  no finite one, or one outside `0.0..1.0`, or if the holding weights sum to nothing positive;
+- a `p` that names a feature is typed where the annotation is written: the feature's type must
+  be `Real` or `Integer`, so `p = ready` over a `Boolean`, a `String`, an enumeration or a part is
+  a type error before anything runs, while `p = pFast` over a `Real` attribute of the action, of
+  the object performing it (`this` chain) or of an `in` parameter is a weight the run reads
+  when the decision is reached — so one object's attributes weight the decisions of the
+  behaviors it performs, and two objects of the same type with different attribute values take
+  different odds;
 - a `Probability` with no `p`, two, an attribute it does not declare, or a `p` that is not a
   number is refused naming what is wrong, and one written on an action body instead of a
   succession is refused rather than ignored.
@@ -880,9 +1053,39 @@ enforces, each violation a typed error before anything runs:
 A branch whose guard does not hold at the decision is out of the draw, and the weights of the
 branches that do hold are renormalized among themselves: a `0.7` branch guarded by `if ready`
 against a `0.3` branch unguarded is the `0.3` branch alone when `ready` is false, and a decision
-at which no holding branch weighs more than zero is refused. A `Probability` on a state
-transition is refused with a typed lowering error: weighted transitions are not in this
-release (see [Known limitations](#known-limitations-of-modeled-randomness)).
+at which no holding branch weighs more than zero is refused.
+
+`@Probability` on a **state transition** weights it by the same rules, within the *group* it
+competes in: every transition out of one `choice` or `junction` pseudostate is a group — a
+weight on a transition out of a `fork`, `join`, `initial`, `entry`, `exit` or `history`
+pseudostate is refused, since no branch pick happens there; the
+transitions out of one state are grouped by what they wait on — all completion transitions
+together, and the ones on the same trigger (the resolved signal or operation definition
+together with a structurally identical expression and the same `via` receiver —
+`accept go` apart from `accept other`, `accept A::Go` apart from `accept B::Go`,
+`after uniform(1, 2)` apart from `after normal(10, 1)`, `via p` apart from `via this.p`)
+together. Transitions sharing a time-trigger spelling (`accept after 5 [s]` twice out of one
+state) arm a single timer: the expiry is one occurrence, drawn among them by weight rather than
+ordered as separate events, and a weight expression may read the trigger's bound arguments —
+`accept route(priority)` with `p = priority` weighs each transition by the priority the call
+carried. A group is weighted as a whole or not at all, and constant weights sum to `1.0`:
+
+```sysml
+state def Machine {
+	entry; then idle;
+	state idle;
+	state slow;
+	state fast;
+	transition first idle accept go then slow { @Probability { p = 0.3; } }
+	transition first idle accept go then fast { @Probability { p = 0.7; } }
+}
+```
+
+The weights pick among the transitions otherwise equally eligible — after the trigger matched,
+the guards read, and the innermost-wins rule between a substate and its enclosing state has run
+— so a substate's transition is never weighed against an enclosing one's, and the pick is drawn
+once, at dispatch. `explore` enumerates the alternatives as it does any choice point, and the
+outcome table's `probability` column reports each outcome's share (below).
 
 ### A random value: `RandomFunctions`
 
@@ -904,12 +1107,53 @@ the function's typing. A random `accept after` is evaluated once, when the wait 
 the instant it is due at stands while the token waits: the duration is not redrawn as the clock
 is polled.
 
+### Draw policies: `min`, `max`, `average` and `random`
+
+How a `RandomFunctions` call resolves is a setting of the run, not of the model: `-draws
+<policy>` at the command line and `%draws <policy>` at the prompt. `random`, the default,
+draws each call from the model seed. `min`, `max` and `average` resolve each call to the least,
+greatest or mean value of its distribution instead, so a duration written `uniform(1, 80) [s]`
+is `1 [s]`, `80 [s]` or `40.5 [s]`:
+
+| Function | `min` | `max` | `average` |
+|---|---|---|---|
+| `uniform(lo, hi)` | `lo` | `hi` | `(lo + hi) / 2` |
+| `uniformInteger(lo, hi)` | `lo` | `hi` | the midpoint, a half rounded toward `hi` |
+| `triangular(lo, mode, hi)` | `lo` | `hi` | `(lo + mode + hi) / 3` |
+| `normal(mean, sd)` | refused | refused | `mean` |
+
+A run whose only randomness is its durations is therefore deterministic under a fixed policy
+and needs no seed: `-runs 20 -draws max` runs the action twenty times and every row is the same,
+which is how a workflow's longest and shortest paths are read off. `normal` has no least or
+greatest value, so a run that calls it under `min` or `max` stops with a typed error naming the
+call and the policy; its `average` is its mean. Weighted decisions are not durations: they draw
+from the seed under every policy — `-draws max -seed 7` fixes the durations and randomizes the
+branches — and an unseeded one takes its most probable branch as it does under `random`. The
+policy applies to the debugger's session as well, so `%draws max` before `%action` steps through
+the longest durations. Every witness the checker writes records a fixed policy as a `draws by
+<policy>` line ahead of its draws, and `replay:<file>` runs under the recorded policy, refusing
+a recorded draw the policy could not have made (a witness that names a fixed policy and
+records no draw leaves them to the policy). A simulation tool's *duration simulation mode*
+is this knob; see [Behaviors migrated from SysML v1](#behaviors-migrated-from-sysml-v1).
+
+The clock the durations run on is a setting of the run too. By default it is continuous: a
+wait comes due exactly when it ends. `-clock-step <seconds>` at the command line and
+`%clock-step <seconds>` at the prompt make it tick instead, as a simulation tool's fixed-step
+clock does, so a wait comes due at the first tick not before its end — under a step of `1`, a
+wait of `2.3 [s]` set at `t=0` comes due at `t=3.0` — and a workflow's total is a whole number of
+steps. `0` restores the continuous clock. A witness of a stepped run records `clock steps by
+<seconds>` and replays on it; a migrated run configuration records the tool's step, which
+`-compare-results` applies (see [Comparing a migrated
+configuration](../reference/cli.md#comparing-a-migrated-configuration-with-the-tools-results)).
+
 ### Seeds: where the draws come from
 
 A run that reaches a weighted decision or a `RandomFunctions` call needs a *model seed*. Given
 none, it is refused — `modeled randomness needs a seed: uniform(0.0, 10.0) draws a random value;
 seed the run, as -seed <n> or %seed <n>, or schedule it under seed:<n>` — rather than drawing an
-unrepeatable value that a later run could not reproduce. The model seed comes from the first of:
+unrepeatable value that a later run could not reproduce — unless the run is under a fixed
+[draw policy](#draw-policies-min-max-average-and-random), whose calls draw nothing. The model
+seed comes from the first of:
 
 1. the witness a `replay:<file>` follows, whose recorded draws the run consumes (below);
 2. an explicit model seed — the CLI's `-seed <n>`, the REPL's `%seed <n>`, a conformance
@@ -976,7 +1220,14 @@ own derived from `<seed>` and the run number — so run 3 of seed 7 is the same 
 platform, and can be repeated alone with `%seed <its seed>` — and table what each run's named
 features, and `clock`, the simulation time it completed at, came to. Without observables every
 feature the action holds and the clock are tabled; `clock` names the clock only, so a feature of
-that name is not reported. Below the table each numeric observable is
+that name is not reported; a part or item the action holds exactly one of is tabled through its
+attributes (`target.total`), so an action that performs a behavior on an object it declares
+reports what the object came to. A feature a run left without a value (an `attribute t : Real
+[0..1];` no statement of that run assigned) is a blank cell of its row, outside the summary, and
+an observable no completed run gave a value is refused. Under `%draws min`, `max` or `average`
+the seed is left out (`%runs 20 Sys::align clock`, `-runs 20 -draws max`), since the runs draw
+nothing at random; under `random` a seedless `%runs` is refused naming the seed and `%draws`.
+Below the table each numeric observable is
 summarised over the runs that completed: the minimum, mean and maximum, the nearest-rank p50
 and p90, and a histogram; a non-numeric observable is counted by value.
 
@@ -1011,20 +1262,80 @@ second knob here too: every run resolves its concurrency choices under `-schedul
 
 ### Known limitations of modeled randomness
 
-- **State transitions carry no weight.** `@Probability` on a `transition` is refused at lowering
-  with a typed error; only successions out of a decision node are weighted.
-- **`explore` and `check` do not accumulate probability.** The outcome table and the checker's
-  verdict enumerate the weighted branches as branches; the probability of an outcome (the product
-  of the weights along its linearization's decision picks) and the probability mass of the
-  schedules reaching a violation are not reported.
+- **A transition's weight is only its group's.** Weights pick among the transitions competing
+  for one dispatch — one trigger spelling out of one state, one completion set, one pseudostate's
+  branches — never between different events or different states, and a transition that loses to a
+  nested one fires nothing.
+- **Probabilities assume a uniform schedule.** `explore`'s column and `check`'s violation masses
+  are the model's own probabilities where every choice point is weighted; an unweighted point is
+  counted as if each alternative were equally likely, which is an assumption, not a measurement.
 - **Random functions are scalar.** A bound given as a quantity is refused; write the unit on the
   draw (`uniform(1, 80) [s]`).
 - **Weights are drawn among the branches that hold.** A decision whose guards leave exactly one
   weighted branch holding takes it with probability one, whatever its `p`; the sum-to-one rule
   is checked over the branches as written.
-- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action
-  repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
+- **Monte Carlo runs are a REPL and CLI operation.** `%runs` and `-runs` run an action, or an
+  analysis case specializing `Simulation::MonteCarlo`, repeatedly; the `RunSweep` RPC and the service clients take ranges and samples but no run
   count, and an external engine put a Monte Carlo answers with a claim, not the table of runs.
+- **A draw policy resolves `RandomFunctions` only.** `min`, `max` and `average` fix the
+  durations and values the four functions return; a weighted decision draws from the seed under
+  every policy, and `normal` has no `min` or `max` unless its deviation is zero. Exploration and the checker enumerate a
+  weighted decision's branches whatever the policy.
+
+### Behaviors migrated from SysML v1
+
+The [v1 migration](../reference/sysml-v1-migration.md#behaviors) writes a v1 activity as an
+`action def` and a v1 state machine as a `state def` in exactly the forms this chapter uses, so
+a migrated behavior runs under the same debugger, seed and `%runs` as one written by hand. Two
+v1 idioms land on the machinery above:
+
+- A **`DurationConstraint`** on a call action (`[1s..80s]`) becomes a wait the token takes
+  before it — `accept after 3.0 [SI::s]` for a point interval, `accept after
+  RandomFunctions::uniform(1.0, 80.0) [SI::s]` for a proper one — so a workflow's duration is a
+  draw from the model seed, as under a v1 tool's random duration mode. The tool's `min`, `max`
+  and `average` modes are the [draw policy](#draw-policies-min-max-average-and-random) of the
+  run, `-draws`/`%draws`, which each migrated run configuration records.
+- **«Probability»** on the edges out of a decision becomes `@Stochastic::Probability { p = … }`
+  on each succession, when every edge carries one: a constant for a numeric tag, and for a tag
+  naming a property of the activity or of its context block — a v1 analysis block whose
+  `ProbabilityBTOOP : Real` the run configurations set to `1.0` or `0.0` — a reference to the
+  migrated attribute (`p = ProbabilityBTOOP;`, `p = 1.0 - ProbabilityBTOOP;`), read when the
+  decision is reached from the object the behavior runs on. A decision whose guards are opaque
+  English (`[Align BTO]`) is written unguarded, and the runtime draws its branch with the model
+  seed.
+- A **run configuration** (`SimulationProfile:SimulationConfig`) becomes an `action def` that
+  declares `part target : <the migrated execution target>` — the `individual def` the target
+  instance became, whose slots are its attribute values — and `perform action run ::>
+  target.<the classifier behavior>`, with the tool's `numberOfRuns` and
+  `durationSimulationMode` as `@Simulation::Configuration { runs = …; draws = …; }` metadata; so
+  running the configuration runs the behavior on an object holding that configuration's
+  property values, its probabilities included. See
+  [Run configurations](../reference/sysml-v1-migration.md#run-configurations).
+
+The workflow's total duration is the clock at the end of the run, which `%runs` reports when no
+observable is named:
+
+```text
+%runs 100 1 Model::Mission::'Acquire Target'::'Acquire Target - Logical'
+```
+
+A migrated configuration is run by its generated name with the count and policy it records, and
+`-compare-results` sets its runs beside the snapshots the tool stored of its own
+([Comparing a migrated configuration with the tool's results](../reference/cli.md#comparing-a-migrated-configuration-with-the-tools-results)):
+
+```bash
+sysml tmt.sysml -action "Flows::'Acq Time Group0'" -runs 6 -seed 1 -draws random -observe clock
+sysml tmt.sysml -compare-results tmt.results.json -seed 1 -observe Time_Acq_Total=clock
+```
+
+A v1 opaque action that reads the tool's time variable (`Time_Acq_Total = simtime`) reads
+[the clock](#reading-the-clock): `assign this.Time_Acq_Total := localClock.currentTime;`, so
+the attribute the workflow times is one `-observe this.Time_Acq_Total` tables per run beside
+`clock`. Names in the body resolve through the swimlane the action sits in (`this.tcs.i` for a
+partition representing the part `tcs`), so a workflow whose actions read its performer's
+features is run through the performer: `-action "'Observatory' 'Acquire Target'"`. A body the
+[opaque-language subset](../reference/sysml-v1-migration.md#the-opaque-language-subset) does
+not read stays a comment, and the report names the token it refused.
 
 ## An object runs the behaviors its type exhibits
 
@@ -1874,11 +2185,134 @@ Setting `x` to `5` gives `taken = 2`. The state-machine counterparts (orthogonal
 regions, choice and junction) appear in
 [examples/orthogonal-regions-demo.sysml](../../examples/orthogonal-regions-demo.sysml) and
 [examples/pseudostates-demo.sysml](../../examples/pseudostates-demo.sysml), and every case the
-executors are tested against lives under `internal/core/runtime/testdata/conformance/`.
+executors are tested against lives under `internal/exec/runtime/testdata/conformance/`.
+
+### Terminate: ending an action early
+
+`terminate` ends the performance it is written in, keeping whatever it assigned so far. As a
+node of the flow — `then terminate;`, or a named terminate action usage reached by a succession
+(`then stop; action stop terminate;`) — it ends the action, so nodes after it do not run and a
+forked sibling branch still running is dropped, an `accept` it never received included. A
+terminate action usage's body may declare pins and statements, which run before it ends the
+action — a `terminate;` among them ends the usage's own performance there, and the usage
+still ends the action; a flow of its own (`first`, successions) it may not state. As a
+statement of a nested action node's body it ends only that node: the rest of the body is
+skipped, the node's own fork branches are dropped, and the parent continues along the node's
+succession with the values the node assigned before it ended. `terminate <name>;` names an
+action node of the flow it is in or of a flow around it — the node itself
+(`action c1 { terminate c1; }`), the node whose body it runs in, or a sibling node still
+running — and ends every performance of that node still going on, the earliest begun first,
+and every one a token of the flow is parked at without having begun: a forked sibling the
+schedule has not reached yet, or an `accept` still waiting for its signal. Such a performance
+ends there, its body never run, and the flow goes on along the node's succession — which is
+how §7.17.10's `MonitoredActivity` works, its `waitForTimeOut` branch terminating
+`performCriticalActivity` whatever that has done so far. `-trace` writes every dropped token
+and every performance ended this way (`ended waiting`, `ended before it began`).
+
+```sysml
+action bounded {
+    out attribute x : Integer = 0;
+    out attribute y : Integer = 0;
+
+    first start;
+    then action c1 {
+        assign x := 1;
+        terminate;
+        assign x := 2;
+    }
+    then action c2 { assign y := 3; }
+    then done;
+}
+```
+
+Here `c1` ends after its first assignment, and `c2` still runs: `x = 1`, `y = 3`.
+
+`terminate <occurrence>;` ends an object instead: `terminate this;` in an action a part
+performs ends the part (an exhibited or performed behavior is a performance the object owns,
+so `this` there is the object), and a feature chain or an expression evaluating to an object
+ends that object — `terminate sub.worker;` from a controller's action. The object's lifetime
+ends at the statement, its portions with it, and every behavior it performs or exhibits ends
+where it stands: an action of it keeps what it assigned and drops its tokens, a state machine it
+exhibits is terminated with no state exited and its do behaviors abandoned, while an action of
+another object runs on. `%instances` lists the object as `ended` and `%features` shows the
+behaviors it exhibited or performed as `terminated`. Terminating a value that
+is no occurrence, a chain that names no object, an object already destroyed or a performance
+that already ended is reported (`occurrence cannot be terminated`, `performance already
+ended`), never ignored; and a behavior started for an object that ended is refused. Inside a
+state's `entry`, `do` or `exit` body a `terminate` ends that behavior — the containing action
+of the statement — so the rest of the body does not run, the state stays active and the
+machine keeps dispatching; a braced body (`entry { assign e := 1; terminate; assign e := 9; }`,
+the same `do { … }`, `exit { … }` and a transition's `do { … }`) is one anonymous action, so
+the block is the action it ends and the statements after the `terminate` do not run either,
+while a named action beside the block (`entry action first { … }`) still does; a transition to
+a terminate action ends the machine instead ([above](#ending-a-state-machine-with-terminate)).
+A calculation is pure and refuses `terminate` as it refuses `send`.
 
 A run that stops early, whether through deadlock or by hitting a budget, is reported as an
 undecided check rather than a failure. The budgets are documented in
 [reference/environment.md](../reference/environment.md).
+
+### Handling a failure: there is no `try`/`catch`
+
+SysML v2 has no exception handler and no `raise`: an action cannot end abnormally with a payload,
+and nothing propagates. A failure is modeled like any other fact, and handled with the nodes
+above. Two shapes cover what UML's exception handlers do. Where the failing step knows it failed,
+it reports so on an `out` parameter (`out ok : Boolean`, a status enum) and a `decide` after it
+routes on the report — the [conditional branching](#decision-and-else-conditional-branching)
+pattern. Where the failure has to interrupt work already under way, the step sends a signal, and
+a branch forked beside the work accepts it, terminates the work and handles the payload:
+
+```sysml
+attribute def Fault { attribute reason : String; }
+
+action bySignal {
+    out attribute progress : Integer = 0;
+    out attribute handled : String = "";
+
+    first start;
+    then fork split;
+        then work;
+        then caught;
+
+    action work {
+        first start;
+        then action step1 { assign progress := 1; }
+        then action raise send new Fault(reason = "sensor offline") to caught;
+        then action wait accept go : Integer;
+        then action step2 { assign progress := 99; }
+        then done;
+    }
+
+    action caught accept fault : Fault;
+    then action stop { terminate work; }
+    then action handle { assign handled := fault.reason; }
+    then sync;
+
+    join sync;
+    succession first work then sync;
+    succession first sync then done;
+}
+```
+
+```bash
+$ sysml -action FailureHandling::bySignal failure_handling.sysml
+✓ Action completed
+  Final state: Completed
+  Results:
+    fault = Instance(ID: 1)
+    handled = "sensor offline"
+    progress = 1
+```
+
+`work` was parked at `wait` when `stop` terminated it, so `step2` never ran and `progress` stays
+at 1; the join releases on the ended performance. This is §7.17.10's `MonitoredActivity` with the
+signal sent by the work itself, and it is the standard notation — every node in it is an ordinary
+`send`, `accept`, `terminate` or `fork`. A failure the model does *not* spell — a division by
+zero, an unbound parameter, an accept nothing can satisfy — is not silently skipped and not a
+crash: the run ends with a typed error naming it (`execution failed: … division by zero`), a
+check reports the standing `not covered`, and a verification case whose body fails is the verdict
+`error`. The adjudication behind this section is
+[project/exception-handlers.md](../project/exception-handlers.md).
 
 ---
 

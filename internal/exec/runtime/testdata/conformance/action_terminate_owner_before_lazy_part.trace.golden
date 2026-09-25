@@ -1,0 +1,14 @@
+step 1: token 1@stop
+stmt terminate
+materialize: patient #1
+  eval feature patient -> instance#1
+terminate: patient #1
+step 2: token 1@read
+stmt assign rate
+materialize: engine #2
+  eval chain rate -> 50
+step 3: token 1@check
+stmt assign fired
+  eval chain fired -> 0
+step 4: token 1@done
+step 5: no active tokens

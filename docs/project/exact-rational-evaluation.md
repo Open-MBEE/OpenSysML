@@ -47,7 +47,7 @@ OpenSysML today answers **identically on every one of these probes** (`0.3000000
 `false`, `false`, `true`, `5.551115123125783e-17`, `false`, `true`, `false`,
 `0.3333333333333333`). An exact-rational evaluator would therefore not close a gap with
 the reference — it would **open one**, flipping the observable answer of every probe row
-above against the pilot, and `cmd/pilot-exec-diff` would report each as a disagreement.
+above against the pilot, and `tools/referee/exec` would report each as a disagreement.
 This inverts the premise of the change: the evaluator's binary64 arithmetic *is* the
 reference behavior.
 
@@ -81,10 +81,10 @@ executable oracle contradicts it.
 For completeness of the adjudication, the blast radius of a `big.Rat`-backed (or
 exact-until-formatted) `Real`/`Rational` value, mapped concretely:
 
-- `internal/core/semantics`: `Value` carries `Real float64` (`eval.go`); the constant
+- `internal/semantic/semantics`: `Value` carries `Real float64` (`eval.go`); the constant
   folder's `evalRealArith`/`RealArith`, `IntQuotient`, `Pow`, comparisons and equality,
   and the numeric-widening lattice all move to a rational representation.
-- `internal/core/runtime`: the evaluator (`eval.go`, `toReal`), `value.go`
+- `internal/exec/runtime`: the evaluator (`eval.go`, `toReal`), `value.go`
   (`FormatReal` and all printing), `library_functions.go` (34 `math.*` call sites —
   `sqrt`, trig, `floor`/`round`, `exp`/`ln` — which have no exact form), quantities and
   unit scaling, collections, overflow handling; 69 `float64` sites in the package.
@@ -185,7 +185,7 @@ unevaluated-operand artifact `w6d:complex-is-zero-qualified` records in the
 `'/'` called by name are unevaluated too; only operator syntax folds. So the pilot cannot
 referee any of the three, the standing decision is not contradicted (nothing here shows an
 exact numerator/denominator pair for `1/3`), and the semantics are self-assessed. The
-probes are committed as `cmd/pilot-exec-diff/testdata/cases/rational_terms.cases`, where
+probes are committed as `tools/referee/exec/testdata/cases/rational_terms.cases`, where
 every call lands in `pilot-unevaluated` and the operator quotient agrees.
 
 **Adjudicated: implement all three over the binary64 the runtime already holds.**
@@ -224,15 +224,15 @@ the runtime can honestly compute one.
 
 Whether the narrowing is worth building is an empirical question — how many queries
 does the conservative `Query.Rounded` marker sweep in that are in fact provably exact?
-`TestRoundedCensus` (`internal/core/solve/rounded_census_test.go`) answers it
+`TestRoundedCensus` (`internal/exec/solve/rounded_census_test.go`) answers it
 reproducibly: it enumerates every constraint, requirement and analysis case in the
 repository's solver-facing corpora, translates each through the same
 `Condition`/`Analysis` path the REPL's `%check`/`%solve`/`%configure all`/`%optimize`
 commands use, and classifies every translated query.
 
 ```
-OPENSYSML_SMT=/usr/bin/z3        go test -count=1 -run TestRoundedCensus -v ./internal/core/solve
-OPENSYSML_SMT=/usr/local/bin/cvc5 go test -count=1 -run TestRoundedCensus -v ./internal/core/solve
+OPENSYSML_SMT=/usr/bin/z3        go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
+OPENSYSML_SMT=/usr/local/bin/cvc5 go test -count=1 -run TestRoundedCensus -v ./internal/exec/solve
 ```
 
 A marked query is *recoverable* only if every asserted or optimized term is exact over

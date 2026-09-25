@@ -1,5 +1,7 @@
 // The custom methods the OpenSysML language server adds for diagrams, and the
-// payloads they carry. They mirror internal/lsp/render.go.
+// payloads they carry. They mirror internal/frontend/lsp/render.go.
+
+import type { DiagramStyle } from "./style";
 
 export const RENDER_METHOD = "opensysml/render";
 export const VIEWS_METHOD = "opensysml/views";
@@ -10,10 +12,13 @@ export const RENDER_DOCUMENT_METHOD = "opensysml/renderDocument";
 /** The capability the server advertises when it serves the render methods. */
 export const RENDER_CAPABILITY = "openSysmlRender";
 
+/** The capability whose value lists the forms `opensysml/render` writes; a server without it writes the documented five. */
+export const RENDER_FORMS_CAPABILITY = "openSysmlRenderForms";
+
 /** The capability the server advertises when it serves document rendering. */
 export const RENDER_DOCUMENT_CAPABILITY = "openSysmlRenderDocument";
 
-/** Turns diagram actions into a WorkspaceEdit; mirrors internal/lsp/modeledit.go. */
+/** Turns diagram actions into a WorkspaceEdit; mirrors internal/frontend/lsp/modeledit.go. */
 export const APPLY_MODEL_EDIT_METHOD = "opensysml/applyModelEdit";
 
 /** The capability the server advertises when it serves model edits. */
@@ -22,10 +27,16 @@ export const APPLY_MODEL_EDIT_CAPABILITY = "openSysmlApplyModelEdit";
 /** The capability each side advertises when it speaks the cross-document diagram contract: renderings naming other documents' declarations, `declaredHere`, and layouts pinned with `declaredIn`. */
 export const CROSS_DOCUMENT_CAPABILITY = "openSysmlCrossDocumentLayout";
 
+/** The capability the server advertises when a render request's `palette` colours each node with `fill` and `border`. */
+export const RENDER_PALETTE_CAPABILITY = "openSysmlRenderPalette";
+
+/** The capability whose value lists the drawing styles a render request's `style` draws the DOT form in, the first the default. */
+export const RENDER_STYLES_CAPABILITY = "openSysmlRenderStyles";
+
 /** The URI scheme the server locates standard-library declarations in. */
 export const STDLIB_SCHEME = "sysml-stdlib";
 
-/** Serves the text of a `sysml-stdlib:` document; mirrors internal/lsp/stdlib.go. */
+/** Serves the text of a `sysml-stdlib:` document; mirrors internal/frontend/lsp/stdlib.go. */
 export const STDLIB_CONTENT_METHOD = "opensysml/stdlibContent";
 
 /** The capability the server advertises when it serves the content request. */
@@ -89,6 +100,22 @@ export interface RenderNode {
   height?: number;
   /** The node is drawn closed, its children hidden. */
   collapsed?: boolean;
+  /** The colours the requested palette gives the node, `#RRGGBB`, the same its DOT and PlantUML forms take; each absent where the palette leaves it black and white (a sequence participant's border), both under no palette. */
+  fill?: string;
+  border?: string;
+  /** The node's own Style annotation, which wins over the palette and the drawing style; `fill` and `border` already carry its colours. */
+  style?: RenderStyle;
+}
+
+/** How a Style annotation draws a node or edge: `#RRGGBB` colours and the face, size in points and weight of its text, each absent when unstated. */
+export interface RenderStyle {
+  fill?: string;
+  line?: string;
+  text?: string;
+  font?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
 }
 
 /** One waypoint or corner, in the canvas's pixels, y down. */
@@ -115,6 +142,8 @@ export interface RenderEdge {
   to: string;
   label: string;
   kind: string;
+  /** The edge's own Style annotation. */
+  style?: RenderStyle;
   /** The qualified name a model edit targets the declaring connection by, in whichever workspace document declares it; absent for one with none. */
   fqn?: string;
   /** The range of the connection's declaration, in the document `origin` names, when no qualified name reaches it, as on a node. */
@@ -134,11 +163,17 @@ export interface RenderParams {
   textDocument: { uri: string };
   view?: string;
   form?: string;
+  /** The palette the nodes are coloured from, by keyword family; absent draws in black and white. */
+  palette?: string;
+  /** The drawing style the DOT form is drawn in, one the server lists under `openSysmlRenderStyles`; absent is its default, `pilot`. */
+  style?: string;
 }
 
 export interface RenderResult {
   view: string;
   kind: string;
+  /** The drawing style the artifact was drawn in; absent from a server predating drawing styles. */
+  style?: string;
   stated: string;
   form: string;
   artifact: string;
@@ -170,6 +205,21 @@ export interface EditPalette {
   typed: string[];
   /** For each member only some bodies offer (`subject`), and each drawn notation that is one, the ids of the nodes that open one. */
   owners?: Record<string, string[]>;
+}
+
+/** normalizeRender fills in what an older server omits (a node's `type`, empty lists), so no label spells a missing value. */
+export function normalizeRender(result: RenderResult): RenderResult {
+  return {
+    ...result,
+    nodes: (result.nodes ?? []).map((node) => ({
+      ...node,
+      name: node.name ?? "",
+      type: node.type ?? "",
+      detail: node.detail ?? "",
+    })),
+    edges: (result.edges ?? []).map((edge) => ({ ...edge, label: edge.label ?? "" })),
+    notices: result.notices ?? [],
+  };
 }
 
 /** admits: whether a member may go into node — any node, unless the palette confines the kind to some. */
@@ -269,6 +319,9 @@ export interface ViewInfo {
   kind: string;
   supported: boolean;
   reason?: string;
+  /** The declaration and its name; absent from servers that do not locate views. */
+  range?: Range;
+  selectionRange?: Range;
 }
 
 export interface ViewsResult {
@@ -312,8 +365,10 @@ export interface PickerEntry {
 
 /** A message the extension sends the webview; `drawn` counts the panel's drawings and names this one. */
 export type ToWebview =
-  | { type: "render"; result: RenderResult; selected: string; drawn: number }
+  | { type: "render"; result: RenderResult; selected: string; drawn: number; style: DiagramStyle; hint?: string }
   | { type: "views"; views: PickerEntry[]; selected: string }
+  /** The look to redraw the diagram on screen in, ahead of the rendering coloured for it. */
+  | { type: "style"; style: DiagramStyle }
   | { type: "error"; message: string }
   | { type: "highlight"; id: string | undefined }
   /** A drop the model did not take: the canvas goes back to the model's layout, the status line says why. */
@@ -343,7 +398,11 @@ export interface EdgePlacement {
 export type FromWebview =
   | { type: "ready" }
   | { type: "reveal"; id: string; drawn: number }
+  /** A located table row opens its element; `row` indexes the drawing's rows. */
+  | { type: "revealRow"; row: number; drawn: number }
   | { type: "pick"; view: string }
+  /** The user chose a look in the panel's toolbar; the extension keeps it as the setting. */
+  | { type: "style"; style: DiagramStyle }
   | { type: "edit"; action: EditAction; drawn: number }
   /** One completed gesture: everything it moved, applied as one edit. */
   | { type: "place"; nodes: NodePlacement[]; edges: EdgePlacement[]; drawn: number }

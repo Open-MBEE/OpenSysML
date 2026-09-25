@@ -14,9 +14,12 @@ starts and stops on its own.
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers. Node,
-Java and Rust cover a smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
-those three only Node has an escape hatch to the rest, through the generated Connect client it
+They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
+Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+`renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
+query methods; Node and Rust cover
+that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
+those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
 [Client libraries](../reference/clients.md) lays out what each covers and how to choose;
 [the troubleshooting chapter](10-troubleshooting.md) covers runs that stop short.
@@ -73,7 +76,7 @@ package Demo {
     </dependency>
     ```
 
-    Not published yet: `make build && mvn -f clients/java/pom.xml install` from a checkout.
+    Not published yet: `make build && mvn -f client/java/pom.xml install` from a checkout.
 
 === "Rust"
 
@@ -244,6 +247,16 @@ every linearization under `"explore"` — the default when no policy is given �
 before anything is sent; a service that does not advertise `schedule` or `schedule_explore`
 refuses with `CodeUnimplemented`.
 
+To play a model one step at a time instead — instantiate a part, offer its state machine a
+signal, perform an action on it, read what changed — open a `Session` with
+`opensysml.OpenSession(client, model)`: it keeps the clock, the schedule and the objects it made
+between calls and answers facts (the transitions out of the active states and the states
+enclosing them in every machine the object exhibits, whether a guard holds now, the choices a
+run made). Only a `New` client answers it; a `Dial` client refuses with
+`CodeUnimplemented`, since no RPC carries state between calls. The
+[Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD) is written
+on it and nothing else.
+
 An action or state machine runs *on* an object when `opensysml.PerformedBy(...)` names one, as
 `sysml -action "<action> <object>"` does: a part definition or usage the run makes an object of,
 or a [path from one into its parts](../reference/cli.md#objects-an-exploration-runs-on) —
@@ -299,7 +312,7 @@ the measured latency are documented in [reference/python-api.md](../reference/py
 
 ```bash
 pip install opensysml             # from PyPI
-pip install -e clients/python/          # or from a checkout, at the repository root
+pip install -e client/python/          # or from a checkout, at the repository root
 ```
 
 The dependencies (`grpcio`, `protobuf>=7.35.1`, `filelock`, `psutil`) are installed with it.
@@ -1002,6 +1015,22 @@ text, and `write(path)` saves it. Formats are named `sysml`, `kerml`, `text`, `t
 `rdf`. A file path's format is inferred from its extension; inline `content` has no extension, so
 it needs `from_format`.
 
+`convert` also reads a **SysML v1** model and migrates it, when the source is UML XMI, an Eclipse
+UML2 `.uml` file or a `.mdzip` archive: `from_format` is `xmi`, `uml` or `mdzip`, inferred from
+those extensions, and is an input only — asking to write it raises `InvalidRequestError`, since a
+v2 model has no v1 form. Migration is
+[experimental](../reference/sysml-v1-migration.md#status-experimental) and warns as the RDF
+direction does. The service does not return the migration report; run
+`sysml Model.xmi -convert sysml -migration-report Model.report.txt` for the element-by-element
+account, as [chapter 11](11-migrating-from-sysml-v1.md) walks through.
+
+```python
+migrated = opensysml.convert("sysml", file_path="Vehicle.mdzip")  # ExperimentalFeatureWarning
+migrated.from_format, migrated.to_format                          # ('xmi', 'sysml')
+migrated.write("Vehicle.sysml")
+opensysml.convert("ttl", content=xmi_text, from_format="xmi")    # straight to RDF
+```
+
 A `Model` writes out the source the service parsed, identified by `model.hash`, so editing the file
 between `load` and `save` does not change what is written: the model saved is the model you
 inspected. `convert(file_path=…)` is the alternative, and reads the file as it is now. The
@@ -1025,7 +1054,8 @@ What each direction preserves:
 Conversion is capability-negotiated: against a service that does not report the `convert`
 capability, these calls raise `MissingCapabilityError` naming the required upgrade rather than
 failing on an unimplemented method. For a service that does not report the RDF mapping's status,
-the status is worked out from the formats it reports, so an RDF conversion warns either way.
+the status is worked out from the formats it reports, so an RDF conversion or a v1 migration
+warns either way.
 Suppress the warning with `warnings.simplefilter("ignore",
 opensysml.ExperimentalFeatureWarning)`; no stable feature uses that warning class.
 
@@ -1212,6 +1242,7 @@ for row in result.rows:
 model.run_document_query("Observatory::HeavierThan", bindings={"threshold": 10.0})
 
 markdown = model.render_document("Observatory::SubsystemReport")
+html = model.render_document("Observatory::SubsystemReport", form="html")
 ```
 
 A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`, an `int`, a
@@ -1219,11 +1250,13 @@ A binding value is an element (`opensysml.ElementRef("Demo::optics")`), a `str`,
 is sent. Cell values come back with those Python types, an element as `ElementRef` and an
 unbounded multiplicity as `opensysml.INFINITY`. `render_document` takes no bindings, because a
 document binds its queries' parameters in the model; it returns the Markdown text, identical to
-what `sysml -render-document` writes.
+what `sysml -render-document` writes, or with `form="html"` the standalone page
+`-doc-form html` writes. PDF stays with the CLI, whose converter toolchain it needs.
 
 An unknown query or document raises `SymbolNotFoundError`, a bad binding raises
 `InvalidRequestError` naming the parameter, and both calls are capability-negotiated
-(`document_query` and `render_document`) the same way as everything above.
+(`document_query`, `render_document` and, for HTML, `render_document_html`) the same way as
+everything above.
 
 ## From Node or a browser
 
@@ -1242,7 +1275,7 @@ tree.get("wheels");
 ```
 
 `@opensysml/client` is not published yet, so build it from a checkout: `npm install && npm run build`
-in `clients/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
+in `client/node`. `loads` and `load` are the one-shot forms; `connect()` keeps a connection (and so
 a service and its parse cache) open across several models. Both a connection and a model are
 async-disposable, so `await using` closes them, and `close()` is the explicit form. Values arrive as
 discriminated unions to switch on (`value.kind === "quantity"`), integers as `bigint` so an `int64`
@@ -1280,6 +1313,13 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
 
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
   Instantiation built = model.instantiate("Demo::Vehicle");
+
+  ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics
+  Exploration every = model.exploreAction("Test::race");          // one Outcome per distinct end state
+  Verification light = model.verifyConstraint("Demo::Vehicle::massLight", "Demo::sedan");
+  Analysis study = model.runAnalysis("Trade::lightest");          // selected alternative, evaluations
+  List<QueryElement> parts = model.query(
+      Query.all().where(Condition.equalTo("@type", List.of("PartUsage"))));
 }
 ```
 
@@ -1287,23 +1327,27 @@ The client is meant to live inside a JVM host application it does not own (an Ec
 a Cameo plugin, a web service), so it is built for JDK 17 and its only compile-scope dependency is
 `protobuf-java`. The transport is `java.net.http.HttpClient` speaking Connect, which keeps gRPC's
 Netty out of a host that has its own. Nothing is published yet; `make build` followed by
-`mvn -f clients/java/pom.xml install` puts it in your local repository.
+`mvn -f client/java/pom.xml install` puts it in your local repository.
 
 Everything returned is immutable, and no protobuf message appears in the public API: `Value` is a
 sealed interface over records, so its variants are closed and enumerable, and `Symbol`, `Diagnostic`,
-`Instance` and `Instantiation` are records with copied collections. Everything thrown is unchecked
-and descends from `OpenSysMLException`, with `ServiceException` (the call was refused) kept separate
-from `ModelException` (the call succeeded and the answer reports a model failure).
+`Instance`, `Instantiation` and the execution, verification, analysis and query results are records
+with copied collections. Everything thrown is unchecked and descends from `OpenSysMLException`, with
+`ServiceException` (the call was refused) kept separate from `ModelException` (the call succeeded and
+the answer reports a model failure). A verdict that is false is neither: `light.holds()` answers
+`false` with `light.verdict().decided()` true, and only a verdict the service could not evaluate
+carries an `error` and a `failureReason`.
 
 One private service is started per classloader, so an Eclipse plugin and a web application in one JVM
 each own one and share nothing, while every connection made through one copy of the client shares a
 child and therefore its parse cache. Call `Connection.stopSharedServices()` from a plugin's `stop()`
 or a `ServletContextListener`, since unloading a classloader does not by itself stop the child.
 
-The typed surface stops short of execution (`ExecuteAction`, `ExecuteState` and `RunAnalysis` are
-among what v1 does not do), so nothing here takes a `schedule` or reads `outcomes`;
-`Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` only name the two capabilities a
-service advertising scheduling policies reports.
+`ExecutionOptions.defaults().withSchedule("seed:7")` fixes the order a run takes and
+`exploreAction` takes an `explore` schedule and answers every `Outcome` with the `witness` order
+that reaches it; `Capabilities.SCHEDULE` and `Capabilities.SCHEDULE_EXPLORE` are checked before
+the call. `runAnalysis` throws an `AnalysisException` whose `partial()` keeps what a failed run
+computed, so a trade study that stops on one alternative still shows the others.
 
 [The Java API reference](../reference/java-api.md) documents the surface, the exceptions and the
 options.

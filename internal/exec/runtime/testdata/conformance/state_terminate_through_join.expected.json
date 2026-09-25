@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"schedule": "reverse",
+	"trace": true,
+	"events": [{"signal": "Check"}],
+	"terminated": true,
+	"stateVisits": ["work", "l1", "r1"],
+	"outputs": {
+		"log": {"type": "String", "value": "l1(exit);r1(exit);work(exit);meet;"}
+	}
+}

@@ -7,6 +7,1671 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
+## 0.9.0 — 2026-09-24
+
+### Added
+
+- **The analysis libraries' conformance is measured, per package, by a runtime test.** `TestAnalysisLibraryCensus` enumerates every public callable declaration of `SampledFunctions`, `TradeStudies`, `StateSpaceRepresentation`, `AnalysisTooling`, `VectorFunctions` and `OccurrenceFunctions`, invokes each through the runtime with a representative model, and records whether the value it produced passed its check, which typed error refused it, or what its value got wrong. The verdicts are committed to `docs/project/analysis-library-census.json`, which the test holds current, and `make docs-counts` renders them as the per-library table in `docs/project/spec-compliance.md`; `go run ./cmd/doc-counts -check` fails when the table and the file disagree. `StateSpaceRepresentation` is recorded as refused by name where its abstract dynamics need a state-space runner, not worked around.
+
+- **Added `examples/analysis-results-demo/`, a worked example of saving analysis runs into the model and reporting them in a document.** The records are `part` usages on the bundled `AnalysisRecords` vocabulary — the same shape `-record-run`/`%record` emits, written by hand to keep pre-edit values — and a generated report groups, filters and lists them, flags the record a later model edit made stale through a derived `drift`/`stale` pair, and contrasts them with `Verdicts` recomputed live at render time.
+
+- **`-convert` and `-from` accept `api-json`, the OMG SysML v2 API element form.** A model written as `api-json` is the JSON array of element objects the SysML v2 API serves — `"@type"`, `"@id"` and the metamodel properties as keys — over the same RDF graph the Turtle mapping builds, so `sysml`, `ttl` and `api-json` convert between each other losslessly; `.json` names the format by extension, and reading or writing it reports the RDF mapping's experimental status as Turtle does.
+
+- **Expressions are written in the KerML abstract-syntax shape.** An `InvocationExpression`, `ConstructorExpression`, `OperatorExpression`, `FeatureChainExpression`, `IndexExpression`, `CollectExpression` or `SelectExpression` now owns one `ParameterMembership` → `Feature` → `FeatureValue` per operand or argument, a `ReturnParameterMembership` → `Feature` for its result, and — for an invocation — a `Membership` whose member is the function it calls (the pilot's serialization of `instantiatedType`); a chained callee is the `FeatureChainExpression` it names, and a body argument is the anonymous `Expression` owned through a `FeatureMembership`, as in the pilot XMI. The collapsed `function`, `operator`, `argument` and `sysx:sourceText` properties stay beside them; the reader accepts either alone and refuses a graph where the two disagree. Graphs earlier releases wrote — a `->` receiver named by `operand` alone, `new` as `sysx:isConstructor` on an `InvocationExpression`, a `return` parameter under a plain `FeatureMembership` — still read.
+- **`-convert api-json` writes the pilot's root `Namespace`.** The element form opens with an unnamed `Namespace` (`<root>_ns`, a UUIDv5 under `-id uuid`) whose `OwningMembership`s own the document's top-level packages, as every `.kermlx` of the pilot does; the reader treats the wrapper as transparent, so notation → `api-json` → notation is byte-identical, and the Turtle form is unchanged.
+- **Views are written with the SysML v2 view metaclasses.** `ViewDefinition`, `ViewUsage`, `ViewpointDefinition`, `ViewpointUsage`, `RenderingDefinition`, `RenderingUsage`, `Expose`/`NamespaceExpose`/`MembershipExpose`, `ViewRenderingMembership`, `ElementFilterMembership` and `FramedConcernMembership` replace the collapsed view properties, and read back to the `view … { expose …; filter …; render …; }` they came from.
+- **Behavior nodes drop this project's extension metaclasses where the metamodel has a form.** `first start`/`then done` are memberships and successions to `Actions::Action::start`/`done`, `if` branches are `ParameterMembership`-owned parameters of the `IfActionUsage`, a state's `entry`/`do`/`exit` is a `StateSubactionMembership` with the normative `kind`, a transition's effect a `TransitionFeatureMembership` of kind `effect`, an alias a `Membership` with `memberName`, and a named multiplicity a `MultiplicityRange`. Graphs written with the older `sysx:InitialNode`, `sysx:FinalNode` and `sysx:IfBranch` still read. `sysx:Pseudostate`, `sysx:DeferMember` and `sysx:ActionExecutionNode` remain, since the metamodel has no element for the notation they carry; `docs/reference/rdf-mapping.md` says why.
+- **`-convert sysml -from api-json` reads more of sysml-toolkit's interchange.** A `then` succession whose source is the member before it, a metadata usage that references `ModelingMetadata::Refinement`, the unnamed chain `Feature` (`FeatureChaining`s) an expression reaches or invokes, a membership an expression node owns, the toolkit's `StateSubactionMembership`s and `TransitionFeatureMembership`s, and a full-JSON implied relationship whose derived `relatedFeature`/`chainingFeature` list is ordered differently from its owned ends all decode — the owned structure is authoritative and the derived list is read from it, since a derived property cannot contradict what it is derived from.
+
+- **`-convert api-json` and `-convert ttl` materialize the relationship elements the notation implies.** Typings, specializations, subsettings, redefinitions, multiplicity ranges, conjugated-port definitions, subject/constraint/result/filter memberships and referent memberships are now written as the first-class elements the SysML v2 metamodel defines — `FeatureTyping` (`<S>_ft0`), `Subclassification`, `Subsetting`, `ReferenceSubsetting`, `Redefinition`, `MultiplicityRange` (`<S>_mult`), `ConjugatedPortDefinition`/`PortConjugation` (`<S>_conjugated`, `<S>_pc`), `SubjectMembership`, `RequirementConstraintMembership`, `ResultExpressionMembership`, `ElementFilterMembership` and the `Membership` an expression's `referent`/`targetFeature` is carried by — beside the collapsed properties that already stated them, so element-count comparisons against sysml-toolkit's interchange JSON match and the toolkit's lifter reads the output back to notation. A declared relationship member is owned through an `OwningMembership` like any other member.
+- **`-convert sysml` reads sysml-toolkit interchange JSON.** Both `convert --to compact-json` and `convert --to full-json` decode through `ReadAPIJSON`, to byte-identical notation: the toolkit's root `Namespace`+`OwningMembership` wrapper is transparent, `{"@ref": <name>}` and `unresolved:`-derived targets read as the name they spell, stated defaults collapse back off `isImpliedIncluded` elements, and ends the notation cannot place are refused rather than guessed.
+- **`-convert` takes `-id uuid`.** Passing `-id uuid` to `-convert ttl` or `-convert api-json` mints name-based uuids the way the SysML v2 library convention does — `uuid5(NamespaceURL, elementIRI(root))` for a root package, `uuid5(pkg, <the qualified-form id>)` for every derived subject under it — while declared and normative ids are never re-derived. Decoding a uuid-form document reproduces the same notation with the ids implied, and only a non-matching `elementId` stays a declared `@ElementId` annotation.
+
+- **A design note on surface parity** (`docs/internals/design/api-surface-parity.md`). It
+  inventories what the REPL, the CLI, the editor, the public Go package and the wire each expose,
+  sorts every difference as shared already, missing and worth adding, interactive, protocol-bound
+  or local-only, and stages the work: one assembly per operation that all four surfaces call; the
+  stateless operations the wire lacks (satisfiability, model-checker options, inline replay, view
+  rendering, library search, codegen and the XMI migration report through `Convert`); a session
+  API for the action and state debuggers designed apart from the stateless calls; and a `repl`
+  protocol in the conformance runner so the agreement is tested rather than claimed. The binaries
+  keep calling the engine in-process; nothing is implemented, the note exists to be reviewed
+  before code is written.
+
+- **Binding and non-message flow usages now materialize as connector objects.** Their ends hold the connected feature values through the same connector path used by `connect` usages; message flows and one-ended bindings remain excluded.
+
+- **The checker warns (`undefined-operator`) on every use of the unary `~` operator.** KerML 1.0 §8.2.5.8.1 leaves `~` abstract and undefined, asking a tool for exactly this warning; the runtime keeps refusing it with a typed error, and the design record `docs/project/bitwise-complement.md` explains why no value is given.
+
+- **A design note for a Cameo Systems Modeler plugin** (`docs/internals/design/cameo-plugin.md`).
+  It answers, from the vendor's public documentation and Javadoc, how a plugin for Cameo 2026x
+  Refresh1 (bundled JDK 21; 2024x Refresh3 on JDK 17 as the minimum) is declared, loaded and
+  distributed; where it contributes browser and
+  diagram actions, a docking results panel and progress with cancel; how a selection leaves the
+  tool (a saved `.mdzip` today, since no dialog-free OMG XMI 2.5 export was found in the OpenAPI);
+  how a Cameo `xmi:id` maps to the SysML v2 name the migration writes through the per-element
+  migration report, and what the service must return for that; how verdicts land on elements
+  through annotations or a custom table; what the Simulation Toolkit covers and what OpenSysML
+  adds; and how the release's own SysML v2 project type, textual import/export and v1-to-v2
+  transformation change what OpenSysML parses (none of these was found for 2024x Refresh3). A benchmark
+  converts twenty public SysML v1 models — the repository's XMI fixtures, Cameo `.mdzip` projects
+  and Papyrus models — and tabulates mapped, approximated, unmapped and skipped elements. It closes
+  with the proposed `editors/cameo/` layout and build, the *Run with OpenSysML* sequence, a phased
+  plan and the risks, every claim that could not be verified marked as such. Nothing is
+  implemented; `editors/README.md` now lists the entry.
+
+- **A Cameo Systems Modeler plugin runs models on OpenSysML** (`editors/cameo/`). Right-clicking
+  an element in the containment tree or on a diagram offers an *OpenSysML* group with Instantiate,
+  Execute action, Execute state machine, Verify requirement/constraint, Evaluate calc and Run
+  analysis. A SysML v2 project (Cameo 2026x) is exported through the textual notation service; a
+  SysML v1 project is saved as a `.mdzip` and migrated through `Convert`; either is parsed and run
+  on `sysml-grpc` through the Java client, off the event thread with progress and cancel. Outcomes,
+  diagnostics, final time and the state schedule appear in a docking *OpenSysML Results* window
+  (double-click selects the element in the browser) and as validation annotations on the elements,
+  matched by qualified name on both paths. The module compiles against compile-only stubs of the
+  OpenAPI so CI needs no licence; `CAMEO_HOME` compiles it against a real installation, and the
+  `dist` build stages the digest-pinned service binaries for every platform into a Resource
+  Manager zip.
+
+- **A persistent session in the public Go API.** `opensysml.OpenSession` opens a `Session` over
+  a model a `New` client parsed: an interactive run that keeps its clock, its scheduling policy
+  and the objects it instantiated between calls, where `ExecuteAction` and `ExecuteState` run a
+  whole behaviour and return. `SetSchedule` governs the turns from then on, the machines and
+  clock already running included (`runtime.Context.Reschedule`), where they stand kept.
+  `Instantiate` makes an object and starts the state machines it
+  exhibits; `ActiveStates` and `Transitions` say where each machine stands and what could fire
+  next, by name; `Accepts` says whether a signal would be taken, read from the machines dispatch would let take it
+  — one whose guards all fail yields it to a sibling that would fire on or defer it — whether a
+  transition is triggered by it and whether a guard holds now;
+  `Send` posts it and `Advance` dispatches it, completion transitions included; `Perform` runs an
+  action on the object and reports its outputs, the `ChoicePoint`s the schedule resolved and the
+  `Branch` each decision left by, with `TurnedAway()` for an action that declined at its opening
+  decision; `Feature`, `SetFeature`, `Evaluate` and `Members` read and write the state the runs
+  left. Every answer is a fact copied out of the engine, never one of its graphs or objects, and
+  misuse — a closed session, a signal no transition accepts, an unknown action, an exploration
+  policy — is a typed refusal. The session is opened from a `Client` but is not part of the
+  `Client` interface: a `Dial` client refuses it with `CodeUnimplemented`, because the service
+  exposes no RPC for state held between calls, and the parity contract on `Client` is untouched.
+  The [Legend of the Red Dragon browser game](https://github.com/Open-MBEE/SysML-LoRD), a
+  program on this surface compiled to WebAssembly, is its first client.
+
+- **The SysML v1 migrator writes a composite state's entry and exit points.** A UML `State.connectionPoint` pseudostate, on a nested composite state or on one with orthogonal regions, is a `junction` of the state, reached by path (`then Work::start;`, `first Work::leave then Idle;`), so the runtime runs the state's entry behavior before the entry point's outgoing transition and the transition into the exit point before the state's exit behavior, the order UML and PSSM give connection points. An entry point whose transitions each start a region of an orthogonal state is a `fork`, an exit point its regions reach from each side a `join`, and an entry point no transition leaves is the state's default entry. An entry point leading straight to an exit point of the same state, a route from a connection point on into a history pseudostate, and the other shapes with no faithful form are refused with the shape named in the report; before, every connection point on a state and every transition through it was unmapped. The OMG PSSM test suite's connection points, which the report refused wholesale, migrate under this rule, and the migrated suite validates with no syntax errors.
+
+- **Diagram layout is written into the document that declares what holds it, across the workspace.** `opensysml/applyModelEdit`'s `setLayout`, `setRoute` and `setCanvas` resolve their target through the workspace index rather than the requesting document alone: a view-local `Layout` or `Route` and a `Canvas` go into the view's body in the view's document, an inline `Layout` or `Route` into the element's body in the element's document, whichever document the panel renders. The answer is one `WorkspaceEdit` with a versioned `TextDocumentEdit` per document changed, validated together as rename and delete are; a bundled library file, or a document the index holds without its source, is refused as `referenced-elsewhere` naming the file. A rendering's node or edge that another document declares carries its `fqn`, `owners` or `declaration` as any does, with `origin.uri` naming the document, and a `setLayout` or `setRoute` by declaration takes `declaredIn` to say which document the range is one of. The VS Code diagram panel drags a node another file declares: the annotation lands in the right file, the edit is applied only while every file it names is at the version it was computed against, and one <kbd>Ctrl</kbd>+<kbd>Z</kbd> reverts every file. Server and extension each advertise the contract as `openSysmlCrossDocumentLayout`, and each treats the other's lack of it as the single-document contract before, so an older extension is handed no other file's name to place unpinned and an older server's nodes keep every editing action.
+
+- **`RelatedElements` traverses requirement derivation and refinement.** The relationship kinds `"derivation"` and `"refinement"` join the eight the query engine already walked, in both directions and chained to `maxDepth` like the others. A `derivation` edge runs from an original requirement to each requirement derived from it, read from every notation of a `RequirementDerivation::Derivation`: a connection usage typed by it or written `#derivation`, whose ends state their roles by subsetting `originalRequirements`/`derivedRequirements`, by the `#original`/`#derive` metadata, or by the ends of the definition typing them, an end stating no role taking the one left over (the first such end is the original unless another end is, the rest are derived); and a `connection def` specializing `Derivation` whose ends are typed by requirement definitions, as the v1 migrator writes, which relates those definitions. A `refinement` edge runs from each client to each supplier of a `dependency` annotated `@ModelingMetadata::Refinement` (prefix or body form); a plain connection or dependency states neither kind. The query cookbook gains "Derive relationships" and "Refine relationships" recipes over an extended `cookbook.sysml`.
+
+- **The VS Code diagram is open by default.** A `.sysml` or `.kerml` file shown in an editor gets its diagram beside it without being asked, focus staying in the text; the diagrams of all files share one editor group, so switching files adds a tab there rather than a column. A diagram the user closes stays closed for that file — across editor switches and window reloads — until `SysML: Open Diagram` asks for it again. `opensysml.diagram.autoOpen` (default `true`) turns the automatic opening off.
+
+- **The VS Code diagram moves a declaration when a node is dropped on another with
+  <kbd>Shift</kbd> held.** While <kbd>Shift</kbd> is down, the node under the dragged one is
+  outlined when its body admits the dragged declaration — the same admission the node menu's
+  **Move to…** applies — and the status line says what releasing does; a node that cannot hold
+  it is not outlined and releasing there puts the node back with the reason. Releasing writes
+  the declaration's new position and its move as one `applyModelEdit` request, so one
+  <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes both, and the diagram redraws it under its new owner where
+  it was dropped; a move the server refuses — a name already taken, a declaration another file
+  refers to — is shown in the status line and the node goes back. A drag without
+  <kbd>Shift</kbd>, or released over empty canvas, writes a `Layout` as before.
+
+- **The VS Code diagram panel opens a document that declares several views intelligently, and can show several of them at once.** `SysML: Open Diagram` picks the view whose declaration holds the editor's cursor, else the one last chosen for that document in the workspace, else asks — a quick pick of the drawable views by name and kind, an **All views** entry that opens each in its own panel, and the pseudo-views last; a view the server cannot draw is left out of the list (the panel's own picker still shows it, disabled, with the reason), and cancelling opens nothing. A document may have one panel per view, titled `Diagram: <file> — <view>` while there are several; each redraws on change, highlights the cursor's node, and comes back on its view after a reload. Opening a view a panel already shows reveals it; a panel's picker retargets that panel unless another already draws the view, which is revealed instead. Documents declaring zero or one drawable view open as before, without a prompt. A diagram that opens on its own follows the same choice up to the quick pick and opens nothing rather than ask; closing a document's last panel is what keeps it closed. `opensysml/views` now carries each declared view's optional `range` and `selectionRange`, which the client uses for the cursor step and older servers may omit.
+
+- **The VS Code diagram panel draws in the pilot visualizer's style, and in colour, on request.** A **Style** list in the panel's toolbar, backed by the `opensysml.diagram.style` setting, picks the look of every diagram: `theme` (the default) follows the VS Code colour theme as before; `pilot` is the pilot's Standard B&W that the DOT and PlantUML forms already follow — white canvas, black sans-serif text, thin dark borders, square definitions and rounded usages, heavier packages, dashed regions, bold names over an italic keyword, thick arrowless connections, filled pseudo-states; and each of the eight colourblind-safe palettes (`okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis`, `cividis`) is that look filled by keyword family, a usage a lighter tint of its definition's colour, text black. Changing the list keeps the choice in the settings and redraws every open diagram. The colours come from the server: `opensysml/render` with a `palette` now gives each node its `fill` and `border`, the same hex the DOT and PlantUML forms of that view take, advertised as `openSysmlRenderPalette`; against an older `sysml-lsp` a palette draws as `pilot` and the panel says why.
+
+- **A due `do` step against the dispatch due at the same instant is a recorded choice point.** A state machine ran every due `do` behavior one step before it dispatched the occurrence at the head of its pool, with no choice recorded for `explore` to vary. Under `check`, `replay` and `explore` the machine now runs one unit at a time — one step of one due `do` action of the round under way, or the dispatch — and the draw is a choice point (`choice at t=<instant>: next do <state>, dispatch <event> (unordered; took do <state> first)`; `dispatch change <condition>` for a change trigger risen; a message in flight is delivered behind the events already queued, so it is drawn as `dispatch accept <signal>` once nothing is ahead of it and hidden by a queued event nothing accepts until the round closes) written to the trace and the witness, replayed, refused and rolled back with its move, and enumerated by `explore` and `check`, whose moves offer the due `do` steps and the dispatch together. Only a dispatch that would take its occurrence — fire a transition, or let a `do` behavior parked at an `accept` go on — is drawn; one that would defer or drop it waits for the round to close, and events tied at the head are judged one by one, so a trigger the dispatch would drop hides no tied trigger it would fire. The fixed policies (`declared`, `reverse`, `seed:<n>`) finish the round before they dispatch, so no event order under a fixed policy moved and no existing trace golden changed. The grain is the token move: a due `do` behavior — an inline body, a behavior given as an action, a loop, a nested perform — advances one token, and the draw is made again after every move while a `do` behavior is due, so a dispatch may cut the flow anywhere or wait for it to rest, a body parked at an `accept` offers no move until its occurrence is dispatched, and the fixed policies' whole round then the dispatch is one path of the enumeration — `check` reports *exhaustive* where it has every path and no longer names a run left out. A control node with a body of its own (`fork split { assign x := 1; }`) performs it as the token passes, so it is a move the dispatch is drawn on either side of; only a bodiless control node over unguarded successions routes silently. Seven conformance cases state the admissible sets (`state_do_step_or_dispatch`, `state_do_step_among_completions`, `state_do_step_or_tied_dispatch`, `state_do_step_cuts_typed_do`, `state_do_step_cuts_nested_perform`, `state_do_step_cuts_control_node_body`, `state_do_action_loop_timed_exit`, the last two searched to completion over their five and four outcomes), and the runtime showcase's spacecraft, checked as vehicle and ground station together, reaches the fixed policies' `battery = 39` beside the cut sweeps' `41`. The PSSM referee moves *Behavior 003 A* to `pass`, reaches the do step's admitted places in *Terminate 002* and *Transition 017*, and moves *Exiting 002* to `fail` on a trace the suite registers for the same race one test earlier and not for this one, recorded as the suite's in `docs/project/omg-issues.md` (51 pass, 13 fail, 38 not expressible, 1 differs by design).
+
+- **A DocGen «Image» over an activity or state machine diagram is drawn in the migrated document.** A `Diagram` block whose `source` is a migrated `StandardViewDefinitions::ActionFlowView` or `StateTransitionView` is written and rendered as the graph the view draws, positioned by its MTIP layout when `-layout` was given; drawability is decided by the same rule that chose the view's form, so only a diagram whose view renders as textual notation — a sequence diagram, whose Interaction is written as a scenario rather than as the occurrence parts a `SequenceView` draws — is refused, with that reason.
+- **The migrator reads what an `.mdzip` diagram draws, and leaves an empty figure out.** Every diagram is read from the archive entry its `binaryObject` names, MagicDraw's serialization of the diagram's symbols: the elements the symbols stand for are shown and exposed, with the elements of the tool's used-element list a symbol displays without one of their own, by standing for an element they are owned under; a listed element no symbol displays is dropped, and symbols standing for none — a pasted image, a text box, a note — are counted as free content, so a stream whose symbols name no element shows nothing, whatever the list names. An «Image» over a diagram that shows nothing writes no `Diagram`, so the rendered document holds no empty figure; the step is reported with what the diagram draws and its caption stays as a paragraph, as DocGen shows it.
+- **DocGen collectors and filters gain their query spellings.** A chain follows the source elements it collects, so `CollectOwnedElements` gathers the diagrams an exposed package or block owns, as DocGen finds its figures; `FilterByDiagramType` keeps the diagrams of the presentation types named; `CollectThingsOnDiagram` names the elements the collected diagrams show, and is refused when any of them names a stream the archive does not hold or holds unreadable, since what it shows beyond the tool's list is then unknown; a fork's branches carry on or end the doubt a step before it leaves, so the rejoined step knows what it draws when every branch names its own targets; `CollectByAssociation` names the types reached through attributes of the aggregation kind to the depth asked; a sort by name or documentation orders the diagrams, and the elements they are collected from, as `OrderBy` orders the rows; `FilterByNames` reads the v1 name as DocGen does, naming the elements it keeps where the v2 name an anonymous element gains would match otherwise, and a step with no query spelling refuses the «Image» after it as it does every other block. A diagram's own comment, its documentation in the tool, is written as its view's `doc`. A requirement's `Id` and `Text` columns are its `shortName` and `documentation`. An «Image» whose chain holds no diagram, and a step over a stereotype with neither a v2 metaclass nor a `metadata def`, a `MonteCarloAnalysis` statistic column, or a chain whose elements are known only when the query runs, are reported with the reason rather than refused blindly.
+- **A `uml:Expression` tree that spells nothing is skipped as notation.** A constraint whose specification has no symbol at any node and, as leaves, only `InstanceValue`s naming no instance (Cameo Collaborator's presentation constraints on a «Document») carries nothing to translate and is skipped as notation-only wherever it stands; a tree with a symbol or a leaf naming an instance is translated or refused as before.
+
+- **Three convention themes for `-html-theme`: `nasa`, `ieee` and `acm`.** Each follows a published manuscript convention — the NASA STI Report Series (Times 12pt body, Arial headings, tables and captions, letter page with one-inch margins, roman-numbered front matter), IEEE Transactions (Times 10pt body, 8pt captions and tables, centred small-caps section heads, italic subheads, justified with a one-pica indent, letter page with 0.67in margins) and ACM's `acmart` (Libertine 10pt body falling back to Times, bold sans numbered heads, 9pt captions, letter page) — black on white, with thin horizontal table rules, and sets the same faces and point sizes on screen as on paper so a page and its PDF agree. IEEE and ACM output is single-column; the sources, the values verified against them and the choices made where a convention is silent are recorded in `docs/project/html-document-backend.md`.
+- **A theme now governs the PDF page.** A bundled theme may carry a print companion, `themes/<name>.print.css`, which the PDF backend lays over its print stylesheet in a third cascade layer, `opensysml-print-theme`, so the theme's page size and margins, faces, body size, heading scale, caption and table sizes and page-number footer reach paper instead of being overwritten by the print sheet's defaults; the `print` and `report` themes carry one too, so `report`'s Charter/Georgia stack and larger body now print. The order is the default sheet and theme, the print sheet, the theme's companion, then `-html-css` sheets unlayered; `-html-no-default-css` leaves every bundled sheet out, and the pandoc engine still refuses `-html-theme`.
+
+- **Document queries read the objects a session holds.** A `%run-query`/`-run-query` parameter
+  written as a usage's name binds the object the session holds under it while it holds one
+  (`car` after `%instantiate car`), `#2` binds an object by id and `car.wheels[2]` a nested one by
+  path, and the element as before when nothing is held. Every query operation that takes an
+  element takes an object and reads what it holds: `OwnedElements` and `Descendants` are the
+  objects it holds as parts, each element of a collection under its own path (`wheels[1]`,
+  `wheels[2]`), `Ancestors` the objects holding it, `WhereType` tests its types, `WhereName` its
+  path, and `WhereFeature`, `Project`, `OrderBy` and `Column` read the values it holds now — after
+  a run changed them, not the declared defaults. The new `DocumentQueries::Objects(type = T)`
+  enumerates every object the session holds that is of the type; outside a session it is refused
+  with an error saying to instantiate an object first. `WhereMetadata` tests the usage an object
+  stands for; `RelatedElements` reads the model's relationships and refuses an object row. A document renders over objects too: `-instantiate <name>`
+  is now accepted beside `-render-document`/`-render-documents` and creates the objects first, and
+  a document parameter bound to a usage's name binds the object held under it. Objects render by
+  path in Markdown and PDF; in HTML each carries `data-object="#<id>"` beside the `data-element`
+  of the usage it stands for and is a `span.sysml-object`.
+
+- **Document queries report which constraints and requirements hold.** The new
+  `DocumentQueries::Verdicts(source, kind = "all")` checks the object behind each row as a whole —
+  the object the session holds when the binding is one (`%instantiate car`, `-instantiate`), the
+  element's declared object otherwise — and answers one **verdict row** per assertion about it and
+  the objects it holds: every `assert constraint`, every requirement carried, every `satisfy` whose
+  subject it is, and each verification case verifying such a requirement, a collection's members
+  under their own paths (`car.wheels[2]`). A verdict row stands for the assertion (so `name`,
+  `WhereName` and `WhereType` read the constraint or requirement) and adds `kind`, `carrier`,
+  `path`, `verdict` (`holds`, `violated`, `undecided`), `condition`, `reason` and `verification`,
+  which `Project`, `WhereFeature`, `OrderBy` and `Column` read; `kind = "constraint"`
+  (`requirement`, `satisfaction`, `verification`) keeps one kind. A row that is no object, and a
+  walk the runtime could not complete, are typed errors rather than a table missing rows. Verdicts
+  print in `%run-query`/`-run-query` as `<assertion> on <path>: <verdict>`, render in Markdown and
+  PDF as that text and in HTML as a `span.sysml-verdict` (`data-verdict`, `data-path`,
+  `data-object`), and `RunDocumentQuery` answers them as the new `verdict` arm of `DocumentValue`
+  (`DocumentVerdict`), decoded by the Go and Python clients as `DocumentVerdict`; a verdict bound
+  as a parameter is refused.
+
+- **PDF output draws Graphviz DOT and PlantUML diagrams.** `-render-document -doc-form pdf -diagram-form dot` runs each diagram block through Graphviz — the `dot` named by `OPENSYSML_DOT`, else the one on `PATH` — as SVG under the layout engine the block's `// layout:` header names (`dot`, `neato`, `neato -n`), so a view the model positions with `DiagramLayout` is drawn where it was placed; `-diagram-form plantuml` runs each block through the PlantUML jar named by `OPENSYSML_PLANTUML_JAR` (`java -jar <jar> -tsvg -pipe`, the `java` from `OPENSYSML_JAVA` or `PATH`). Both tools are optional: without one the block stays in the PDF as source under a notice naming the variable to set, and the render succeeds; a tool that fails is the same typed `tool-failed` error, with its stderr, that a failing Mermaid CLI produces. `scripts/download-doc-pdf-toolchain.sh` provisions a pinned Graphviz and PlantUML jar beside WeasyPrint, Mermaid CLI and KaTeX, and CI's PDF job draws through all of them.
+- **The VS Code diagram panel exports every form the server writes.** `SysML: Export Diagram` now asks which form to save — Mermaid (`.mmd`), Graphviz DOT (`.dot`), PlantUML (`.puml`), Markdown (`.md`) or text (`.txt`) — from the list the server advertises under the new `openSysmlRenderForms` capability of `initialize`, sends the pick as the `form` of `opensysml/render`, and opens the save dialog on that form's extension and filter; before, it saved whatever the server defaulted to.
+
+- **A run creates and destroys objects.** `new T(args)` (KerML §7.4.9 instantiation expression) in any expression position — an assignment, a feature value, an argument, `send new Data(…)` — makes a first-class occurrence of the run with an identity of its own, classified by its type, its exhibited and performed behaviors started, so a loop creates one object per iteration and a context holds several objects of one usage. Writing an object into a feature holds it: the feature's type classifies it and a composite feature adopts an ownerless object as a portion of the owner, so `assign cars := (cars, new Car(n))` leaves the fleet owning each car (a write that would make a whole a portion of itself, or give an ended whole a portion live or ended after it, is refused as `ErrOccurrenceLifetime`; an object its home drops moves home to another composite feature still holding it), reached by `all Car`, feature chains and `%features`; the behaviors the feature's type starts on the object run once the feature holds it, so one reading the feature sees the object it started for, and the behaviors a constructor's arguments start run once every argument is stored; a write or constructor rolled back because a behavior it started failed leaves no trace records of that behavior's run. `destroy` ends the occurrence and its portions, terminates the state machine it exhibits and the actions it performs where they stand (it no longer refuses with `ErrOccurrenceLifetime`), releases it from `all T` and drops the messages addressed to it or routed to a port it ends; a feature still naming it keeps the value and reading through it is `ErrOccurrenceDestroyed`, and a `=` value that read the object, `isDuring` of it or `all T` is derived again rather than answering what it derived before, in a context a held image is materialized into as well, where a value derived from `all T` before the image arrived counts the imaged objects too. Creation and destruction are deterministic under `explore` and survive a snapshot.
+
+- **A state's exit behavior reads the data of the transition leaving it.** An `exit action` parameter bound to a transition's accepted payload by the transition's name — `in level : Integer = warn.w ?? alarm.a;` for `transition warn first idle accept w : Warning …`, `in p : Boolean = 'T1.1.2'.p1` for a call trigger's argument — binds when that transition fires, before its effect runs, since the exit is a step of the transition performance that accepted the occurrence (`StatePerformances.kerml`: `accept then transitionLinkSource.exit`). A transition not being taken reads as nothing, so `??` chooses among several leaving transitions; an outer transition's data reaches the exits of the substates it leaves; a completion or data-less transition binds nothing and the parameter keeps its default; a payload of the wrong type, or a read of a transition not taken with no fallback, refuses the firing with a typed error and leaves the state as it was. The lowered transition carries the names its trigger binds (`Transition.Accepted`), and the executor holds the transition being taken from the exit through the entry; a do behavior reads the transition that entered its state for its whole run, whichever draw the entry front makes. The PSSM referee spells this for an exit behavior with parameters, so *Event 017 B*, *Event 019 B* and *Event 019 C* run and pass on exactly their admitted traces (60 pass, 30 not expressible); its reader also leaves out an activity node whose required input pin nothing ever feeds, as UML never executes it, and an exit some leaving paths bind nothing on declares its inputs `[0..1]` and guards only the statements that need them with `if notEmpty(…)`, so the exit still runs on those paths.
+
+- **An exploration runs a behavior on an object nested inside an assembly, named by a path from a declaration.** `-schedule explore`, `-engine check`, `smt`, `sweep` and `-engine all` take a performer, subject or object written as `<declaration>.<usage>[.<usage>…]`, with `[i]` on a multi-valued usage — `-state "Comms::Ground::listen Comms::pair.ground"`, `-analysis "Dyn::Analysis Fleet::fleet.rovers[2]"`. Each run instantiates the declaration the path starts from, its parts and connectors with it, and walks the rest of the path inside that object as `%state` walks it in the session's. The declaration is instantiated once per run however many behaviors name paths under it, so two machines on sibling parts of one `pair` share it and the messages its connector carries between them are what the exploration tables, where naming a part's definition alone ran it deaf to its neighbours. The path is checked against the declarations before any run starts — an unknown usage, an index on a single-valued usage, a step through a value are refused by name — and what only a run can know (a part its recipe left unbuilt) is that run's error, an outcome of the table. A witness the checker writes for a machine on a nested object replays on it.
+- **`-instantiate` gives its object to every explored run.** Under `-schedule explore`, `-engine check`, `smt` or `all`, each run creates an object of the `-instantiate`d declaration of its own before its behaviors start: a `-state` or `-action` named alone attaches to the performance the run's one object exhibiting or performing it already runs (several such objects are refused by name), and a path under the declaration (`Comms::pair.ground`) walks into the same object rather than creating another; a declaration `-instantiate`d twice is two objects of every run, as it is two of the session's, the later the one its name denotes. The prompt's `%instantiate` still creates the session's object alone, which no run sees. The `-instantiate`, `-state` and `-action` help and the CLI reference describe the rule under *Objects an exploration runs on*.
+- **A service request names the performer of an action or state machine.** `ExecuteActionRequest` and `ExecuteStateRequest` carry `performer_symbol_id`, a declaration or a declaration-rooted path spelled as the CLI spells it, and `subject_symbol_id` of an analysis request takes the same paths; a service that honours it advertises the `performer` capability. The Go client has `opensysml.PerformedBy(path)`, the Python client `performer=` on `execute_action`, `explore_action`, `execute_state` and `explore_state`, and the Node, Java and Rust clients read the capability.
+
+- **A migrated view exposes the edges its Cameo diagram draws.** A control flow, object flow, transition, connector, binding, dependency, satisfy or verify some diagram shows is written as a named member — its v1 name, else a name spelled from its ends, `succession 'start to call' first start then call;`, `transition 'Wait accept Done then Retrieve' first Wait accept Done then Retrieve;`, `binding 'a.p = b.q' bind a.p = b.q;` — unique in its body by the migrator's usual suffixes, and the view `expose`s it. An edge no diagram shows is written anonymously as before, so naming changes nothing in a model without diagrams, and the names never depend on an MTIP `-layout` export. An `include` is exposable too.
+- **Activity and state machine diagrams migrate to typed views.** An activity diagram owned by its activity becomes a `StandardViewDefinitions::ActionFlowView` and a state machine diagram owned by its machine or a composite state a `StandardViewDefinitions::StateTransitionView`, each exposing the behavior whose graph it draws, so the renderer draws the successions, flows and transitions and pins their routes.
+- **MTIP routes join the named edges, and the rest are itemized.** `-layout` writes a `DiagramLayout::Route` for every connector whose member the view exposes (or whose graph it draws) and whose rendering draws that edge kind. The report and the `results` sidecar (`routesByKind`) count the routes by v1 kind and reason — `written`, `no v2 member` (a generalization, composition, association), `not drawn` (a dependency or satisfy on a tree view, a message step), `not written`, `unnamed`, `not exposed`, `duplicate`, `dangling` — so an unpinned route says why.
+- **The interconnection rendering draws bindings.** A `binding` between two features is an edge of its own kind, an undirected line beside the heavy connection in the text, Mermaid, DOT and PlantUML forms, and its route is pinned like a connection's.
+
+- **Feature-owned multiplicities now report invalid featuring types.** A `featuring` relationship that gives a feature's owned multiplicity a featuring type outside the feature's featuring contexts is diagnosed.
+
+- **`-convert` reads and pushes a Flexo MMS project branch.** `sysml <branch-url> -convert sysml` (or `ttl`) reads a branch as its head commit's RDF graph — the URL is `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}`, both naming the endpoint `FLEXO_SYSMLV2_URL` configures — and `sysml model.sysml -convert ttl -o <branch-url>` replaces the branch's whole model graph, conditional on the branch's etag so a head the sync state says moved is refused with nothing written. Both sides need the bearer token in `FLEXO_INTEROP_TOKEN` and record the head commit in the sync state (`-sync-state`, `<output>.sync.json` on a read, `<model>.sync.json` on a push).
+
+- **The SysML v1 migrator maps calls to the fUML and Alf standard-library primitives to the SysML v2 library.** A `CallBehaviorAction` whose behavior is an element of `fUML_Library.xmi` or `Alf-Library.xmi` — known by the library document its href names and the fragment within it, whatever date the URI carries and whether or not the model bundles the library; or, as MagicDraw and Cameo reference the library, by an href into the used project `fUML-Library.mdzip` or `Alf-Library.mdzip` whose target — the bundled copy, or the `referentPath` recorded beside the href — sits under the library's own root package, family and name, so a package of the model's own named `fUML_Library` stays its own — is written with its pins, each result pin valued by the v2 library expression over the arguments (`StringFunctions::'+'` for `Concat`, `IntegerFunctions::ToString`, `SequenceFunctions::including`, `SequenceFunctions::size`, …), so the flows out of it carry the computed value and a migrated activity that builds a string or a list runs. Every behavior of both documents is inventoried in the reference: mapped, approximated with the semantic difference in the note (an index outside the sequence fails in v2 where v1 gives no result; `Real` `ToString` writes the shortest text; `ToBoolean` reads lower-case text only), or refused with the reason (`IndexOf`, `ReplacingOne`, the `BitStringFunctions`, `WriteLine`). A scalar parameter the call passes nothing for, or whose pin only flows from something that produces no value, starves the call as in v1, so the action is written empty and carries the token. The report notes which provenance identified each call. Such calls were refused as behaviors with no v2 declaration.
+
+- **The fUML referee's emitter translates classes, objects, signals and active classes.** A fUML `Class` with attributes and generalizations becomes a `part def`, `CreateObjectAction` a `new` occurrence on its result pin, and the structural feature actions (`Read`, `Add`, `Remove`, `Clear`) feature reads and assignments on the object at the `object` pin, positioned as the reference implementation positions them; a `Signal` becomes an `attribute def` specializing its generals, `SendSignalAction` a `send new <Signal>(…) to target` and `AcceptEventAction` an `accept` node whose result pin is the instance received, an instance of a specialized signal satisfying an accept of its general. A class's owned behavior becomes an `action def` nested in its `part def`, its classifier behavior an `action classifierBehavior : <Behavior>;` member no creation starts, `ReadSelfAction` in it `this`, an activity instantiated as an object such a `part def` around its own body, and `StartObjectBehaviorAction` a `perform object.classifierBehavior.start;`; an owned behavior's row is refereed through the executed activities that start an object of its owner, directly or through a call. The referee gives class-typed inputs defaulted objects and compares object outputs by class and feature values; eight activities of the reference suite move from `not-expressible` to `pass` (23 pass, 0 fail, 28 not-expressible, 4 differs-by-design). An edge weight other than 1 and an object-flow cycle through control nodes stay typed translation refusals; no activity of the suite has either.
+- **An accepted signal flows on from the accept node's result pin.** The action-graph lowering records an `accept <name> : <Signal>` node's payload as an output feature, and the executor binds the value received on the accept's own performance as well as in the enclosing body, so `flow receiver.msg to consumer.value` carries it to the consumer and `value.level` reads its attributes.
+- **A declared behavior starts on an explicit `perform obj.beh.start;`.** An action or state usage a `part def` declares without exhibiting or performing it (`action count : Count;`) is bound to no object at creation — `new T()` and a materialization run nothing of it — and a `perform` naming its `start` gives the object its own execution of it: `this` in the body is the object, its writes land on the object's features, a message sent afterwards wakes an accept it parks at, and the object outlives the behavior's completion. A second start of a running behavior starts nothing more, a start on no one object or of a member that is no behavior of the object is a typed error, and a start that fails is undone whole. The `start` is the shot of the behavior named, told from a feature the type declares under that name: `perform vehicle.start;` where `Vehicle` declares an `action start : Launch;` performs that action.
+
+- **The fUML test models are read and every activity is classified before any is translated.**
+  `internal/fuml` reads the pinned Eclipse UML2 XMI — activities, nodes, pins, control and object
+  flows with guards and weights, parameters, classes, operations, signals, associations,
+  structured nodes, exception handlers and cross-references into the foundational library —
+  through the XMI element walker shared with the PSSM referee, which now accepts every OMG XMI
+  namespace version. `Classify` files each of the 43 test-model activities and 12
+  exception-model activities as expressible, `differs-by-design` (an action the reference
+  implementation fired once per object token, which SysML v2 performs once with every delivery)
+  or `not-expressible`, with a reason naming the construct and where it occurs; the per-activity
+  checklist and counts (24, 4, 15; 12) are pinned by test, and CI downloads the suite and runs
+  the reader and classifier gates on their own. See `docs/project/fuml-referee.md`.
+
+- **The fUML reference implementation's activity tests are provisioned as an oracle for the
+  action executor.** `./scripts/download-fuml-suite.sh` fetches ModelDriven's pinned
+  `fUML-Tests.uml`, `fUML-Exception-Tests.uml`, the foundational library and the `fuml-1.5.0a`
+  jar with its Maven runtime dependencies, every one by checksum, into the ignored `build/fuml/`;
+  `make fuml-expected` runs the implementation over both models through a small Java driver
+  that selects each activity by XMI id and records its outputs, its nested
+  `Execute`/`Fire`/`Output`/`Complete` trace with the XMI id of each activity and action node
+  the trace names unambiguously, and provenance in `docs/project/fuml-referee-expected.json`.
+  A failed activity leaves the committed record unchanged. The record is committed and
+  `internal/fuml` reads it back, refusing one whose provenance is not the current pin's, so the
+  ordinary test gate never runs Java. See `docs/project/fuml-referee.md`.
+
+- **The fUML test activities referee the action executor.** `cmd/fuml-referee` translates
+  every expressible activity of the pinned fUML reference implementation's test model into a
+  `fuml::<Activity>` action definition by rule — parameters and their multiplicities, control
+  and object flows with an enabling succession beside each flow whose target has no control
+  predecessor, forks, joins, merges and guarded decisions, value specifications, nested
+  behavior calls with same-named parameters spelled apart, the primitive and list library
+  functions KerML has counterparts for — runs it under every schedule the runtime's explorer
+  reaches, and requires the values left in its output parameters to be the ones the reference
+  implementation recorded, as a multiset where the fUML parameter is unordered; the reference's
+  firing sequence being among the reachable ones is reported and never a verdict. Each activity
+  is filed as `pass`, `fail`, `not-expressible` or `differs-by-design` (an action the reference
+  fires once per object token), the counts are pinned in `docs/project/fuml-referee-baseline.json`
+  and checked in CI over the downloaded suite by `go run ./cmd/fuml-referee -check`; an
+  activity the emitter does not yet translate (object creation, structural-feature actions,
+  accept-event actions, active classes) is `not-expressible` with the construct named. The
+  `-json`, `-filter`, `-keep` and `-jobs` flags report, narrow, retain the emitted models and
+  parallelize the run; a filtered run never updates the baseline. `docs/project/fuml-referee.md`
+  documents the translation rules and the adjudication of every row, the spec-compliance action
+  section gains its row, and the precise-semantics alignment note gains row A15 for per-token
+  re-firing.
+
+- **A document query over gRPC binds an object the service holds.** `Instantiate` now keeps
+  the object it creates, in one runtime per cached model, for as long as the model stays cached;
+  instantiating the same usage again denotes the new object and keeps the earlier one by id.
+  `RunDocumentQuery` binds a parameter to such an object through the new `object` arm of
+  `DocumentValue` — a `DocumentObject` naming it by `instance_id`, by `path` (`car`,
+  `Garage::car`, `#2`, `car.wheels[2]`: what `%run-query` accepts) or by both — and runs the
+  query in that runtime over the held population, so `DocumentQueries::Objects(type = T)`
+  enumerates what the model holds (no rows before the first `Instantiate`) and `Verdicts`
+  checks a bound object's current values. A row that is an object, and an object-valued cell,
+  is answered as the `object` arm with the object's id, the path it is reached under and the
+  usage it stands for; `RenderDocument` renders over the same population, as `-render-document`
+  does beside `-instantiate`. A binding while nothing is held or naming an unknown id or usage
+  is `NOT_FOUND`; a path that does not reach an object, an out-of-range index, an object bound
+  to a non-`Element` parameter or an id its path disagrees with is `INVALID_ARGUMENT`, with the
+  REPL's wording. The Go client binds with `opensysml.ObjectByID`/`ObjectByPath` and decodes
+  `Object` (`ID`, `Path`, `Element`) as a cell and as `Row.Object`; the Python client binds with
+  `ObjectRef(id=…)`/`ObjectRef(path=…)` and decodes `ObjectRef` as a cell and as
+  `DocumentRow.object`; the Node, Java and Rust clients carry the regenerated stubs. What one
+  model holds is bounded by `OPENSYSML_GRPC_MAX_HELD_OBJECTS` (default `10000`, nested objects
+  counted): an `Instantiate`, query or render whose objects would pass it fails whole with
+  `RESOURCE_EXHAUSTED`, leaving none of them, until the model leaves the cache, which releases
+  its objects; none is evicted behind an id a client holds.
+
+- **`ApplyEdits` edits a model of several documents as one atomic batch.** A model parsed by
+  `ParseSources` was refused with `FAILED_PRECONDITION`; its operations are now applied through
+  the same cross-document path the LSP uses: a rename or cascade delete follows its references
+  into the model's other documents, every document touched is re-parsed and re-analysed together,
+  and either all of them are answered or none is. `ApplyEditsResponse.documents` (new field 7)
+  lists every document the batch rewrote — one entry for a model of one document — as
+  `EditedDocument{name, content}`, `name` being the name the parse request gave it, so a new
+  client has one code path for both shapes; `content` (field 1) keeps the edited notation of a
+  model of exactly one document and is empty for a model of several, even when only one changed.
+  Each `AppliedEdit` names its `document` (new field 7), and a refusal — which still carries no
+  content — names each referrer with its document in `referrers` (new field 8, `Referrer{name,
+  document}`) beside the textual `referring_elements`. `ApplyEditsRequest.document` (new field 3)
+  selects a document other than the model's first for the operations to target; a name that is
+  not one of the model's is `INVALID_ARGUMENT`. `ApplyEditsRequest.accept_documents` (new field 4)
+  says the client reads `documents`: a model of several is edited only for a request setting it,
+  and one leaving it unset — every request a client of the previous schema sends — is refused on
+  such a model with `FAILED_PRECONDITION` as before, so a client reading `content` alone is never
+  answered an empty one; a model of one document ignores it. The `edit_documents` capability
+  advertises all of this: a service without it answers `content` alone — no `documents`,
+  `referrers` or applied-edit `document` — refuses a model of several documents with
+  `FAILED_PRECONDITION` and a request naming a document with `UNIMPLEMENTED`, so a client reading
+  `documents` checks it first. `EDIT_FAILURE_REFERENCED_ELSEWHERE` is appended
+  for a rename, delete or move referred to from a document the edit cannot rewrite — a move
+  respells references in its own document only, so one referred to from another document of the
+  model is refused this way. No existing field changed number, type or meaning, so a generated
+  client of the previous schema decodes every answer. `Convert` from a model handle still
+  requires a model of one document. The Go client answers `EditResult.Documents`,
+  `AppliedEdit.Document` and `EditError.Referrers`, and `ApplyDocumentEdits` names the document
+  to edit; the Python client answers `EditResult.documents`, `AppliedEdit.document`,
+  `EditError.referrers` and raises `ReferencedElsewhereError`; the Node, Java and Rust clients
+  carry the regenerated messages. The conformance suite parses a model of several documents by
+  naming `fixtures` rather than one `fixture`, and gains scenarios for a rename and a cascade
+  delete crossing documents, an edit answering only the document it touched, and a refusal
+  naming a referrer in another document.
+
+- **Imports are followed to the files beside a loaded one.** A file named to `sysml`, `%load` or `sysml -check` that imports a root namespace neither the named files nor the standard library declare now has the `.sysml` and `.kerml` files beside and below it searched for one declaring that name, and each such file is loaded with it, its own imports followed the same way; unrelated siblings and hidden directories stay out. The language server does the same for a document opened from outside every workspace folder, indexing the document's directory so its imports of sibling files resolve instead of being reported unresolved; an open buffer stays authoritative over the file on disk (`project.Dependencies`, `TestLoadingOneFilePullsInTheSiblingsItImports`, `TestOpeningFileOutsideFoldersIndexesItsDirectory`).
+
+- **The Java client wraps every RPC the service offers.** `Connection` gains `parseSources` (a model of several documents), `convert`/`convertFile`, and `listEngines`; `Model` gains `executeAction`/`executeState` and `exploreAction`/`exploreState`, `verifyConstraint`/`verifyRequirement`/`verifySatisfaction`/`validateInstance`, `evaluateCalc`, `runAnalysis`/`exploreAnalysis`, `runSweep`, `applyEdits`, `query`/`queryOslc`, `runDocumentQuery`, `renderDocument`, `convert` and `withEngine`. Each answers an immutable record — `ActionRun`, `StateRun`, `Exploration` of `Outcome`s, `Verification`, `Satisfaction`, `Validation`, `Verdict`, `VerificationVerdict`, `Calculation`, `Analysis`, `CaseEvaluation`, `Standing`, `QueryElement`, `EngineInfo`, `Conversion`, `EditResult`, `Sweep` of `SweepRow`s, `DocumentQueryResult` of `DocumentRow`s, `RenderedDocument` — with no generated protobuf type in the public API. A false verdict is returned as a decided answer rather than thrown; `ModelException.failureReason()` classifies an in-band failure, `AnalysisException.partial()` keeps what a failed analysis computed before it stopped, and `EditException` carries the `EditFailure` kind and the referrers a refused batch named. The Java conformance runner now covers every RPC through the public API — 129 of the 134 scenarios run and pass per protocol, and the five skips are only requests the public API cannot express.
+
+- **A design for scaling to very large models** (`docs/project/large-model-scaling-design.md`).
+  Starting from the satellite-network stress test's profiles, it separates the four costs a large
+  model pays — per element once, per workspace per edit, per process on one core, and per modeled
+  object by construction — and designs one approach against each: a persistent resolver and
+  semantic model owned by the workspace and invalidated through a document dependency relation
+  rather than cleared on every change; closed documents held as interface records (the facts other
+  documents can observe, plus stored diagnostics) that hydrate to a full tree only when opened or
+  queried, generalizing the standard library's snapshot and index-record cache; parallel
+  per-document analysis over a read-only index; and one definition with many occurrences in the
+  runtime, with sparse per-occurrence values. Each names its differential test against the
+  unoptimized path, the measurement that decides it, and its place in the sequence. Nothing is
+  implemented; the page exists to be reviewed before code is written.
+
+- **Documents typeset LaTeX mathematics, inline and displayed.** A `Span` or `SpanColumn` with
+  `style = "math"` is an inline formula, and the new `Formula` content block (required `source`,
+  optional `caption`, a `Ref` target when named) a displayed one; the LaTeX reaches every backend
+  unescaped while a `$` in ordinary prose is escaped so it never opens a formula. Markdown writes
+  `$…$` spans and `$$…$$` blocks; HTML wraps each formula in a `sysml-math` element between MathJax
+  delimiters, and `-html-math cdn|<url>` has the page load MathJax, confined to those elements;
+  PDF typesets each formula with KaTeX's command line (`katex`, or `OPENSYSML_KATEX`, its stylesheet
+  found beside it or named by `OPENSYSML_KATEX_CSS`) and embeds its fonts under every engine, so the
+  PDF shows mathematics rather than source. A blank formula, a blank math span or a query row
+  supplying no LaTeX to a math column is a typed error; a document without formulas needs no KaTeX.
+  `scripts/download-doc-pdf-toolchain.sh` now provisions a pinned KaTeX beside the other tools.
+
+- **The language server runs the behavior a diagram draws.** The new `opensysml/debug/*`
+  requests (`start`, `step`, `continue`, `send`, `advance`, `breakpoints`, `stop`), advertised as
+  the `openSysmlDebug` capability, execute the state machine or action a `state` or `action` view
+  renders — with the executors the REPL's `%state` and `%action` debuggers use, optionally as
+  performed by an instantiated part — and answer every request with a snapshot in the IDs of that
+  view's `opensysml/render` result: the active states (composite states and regions included, one
+  chain per orthogonal region), each action token with the node it sits at, the edge it arrived by
+  and the join edges or signal it waits for, the transitions and successions taken since the last
+  snapshot, the events queued and the messages pending, the runtime's clock, its notes, a completed
+  action's results, and whether the run is `running`, `waiting`, `suspended`, `completed`,
+  `failed` or `ended`. Breakpoints are set by render node ID and pause a run as a token reaches the
+  node or the state becomes active; a signal the behavior accepts nowhere is refused rather than
+  queued to be lost. A session follows the document: an edit that leaves as they were the
+  declarations the run reads — the target's, its performer's, and every declaration those name
+  and the named name in turn (specialized and typing definitions, invoked actions, accepted
+  signals, feature types, values a guard or a `send` names) — keeps it running and reports the
+  snapshot in the fresh IDs (a pause reached at a breakpoint moved with them) through the new
+  `opensysml/debugChanged` notification — every snapshot numbered by `revision`, so a client keeps
+  the newest whatever order the answers and notifications arrive in — while one that
+  rewrites or removes any of them, makes the run read one it did not, or rewrites the declared
+  view, ends it and says why. To place runtime state on a rendering, the runtime
+  now records the transitions a state machine fires (`StateExecutor.FiredTransitions`) and the
+  successions each token travels (`ActionExecutor.Traversals`, `Token.Within` for the nested flows
+  it runs in) — a driver reading them step by step takes only what a mark it kept has not seen
+  (`FiredSince`, `TraversalsSince`, `NotesSince`) — a held image of an object carries its
+  debugger's state with it (the breakpoints set, the pause reached, the record so far), a
+  `view.StateLocator`/`view.ActionLocator` map lowered vertices, action nodes and edges to render
+  IDs by their position within the declaration, and document, they were written in
+  (a node or edge inherited from another document is drawn from that document and keeps its place
+  as either document is edited), and `model.Workspace.NewRuntime` builds a
+  runtime model over a workspace's documents whose `Dependencies` lists the declarations a run
+  reads; a lowered `StateGraph` or `ActionGraph` lists the
+  declarations it took content from besides its own (`Inherited`), which the root node of a
+  `state` or `action` rendering carries as `view.Node.Inherited`. See
+  [the LSP reference](docs/reference/lsp.md).
+
+- **The SysML v1 migrator writes every diagram as a `view`.** A `uml:Diagram` serialized in a tool's `xmi:Extension` with its diagram representation (MagicDraw and Cameo's `DiagramRepresentationObject`) is read as a tool-neutral diagram record — name, kind, owner and shown elements — and written as a `view` usage in the body of the v2 element its owner became, exposing every shown element the document writes and rendered by the standard `Views` library's `asTreeDiagram`, `asInterconnectionDiagram`, `asElementTable` or `asTextualNotation` according to the diagram's kind. A diagram whose owner has no v2 body is written in the nearest ancestor that has one, one showing nothing writable is an empty view, and each is reported as mapped or approximated with the reason instead of skipped as tool content; layout stays unmigrated. `render` and the other reference members of a view now accept a globally qualified name, `render $::Views::asTreeDiagram;`, as the grammar allows.
+
+- **The SysML v1 migrator writes a simulation tool's Monte Carlo analysis pattern as an analysis case.** A block generalizing the SysML customization module's `MonteCarloAnalysis` — recognised by the module's provenance alone, so a user's own block of that name stays an ordinary block — keeps its `part def` and gains a sibling `analysis def '<Block> Monte Carlo' :> Simulation::MonteCarlo` whose subject is the part def, whose one run performs the block's classifier behavior, whose `observed` is the value the block binds to `Mean`, and which returns one statistic per bound `Mean`, `Deviation`, `N` or `OutOfSpec` (`return Mean : Real = mean;`, `out Deviation : Real[0..1] = deviation;` …); its result snapshots record the four statistic slots as an `analysis` of that def, and the `-migration-results` sidecar names the analysis def and its declared statistics. The generalization, the binding connectors and the slots move out of the report's unmapped rows; a binding of another statistic, of a non-numeric value, of one statistic twice, or of a statistic of nothing bound to `Mean` is a comment naming the reason.
+- **`Simulation::MonteCarlo`, an analysis of repeated runs, joins the OpenSysML library, and `-runs` runs it.** `sysml -analysis "<case> <subject>" -runs <n> -seed <s>` (or `%runs <n> <seed> <case> <subject>`) performs the case's steps on a fresh subject per run, seeded from the seed and the run number, tables what each run observed, and concludes the case once over the sample with `runs`, `mean`, `deviation` (the sample standard deviation, empty under two runs) and `outOfSpec` bound and its own outputs evaluated over them. A case that specializes no `Simulation::MonteCarlo`, a subject named by `#id`, or `-observe` is refused; a single run leaves the statistics unbound rather than passing one run off as many. A quantity-valued `observed` is sampled by magnitude in the first run's unit and `mean` and `deviation` are quantities in it; when every run fails, the table keeps each run's row and error and the case is reported unconcluded. A check decided run by run counts the runs it failed in as `outOfSpec` and is not judged again at the conclusion, which decides only the checks of the statistics; the count of runs is validated against the sweep budget before anything is sized by it; and the `-runs` statistics sum Integer deviations exactly and scale Real deviations before squaring, so a finite sample never overflows. A failed run fails the case whatever comes of the sample; only a table of completed runs is left unresolved when the sample or the conclusion cannot be made.
+- **`-compare-results` compares a Monte Carlo analysis statistic by statistic.** Under the observable's table, one row per statistic of the migrated analysis case — its declared returns, then the outputs of `Simulation::MonteCarlo` the tool stored without a return: the tool's pooled `Mean` and `Deviation` against the runs' by the same aggregation with their relative difference (the deviation is newly compared), `N` side by side, and `OutOfSpec` recorded but not compared, being the tool's own criterion.
+
+- **The SysML v1 migrator follows stereotype generalization and writes user profiles as metadata.** An applied stereotype is resolved to its `uml:Stereotype` in the document's profiles and its generalizations followed — through OMG `href`s, MagicDraw `referentPath`s and Papyrus pathmaps, across diamonds and cycles — so a user stereotype specializing «Requirement», «Block», «ValueType», «Satisfy», «Verify», «Refine», «Trace», «DeriveReqt», «Allocate», … takes that standard stereotype's v2 form with its tags (`Id`/`Text` become the short name and `doc`). User profiles become packages of `metadata def`s typed from their tag definitions (`attribute` for String/Integer/Real/Boolean/enumeration tags, `ref` for element references, `:>` between user stereotypes), and their applications `@Profile::Name { tag = value; }` usages instead of comments; the modeling tool's own profiles, known by exact namespace path, are skipped together with the content they mark (specification-dialog customization, UI prototyping mockups, simulation-tool configuration), with a reason naming what it is. A same-named stereotype with no standard general, and an application whose profile the document does not define, keep their previous form.
+
+- **The SysML v1 migrator writes a Cameo/MagicDraw table, dependency matrix or relation map as an executable query and a renderable document.** A diagram carrying «InstanceTable», «DiagramTable» or «RelationMap» from the MagicDraw profile, or «DependencyMatrix» with its «MatrixFilter», is written beside its `view` as a `calc def '<Diagram> Rows' :> DocumentQueries::Query` — the scope as `Descendants` of the named roots, explicit rows in one `Union`, the row type as `WhereType` (and `isIndividual` for an instance table) or `WhereMetadata` for a migrated user stereotype, columns as `Project` and `Column`, sorts as `OrderBy(missing = "last", multiple = "first")`, a matrix criterion as a `RelatedColumn` over the column scope, a relation map as `RelatedElements` — and a `part def '<Diagram> Document' :> DocumentQueries::Document` holding the `Table`, so `-run-query` lists the rows and `-render-document` renders the table. Only the exact profile namespaces define a table; a same-named user stereotype elsewhere is ordinary metadata. A «DeriveReqt» criterion is walked from the original requirement, as the v2 `derivation` runs, and a criterion excluding subtypes of a stereotype the model specializes is approximated with the specializing stereotypes named, since their relationships are written as the same v2 relationship. A criterion no relationship kind spells, a malformed scope, sort, depth or criterion XML, or a table naming no row type is refused with every fault stated and the view kept.
+- **The migrator writes an MDK DocGen «Document» as a `DocumentQueries::Document`.** The document's view tree becomes nested `Section`s in declaration order, and each view's viewpoint method activity is lowered from its initial node along control flow: the «Expose» suppliers are the root, `CollectOwnedElements`, `CollectOwners`, `CollectByDirectedRelationshipStereotypes`, `FilterByMetaclasses`, `FilterByStereotypes` (`include = false` as `Except`), `FilterByNames`, `SortByName`, `SortByAttribute`, `Union` forks and nested groups wrap the query, and `TableStructure`, `BulletedList`, `Paragraph`, collaborator paragraphs, `Image` and `Dynamic View` end it as a `Table`, `List`, `Paragraph`, view-backed `Diagram` or nested `Section`. A step with no query spelling (`CollectTypes`, OCL expressions, user scripts…), a recursive dynamic view, a viewpoint that names no method or a collaborator paragraph that names no view is refused with the construct quoted, and the sections around it are still written.
+- **`DocumentQueries` gains `Named`, unbounded walks, matrix targets and `isIndividual`.** `Named(qualifiedName = (…))` resolves qualified names to elements, so a query can be rooted at a package or definition; `maxDepth` on `Descendants`, `Ancestors`, `RelatedElements`, `WhereRelated` and `RelatedColumn` may be omitted or `null` for no bound; `RelatedColumn(targets = …)` keeps only the related elements a second query lists, which is a dependency matrix's cell; and `WhereFeature('feature' = "isIndividual", …)` selects individuals. A declared `satisfy`/`verify` assertion typed by a requirement definition now relates its subject to that definition as well as to the assertion usage, so a matrix over requirement definitions finds its satisfiers.
+- **The migrator reads MagicDraw's «typeModifier».** `[]` on a property or parameter with no collection multiplicity writes `[0..*] ordered nonunique`, `[n]` writes `[n] ordered nonunique`, and `*` on a part or item property writes it `ref`; a two-dimensional shape, `[]` on an existing collection and `*` on an attribute or parameter stay comments with the reason reported.
+
+- **The v1 migration writes views, viewpoints, use cases, UML Expression trees and interface realizations, which it refused before.** A «View» class is a `view` usage that satisfies the viewpoint its tag or «Conform» relationships name and exposes what its «Expose» dependencies do (`expose P::**;` for a package); a «Viewpoint» class is a `viewpoint` usage with its stakeholders, its concerns framed and its purpose, language and method documented. A UseCase is a `use case def` with its subject, the actors its associations reach, and its inclusions; an Extend is a dependency on the extended case, since v2 has no `extend`. A UML Expression tree — a constraint's specification, a default or a slot value — is lowered to a v2 expression over arithmetic, comparison and Boolean operators (spelled as signs or by name, `Plus`, `Equal`), feature references — a bare symbol, or the ElementValue operands MagicDraw keeps in an `xmi:Extension`, which the XMI reader now reads as operands — and the calls the opaque-language subset already translates. An InterfaceRealization is a port typed by the interface's `port def` on a block, or a specialization on an interface block. Whatever v2 has no form for — an exposed diagram, an extension point, an operator outside the set, an interface outside the document — stays a comment and the report names the reason.
+
+- **The Windows installer now runs a setup wizard.** Double-clicking the MSI used to flash Windows Installer's bare progress window and close with no indication of what had happened. It now walks through Welcome, a *Destination Folder* page (with a folder browser), a *Choose components* tree for the optional gRPC service and bundled Z3 solver, a *Ready to install* confirmation, progress, and a *Completed* page that names the install folder and reminds you to open a new terminal for the updated `PATH`. Running the MSI again offers *Repair* and *Remove*, and a newer MSI proposes the folder chosen last time (recorded under `HKLM\Software\Open-MBEE\OpenSysML`). The dialogs are authored from the standard Windows Installer controls in `packaging/msi/wizard.wxs`, so the MSI carries no custom-action code or binaries; `ADDLOCAL`/`REMOVE` and a new `INSTALLFOLDER` property keep working for silent installs.
+
+- **`-layout <mtip-export.xml>` lays out a SysML v1 migration's views from an MTIP export.** `sysml model.mdzip -convert sysml -layout model_mtip.xml` joins the export's diagram records to the migrated diagrams by element identifier and writes their geometry as `DiagramLayout` metadata — `Layout` per exposed element, `Route` per exposed connector, `@Canvas` sized by what was written — which every rendering honors. What the export shows but the view does not expose, records matching no diagram, malformed records and unsupported presentation properties are counted and reported, never dropped silently; a layout exported from a different project is refused. Without `-layout` the migration is unchanged.
+
+- **Nested action flows in loop and branch bodies now execute with their stated succession, fork, join, and termination semantics.** Body-local attributes are initialized for each iteration.
+- **Action-node body execution now covers stated flows in action and state behaviors.** Invalid or unsupported body forms report typed runtime errors.
+
+- **A nightly snapshot of `develop` is published as the prerelease `nightly`.** Every night
+  the newest green `develop` commit is built into the same archives, raw `sysml-grpc`
+  binaries and signed `SHA256SUMS.txt` a release ships, and published under the moving
+  `nightly` tag; a version of the form `nightly-<yyyymmdd>-<commit>` tells a snapshot apart
+  from a release. The snapshot is never marked latest, so `releases/latest`, Homebrew and the
+  client packages keep following the stable line. The new *Nightly snapshots* page, linked
+  from the landing page and the install guide, says where the snapshot is, what it contains,
+  how to verify one and what to expect from it.
+
+- **The nightly snapshot ships the VS Code extension.** `opensysml-sysml.vsix`, packaged from the same commit as the binaries, is attached to the `nightly` prerelease and listed in its signed `SHA256SUMS.txt`, so the extension can be installed with `code --install-extension` without a checkout. Its version is the manifest's with the snapshot version as the pre-release part (`0.1.0-nightly-<yyyymmdd>-<commit>`), so a later night installs over an earlier one as an update; `make vscode-package VSIX_VERSION=…` stamps a version the same way.
+
+- **`sysml-lsp` is declared to OpenCode.** A checkout carries an `opencode.json` that starts the language server for `.sysml` and `.kerml` files, so the coding agent reads its diagnostics the way it does `gopls` for Go; the editors chapter of the guide explains the configuration and how to enable it for every project.
+
+- **An operation is invoked with a positional argument list.** `Context.InvokeOperationWith` takes `OperationArguments`, positional or named, and `%invoke <object> <op>` accepts bare expressions (`%invoke rover drive 10 20`) beside its `<parameter>=<expression>` pairs. Positionals bind the operation's `in`/`inout` parameters in signature order, a trailing defaulted parameter may be omitted, and among same-named operations the one the arguments fit is selected as an invocation expression would. A list mixing the two forms is refused (`ErrMixedArguments`), as is a surplus argument (`ErrOperationArity`).
+
+- **A design record on protocol state machines** (`docs/project/protocol-state-machines.md`). It
+  establishes that SysML v2 has no counterpart to UML's protocol state machine and needs none for
+  the half it can express: the legal order of receptions on a port or part is an ordinary exhibited
+  state machine, which the runtime runs on parts with `accept … via`. It also records what the
+  runtime does not yet do: a message a model sends that the active state neither accepts nor defers
+  is held on the bus and taken by a later state rather than dropped and reported as a directly
+  injected event is, and a machine exhibited by a port definition does not take a model's messages
+  routed to that port. Post-conditions, conformance between machines, static sequence checking and
+  the gating of operation calls by state have no SysML v2 spelling. The record specifies the runtime
+  follow-up with its proof fixtures; the roadmap item stays open and the compliance bullet points at
+  the record.
+
+- **The PSSM referee spells entry, do and effect behaviors with parameters, bound to the triggering event's data, and behaviors that return a call's result.** The accepting transition's effect stores the accept's signal payload or operation arguments in attributes of the machine and the target state's entry or do action declares its parameters bound to them (`in p : T = trigger_…;`), an effect reads the `accept`'s own parameters, and a behavior producing the operation's result becomes an `action def` with `out` parameters the runtime returns to the caller; the classifier refuses only an exit behavior with parameters, which runs before the leaving transition's effect, the first place the accepted data is readable, and every other refusal reason is unchanged. Same-named operations keep their identity through the call, its carried attributes and the tester's stimulus; a trigger naming one of two overloads with a single `accept` spelling between them is refused. *Event 019 D*, *Event 019 E*, *Deferred 007* and *Standalone 003* move from `not-expressible` to `pass` (56 pass / 13 fail / 33 not-expressible / 1 differs-by-design).
+
+- **A synchronous call of an operation a state machine accepts as a call event returns the operation's outputs to the caller.** `StateExecutor.Call` queues the call event, runs the machine through the run-to-completion step dispatching it — later events that step queued and timers it armed wait for the machine's next run, while a call a state defers holds its caller until the machine recalls it — and releases the caller with the values the behaviors that step fired — the transition's effect, an entry or an exit — returned or assigned to the operation's `out` and result parameters, by name — the parameters the operation declares as a member of the machine's owner when it declares one, an `inout` the step left unwritten going back as passed, every output the step returned otherwise — as PSSM §8.5.9 resumes a synchronous caller after the run-to-completion step; a call the run leaves queued or deferred is reported as `ErrCallNotReturned`, one no transition accepts is discarded. The arguments are checked against the declaration the call selects among same-named operations before the call is queued — an unbound, unknown or wrong-typed one is refused, an omitted input carries its default — and the queued call event carries that declaration, so it fires only the triggers naming it and same-named overloads whose parameter names differ reach their own transitions. A snapshot and a held image capture the call in flight. A nested action's `return` or output assignment reaches the enclosing behavior's parameter of that name on the way. Conformance case `state_call_trigger_results` and `TestRuntimeRobustnessCallResults` cover it.
+- **The PSSM referee drives the tester's stimulation in the tester's order and reads a standalone state machine as the class under test.** The driver performs each send, synchronous call and `trace(...)` of the tester's behavior as the tester does, appending a traced value to the target's `log` once the call it embeds has returned, with the suite's test library (`Concat`, `ToString`, `formatParameterValue`) read into the model and evaluated generically; the reader reads a `StateMachine` that is itself the class under test as a target with its attributes, operations and constructor. *Event 019 A* moves from `not-expressible` to `pass` (52 pass / 13 fail / 37 not-expressible / 1 differs-by-design); tests needing an entry, exit or do behavior with parameters, or an effect that returns the call's result, stay `not-expressible` on exactly those reasons until the emitter spells them, and every other test's result and reason is unchanged.
+
+- **Document queries express requirement coverage gaps.** The new
+  `DocumentQueries::WhereRelated(source, relationshipKind, direction, maxDepth, exists = true)`
+  keeps each row by whether at least one element is reachable from it over a named relationship —
+  every kind `RelatedElements` accepts, through the same edge tables, typed errors and visit
+  budget — and `exists = false` keeps the rows with none, so "which requirements does nothing
+  satisfy or verify" is one filter over incoming `satisfaction` or `verification` edges. The new
+  ordered set operations `Except(source, exclude)` and `Union(source, other)` combine query results
+  by the identity traversal already deduplicates by (a model element by its declaration, a held
+  object by the object, a verdict by its assertion and the object it was checked on), keeping
+  source order and projected columns. The query cookbook gains a Coverage section
+  (`UnsatisfiedRequirements`, `UnverifiedRequirements`, their union and difference) and a
+  Requirement hierarchy recipe that lists nested requirement usages and definitions under a root
+  in tree order with `shortName`, `name` and `documentation`, which the requirements example
+  renders as a table of its report.
+
+- **Record analysis runs into the model.** `%record <case> [into <package>]` at the REPL and `-record-run <case>` on the command line run an analysis case as `%analysis`/`-analysis` does and write the run into the model as `AnalysisRecords` elements — a record definition per case, one part per run carrying the inputs bound and outputs produced, and `@AnalysisRecords::RecordedRun` provenance metadata. Sweeps (`-sweep`) and Monte Carlo samples (`-runs`/`-seed`) record one part per run, plus one for the sample's conclusion under kind `sample`; records compose with `-convert sysml -o` and `-render-document`, are found by document queries, and an `inout` records the value the run left and a `<name>In` companion for the value it was bound with, and values supplied as Integer and Real alike settle a member to Real and scalar-valued enum literals keep their literal, and a failed run records nothing. A verification case's record carries the verdict its body decided — the `verdict` attribute — and one `VerdictRecord` row apiece for it and each subcase's.
+
+- **The order in which a state's regions are entered, exited and fired across is a recorded choice point.** A composite state's regions, a fork's branches and a history's restored regions were entered in declaration order, exited in declaration order, and the transitions one occurrence selects across regions fired one whole firing at a time, with no choice recorded for `explore` to vary. Each site now runs its regions as the queues of one front, a unit — one state's entry, one state's exit, one segment's effect — at a time, and each draw of which region's next unit runs is a choice point (`choice entering work: next left(entry), right(entry) …`, `exiting <state>`, `fork <name>`, and `on <event>` for the units of the firings) written to the trace and the witness, replayed, refused and rolled back with its move, and enumerated by `explore` and `check`. `declared` and `reverse` take the order the runtime always took, so no event order under a fixed policy moved and existing trace goldens gain only `choice` lines; a unit that performs no behavior is drawn with the performing unit beside it, so exploration counts linearizations of behaviors. Seven conformance cases state the admissible sets (`state_region_entry_order`, `state_region_entry_order_uneven`, `state_region_entry_nested_front`, `state_fork_branch_order`, `state_history_restore_order`, `state_region_exit_order`, `state_firing_units_interleaved`). The PSSM referee moves *Exiting 001*, *Exiting 003*, *Fork 002*, *Terminate 001* and *Deferred 006 C* to `pass` (51 pass, 13 fail, 38 not expressible, 1 differs by design).
+- **A design note on the order of orthogonal regions** (`docs/internals/design/region-order-scheduling.md`) records the sites above as implemented, the alignment row deciding that a firing is not atomic across regions (argued from the KerML library's successions), and the designs of two further sites: a due `do` step against the dispatch at the head of the pool, drawn per token move of the `do` flow (landed below), and the firing of a completion a region's entry enables drawn inside the entry front, still open. Until that one lands, *Entering 010*, *Entering 011*, *Junction 005*, *History 001-C*, *History 002-B* and *Terminate 002* stay `fail` in the referee record with that attribution.
+
+- **Run-to-completion redefinitions now execute with their lowered values and scopes.** Entry cascades expose free-dispatch versus held-entry ordering to execution, checking, exploration and replay, while invalid scopes remain typed lowering errors.
+
+- **A satellite-network stress workload and its scaling record.** `go run ./cmd/stress-model -planes P -satellites S -ground-stations G` writes a constellation in which every spacecraft is modeled to its components — seven subsystems, twenty components with unit-bearing attributes, power and data connections, mass and power budgets, requirements with satisfy assertions and a mode machine — plus crosslinks and ground-station downlinks; `-stats` reports the satellites, components, connections, requirements, declared elements and bytes it wrote. `tests/stressmodel` generates the same model in-process and benchmarks loading (with retained heap), satisfaction and an editor keystroke beside the open model. `docs/project/satellite-network-stress-test.md` records how `sysml -validate`, `sysml -satisfy` and per-edit re-analysis scale from 2 to 12 800 satellites (2.4 million elements), where each stops being practical, and what the profiles show.
+
+- **The architecture self-model now shows the runtime from the inside.** A new
+  `examples/self-model/execution.sysml` models the instance layer as the six units it is — the
+  schema built once per type, the allocator, the lazy reader, the binding propagator, admission
+  and the dependency tracker — with the value flows between them, the scheduler with its kinds
+  of choice and policy spellings, and one action executed as an interaction from the surface's
+  request through lowering, stepping, scheduling, evaluation and every feature read or written.
+  `behavior.sysml` gains `ReadFeatureValue`, one feature read whose decision nodes are the cases
+  a feature can be in (undeclared, bound, held, a variation, a `default` yielding to
+  contributions, a stated value, a connector, a composite). Three views render them —
+  `instanceLayer` as an interconnection diagram, `featureReadFlow` as an action flow and
+  `actionExecution` as a sequence diagram — and the architecture document embeds all three in
+  its validation-and-execution section. The self-model test checks the modelled layer against
+  the runtime: the effective feature's field count, the schema's memoization, the refusals the
+  reader and admission spell, the scheduler's choice kinds and policy spellings, and every path
+  of the feature read.
+
+- **A send's `to` clause accepts any expression and addresses the objects it yields.** `send m to cars#(2)` or `send m via p to cars#(2)` now deliver to the objects the expression evaluates to, where before a receiver that was no name or feature chain silently fell back to the sender itself. A receiver yielding no object, a non-object value, or a destroyed object is a typed error, as is a routed send whose receiver object no connection reaches.
+
+- **Sets and tensor quantities in RDF are the expressions that produce them, resolved by design.** The RDF mapping writes a model, never an evaluation, for every value kind, so a `Set`-, `UniqueCollection`- or `Map`-typed feature and a tensor of any rank need no literal form: they export as standard `OperatorExpression`/`LiteralExpression`/`FeatureReferenceExpression`/`InvocationExpression` trees with no new `sysx:` term, round trip exactly with the source text stripped, and the model read back evaluates to sets equal in whatever order their members were written and to tensors of the same shape and components. New tests pin the contract, including negative controls that remove each structural predicate; the native compilation of both remains open.
+
+- **`ShapeItems` derived geometry evaluates where the library determines it.** A binding connector's own multiplicity is the number of links it declares, so `binding [1] bind [0..*] base.edges = [0..*] be` relates a `Disc`'s edge to some value of `be` instead of binding `be [2]` whole: a `Cylinder`'s or `Cone`'s `faces`, `base.edges` and `af.edges` answer (before, every read through `be` was a multiplicity violation), and so do those of a `Cylinder` nested as a `Box`'s `voids`. A `Box` also answers its per-face `vertices`. What the library leaves open stays a typed error naming why — the `[0..1]`-bound edge and vertex groups (`tfe`, `tflv`, `Box::vertices`), the curved face's edges through `cf : Surface`, and the frame features `matingOccurrences`/`spaceBoundary` — and binding diagnostics quote the connector multiplicity (`binding [1] bind …`). The declared link count is checked too: `binding [2]` identifying one value is a multiplicity violation, and `binding [0]` links nothing.
+
+- The site's header menu (and its footer row on narrow screens) links to lord.opensysml.org.
+
+- **A fifth runtime-showcase model: a spacecraft downlink.** `examples/runtime-showcase/spacecraft-comms.sysml`
+  re-spells the OpenSE Cookbook's Spacecraft Example in current SysML v2: a ground station and a
+  spacecraft with conjugate ports on a `CommunicationLink` interface, a `parallel` state machine
+  whose `dataTransit` region sends frames and drains the battery in a forked do action while its
+  `charging` region recharges on a change trigger, a `BatteryLow` signal that interrupts the
+  transmission and a change trigger that resumes it. The walkthrough runs both parts on one clock
+  with `%advance`, reads values off either object with `%eval in <object> : <expr>`, and shows
+  where three timers falling due at the same instant leave `-schedule` a choice — 49 or 50 frames
+  before the first interruption — while every schedule reaches the same end: 100 frames received
+  at t=241. The REPL tests pin those checkpoints under `reverse`, `declared` and two seeds.
+
+- **A document query reads the state a session's objects are in and the trace their run recorded.** `States(source = <rows>)` answers one row per active leaf state of each object's machine — every orthogonal region, with `machine`, `name`, `statePath`, `region` and the `enclosing` composite states — and `InState(name = "<state>")` the held objects whose machine is in that state, by leaf or enclosing name or dotted path. `Events(source, kind, since, before)` answers the trace as rows in the order the run made them — accepts, sends, transitions, entry, exit and do steps, `choice` draws with their alternatives and the one taken, unevaluable guards — each with its instant on the clock, its object and machine, the states touched, the payload and the line `-trace` prints; `kind` keeps one or several kinds and `[since, before)` an interval inclusive at the start and exclusive at the end, in the clock's unit or a duration. `WhereFeature`, `WhereName`, `WhereType`, `Project`, `OrderBy` and `Column` read the rows as they read object and verdict rows. Each unsupported path is a typed error: no session, no trace recorded, an object exhibiting no state machine, a state no machine declares, a bound that is no instant on the clock, an interval that ends before it starts, or a state or event row where an element or object is asked for. The rows print from `%run-query` and `-run-query` — which now runs after `-state`, `-action` and `-advance`, so it reads the run's end — render in Markdown, HTML (`span.sysml-state`, `span.sysml-event`) and PDF documents, and cross `RunDocumentQuery` as the `state` and `event` arms of `DocumentValue`, which the Go and Python clients decode and refuse to bind; the recipes are in the query cookbook.
+- **The trace is a typed record the printer writes from.** `runtime.TraceRecorder` keeps each accept, send, transition, entry, exit, do step, choice and guard as a `TraceRecord` with its instant, object and behavior, and prints `-trace`'s lines from those records, so the printed trace and the `Events` rows cannot disagree; the printed output is unchanged.
+- **A manual page tells the query kinds apart.** *Which query is which* distinguishes document queries over elements, objects, verdicts, states and events, the API `Query` over a project, `Evaluate`, `solve`, and the runtime population `all T`: what each returns, what each cannot see, and where each is reached.
+- **`States` and `Events` refuse a destroyed object.** A `source` bound to an object the run destroyed fails with a typed `object-destroyed` error naming the object and the activation mark at which it was destroyed, as `%features` reports lifetimes, instead of answering a stale row or a feature-evaluation failure; a terminated machine answers no state rows, while a completed one reports its final state. A destroyed object leaves the population — `Objects`, `InState` and element-derived sources skip it, and `Events` still resolves its label — so a session's other objects keep answering once one is destroyed.
+
+- **A continuous model runs by time-stepping.** An action specializing the analysis library's
+  `ContinuousStateSpaceDynamics` or `DiscreteStateSpaceDynamics` is run as a fixed-step
+  state-space simulation: the bundled `StateSpaceIntegration` library adds `FixedStepDynamics`
+  (`timeStep`, an optional `stopTime`, a `time` the run writes), the integrators `Euler` and `RK4`
+  a model binds to `getNextState`'s `integrate` (RK4 when it binds none) and the `ZeroCrossing`
+  event; discrete dynamics step by `getDifference`. Each step advances the runtime's shared clock,
+  so a state machine exhibited beside the dynamics sees the same time, its `accept after`/`at`
+  triggers fire in step order, and a step and a trigger due together are a `due order` choice
+  point the scheduling policy decides. An `event occurrence` typed by `ZeroCrossing` posts an
+  event of its type when its `guard` changes sign at a step, which a machine's `accept` takes, and
+  ends the dynamics when `terminal`. The run records `state: <action> t=<instant> x=<state>
+  y=<output>` per step in the execution trace and reports `stateSpace`, `output` and `time` as
+  the action's outputs. A shape the runner cannot run — a state, input, derivative or output that
+  is not a vector, a protocol calc left abstract, an integrator the runtime does not provide, a
+  step that is absent, zero or negative, a state that leaves a step non-finite — is a typed error
+  naming the action and the member at fault.
+
+- **A model states its own odds.** Two non-normative OpenSysML libraries add what SysML v2 has no
+  notation for: `Stochastic::Probability` weights the successions out of a decision node
+  (`first d then fast { @Probability { p = 0.7; } }`), and `RandomFunctions` declares `uniform`,
+  `uniformInteger`, `triangular` and `normal`, so `attribute d : Real = uniform(0.0, 1.0);` and
+  `accept after uniform(1, 80) [s]` run. The weights are validated at lowering — every succession
+  out of a decision weighted or none, each in `[0, 1]`, constant weights summing to one. The flow among an analysis or verification case's steps reads the same weights, and the exported action graph carries each weight beside its edge. Modeled randomness is a
+  stream of its own, apart from the token-shuffle stream: `-seed <n>` and `%seed <n>` fix it
+  whatever the scheduling policy, `seed:<n>` seeds it too when no model seed is set, an unseeded
+  weighted decision under `declared` or `reverse` takes its most probable branch, and an
+  unseeded random function is refused naming the flags that seed it. The scheduling choice points
+  the spec leaves open — token, write, region and due order — stay unweighted, and `explore` and
+  `check` still enumerate and search weighted branches as a set. Every draw is recorded in the
+  witness (`draw uniform(0.0, 1.0) = 0.7748…`) beside the weighted pick, so `%replay` and
+  `-schedule replay:<file>` reproduce a run exactly and refuse a witness whose draws they cannot
+  consume; the trace reports each weighted decision with its weights and its draw.
+- **Monte Carlo runs.** `%runs <n> <seed> <action> [<observable>...]` and
+  `sysml -action <a> -runs <n> -seed <s> [-observe <f>]` run an action `n` times, each under a
+  model seed derived from the seed and the run number, on the sweep machinery, and report the
+  table of the observables — every feature the action holds and `clock` when none is named —
+  then each numeric observable's min, mean, max, p50, p90 and a compact histogram, as
+  `%samples` reports a table. Runs are reproducible for a seed and distinct across seeds.
+
+- **A plain `flow` between action parameters streams.** SysML v2 §7.16 makes parameters streaming unless a flow is designated a `succession flow`, and the runtime now reads them so: each value written to the source pin — in the source's body, or carried back from a node under it — reaches the pin of every ongoing performance of the target at once, so a consumer performing beside its producer reads each value the producer writes; a value written while no performance of the target is under way waits at the pin for its next one, and a further write from the same source performance replaces it, so a target begun after its source reads the pin as the source left it. The lowered `ObjectFlow` carries the kind (`FlowStreaming` or `FlowSuccession`) from the declaration, and a `succession flow` runs as before: the value the pin holds when the source completes moves, and the target begins after. A source that completes without ever writing the pin (`ErrFlowSource`), a write after the target's last performance ended that no later performance takes (`ErrStreamUnreceived`), a stream to a pin the target does not declare (`ErrNodePin`), and streaming flows that lead a value back to the pin it was written to (`ErrStreamCycle`) are typed errors. The outputs of an action a node performs stream from the node as the performance writes them, its declared output values as the performance begins. The checker's footprints count the target pins a node's writes stream to, and the SMT encoding streams writes as the interpreter does, a value arriving after its target's last performance failing the action as it completes.
+
+- **SysML v1 migration is documented on every surface it reaches.** Guide chapter 11 walks one v1 export through `-convert`: reading the report's four verdicts, running a migrated activity under the action debugger, comparing a migrated run configuration with the results its tool stored, and finishing by hand what the mapping reports as unmapped. The gRPC `Convert` contract, the proto comments, the Go client's `FormatXMI` and the Python client's `convert` docstrings say that `xmi`, `uml` and `mdzip` are read and migrated, never written, and that the conversion is reported experimental; the Go client gains a regression test that migrates the vehicle fixture over the wire. The roadmap records what the migration still leaves — units and quantity kinds, the report over gRPC, identity across a re-migration — as its own item.
+
+- **A design note for an Eclipse SysON plugin** (`docs/internals/design/syson-plugin.md`). It
+  records, against SysON release `v2026.9.0`, how a jar contributes beans to the SysON backend
+  and a React component to its frontend, the textual exporter and its gaps, the SysIDE-based
+  importer and where a pre-import check sits, the partial SysML v2 REST API and the fact that
+  SysON's standard-library `elementId`s equal the normative UUIDs `internal/semantic/identity`
+  derives, how a qualified-name `Symbol.id` maps to an EMF element, how diagnostics reach the
+  Validation view, and the verdict of `sysml -validate` on every textual model in the SysON
+  repository; then the architecture of a future `editors/syson/`, a four-phase plan and the
+  unknowns. `editors/README.md` now introduces each editor integration. Nothing is implemented.
+
+- **The SysON plugin can run OpenSysML from the explorer.** The `runWithOpenSysML` mutation
+  supports instantiation, action and state execution or exploration, constraint and requirement
+  verification, satisfaction verification, calculation evaluation, analysis and instance
+  validation; the “Run with OpenSysML…” entry opens a dialog, maps diagnostics into the Validation
+  view, and supports an offline compile-only stub build plus an opt-in real-artifact profile and
+  workflow.
+
+- **`terminate` runs in an action.** A `then terminate;` node, a named terminate action usage
+  (`action stop terminate;`, whose marker the parser used to drop) reached by a succession, and a
+  `terminate;` statement of a nested action node's body (which lowering used to leave out) end the
+  performance they are written in with the outputs assigned so far: later nodes do not run, every
+  other token of that performance is dropped — a forked branch still running or parked at an
+  `accept` included — in an order the trace records, and a nested node's parent continues along the
+  node's succession. `terminate <name>;` ends every ongoing performance of the named action node
+  of the flow it is in or of a flow around it, the node itself included. A performance that already
+  ended and a name that is no action node of an enclosing flow are each a typed error rather
+  than a silent no-op; a `terminate` in a calculation is refused as before.
+
+- **`terminate` ends an occurrence, a state's behavior or the state machine.**
+  `terminate <occurrence>;` evaluates its target — `this`, a part's feature chain
+  (`terminate vehicle.engine;`), a nested action node's own occurrence — and ends that
+  occurrence's lifetime: its owned parts, the behaviors it exhibits or performs, and any action
+  or state performance running on it stop where they are, keeping their values, and a part of
+  it first read afterwards is reached ended too, no behavior of it started; a name that
+  denotes no occurrence, one already ended, and one `destroy` emptied are each a typed error.
+  A `terminate;` in a state's `entry`, `do` or `exit` body ends that behavior at the statement,
+  the state stays active and the machine keeps dispatching. A transition whose target is a
+  terminate action (`transition first idle accept Abort then stop; action stop terminate;`) ends
+  the state machine's performance as SysML v2 §7.18.3 and the PSSM's terminate pseudostate
+  both prescribe: the source exits and the transition's effect run, then no further state is
+  exited, running do behaviors are abandoned and no state remains active — reached directly, or
+  through a choice, junction or join, from inside a composite state or one region of an
+  orthogonal one. Such a run reports `Outcome.Terminated` with no final state, the REPL says
+  `State machine terminated` and `Execution state: Terminated`, the LSP debug snapshot's `state`
+  is `terminated`, `%instances` lists a terminated object as `ended`, and `explore`/`check`
+  count the terminated run as one outcome. The PSSM referee translates the suite's terminate
+  pseudostates the same way, so its `terminate-gap` bucket is retired: *Terminate 003* passes,
+  and *Terminate 001/002* fail on the order an orthogonal state's regions are entered in, which
+  the referee's record already attributes to an open finding.
+
+- **Four graded requirements-traceability examples in the manual.** `docs/manual/traceability-examples.md` walks from three flat requirements and the parts satisfying them (`trace-1-basic.sysml`), through a nested requirement tree with verification verdicts and `Union`/`Except` coverage sets (`trace-2-hierarchy.sysml`) and derivation chains walked one hop and to their ends in both directions (`trace-3-derivation.sysml`), to a multi-package program whose ten-column matrix is grouped by owning team with list, count and any columns side by side (`trace-4-program.sysml`). Each source is committed beside its rendered Markdown, and a test re-renders all four and compares them, so the outputs shown are what the current binary produces.
+- **A wide table in a PDF lands on landscape pages.** A table of seven or more columns, with the heading and caption that introduce it, is placed on a landscape page while the surrounding pages stay portrait; a traceability matrix no longer squeezes ten columns into a portrait text width.
+
+- **`RelatedColumn(name, relationshipKind, direction, maxDepth, aggregate)` projects the elements a relationship reaches from each row.** A `Project` column beside `Column(...)`: `aggregate = "list"` (the default) yields the related elements as a multi-valued cell in traversal order, `"count"` an integer and `"any"` a Boolean, over every relationship kind and direction `RelatedElements` accepts, with the same typed errors and visit budget. The values feed `WhereFeature`, `OrderBy` and a document table's `groupBy` — an element-valued cell compares and sorts as its qualified name — so one query now produces a traceability matrix — every requirement with its satisfiers and verifiers — where a table per requirement was needed before. The cookbook gains a "Traceability matrix" recipe and the manual a rendered traceability report (`docs/manual/examples/traceability.sysml`).
+- **A satisfaction asserted by an object's type and found again in a validation scope is reported once.** Verdicts deduplicate assertions by the declaration they name, not by scope-tree symbol, so a document scope indexed twice no longer doubles a requirement's satisfaction row.
+
+- **`@Probability` weights state transitions.** The `Stochastic::Probability` notation that
+  weights the branches out of a decision node now weights transitions too: of the transitions
+  out of a state competing on one trigger (or the completion transitions), of all the branches
+  out of a `choice` or `junction`, all carry a weight or none does, each weight lies in
+  `[0, 1]`, and the group's weights must sum to one — checked at lowering for constants and at
+  dispatch for expressions. A weighted pick is drawn once among the enabled transitions, after
+  triggers, guards and innermost-wins have run, and is recorded in the witness, so `%replay`
+  reproduces it, `explore` enumerates every weighted alternative, and the trace prints the
+  drawn branch with its weight. Transitions sharing a time-trigger spelling fire as one
+  occurrence drawn by weight, and a weight may read the trigger's bound arguments.
+- **`explore` and `check` report probabilities.** The explore outcome table gains a
+  `probability` column — the product of the shares each linearization's picks resolved with (a
+  weighted pick its stated weight's share, an unweighted choice the uniform `1/n` a seed takes
+  each alternative with), summed over the runs reaching each outcome — and `check` reports each
+  violation's probability mass the same way, `(probability 0.3)` on its line and `mass` in the
+  JSON report. Both are the model's own probabilities where every choice point is weighted, a
+  uniform assumption otherwise; an incomplete exploration prefixes them `≥` and a check that
+  hit a bound, revisited a state or left a move out marks them lower bounds
+  (`probabilitiesLowerBound` / `massLowerBound` in the JSON, `Outcome.probability` and
+  `ExplorationStatus.probabilities_lower_bound` on the wire).
+
+- **The SysML v1 migration writes behaviors that run.** An Activity becomes an `action def`
+  the action executor performs — `first start`, nested `action x : Def;` calls with `bind`/`flow`
+  for their pins, `fork`/`join`/`decide`/`merge`, `send new Sig() to this.part`, `accept p : Sig`,
+  `accept after 2.0 [SI::s]`, `accept when c`, `action x terminate;` for a final node, `if`
+  guards where the guard parses and resolves and the guard text as a comment where it does not —
+  and a block's classifier behavior is performed by a `perform action` usage of its `part def`.
+  A `DurationConstraint` on an action is a wait before it, `accept after lo [SI::s]` for a point
+  interval and `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise, with `1s`,
+  `80ms`, `2 min` literals scaled to seconds; «Probability» on the edges out of a decision is
+  `@Stochastic::Probability { p = … }` when every edge carries one, scaled when they do not sum
+  to one. A StateMachine becomes a `state def` the state debugger steps — nested states, the
+  regions of an orthogonal state as sub-states of a `parallel` state, a submachine state as a
+  `state` usage typed by the referenced machine's `state def`, `entry`/`do`/`exit` behaviors,
+  `transition first s accept sig : Sig if g do e then t;` with relative time and change events
+  as triggers, a deferrable signal trigger as `defer Sig;` — exhibited by an `exhibit state`
+  usage of its block. An Operation is an `action def` owned by the block with its parameters,
+  its method as body — the method's parameters standing for the operation's at the same
+  position under the operation's names — and its conditions as `assert constraint`s; a
+  `CallOperationAction` on an
+  object performs it on that object through
+  `perform action x ::> target.op;`. An OpaqueBehavior or FunctionBehavior whose body is a v2
+  expression is a `calc def`; an Interaction whose messages are all signal sends to parts is a
+  scenario `action def` of `send`s; a Reception is a comment naming its signal. Absolute time
+  events, internal transitions, entry points and history pseudostates, synchronous interaction
+  messages and a tool's time variable have no v2 form and stay comments the report accounts for.
+- **A send addressed to a parameter, pin or local of the sending action reaches the object it
+  holds.** `send new Go() to recipient` under `in recipient : Worker` is delivered to whatever
+  object the caller bound, a chain from it (`team.lead`) walked through that object; a binding
+  holding no object is refused with a typed error rather than the message dropped. A target no
+  binding leads — `this.part`, a port, a name in scope — is resolved as before.
+- **`perform action x ::> part.action;` and `exit part.action;` run on the part.** An action
+  usage referencing a feature chain performs the chain's last action on the object the chain
+  reaches from the performer, as a state's entry, do or exit behavior does; an empty or
+  many-valued receiver, a chain ending in no action and a destroyed receiver are refused with
+  typed errors.
+
+- **Monte Carlo summaries come across as statistics.** A result snapshot of a «SimulationConfig»
+  whose target specializes MagicDraw's `MonteCarloAnalysis` records `N`, `Mean`, `Deviation` and
+  `OutOfSpec` beside the observed values; the `-migration-results` sidecar now writes them as the
+  snapshot's `statistics` of the observable the analysis binds its `Mean` to, standing for `N`
+  runs, rather than as one more run — `deviation` and `outOfSpec` only when the snapshot records
+  them, so a missing deviation is not a zero — and notes a summary that is incomplete, counts
+  no runs or more than a count holds, holds a statistic over several slots, binds no observable,
+  states an `OutOfSpec` that is no count of its runs, or summarises another configuration's.
+- **Every run configuration is compared.** `-compare-results` runs a configuration the tool
+  stored no snapshot of and prints its statistics under a `tool (no stored result to compare)`
+  row; runs one stating no `numberOfRuns` once, as the tool does, under a note saying so; counts
+  the runs a summary stands for and pools raw values with summary means; shows only the
+  statistics a summary holds; and notes a summarising snapshot another configuration stores under
+  the same name with the same statistics as a likely copy, naming that configuration and its
+  result location; and notes summaries of one observable whose means lie more than three
+  standard errors apart, which cannot be of runs of one and the same model, so the pooled mean
+  they are compared by blends them.
+- **A run configuration resolves to an inherited classifier behavior.** The `executionTarget`'s
+  classifier behavior is looked up through its generalizations, nearest first, and a test-case
+  behavior is performed where its scenario is migrated. A target with no classifier behavior at
+  any level whose parts hold constraint properties — a parametric configuration the tool solves
+  for values — is reported per constraint property, naming its constraint block and whether the
+  block's rule is migrated as a constraint or which call of an opaque rule stops it, in place of
+  a blanket refusal.
+- **Snapshots of a run on another classifier are set aside.** A result location may hold
+  snapshots the tool named after a classifier that is neither the configuration's execution
+  target nor a general or special of it; they are of another configuration stored in the same
+  package, so they are not read as the configuration's results and the sidecar says so, and the
+  sidecar carries the notes saying why a configuration runs no behavior.
+- **The clock can tick by a fixed step.** `-clock-step <seconds>` and `%clock-step` make every
+  wait of a run — `accept after`, `accept at`, a state's timer, a case's timed step — come due at
+  the first multiple of the step not before the instant it ends, as a simulation tool's fixed-step
+  clock does; `0`, the default, keeps the continuous clock. The step reaches the run, explore,
+  check, sweep and standing engines, the external-engine protocol (`clockStep`) and the gRPC
+  handlers as the draw policy does; a witness of a stepped run records `clock steps by <seconds>`
+  and replays on it. A migrated «SimulationConfig» stating `startTime` ran on the tool's internal
+  clock, so the `-migration-results` sidecar records its `stepSize` in `timeUnit` (`1.0` and the
+  millisecond, the tool's defaults, unless stated; `(endTime − startTime) / numberOfSteps` when
+  those two stand in for the step) as `clockStep`, in seconds, and
+  `-compare-results` runs the configuration on it — a unit of no fixed length, a step of zero or
+  less, one of more seconds than a number holds or fewer than it tells from none, and an unstated
+  unit are noted. The tool's clock started at `startTime` and a run's starts at 0, so a
+  `startTime` other than 0 is noted, in the report, the sidecar and the comparison, as offsetting
+  every instant read on the clock.
+- **A script's console print is left out.** A `print(…)`, `println(…)` or `System.out.println(…)`
+  statement of an opaque body writes to the tool's console and changes nothing of the model, so
+  the SysML v1 migration leaves it out of the translation, keeps the other statements of the body,
+  and notes each print left out as an approximation; a body of prints alone is an empty action.
+  A print whose argument assigns, counts, deletes, constructs or calls anything but a function of the table computing
+  a value (a Java `equals` counts only on a receiver known to be a string; any other type's is
+  that type's own method) could change the model, so it is refused rather than left out; a call
+  not in the table, or a print used as a value, is refused as before.
+
+- **The v1 migration translates opaque JavaScript and English bodies into executable v2.** A bounded subset of a v1 tool's scripting language — assignments and compound assignments, `var x = e`, literals, feature paths, arithmetic, comparisons, `&& || !`, a trivial ternary, `Math.min/max/abs/floor/ceil/sqrt/pow` and `java.util.Collections.max/min` — becomes `assign` statements in an action body, an `if` guard on a succession, an attribute default, a `constraint def` expression or a `calc def` body; a guard in English (`TRUE`, a Boolean property's name, `not X and Y`, `a = b`) becomes the `if` it means. Anything outside the subset is refused whole with the offending token in the report, never translated in part, and a body the translator reads is never re-read as v2 syntax; an English body has no calls, and a script label is read only when every word of it names JavaScript, ECMAScript, JS, Rhino, Nashorn or one version (`JavaScript Expression Language` is another language). A Java body's `/` of two whole numbers is `OpenSysMLMathFunctions::quotient(x, y)`, the exact quotient truncated toward zero; its `Math.floor` and `Math.ceil` answer a double, so a `/` after them stays real division, while its `Math.round` answers a long. A Java body's `a.equals(b)` on strings is `a == b`, and its `==`/`!=` with a string operand is refused, Java comparing strings there by identity. A constraint's specification is checked to yield a Boolean: an integer, real, string or enumeration literal is left as a comment naming the value, a string spelling `true`/`false` written as that Boolean.
+- **`OpenSysMLMathFunctions::ceiling(x)` and `quotient(x, y)`** join the non-normative math extension library. `ceiling(x)` is the least Integer not less than `x`, the counterpart of `RealFunctions::floor` (`ceiling(-2.5)` is `-2`; the least Integer is a value, where `-floor(-x)` overflows on its negation), and `ErrArithmeticOverflow` at or beyond 2⁶³ or below −2⁶³. `quotient(x, y)` is the Integer quotient of two Integers truncated toward zero (`quotient(-7, 2)` is `-3`), exact over the whole range where `/` answers a rounded Real, `ErrDivisionByZero` for `y == 0` and `ErrArithmeticOverflow` for the one pair whose quotient is 2⁶³, the least Integer by `-1`.
+- **Swimlanes give names their object.** Names in a body or guard resolve first against the object the `ActivityPartition` `represents` — a property of the context block, written `this.tcs.i`, through nested partitions, `this.tank.valve.open`, or the block itself — then against the activity's parameters and locals, then the owning block. A partition that resolved a name is reported *mapped*; one with `represents` unset, dangling, untyped, or naming a classifier the activity does not run in falls back to the activity and says so. A part whose multiplicity is not written in numbers may hold one object or several, so a name read through it, a partition representing it, and a partition whose object is reached through it are refused with the part named, never read as one object.
+- **The simulation clock is executable.** A body reading the tool's time variable (`simtime`, or the `SimulationConfig.timeVariableName` the model sets) reads `localClock.currentTime`, the standard library's own form, which the runtime evaluates against the run's clock (`Occurrence::localClock`, `Clock::currentTime`), so `Time_Acq_Total = simtime - Time_Acq_Total` is an attribute a run tables with `-observe this.Time_Acq_Total`. A `DurationObservation` between two nodes of an activity becomes such an attribute (`[0..1]`, no default), stamped at the first and assigned the elapsed clock at the second (an initial node is stamped right after `start`, so an observation from it to the final node spans the run; a flow final or a control node no edge leaves as the token reaches it, before `done`), and left without a value by a run that does not reach both; one whose events are not nodes of the activity, name an element the document does not define, or owned outside one, is a comment whose report line says which. An assignment to a clock's `currentTime`, under that name or a redefinition's (`attribute now :>> currentTime;`), is the typed `ErrClockNotAssignable`, and the redefinition reads the clock as `currentTime` does.
+- **Report hygiene for leaf steps and symbolic durations.** A `CallBehaviorAction` calling no behavior whose only content is a `DurationConstraint` is a leaf step reported *mapped*, its wait written; only a call with pins or an unresolved behavior stays *unmapped*, the pins named. A duration bound that names a property (`ditSetup s`) resolves like any other name and is written `accept after this.tcs.ditSetup [SI::s]`.
+- **An object typed by a behavior runs no classifier behaviors of its own.** A `perform`/`exhibit` member of an `action def` is a step of the performance that runs it, not a behavior bound to the performance occurrence, so a migrated workflow's sub-activities run once each, as the performer.
+
+- **A run resolves its random draws under a policy.** `-draws random|min|max|average` and
+  `%draws` state how every `RandomFunctions` call of a run resolves: `random` (the default) draws
+  from the seed as before; `min`, `max` and `average` take each call's least, greatest or mean
+  value — `uniform(1, 80)` is `1`, `80` or `40.5`; `uniformInteger(1, 6)` averages to `4`;
+  `triangular` to `(lo + mode + hi) / 3`; `normal` averages to its mean and, unless its
+  deviation is zero, has no `min` or `max`, which is a typed error naming the call — and need no seed, so a random duration
+  becomes a fixed one and `-runs`/`%runs` run without `-seed` under a fixed policy (`%runs <n>
+  <action>`, the seed left out). Weighted decisions draw from the seed whatever the policy and
+  take their most probable branch unseeded. The policy is a property of the run's context, so
+  it reaches the analysis engines, the wire (`"draws":"max"`) and gRPC as the model seed does;
+  a witness records it as `draws by max` and `replay:` reproduces the run under it, refusing a
+  witness whose draws the recorded policy could not have made; a witness naming a fixed policy
+  and recording no draw — an external engine's schedule, which carries choices alone — leaves
+  them to the policy. A conformance case pins it with `"draws"`.
+- **A «Probability» that names a property is a feature reference.** The SysML v1 migration
+  writes `@Probability { p = ProbabilityBTOOP; }` when the tag names a property visible from
+  the activity or its context block, by name or id, instead of the property's default, so the
+  object the behavior runs on decides the branch weights; a tag naming nothing visible, a
+  private property, a non-numeric or a multi-valued property is a report entry with the reason.
+  A feature-valued weight is type-checked against `Probability::p` where it is written, and the
+  checks lowering makes of constants — each in `[0, 1]`, the set summing to one — are made of
+  the values read when the decision is reached, each a typed `ErrBranchWeights`.
+- **Simulation run configurations migrate.** A MagicDraw «SimulationConfig», recognised by its
+  profile's provenance, becomes an `action def` holding its `executionTarget` individual as
+  `part target` and performing the target's classifier behavior on it, annotated
+  `@Simulation::Configuration { runs = …; draws = DrawPolicy::…; timeVariable = …; startTime = …;
+  stepSize = …; timeUnit = …; parallelForks = …; }` — a new non-normative library beside
+  `Stochastic` that records how the tool ran the behavior and applies none of it — with every
+  setting of no v2 meaning kept in a comment. The configuration, its target and result
+  instances and the probability edges it reads are mapped rather than unmapped; a target the
+  migration did not write, one that is no part, a state machine or a classifier with no
+  behavior is reported with the reason. The outcome of an action spells `<part>.<attribute>`
+  for the one object each of its own parts denotes, so `-observe target.duration` reads
+  the target's attribute after the run.
+- **The tool's results come across, and a harness compares them.** `-migration-results
+  <file>` writes a JSON sidecar indexing the tool's result-snapshot instances — typed, or
+  classifier-less under a configuration's `resultLocation` with slots of features of one lineage
+  of blocks the target is of, which types them; a classifier-less instance anywhere else stays
+  unmapped — per configuration and observable; `sysml <migrated>.sysml -compare-results <file> [-action
+  <configuration>...] [-runs <n>] [-draws <policy>] [-seed <s>] [-observe <stored>[=<feature>]...]`
+  runs each configuration with its recorded run count and policy, or the ones given, and
+  reports the tool's and OpenSysML's min, mean, p50, p90 and max of each observable with the
+  relative difference; a configuration with no stored snapshots, a stored observable no run
+  holds and a non-numeric one are reported, never left out, and a run that fails fails the
+  comparison with its error under the table; an `-action` no configuration bears fails the
+  check beside the ones compared. The numbers are reported as run.
+
+- **The SysML v1 migration writes interactions, receptions and the rest of a state machine
+  executably.** An Interaction owned by a block is a scenario `action def` of every message
+  kind: a signal send, a `synchCall`/`asynchCall` of an operation as a typed perform on the
+  lifeline's object — `perform action spin : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }`,
+  the arguments bound to the operation's `in` and `inout` parameters by name or position — an
+  unnamed argument taking the next parameter no named one claims — each
+  with the parameter's direction so an `inout` value is written back — and a `reply`
+  as the assignment of the call's result to the caller lifeline's attribute; a lifeline is
+  resolved to the feature path through the block's parts, ports and references or to an `in`
+  parameter, and `alt`/`opt`/`loop`/`par` fragments are `if`/`for`/`while`/`fork` structures
+  when their guards parse and resolve, a reply answering the latest open call of its operation
+  between its lifelines, never one another alternative or a concurrent operand made; a duration
+  constraint between two messages with steps
+  between them is a wait forked after the earlier step and joined before the later, so those
+  steps count toward the interval, and one whose interval is open on one side (a min with no
+  max, a max of `*`) is reported with the bound it lacks rather than written as a wait at the
+  bound it has, the min beside an expressionless max of a MagicDraw document — its encoding of
+  a one-valued `{60s}` — excepted. A lifeline or guard that does not resolve, a create or
+  delete message and a message-less timing trace are refused with the reason, as is a call
+  or signal message leaving an `in` parameter or signal attribute — inherited ones included —
+  with no default and a lower bound above zero unbound; two parts of
+  one type are two paths, so a lifeline standing for a part of that type is ambiguous. A Reception is
+  an `action def` of the block that accepts its signal, runs its method with the signal's
+  attributes bound to the method's parameters of the same name and accepts again, performed by
+  every object of the block from creation — a method that is also the method of an operation runs
+  as that operation's `action def` — so a signal sent to the object at any time runs the
+  method against the object; where the signal arrives at ports of the block, the accept is forked
+  into one loop per port, `accept … via <port>`, beside the one from the object; where the method requires a value no attribute supplies,
+  or a same-named attribute does not fit its parameter's type or multiplicity, the reception only
+  accepts the signal and says so. State machines gain transitions across regions and
+  nesting levels named by path, `junction`/`choice`/`fork`/`join`/`history`/`deep history`
+  pseudostates, entry and exit points of a submachine as states of its `state def` addressed
+  by path, internal transitions as self transitions where re-entry is not observable (written
+  with no target, as some tools do, they stay in their source; one targeting another vertex or
+  leaving a pseudostate is refused), and
+  absolute time events as `accept at <instant>` over a `Time::TimeInstantValue` attribute of
+  the behavior. A `CallOperationAction` over a port performs the operation on the part a
+  connector of the caller's block joins to that port, the way connector paths resolve.
+- **The migration report counts what nothing refers to apart from gaps.** An event no trigger
+  names is skipped as a model element nothing refers to, counted apart from profile and library
+  content in the summary line, rather than reported as unmapped.
+- **A typed action usage that references a feature chain performs the chain on the object it
+  reaches.** `perform action x : Def ::> part.action { in p = v; }` runs the part's action with
+  the part as performer and binds the callee's inputs from its body, and an accept payload is
+  visible from the body of a typed usage in the same action body, so a nested typed action can
+  read the accepted message (`in level = msg.level`).
+- **A migrated state values its entry and do parameters from the signal that enters it.** When
+  every transition into a state accepts the same signal and its attributes fit the behavior's
+  parameters in order, type and multiplicity — the attributes the signal inherits from its
+  generals counted with its own — the `state def` keeps the signal in an item
+  (`item setPoint : SetPoint;`) each transition assigns and the parameters read
+  (`in target : ScalarValues::Real = setPoint.level;`); a state entered without a signal or with
+  one that does not fit is reported with the transition or attribute that is the reason. A
+  region holding no vertex is skipped when the machine's states are named as when they are
+  written, so a machine whose other region is populated is written inline and a transition
+  across nesting levels names its far end by a path that exists. A
+  trigger naming no port is also written accepting via each port of the owner its signal arrives
+  at — one the document's connectors and delegations carry a send of it to, one an item flow
+  conveys it to, or one whose type (generals and realized interfaces included) declares an inward
+  flow property or a reception of it — with the ports that declare nothing and receive no send
+  reported as left unrouted, and an activity whose required input pin only
+  parameters nothing values flow into is reported as never firing instead of written to wait.
+- **A `via` path can start at a bound reference, and delegated, redefined and untyped ports
+  route.** `send … via ctx.p` from a behavior whose `ctx` is bound to another object leaves that
+  object's port even when the performer owns a feature of the same name, the binding shadowing
+  it as it does in every other expression, while `via this.ctx.p` stays the performer's own,
+  and a state transition's `accept … via ctx.p` resolves its path the same way through the
+  machine's parameters; the behavior's own connectors are read the same way, so a
+  `connect ctx.p to snk.local` between two bound references carries that send beside the
+  connections of the object holding the port, and an addressed `send … via ctx.p to m`
+  names a machine of the object the path is re-rooted to;
+  a part's port is known to the connectors its type inherits under the name the
+  part was declared with before redefinition; a `ref` usage holds what is bound to it rather than
+  an object of its own; and an untyped `port` materializes as a `Ports::Port`, so a binding
+  connector can join it and a signal sent inward over it reaches the bound part's machine.
+- **A migrated call or send that v1 fires without a required value keeps its place and performs
+  nothing.** A call passing no argument for a parameter that must hold a value — a parameter of
+  the operation's action def, which declares the operation's parameters and then those its method
+  adds, so a call binds and is checked against exactly what is declared — or a call or
+  signal send passing none for a signal attribute that must, one passing a pin of a type the attribute cannot take, or one whose pin is fed only by flows no value travels — from a parameter nothing values,
+  an unmigrated opaque or value specification action, a callee whose own activity gives that
+  `out` parameter no value, judged through any depth of nesting, or a call's result pin past
+  the callee's `out` parameters, which stands for none — is written as an empty action carrying the token,
+  with the reason in its comment and report line, and the object flow is kept as a comment
+  rather than written from a feature that will hold nothing. Control and buffer nodes only
+  object flows lead to route their values from source to pin, a control node no edge leaves
+  ends the token as `done` does, and an action fed by an object flow from outside its control
+  path waits for the value only when the producer runs on every pass of the surrounding loop.
+
+- **An object is validated as a whole.** `%validate <object>` at the prompt, `-validate=<object>`
+  on the command line and the `ValidateInstance` RPC evaluate every assertion about an object and
+  the objects it holds — each `assert constraint` the carrier's type declares or inherits, each
+  requirement usage it carries, and each `satisfy` assertion whose subject is in the tree — against
+  the concrete object carrying it, nested parts and every element of a collection included, and
+  report one verdict per assertion per object, labelled by the path from the object validated
+  (`car.wheels[2]`), then one verdict about the object itself. A condition that evaluated false is
+  violated; one that could not be evaluated is undecided with the reason, and leaves the object
+  not shown valid rather than valid; a walk cut short by an object graph without end is reported
+  bounded and not valid; an object no assertion is about decides nothing and is not shown valid
+  either. A constraint declared without `assert` is not swept, and a symbol with no object to
+  validate — a package, an attribute — is refused as the wrong kind. The object is named
+  as every prompt command names one: by the name it was instantiated under, by id, or by a path
+  into what it holds. `-validate` without an object still checks only that the model analyses
+  cleanly. Over the wire the response carries each verdict's `instance_path` and a `summary`
+  verdict of kind `object`; the Go client answers `Client.ValidateInstance` with a `Validation`
+  (`Valid()`, `Violated()`, `Bounded`) and the Python client `Model.validate_instance` with a
+  `Validation` (`valid`, `violated`, `undecided`, `bounded`), each verdict carrying its
+  `instance_path`.
+
+- **A worked example of verdict queries.** `examples/verdicts-demo/` holds a rover whose
+  constraints, requirement, `satisfy` and verification case are read as a `Verdicts(...)` table:
+  twelve rows over the declared object, then the same queries over the object a session holds
+  after a drive, with a violated satisfaction beside a passed verification and an undecided
+  constraint beside a violated one. The walkthrough spells out what the table checks that
+  evaluating one expression does not.
+
+### Changed
+
+- **The RDF graph a model converts to states its relationships as elements.** Turtle and `api-json` output now carry the metamodel's relationship elements alongside the collapsed properties — graphs written by earlier releases still read, but a re-conversion of the same notation states more subjects (the materialized elements), and the same holds for the goldens the convert fixtures pin. Keyword-headed usages that wrote the plain metaclass now write the usage's own — `perform action` is `PerformActionUsage`, `exhibit state` is `ExhibitStateUsage`, `include use case` is `IncludeUseCaseUsage`, and a bare or metadata-body member that takes no kind keyword is a `ReferenceUsage` rather than the kind's usage.
+
+- **A braced `entry { … }`, `do { … }`, `exit { … }` or transition `do { … }` block is one anonymous action.** The block parses as the one action usage SysML.xtext reads it as, the same tree as `entry action { … }`, rather than as one action per statement. A declaration inside the block (`entry { attribute k : Integer = 2; assign log := k; }`) is local to the block and shadows the state's, and is not visible outside it; a `terminate;` in the block resolves to the block's own performance and ends the whole block; a `do` block runs one statement a round as an inline do body does, so orthogonal regions still interleave statement by statement and a transition out of the state drops the rest of the block. `-trace` output changes shape: the block's statements are indented under one `stmt action body` line and the per-statement behavior lines and the `terminate …: ended before it began` lines of the statements after a `terminate` are gone. In the RDF mapping a braced block is the nested anonymous `ActionUsage` — a state subaction's one member, a transition effect's under `sysx:hasEffect` — no longer its statements under the membership with `sysx:hasBody` or `sysx:bracedEffect`; a Turtle graph written in that older shape is refused as unsupported rather than read back as something else. The formatter and `sysml -convert sysml` keep the spelling as written.
+
+- The Cameo v1 export is now written under `~/.opensysml/cameo-exports` instead of the system temp directory.
+
+- **The Python, Node, Java and Rust clients moved from `clients/` to `client/`, beside the Go client.** `client/java`, `client/node`, `client/python`, `client/rust` and the shared `client/release-digests.json` replace their `clients/` counterparts; package names, Maven coordinates, crate names and the Go import path `client/opensysml` are unchanged. Build targets, protobuf generation outputs, CI jobs and the changed-area detection follow the new paths.
+
+- **A completion enabled by a region's entry stays a run-to-completion step of its own; the
+  design that would have drawn its firing inside the entry front is closed without code.**
+  Enumerated against the PSSM traces the five tests held on it admit
+  (`docs/internals/design/region-order-scheduling.md`), that rule reaches every admitted set
+  only by also reaching orders the suite refuses, and the sets turn out to want three
+  different things: *Entering 010*, *Entering 011* and *Junction 005* want a UML initial
+  transition's *effect* run as part of the region's default entry, which SysML v2 can spell
+  only as the effect of a completion transition out of a start state — a translation limit,
+  not a scheduling one; folding the effect into the target state's entry action was run
+  against the three and refused (it runs the effect on every entry of the state, which
+  *Entering 010* refuses, merges two behaviors into one unit, and has no target where the
+  initial transition ends at a junction); *History 001-C* and *History 002-B* register
+  incompatible orders for structurally identical halves, each contradicting the
+  specification's own account of the test (`docs/project/omg-issues.md` gains the entry);
+  *Terminate 002*'s remaining trace is a do step against a sibling's entry unit. The one
+  runtime gap the enumeration confirms — under `reverse`, `seed:<n>` and `explore`, the
+  completion events two regions' entries generate are dispatched in region declaration order
+  rather than the order the regions were entered — is recorded for a runtime change of its
+  own, since it moves no test alone. The alignment note and the referee record carry the
+  adjudication; no bucket, golden or baseline moves (51 pass, 13 fail, 38 not expressible,
+  1 differs by design).
+
+- **`Diagnostic` and `Severity` moved from `internal/core/passes` to the leaf package `internal/core/diag`.** Every layer that reports a finding — the parser's warnings, the validation passes, the runtime's informational guard and tool notes, the editor and the service — now spells `diag.Diagnostic` and `diag.SeverityError`/`Warning`/`Info`/`Hint`; `passes` keeps no alias. The runtime no longer imports the validation suite for its diagnostic type.
+
+- **The PDF document backend sits beside the renderer it drives.** `internal/docpdf` is
+  `internal/core/docpdf`, next to `internal/core/docrender`, whose Markdown it converts; nothing
+  changes for `sysml -render-document -doc-form pdf`.
+
+- The design record for exception handlers, `docs/project/exception-handlers.md`, closes the compliance mapping's last UML-referenced action item as not a SysML v2 construct: the language spells no raise, handler or propagation, and a failure is handled with a result routed by `decide` or a failure signal accepted beside the work and a `terminate`. The compliance mapping, the roadmap and the behavior guide say so, and no runtime work follows.
+
+- The design record for concurrent per-element performance ("expansion regions"), `docs/project/expansion-regions.md`, closes the roadmap item: the iterative form is `for`; the parallel form is not SysML v2. The compliance mapping's bullet and the roadmap say so, and no executor work follows.
+
+- **The refusal of a session object under exploration says what to name instead.** `"#2.ground" names an object of this session, which an exploration does not run on: each explored run creates its own objects, so name a declaration to instantiate, or a path from one to an object it holds (Assembly::part.nested)` replaces the message that refused every dotted name; a machine named alone with no run object exhibiting it is refused naming the run's objects, not the session's (`no object of the explored run exhibits …`).
+- **A check's outcome carries the attributes the performing objects hold.** The outcome table and the `-check-diverge` comparison of a behavior run on an object include that object's attributes (`received = 2`) beside the behavior's own, as `this.<feature>` names them, so two schedules that leave a nested part's counter apart are two outcomes; a `-check-diverge` that selects another feature of the object (`this.mode`, an item) tells them apart the same way. The service's explored `ExecuteAction` and `ExecuteState` outcomes carry the performer's attributes in `outputs` under the same names.
+- **An action executed on an object performing it runs that one performance.** `ExecuteAction` with a performer whose declaration performs the action (`perform action fill`) answers with the performance the object started when it was created, its results and the object's attributes as that run left them, where it started a second run of the action on the object and wrote it twice. Inputs for such an action are refused (`inputs for a performed action`), as its declaration binds its arguments; an object performing the action under several usages is refused naming them (`ambiguous action: the object performs Fill as morning and evening`), as a machine exhibited twice over is.
+
+- **Conversions are driven from `internal/core/convert`, not from the RDF mapping.** The format names, `Convert`, `ConvertTolerant`, `SysMLElement`, `Migrate`, `SysMLToRDF` and `SyntaxError` moved out of `internal/core/export` into a conversion entry point that parses notation and runs the SysML v1 migration before handing the tree or graph to the mapping; `internal/core/export` keeps `ToRDF` and `ToSysML` and no longer imports the migration. `sysml -convert`, `%save`, `%print` and the service's `Convert` behave as before, and a hygiene test keeps the mapping free of the migration.
+
+- **An edge is labelled by its name only when it has no text of its own.** A transition's trigger, guard and effect, a succession's guard and a flow's payload take the label, whatever the edge is named; a plain named succession, connection, binding or completion transition is labelled by its name, as the graphical notation draws them.
+- **A comment on a state or a named transition says `about` it.** A state, the parallel state standing for an orthogonal region, and a transition written under its v1 name are members a qualified name reaches, so a comment annotating one is written `comment about <member>` rather than unanchored, and the report records it `mapped`.
+
+- **The conformance mode lives with the diagnostics it grades.** `internal/core/conformance` is folded into `internal/core/diag`: `conformance.Mode`, `ModeDefault`, `ModeStrict`, `ModeOf` and `ParseMode` are now `diag.ConformanceMode`, `diag.ConformanceDefault`, `diag.ConformanceStrict`, `diag.ConformanceModeOf` and `diag.ParseConformanceMode`. The mode's spellings, `default` and `strict`, are unchanged.
+
+- **Atomic file replacement lives with the other file-level primitives.** The one-function `internal/fsutil` package is folded into `internal/core/source`: `fsutil.Replace` is now `source.ReplaceFile`, with the same rename-over-target semantics.
+
+- **Normative library ids are minted in `identity` itself.** `internal/core/identity/normative` is folded into `internal/core/identity`: `normative.Language`, `KerML`, `SysML`, `ElementID`, `OwningMembershipID`, `EscapeName` and `NamespaceURL` are now `identity.Language`, `identity.KerML`, and so on. No behavior changes.
+
+- **A symbol's source origin is read off the symbol.** `internal/core/provenance` is folded into `internal/core/symbols`: `provenance.Origin` is `symbols.Origin`, `provenance.Symbol(sym)` is `sym.Origin()`, and `provenance.Node` and `provenance.At` are `symbols.NodeOrigin` and `symbols.OriginAt`. No behavior changes.
+
+- **Quick-fix edits live with the diagnostics that carry them.** `internal/core/quickfix` is folded into `internal/core/diag`: `quickfix.Fix`, `Edit`, `Insert`, `InsertLine` and `Replace` are now `diag.Fix`, `diag.Edit`, `diag.Insert`, `diag.InsertLine` and `diag.Replace`. No behavior changes.
+
+- **Rename conflict checking lives with the rename edit.** `internal/core/rename` is folded into `internal/core/edit`: `rename.Occurrence`, `rename.Conflict` and `rename.Check` are now `edit.RenameOccurrence`, `edit.RenameConflict` and `edit.CheckRename`. No behavior changes.
+
+- **The fUML referee driver source lives under `scripts/fuml-driver/io/opensysml/fuml/`.** The path now matches the `io.opensysml.fuml` package the source declares; `scripts/fuml-expected.sh` compiles it from there and its output is unchanged.
+
+- **The test-suite figures are counted from the tree when the documentation site is built, never committed.** The conformance-case, golden-AST, golden-trace, negative-parser, robustness, gRPC and `Test`-function counts in the compliance map's test inventory are counted by `cmd/doc-counts` the way the gates enumerate them — the conformance cases through `tests/fixtures`, which the runtime and gRPC conformance tests read too — and rendered by the site build (`scripts/mkdocs_suite_figures.py`), which now republishes on every push to `main` so a release's figures follow its tree; in git each block names what is counted, and `go run ./cmd/doc-counts -check` refuses a figure typed into one. A branch adding a test or a fixture therefore no longer rewrites `README.md` or the compliance map, so concurrent branches stop conflicting on them. The README's status table names the gates without restating their counts; the only suite figure still committed is whether every conformance case passes, which moves with `known_failures.txt` alone. The hand-typed figures the generated ones replaced lagged the tree (889 conformance cases where it carried 904); the tests-and-subtests total of a run, which only a run can state, is not quoted.
+
+- **The RDF exporter no longer carries the engine model forms.** The `graphs:1` form of the lowered action and state graphs, `GraphsVersion`, the `sources` form and the form refusals live in `internal/core/analysis/modelform`, in the execution layer beside the analysis framework that hands them to external engines; `internal/core/analysis` no longer imports `internal/core/export`. The bytes of the `graphs:1` form are unchanged and now pinned by goldens.
+
+- **`sysml -help` and the manual page list the options by task.** The 84 flags come under headings — General, Evaluating, Checking a model, Running behaviors, Analysis engines, Checking every schedule, Converting and migrating, Compiling natively, Rendering views, Rendering documents, Styling HTML documents, Syncing against a repository, Diagnostics and profiling, Deprecated — instead of in one alphabetical list. Each is spelled once with its shorthand folded in (`-e, -eval <expr>`, `-o, -output <file>`) and its argument named (`<format>`, `<duration>`, `<policy>`) rather than typed (`string`, `value`); a description is a wrapped line or two, with the detail it carried moved into the section on that mode (`Checking a model`, `Running actions and state machines`, `Checking every schedule`, ...), and the three `-pdf-*` spellings sit under *Deprecated* pointing at their `-doc-*` names. The examples come first. A flag added without a heading fails a test.
+- **A mistyped flag prints the error, the synopsis and `Run 'sysml -help' for the options.`** — three lines, rather than the whole help after the error.
+- **`%help` groups every REPL command under a heading and wraps its description.** The commands that had none come under *Session*, *Settings*, *Analysis engines* and *Checking every schedule*; a description wraps into the column after its command, and a signature too wide for that column takes a line of its own. `%exit` is noted beside `%quit` rather than listed as a command.
+
+- **The Java client's `Condition.equal` is renamed `Condition.equalTo`.** The old name collided with `Object.equals` on every use; `Condition.equalTo(property, values)` is a drop-in rename.
+
+- **The simple name a qualified name ends in is computed in one place.** `symbols.LastSegment` is exported and the identical copy in `suggest` is gone; `ast.QualifiedNameOf` builds a qualified name from its segments, replacing the copies in `solve` and the resolver tests. No behavior changes.
+
+- **Moved the validation packages to `internal/check`.** `passes` (with `kit`, `behavior`, `document`, `diagram` and `identity`) and `edit` now live under `internal/check/`.
+
+- **Moved the document packages to `internal/doc`.** `queryexec`, `docir`, `docrender` and `docpdf` now live under `internal/doc/`.
+
+- **Moved the execution packages to `internal/exec`.** `runtime`, `solve`, `smt`, `analysis` (with `enginewire` and `modelform`), `engines` and `objref` now live under `internal/exec/`.
+
+- **Moved the frontend packages to `internal/frontend`.** `protoconv`, `repl`, `lsp`, `grpc`, `stdiorpc` and `usage` now live under `internal/frontend/`.
+
+- **Moved the semantic IR packages to `internal/ir`.** `lower`, `queryplan`, `docplan` and `view` now live under `internal/ir/`.
+
+- **Moved the semantic packages to `internal/semantic`.** `symbols`, `suggest`, `resolve`, `semantics`, `identity`, `highlight` and `query` now live under `internal/semantic/`; `query` declares the namespace IRIs it needs rather than importing the RDF vocabulary.
+
+- **Moved the foundation and syntax packages to `internal/syntax`.** `source`, `ast` (with `astcodec`), `pack`, `diag`, `lexer`, `parser` and `format` now live under `internal/syntax/`.
+
+- **Moved the translation packages to `internal/translate`.** `rdf` (with `ontology`), `export`, `migrate`, `convert`, `xmi` (with `sysmlv1`), `codegen` and `interop` (`flexo`, `reposync`) now live under `internal/translate/`.
+
+- **Moved the workspace packages to `internal/workspace`.** `model`, `libs` (with `errata`), `project` and `envvar` now live under `internal/workspace/`.
+
+- **The SysML v1 migrator writes a call behavior action that names no behavior yet owns pins as a declared stub action.** `action x { in a : T; out r : U[0..1]; }` takes its parameters from the pins, typed and bounded as they are, keeps its place in the activity's successions, and is reported as approximated, computing nothing: each output is declared admitting no value. The flows into and out of its pins and the «Allocate» relations to it are written by the existing paths instead of being dropped as ends of an unmigrated action, an allocation to a node in an operation's method naming it under the operation. A pin a called behavior has no parameter for is still refused, the reason now naming the behavior and its parameters of that direction, while the call itself is kept. At run time a flow out of an unassigned output declared admitting no value carries nothing, so the target reads the parameter empty rather than the run failing; a required output or input left without a value is still a typed error.
+
+- **The notation-text helpers moved from `internal/core/lexer` to `internal/core/source`.** `NameText`, `QualifiedNameText`, `StringValue`, `StringText`, `UnrestrictedNameText`, `CommentBody`, the keyword sets (`Keywords`, `IsKeyword`, `IsKeywordIn`) and `IsIdentifier` now live beside the source files they read and write, so the type system, the runtime and the exporter no longer import the scanner to spell a name or read a comment body; `internal/core/semantics` imports `lexer` in no file. A layering test in `tests/hygiene` assigns every package to a layer of the package-layering plan and permits exactly the cross-layer imports that exist today, so a removed edge cannot return unnoticed.
+
+- **The migration and referee XMI readers now share one parser.** The generic element tree in `internal/core/xmi` feeds both the SysML v1 migration reader and the fUML/PSSM referees, and the referees now accept the schema.omg.org and unversioned XMI namespace forms.
+
+- **PDF output is laid out from the HTML document backend's page.** `-doc-form pdf` hands
+  WeasyPrint and Prince the same semantic HTML `-doc-form html` writes, under the backend's
+  default stylesheet and a print stylesheet layered after it, instead of a page reconstructed from
+  the rendered Markdown; pandoc keeps reading the Markdown. `-html-theme`, `-html-no-default-css`
+  and `-html-css` now reach a WeasyPrint or Prince PDF exactly as they reach HTML — a user
+  stylesheet is unlayered, so it overrides the default and print layers without `!important` — and
+  are refused with a typed error for pandoc, whose page is its own. A sheet's relative `url()`
+  and `@import` references resolve against the PDF's directory under every engine, as a page's
+  resolve against the page's. Tables, figures, formulas and cross-references carry their
+  `sysml-*` classes and `data-*` attributes into the PDF's HTML.
+- **Markdown output no longer carries a caption marker.** The `<!-- caption -->` comment the
+  Markdown backend wrote ahead of a table's or diagram's emphasized caption is gone; the caption
+  stays an emphasized paragraph. Pandoc recognizes captions by matching those paragraphs against
+  the document's captions in order, so an emphasized paragraph elsewhere stays prose. A caption
+  is written without its surrounding blanks, which CommonMark would otherwise read as literal
+  asterisks or as indented code; a blank caption writes no paragraph.
+
+- **The SysML v1 migration no longer writes MagicDraw's property-kind markers as comments.** «ValueProperty», «PartProperty», «SharedProperty», «ReferenceProperty» and «ConstraintProperty» applied from MagicDraw's SysML customization profile to a UML Property, carrying no tag, say only what the usage's keyword (`attribute`, `part`, `ref part`, `constraint`, `in …`) already says, so the `/* applied stereotype «ValueProperty» */` body they forced on every such property is gone and the declaration is one line. The marker is recognised by the provenance of its profile, as «ConstraintParameter» already was: a same-named stereotype from a user profile is still written as a metadata usage or comment, a marker that carries a tag is still written with it, and a marker on a property written as another kind is kept. Report verdicts are unchanged.
+
+- **The conversion between runtime values and the API's protobuf messages is its own
+  package, `internal/protoconv`.** The instance-graph serialization (`InstanceGraphToProto`,
+  `GraphBounds`) and the value conversions in both directions moved there out of the gRPC
+  service, so the REPL's `%features … json` and the Go client's value marshalling no longer
+  link the service or its Connect transport; `sysml` reaches gRPC-Go only through the
+  generated service stubs that share the `api/proto` package with the messages. The
+  `features` JSON is unchanged.
+
+- **Every failing PSSM test is attributed.** The fourteen failures the referee's record tabled
+  as unadjudicated each cite either a *differs, v2 silent* row of the alignment note or an open
+  finding against the runtime: *Junction 004* and *Join003* report on SM32 (a junction or join
+  with no way through), *Join001* and *Transition 019* on SM34 (a join — where its owner is left
+  and in what order its segments fire, now recorded there), nine cite the new finding 9 (the
+  order in which orthogonal regions are entered, exited and stepped against a dispatch is not a
+  recorded choice point, so `explore` never reaches the other interleavings) and *Junction 005*
+  the new finding 10 (a segment leaving a junction inside a composite state runs its effect
+  before the composite is entered). No bucket count moves; the record tables the twenty
+  failures the first baseline left unadjudicated by root cause and where each landed.
+
+- **The PSSM referee's refusal of a guard that acts on the model is settled, not provisional.**
+  *Choice 005* traces its four guards to show when a junction's and a choice's are read.
+  Recording the runtime's own guard reads as the referee's observable was tried and refused:
+  the suite reads the junction on the entered state's default entry before the incoming
+  transition's effect and the state's entry, where the runtime and `StatePerformances.kerml`
+  read a transition inside a state after its entry, and the runtime's trace keeps only the
+  first read at each vertex, the others rolled back with the probe that made them. A `calc def`
+  with a side effect is refused too: a v2 expression is pure, and UML 2.5.1 §14.5.11 calls a
+  guard with a side effect ill formed. The alignment note tables the three candidates against
+  the admitted trace, and no bucket, reason or trace moves.
+
+- **The PSSM referee classifies a guard whose behavior acts on the model as having no
+  translation.** A SysML v2 guard is a Boolean expression; a UML guard whose activity calls
+  `trace(...)` before returning its value has no spelling, and the translation used to carry the
+  value alone and silently drop the call. The classifier now names the construct (*guard side
+  effect*), the emitter refuses it, and *Choice 005* moves from `fail` to `not-expressible`
+  (17 `fail`, 40 `not-expressible`), adjudicated in `docs/project/pssm-referee.md`.
+
+- **The Python client is released with the core, from the same `v*` tag and at the same version.** `v0.9.0` publishes `opensysml` 0.9.0 to PyPI and puts the wheel and sdist on the GitHub release, listed in the signed `SHA256SUMS.txt` beside the binaries, so `pip install opensysml==0.9.0` with `OPENSYSML_GRPC_VERSION=v0.9.0` is the package and the `sysml-grpc` that were tested together. The release workflow fails before building anything when `client/python/opensysml/_version.py` does not declare the tag's version (compared as versions, so the SemVer tag `v0.9.0-rc1` names the PEP 440 `0.9.0rc1`); the separate `opensysml-v*` tag and its `release-python` workflow are gone. The PyPI upload runs only after the GitHub release is published, so a package version never exists without its release. Re-running a published tag still replaces the GitHub assets, while the PyPI upload — which cannot be repeated — fails by design for a version the index already has.
+
+- **Qualified-name rendering and declaration-body lookup each have one home.** `ast.QualifiedName` gained a `Text` method ("A::B::C", empty for a nil name) and `ast` a `DeclMembers` function returning the body of a definition or usage; the per-package copies of both helpers in the lowering, validation, runtime, query-plan, document-plan and symbol packages are gone. No behavior changes.
+
+- **Expression roots and operands now use standard ownership vocabulary in RDF.** Roots are carried by `OwningMembership`/`FeatureValue` and operands by `ParameterMembership` input Features and FeatureValues, while legacy positional graphs remain importable.
+- **Connector ends now use standard `connectorEnd` ownership.** EndFeatureMembership and ReferenceUsage nodes carry end references and chains, with binary source/target features and transition source/target predicates.
+- **Legacy RDF shapes remain compatible.** Earlier argument, positional end, and transition endpoint predicates still import, while conflicting old and new representations are refused.
+- **Connector-end references use `ReferenceSubsetting`.** End targets are emitted through standard relationship ownership; interim `sysml:references` remains accepted on import.
+
+- **A state's inline `do` body is interrupted between its statements.** `do action { s1; s2; s3; }` runs one statement per do round — each statement of a `for` or `while` iteration, of a nested block or branch its own, one step of a flow the body states (each of its tokens one node) — so a transition out of the state triggered after `s1` leaves `s2` and `s3` unrun, as §7.18.3 has the source state's do action interrupted "if it is still being performed"; the `exit` behavior runs as before. The inline bodies of orthogonal regions interleave statement by statement, as the braced `do { … }` form does, the order within a round the same do-round choice point. A body paused mid-loop when its state is left drops the rest of the iteration and the iterations after it with nothing kept on the clock, and a non-terminating inline body still ends with the do-step budget.
+
+- **Runtime and gRPC robustness cases are registered per feature, not in one shared function.** A feature's failure-mode subtests live in their own `robustness_<feature>_test.go` under a `TestRuntimeRobustness<Feature>` (or `TestGRPCRobustness<Feature>`) function, and the documentation counters sum the first-level subtests across every `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases no longer edit the same lines of `robustness_test.go`. `go test ./...` runs every case as before.
+
+- **Buf configuration now lives in `api/proto/`, and the manual pages now live in `packaging/man/man1/`.**
+
+- **The runtime no longer imports the parser.** The notation text a run reads — a witness file's input values and the unit a tool answers in — is parsed through the `runtime.ExpressionParser` the frontend installs on the model (`Model.SetExpressionParser`, `parser.ParseOneExpression`); reaching either with none installed is the typed `runtime.ErrNoExpressionParser`. `internal/core/runtime` no longer depends on `internal/core/parser`, and a hygiene test keeps it so.
+
+- **The runtime selects call overloads through the semantic model, with the argument typing its caller installed.** `runtime.NewModel` no longer installs the checker's argument typing itself; every path that builds a runtime model constructs its semantic model with `passes.NewTypedModel`, and a call selected on a model carrying no typing fails with `runtime.ErrNoArgumentTyper` instead of selecting by arity alone. The invocation AST helpers `InvocationArgs` and `ChainCallee` moved from `passes` to `semantics`.
+
+- **The SonarCloud scan fits its container and retries transient failures.** The scan job's memory budget is now split between the analysis JVM (5.5 GB), the JS/TS sensor's Node process (1 GB) and the launcher (256 MB) so the 8 GB `large` container is not OOM-killed — a silent `EXECUTION FAILURE` exit 3 at the JS/TS sensor — and a `when: always` step prints the cgroup memory counters so an OOM kill names itself. The scan runs inline instead of through the orb, retrying once on transient SonarCloud API or network errors and storing each attempt's log as an artifact, and it no longer waits on the Go race run, so a race-test failure no longer hides the analysis.
+
+- **Sorted map keys come from the standard library.** The seven private `sortedKeys` helpers in the symbols, validation, SMT, view, runtime and interop packages are replaced by `slices.Sorted(maps.Keys(m))`. No behavior changes.
+
+- **The declared errata overlay now covers the bundled standard library.** `internal/errata`
+  accepts entries under `internal/core/libs/stdlib` beside the example corpora, and the nine
+  dimension defects the expression type checker reports in the published `SI.sysml` and
+  `USCustomaryUnits.sysml` are its entries, each with a citation, a derivation and the published
+  line it must still match. Three have one reading with the declared dimension and carry a
+  correction (`eV*m^-2/kg` → `eV*m^2/kg`, `m^3/C*m^3*s^-1*A^-1` → `m^3/C`, `229835/900 [K]` →
+  `(229835/900) [K]`); the other six are documented without one. The library a process loads
+  (`libs.BundledSource`, `libs.DefaultSource` and the generated `stdlib.snapshot`) is the
+  published text with the corrected lines substituted on read — the vendored bytes are never
+  edited, `libs.EmbeddedSource` still serves them as published, and a directory named by
+  `OPENSYSML_LIBRARY_PATH` is read as it stands. A library read fails rather than serve the file
+  uncorrected when a declared line no longer matches, and two entries naming one line are refused.
+  `TestExprTypeCheckPublishedStdlibDefects` pins all nine findings over the published text;
+  `TestExprTypeCheckNoStdlibFalsePositives` pins exactly the six uncorrected ones over the bundled
+  library. Derivations are in `docs/project/omg-issues.md` ("Defects in the vendored quantity
+  libraries"); nothing is filed upstream.
+
+- **The built binaries are about a quarter smaller.** `make build` and the release builds now link with `-s -w`, dropping the symbol table and DWARF debug data that a shipped binary never reads; on Linux `sysml` goes from 50 MB to 37 MB. The version stamps (`sysml --version`), the embedded build info the standard-library cache keys on, and panic stack traces are unchanged.
+
+- **A symbol's declaring element is read through one method.** `symbols.Symbol` gained `Owner()` (nil at a document's root); the identical `ownerOf` copies in the resolver, semantics, validation, code generation, views and editing packages are gone, as are four private "FQN or name" helpers that were `symbols.FQNOf` under another name, since `FQNOf` always ends in the symbol's own name. No behavior changes.
+
+- **Test-support packages live under `tests/`.** `internal/fixtures` (conformance-case and library-census fixture readers) and `internal/stressmodel` (the satellite-network generator) are now `tests/fixtures` and `tests/stressmodel`; the runtime, gRPC and model tests and the `tools` module import them from there, and the layering test fails any `internal/` or `cmd/` package that reaches into `tests/`. No shipped binary imported either. No behavior changes.
+
+- **The OMG corpus gates and the RDF round-trip ratchet move to `tests/corpus`.** `TestTrainingExamplesSemanticErrors`, `TestPilotCorporaDiagnostics` and `TestCorpusGatesCacheStateIndependent` leave `internal/core/model`, `TestCorpusRoundTrip` leaves `internal/core/export`, and their expectation files move to `tests/corpus/testdata/` (`go test -count=1 ./tests/corpus -run 'TestTrainingExamples|TestPilotCorpora|TestCorpusRoundTrip'`). The policies are unchanged: the training corpus is still asserted clean and `-update-training` still refuses to record a per-file count, while the pilot roots and the round trip remain per-file ratchets with `-update-pilot-corpora` and `-update-corpus-roundtrip`. The download scripts, the `OPENSYSML_REQUIRE_*` variables and the CI steps that set them now run the gates from the new package.
+
+- **The gRPC conformance suite and the external-package tests move under `tests/`.** `TestGRPCConformance` and its fixtures leave `internal/grpc` for `tests/grpc` (`go test -count=1 ./tests/grpc`), driving the service through `grpc.NewService` and the RPC surface alone; the package-local gRPC tests, including the `TestGRPCRobustness*` census, stay put. The `package x_test` files that exercised `export`, `resolve`, `semantics`, `migrate`, `suggest`, `identity`, `queryplan`, `model`, `rdf/ontology` and `interop/reposync` through their exported surface move to the matching `tests/<package>` directory together with the `convert`, `superseded` and `xmi` fixture trees they read; the pilot library identity gate now runs as `go test -count=1 ./tests/identity -run TestPilotLibraryXMI`. The LSP and REPL suites stay beside their packages: they share package-local helpers and reach unexported server state.
+
+- **The parser's black-box suites move to `tests/parser`.** `TestGolden` (with its `-update` flag), the `TestNegative` table and `TestNegativeKerML` now drive the parser through its exported API from `tests/parser`, and the golden fixtures move with them from `internal/core/parser/testdata/parse` to `tests/parser/testdata/parse` (`go test -run TestGolden ./tests/parser`). The parser's white-box tests stay beside the package; the documentation census counts negative subtests across both directories, and the grammar coverage's `parser-fixtures` root follows the fixtures.
+
+- **The repository root gains a `tests/` tree for black-box test code and fixtures.** The module-wide hygiene check moves from `internal/hygiene` to `tests/hygiene`, the benchmark harness from `internal/perfbench` to `tests/perf` (`go test ./tests/perf -run '^$' -bench .`), the `gobuild` and `graphcmp` test-support packages from `internal/testutil` to `tests/testutil`, and the shared `.sysml`/`.kerml` fixtures from the top-level `testdata/` to `tests/testdata/`. `scripts/pgo-profile.sh` and the pilot differential's and grammar coverage's `testdata` root follow the fixtures; nothing shipped in a binary changes.
+
+- **The counting gates and the remaining unreleased programs live in the tools module.** The
+  validation-constraint census (`cmd/validation-census`), the grammar-coverage harness
+  (`cmd/grammar-coverage`) and the documentation-figure gate (`cmd/doc-counts` with
+  `internal/doccounts`) are `tools/census/{validation,grammar,doccounts}`, the conformance runner
+  (`cmd/conformance`) and the stress-model writer (`cmd/stress-model`) are `tools/cmd/conformance`
+  and `tools/cmd/stress-model`, and the baseline provenance and JUnit writers they share
+  (`internal/baseline`, `internal/junit`) are `tools/oracle/baseline` and `tools/oracle/junit`;
+  every one runs with `go run -C tools ./cmd/<name>`. The analysis-library census schema that the
+  runtime's own test writes is `tests/fixtures`, which the doc-counts gate reads from there;
+  the model tests load the stress model from `tests/stressmodel`. No figure moved.
+
+- **The development tools are a nested Go module, `tools/`.** `tools/go.mod` requires the
+  product module through `replace … => ../`, so the tools build against the working tree while
+  `go build ./...` and `go test ./...` at the root stay product-only; `make test` and `make lint`
+  run both modules. The library snapshot generator and the ontology table generator are its first
+  residents, at `tools/gen/snapshot` and `tools/gen/ontology`, invoked with
+  `go run -C tools ./gen/<name>` (the `go:generate` directives and `make stdlib-snapshot-check`
+  follow); both resolve the repository root through `tools/oracle/repo` rather than the working
+  directory.
+- **The errata overlay is split from the registry.** The entry type, the overlay applied to the
+  bundled standard library on read and the library's own entries are the product's
+  `internal/core/libs/errata`; `internal/errata` keeps the registry the oracles read — the corpus
+  entries, the published roots and the corrected copy of a corpus root — and builds on it.
+
+- **The referees live in the tools module.** The fUML and PSSM referees (`internal/fuml`,
+  `internal/pssm`) are `tools/referee/fuml` and `tools/referee/pssm`; the pilot differential,
+  rejection, Xpect and execution oracles (`cmd/pilot-diff`, `cmd/pilot-reject`, `cmd/pilot-xpect`,
+  `cmd/pilot-exec-diff`) are `tools/referee/{diff,reject,xpect,exec}` with one thin `main` each under
+  `tools/cmd/`, so every referee is run with `go run -C tools ./cmd/<name>`. What they share moved
+  beside them: the XMI reader is `internal/core/xmi`, the corpus errata registry is
+  `tools/oracle/errata`, the repository-root and develop-commit lookups every tool carried a copy of
+  are `tools/oracle/repo`, and the report files and verdict buckets are `tools/oracle/report`. The
+  committed baselines record the new corpus paths; no figure moved.
+
+- **PDF headings and captions stay with what they introduce.** A heading, a caption, or the paragraph directly before a table is no longer left at the foot of one page with its table or figure at the head of the next, and a column header is no longer broken inside a word to fit; a page break can move by a paragraph in an existing document, but page counts do not change.
+
+- **A call whose required input receives no value is performed.** The SysML v1 migration
+  wrote a call passing no argument, or a pin no value reaches, for a parameter with no default
+  and a lower bound above zero as a placeholder performing nothing; v1 runs the callee with the
+  parameter unset, so the parameter or pin is now declared admitting no value (`[0..upper]`),
+  the call is written and performed, the absence propagates through the pins, nested activity
+  outputs and method parameters it feeds, and a write of a feature requiring a value from one
+  that may be absent is guarded (`if x->SequenceFunctions::notEmpty() { assign … }`). The report
+  says on each parameter and pin why a value may fail to reach it. A send of a signal whose
+  required attribute gets no value still stands in for itself, since v2 admits no such send. A
+  call behavior action that names no behavior yet has pins stays unresolved with its pins and
+  the reason; an «Allocate» from the action to a part is named in it as saying where the action
+  runs, not what it does, and no behavior or value is made up for it.
+- **«Probability» is read by provenance.** The SysML v1 migration weights a decision's
+  branches only by the OMG SysML profile's «Probability», recognised by the namespace its
+  application is serialised under as every standard stereotype is; a same-named stereotype from
+  another profile weights nothing, and the report says which profile it comes from.
+- **A duration with no unit is in milliseconds.** The SysML v1 migration read a duration
+  constraint, time event or `SimulationConfig` step written as a bare number — `200`, `t = 1500`,
+  an expression naming no unit — in seconds; the simulation toolkit's default unit is the
+  millisecond, so such a duration is now scaled from milliseconds (`accept after 0.2 [SI::s]`,
+  `this.settle * 0.001`) and the report notes the reading. A duration with a unit is read as
+  before, and `m`, `wk`, `millisec`, `microsec` and `nsec` are read as the toolkit spells them.
+- **A run configuration is refused by name.** `-compare-results` refuses a configuration whose
+  behavior was not migrated, or whose `durationSimulationMode` is no draw policy, or whose run
+  fails, naming the configuration in the refusal, so the refusals of several configurations
+  printed together tell which is which.
+
+- **The diagram panel lays unplaced nodes out in layers and routes edges around boxes.** Nodes the model does not place took slots in a square grid and every edge ran straight between centres, across whatever lay between; they are now laid out by the ELK layered algorithm, edges orthogonal and routed around the boxes. A node the model places, or one dragged, is drawn where stated as before. Renderings of more than 600 nodes keep the grid.
+
+- **A workspace copy of a library file rooted at the library's packages is the library, as it
+  is for the RDF mapping.** The language server treated such a copy as the user's file — derived
+  ids, a minting action on every declaration — where `sysml -convert` recognised the same bytes
+  as the bundled file. The workspace now applies the one recognition
+  (`identity.Catalog.DocumentRootedAt`, moved out of `internal/core/export`): a document whose
+  every root is a top-level package of one bundled library file (a package two library files
+  declare at their top names neither), stating that package's
+  normative id or declared as the library declares it, and in the file's language (the text of a
+  `.kerml` file under a `.sysml` name was parsed as SysML), stands in for the bundled file. Its
+  declarations are what the library's names resolve to, its elements keep their normative ids
+  (hover states `(normative, KerML)`) and get no minting action, and it is not warned for its
+  `standard library` keyword. Editing a root so it no longer qualifies, or closing a version
+  whose on-disk text is the user's, puts the bundled file back. The library identity the
+  runtime names library types by (`symbols.Index.LibraryIdentity`) digests each library
+  document's language, tier and text, no longer its name, so an unchanged version standing in
+  leaves it — and the objects carried across a re-analysis — as they were. A workspace over a
+  caller-built index (`model.NewWorkspaceWithIndex`) treats the library files that index marks
+  the same way, a file `MarkLibrary` marks at the generic tier included: a document may stand in
+  for one or take its name, and closing it puts the file back. The library is what the index
+  shows, a file the overlay shadows under a frozen base's name included. An edit's temporary
+  index keeps the documents such an index holds beyond its frozen base, marked or not, and
+  resolves against a shadowing file rather than the one it shadows, and does not bring back a
+  base document the overlay removed.
+- **A file opened under a bundled library's own name no longer removes that library from the
+  workspace when it is closed.** Closing it put nothing back, so every later document was checked
+  against a library missing that file; the standard-library expression gate
+  (`TestExprTypeCheckNoStdlibFalsePositives`) passed on an incomplete library for that reason.
+  Over the whole library it now reports nine dimension defects in the published `SI.sysml` and
+  `USCustomaryUnits.sysml`, pinned as an exact set and recorded in `docs/project/omg-issues.md`
+  ("Defects in the vendored quantity libraries"); the library bytes are unchanged.
+
+- **The XMI element walker the PSSM referee reads its suite with is now its own package,
+  `internal/xmi`**, so other UML-based test suites can be read with it. `internal/pssm`
+  behaves exactly as before.
+
+### Fixed
+
+- **The API element form spells a multi-valued property as an array even with one member.** The writer decided array-vs-object by member count — an array only where the `json:` annotation of two or more members stated one — so `ownedRelationship` or `ownedMember` holding a single element went out as a bare `{"@id": …}` object, which conforming readers such as sysml-toolkit drop silently. The shape now follows the metamodel's upper multiplicity, read from `SysML.ecore` into the generated `internal/translate/rdf/ontology` table (`Property.Many`, resolved per metaclass by `PropertyOf`): an unbounded property is always an array and a single-valued one an object or scalar.
+- **The element-form reader accepts `{"@ref": <name>}`.** sysml-toolkit writes an unresolved reference target as `{"@ref": "<name>"}` rather than `{"@id": …}`; the value now reads as the name literal the mapping already uses for a name-valued reference, and the refusal message for any other object spelling names both forms.
+
+- **Completion events are queued in the order their states were entered.** When the entries of two orthogonal regions each left a state that completes at once — a start state, a state with a completion transition and nothing to perform — the runtime queued the completion events once the move had settled, region by region in declaration order, whatever order the entry draw had entered them in; PSSM §8.5.9 puts a completion event behind those already in the pool, so under `reverse`, `seed:<n>`, `check` and `explore` the region drawn second could have its completion dispatched first. A state's completion is now queued as its entry unit is performed, on every way in — a composite's default entry, a fork's branches, a shallow or deep history's restore, the target of a transition — so the pool dispatches the completions in the entry draw's order; time triggers are still scheduled once the move settles, and a completion a running do behavior or a nested composite's regions hold back keeps its timing. An entry that performs nothing but generates a completion is drawn as an alternative of the entry front rather than riding with the neighboring performing unit as a silent unit, since the pool's order makes it observable, so a `choice entering <state>` line appears where two such entries meet; `declared` takes the same order as before and no default outcome moved, while `check` and `explore` reach the runs in which the regions were entered the other way round — `state_concurrent_do` and its kin reach eight values of `seq` where they reached four, `state_do_step_among_completions` six logs where it reached three (`state_completion_pool_entry_order`, `state_completion_pool_history_order`, `state_completion_pool_deep_history_order`, `state_completion_pool_fork_order`, `state_region_completes_at_own_done`; `TestRuntimeRobustnessCompletionOrder`). On the PSSM suite no bucket moved: *History 001-C* and *Entering 011* each reach one more admitted trace, *History 002-B* one more and the two §8.5.9 gives that the suite does not register, and *Transition 017* reaches six of its eight, the two it misses being the suite's own defect.
+
+- **Several completion transitions out of one state are one choice.** A state's completion queued one event per enabled completion transition and dispatched them in declaration order, so the first always fired, the rest went stale, and no choice point was reported: `explore` could never reach the run in which another of them fires. The completion is now one occurrence: when it is dispatched, the queued completion transitions of the state are read again and one is drawn by the scheduling policy — declaration order by default — and recorded as a `transition` choice point that `explore` enumerates and `check` compares, the others leaving the queue (`state_explore_completion_choice`).
+
+- **A compound transition through a pseudostate inside a composite state exits and runs its effects segment by segment.** A transition into a junction of a composite state, continued by the junction's outgoing transition out of the state, now exits the source, runs the first effect, exits the composite state, then runs the second effect and enters the target, as UML 2.5.1 §14.2.3.8.4 orders the segments; before, every exit ran before any effect. A join of the state its orthogonal regions leave through runs each region's exit and effect, then the state's exit, then the outgoing transition; a route ending at a terminate action or a history pseudostate keeps its effects in that order.
+
+- **A connector whose first end is missing is reported at the `to`/`then`, with
+  one diagnostic.** `connection c connect  to ;` read the `to` as the first
+  end's name and then wanted a second `to`, producing the misleading `expected
+  'to' between connector ends` at the semicolon, and `connect to a;` produced a
+  second spurious `expected '{' or ';' after declaration`. The clause now reports
+  `expected a connector end before 'to'` (or `'then'` for successions) at the
+  keyword and still parses the end after it, so recovery adds no further error;
+  `connect to to b;`, where the first end is genuinely named `to`, is unchanged.
+
+- **A diagram panel left open across an extension update restored blank.** VS Code restores a webview panel with the options it was created with, whose resource roots named the directory of the extension version that created it; after installing another version the bundled script lived elsewhere and was blocked, so the restored panel drew nothing and listed no views until closed and reopened. A restored panel now sets its resource roots from the installed version before its page is set.
+
+- **A due do step is drawn against the entry units left in the move: the sibling regions' and the state's own substates'.** A state's do behavior is started by its entry and, in KerML's `StatePerformance`, ordered after that entry and against nothing a sibling region or a substate performs (`succession entry then middle`; PSSM §8.5.5 has the do activity run concurrently with the behaviors that follow it in entering the state, the substates' entries among them), but under `check`, `replay` and `explore` its first token move waited for the whole entry move to settle and was drawn only against the dispatch, so the run in which a do activity's first action precedes a sibling region's entry, or a composite's own do activity precedes its substate's entry, was never reached. A do behavior now begins as its state's entry unit ends, before the state's regions or serial body are entered, and each due token move of the do behaviors the move began is a drawn unit, `do <state>`, against the entry units still ahead: on a front, under the front's own `entering <state>` (or `fork <name>`, or a firing's `on <event>`) choice while another queue has a unit left; down a serial body, against each entry unit on the way under the owner's `entering <state>`; then against the dispatch after the move settles as before. A do step is never silent, and a do behavior that ends while its state's body is still ahead of the move completes nothing — the body's `done` completes the state. The fixed policies (`declared`, `reverse`, `seed:<n>`) enter every state whole and run the do round after, as they always did, and no default, `declared` or seeded trace moved (`state_do_step_before_sibling_entry`, `state_do_step_before_sibling_entries`, `state_do_step_before_nested_entries`, `state_do_step_nested_before_outer_entry`, `state_do_step_before_fork_branch`, `state_do_step_typed_before_sibling_entry`, `state_do_step_before_history_restore`, `state_do_step_cut_by_sibling_completion`, `state_do_step_cut_by_sibling_terminate`, `state_do_step_before_own_substate_entries`, `state_do_step_before_own_body_entry`, `state_do_step_machine_before_top_entries`, `state_do_step_way_down_before_fork_branch`; `TestRuntimeRobustnessDoStepEntryFront`). On the PSSM suite *Terminate 002* reaches its fifth admitted trace, the do activity's first segment before the sibling region's entry, and passes (57 pass / 12 fail); *Deferred 006 C* and *Transition 017* explore more linearizations and reach the same traces as before.
+
+- **A PDF draws every state and tree figure a migrated document holds.** A state transition's label is written with its colons as entities, so a trigger or guard naming a qualified element (`accept Signals::Go`) no longer reads as a Mermaid class marker and fails the chart; and each Mermaid chart is drawn under a configuration sized to it — as is an HTML page that loads Mermaid with `-html-mermaid`, whose script is configured for its largest chart — so a tree or flowchart of more than 500 edges or 50 000 characters is drawn rather than refused by Mermaid's defaults. The configuration stops at twenty times those defaults, and a chart past 1 000 000 characters or 10 000 edges is refused with a typed `oversized-diagram` error naming it and its size — to be drawn as `dot` or `plantuml` — so no model asks a browser or `mmdc` for unbounded work. A figure taller than the page is scaled onto one page with its caption instead of running off the page's foot with the caption on the next.
+
+- **The SysML v1 migrator writes a transition effect with no body as `do action effect { }`.** An effect activity with no nodes was written `do action effect;`, which ended the transition clause before its `then`, a syntax error in the migrated notation; the braces are now kept so the `then` still belongs to the transition.
+
+- **An `exhibit state` usage naming nothing exhibits itself.** Per SysML v2
+  §8.3.17 (`ExhibitStateUsage::exhibitedState` redefines `performedAction` — the
+  reference feature of the owned reference subsetting, or the usage itself when
+  there is none), `exhibit state modes { in cmd = port.cmd; … }` and
+  `exhibit state idle;` are state usages with their own (possibly empty) body,
+  not references to one held elsewhere; `exhibit state modes;` no longer fails
+  instantiation with `classifier behavior names no body`, and a body declaring
+  no initial state fails with `ErrNoInitialState` at initialization like any
+  machine stating an empty body. An `exhibit` declaration that does name an
+  element — the `exhibit m;` reference form, a `references`/`::>` clause, or a
+  typing — that resolves to no behavior body is still reported.
+
+- **`explore` varies the first run's choice points earliest first.** The runs took the untried alternatives deepest first, so a choice met early with a long tail of closed choices behind it — the `do round` at t=79 of the runtime showcase's spacecraft, after two hundred token orders — was varied only after every order of the tail, and `explore:runs=300` tabled one of the two outcomes `-engine check` finds. The prefixes an exploration leaves now run in plan order: every prefix departing from the first run at one choice before any departing at two, earliest choice first, so a `runs` budget of one more than the first run's choice points varies each of them at least once, and the table is the same at any `-jobs`. A choice point past the `depth` budget is still never varied, and every choice point a run met is in its witness, which sizes `depth`: the spacecraft's run to t=80 meets 277, so `explore:runs=300,depth=512` tables both outcomes where the default depth of 64 cannot (`action_explore_early_race_long_tail`, `TestExploreTablesTheSpacecraftRaceWithinItsBudget`). The run a witness names moves with the order: the three-writer race's `x = 1` is now reached by run 5 rather than run 4.
+
+- **A fork may enter orthogonal regions that have no initial state.** The lowerer used to refuse
+  every `parallel` region without an `entry; then <state>;`, even when a `fork`'s outgoing
+  transitions were the only way in, which UML allows. Each fork's branches are now read into a
+  plan — one target state per orthogonal region of one composite state, at least two branches,
+  none guarded or triggered — and a region a fork enters needs no entry transition of its own; a
+  region with neither is still refused with the same diagnostic, and so is a machine with
+  another way into the composite state — a transition to the state itself, to another of its
+  regions or to its history, the machine's entry naming it, or another fork passing through it
+  on the way to a state nested deeper — since that way would start the region by default and it
+  has no default start. Entering through a fork leaves the source configuration down to
+  the ancestor the source and the composite share, as a move to a single state does, so an
+  active ancestor is neither exited nor entered again — a fork reached from inside the
+  composite's own regions leaves every one of them, in declaration order, ending their do
+  behaviors, while the composite stays active; then the first branch runs its effect
+  and enters the states still on the way down to the composite, and every region enters in
+  declaration order, each branch's effect before its target — which may lie below a
+  region's own substates, the branch entering every state on the way — so a branch's effect
+  precedes the composite's `entry` when the fork sits outside it, even when a region no branch
+  names is declared first, and such a region starts at its own initial state. A branch's effect reads and writes the attributes of the
+  state declaring the fork, as a transition leaving one of its substates does. A composite state entered on the way down does not start the
+  region the branches pass through at its own initial state — only its other regions start as
+  usual — and a do behavior in a region the fork leaves untouched still takes the occurrence
+  that fired it. Branches that end at `done` complete the composite state, or the machine, as an
+  ordinary entry does, and the checker's footprint of a fork covers the regions it leaves to
+  start by default, so their entry behaviors' reads and writes count as the dispatch's. The PSSM
+  referee's classifier stops filing
+  *Fork 002* and *Join 001* as not expressible; both translate and run, and the baseline moves
+  from 39 to 37 `not-expressible` and 18 to 20 `fail`, adjudicated in
+  `docs/project/pssm-referee.md`.
+
+- **Graphical renderings head a root by its name within the view, not its whole qualified name.** The interconnection, state, action and tree forms labelled every exposed root `TMT::'01 TMT PO'::'System Model'::…::tcs : TMT::…::TCS` while its nested members read `pump : Pump`, so a migrated diagram's fixed-size boxes were overrun by their own labels and the picture was unreadable. The Mermaid, DOT and PlantUML writers now drop the namespace every root shares from the roots' names (`Plant::Loop` heads `Loop`; `Systems::Radio` beside `Systems::Braking::Brake` heads `Radio` beside `Braking::Brake`; roots from unrelated packages keep their whole names) and name a type by the name each reference ends in, `~` kept (`~Ports::FuelPort` is `~FuelPort`). The name and type a node carries — `name` and `type` in the rendering JSON, the text form's declarations — are unchanged, and the DOT writer sizes a box from the label it emits.
+
+- **A transition guard reads the accepted payload by the transition's name.** `transition raise first idle accept l : Level if raise.l > 5 then high;` failed with `eval guard of transition raise: no value for feature raise`, as did `if raise.d.level > 5` and a guard on a segment out of a choice or junction reading the accepting segment's payload, `transition up first pick if raise.l > 5 then high;` — the bare `l` worked, and so did `raise.l` in the state's exit and the transition's effect, since only those were evaluated within the transition's firing. A guard, and a probability on a route out of a choice, is now evaluated within the firing of the transition it belongs to: the candidate transition's own, with the payload its trigger just bound, for a plain guard, and the compound transition's, the accepting segment included, for a segment past a choice or junction, an occurrence released from a deferral included. A guard naming a transition that is not being taken reads null, so comparing it is the operator's type error (`type mismatch: operator '<' is not defined for null and an Integer`) rather than a silent false, and a guard the read leaves non-Boolean is `type mismatch: guard of transition raise must be boolean, got an Integer`. Time-trigger durations, change conditions, entry guards and run-to-completion values are evaluated as before, outside any firing (`state_choice_guard_reads_accepting_segment`, `state_junction_guard_reads_call_argument`, `state_guard_reads_own_payload_member`, `state_guard_names_transition_not_taken`, `state_guard_reads_deferred_payload`; `TestRuntimeRobustnessGuardPayload`). The PSSM referee's every row is unchanged.
+
+- **A transition into a history pseudostate restores the configuration it is leaving.** The
+  record a history restores is written when its owning composite state is exited, but a
+  transition whose source is that owner — its self-transition or its completion transition into
+  its own history — used to read the record before its exits ran, so it restored the previous
+  visit's configuration (or, on the first visit, performed a default entry) instead of the one
+  being left. The record is now read after the transition's exits and effects; a history's
+  default transition is taken from inside the owner once it is entered, so the owner's `entry`
+  runs before the default transition's effect and the region's initial transition does not run
+  beside it. A `history` declared in a state machine's own body restores the machine's top-level
+  configuration instead of being refused as a history outside any composite state.
+- **The PSSM referee's translation no longer folds an initial transition's effect into the entry
+  action of the state or region it starts.** The effect ran before the state's own `entry` and
+  again on every re-entry, a history restore included; the initial transition now enters an
+  empty helper state whose completion transition carries the effect. With the history fix, the
+  baseline moves from 36 to 41 `pass` and 23 to 18 `fail` (History 001-A, 001-B, 001-D, 002-A
+  and 002-D), adjudicated in `docs/project/pssm-referee.md`.
+
+- **A join runs the effect of every transition into it.** The transitions into a join and the one
+  out of it are segments of one compound transition, but firing the join ran only the effect of
+  the incoming transition that completed last and dropped the others'. Every incoming segment now
+  fires — its source exited, then its effect — before the state owning the join is exited and the
+  outgoing segment's effect runs; the order among the incoming segments is a region-order choice
+  the scheduling policy draws (`choice join <name>` in traces, source declaration order by
+  default), and a failing effect on any incoming segment fails the step. The static footprint of a
+  transition into a join folds in the other incoming effects too.
+
+- **A join's segments fire with their own trigger's arguments, and a refused replay undoes them
+  all.** A transition into a join that accepts a payload or a call had its effect run without the
+  arguments its trigger names bound, so it read the previous values or failed; each segment now
+  binds what its own trigger takes from the occurrence being dispatched before its effect runs. A
+  join two of whose incoming transitions leave the same region is refused when lowered — UML has
+  the segments originate in different orthogonal regions, so none is an alternative to another
+  — and a replay refused at a later draw among the segments undoes the segments already fired
+  with the rest of the move rather than leaving some sources exited. A segment fired by a timer
+  or a change condition's rise now holds the join, as one fired by a signal does, until the same
+  occurrence enables every other segment into it; and a join whose sources all lie nested below
+  the states of the owner's regions exits those wrappers and the owner, where before it found
+  no owner and left them active. A segment leaving a composite state whose substate is active
+  now holds and fires the join as the occurrence reaches that state from within, exiting the
+  substate first, where before the join never fired. A join of the machine's own regions whose
+  segment leaves a state nested in an orthogonal state of a region now records that region, so
+  the segment exits the nested state and its wrappers once, where before the innermost region
+  was recorded and the orthogonal state was exited a second time when the regions were left. A
+  segment drawn among several transitions out of its source, whose join an earlier region's
+  effect disarms before its turn, fires nothing and records no choice, where before the draw
+  stood among the run's choices as though the segment had fired. A timer's expiry selects the
+  segment it fires as a signal dispatch does — its guard holding and the join it leads into
+  ready — before the route out of the join is resolved, so an expiry that does not fire the join
+  reads no guard beyond it, where before a junction beyond the join with no guard holding aborted
+  the run. Two time-triggered segments into a join whose timers are due at one instant fire the
+  join, whichever expiry is dispatched first, where before each expiry found the other segment's
+  timer to be a different occurrence and the join never fired; timers due at different instants
+  still never fire it. A signal or call dispatched at the instant a segment's timer is due does
+  not stand in for that expiry, so it enables no time-triggered segment; nor does a completion
+  event queued at that instant, so a source completing when a sibling segment's timer is due
+  leaves the join to that timer's own expiry. The checker no longer stops a machine whose closed
+  do round finds no dispatch due short of its timers: it rests, and the clock's advance to the
+  next expiry resumes it, as a run outside the checker does. A change condition's
+  rise selects the segment it fires as a signal dispatch does, the join it leads into ready,
+  before the route out of the join is resolved, so a rise that does not fire the join reads no
+  guard beyond it. The draw among a source's transitions that selects a segment into a join is
+  recorded within the join's move, so a replay refused at a later draw among the segments undoes
+  that record too, where before it stood among the run's choices after the move was undone. The
+  check oracle's snapshot of a run's draws is copied rather than aliased, so a run restored to an
+  earlier point no longer trims a snapshot taken after it. A rise that enables only a segment
+  whose join is not ready is dispatched as a signal nothing takes is — consumed, and counted
+  as one occurrence — so a run stepped under the check policy takes the dispatch it was offered,
+  where before the checker offered a dispatch the poll then refused as nothing to do; and a
+  segment drawn among several that fires nothing is reported as firing nothing rather than as
+  a transition taken. A segment into a join that has no trigger
+  is enabled by another segment's occurrence only once its source has completed — no do behavior
+  of it running and, where one runs, its body done — so the join no longer fires and abandons
+  that behavior; it waits for the next occurrence after the source completes. The footprint of a
+  transition into a join now covers what firing the join reads and writes: every other segment's
+  source, trigger and guard, the exits of every source up to the owner and of every region the
+  owner (or the machine, joining its own regions) has, and the effects of every segment — so the
+  checker's reduction no longer treats a step writing what a sibling segment's guard or exit
+  touches as independent of the join.
+
+- **A junction with several enabled outgoing branches draws one of them as a choice point.**
+  The guards of a junction's outgoing transitions are still read before the incoming transition
+  fires, against the data as it then stands, but where several hold the runtime used to take the
+  first in declaration order; it now draws and records the transition choice point at the junction,
+  as it does at a choice, so a `seed` policy replays its draw, `explore` enumerates every branch, and
+  the trace and the `choice` note name the junction. The draw is made only as the transition fires
+  — after the order among several regions' transitions is drawn and the transition's own guard is
+  read again — so a witness lists the region order before the junction's draw and a transition
+  another region's effect disarms draws nothing, no guard beyond the junction is read again (the
+  route on from each enabled branch, through any further junction, is settled with the
+  transition, and a branch beyond which no guard holds fails only the run that draws it, with
+  the guards it noted on its way), and a
+  replay refused at a choice beyond the junction undoes the draw with the rest
+  of the move; a history's default transition through such
+  a junction records its draw the same way. The unguarded branches remain the default
+  when no guard holds, and a junction with no enabled branch still leaves the compound transition
+  unenabled. The PSSM referee's baseline moves from 44 to 45 `pass` and 16 to 15 `fail`
+  (Junction 003), adjudicated in `docs/project/pssm-referee.md`.
+
+- **A DOT rendering positions a node from the routes that meet it, so a migrated diagram is written for `neato -n2` throughout.** The `start` node and the initial and final pseudo-states of a migrated activity or state machine have no member a `DiagramLayout::Layout` could name, so every view drawing one had an unpositioned node, the header fell back to plain `neato` and the written `Route`s were redrawn rather than kept. A node with no `Layout` now takes its box from the first waypoint of a route leaving it or the last of one reaching it, sized as the writer already sizes it; a stated `Layout` still wins, a one-point route places nothing, and a node with neither stays unpositioned so the engine degrades as before. A cluster with no `Layout` is boxed round its positioned members and its anchor pinned there, which `neato -n2` requires.
+- **The SysML v1 migrator writes a `Layout` for the control, buffer and final nodes it declares.** A fork, join, decision, merge, buffer or activity final node written as a named member of the migrated action (`fork 'fork';`, `action final terminate;`) was counted "not exposed" by the diagram join and left without a placement; it is now exposed and positioned like an action, while an initial or flow final node, which the migrator spells as the inherited `start` and `done`, is still counted not exposed and positioned by the renderer from its routes.
+- **`-render-all` writes a view whose name is not a bare filename instead of stopping the run.** A qualified view name containing `/`, `\`, `:`, `%`, `.`, a control character or a character Windows reserves stopped the whole run with "does not form a safe rendering filename"; the unsafe bytes are now percent-encoded (`%2F` for `/`), a Windows device-name stem has its first byte encoded, and the encoding reverses to the view name. A name past the 255 bytes a path component holds is cut and tagged `~` and a hash of the whole, and a save writes its temporary file under a name that fits beside a destination that long. Two views meeting in the same path, letter case aside, are refused together.
+
+- Editing a document no longer recomputes workspace-wide gathers inside the edit; they are recomputed on the first diagnostics or query after it, so an edit itself is as cheap as before those gathers existed.
+
+- **Untyped usages now subset the standard-library base feature for their kind and derive their type from that feature, preserving inherited members through recorded library specialization edges.**
+- **Parameters of a step or calc typed by a standard-library behavior are redefined by position whether the library is parsed, restored from the on-disk cache, or loaded from the embedded snapshot; this is now covered by tests.**
+
+- **`Session.LoadFile` follows imports to sibling model files.** Loading one file through the session's exported single-file API now pulls in the `.sysml`/`.kerml` files beside and below it that declare an imported root namespace, as `%load`, `-check`, `-compile` and `-render` already did, and submits them together so a reference into a sibling package resolves.
+
+- **Loop and branch bodies now preserve member-attached `then` successions.** These flows are retained when parsed and exported instead of silently losing their positional edge.
+
+- **An edit no longer re-derives every wildcard import in the workspace.** An import whose target did not resolve — an ambiguous or unknown package — was bookkept as reading from the document root, so a keystroke anywhere purged and rebuilt the re-exports of every importing file before the language server could answer again. Diagnostics, completion and semantic highlighting now catch up in milliseconds after an edit rather than seconds.
+- **Completion keeps its name table across edits.** The table of simple names the language server completes and suggests corrections from was rebuilt from the whole index after every change; it is now refiled for the names that changed, so the first completion after an edit answers as fast as the next.
+- **Semantic tokens index the text they were computed from.** The tokens and the document content were read separately, so an edit landing between the two could encode one revision's tokens against another's lines; both are now taken in one read.
+
+- The language server no longer scans the filesystem root for sibling files when a document at the root is opened outside every workspace folder; the walk could take minutes.
+
+- **Diagrams and diagnostics of a large document no longer stall the language server.** Byte offsets are mapped to editor positions through the document's line index instead of a scan from the start of the text on every span, so `opensysml/render` on a multi-megabyte model answers in seconds rather than minutes.
+
+- **Name lookup no longer resolves a membership import's target when the import cannot surface the name.** A non-recursive `import P::x` (or `expose x`) only surfaces `x` or the target's short name, so an unqualified lookup of any other name skips it; previously each import's target resolution re-walked the scope's sibling imports, making lookups in a namespace with many `expose` or `import` members factorial in their number.
+
+- SysML v1 migration no longer copies opaque expressions whose cast multiplicity bounds or body-local connection/flow endpoints name members the model lacks, and treats declared connector-end names as in scope within their connector bodies.
+
+- **The v1 migration writes a transition whose effect has an empty body in a form the parser accepts.** An effect that is an Activity with no nodes was written `do action effect;` before the transition's `then <target>`, which the parser rejects, and one such transition made the whole migrated file unwritable. The effect is now `do action effect { }`; a state's `entry`, `do` and `exit` actions, which stand alone, keep `entry action x;`. A transition whose `effect` refers to a behavior owned elsewhere, which was dropped without a word, now runs it: `do action : Def`, with no `;` before `then`. The report says when an action is empty, and an effect or state action whose every node is refused, or whose opaque body is in a language the mapping cannot write, is reported approximated with the reason. The migrated OMG PSSM test suite, which this made unwritable, is gated in `tests/corpus` (`TestPSSMSuiteMigration`): its notation must parse and its report totals ratchet; see `docs/project/pssm-migration.md`.
+
+- **Validating deeply nested calls no longer takes exponential time.** Typing a call read its arguments again for every reader of the enclosing call — the argument check, the result type, the held element type — so each level of nesting doubled the work and ten nested `calc` invocations took seconds while a generated query nesting twenty took longer than anyone waits. The checker now types every call once per scope and answers its silent re-readers from that memo, keyed by the call and its scope, with a call still being typed never recorded as its provisional unknown type; the reporting checker types as before, so each diagnostic is still reported once at the place it arose. The semantic model likewise answers a memoized call selection without retyping its arguments.
+
+- **A body inside a nested definition no longer reaches the enclosing definition's features
+  by their bare names.** `part def P { attribute n = 1; calc def E { n + 1 } }` — and the same
+  shape with a `constraint def`, an `action def`'s `assign`/`if`, or a `state def`'s transition
+  guard — now reports `Must be an accessible feature (use dot notation for nesting)`, as the
+  reference implementation does: a nested *definition* is a new type with no featuring
+  relationship to the one that owns it, so `n` is a feature of `P`, not of `E`. The featuring
+  contexts of a definition were being derived from its owner as if it were a feature. A nested
+  *usage* (`calc e { n + 1 }`) is featured by `P` and still reaches `n`, and a nested definition
+  still reaches its own, inherited and redefined features and every package-level feature.
+
+- **The nightly snapshot signs again.** The cosign installer action was pinned at a v3 release that fetches a detached `.sig` for the requested cosign, but cosign v3.0.1+ ships `.sigstore.json` bundles instead, so the install step failed with a 404 before signing. The workflow now pins cosign-installer v4, which verifies those bundles.
+
+- The nightly snapshot's release notes no longer break mid-sentence: GitHub renders a release body with hard line breaks, so each paragraph is written as one line.
+
+- The nightly snapshot no longer falls back past the commit it was last built from when `develop`'s head is red: the walk for the newest green commit ends at the published snapshot, so a night with nothing newer green leaves the previous snapshot standing instead of publishing an older commit — or failing on one that predates `scripts/build-release-artifacts.sh`, which is now skipped.
+
+- **Feature chains are now written in the normative interchange shape.** A chain (`connect a.b.c to d`, `:>> a.b`, `references a.b`) converts to a chain `Feature` that owns one `FeatureChaining` relationship per link — owned by the `ReferenceSubsetting`/`Redefinition`/`Subsetting` that states it, or an `OwningMembership` for an invocation's chain — beside the derived `chainingFeature` list, so other tools' graphs read and a re-conversion states the normative elements. Unresolved links are `{"@ref": "<name>"}` rather than bare strings; reading accepts the normative form, the derived list, or both, and refuses a graph where the two disagree. Interface ends are `PortUsage` (the grammar's `InterfaceEnd`), `then` successions state their two ends in `EndFeatureMembership`s, and `perform`/`exhibit`/`include`/`assert`/`satisfy` usages spell their qualifier from the metaclass alone — named forms like `perform action pa : A`, unnamed reference forms like `perform sub.sa :>> a2` and `assert c1` — so graphs carrying no `sysx:` annotations still write the qualified notation.
+
+- **A region-owning state is not re-entered by a transition inside its region.** In a parallel state, a transition between two substates of one region (`state left { entry action …; state prep; state work; transition first prep when Go then work; }`) ran the entry behavior of `left` again and restarted its do behavior, although `left` never became inactive; a counter its entry incremented read 2 where KerML `StatePerformance` runs `entry` once per activation. The move now keeps the region owner active, whether it is the region of a top-level parallel machine or of a parallel state nested deeper, so only the substates below it are exited and entered; a transition out of the owner still exits it, and a transition into it still enters it afresh (`state_parallel_owner_entry_once_intra_region`, `state_nested_parallel_owner_entry_once_intra_region`).
+
+- **A PDF's default faces are Times, Arial and Courier, not whatever the generic family resolves to.** The print stylesheet asked for bare `serif`, `sans-serif` and `monospace`, which fontconfig resolves to DejaVu on most Linux machines — a face some 15 % wider and taller than Times at the same nominal size, so an 11pt page read like 13pt — while the metric-compatible Liberation faces installed beside it were never chosen. The default body, heading, code and page-number stacks now name the conventional families first, their free metric-compatible equivalents next (`"Times New Roman", Times, "Liberation Serif", "Nimbus Roman", serif`; `Arial, Helvetica, "Liberation Sans", "Nimbus Sans", sans-serif`; `"Courier New", Courier, "Liberation Mono", "Nimbus Mono PS", monospace`) and the generic family last, for the pandoc engine's page as for WeasyPrint's and Prince's. Page size, margins and every point size are unchanged, and the HTML page keeps its system face.
+
+- **The PDF toolchain CI job now reads its rendered PDFs back.** The job installs `poppler-utils`, and the integration tests treat an absent `pdftotext`/`pdfimages` like an absent converter: a skip locally, a failure under `OPENSYSML_REQUIRE_PDF_TOOLCHAIN`. Before, the text and image assertions (headings, captions, formulas, diagram source kept off the page) silently skipped in CI for want of `pdftotext`.
+
+- **A `perform action` usage naming nothing performs itself.** Per SysML v2
+  §8.3.16 (`EventOccurrenceUsage::eventOccurrence` — the reference feature of the
+  owned reference subsetting, or the usage itself when there is none) and §8.3.17,
+  `perform action boost { in amount = level; }` and `perform action idle;` are
+  action usages with their own (possibly empty) body, not references to one held
+  elsewhere; instantiation no longer fails with `classifier behavior names no
+  body` on them, and the body's `in` members bind the performance's parameters.
+  A `perform` declaration that does name an element — the `perform a;` reference
+  form, a `references`/`::>` clause, or a typing — that resolves to no behavior
+  body is still reported.
+
+- **The pilot corpus downloader refuses to report success over an empty corpus.**
+  `pilot_fetch_subtrees` in `scripts/pilot-pin.sh` now fails, installing nothing, when a subtree
+  of the pinned release holds no file of the kinds asked for, and re-fetches a destination that
+  is stamped at the current pin but holds no such file instead of reporting it present; before,
+  either left a stamped, empty directory that a required corpus gate would then fail on with no
+  hint of why. `scripts/pilot-pin-test.sh` checks the downloader against a throwaway release
+  repository and runs in CI before any corpus is fetched. The contributor docs now list all
+  three download scripts beside the `OPENSYSML_REQUIRE_*` variables that make their gates
+  mandatory.
+
+- **A positioned node's label fits the box its `DiagramLayout::Layout` states; the box is never grown to the label.** The DOT writer word-wraps the head at the stated width and draws it at the largest font size from 14 pt down to 8 pt at which the wrapped lines fit the height, keeps the `«keyword»` and detail lines only while height remains, and cuts and ellipsizes a head that overruns even at 8 pt, using the same glyph estimate the unsized boxes are fitted with; the box's `margin=0` gives the whole of it to the label, as the fit assumes. A migrated Cameo diagram, whose boxes were sized for the name alone, reads as it did: a 449×14 px attribute row holds its one line, `call : doTracking` no longer spills out of its action box, and Graphviz's `size too small for label` warnings on such a model drop to none. A stated box that holds other stated boxes — a part drawn round its members, a definition over its compartment rows — sets its title in the strip above the topmost of them, fitted to that strip, so the title is read as the frame's header rather than covered by the members, which stay where the Layout put them; a box drawn as a cluster round its children is fitted the same way. A stated box, or the strip its members leave it, too short for one 8 pt line or too narrow for one glyph holds no text, and sets its head beside the box instead. A node without a stated size keeps its label-fitted box.
+- **A control node or port in a stated box is drawn as its notation symbol, with no text inside.** A decision, merge or choice is a diamond, a fork or join the filled bar, an initial node the filled dot, a final node or terminate action the double ring, and a port its small square; the node's name is set beside the symbol as an `xlabel`, and left out when the view IR marks it as one the model did not give (`Node.NameSynthesized`). Without a stated box these kinds keep their labelled shapes, except that an action's `start` and `done` — the language's names, not the body's — are now the filled dot and the double ring in every graphical form, where they were a large labelled circle.
+- **A name the SysML v1 migration made up is not drawn.** The migrator now records every name it spells for an element its source left unnamed — `'start to call'`, `fork2`, `decide`, an `unnamed` ref — once per body, as `metadata MigrationMetadata::SynthesizedName about …;` from the new bundled `MigrationMetadata` library. The renderings read the marker from the model: such a node is drawn as its source drew it — a control node as its bare symbol, a typed usage as `: Type` alone — and an edge whose only text would be such a name carries none, while a triggered transition or a guarded succession keeps its trigger and guard. Names the source gave, however spelled, are never marked; the migration report and results are unchanged.
+- **A member drawn under its owner is headed by its name below that owner.** A nested node, or an exposed element whose owner is drawn in the same rendering, no longer repeats the owner's qualified path: `'K-Mirror Offset'::'interpolation Error' : 'Interpolation Error'` inside the `'K-Mirror Offset'` box reads `'interpolation Error' : 'Interpolation Error'`, as a diagram frame shows it. Only the graphical forms' heads change; the text and JSON forms and the LSP keep the qualified name.
+- **A positioned DOT drawing leaves the nodes no `Layout` places undrawn, so none lands on a placed box.** When some nodes of a view are positioned and others are not, the DOT writer left the others to `neato`, which set them wherever it found room — over the positioned boxes, in a migrated diagram whose source never drew them. They are now left out, with the edges at them, under a `// not represented:` notice that counts them, so the drawing shows what the source diagram showed; every node drawn is pinned, so the `// layout:` header names `neato -n` or `neato -n2` and never plain `neato`. The new `-render-unplaced strip` (`Options.Unplaced` in the view API) keeps them instead, boxed and packed in rows below the canvas or the positioned boxes' extent, clear of them and of one another; it applies to `-render`, `-render-all` and the `dot` diagrams of `-render-document` and `-render-documents`, and an unknown placement is refused with the two there are. A view with no positioned node is laid out by `dot` as before.
+- **A view's layout annotations and `render` members are not drawn as nodes.** The member walk every rendering kind shares leaves out `DiagramLayout::Canvas`, `Layout` and `Route` annotations, wherever they are owned, the `MigrationMetadata::SynthesizedName` markers a migration leaves in a body, and the `render` members a view holds, so a tree over a package of migrated views no longer fills with `metadata`, `x`, `y`, `width`, `height` and `asTreeDiagram` nodes. Every other metadata usage, and a rendering usage outside a view, is drawn as before.
+- **A parallel state may carry a metadata usage in its body.** Lowering a `state … parallel` body treated a `metadata` member as unsupported content and refused the whole state machine, so its state rendering came out empty; the annotation is now the state's own, like an attribute or a port, and its substates alone are the regions.
+
+- **`make proto-breaking` reads only `api/proto` from the baseline.** The baseline archive is
+  taken from the `api/proto` subtree of `BUF_BREAKING_REF` rather than from the whole commit with
+  a pathspec, which walked the whole tree and, from a blobless checkout, lazily fetched every blob
+  the commit does not share with the checkout — a fetch CircleCI's checkout cannot always make, so
+  the check failed with `could not fetch … from promisor remote` on a merge that touched no
+  protobuf file. The cvc5 download in the same pipeline retries a failed transfer instead of
+  failing the job on one bad response from the release host.
+
+- **A pseudostate can carry a quoted name.** `fork 'spread 2';`, `join`, `junction`, `choice`, `history` and `deep history` read their name as every other declaration does, an unrestricted name `'…'` included, where only an identifier or keyword parsed before; a transition then reaches it by the same quoted name.
+
+- **The PSSM referee's translation carries the values a test's constructor writes.** A test
+  class whose `<Class>$factory` activity assigns a literal to an attribute of the new instance
+  (*Join003*'s `value = 15`, read by the guard of the join's outgoing transition) lost the
+  assignment: the attribute was declared without a value and the run failed with `no value for
+  feature value` before reaching the guard. The literal is now the attribute's initial value; a
+  constructor that does anything else — writes a feature the class does not own, writes
+  something other than the new instance, or computes a value — is refused as untranslatable
+  rather than dropped. No bucket count moves: *Join003* still fails, now at the join itself
+  (`docs/project/pssm-referee.md`).
+
+- Checking a constraint or writing a feature no longer rescans every object's behaviors when nothing has changed since the last scan found them all idle, so a batch of checks over many instantiated objects is linear again.
+
+- **The RDF mapping links references instead of naming them.** A property the SysML v2 API defines as a reference — `sysml:type`, `sysml:importedNamespace`, `sysml:importedMembership`, a succession's `sourceFeature`, a feature chain's `targetFeature`, a feature reference's `referent`, an invocation's `function` — is now the IRI of the element the name resolves to: an element of the graph by its own id, and a standard library element by its normative id whether or not the library is in the graph (`attribute mass : MassValue` links `<urn:sysmlv2:element:9cd0e404-efee-50e5-a59b-681065bd188c>`). Only a name that resolves to nothing the model declares stays a literal, and an element declaring the id the norm fixes for a library element the graph links is refused rather than merged with it. Every metaclass written is concrete, as every element the API returns is: an import is `sysml:NamespaceImport` or `sysml:MembershipImport` and an `expose` is `sysml:NamespaceExpose` or `sysml:MembershipExpose` rather than abstract `sysml:Import`, an import written through an alias links the alias's owning membership, and a KerML `connector` is `sysml:Connector` rather than `sysml:ConnectorAsUsage`. Graphs written by earlier releases still read: the decoder accepts a literal where a link now stands, and the two abstract classes, and writes the current form on the next hop. Name resolution now also finds the `start` an implied `first start then a` names when the action inherits it from the library, a feature chain's target from its featuring usage, and the names in a `dependency` body, so a metadata usage annotating a dependency links its type and reads back from the graph alone.
+
+- **Relationship queries no longer spend their visit budget building edge tables.** `RelatedElements`, `WhereRelated` and relationship-derived columns build the edge table of a relationship kind by scanning every declaration in the workspace, and each declaration scanned was charged to the query's visit budget — so on a model past ~100,000 declarations every relationship query failed with `visit-budget` before traversing anything (a migrated TMT requirements-mapping document, 101,014 declarations, needed about 200 visits for its rows). The scan is a fixed cost of the model, not of the query: it is now memoized per model in `queryexec.Context.Related`, shared by every query a document (or a linked set of documents) evaluates, and left uncharged; the budget still bounds the traversal itself, paying one visit per element reached, and `visit-budget` is still the typed failure when that is exceeded.
+
+- **`-render-all` writes two views whose names differ in letter case alone instead of stopping.** A model naming two views `Report` and `report` (or two migrated Cameo diagrams named `iRIS …` and `IRIS …` in one package) stopped the run with "have the same rendering path", because a filesystem that ignores case would hand both one file. Each such view is now written under its name tagged with `~` and a hash of the encoded name, as a name too long for a path component already is, so the rest of the model still renders; a view whose name meets no other keeps its plain filename.
+
+- **A redefinition is masked along an alias path too.** The workspace built two scope trees for each of its documents — one the index resolved and analyzed, one it enumerated visible names and positions from — while the resolver memoizes a reference's answer by its syntax node, shared by both. Once a document had been analyzed, an alias resolved from the enumeration's tree came back as the index's copy of its target, whose members the redefinition mask (keyed by the enumeration's symbols) did not recognize: at `feature B redefines A` inside `A`, the redefinition being written reappeared as `test.A.A.B` through `alias A for A1`, though not on any direct path. A workspace document now hands its own scope tree to the index (`Index.AddDocumentScope`), so every route reaches one symbol and the pilot Xpect suite is back at its recorded 1296 agreeing expectations.
+
+- **A segment leaving a junction or choice declared inside a composite state runs its effect after
+  that state's entry.** A compound transition used to run every effect of its route after its
+  exits and before any state on the way down to the target was entered, so a segment out of a
+  pseudostate declared in a composite state — the composite being entered on the way to the
+  pseudostate — logged its effect before the composite's `entry`. Each effect now runs once the
+  states down to the one declaring the pseudostate it leaves are entered: the composite's `entry`,
+  then the segment's effect, then the entry of the target below, at every depth of nesting, for a
+  junction as for a choice (whose guards are read once the state declaring it is entered and the
+  effects into it have run, so a guard testing what that state's `entry` wrote reads the new
+  value), for a pseudostate in one region of a parallel state (the parallel state entered first,
+  the other regions starting as usual) and for a history's default transition through such a
+  pseudostate. A choice whose branches end in different states enters only the states every branch
+  enters before its guards are read. The PSSM referee's counts do not move: *Junction 005* now
+  reaches an admitted trace and misses only the interleavings of the other region's entry, so it
+  stays `fail` on the region-order gap alone, adjudicated in `docs/project/pssm-referee.md`.
+
+- **Fixed a send receiver expression leaking what it built.** A `send … to <expr>` whose expression constructed objects — `send new Ping() via out to new Car()` — left the constructed object and its behaviors behind when the send then failed to deliver; the payload and receiver are now abandoned together. A `to` expression yielding a selected variant — such as a selection over `engine` where `engine::electric` is the chosen variant — now addresses the object the variant materializes instead of reporting that it holds no object.
+
+- **The npm platform packages and the nightly pipeline build statically linked binaries too.** `CGO_ENABLED=0` now governs the npm platform packages as well as `make build`, and `make static-check` runs in the nightly and npm pipelines beside the release and pull-request ones, so a dynamically linked binary fails those builds instead of shipping.
+
+- **Two flows out of one pin deliver twice.** A value a streaming flow carries to a target not yet under way waits at the target's pin, and a later write from the same source performance replaces it; the waiting place was keyed by the source performance and pin alone, so two `flow` declarations out of one pin into one target pin — the two routes of a fork duplicating a token, or a pin named by its inherited and its redefining name — collapsed into one delivery, and a second performance of a nested action definition with a required input ran with the input unbound (`unbound parameter`). Each `flow` declaration is a transfer of its own: the runtime (and the `smt` engine's encoding) keys the place by source performance, pin and flow, so the two flows each stage the write and two performances of the target each take one, while a later write along the same flow still replaces its earlier one (`action_flow_streaming_two_flows_one_pin_to_call`, `action_flow_streaming_aliased_source_pin`; on the fUML suite `ForkMergeData` reaches its recorded `0, 0` again).
+
+- **SysON plugin diagnostics land on the element they are about.** A parser diagnostic inside a nested element now maps to the innermost named element enclosing its line rather than to nothing; a serializer warning that names an element by id is attributed to that element (or its nearest named owner) rather than to the run target; and an anonymous satisfy or constraint usage can be the target of `verifySatisfaction` and `validateInstance`, which run against its enclosing named element.
+
+- **`terminate;` in a braced `entry { … }`, `do { … }`, `exit { … }` or transition `do { … }` block ends the whole block.** A `terminate` among the block's statements ended only the statement it was written in, so the assignments after it still ran — `entry { assign e := 1; terminate; assign e := 9; }` left `e` at 9 where the same body as `entry action a { … }` left it at 1. The block is now the action the `terminate` ends, in a state's and in the machine's own `entry`/`do`/`exit`, in a transition's `do` effect and in the blocks a definition's usages inherit: the statements after it do not run, a `do` block's later `accept` never parks, while a named action beside the block (`entry action first { … }`), the sibling regions' blocks, the state's `do` after its `entry` and the transition's completion after its `exit` or effect run as before (`state_terminate_braced_entry_do_exit_effect`, `state_terminate_braced_do_after_accept`, `state_terminate_braced_entry_among_named`, `state_terminate_braced_inherited_by_two_usages`, `state_terminate_braced_do_in_one_region`; `TestRuntimeRobustnessTerminateBlock`).
+
+- **A document binding may name a nested usage in dot notation.** `in req = specification.mission.range;` in a document's content block resolves the chain to the nested requirement; it was rejected as an unsupported binding before, so a query parameter could only be bound to a top-level usage or a qualified name.
+- **A verification case is matched to a requirement by the declaration it names.** `Verdicts(...)` compared the requirement a verification case verifies by scope-tree symbol, so a requirement nested inside a part that the document indexed under a second scope root had its verification cases dropped; the match now uses element identity, and the case's verdict row appears.
+- **The pandoc PDF engine no longer receives a `document-css` variable.** Passing `document-css=false` did not turn pandoc's built-in stylesheet off; pandoc read the variable as set, and its screen layout narrowed the page beside the print stylesheet. Only the print stylesheet is passed now.
+
+- **A wide table in a PDF document stays within the page.** The PDF stylesheet let a table grow past the text width when its cells held long unbreakable tokens such as qualified names, so the rightmost columns were cut off at the page edge; tables now take the text width and cells wrap anywhere they must.
+
+- **The SysML v1 migrator reads a transition guard serialized as a reference.** A UML `Transition.guard` some exporters write as a `guard="…"` reference to an owned rule of the transition, rather than as a `guard` child, is now found and written as the `if` clause, reported and kept in a comment when it has no v2 form; before, such a transition was written unguarded and its constraint left out of the report. A `LiteralBoolean` guard whose `value` the file omits is read as `false`, the UML default, where a transition guard is concerned; before, it was taken for `true` and dropped.
+
+- A transition from a substate into the composite state enclosing it no longer restarts that state's default substate: the composite is already active, so it is not re-entered, and the body the substate left completes — a composite with no other region completes and its completion transition fires, a parallel owner waits for its other regions. The PSSM referee's *Transition 011 C* moves `fail` → `pass` (`docs/project/pssm-referee.md`).
+
+- **A case's timed steps run on the clock.** A case body's action flow waited on the clock for
+  its own `accept after`, but the clock did not list its waits, so a timed step in an analysis
+  or verification case deadlocked; the flow is now on the clock for the run. A case an action
+  body performs as a step pauses that body, whose executor lists the case's waits among its own
+  and resumes the step when the instant comes, so a wait for a message nothing posts is the
+  typed `ErrAcceptDeadlock` of the performing action, and an expression reading a case's output
+  while it waits is the typed `ErrCaseReadWaits` naming the wait (`analysis_steps_wait_on_clock`,
+  `action_case_step_waits_on_clock`).
+- **A state behavior of no content executes as nothing.** A state's entry, do or exit behavior,
+  or a transition's effect, written as an action usage with neither a body nor an action
+  performed (`entry action hello;`, `do action log`) was refused at run time as performing no
+  action; it now executes as nothing, as a bodyless nested action of an action body does
+  (`state_behavior_action_of_no_content`).
+- **A binding end at a performed action's node reads the body's names.** A `bind` written at a
+  node of a `perform action` resolved a simple name to the performing part's feature before the
+  enclosing action's same-named parameter, so a parameter given no value read the part's value
+  instead of being empty; the name now resolves in the body's scope first, as an expression of
+  the body does. A pin valued by its own name (`inout log = log`) reads the feature it masks
+  around the usage owning the pin rather than itself, which was refused as a cyclic feature
+  value (`performed_action_binding_end_names_parameter`).
+
+- **A parallel region stood for by a stateless state needs no initial.** A parallel state or machine whose direct substate declares no substates of its own is one region that starts in that state and stays there; lowering demanded an `entry; then <state>;` of it and refused the machine with "region … has no initial state", whether the region was a parallel state's or the machine's own. Both now lower and run, and a state's entry, do and exit behaviors, transitions and deferred events do not make it composite (`state_parallel_stateless_region`, `state_parallel_stateless_top_region`, `state_parallel_stateless_region_with_behaviors`).
+
+- **A `via` path that is a bare bound port reference leaves the bound port.** `send … via p` and `accept … via p` under an `in ref port p` that the caller binds to another object's port were rooted at the performer, so the message left or was awaited at the performer's same-named port, or was refused as unconnected; the bound port's owner now sends and receives it, and an action's own connector may end at such a reference by name. A binding that holds an object which is no port is refused as `ErrSendViaNotPort` rather than falling back to the performer.
+
+- **A private v1 property shown on a diagram in another namespace is no longer written `private`.** The view's `expose` — and any layout annotation naming it — must be able to refer to the feature, and v2 hides a private member from every qualified path; the migration report notes "private visibility is not written: view … exposes it".
+
+- **Transition triggers are labelled by the name their signal or operation ends in.** A rendered state or action view wrote an `accept` trigger as its source text, so a migrated transition accepting `TMT::'02 JPL'::…::Control::'Post-Segment Exchange Alignment'` carried that whole path across the drawing. The DOT, Mermaid, PlantUML and text forms now head the trigger by its end name — `accept 'Post-Segment Exchange Alignment'`, `accept msg : Halt`, `accept setSpeed(value)` — the way a node's type is headed; time and change events keep their written text.
+
+- **`.sysml` and `.kerml` files are recognized in VS Code Restricted Mode.** The extension now declares limited untrusted-workspace support, so files are no longer opened as Plain Text when the folder is untrusted; looking up `bin/sysml-lsp` inside the workspace requires a trusted workspace.
+
+- **The diagram panel shows an element table as a table.** A table-kind view or the `#table` pseudo-view was written into the panel as its Markdown source; it is now drawn as a table from the rendering's rows, and clicking a row opens its element in the editor.
+
+- **Every witness `check` writes replays.** A replay past its witness's last choice line went on as `reverse`, a sweep giving every token its turn in one step, where the checker that wrote the witness made one move a step to the end; a `do` body looping through timed waits kept stepping after the last order the checker had to record, so the replay left another trace and `-engine check` reported `replay disagrees with the witness` — the runtime showcase's spacecraft, checked on `SpacecraftComms::mission.spacecraftVehicle`, wrote a witness of `battery = 39` it could not reproduce. A replay now stays one token a step past the witness, picking as `reverse` would, and the run it re-makes is the checker's (`state_do_action_loop_timed_exit`). An action performed inline in another's flow steps its own tokens within the performer's step, and the checker records the inner branches' order at the performer's step number; replay followed that line against the performer's frame, where the performer's token alone is able to act, and refused it — it now follows an order over the tokens of the flow holding them all, so the line is resolved in the inner flow, and an order naming a token no flow holds is refused once the step is past (`TestCheckWitnessesOfAnInlinePerformanceReplay`, `TestRuntimeRobustnessReplay`).
+
+- **XMI metadata attributes on stereotype applications are no longer emitted as stereotype tags.** Migration now ignores tool metadata such as `xmi:uuid` instead of reporting it as an unsupported tag.
+
+### Performance
+
+- Validating a model rich in membership imports no longer re-scans the names registered under a segment on every lookup: `ShortNamed` is memoized per index generation, undoing a ~25% whole-model validate slowdown introduced with the import-prune fix.
+
+- **A workspace keeps its semantic model between edits and invalidates it per document.**
+  `model.Workspace` owns one `resolve.Resolver` and one `semantics.Model` for its lifetime and
+  hands them to every analysis it runs; the resolver keeps a frame per document owning what was
+  memoized while that document was analyzed and records which documents it read (a namespace it
+  imports that another contributes to, a namespace both contribute to, a symbol of another that a
+  resolution returned). Replacing a document drops its frame and, transitively, its dependents' —
+  their memo entries, cached diagnostics and reverse references — and nothing else, where every
+  edit used to clear the whole workspace. The OOSEM, MOSA and identity-metadata audits and the
+  coherent-quantity ranking gather each document's facts once into the workspace and judge each
+  analyzed document over the union, where they gathered every document once per document
+  analyzed. `TestIncrementalEqualsFresh` replays scripted and random edit sequences over the
+  fixtures and the OMG corpora and compares diagnostics, resolutions and references with a fresh
+  workspace after every step. On the satellite-network stress test, editing a two-line file beside
+  512 satellites goes from 861 ms and 327 MiB per edit to 8.7 ms and 2.0 MiB; editing the library
+  every file of the split network imports costs one analysis of the model (8.8 s to 5.3 s at 512
+  satellites), and loading the 1 600-satellite network split into 34 files through one workspace
+  goes from 126 s to 18 s. A loaded workspace holds about twice the heap (254 MiB to 478 MiB at
+  512 satellites), the memo tables that were allocated and discarded on every analysis, and a
+  thousand edits grow it by 4.5%. A one-shot `sysml -validate` pays the dependency recording it
+  never uses: about a sixth more wall time (1.9 s to 2.2 s at 200 satellites) and 4% more
+  allocation. Figures and the machine they were taken on are in `docs/internals/performance.md`
+  and `docs/project/satellite-network-stress-test.md`.
+
+- **A references query made right after an edit is slower than in 0.8.1, in exchange for
+  incremental invalidation.** The resolver now records which documents and names each
+  resolution read, so an edit invalidates only what depended on it: a rename or an edit beside
+  a large document is several times faster than before. The recording is paid on the first
+  query after an edit that walks a long wildcard-import chain, where cold references measure
+  about 40% slower on the LSP benchmark; the query itself returns the same locations.
+
+- **Resolving a name through a scope no longer rescans every anonymous member of that scope for implicit parameters.** The resolver used to walk all anonymous members and test each for an implied redefinition on every unqualified lookup, so a definition with many anonymous interface usages cost more per name the larger it grew. The candidates are now collected once per scope and journaled with the other per-scope caches; validating a 1 600-satellite constellation of fully modeled spacecraft drops from 30 s to 19 s.
+- **Checking `n` satisfy assertions no longer walks the model `n` times for verification cases.** The runtime collected every verification case beneath the model root on each satisfaction check; the walk is now memoized per scope for the life of the runtime model, so `sysml -satisfy` over 600 assertions on a 200-satellite constellation drops from 5.9 s and 2.2 GiB allocated to 3.9 s and 1.5 GiB.
+
+- The `~` undefined-operator warning now reads the operator sites the parser records instead of walking every node of every document, removing about 8% from load and validation time.
+
+- **A state machine's poll of the signals in flight is memoized.** A run holding many active
+  objects probed every state machine's transitions against every queued message at each
+  scheduling step; the probe's answer is now kept until a queue, a write, a nested call, a
+  rollback or another executor changes what it could see, which makes a long stochastic run of
+  a model with many active parts several times faster with the same trace.
+
+## 0.8.1 — 2026-09-16
+
+### Added
+
+- **The VS Code diagram opens with a keystroke or a click.** `SysML: Open Diagram` is bound to <kbd>Alt</kbd>+<kbd>D</kbd> (<kbd>Option</kbd>+<kbd>D</kbd> on macOS) and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>), active only in a `.sysml` or `.kerml` editor or in the diagram panel itself, where the same key returns to the source. The command also sits in the editor's title bar and right-click menu and in the Explorer's menu for model files, which opens the file and its diagram side by side; `SysML: Export Diagram` joins it in the editor menus. Without a running server, or one too old to draw, the commands say so instead of greying out.
+
+### Fixed
+
+- **The SysML v1 migration reads an opaque body expression's own names as its own.** An opaque expression written in v2 syntax whose body expression declares parameters or members — `{ in v; v > limit }` — no longer fails to copy because `v` is not a feature of the surrounding block; only the names the body reaches for beyond its own are checked for visibility, including those in a nested body, a nested constraint or a multiplicity bound (`in v { attribute y[limit]; }`). A body declaring a member kind the check does not read, such as an import, is left unmapped rather than copied unchecked. A feature chain on one of the body's own names is checked against the type the name is declared with — `{ in v : Pt; v.missing }` is unmapped rather than copied, and `{ in v; v.x }` is unmapped because `v` declares no type to check `x` against. A qualified name starting in a standard-library package, `ScalarValues::Integer` or `ISQ::mass`, is checked against the bundled library, which a v2 model reaches without importing it; a bare `Integer` is still not visible without an import. What the expression is followed by must be nothing, so `c > 0.0; attribute k = c` is still not one expression.
+- **The SysML v1 migration keeps an empty slot of a required feature as a comment.** A slot holding no value for a feature of multiplicity 1 or more contradicts the feature just as too many values do, and is now left unmapped with that note instead of being written as a redefinition bound to nothing. An empty slot of an optional feature is still written.
+- **The SysML v1 migration does not redefine a feature of a classifier the individual leaves out.** An instance classified by both a block and a constraint block is written as an `individual part def` of the block alone; a slot for a feature of the constraint block is now left as a comment rather than redefining a feature the individual does not inherit.
+- **The SysML v1 migration keeps a typed-in number of any size.** A string default spelling a whole number or a real for a numeric feature is now checked exactly, so `"9223372036854775808"` for an `Integer` and `"1e400"` for a `Real` are written as those values instead of being left as comments for exceeding a machine word or a double.
+- **`-check-timeout` (`%check-bounds timeout=`) is the `smt` engine's solver clock as well as
+  the plan's.** Each solver query of a check runs under the check's timeout in place of
+  `OPENSYSML_SMT_TIMEOUT`, so a check told it may run for `2m` is no longer left *not covered*
+  by a query the solver's own 10 s default cut short; the `solver` bound the result names is
+  the clock the query ran under. Without a timeout the queries keep `OPENSYSML_SMT_TIMEOUT`.
+
+- **A library copy whose root package states only a short name is read as the library.** The
+  notation-side library check looked the root up by its long name alone, so a copy opening with
+  `standard library package <Occurrences> {` fell through to user-document analysis and its
+  elements took derived ids. The check now uses the name the symbol table registers the package
+  under — the long name, else the short name — as the graph-side check already did.
+
+- **Every Mermaid flowchart `subgraph` now states the flowchart's `direction`.** Mermaid lays
+  out a subgraph that states no direction without regard to the flowchart's, so an action
+  rendering declared `flowchart TD` drew its container's contents left to right, and an
+  interconnection or action rendering with `direction BT` or `RL` lost the direction inside
+  every container. Each `subgraph`, nested ones included, now opens on `direction <flow>` —
+  `TD`, `LR` for an interconnection, or the direction the view or the caller asked for — so
+  the drawing follows the declared direction throughout. A tree draws containment as edges
+  rather than subgraphs and is unchanged.
+
+- **The landing page's four refereed-comparison cards no longer wrap three and one.** The grid
+  now lays them out in one row of four on wide screens, two rows of two below the width at which
+  four fit, and a single column on phones, instead of letting the fourth card fall alone onto a
+  second row.
+
+- **Every build of `sysml`, `sysml-lsp` and `sysml-grpc` is now statically linked, not only the release job's.** `CGO_ENABLED=0` moved from the release scripts into the Makefile's build and install targets, so `make build`, `make install` and the pull-request build no longer link the builder's glibc either; a Linux `sysml-grpc` built that way needed glibc 2.34 where the release binary did not. `make static-check` (`scripts/check-static-binaries.sh`) verifies the Linux binaries, and the release and pull-request pipelines run it, so a dynamically linked binary now fails the build instead of shipping.
+
+- **A transition's `accept` trigger payload is a member of the transition.** The parameter an
+  accept trigger declares (`transition t first a accept p : Payload then b;`) was catalogued in a
+  scope of its own, so it had no owner, no qualified name and — for the one such parameter in the
+  standard library, `Actions::AcceptAction::aState::aTransition::apayload` — no normative id, the
+  last named library element whose id differed from the pilot's XMI. The symbol index now defines
+  it in the transition's own scope beside the effect and body members, so `t::p` names it, the
+  normative catalog derives its id under the transition, and `TestPilotLibraryXMI` lists no
+  pilot-only element. The guard, effect and body still reach it as before; any other reference
+  to it reports `Must be an accessible feature`, as the pilot does.
+
+- **The SysML v1 migration reads past the UML metaclass where the tool's own encoding hides the
+  v2 form.** A Signal is an `item def`, and properties typed by one are `item` / `ref item`, not
+  `attribute def` and `attribute`. A constraint block's parameters are public `in attribute`s —
+  `in ref part`s when typed by a block — whether the tool stores them as UML Properties or, as
+  MagicDraw does under a «ConstraintParameter» marker, as UML Ports, and a `private` parameter loses its visibility so
+  the block's binding connectors can reach it — as does any private feature a connector, slot,
+  redefinition or subset reaches from outside, the report naming what reached it; a connector
+  or slot that is itself left as a comment reaches nothing. A private packaged element (a
+  block, value type or enumeration) is written public, with a note, since v2 would put it out
+  of reach of the packages importing it. A type
+  referenced by href into the SysML or UML primitive library resolves to `ScalarValues::Real` /
+  `Integer` / `Boolean` / `String` from a plain (`PrimitiveTypes.xmi#Real`) or dotted
+  (`SysML.xmi#SysML_dataType.Real`) fragment, or from the qualified name MagicDraw records
+  beside an opaque id (`referentPath`) into a module named for that library; the tool library's `float`, `double`, `int`, `long`,
+  `short`, `byte` and `boolean` are written as the matching scalar and reported as
+  approximations. A nested connector end's `propertyPath` given as one whitespace-separated
+  attribute is split into its ids rather than failing to resolve. An opaque expression is copied
+  only when it parses as v2 and every name it uses is a written element visible where it is
+  written, so a JavaScript body, a bare enumeration literal or a call to an operation stays a
+  comment, and a private inherited feature an expression names is exposed like one a connector
+  reaches. An instance of a value type is
+  an `attribute` typed by it rather than an `individual def` that cannot specialize an attribute
+  def; a slot contradicting its feature — more values than the multiplicity allows, a repeated
+  value of a unique feature, a feature of a classifier the instance is not written to
+  specialize — is left as a comment; a real
+  literal on an `Integer` feature and a numeric string on a scalar feature take the feature's
+  scalar, a literal on a value type or enumeration with no scalar base is not bound, and a
+  default naming an instance of a block types the usage by that individual — its only type when
+  the property is untyped, and not at all when the usage is a port, of another kind than the
+  individual, or typed by a block the individual is not an instance of — instead of being written
+  as a value. An instance of a block is an
+  `individual part def` and of a constraint block an `individual constraint def`, and a slot of a
+  part, item or constraint property is written too: one instance redefines the property as an
+  `individual part :>> x : 'the instance';`, several each subset it under a redefinition
+  counting them, while a slot whose instance is not of the property's type, or differs from the
+  individual its default types it by, is left as a comment. An undirected part or item property of an interface block is a `ref`,
+  since a port owns no composite parts, and a specializing block's property named like an
+  inherited one redefines it when both are the same kind of usage, and is reported when they
+  are not. Migrating the current TMT observatory model now yields notation
+  with no analysis errors, down from a hundred, and keeps the structure of its instance trees.
+
+- **The VS Code extension's test runner finds `src/` on Windows.** `tools/test.mjs` derived its
+  `src/` and `out/` directories from a file URL's `pathname`, which on Windows carries a leading
+  slash before the drive letter, so `path.resolve` prefixed the current drive again and
+  `npm test` / `npm run package` failed with `ENOENT … scandir 'C:\C:\…\src'`. The paths now come
+  from `fileURLToPath`, which yields a native path on every platform.
+
+- **A diagram drawn from an older `sysml-lsp` no longer labels a typed usage `undefined`.** A
+  server predating the node `type` field in `opensysml/render` sends no such field, and the
+  VS Code panel wrote the missing value into the label as `engine : undefined`. The extension
+  now fills in what an older server omits — a node's `type`, `name` and `detail`, an edge's
+  `label`, absent lists — before drawing, so such a usage reads `engine`, «part», `Engine`, as
+  that server's own client drew it, and an unnamed element leads with its kind alone.
+
 ## 0.8.0 — 2026-09-14
 
 ### Added
@@ -2678,7 +4343,7 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
   are reported as not compared rather than diffed forever. The opt-in Flexo harness measures
   the apply against the real stack — an initial load, a revision with a retained-id rename and
   gated deletes, a conflict staged behind the sync's back — and records what read back at the
-  recorded commit ([the report](internal/interop/flexo/testdata/identity_apply_expected.txt)).
+  recorded commit ([the report](internal/translate/interop/flexo/testdata/identity_apply_expected.txt)).
 - **Action and state execution has a referee outside the executor.** Six conformance cases —
   a join fed by branches of unequal length, a join fed twice over one succession, a node two
   successions reach, two fork branches writing one feature, the specification's `ChargeBattery`

@@ -309,7 +309,7 @@ state working parallel {
 }
 ```
 
-`internal/core/lower/state_graph.go` synthesizes one `ast.StateRegion` per state substate
+`internal/ir/lower/state_graph.go` synthesizes one `ast.StateRegion` per state substate
 (`parallelRegions`, `isParallelRegionMember`), named after that substate, and fills `RegionOf`,
 `RegionOwner`, `RegionInitials` and `CompositeStates` from it. The parallel state itself keeps what
 it declares directly — its behaviors, `defer`, its pseudostates and the edges between them — so a

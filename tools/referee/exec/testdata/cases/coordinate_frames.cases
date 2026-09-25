@@ -1,0 +1,15 @@
+model: tools/referee/exec/testdata/models/coordinate_frames.sysml
+
+# Coordinate frames and measurement scales as values. The pinned pilot
+# evaluates none of `CoordinateFrame/`, `VectorCalculations::'['` over a frame,
+# `ConvertQuantity` or `transform`, and answers a frame or a scale as the
+# declaration it names, so every case lands in pilot-unevaluated.
+frame-with-axes ::  :: Frames::spatialCF
+frame-divided-by-unit ::  :: Frames::velocityCF
+frame-divided-twice ::  :: Frames::accelerationCF
+vector-over-frame ::  :: Frames::p
+vector-frame-ref ::  :: Frames::pFrame
+transform-placement ::  :: Frames::placed
+convert-to-scale ::  :: Frames::warm
+convert-from-scale ::  :: Frames::warmBack
+scale-as-value ::  :: Frames::utc

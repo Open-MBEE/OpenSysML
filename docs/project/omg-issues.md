@@ -2,8 +2,9 @@
 
 One place to look for defects found in the OMG-published sources this
 implementation consumes. This page records defects in the **vendored specification
-libraries** (`internal/core/libs/stdlib/`), in the **published example corpora**, and
-in the **OMG pilot implementation** the differential is measured against.
+libraries** (`internal/workspace/libs/stdlib/`), in the **published example corpora**, and
+in the **OMG pilot implementation** the differential is measured against, and in the
+**PSSM test suite** the state-machine referee runs.
 
 Each row quotes the vendored declaration verbatim so a reviewer can judge it
 without opening the library, and names what OpenSysML implements instead. Every
@@ -23,7 +24,7 @@ divergence is also a row in [spec-compliance.md](spec-compliance.md).
 ## `Collections::UniqueCollection::elements` and its kin — unique by a note, over a `nonunique` root
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Data Type Library/Collections.kerml`:
 
 ```kerml
 abstract datatype Collection {
@@ -94,9 +95,9 @@ own declarations and defaults are conforming:
   nothing — points the other way. `Set`, `OrderedSet`, `Map`, `OrderedMap`, and a model's
   `:>> elements` under any of them, inherit uniqueness from these four.
 
-Implementation: `internal/core/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
+Implementation: `internal/semantic/semantics/uniqueness.go` (`Model.IsUnique`, `uniqueByLibraryNote`).
 Evidence: `semantics/uniqueness_test.go:TestIsUniqueLibraryCollections` pins all six library
-collections; the conformance fixtures under `internal/core/runtime/testdata/conformance/`
+collections; the conformance fixtures under `internal/exec/runtime/testdata/conformance/`
 for ISQ vectors, coordinate frames and geometry run unchanged, and
 `library_ordered_set_elements_repeated` / `library_ordered_map_elements_repeated` refuse the repeat.
 The row is in [spec-compliance.md](spec-compliance.md) under *Uniqueness through redefinition
@@ -107,7 +108,7 @@ should say which of the two readings a redefinition takes.
 ## `includingAt` — the vendored declaration
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/SequenceFunctions.kerml`:
 
 ```kerml
 function includingAt{ in seq: Anything[0..*] ordered nonunique; in values: Anything[0..*] ordered nonunique;
@@ -130,7 +131,7 @@ vendored body and is recorded here for review against a future OMG release.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
+`internal/workspace/libs/stdlib/Kernel Libraries/Kernel Function Library/NaturalFunctions.kerml`:
 
 ```kerml
 function '/' specializes IntegerFunctions::'/' { in x: Natural[1]; in y: Natural[1]; return : Natural[1]; }
@@ -169,7 +170,7 @@ than truncating or answering a Rational (`runtime/library_operators.go`
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
 	calc def inner :> VectorFunctions::inner { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : Number[1]; }
@@ -229,7 +230,7 @@ results as declared (`runtime/quantity_functions.go`).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/VectorCalculations.sysml`:
 
 ```sysml
     calc def outer { in : VectorQuantityValue[1]; in : VectorQuantityValue[1]; return : VectorQuantityValue[1]; }
@@ -261,7 +262,7 @@ Should `outer` declare `return : TensorQuantityValue[1]`?
 
 The pinned pilot implementation (`2026-07`, `jupyter-sysml-kernel` 0.61.0)
 evaluates no `VectorCalculations` or `TensorCalculations` call
-(`cmd/pilot-exec-diff`, `tensor_quantities.cases`: all twelve probes, `outer` among
+(`tools/referee/exec`, `tensor_quantities.cases`: all twelve probes, `outer` among
 them, are pinned `pilot-unevaluated`), so it
 offers no reference answer. OpenSysML leaves `outer` unevaluable with a reason
 naming the declared return type (`runtime/quantity_functions.go`
@@ -273,7 +274,7 @@ types a call by the declaration, as the checker must.
 Not a defect report; a record of a reading the text does not fix.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/TensorCalculations.sysml`:
 
 ```sysml
     calc def isZeroTensorQuantity { 
@@ -307,7 +308,7 @@ invented for a vector, a rectangular or a higher-order tensor.
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
+`internal/workspace/libs/stdlib/Domain Libraries/Quantities and Units/MeasurementReferences.sysml`:
 
 ```sysml
 	attribute def CoordinateFramePlacement :> CoordinateTransformation {
@@ -392,7 +393,7 @@ the unit's own `unitConversion` the only factor a scale may apply?
 The pinned pilot implementation (`2026-07`, `jupyter-sysml-kernel` 0.61.0)
 evaluates none of `transform`, `MeasurementRefCalculations::'CoordinateFrame/'`,
 `VectorCalculations::'['` over a frame or `ConvertQuantity` to a scale
-(`cmd/pilot-exec-diff/testdata/cases/coordinate_frames.cases` pins the probes as
+(`tools/referee/exec/testdata/cases/coordinate_frames.cases` pins the probes as
 pilot-unevaluated), so it offers no reference answer for any of the four.
 
 OpenSysML follows the literal reading of each: a placement maps target
@@ -413,7 +414,7 @@ record's *Structured values* section names each decision).
 posted upstream.
 
 Quoted verbatim from
-`internal/core/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
+`internal/workspace/libs/stdlib/Domain Libraries/Geometry/ShapeItems.sysml`
 (`CuboidOrTriangularPrism`; `Cuboid` adds the `srf`, `tsre`, `ufre`, `urre`,
 `tfrv`, `trrv` bindings in the same form):
 
@@ -533,7 +534,7 @@ and `%features` alike (`runtime/binding.go` `UndeterminedBindingError`; conforma
 `instance_library_geometry_box`):
 
 ```text
-binding end cannot be resolved: box.tfe is bound by `bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
+binding end cannot be resolved: box.tfe is bound by `binding [1] bind [0..1] tf.edges = [0..1] tfe`, which makes some value of tfe a value of tf.edges without saying which value of either; the model does not state what tfe holds
 ```
 
 The runtime reads each partial binding on its own and does not solve the conjunction of several, so a group two partial bindings *would*
@@ -577,17 +578,17 @@ does not have the dimension of the measurement unit it is typed by, judged again
 definitions those files import. The pinned pilot is silent on every one, as on the example rows
 above, because it does not perform the corresponding check.
 
-Every finding is an entry of the declared errata overlay (`internal/errata`,
+Every finding is an entry of the declared errata overlay (`tools/oracle/errata`,
 [the declared errata overlay](errata-overlay.md)), under the same contract as the example-model
 entries below: a specification citation, a written derivation, and an as-published line that
 must still match the vendored file, all checked by tests. The published bytes under
-`internal/core/libs/stdlib` are never edited. Three entries carry a correction — the line has
+`internal/workspace/libs/stdlib` are never edited. Three entries carry a correction — the line has
 one reading with the declared dimension — and the library a process loads
 (`libs.BundledSource`, and the snapshot generated from it) is the published text with those
 three lines substituted on read. The other six have no unambiguous intended reading and are
 documented **without** a correction: the bundled library keeps their published text and the
 checker keeps reporting them. `libs.EmbeddedSource` still serves the text exactly as published,
-and two gates in `internal/core/model` pin both verdicts as exact sets:
+and two gates in `internal/workspace/model` pin both verdicts as exact sets:
 `TestExprTypeCheckPublishedStdlibDefects` finds all nine over the published text, and
 `TestExprTypeCheckNoStdlibFalsePositives` finds exactly the six uncorrected ones over the bundled
 library — so a correction can only be declared for a line the checker rejects, and a corrected
@@ -772,10 +773,10 @@ and not from a disagreement alone.
 | `org.omg.sysml` — `Type::ownedDisjoining` setting delegate | `2026-05` (`jupyter-sysml-kernel` 0.60.1) | every `disjoint from` clause in a type declaration draws EMF's `The opposite features 'owningType' … and 'ownedDisjoining' … do not refer to each other` | [one cause for all six corpus diagnostics](pilot-differential.md#k6-diagnostic-by-diagnostic-f33), reproduced in three lines and probed through the pilot's API | filed upstream as [Systems-Modeling/SysML-v2-Pilot-Implementation#790](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/790), **fixed** by [#791](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/pull/791) (`basicGet` compared `getTypeDisjoined()` against the delegate rather than the owner) and shipped in `2026-08`, where all six corpus diagnostics are gone; body below |
 | `org.omg.sysml` — the `queryx/failing` Xpect fixtures | `2026-05` (`jupyter-sysml-kernel` 0.60.1) | `QPE-Qualifier`, `QPE-Traversal` and `QPE-Wildcard` declare `XPECT noErrors`, yet the pinned validator rejects all three with `no viable alternative at input '/'`, `For input string: "."` and `no viable alternative at input '@'` | [adjudications.md](adjudications.md) — established by running the pinned pilot's own SysML validator on the three fixtures, not from a disagreement | **not filed** — question drafted below, awaiting maintainer authorisation |
 | `org.omg.sysml.xtext` — `checkTransitionFeatureMembership` (`validateTransitionFeatureMembershipGuardExpression`) | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | `TransitionUsage_invalid.sysml.xt` expects `Must be a Boolean expression.` at `if "test"`, yet the pinned validator with the full standard library accepts a `String` or arithmetic guard in the same shape | [pilot-rejection.md](pilot-rejection.md#constraints-the-pilot-declares-but-does-not-enforce) — established by running the pinned pilot's own SysML validator on the fixture's shape, not from a disagreement alone | **not filed** — question drafted below, awaiting maintainer authorisation |
-| `org.omg.sysml.xtext` — `SysMLValidator.checkControlNode`, `checkDecisionNode`, `checkForkNode`, `checkJoinNode`, `checkMergeNode` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a fork or decision node with two incoming successions, a join or merge node with two outgoing, and a succession end whose written multiplicity is not the one SysML v2 §7.17.3 requires all validate clean; only `validateControlNodeOwningType` is reported | established from the pilot's source: eight of the nine constraints are `// TODO: Check validate… (?)` comments in the check methods (`SysMLValidator.xtend:857–888` at `c7fc737`); the reproducers are `cmd/pilot-reject/testdata/negative/semantic/cn01`–`cn04`, `cn06`–`cn09`, run through the pinned batch validator | **not filed** — drafted below, awaiting maintainer authorisation |
-| `org.omg.kerml.xtext` — `KerMLValidator.checkFeature`, the `validateFeatureOwnedCrossSubsetting` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a feature with two `crosses` clauses reports `Error executing EValidator` instead of `At most one cross subsetting is allowed`: the loop indexes `refSubsettings` (the reference subsettings, collected for the check above it) with the cross-subsetting index, and throws | established from the pinned `KerMLValidator.xtend` line 649 and reproduced with `cmd/pilot-reject/testdata/negative/semantic/k42-two-cross-subsettings.kerml`; [pilot-rejection.md](pilot-rejection.md#permissiveness-gaps) records the case as a gap of ours | filed upstream as [Systems-Modeling/SysML-v2-Pilot-Implementation#794](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/794), **fixed** upstream (ST6RI-966, commit `241aea55`, 2026-09-05: the loop now indexes `crossSubsettings`) and shipped in `2026-08`, where the pinned validator reports `At most one cross subsetting is allowed`; body below |
-| `org.omg.kerml.xtext` — `KerMLValidator.checkMultiplicityRange`, the `validateMultiplicityRangeResultTypes` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a multiplicity bound naming a package-level feature typed by `ScalarValues::Natural` or `Integer` (`feature k : Natural; feature d [k];`, both owned by a package) reports `Must have a Natural value`; the same bound inside a type (`class T { feature k : Natural; feature d [k]; }`) is accepted | established from the pinned `KerMLValidator.xtend` lines 1333–1339, `FeatureReferenceExpression_modelLevelEvaluable_InvocationDelegate` and `MultiplicityRange_valueOf_InvocationDelegate`: a reference to a feature with no featuring type and no value is deemed model-level evaluable, its evaluation yields the feature rather than a `LiteralInteger`, `valueOf` returns the `-2` null marker and the check reports it; a reference to a type's member is not evaluable and is judged by its type through `isInteger`. The method carries `// TODO: Correct validateMultiplicityBoundResults OCL from KERML-199`. Reproduced with the model below through `validate-kerml` at `2026-07` and again at `2026-08` (0.62.0); the lines are unchanged on `master` at `5cca16d8` (2026-09-12). [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round) records how OpenSysML judges both spellings by the referent's type | **ready to file** — approved for filing, body below is the report as it is to be submitted |
-| `org.omg.sysml.logic` — `Type_multiplicity_SettingDelegate`, behind `KerMLValidator.checkFeature`'s `validateFeatureMultiplicityDomain` check and `checkClassifier`'s `validateClassifierMultiplicityDomain` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a feature whose body holds an `alias` for a `multiplicity` member of the enclosing class, or whose value references one (`class E { multiplicity em [1..4]; feature k : Integer { alias a for em; } }`), reports `Multiplicity must have same featuring types as it feature`, and a classifier holding an alias for a feature's multiplicity (`class C { alias m for K::f::m; }`) reports `Multiplicity must not have a featuring type`, although neither type owns a multiplicity; the spec-genuine violation, a standalone `featuring of C::k::m by D;` on a feature's owned multiplicity, is accepted | established from the pinned `Type_multiplicity_SettingDelegate.getMultiplicityOf` (lines 43–48 at `c7fc737`), which takes the first `Multiplicity` among the members of every `ownedMembership` — aliases and reference memberships included — where KerML 1.1 8.3.3.1.10 `deriveTypeMultiplicity` reads `ownedMember->selectByKind(Multiplicity)`; and from `Feature_featuringType_SettingDelegate.basicGet` (lines 39–51), which reads `ownedTypeFeaturing` where 8.3.3.3.4 `deriveFeatureFeaturingType` reads every `typeFeaturing`. Reproduced with the models below through `validate-kerml` at `2026-07` and again at `2026-08` (0.62.0); the delegate is unchanged on `master` at `5cca16d8` (2026-09-12), and upstream [#708](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/708) fixed the same alias-membership mistake in `TypeUtil.addMultiplicityTo`. [validation-constraints.md](validation-constraints.md) records both census rows | **ready to file** — approved for filing, body below is the report as it is to be submitted |
+| `org.omg.sysml.xtext` — `SysMLValidator.checkControlNode`, `checkDecisionNode`, `checkForkNode`, `checkJoinNode`, `checkMergeNode` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a fork or decision node with two incoming successions, a join or merge node with two outgoing, and a succession end whose written multiplicity is not the one SysML v2 §7.17.3 requires all validate clean; only `validateControlNodeOwningType` is reported | established from the pilot's source: eight of the nine constraints are `// TODO: Check validate… (?)` comments in the check methods (`SysMLValidator.xtend:857–888` at `c7fc737`); the reproducers are `tools/referee/reject/testdata/negative/semantic/cn01`–`cn04`, `cn06`–`cn09`, run through the pinned batch validator | **not filed** — drafted below, awaiting maintainer authorisation |
+| `org.omg.kerml.xtext` — `KerMLValidator.checkFeature`, the `validateFeatureOwnedCrossSubsetting` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a feature with two `crosses` clauses reports `Error executing EValidator` instead of `At most one cross subsetting is allowed`: the loop indexes `refSubsettings` (the reference subsettings, collected for the check above it) with the cross-subsetting index, and throws | established from the pinned `KerMLValidator.xtend` line 649 and reproduced with `tools/referee/reject/testdata/negative/semantic/k42-two-cross-subsettings.kerml`; [pilot-rejection.md](pilot-rejection.md#permissiveness-gaps) records the case as a gap of ours | filed upstream as [Systems-Modeling/SysML-v2-Pilot-Implementation#794](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/794), **fixed** upstream (ST6RI-966, commit `241aea55`, 2026-09-05: the loop now indexes `crossSubsettings`) and shipped in `2026-08`, where the pinned validator reports `At most one cross subsetting is allowed`; body below |
+| `org.omg.kerml.xtext` — `KerMLValidator.checkMultiplicityRange`, the `validateMultiplicityRangeResultTypes` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a multiplicity bound naming a package-level feature typed by `ScalarValues::Natural` or `Integer` (`feature k : Natural; feature d [k];`, both owned by a package) reports `Must have a Natural value`; the same bound inside a type (`class T { feature k : Natural; feature d [k]; }`) is accepted | established from the pinned `KerMLValidator.xtend` lines 1333–1339, `FeatureReferenceExpression_modelLevelEvaluable_InvocationDelegate` and `MultiplicityRange_valueOf_InvocationDelegate`: a reference to a feature with no featuring type and no value is deemed model-level evaluable, its evaluation yields the feature rather than a `LiteralInteger`, `valueOf` returns the `-2` null marker and the check reports it; a reference to a type's member is not evaluable and is judged by its type through `isInteger`. The method carries `// TODO: Correct validateMultiplicityBoundResults OCL from KERML-199`. Reproduced with the model below through `validate-kerml` at `2026-07` and again at `2026-08` (0.62.0); the lines are unchanged on `master` at `5cca16d8` (2026-09-12). [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round) records how OpenSysML judges both spellings by the referent's type | filed upstream as [Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803), body below is what was submitted |
+| `org.omg.sysml.logic` — `Type_multiplicity_SettingDelegate`, behind `KerMLValidator.checkFeature`'s `validateFeatureMultiplicityDomain` check and `checkClassifier`'s `validateClassifierMultiplicityDomain` check | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a feature whose body holds an `alias` for a `multiplicity` member of the enclosing class, or whose value references one (`class E { multiplicity em [1..4]; feature k : Integer { alias a for em; } }`), reports `Multiplicity must have same featuring types as it feature`, and a classifier holding an alias for a feature's multiplicity (`class C { alias m for K::f::m; }`) reports `Multiplicity must not have a featuring type`, although neither type owns a multiplicity; the spec-genuine violation, a standalone `featuring of C::k::m by D;` on a feature's owned multiplicity, is accepted | established from the pinned `Type_multiplicity_SettingDelegate.getMultiplicityOf` (lines 43–48 at `c7fc737`), which takes the first `Multiplicity` among the members of every `ownedMembership` — aliases and reference memberships included — where KerML 1.1 8.3.3.1.10 `deriveTypeMultiplicity` reads `ownedMember->selectByKind(Multiplicity)`; and from `Feature_featuringType_SettingDelegate.basicGet` (lines 39–51), which reads `ownedTypeFeaturing` where 8.3.3.3.4 `deriveFeatureFeaturingType` reads every `typeFeaturing`. Reproduced with the models below through `validate-kerml` at `2026-07` and again at `2026-08` (0.62.0); the delegate is unchanged on `master` at `5cca16d8` (2026-09-12), and upstream [#708](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/708) fixed the same alias-membership mistake in `TypeUtil.addMultiplicityTo`. [validation-constraints.md](validation-constraints.md) records both census rows | filed upstream as [Systems-Modeling/SysML-v2-Pilot-Implementation#802](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/802), body below is what was submitted |
 | `org.omg.sysml.logic` — `ConnectorAdapter.getDefaultSupertype`, with `KerMLValidator.checkConnectorBinarySpecialization` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | a connector owning two ends that redefine two ends of a three-ended general (`connector m : N { end redefines a references x; end redefines b references y; }`) reports `Cannot have more than two ends`, while the same shape spelled as an association (`assoc B specializes N { end redefines a : T; end redefines b : T; }`) is accepted | established from the pinned `ConnectorAdapter.xtend` (`getDefaultSupertype` counts `TypeUtil.getOwnedEndFeaturesOf(target)`, two here, so the connector is given `Links::binaryLinks`) and `KerMLValidator.xtend` (`checkConnectorBinarySpecialization` then counts three `connectorEnd`s), reproduced with the model below through `validate-kerml`; KerML 1.1 8.3.4.5.3 implies `Links::binaryLinks` only for `connectorEnd->size() = 2`, which counts the inherited end. [pilot-differential.md](pilot-differential.md#binary-link-specialization-round) records how OpenSysML counts effective ends for the base | **not filed** — question drafted below, awaiting maintainer authorisation |
 | `org.omg.sysml.xtext` — `SysMLValidator`/`KerMLValidator`, invocation argument count | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | an invocation that leaves a default-less `in` parameter unbound validates clean in every form: positional (`F(1.0)`, `F()` against `calc def F { in x : Real; in y : Real; … }`), named (`F(x = 1.0)`, `F(y = 2.0)`), with the omitted parameter declared `[1]` or `[1..*]`, on a calc, a behavior (`Act(1.0).r`, `Act()`), a constructor (`new P()`, `new P(1.0).q`) and an invocation heading a feature chain; only an argument past the last parameter is reported, `Must correspond to one input parameter of the invoked type` (`arity.sysml:38:32` for `F(1.0, 2.0, 3.0)`; `arity.kerml:30:30` for the KerML twin). The pinned evaluator forms and evaluates the same calls: `F(1.0)`, `F(x = 1.0)`, `F(y = 2.0)` and `F()` answer the unreduced `OperatorExpression +`, `F(1.0, 2.0)` `LiteralRational 3.0`, `D(1.0)` (`in y default 1.0`) `2.0`, `Opt(1.0)` (`in y [0..1]`) `1.0` | established by running the pinned `validate-sysml-batch` and `validate-kerml` over a 20-form probe of the above and `build/pilot-evaluator/eval-sysml --cases` over its evaluable rows (transcript below); earlier, `2026-05` (0.60.1) over the whole `airbus/apollo-11-sysml-v2` model at `6e9c93f` was silent on `ln(m0 / mf)` and `calculateDeltaV(isp, initialMass, finalMass)` ([performance.md](../internals/performance.md#a-real-model-apollo-11)), and the pilot's own `kerml-examples/Simple Tests/Behaviors.kerml:14` (`A().y` against `behavior A { in x; … }`) is silent under `validate-kerml` with `ParsingTests_Behaviors.kerml.xt` declaring the file error-free. **Adjudicated as the specification's reading, not a pilot defect:** KerML 1.0 §8.3.4.8.8 lists no `InvocationExpression` constraint on the count of arguments — `validateInvocationExpressionParameterRedefinition` and `…NoDuplicateParameterRedefinition` bound each argument *written* to one input, and the pinned validator's `Must correspond to one input parameter`, `Parameter already bound` and `Must be an in parameter` are those — so the unbound parameter is a property of the instance the call describes, not of the expression. OpenSysML therefore reports the omission as the advisory `unbound-parameter` (a warning in every conformance mode) identically at a bare call and at a chain head, and refuses the evaluation at run time with `ErrUnboundParameter` | **not filed** — a question, not a defect report, drafted below; a maintainer may still want to confirm the reading |
 | `org.omg.sysml.xtext` — `SysMLValidator.isDuration`/`isTime`, behind `validateTriggerInvocationActionAfterArgument` and `…AtArgument` | `2026-07` (`jupyter-sysml-kernel` 0.61.0) | with `d : DurationValue` and `t : TimeInstantValue`, `accept after d * d` and `accept at t * t` validate clean although the product has dimension T², while `accept after 10 [m] / 2 [m/s]`, whose quotient has dimension T, is refused | established from the pinned `SysMLValidator` class: an operator argument is a duration or an instant when its operator is one of `-`, `+`, `*`, `%`, `^`, `**` (`isQuantityOperator`) and every operand is itself one — `/` is not in the list and no dimension is computed; reproduced with the pinned batch validator, transcript below | **not filed** — question drafted below, awaiting maintainer authorisation |
@@ -938,7 +939,7 @@ reason for asking rather than implementing.
 Filed as
 [Systems-Modeling/SysML-v2-Pilot-Implementation#794](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/794);
 the body below is what was submitted. The reproduction is the rejection-corpus case
-`cmd/pilot-reject/testdata/negative/semantic/k42-two-cross-subsettings.kerml`.
+`tools/referee/reject/testdata/negative/semantic/k42-two-cross-subsettings.kerml`.
 Confirmed and fixed upstream: the maintainers reproduced it on 2026-09-05 and
 commit `241aea55` (ST6RI-966, "Fixed error message for cross-subsetting
 validation check") changed the loop to index `crossSubsettings`. The fix is in
@@ -1145,7 +1146,7 @@ bodies, so its result is `Anything` and no argument is a unit).
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. The rules are implemented on our side by
-`internal/core/passes/control_node.go` and refereed against the specification
+`internal/check/passes/control_node.go` and refereed against the specification
 text; the adjudication is in
 [pilot-differential.md](pilot-differential.md#control-node-successions-the-pilot-does-not-validate).
 
@@ -1215,13 +1216,13 @@ help.
 
 ### A bound naming a package-level feature is rejected whatever its type (pilot `2026-07`)
 
-**Ready to file.** Approved for filing against
-`Systems-Modeling/SysML-v2-Pilot-Implementation`; the body below is the report as
-it is to be submitted, and nothing has been posted yet. Reproduced with
+Filed as
+[Systems-Modeling/SysML-v2-Pilot-Implementation#803](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/803);
+the body below is what was submitted. Reproduced with
 `validate-kerml` at `2026-07` (0.61.0) and again at `2026-08` (0.62.0); the
 lines cited are unchanged on `master` at `5cca16d8` (2026-09-12). OpenSysML
 reads the referenced feature's declared type
-(`internal/core/passes/w8c_multiplicity_bounds.go`) wherever the feature is
+(`internal/check/passes/w8c_multiplicity_bounds.go`) wherever the feature is
 owned and rejects only a bound whose type does not conform to `Integer`; the
 adjudication is in
 [pilot-differential.md](pilot-differential.md#multiplicity-bound-result-types-round).
@@ -1305,9 +1306,9 @@ than that it lacks a Natural value.
 
 ### A multiplicity is found through aliases and references (pilot `2026-07`)
 
-**Ready to file.** Approved for filing against
-`Systems-Modeling/SysML-v2-Pilot-Implementation`; the body below is the report as
-it is to be submitted, and nothing has been posted yet. It covers both symptoms
+Filed as
+[Systems-Modeling/SysML-v2-Pilot-Implementation#802](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/issues/802);
+the body below is what was submitted. It covers both symptoms
 of the one delegate — the feature-side `validateFeatureMultiplicityDomain`
 and the classifier-side `validateClassifierMultiplicityDomain` — in one report.
 Reproduced with `validate-kerml` at `2026-07` (0.61.0) and again at `2026-08`
@@ -1413,7 +1414,7 @@ return type.getOwnedMembership().stream().
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML counts a declaration's effective ends — owned and
 inherited — when choosing between `Links::links` and `Links::binaryLinks`
-(`internal/core/semantics/implicit.go`, `connector.go`); the adjudication is in
+(`internal/semantic/semantics/implicit.go`, `connector.go`); the adjudication is in
 [pilot-differential.md](pilot-differential.md#binary-link-specialization-round).
 
 ````markdown
@@ -1580,7 +1581,7 @@ intended reading?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML checks a conjugated classifier against every default
-base its kind and end count imply (`internal/core/passes/w11e_implicit_base.go`);
+base its kind and end count imply (`internal/check/passes/w11e_implicit_base.go`);
 the census row (`validateClassifierDefaultSupertype` in
 [validation-constraints.md](validation-constraints.md)) records the difference as
 ⚠️ approximate.
@@ -1621,7 +1622,7 @@ implicit-specialization machinery that conjugation switches off?
 
 **Not filed.** Drafted here for a maintainer to authorise; nothing has been
 posted upstream. OpenSysML reports the two `Duplicate of … member name` warnings
-on every repeated anonymous performed or exhibited use (`internal/core/resolve/distinguishability.go`),
+on every repeated anonymous performed or exhibited use (`internal/semantic/resolve/distinguishability.go`),
 as the pilot does when the uses have bodies; the Name Resolution map in
 [spec-compliance.md](spec-compliance.md) records the bodiless case as a pilot
 artefact.
@@ -1666,10 +1667,175 @@ what (4) and (5) do?
 
 ---
 
+## Defects in the PSSM test suite
+
+This section records defects in the **OMG PSSM test suite** (`PSSM_TestSuite.xmi`, the UML
+2.5 XMI file of 103 state-machine tests that [the PSSM referee](pssm-referee.md) translates
+and runs). A row lands here only when the suite's registered expectation contradicts the
+suite's own statement of the test's intent or the semantics it claims to test, established from
+the file's contents — or, for two tests of one shape, contradicts the expectation registered for
+the other; a test the runtime merely fails is the referee's business, not this
+page's. The suite is downloaded, digest-checked and never vendored, so a defect here is
+documented without a correction: the referee runs the suite as published, and the record
+adjudicates the test on the traces the suite registers.
+
+| Test | Registered expectation | Defect | Reading | Status |
+|---|---|---|---|---|
+| *Transition 017* | eight admitted traces, two of which — `T2(effect)::S1(entry)::T2.2(effect)::T3.2(effect)::S3.1(doActivity)::T3.1.2(effect)` and `…::T2.2(effect)::T3.2(effect)::T3.1.2(effect)::S3.1(doActivity)` — have `T3.2`, the completion transition out of `S3.1`, fire before `T3.1.2`, the completion transition inside `S3.1`'s own region, and run `S3.1`'s do activity after it | a composite state completes when its regions have reached their final states, so its completion transition cannot precede a transition of its region; the suite's own "Expected execution sequence" comment on the test's state machine fires `T3.2` when the completion event `S3.1` generates is consumed, *after* the inner region's `T3.1.2` and final state — the six other traces, not these two | `StatePerformances.kerml`: `private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;` on `StateTransitionPerformance` orders a transition out of a state after every non-do middle step of the state, the nested region's transition performances among them; `private succession [*] middle then [1] exit;` orders every middle step, the do activity included, before the state's exit. No reading of either admits `T3.2(effect)` before `T3.1.2(effect)` | **not filed**; documented without a correction — the test stays `fail` in the referee on these two traces alone, adjudicated in [the referee record](pssm-referee.md) |
+| *Exiting 002* | one admitted trace, `S1(doActivityPartI)::S1(exit)`, the do activity's first segment before the dispatch of the tester's `Continue` that leaves `S1` | the suite has a do activity evolve on its own thread of execution, and registers both orders of the same segment against the same dispatch for *Behavior 003 A*; `S1(exit)` alone, the dispatch first, is not registered here | the second order is the suite's own reading one test earlier; the test's point, the exit aborting the do activity, holds in both | documented, not corrected: `fail` in the referee while `S1(exit)` is the only reached trace not admitted |
+| *History 001-C*, *History 002-B* | twelve and six admitted traces, each set the product of the orders registered for the test's two halves — the first entry of the parallel `S1`, then its re-entry through the history pseudostate of region 2 after `AnotherSignal`. The two halves are structurally identical between the tests (`S2.1` carries an exit action and `T2.2.2` an effect in *002-B*, labels only) and the registered orders differ: *001-C* admits `S2.2(entry)::S1.1(exit)::S1.2(entry)::S2.2.1(exit)::S2.2.2(entry)` for the first half and *002-B* does not admit its counterpart, while *002-B* admits `S2.1(exit)::S2.2(entry)::S2.2.1(exit)::T2.2.2(effect)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)` and *001-C* does not admit its; for the second half *001-C* admits `S1.1(exit)::S2.2(entry)::S1.2(entry)::S2.2.2(entry)`, the firing of `T1.2` split around a restored entry, and *002-B* admits no split; and both admit `S1.1(exit)::S1.2(entry)` before or between region 2's restored entries | the specification's own descriptions of the two tests (PSSM 1.0 §9.3.15.4 and §9.3.15.7) end the RTC step that restores region 2 with `S1.1`'s completion event *pending* and fire `T1.2` in the next step, and §8.5.9 dispatches completion events in the order they were generated: `S2.2.1`'s completion, generated a step after `S1.1`'s, cannot be dispatched before it, and whichever region is entered first, its completion is dispatched first. Read by that text, *001-C* admits two of its twelve traces and *002-B* two of its six and two it does not register | `StatePerformances.kerml` orders a state's `entry` before its `middle` and a transition out of a state after its source's non-do middle steps, and nothing across regions; it neither orders one region's completion transition against a sibling region's entry nor forbids it, so the split firing is not excluded by the library — it is excluded by PSSM's own run-to-completion step, which the two tests describe alike and register differently | **not filed**; documented without a correction — both tests stay `fail` in the referee, adjudicated in [the referee record](pssm-referee.md); no runtime rule reaches either registered set without reaching traces the other test refuses |
+
+### PSSM Transition 017 admits a parent's completion before its region's
+
+The test enters the parallel state `S1`, whose third region holds the composite `S3.1` with a
+do activity (`S3.1(doActivity)`), a region of its own whose single state `S3.1.1` completes
+into a final state through `T3.1.2` (`T3.1.2(effect)`), and a completion transition `T3.2`
+(`T3.2(effect)`) out of `S3.1`; the second region's `S2.1` completes through `T2.2`
+(`T2.2(effect)`). The eight traces the suite registers for the test (the `expectedTraces` of
+`t017` in the `TransitionTests` activity) are orders of `T2.2(effect)`, `S3.1(doActivity)`,
+`T3.1.2(effect)` and `T3.2(effect)` after `T2(effect)::S1(entry)`, `T3.2` last or after
+`T2.2` in each: six have `T3.1.2` before `T3.2`, and two have `T3.2` before `T3.1.2`, with
+the do activity's step after `T3.2`.
+
+The suite's own comment on `Transition017_Test`'s state machine, quoted from the XMI:
+
+```text
+Expected execution sequence
+- Initial  - T1 - waiting - T2 (when Start gets consumed) - S1(entry) {
+	…
+	||
+       Initial - S3.1(doActivity){
+	   - Initial  - T3.1.1 - S3.1.1 - T3.1.2 - FinalState
+	}
+       T3.2 (when completion event generated by S3.1 gets consumed) - FinalState
+}
+Note:
+ - What is shown here is that T3 cannot be fired before that all of the three regions of
+   composite state S1 have completed.  Only at this time a completion event is generated by
+   S1, this latter is used by T3 to fire.
+```
+
+`T3.2` fires when `S3.1`'s completion event is consumed, and `S3.1` — a composite state with a
+region — generates it once that region reaches its final state, after `T3.1.2`; the very rule
+the note states for `T3` and `S1` one level up. The two traces contradict the comment, and
+they contradict the semantic library the test is meant to exercise: `StatePerformances.kerml`
+orders a transition out of a state after every non-do middle step of the state it leaves
+(`private succession [*] transitionLinkSource.nonDoMiddle then [1] Performance::self;`), and
+a nested state's transitions are middle steps of the state that encloses them, so `T3.2`'s
+performance follows `T3.1.2`'s; and it orders every middle step, the do activity among them,
+before the state's exit (`private succession [*] middle then [1] exit;`), so the do activity
+cannot take its step after `S3.1` has been left. A completion check made when `S3.1` is
+entered, before its region's initial transition has fired, would produce both traces and is
+the likely origin; nothing in the suite says so.
+
+The suite is downloaded by `./scripts/download-pssm-suite.sh` under a pinned digest and is
+not vendored, so the two traces are not corrected: the referee reads the suite as published,
+reports *Transition 017* `fail` while they are the only admitted traces not reached, and
+[the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
+posted upstream.
+
+### PSSM Exiting 002 registers one of the two orders the suite admits elsewhere
+
+The test enters `S1`, whose do activity traces `S1(doActivityPartI)`, accepts a signal and
+traces `S1(doActivityPartII)`, and whose exit behavior traces `S1(exit)`; the tester's
+`Continue`, in the pool as `S1` is entered, fires the transition out of `S1`, and the exit aborts
+the do activity. The suite registers one trace, `S1(doActivityPartI)::S1(exit)`: the do
+activity's first segment before the dispatch of `Continue`.
+
+The suite's own account of a do activity, from *Deferred 006*'s rationale, quoted from the XMI:
+
+```text
+A doActivity behavior evolves on its own thread of execution.
+```
+
+A segment on its own thread and a dispatch on the machine's are unordered, and the suite
+registers them so one test earlier: *Behavior 003 A*, the same `S1` with an entry behavior in
+place of the exit behavior and the tester's `AnotherSignal` in place of `Continue`, admits both
+`S1(entry)::S1(doActivityPartI)` and `S1(entry)` — the dispatch before the first segment,
+which the transition's effect then never lets run. *Exiting 002*'s expected execution is the
+same race with the exit behavior in the trace, and `S1(exit)` alone, the dispatch first, is
+the order *Behavior 003 A* admits and this test does not register; its own note contemplates
+the do activity's timing (`If the doActivity was still running at the time where the exit
+behavior is executed …`) and registers one order all the same. The test's point — the exit
+aborts the do activity, so `S1(doActivityPartII)` never traces — holds in both orders.
+
+The suite is not vendored, so the missing trace is not added: the referee reports *Exiting 002*
+`fail` while `S1(exit)` is the only reached trace not admitted, and
+[the referee record](pssm-referee.md) adjudicates the test on that reason. Nothing has been
+posted upstream.
+
+### PSSM History 001-C and 002-B admit a completion inside the restore and contradict each other
+
+Both tests enter the parallel state `S1`, whose region 1 runs `S1.1` (no behavior) into `S1.2`
+through the completion transition `T1.2` and whose region 2 runs `S2.1` into the composite
+`S2.2`, itself running `S2.2.1` into `S2.2.2`; `AnotherSignal` leaves `S1` and re-enters it
+through a history pseudostate in region 2 — deep in *001-C*, which restores `S2.2.2`; shallow
+in *002-B*, which restores `S2.2` and runs its initial transition to `S2.2.1` — while region 1
+starts again from its initial pseudostate at `S1.1`. Between the tests, region 1 and the first
+unit of region 2's restore are identical; *002-B* adds an exit action to `S2.1` and an effect to
+`T2.2.2`, which only add labels to the trace. Each test's registered set (the `expectedTraces`
+of `h001c` and `h002b` in the `HistoryTests` activity) is a product of the orders it registers
+for the first entry of `S1` and for the re-entry: two by six for *001-C*, two by three for
+*002-B*.
+
+The specification describes the two tests alike. Its text for *History 001-C* (§9.3.15.4):
+
+```text
+As a result, the left region starts its execution from the initial pseudostate while the
+right region is restored to its last recorded configuration […]. This completes the step
+started by the firing of T4. When dispatched, the completion event occurrence generated by
+S1.1 triggers T1.2.
+```
+
+and for *History 002-B* (§9.3.15.7):
+
+```text
+At the end of the RTC step initiated by dispatching of the AnotherSignal event occurrence,
+the state machine is in configuration S1[S1.1, S2.2[S2.2.1]]. The next step consists in the
+firing of T1.2 upon the dispatching of the completion event occurrence generated by S1.1. At
+this point, the only remaining event occurrence in the event pool is the completion event
+occurrence generated for S2.2.1.
+```
+
+That is §8.5.7.4's restoration — a restored or default-entered state that is complete places a
+`CompletionEventOccurrence` in the pool, the regions are "restored concurrently", and the step
+ends — with §8.5.9's pool: "a new `CompletionEventOccurrence` is placed into the (ordered)
+`eventPool` behind any `CompletionEventOccurrences` already in the pool". Read by that text the
+re-entry has one order in *001-C*, `S2.2(entry)::S2.2.2(entry)::S1.1(exit)::S1.2(entry)`, and
+two in *002-B*, `S1.1`'s completion and `S2.2.1`'s dispatched in either order after the restore;
+and the first entry of `S1` has two orders in each test, `S1.1`'s completion or `S2.1`'s
+dispatched first according to which region was entered first, `S2.2.1`'s — generated only when
+`S2.1`'s completion transition has entered it, a step later — behind both.
+
+The registered sets say otherwise, and differently. *001-C* registers six re-entry orders, five
+of which fire `T1.2` inside the restoring step, before or between `S2.2(entry)` and
+`S2.2.2(entry)`, three of them with `S2.2(entry)` between `S1.1(exit)` and `S1.2(entry)`.
+*002-B* registers three, one of which fires `T1.2` inside the restoring step and none of which
+splits it. For the first entry *001-C* registers the two orders the pool gives; *002-B*
+registers `S1.1`'s completion first, and then `S2.1(exit)::S2.2(entry)` first followed by
+`S2.2.1`'s completion *before* `S1.1`'s — an order §8.5.9 excludes, since `S1.1`'s event was in
+the pool a step earlier — and not the order the pool gives when region 2 is entered first,
+which is *001-C*'s. The two tests therefore contradict each other on identical halves, and
+each contradicts the specification's description of itself: *001-C* registers twelve traces
+of which two agree with that description; *002-B* registers six of which two agree, and omits
+the two others the description gives. An implementation that dispatches a default-entered
+state's completion while the sibling region's restore is still under way would produce the
+in-restore orders, and one that checks a state's completion at the wrong moment would
+produce *002-B*'s inversion; nothing in the suite says so.
+
+The suite is not vendored, so the sets are not corrected: the referee reads them as
+published and reports both tests `fail`, and [the referee record](pssm-referee.md) adjudicates
+them on that reason. The runtime adopts no rule to reach either registered set — none reaches
+one without reaching traces the other test refuses — and by the specification's own text
+neither test can reach `pass` against the published expectations. Nothing has been posted
+upstream.
+
+---
+
 ## The errata overlay entries for these models
 
 The second section's rows are also entries of the declared errata overlay
-(`internal/errata`, [the declared errata overlay](errata-overlay.md)): the published bytes on
+(`tools/oracle/errata`, [the declared errata overlay](errata-overlay.md)): the published bytes on
 disk are never edited, and a row that carries a correction has that correction
 applied to the *second* figure every oracle reports, never to the headline one.
 The overlay adds no category and reclassifies nothing — the two quantity rows stay the adjudicated
@@ -1677,7 +1843,7 @@ commensurability family recorded in the false-positive audit.
 
 An entry is accepted only with a specification citation and a written
 derivation, and only while its as-published text still matches the corpus on
-disk; both are tests (`internal/errata`), not conventions. A defect with no
+disk; both are tests (`tools/oracle/errata`), not conventions. A defect with no
 unambiguous intended reading is documented **without** a correction rather than
 closed by a guess.
 

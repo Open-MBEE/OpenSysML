@@ -1,0 +1,36 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "Go"
+		},
+		{
+			"signal": "Pause"
+		},
+		{
+			"signal": "Resume"
+		}
+	],
+	"outcomes": [
+		{
+			"finalState": "lc3+rc3",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "l r "
+				}
+			}
+		},
+		{
+			"finalState": "lc3+rc3",
+			"outputs": {
+				"log": {
+					"type": "String",
+					"value": "r l "
+				}
+			}
+		}
+	],
+	"admissible": "Regions of a parallel state entered on one occurrence: each is entered, in which order is open"
+}

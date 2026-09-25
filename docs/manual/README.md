@@ -17,20 +17,35 @@ was produced by it.
    to end
 3. [Query cookbook](query-cookbook.md) — recipes for collecting, filtering,
    sorting, traversing and projecting model elements
-4. [Document authoring](authoring.md) — sections, paragraphs, inline runs,
+4. [Which query is which](query-kinds.md) — document queries beside the API
+   `Query`, `Evaluate`, `all T` and `solve`: what each reads, returns and
+   cannot see, and where the runtime's state and event queries sit
+5. [Document authoring](authoring.md) — sections, paragraphs, inline runs,
    links, cross-references, tables (including grouped tables), lists and
    diagrams
-5. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets, the
+6. [Outputs](outputs.md) — Markdown, semantic HTML and its stylesheets, the
    PDF engines and their options, and what determinism is guaranteed
-6. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
+7. [Interfaces](interfaces.md) — CLI flags, REPL commands, the gRPC and Python
    APIs, and VS Code/LSP authoring support
-7. [A complete worked example](worked-example.md) — a telescope mass report
-   with its full source and full rendered output
-8. [Limitations and troubleshooting](troubleshooting.md) — the typed error
-   catalog and the current limitations
+8. [A complete worked example](worked-example.md) — a telescope mass report
+   with its full source and full rendered output; the
+   [traceability example](examples/traceability.md)
+   ([source](examples/traceability.sysml)) renders every requirement's
+   satisfiers, verifiers and verdicts in one report
+9. [Requirements traceability examples](traceability-examples.md) — four
+   graded reports, from three flat requirements and their satisfiers to a
+   multi-team program with derivation chains, verdicts, coverage gaps and a
+   grouped matrix, each with its source and rendered output
+10. [Recording analysis runs](recording-analysis-runs.md) — writing the runs a
+    case makes into the model as `AnalysisRecords` elements, and reading them
+    back with document queries
+11. [Limitations and troubleshooting](troubleshooting.md) — the typed error
+    catalog and the current limitations
 
 The document-query vocabulary is a **non-normative OpenSysML extension** — it
 is not part of the OMG SysML v2 or KerML standard. Models that use it remain
 standard SysML v2: the vocabulary is ordinary `calc def`s and `part def`s from
 the bundled `DocumentQueries` library package, and using it does not alter the
-language's semantics.
+language's semantics. The bundled `AnalysisRecords` library is the same kind
+of extension: the declarations `%record`/`-record-run` writes a run into the
+model with (see [Recording analysis runs](recording-analysis-runs.md)).

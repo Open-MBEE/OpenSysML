@@ -51,13 +51,13 @@ Peak resident size is measured from outside:
 
 ## Benchmarks
 
-`internal/repl/bench_test.go` loads and runs synthetic models of a stated size,
+`internal/frontend/repl/bench_test.go` loads and runs synthetic models of a stated size,
 so a cost that grows faster than the model is visible as a per-element figure
 that grows with size:
 
 ```bash
-go test ./internal/repl -run '^$' -bench . -benchmem
-go test ./internal/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
+go test ./internal/frontend/repl -run '^$' -bench . -benchmem
+go test ./internal/frontend/repl -run '^$' -bench BenchmarkLoadModel -benchmem -memprofile heap.out
 ```
 
 Beyond the standard figures they report:
@@ -70,21 +70,21 @@ Beyond the standard figures they report:
 before it holds anything, so reading a size against it separates the model's cost
 from the session's.
 
-`internal/core/parser/bench_test.go` times the parser alone over a real model: it
+`internal/syntax/parser/bench_test.go` times the parser alone over a real model: it
 parses every `.sysml` and `.kerml` file under the directory `OPENSYSML_BENCH_MODEL`
 names, with no library, no name resolution and no validation, and skips when the
 variable is unset:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 ```
 
-`internal/perfbench/model_bench_test.go` times the whole load of the same directory
+`tests/perf/model_bench_test.go` times the whole load of the same directory
 as one REPL session — library, resolution and validation included — and fails if the
 model has errors, so the measured load is a clean one:
 
 ```bash
-OPENSYSML_BENCH_MODEL=/path/to/model go test ./internal/perfbench -run '^$' -bench REPLLoadModel -benchmem
+OPENSYSML_BENCH_MODEL=/path/to/model go test ./tests/perf -run '^$' -bench REPLLoadModel -benchmem
 ```
 
 ## A real model: Apollo 11
@@ -99,7 +99,7 @@ technical architectures, operations, and the trajectory calculations.
 
 ```bash
 git clone https://github.com/airbus/apollo-11-sysml-v2 && git -C apollo-11-sysml-v2 checkout 6e9c93f
-OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/core/parser -run '^$' -bench ParseModel -benchmem
+OPENSYSML_BENCH_MODEL=apollo-11-sysml-v2 go test ./internal/syntax/parser -run '^$' -bench ParseModel -benchmem
 sysml -validate -memstats $(find apollo-11-sysml-v2 -name '*.sysml')
 ```
 
@@ -346,10 +346,10 @@ Three changes took it to under 20 ms, each measured over the same command
   15.0 MB and 123k. The expansion stays inherently iterative — most of its cost
   is the re-export closure itself — which is what the snapshot removes.
 - **The snapshot.** The library's frozen index is serialized at generation time
-  into `internal/core/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
+  into `internal/workspace/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
   binary grows from 16.9 to 20.5 MB) and decoded at start-up, so neither the
   parser nor the expansion runs for the library at all. The format is
-  hand-rolled (`internal/core/pack`, `internal/core/ast/astcodec`,
+  hand-rolled (`internal/syntax/pack`, `internal/syntax/ast/astcodec`,
   `symbols.WriteSnapshot`): varints over one string table, a node table per
   syntax-node type so each type's nodes are allocated in one block, and index
   references in place of pointers, so the decoded graph shares what the parsed

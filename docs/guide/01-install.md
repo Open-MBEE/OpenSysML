@@ -39,13 +39,14 @@ sudo mv sysml sysml-lsp /usr/local/bin/
 ```
 
 **Windows — use the installer.** Download `opensysml-<x.y.z>-windows-amd64.msi` from
-[releases](https://github.com/Open-MBEE/OpenSysML/releases/latest) and run it. It installs
+[releases](https://github.com/Open-MBEE/OpenSysML/releases/latest) and run it. A setup wizard
+lets you pick the destination folder and the optional components; by default it installs
 `sysml.exe`, `sysml-lsp.exe` and `sysml-grpc.exe` into `C:\Program Files\OpenSysML`, puts that
 directory on the system `PATH`, and installs the [Z3](https://github.com/Z3Prover/z3) SMT solver
 under `C:\Program Files\OpenSysML\z3` (also on `PATH`) as the optional *SMT solver (Z3)*
-feature, so the experimental `%check`/`%explain` commands work out of the box. To skip the
-bundled solver or the gRPC service run the installer from an elevated prompt with
-`msiexec /i opensysml-<x.y.z>-windows-amd64.msi REMOVE=Z3` (or `REMOVE=Z3,GrpcService`); to use
+feature, so the experimental `%check`/`%explain` commands work out of the box. Deselect the
+bundled solver or the gRPC service on the wizard's *Choose components* page, or from an elevated
+prompt with `msiexec /i opensysml-<x.y.z>-windows-amd64.msi REMOVE=Z3` (or `REMOVE=Z3,GrpcService`); to use
 another solver, point `OPENSYSML_SMT` at it (see [Installing a solver](#installing-a-solver-optional)).
 A newer installer upgrades an older one in place, and *Apps & features* uninstalls it. Windows
 SmartScreen may warn that the publisher is unrecognized: the installer is not yet
@@ -68,7 +69,7 @@ as a dependency.
 
 `sysml-grpc`, the service the Python bindings talk to, is published as a bare
 `sysml-grpc-<os>-<arch>` file with a `.sha256` sidecar rather than inside an archive, because
-the `opensysml` Python package downloads and verifies it itself (see [clients/python/README.md](../../clients/python/README.md)).
+the `opensysml` Python package downloads and verifies it itself (see [client/python/README.md](../../client/python/README.md)).
 `make build-grpc` builds it from source.
 
 **Archive layout:** the `opensysml-<os>-<arch>.tar.gz` bundles contain both binaries under their
@@ -249,7 +250,7 @@ reports each feature as `pass`, `refuse` (the backend said it does not support t
 `fail` (the backend rejected a script, which you should report as a bug):
 
 ```bash
-OPENSYSML_SMT=/path/to/mysolver go test ./internal/core/solve -run TestPortability -v
+OPENSYSML_SMT=/path/to/mysolver go test ./internal/exec/solve -run TestPortability -v
 ```
 
 ### Verifying the solver is found
@@ -315,7 +316,7 @@ make install-tree DESTDIR="$pkgdir" prefix=/usr
 
 It installs `sysml`, `sysml-lsp` and `sysml-grpc` into `$(bindir)`, and
 `sysml.1`, `sysml-lsp.1` and `sysml-grpc.1` into `$(man1dir)`. The pages are
-committed under `man/man1`, so building a package needs no documentation
+committed under `packaging/man/man1`, so building a package needs no documentation
 converter and no network. They are generated from each command's own
 description: `make man` rewrites them and `make man-check` (which CI runs)
 fails if a committed page is not what the command renders. Each binary can also

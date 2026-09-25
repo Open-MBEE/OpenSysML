@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Download the pilot's XMI serialization of the standard library into
 # build/pilot-library-xmi/, for the normative identity gate in
-# internal/core/identity (TestPilotLibraryXMI).
+# tests/identity (TestPilotLibraryXMI).
 #
 # The XMI carries the element ids the pilot fixes for every standard-library
 # element; the gate asserts the ids this implementation derives are the same
@@ -13,7 +13,7 @@
 #
 # The library is published in the pilot's release repository under the same tag
 # as the pilot itself, so the release is pinned in scripts/pilot-pin.sh next to
-# the pilot's, and the bundled library under internal/core/libs/stdlib is the
+# the pilot's, and the bundled library under internal/workspace/libs/stdlib is the
 # notation from the same commit. The download records that pin in a .pilot-pin
 # stamp and is re-fetched when the stamp does not match.
 set -euo pipefail
@@ -30,4 +30,4 @@ pilot_fetch_subtrees "sysml.library.xmi:$target"
 
 echo "Total $(pilot_count_files "$target") XMI file(s)."
 echo "Compare the ids this implementation derives against them with:"
-echo "  go test -count=1 ./internal/core/identity -run TestPilotLibraryXMI"
+echo "  go test -count=1 ./tests/identity -run TestPilotLibraryXMI"

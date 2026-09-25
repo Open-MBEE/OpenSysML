@@ -63,6 +63,51 @@ func TestSyncDiffDryRunThroughCLI(t *testing.T) {
 	}
 }
 
+// The sync reads the API's element form too: a repository or model committed
+// as api-json diffs exactly as the Turtle of the same graph does.
+func TestSyncDiffReadsAPIJSONRepositoryThroughCLI(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	original := filepath.Join(dir, "original.sysml")
+	model := filepath.Join(dir, "model.sysml")
+	for path, content := range map[string]string{original: syncedModel, model: renamedModel} {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	repoJSON := filepath.Join(dir, "repo.json")
+	repoTurtle := filepath.Join(dir, "repo.ttl")
+	modelJSON := filepath.Join(dir, "model.json")
+	baseJSON := filepath.Join(dir, "base.json")
+	run(t, binary, original, "-convert", "api-json", "-o", repoJSON)
+	run(t, binary, original, "-convert", "ttl", "-o", repoTurtle)
+	run(t, binary, model, "-convert", "api-json", "-o", modelJSON)
+	run(t, binary, original, "-convert", "api-json", "-o", baseJSON)
+
+	out := run(t, binary, model, "-sync-diff", repoJSON)
+	for _, want := range []string{
+		"sync diff against project proj-1 branch main",
+		"update   8f3a41d0",
+		"create   P__Wheel",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("api-json repository report is missing %q:\n%s", want, out)
+		}
+	}
+
+	out = run(t, binary, modelJSON, "-sync-diff", repoTurtle)
+	for _, want := range []string{"update   8f3a41d0", "create   P__Wheel"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("api-json model report is missing %q:\n%s", want, out)
+		}
+	}
+
+	out = run(t, binary, model, "-sync-diff", repoTurtle, "-sync-base", baseJSON)
+	if !strings.Contains(out, "create   P__Wheel") {
+		t.Errorf("an api-json -sync-base is not read:\n%s", out)
+	}
+}
+
 func TestSyncDiffReportsUnconfirmedDeletes(t *testing.T) {
 	binary := buildCLI(t)
 	model, repo := syncFixtures(t, binary)
@@ -234,6 +279,31 @@ func TestSyncAnnotateAddressesByShortName(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "IdentityMetadata::ElementId about P::x::Rim") {
 		t.Errorf("the named descendant under the short-named owner is not annotated:\n%s", data)
+	}
+}
+
+// An import has no declaration an annotation can address, so a minted import
+// must surface in the unnamed report rather than being dropped silently.
+func TestSyncAnnotateReportsMintedImport(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	repo := filepath.Join(dir, "repo.ttl")
+	if err := os.WriteFile(model, []byte(`package P {
+	@IdentityMetadata::ProjectRef { projectId = "proj-1"; branch = "main"; }
+	import A::*;
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(repo, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	annotated := filepath.Join(dir, "annotated.sysml")
+
+	out := run(t, binary, model, "-sync-diff", repo, "-sync-mint-ids", "-sync-annotate", annotated)
+	if !strings.Contains(out, "has no name to write an annotation against") || !strings.Contains(out, "Import") {
+		t.Errorf("the minted import's skipped annotation is not reported:\n%s", out)
 	}
 }
 

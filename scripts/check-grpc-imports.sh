@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails when production (non-test) code imports grpc-go. It stays allowed in
-# tests, cmd/conformance, generated code, and cmd/sysml-grpc/grpcserver.go.
+# tests, the conformance runner in tools/, generated code, and cmd/sysml-grpc/grpcserver.go.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -9,8 +9,9 @@ fail=0
 
 # Packages whose non-test files may import grpc-go, and why:
 #   api/proto        committed generated grpc bindings
-#   cmd/conformance  dials with a real grpc-go client on purpose
-allowed_pkgs="$module/api/proto $module/cmd/conformance"
+# The conformance runner dials with a real grpc-go client on purpose; it lives
+# in the tools module, which this walk over the product module never reaches.
+allowed_pkgs="$module/api/proto"
 
 while read -r pkg dir imports; do
 	case " $allowed_pkgs " in

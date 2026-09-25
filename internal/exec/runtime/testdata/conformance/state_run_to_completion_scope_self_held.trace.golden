@@ -1,0 +1,15 @@
+exit: start
+enter: work (entry action)
+stmt action body
+  stmt send
+materialize: Ping #1
+transition: start -> work
+enter: step (entry action)
+stmt action body
+  stmt assign hits
+      eval feature hits -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+exit: step
+enter: done
+transition: step -> done (event: accept Ping)

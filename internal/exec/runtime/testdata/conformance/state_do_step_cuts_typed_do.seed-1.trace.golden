@@ -1,0 +1,23 @@
+do: top
+stmt action body
+  stmt node work
+    eval feature count -> 0
+step 1: token 1@a
+    stmt assign n
+        eval feature n -> 0
+        eval literal 1 -> 1
+      eval operator + -> 1
+step 2: token 1@b
+    stmt assign n
+        eval feature n -> 1
+        eval literal 10 -> 10
+      eval operator + -> 11
+step 3: token 1@done
+step 4: no active tokens
+exit: top
+stmt assign count
+    eval feature count -> 11
+    eval literal 100 -> 100
+  eval operator + -> 111
+enter: idle
+transition: top -> idle (event: accept Stop)

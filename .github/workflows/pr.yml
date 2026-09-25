@@ -12,20 +12,20 @@ concurrency:
 env:
   # The OMG training corpus is not vendored. Requiring it here turns "corpus
   # absent" into a test failure instead of a skip, so the gate cannot pass green
-  # without actually running (see internal/core/model/training_examples_test.go).
+  # without actually running (see tests/corpus/training_examples_test.go).
   OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
   # Same for the three pinned OMG pilot corpora, which are downloaded below and
-  # gated by internal/core/model/pilot_corpora_test.go.
+  # gated by tests/corpus/pilot_corpora_test.go.
   OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
-  # Same for the pinned OMG PSSM test suite, gated by internal/pssm and cmd/pssm-referee.
+  # Same for the pinned OMG PSSM test suite, gated by tools/referee/pssm and tools/cmd/pssm-referee.
   OPENSYSML_REQUIRE_PSSM_SUITE: "1"
-  # Same for the pinned fUML reference-implementation suite, gated by internal/fuml.
+  # Same for the pinned fUML reference-implementation suite, gated by tools/referee/fuml.
   OPENSYSML_REQUIRE_FUML_SUITE: "1"
   # Same for the pilot's XMI of the standard library, downloaded below and
-  # compared against by internal/core/identity (TestPilotLibraryXMI).
+  # compared against by tests/identity (TestPilotLibraryXMI).
   OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
-  # this turns an absent solver into a failure (see internal/core/solve).
+  # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"
 
 jobs:
@@ -45,6 +45,8 @@ jobs:
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
       vscode: ${{ steps.areas.outputs.vscode }}
+      cameo: ${{ steps.areas.outputs.cameo }}
+      syson: ${{ steps.areas.outputs.syson }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -67,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -98,9 +100,9 @@ jobs:
         run: |
           make proto-buf BUF=buf
           git add -N api/proto \
-            clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
           git diff --exit-code api/proto \
-            clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+            client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
 
       # The solver is an external process, never linked in: the solver-dependent
       # tests need one on PATH to run rather than skip.
@@ -327,7 +329,9 @@ jobs:
           fi
 
       - name: Run Go vet
-        run: go vet ./...
+        run: |
+          go vet ./...
+          go vet -C tools ./...
 
       - name: Run static analysis (staticcheck + gosec)
         run: make lint
@@ -358,7 +362,7 @@ jobs:
       - name: Run training corpus gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestTrainingExamples|TestCorpusGates' | tee corpus-gate.log
           grep -E 'training files clean' corpus-gate.log
           if grep -qE '^\s*--- SKIP' corpus-gate.log; then
             echo "error: the corpus gate skipped" >&2
@@ -368,11 +372,11 @@ jobs:
       # The pilot corpora gate on its own, for the same reason: its per-root
       # verdict lines are the reviewable output, and a skip must not pass.
       # It gates our own diagnostics only; the comparison against the reference
-      # implementation (cmd/pilot-diff) needs Java validators and is not run here.
+      # implementation (tools/referee/diff) needs Java validators and is not run here.
       - name: Run pilot corpora gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/model -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestPilotCorpora' | tee pilot-corpora-gate.log
           grep -E 'pilot corpus files clean' pilot-corpora-gate.log
           if grep -qE '^\s*--- SKIP' pilot-corpora-gate.log; then
             echo "error: the pilot corpora gate skipped" >&2
@@ -384,7 +388,7 @@ jobs:
       - name: Run pilot library identity gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
+          go test -count=1 -v ./tests/identity -run 'TestPilotLibraryXMI' | tee pilot-library-xmi-gate.log
           grep -E 'pilot library XMI: [0-9]+ derived' pilot-library-xmi-gate.log
           if grep -qE '^\s*--- SKIP' pilot-library-xmi-gate.log; then
             echo "error: the pilot library identity gate skipped" >&2
@@ -395,7 +399,7 @@ jobs:
       - name: Run PSSM suite gates
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
+          go test -C tools -count=1 -v ./referee/pssm -run 'TestSuiteRead|TestSuiteClassification|TestEmitSuite' | tee pssm-gate.log
           if grep -qE '^\s*--- SKIP' pssm-gate.log; then
             echo "error: the PSSM suite gate skipped" >&2
             exit 1
@@ -403,13 +407,26 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/pssm-referee.md.
       - name: PSSM referee reproduces its baseline counts
-        run: go run ./cmd/pssm-referee -check
+        run: go run -C tools ./cmd/pssm-referee -check
+
+      # The migration of the PSSM suite to v2 notation on its own, so its report
+      # totals are legible in the log and a skip must not pass; see
+      # docs/project/pssm-migration.md.
+      - name: Run PSSM migration gate
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestPSSMSuiteMigration' | tee pssm-migration-gate.log
+          grep -E 'PSSM_TestSuite.xmi: migrated [0-9]+ element' pssm-migration-gate.log
+          if grep -qE '^\s*--- SKIP' pssm-migration-gate.log; then
+            echo "error: the PSSM migration gate skipped" >&2
+            exit 1
+          fi
 
       # The fUML reader and classifier over the pinned models on their own, likewise.
       - name: Run fUML suite gates
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/fuml -run 'TestSuite' | tee fuml-gate.log
+          go test -C tools -count=1 -v ./referee/fuml -run 'TestSuite' | tee fuml-gate.log
           if grep -qE '^\s*--- SKIP' fuml-gate.log; then
             echo "error: the fUML suite gate skipped" >&2
             exit 1
@@ -417,17 +434,27 @@ jobs:
 
       # Bucket counts only, never pass/fail; see docs/project/fuml-referee.md.
       - name: fUML referee reproduces its baseline counts
-        run: go run ./cmd/fuml-referee -check
+        run: go run -C tools ./cmd/fuml-referee -check
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.
       - name: Run RDF corpus round-trip gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/export -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
           grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the RDF corpus round-trip gate skipped" >&2
+            exit 1
+          fi
+
+      - name: Run api-json corpus round-trip gate
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
+          grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
+          if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
+            echo "error: the api-json corpus round-trip gate skipped" >&2
             exit 1
           fi
 
@@ -436,7 +463,7 @@ jobs:
       - name: Run solver gate (Z3)
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/solve ./internal/repl -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestOptimize|TestOptimum' | tee solver-gate.log
+          go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestOptimize|TestOptimum' | tee solver-gate.log
           if grep -qE '^\s*--- SKIP' solver-gate.log; then
             echo "error: a solver-dependent test skipped" >&2
             exit 1
@@ -447,7 +474,7 @@ jobs:
       - name: Run solver differential gate
         run: |
           set -o pipefail
-          go test -count=1 -v ./internal/core/solve -run TestDifferential | tee differential-gate.log
+          go test -count=1 -v ./internal/exec/solve -run TestDifferential | tee differential-gate.log
           grep -E 'differential gate .*: .* elements:' differential-gate.log
           if grep -qE '^\s*--- SKIP' differential-gate.log; then
             echo "error: a differential gate skipped" >&2
@@ -461,7 +488,7 @@ jobs:
         run: |
           set -o pipefail
           for solver in z3 cvc5; do
-            OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/core/solve \
+            OPENSYSML_SMT="$solver" go test -count=1 -v ./internal/exec/solve \
               -run 'TestPortability' | tee "portability-$solver.log"
             grep -E "portability of $solver" "portability-$solver.log"
             if grep -qE '^\s*--- SKIP' "portability-$solver.log"; then
@@ -475,7 +502,7 @@ jobs:
       - name: Run solver gate (cvc5)
         run: |
           set -o pipefail
-          OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/core/solve ./internal/repl \
+          OPENSYSML_SMT=cvc5 go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl \
             -run 'TestSolver|TestDiscovery|TestSolved|TestDivisor|TestCheck|TestSolve|TestConfigure|TestSynthesis|TestPinned|TestFixed|TestExplain|TestCore' \
             | tee cvc5-gate.log
           if grep -qE '^\s*--- SKIP' cvc5-gate.log; then
@@ -492,7 +519,7 @@ jobs:
         run: |
           set -o pipefail
           env -u OPENSYSML_REQUIRE_SMT OPENSYSML_SMT=/nonexistent/no-such-solver \
-            go test -count=1 -v ./internal/core/solve ./internal/repl | tee no-solver-gate.log
+            go test -count=1 -v ./internal/exec/solve ./internal/frontend/repl | tee no-solver-gate.log
           for name in TestCheckReportsAnAbsentSolver TestExplainReportsAnAbsentSolver \
             TestSolveReportsAnAbsentSolver TestConfigureReportsAnAbsentSolver \
             TestOptimizeReportsAnAbsentSolver; do
@@ -512,7 +539,9 @@ jobs:
       needs.changes.outputs.node == 'true' ||
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
-      needs.changes.outputs.rust == 'true'
+      needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.cameo == 'true' ||
+      needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -560,10 +589,13 @@ jobs:
     needs:
       - changes
       - build
+      - cameo-plugin
       - conformance-pkg
       - docs
       - java-test
+      - syson-plugin
       - node-test
+      - pdf-toolchain
       - python-test
       - race-tests
       - rust-test
@@ -578,10 +610,13 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          CAMEO_PLUGIN_RESULT: ${{ needs.cameo-plugin.result }}
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
+          SYSON_PLUGIN_RESULT: ${{ needs.syson-plugin.result }}
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
+          PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
           RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
@@ -591,10 +626,13 @@ jobs:
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
              ! ok "$BUILD_RESULT" ||
+             ! ok "$CAMEO_PLUGIN_RESULT" ||
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
+             ! ok "$SYSON_PLUGIN_RESULT" ||
              ! ok "$NODE_TEST_RESULT" ||
+             ! ok "$PDF_TOOLCHAIN_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
              ! ok "$RACE_TESTS_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
@@ -602,10 +640,13 @@ jobs:
              ! ok "$VSCODE_EXTENSION_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
+            echo "cameo-plugin=$CAMEO_PLUGIN_RESULT"
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
+            echo "syson-plugin=$SYSON_PLUGIN_RESULT"
             echo "node-test=$NODE_TEST_RESULT"
+            echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
             echo "race-tests=$RACE_TESTS_RESULT"
             echo "rust-test=$RUST_TEST_RESULT"
@@ -613,6 +654,80 @@ jobs:
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
             exit 1
           fi
+
+  # The PDF backend drives external tools (WeasyPrint, pandoc, mermaid-cli,
+  # KaTeX, Graphviz, the PlantUML jar) as subprocesses; the Go suite above
+  # tests that contract with fakes. This job runs the integration tests
+  # against the pinned toolchain, with an absent tool a failure, not a skip.
+  pdf-toolchain:
+    name: PDF toolchain tests
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    env:
+      OPENSYSML_REQUIRE_PDF_TOOLCHAIN: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Keyed on the provisioning script, whose pins and digests are the
+      # toolchain's identity; the venv is not restored across Python builds.
+      - name: Cache the PDF toolchain
+        id: toolchain-cache
+        uses: actions/cache@v4
+        with:
+          path: build/doc-pdf
+          key: doc-pdf-toolchain-${{ runner.os }}-${{ hashFiles('scripts/download-doc-pdf-toolchain.sh') }}-py${{ steps.setup-python.outputs.python-version }}
+
+      # WeasyPrint's venv links against the system's Pango, the browser
+      # mermaid-cli launches needs its shared libraries, Graphviz's neato
+      # layout plugin needs GTS; the tests read PDFs back with poppler-utils.
+      - name: Install the toolchain's system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+            libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 fonts-dejavu-core libgts-0.7-5 \
+            poppler-utils
+
+      - name: Provision the PDF toolchain
+        run: ./scripts/download-doc-pdf-toolchain.sh
+
+      - name: Run the PDF integration tests
+        env:
+          OPENSYSML_PANDOC: ${{ github.workspace }}/build/doc-pdf/pandoc-3.10.2/bin/pandoc
+          OPENSYSML_WEASYPRINT: ${{ github.workspace }}/build/doc-pdf/weasyprint/bin/weasyprint
+          OPENSYSML_MMDC: ${{ github.workspace }}/build/doc-pdf/mermaid/node_modules/.bin/mmdc
+          OPENSYSML_MMDC_PUPPETEER: ${{ github.workspace }}/build/doc-pdf/mermaid/puppeteer.json
+          OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
+          OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
+          OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
+        run: go test -count=1 -v -run Installed ./internal/doc/docpdf
 
   vscode-extension:
     name: VS Code extension
@@ -644,6 +759,40 @@ jobs:
           name: vscode-extension
           path: editors/vscode/opensysml-sysml.vsix
           if-no-files-found: error
+
+  cameo-plugin:
+    name: Cameo plugin
+    needs: [changes, build]
+    if: needs.changes.outputs.cameo == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      # 17 is the plugin's compile target (the oldest supported Cameo runs on it).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Make the service binary executable
+        run: chmod +x bin/sysml-grpc
+
+      - name: Install the Java client the plugin builds against
+        run: mvn -B -q -f client/java/pom.xml -pl opensysml-client -am install -DskipTests
+
+      # Compiles against the compile-only OpenAPI stubs and runs the unit tests plus
+      # the pipeline test against the freshly built service.
+      - name: Build and test the plugin
+        run: mvn -B -f editors/cameo/pom.xml verify -Dopensysml.requireService=true
 
   docs:
     name: Documentation site
@@ -696,7 +845,7 @@ jobs:
       # The census figures are derived from the committed baseline, and every
       # table row must be a constraint the baseline records (and vice versa).
       - name: Check the validation-constraint census matches its baseline
-        run: go run ./cmd/validation-census -check
+        run: go run -C tools ./cmd/validation-census -check
 
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments
@@ -739,7 +888,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: clients/node/package-lock.json
+          cache-dependency-path: client/node/package-lock.json
 
       # The tests and the conformance runner start private children of this
       # binary; without it they would build one from the checkout, needing Go.
@@ -749,33 +898,33 @@ jobs:
           echo "OPENSYSML_BINARY=$(pwd)/bin/sysml-grpc" >> "$GITHUB_ENV"
 
       - name: Install the client's dependencies
-        working-directory: clients/node
+        working-directory: client/node
         # --ignore-scripts: no dependency of this client needs an install hook,
         # and one added upstream would run here with the workflow's token.
         run: npm ci --ignore-scripts
 
       - name: Build, typecheck and lint
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           npm run build
           npm run typecheck
           npm run lint
 
       - name: Run the tests
-        working-directory: clients/node
+        working-directory: client/node
         run: npm test
 
       # --allow-skips because v1 covers 5 of the 15 RPCs; the skipped count is
       # reported and the artifact records which scenarios they were.
       - name: Run the conformance suite through the client
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
             --report node-conformance.json
 
       # A runner that passes against a deliberately broken client tests nothing.
       - name: Check the conformance runner catches a broken client
-        working-directory: clients/node
+        working-directory: client/node
         run: |
           for mutation in hide-capability drop-diagnostics blank-symbol-kind shift-integer drop-feature-values; do
             if npm run conformance -- --binary "$OPENSYSML_BINARY" --allow-skips \
@@ -789,7 +938,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: node-conformance
-          path: clients/node/node-conformance.json
+          path: client/node/node-conformance.json
 
       # Pinned by digest, as cvc5 is above, so a substituted asset is not run.
       - name: Install buf
@@ -805,8 +954,8 @@ jobs:
       - name: Verify the committed TypeScript stubs are current
         run: |
           make proto-ts BUF=buf
-          git add -N clients/node/src/generated
-          git diff --exit-code clients/node/src/generated
+          git add -N client/node/src/generated
+          git diff --exit-code client/node/src/generated
 
   python-test:
     name: Python client tests
@@ -898,8 +1047,8 @@ jobs:
           # (GRPC_GENERATED_VERSION), so a newer release cannot fail this check.
           pip install --only-binary :all: grpcio-tools==1.83.0
           make python-proto BUF=buf
-          git add -N clients/python/opensysml/proto
-          git diff --exit-code clients/python/opensysml/proto
+          git add -N client/python/opensysml/proto
+          git diff --exit-code client/python/opensysml/proto
 
   rust-test:
     name: Rust client tests
@@ -936,17 +1085,17 @@ jobs:
           cargo --version
 
       - name: Check Rust formatting
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo fmt --all -- --check
 
       - name: Run Rust clippy
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo clippy --all-targets -- -D warnings
 
       # A missing service must fail rather than silently skipping integration
       # tests, because the downloaded binary is required by this job.
       - name: Run Rust tests
-        working-directory: clients/rust
+        working-directory: client/rust
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
           OPENSYSML_REQUIRE_SERVICE: 1
@@ -958,12 +1107,12 @@ jobs:
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
         run: |
-          cargo run --manifest-path clients/rust/Cargo.toml -p opensysml-conformance -- \
+          cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- \
             -binary "$GITHUB_WORKSPACE/bin/sysml-grpc" \
             -report bin/conformance-report-rust.json
 
       - name: Package Rust client
-        working-directory: clients/rust
+        working-directory: client/rust
         run: cargo package -p opensysml
 
       # The digest pins the generator binary so a substituted release cannot
@@ -979,8 +1128,8 @@ jobs:
       - name: Verify Rust generated artifacts
         run: |
           make BUF=/tmp/buf proto-rust
-          git add -N clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
-          git diff --exit-code clients/rust/opensysml/src/proto clients/rust/conformance/sysml.descriptor.binpb
+          git add -N client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
+          git diff --exit-code client/rust/opensysml/src/proto client/rust/conformance/sysml.descriptor.binpb
 
       - uses: actions/upload-artifact@v4
         with:
@@ -1023,13 +1172,13 @@ jobs:
       # opensysml.requireService turns "no binary, so skip" into a failure, and
       # `install` builds the sources and javadoc jars a release needs on every commit.
       - name: Test and install the client
-        run: mvn -B -f clients/java/pom.xml install -Dopensysml.requireService=true
+        run: mvn -B -f client/java/pom.xml install -Dopensysml.requireService=true
 
       - name: Run the conformance suite through the client
         run: |
-          mvn -B -q -f clients/java/pom.xml -pl opensysml-conformance \
+          mvn -B -q -f client/java/pom.xml -pl opensysml-conformance \
             dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
-          java -cp "clients/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
+          java -cp "client/java/opensysml-conformance/target/classes:$(cat /tmp/cp.txt)" \
             org.openmbee.opensysml.conformance.Main \
             -binary bin/sysml-grpc -protocols connect,connect-json -allow-skips \
             -report conformance-report-java.json
@@ -1061,8 +1210,59 @@ jobs:
       - name: Verify the committed Java stubs are current
         run: |
           make proto-buf BUF=buf
-          git add -N clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
-          git diff --exit-code clients/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+          git add -N client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+          git diff --exit-code client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto
+
+  syson-plugin:
+    name: SysON plugin
+    needs: [changes, build]
+    if: needs.changes.outputs.syson == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      - name: Make the service binary executable
+        run: chmod +x bin/sysml-grpc
+
+      # SysON 2026.9.0 runs on 21; the module compiles at release 17.
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install the client dependency
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - name: Test and install the SysON backend
+        run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/syson/frontend/package-lock.json
+
+      - name: Build and test the SysON frontend
+        working-directory: editors/syson/frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm run format:check
+          npm test
+          npm run build
 
   conformance-pkg:
     name: Conformance suite
@@ -1090,7 +1290,7 @@ jobs:
       # The same suite against the legacy grpc-go transport, so -transport grpc
       # cannot rot untested.
       - name: Run conformance suite against -transport grpc
-        run: go run ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
+        run: go run -C tools ./cmd/conformance -transport grpc -protocols grpc -report bin/conformance-grpc-transport-report.json
 
       # The same suite through the public Go API (client/opensysml); the pkg
       # protocol runs in-process and pkg-connect dials the service, so this proves

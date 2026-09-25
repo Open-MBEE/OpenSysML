@@ -1,0 +1,33 @@
+do: C
+stmt action body
+enter action node: state behavior wait
+exit: c1
+enter: done
+transition: c1 -> done (event: accept B)
+exit: x
+enter: done
+transition: x -> done (event: accept A)
+do: C
+  stmt assign log
+      eval feature log -> ""
+      eval literal "waited " -> "waited "
+    eval operator + -> "waited "
+leave action node: state behavior wait
+exit: done
+exit: C
+stmt assign log
+    eval feature log -> "waited "
+    eval literal "C-done " -> "C-done "
+  eval operator + -> "waited C-done "
+enter: done
+transition: done -> done
+choice exiting S1: next r2.done(exit), r3.done(exit) (unordered; took r2.done(exit) first)
+exit: done
+exit: done
+exit: S1
+stmt assign log
+    eval feature log -> "waited C-done "
+    eval literal "S1-done " -> "S1-done "
+  eval operator + -> "waited C-done S1-done "
+enter: fin
+transition: S1 -> fin

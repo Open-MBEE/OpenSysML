@@ -1,0 +1,85 @@
+# SysML v1 to v2 migration report: montecarlo.xmi
+# migrated 77 element(s): 62 mapped, 10 approximated, 5 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## unmapped (5)
+Slot	Results::analysis counted twice::<Slot>	_twiceN	(the slot holds the simulation tool's MonteCarloAnalysis::N, which 2 slots of the instance hold, and a statistic is one number)
+Slot	Results::analysis counted twice::<Slot>	_twiceN2	(the slot holds the simulation tool's MonteCarloAnalysis::N, which 2 slots of the instance hold, and a statistic is one number)
+Slot	Results::analysis of two and a half runs::<Slot>	_oddN	(the slot holds the simulation tool's MonteCarloAnalysis::N: the real 2.5 is not a value of Natural, which the statistic holds)
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledMean	(the slot holds the simulation tool's MonteCarloAnalysis::Mean: the string "n/a" is not a value of Real, which the statistic holds)
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledDev	(the slot holds the simulation tool's MonteCarloAnalysis::Deviation: real literal "NaN" is not a finite number)
+
+## approximated (10)
+«InstanceTable» Diagram	Results::Statistics Table	_tbl_stats	-> part def Results::'Statistics Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Statistics Table Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements)
+Slot	Results::analysis left blank::<Slot>	_blankN	-> Results::'analysis left blank'::'Monte Carlo'::runs	(the tool left runs blank, so no value is written)
+Slot	Results::analysis left blank::<Slot>	_blankMean	-> Results::'analysis left blank'::'Monte Carlo'::mean	(the tool left mean blank, so no value is written)
+Slot	Results::analysis of more runs than a count holds::<Slot>	_vastN	-> Results::'analysis of more runs than a count holds'::'Monte Carlo'::runs	(the real 9223372036854775808.0 is written as the Natural the statistic holds)
+Slot	Results::run 1::<Slot>	_rawN	-> Results::'run 1'::'Monte Carlo'::runs	(the tool left runs blank, so no value is written)
+Slot	Results::run 1::<Slot>	_rawMean	-> Results::'run 1'::'Monte Carlo'::mean	(the tool left mean blank, so no value is written)
+«Block» Class	Timer Analysis	_analysis	-> 'Timer Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
+«BindingConnector» Connector	Timer Analysis::<Connector>	_bind	-> 'Timer Analysis Monte Carlo'::observed	(the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Timer Analysis Monte Carlo' as the observed value, of which Mean is returned)
+Activity	Timer::Tick	_act	-> Timer::Tick	(the classifier behavior is run by every object of Timer as its usage tick)
+«Block» Class	Unbound Analysis	_unbound	-> 'Unbound Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Unbound Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
+
+## mapped (62)
+Package	Empty	_empty	-> Empty
+«SimulationConfig» Class	Group 0	_g0	-> 'Group 0'
+«SimulationConfig» Class	Group 1	_g5	-> 'Group 1'
+«SimulationConfig» Class	Group 2	_g6	-> 'Group 2'
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Results	_results	-> Results
+Diagram	Results::Statistics Table	_diag_stats	-> Results::'Statistics Table'	(a SysML Instance Table written as a view rendered asElementTable)
+InstanceSpecification	Results::analysis counted twice	_twice	-> Results::'analysis counted twice'
+Slot	Results::analysis counted twice::<Slot>	_twiceMean	-> Results::'analysis counted twice'::'Monte Carlo'::mean
+Slot	Results::analysis counted twice::<Slot>	_twiceT	-> Results::'analysis counted twice'::t
+InstanceSpecification	Results::analysis left blank	_blank	-> Results::'analysis left blank'
+Slot	Results::analysis left blank::<Slot>	_blankT	-> Results::'analysis left blank'::t
+InstanceSpecification	Results::analysis of 4 runs	_sum	-> Results::'analysis of 4 runs'
+Slot	Results::analysis of 4 runs::<Slot>	_sumN	-> Results::'analysis of 4 runs'::'Monte Carlo'::runs
+Slot	Results::analysis of 4 runs::<Slot>	_sumMean	-> Results::'analysis of 4 runs'::'Monte Carlo'::mean
+Slot	Results::analysis of 4 runs::<Slot>	_sumDev	-> Results::'analysis of 4 runs'::'Monte Carlo'::deviation
+Slot	Results::analysis of 4 runs::<Slot>	_sumOut	-> Results::'analysis of 4 runs'::'Monte Carlo'::outOfSpec
+Slot	Results::analysis of 4 runs::<Slot>	_sumT	-> Results::'analysis of 4 runs'::t
+InstanceSpecification	Results::analysis of more runs than a count holds	_vast	-> Results::'analysis of more runs than a count holds'
+Slot	Results::analysis of more runs than a count holds::<Slot>	_vastMean	-> Results::'analysis of more runs than a count holds'::'Monte Carlo'::mean
+Slot	Results::analysis of more runs than a count holds::<Slot>	_vastT	-> Results::'analysis of more runs than a count holds'::t
+InstanceSpecification	Results::analysis of nothing held	_stray	-> Results::'analysis of nothing held'
+Slot	Results::analysis of nothing held::<Slot>	_strayN	-> Results::'analysis of nothing held'::'Monte Carlo'::runs
+Slot	Results::analysis of nothing held::<Slot>	_strayMean	-> Results::'analysis of nothing held'::'Monte Carlo'::mean
+InstanceSpecification	Results::analysis of two and a half runs	_odd	-> Results::'analysis of two and a half runs'
+Slot	Results::analysis of two and a half runs::<Slot>	_oddMean	-> Results::'analysis of two and a half runs'::'Monte Carlo'::mean
+Slot	Results::analysis of two and a half runs::<Slot>	_oddT	-> Results::'analysis of two and a half runs'::t
+InstanceSpecification	Results::analysis of u	_foreign	-> Results::'analysis of u'
+Slot	Results::analysis of u::<Slot>	_forN	-> Results::'analysis of u'::'Monte Carlo'::runs
+Slot	Results::analysis of u::<Slot>	_forMean	-> Results::'analysis of u'::'Monte Carlo'::mean
+Slot	Results::analysis of u::<Slot>	_forU	-> Results::'analysis of u'::u
+InstanceSpecification	Results::analysis with a garbled mean	_garbled	-> Results::'analysis with a garbled mean'
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledN	-> Results::'analysis with a garbled mean'::'Monte Carlo'::runs
+Slot	Results::analysis with a garbled mean::<Slot>	_garbledT	-> Results::'analysis with a garbled mean'::t
+InstanceSpecification	Results::analysis without a deviation	_lean	-> Results::'analysis without a deviation'
+Slot	Results::analysis without a deviation::<Slot>	_leanN	-> Results::'analysis without a deviation'::'Monte Carlo'::runs
+Slot	Results::analysis without a deviation::<Slot>	_leanMean	-> Results::'analysis without a deviation'::'Monte Carlo'::mean
+Slot	Results::analysis without a deviation::<Slot>	_leanT	-> Results::'analysis without a deviation'::t
+InstanceSpecification	Results::half an analysis	_half	-> Results::'half an analysis'
+Slot	Results::half an analysis::<Slot>	_halfN	-> Results::'half an analysis'::'Monte Carlo'::runs
+Slot	Results::half an analysis::<Slot>	_halfT	-> Results::'half an analysis'::t
+InstanceSpecification	Results::run 1	_raw	-> Results::'run 1'
+Slot	Results::run 1::<Slot>	_rawT	-> Results::'run 1'::t
+Slot	Results::run 1::<Slot>	_rawP	-> Results::'run 1'::p
+«Block» Class	Timer	_timer	-> Timer
+ActivityFinalNode	Timer::Tick::<ActivityFinalNode>	_final	-> final
+ControlFlow	Timer::Tick::<ControlFlow>	_e1
+InitialNode	Timer::Tick::<InitialNode>	_init	-> start
+ObjectFlow	Timer::Tick::<ObjectFlow>	_of
+AddStructuralFeatureValueAction	Timer::Tick::set t	_set	-> 'set t'
+InputPin	Timer::Tick::set t::value	_setVal	-> Timer::Tick::'set t'.value
+ValueSpecificationAction	Timer::Tick::three	_three	-> three
+OutputPin	Timer::Tick::three::result	_threeOut	-> Timer::Tick::three.result
+Property	Timer::p	_p	-> Timer::p
+Property	Timer::t	_t	-> Timer::t
+Property	Timer::u	_u	-> Timer::u
+Package	Unbound Results	_unboundResults	-> 'Unbound Results'
+InstanceSpecification	Unbound Results::run 1	_ub1	-> 'Unbound Results'::'run 1'
+Slot	Unbound Results::run 1::<Slot>	_ub1N	-> 'Unbound Results'::'run 1'::'Monte Carlo'::runs
+Slot	Unbound Results::run 1::<Slot>	_ub1T	-> 'Unbound Results'::'run 1'::t
+InstanceSpecification	timer analysis	_a0	-> 'timer analysis'
+InstanceSpecification	unbound analysis	_u0	-> 'unbound analysis'

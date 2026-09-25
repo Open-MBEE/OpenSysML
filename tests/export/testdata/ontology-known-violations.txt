@@ -1,0 +1,113 @@
+# Known disagreements between the graphs this tool writes and the OMG SysML v2
+# metamodel as Open-MBEE/sysmlv2-rdf-ontology renders it (version 202407). Each
+# line is one violation key — `<kind> <metaclass> <property>` — and the reason it
+# is expected; TestGoldenGraphsMatchOntology (internal/translate/export) fails on any
+# key that is not listed here, and on any listed key no fixture violates any
+# more. The inventory is tracked in docs/project/roadmap.md § D7 and § D8.
+#
+# A key names no element, so this list survives a change of element identity.
+# The ontology records no abstractness, so a subject typed by a metaclass that is
+# abstract in the metamodel would not be among these findings; every metaclass
+# written is checked concrete against the pilot's ecore models by hand instead.
+
+# 1. Properties the metamodel declares on a relationship or membership element
+# that this tool collapses into the element itself. Ownership and visibility no
+# longer collapse (D3.3 materializes the membership); the rest still do. The
+# property name is right; the subject should have been the intervening element.
+domain-mismatch AttributeUsage value             # FeatureValue_value: the feature value is written on the usage instead of a FeatureValue membership
+domain-mismatch ReferenceUsage value             # FeatureValue_value: same collapse on a kindless usage's value
+domain-mismatch AssignmentActionUsage value      # FeatureValue_value: same collapse on an assignment's target value
+domain-mismatch PartUsage lowerBound             # MultiplicityRange_lowerBound: the multiplicity is written on the usage instead of a MultiplicityRange
+domain-mismatch PartUsage upperBound             # MultiplicityRange_upperBound: the multiplicity is written on the usage instead of a MultiplicityRange
+domain-mismatch ReferenceUsage lowerBound        # MultiplicityRange_lowerBound: same collapse on a kindless usage
+domain-mismatch ReferenceUsage upperBound        # MultiplicityRange_upperBound: same collapse on a kindless usage
+domain-mismatch AttributeUsage lowerBound        # MultiplicityRange_lowerBound: same collapse on an attribute (a KerML `feature`)
+domain-mismatch AttributeUsage upperBound        # MultiplicityRange_upperBound: same collapse on an attribute (a KerML `feature`)
+domain-mismatch ConstraintUsage upperBound       # MultiplicityRange_lowerBound: a bound beside the MultiplicityRange the range already is stays on the usage
+domain-mismatch ConstraintUsage value            # FeatureValue_value: a constraint usage's result value is written on the usage instead of a FeatureValue membership
+domain-mismatch OperatorExpression lowerBound    # MultiplicityRange_lowerBound: a cast's `(as T[m])` multiplicity is written on the operator expression
+domain-mismatch OperatorExpression upperBound    # MultiplicityRange_upperBound: same collapse on a cast's multiplicity
+domain-mismatch AttributeUsage visibility        # Membership_visibility: a declaration inside an expression body has no membership, so its visibility is written on the declaration
+
+# 2. Object properties carrying a name as a literal where the ontology's range is
+# an element. A name that resolves — to an element of the graph or to a
+# standard library element by its normative id — is linked; what remains here are
+# the fixtures' names that resolve to nothing, kept as written.
+literal-for-object-property AttributeUsage type                                  # Feature_type: a type the fixture never declares or imports (`Real` without ScalarValues, `Elsewhere::Missing`) is written as its name
+literal-for-object-property ReferenceUsage type                                  # Feature_type: a type the fixture never declares or imports is written as its name
+literal-for-object-property PartUsage type                                       # Feature_type: a type the fixture never declares or imports is written as its name
+literal-for-object-property FeatureReferenceExpression referent                   # FeatureReferenceExpression_referent: a name resolving outside the graph is written as a name, as every reference this tool cannot link is (D7)
+literal-for-object-property InvocationExpression function                         # Expression_function: a function the fixture never imports (`->collect` without ControlFunctions) is written as a name
+literal-for-object-property FeatureTyping type                                  # FeatureTyping_type: a minted FeatureTyping carries the unresolved name its collapsed edge states, as the toolkit's interchange JSON does
+literal-for-object-property FeatureTyping general                               # Specialization_general: same literal on the minted relationship's general end
+literal-for-object-property FeatureTyping target                                # Relationship_target: same literal on the minted relationship's target end
+literal-for-object-property FeatureTyping relatedElement                        # Relationship_relatedElement: same literal on the minted relationship's relatedElement end
+literal-for-object-property ReferenceSubsetting general                          # Specialization_general: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting target                           # Relationship_target: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting relatedElement                   # Relationship_relatedElement: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting referencedFeature                # ReferenceSubsetting_referencedFeature: same on a minted ReferenceSubsetting
+literal-for-object-property ReferenceSubsetting subsettedFeature                 # Subsetting_subsettedFeature: same on a minted ReferenceSubsetting
+literal-for-object-property Membership memberElement                          # Membership_memberElement: the Membership an expression's referent membership mints carries the unresolvable name as its member, as the toolkit's interchange JSON does
+literal-for-object-property Feature chainingFeature                          # Feature_chainingFeature: a chain link resolving outside the graph carries the name, as the API-JSON `{"@ref": …}` does
+literal-for-object-property FeatureChaining chainingFeature                  # FeatureChaining_chainingFeature: same unresolved link on the minted FeatureChaining element
+literal-for-object-property FeatureChaining relatedElement                   # Relationship_relatedElement: same literal on the minted FeatureChaining's relatedElement end
+literal-for-object-property FeatureChaining target                           # Relationship_target: same literal on the minted FeatureChaining's target end
+
+# 3. Metaclass names this tool writes into the SysML namespace that the 202407
+# rendering does not declare at all.
+unknown-class FlowUsage -                        # 202407 names this metaclass FlowConnectionUsage; SysML.owl declares no FlowUsage
+unknown-class TerminateActionUsage -             # SysML.owl declares no TerminateActionUsage at all (no Terminate* class exists in it)
+unknown-class ClassUsage -                       # a KerML `class` written as a usage; SysML.owl declares Class, a classifier, and no ClassUsage
+unknown-class IndividualDefinition -             # `individual def`, standardly an OccurrenceDefinition with isIndividual; SysML.owl declares no IndividualDefinition
+unknown-class IndividualUsage -                  # `individual` usage, standardly an OccurrenceUsage with isIndividual; SysML.owl declares no IndividualUsage
+unknown-class ConstructorExpression -            # KerML 1.0 `new T(...)`, an InstantiationExpression the pilot writes; the 202407 rendering predates the metaclass
+
+# 4. Metaclasses of this tool's own extension namespace, for constructs it has no
+# standard metaclass for. Deliberately outside the standard vocabulary, so the
+# ontology cannot declare them; an ontology profile has to materialize the
+# abstract-syntax elements instead (D3.3).
+unknown-class urn:opensysml:sysml:DeferMember -              # `defer` in a state, standardly a StateSubactionMembership
+unknown-class urn:opensysml:sysml:Pseudostate -              # a state machine pseudostate, standardly a StateUsage or TransitionUsage shape
+
+# 5. Properties written in the SysML namespace that no metaclass declares. Every
+# one of these is either a relationship the metamodel reifies as an element
+# (Specialization, Subsetting, Redefinition, ReferenceUsage) or a notation flag
+# with no metamodel property, so they belong in this tool's own namespace until
+# the elements are materialized (D3.3).
+unknown-property PartDefinition specializes                  # specialization is a Specialization element, not a property
+unknown-property IndividualDefinition specializes            # specialization is a Specialization element, not a property
+unknown-property ClassUsage specializes                      # specialization is a Specialization element, not a property
+unknown-property PartUsage subsets                           # subsetting is a Subsetting element, not a property
+unknown-property ReferenceUsage subsets                      # subsetting is a Subsetting element, not a property
+unknown-property AttributeUsage subsets                      # subsetting is a Subsetting element, not a property
+unknown-property OccurrenceUsage subsets                     # subsetting is a Subsetting element, not a property
+unknown-property SatisfyRequirementUsage subsets             # subsetting is a Subsetting element, not a property
+unknown-property AnalysisCaseUsage subsets                   # subsetting is a Subsetting element, not a property
+unknown-property Multiplicity subsets                        # a MultiplicitySubset's bounds, collapsed the same way as any other subsetting
+unknown-property PartUsage redefines                         # redefinition is a Redefinition element, not a property
+unknown-property AttributeUsage redefines                    # redefinition is a Redefinition element, not a property
+unknown-property ReferenceUsage redefines                    # redefinition is a Redefinition element, not a property
+unknown-property OccurrenceUsage redefines                   # redefinition is a Redefinition element, not a property
+unknown-property PerformActionUsage redefines                # redefinition is a Redefinition element, not a property
+unknown-property ExhibitStateUsage redefines                 # redefinition is a Redefinition element, not a property
+unknown-property IncludeUseCaseUsage includes                # the use case an `include` names, standardly its includedUseCase through a ReferenceSubsetting
+unknown-property PerformActionUsage references               # a referenced element is a ReferenceUsage or Membership, not a property
+unknown-property PartUsage references                        # a reference subsetting is a ReferenceSubsetting element, not a property
+unknown-property ReferenceUsage references                   # a `ref x ::> y` usage, written the same way
+unknown-property ExhibitStateUsage references                # the state an `exhibit` names, referenced the same way
+unknown-property EventOccurrenceUsage references             # the occurrence an `event m.start` names, standardly its eventOccurrence through a ReferenceSubsetting
+unknown-property AssertConstraintUsage references            # the constraint an `assert c` names, standardly its assertedConstraint through a ReferenceSubsetting
+unknown-property ConstraintUsage references                  # a reference subsetting is a ReferenceSubsetting element, not a property
+unknown-property RenderingUsage references                   # the rendering a `render r` names, standardly its referencedRendering through a ReferenceSubsetting
+unknown-property SatisfyRequirementUsage subject             # the feature `by` names, standardly the satisfyingFeature through a SubjectMembership
+unknown-property ActionUsage via                             # the port an accept trigger listens on, which the metamodel reaches through the accept action's parameters
+unknown-property TransitionUsage via                         # the port a transition's trigger listens on, reached the same way
+unknown-property ReferenceUsage isAccept                     # notation flag for an accept parameter, no metamodel property
+unknown-property ReferenceUsage isResult                     # notation flag for a result parameter, no metamodel property
+unknown-property PartUsage isChain                           # notation flag for a feature chain, no metamodel property
+unknown-property PartUsage isVariant                         # Usage::isVariant, which the 202407 rendering omits; the metamodel derives it from the VariantMembership
+unknown-property EnumerationUsage isVariant                  # Usage::isVariant on an enumerated value, a variant of its enumeration definition; omitted the same way
+unknown-property Connector isAll                              # Type::isSufficient (`connector all from a to b`), written under the notation's own name
+unknown-property AttributeUsage isAll                        # Type::isSufficient (`portion feature all slices`), written under the notation's own name
+unknown-property AttributeUsage isConstant                   # Feature::isReadOnly in the 202407 rendering, whose `readonly` the notation has since respelled `const`; written under the notation's own name
+literal-for-object-property FeatureChainExpression targetFeature                   # FeatureChainExpression_targetFeature: the `result` of an invocation is no element of the graph and is written as a name

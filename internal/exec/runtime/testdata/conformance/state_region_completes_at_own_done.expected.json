@@ -1,0 +1,22 @@
+{
+	"type": "state",
+	"trace": true,
+	"events": [
+		{
+			"signal": "B"
+		},
+		{
+			"signal": "A"
+		},
+		{
+			"signal": "Never"
+		}
+	],
+	"finalState": "fin",
+	"outputs": {
+		"log": {
+			"type": "String",
+			"value": "waited C-done S1-done "
+		}
+	}
+}

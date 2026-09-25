@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"trace": true,
+	"finalState": "ldone+rdone",
+	"outputs": {
+		"a": {"type": "Integer", "value": 1},
+		"b": {"type": "Integer", "value": 3}
+	}
+}

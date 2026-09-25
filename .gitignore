@@ -19,7 +19,7 @@
 /examples/pilot-corpora/
 
 # Python
-/src/  # Legacy Python layout shadow directory (superseded by clients/python/)
+/src/  # Legacy Python layout shadow directory (superseded by client/python/)
 __pycache__/
 *.py[cod]
 *$py.class
@@ -36,15 +36,18 @@ coverage-python.xml
 coverage-scripts.xml
 .coverage-scripts
 coverage-node.lcov
-/clients/node/coverage/
+/client/node/coverage/
 .coverage
 
 # Generated stubs for the upcoming clients (make proto-ts / proto-rust)
 /gen/
-/clients/rust/target/
+/client/rust/target/
 
-# Maven build output for the Java client
-/clients/java/**/target/
+# Maven build output for the Java client and the Cameo plugin
+/client/java/**/target/
+/editors/cameo/**/target/
+/editors/syson/**/target/
+!/editors/cameo/dist/
 
 # Partial oracle record a failed `make fuml-expected` leaves for diagnosis
 /docs/project/fuml-referee-expected.json.failed

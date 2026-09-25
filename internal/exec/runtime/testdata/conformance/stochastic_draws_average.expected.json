@@ -1,0 +1,11 @@
+{
+	"type": "action",
+	"libraries": true,
+	"draws": "average",
+	"outputs": {
+		"d": {"type": "Real", "value": 4.5},
+		"n": {"type": "Integer", "value": 4},
+		"t": {"type": "Real", "value": 5.0},
+		"g": {"type": "Real", "value": 12.0}
+	}
+}

@@ -40,6 +40,6 @@ Supported comparison operators:
 - `>=` (greater than or equal)
 - Integer and real comparisons with automatic coercion
 
-**Implementation:** `internal/core/runtime/action_executor.go`, lowered by
-`internal/core/lower`. The tests that pin each node kind are named in
+**Implementation:** `internal/exec/runtime/action_executor.go`, lowered by
+`internal/ir/lower`. The tests that pin each node kind are named in
 [internals/testing.md](../testing.md).

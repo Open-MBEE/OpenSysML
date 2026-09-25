@@ -60,6 +60,27 @@ package Cookbook {
 	}
 
 	// ... the recipe queries below ...
+
+	requirement def PointingRequirement {
+		doc /* The telescope holds a target within the stated accuracy. */
+	}
+	requirement <'REQ-2'> pointingRequirement : PointingRequirement {
+		doc /* The telescope points at a target to within 2 arcseconds. */
+		requirement <'REQ-2.1'> slewRequirement {
+			doc /* The mount reaches a new target within 60 seconds. */
+		}
+		requirement <'REQ-2.2'> trackingRequirement {
+			doc /* The mount tracks a target for 30 minutes without drift. */
+		}
+	}
+	verification def PointingTest;
+	verification pointingVerification : PointingTest {
+		objective {
+			verify pointingRequirement;
+		}
+	}
+
+	// ... and the coverage recipes ...
 }
 ```
 
@@ -202,7 +223,9 @@ $ sysml cookbook.sysml -run-query "Cookbook::AllParts root=Cookbook::telescope"
   Row 5: Cookbook::telescope::dataPath
 ```
 
-`maxDepth` bounds the walk; each level is visited in declaration order.
+`maxDepth` bounds the walk; each level is visited in declaration order. Omit
+it (or pass `null`) to walk the whole subtree — `Ancestors` likewise walks to
+the root when unbounded.
 Note that the connections are still here: a `connection` usage *is* a
 `PartUsage` in the SysML metamodel (its metaclass conforms to it). Use
 a feature or name filter, or `type = "ConnectionUsage"`, to separate them —
@@ -226,13 +249,43 @@ $ sysml cookbook.sysml -run-query "Cookbook::Enclosing leaf=Cookbook::telescope:
 
 Owners are returned nearest-first, up to `maxDepth` levels.
 
+### Elements by qualified name: `Named`
+
+```sysml
+calc def NamedParts :> Query {
+	WhereType(
+		source = Descendants(source = Named(qualifiedName = ("Cookbook::telescope", "Cookbook::Traceability"))),
+		type = "PartUsage"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::NamedParts"
+✓ Query Cookbook::NamedParts returned 12 rows
+  Row 1: Cookbook::telescope::primaryMirror
+  Row 2: Cookbook::telescope::instrumentCluster
+  ...
+  Row 6: Cookbook::Traceability::gimbal
+  ...
+```
+
+A query parameter must be bound to a feature, so a walk rooted at a *package*
+or a *definition* has nothing to bind `root` to. `Named` resolves qualified
+names — spelled as strings, like the types `WhereType` takes — to the elements
+they name, in the order given, and any element may be named, a package or
+definition included. A name that resolves to nothing, or to more than one
+element, fails the query with the name quoted rather than returning fewer rows.
+The SysML v1 migration roots every table scope this way.
+
 ## Type filters
 
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. A name that is neither a known
-metamodel type nor resolvable in the model is a typed
+`type = "Usage"` keeps every kind of usage. Several names keep the elements of
+any of them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
+known metamodel type nor resolvable in the model is a typed
 `unknown-classification` error rather than a silently-empty result.
 
 ```sysml
@@ -260,8 +313,8 @@ attribute ([property filters](#property-filters)).
 ## Metadata filters
 
 `WhereMetadata` keeps elements annotated with a metadata definition, matching
-specializations of it too. The model marks `primaryMirror` with
-`@Critical`:
+specializations of it too; several names keep the elements annotated with any
+of them. The model marks `primaryMirror` with `@Critical`:
 
 ```sysml
 calc def CriticalParts :> Query {
@@ -311,7 +364,9 @@ expression.
 `WhereFeature` compares an attribute's constant value. The comparison is
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
-operators above. An element without the attribute simply does not match; a
+operators above, and an element-valued feature — a verdict's `assertion`, a
+`RelatedColumn` list — as the qualified name it prints by, with the text
+operators. An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
 ```sysml
@@ -444,6 +499,7 @@ are always projectable:
 | `@type` | The metamodel type (`PartUsage`, ...) |
 | `type` | The declared type's qualified name |
 | `isAbstract` | Boolean |
+| `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 
 ```sysml
@@ -683,10 +739,63 @@ for the two connections in its results. Computed names join the projection:
 Every built-in property is reachable the same way — `Element::shortName`,
 `Element::declaredShortName` and `Element::documentation` included — so
 `(Element::shortName ?? "—") + ": " + Element::name` labels a row by its
-identifier. A column is one value per row: an element carrying two `doc`
-bodies fails a column over `Element::documentation` with a typed
-`column-cardinality` error, where the plain `"documentation"` projection
-above carries both.
+identifier. A column holds as many values as the feature it reads declares:
+`Element::documentation` is `[0..*]`, so an element carrying two `doc` bodies
+fills the cell with both in order (comma-joined in a document table) and one
+carrying none leaves it empty, while a feature declared without a multiplicity
+is one value per row — a row binding two fails the column with a typed
+`column-cardinality` error naming the declared bound, and a row binding none
+with `column-absent` unless `??` supplies a default — a value, or `null` to
+leave that row's cell empty (`Stage::mass ?? null`). Operators always take one
+value per operand, so `Element::documentation + "."` over two bodies fails.
+
+A column expression may also be a **feature chain** — `'Monte Carlo'.runs`,
+`stat.runs`, `outer.inner.value` — reading a feature of a member nested in
+the row element. Each segment names a member of the element the previous one
+reached: the row's own members answer first, then inherited ones, and the
+last segment reads that member's feature. A segment that is not a basic name
+is quoted, as in the notation. In a `properties`/`property` string a feature
+whose own name contains a period is read by that name first, the path only
+the fallback. A row lacking a segment entirely makes the
+path absent on that row — an empty cell, or a `??` default — and the path is
+an unknown-property error only when no row reaches it; a member the path
+finds that declares no value is an empty cell, and a multi-valued member
+fills the cell with all of its values — more than its multiplicity admits
+fails the column as a direct feature column does. The same path works as a `properties`
+or `property` string (`"stat.runs"`), and `OrderBy` sorts by it. This is how
+an individual's nested usage — an analysis the migrator writes, for instance —
+contributes a column:
+
+```sysml
+analysis def 'Template Group 1 Monte Carlo' {
+	out runs : ScalarValues::Natural;
+	out mean : ScalarValues::Real;
+}
+individual part def 'template Group 11' :> 'Template Group 1' {
+	analysis 'Monte Carlo' : 'Template Group 1 Monte Carlo' {
+		out :>> runs = 5;
+		out :>> mean = 18.0;
+	}
+}
+calc def RunCounts :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "runs", expression = 'Monte Carlo'.runs ?? 0))
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RunCounts root=Cookbook::Results"
+✓ Query Cookbook::RunCounts returned 3 rows
+  Columns: name, runs
+  Row 1: Cookbook::Results::'template Group 11'
+    name = "template Group 11"
+    runs = 5
+  ...
+```
 
 Quantities take part in column arithmetic with the runtime's rules, so a
 column keeps its unit: `Stage::mass * 2` is `4580000 [kg]`, `Stage::mass /
@@ -716,17 +825,21 @@ RelatedElements(
 	source = <elements>,
 	relationshipKind = "<kind>",   // specialization, subsetting, redefinition,
 	                                // typing, connection, allocation,
-	                                // satisfaction or verification
+	                                // satisfaction, verification,
+	                                // derivation or refinement
 	direction = "<direction>",     // outgoing or incoming
-	maxDepth = <n>
+	maxDepth = <n>                 // omit, or null, for no bound
 )
 ```
 
 Direction is from the relationship's own point of view — `outgoing` follows
 it as declared, `incoming` follows it backwards. Traversal is breadth-first
-to `maxDepth`, deduplicated, in declaration order, and bounded by a visit
-budget so a pathological model terminates with a typed error rather than
-hanging.
+to `maxDepth` (unbounded when omitted or `null`), deduplicated, in
+declaration order, and bounded by a visit budget so a pathological model
+terminates with a typed error rather than hanging. The budget pays only for
+the elements reached: the edge table a relationship kind reads is built once
+per model (again after an edit), from every declaration in the workspace, and is not charged to it —
+so a matrix over a large model costs what its rows relate to, not the model's size.
 
 ### Connections
 
@@ -825,6 +938,103 @@ $ sysml cookbook.sysml -run-query "Cookbook::VerifiedBy req=Cookbook::massRequir
   Row 1: Cookbook::massVerification
 ```
 
+### Derive relationships
+
+A requirement derivation is a connection conforming to the domain library's
+`RequirementDerivation::Derivation` — typed by it, or written with the
+`#derivation` semantic metadata. The cookbook model derives three requirements
+from `massRequirement`, one of them at second hand:
+
+```sysml
+requirement mirrorMassRequirement;
+requirement segmentMassRequirement;
+requirement instrumentMassRequirement;
+connection deriveMirrorMass : RequirementDerivation::Derivation
+	connect massRequirement to mirrorMassRequirement;
+#RequirementDerivation::derivation connection deriveInstrumentMass
+	connect massRequirement to instrumentMassRequirement;
+#RequirementDerivation::derivation connection deriveSegmentMass
+	connect mirrorMassRequirement to segmentMassRequirement;
+```
+
+The `derivation` kind runs from the original requirement to each derived one,
+so the requirements derived from an original — transitively, to `maxDepth` —
+are an **outgoing** traversal, and the original(s) a derived requirement traces
+back to are an incoming one:
+
+```sysml
+calc def DerivedFrom :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "derivation",
+		direction = "outgoing",
+		maxDepth = 2
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::DerivedFrom req=Cookbook::massRequirement"
+✓ Query Cookbook::DerivedFrom returned 3 rows
+  Row 1: Cookbook::mirrorMassRequirement
+  Row 2: Cookbook::instrumentMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+```
+
+Which end is the original is read from the derivation itself: an end
+subsetting `originalRequirements` or tagged `#original` is the original, one
+subsetting `derivedRequirements` or tagged `#derive` is derived, and a
+connection typed by a `connection def` specializing `Derivation` inherits the
+roles its definition's ends state. An end that states no role takes the one
+left over: it is the original when no other end is, and derived otherwise —
+so `connect (a, b, c)` with no stated roles derives `b` and `c` from `a`, and
+an unmarked end beside an `#original` end is derived. A `connection def`
+specializing `Derivation` whose ends are typed by requirement definitions —
+the form the v1 migrator writes — relates those definitions the same way,
+through the ends it inherits from a general definition as well as its own; an
+end that redefines an inherited end keeps that end's role and, when it declares
+no type, its type. A plain connection between two requirements is not a
+derivation.
+
+### Refine relationships
+
+A refinement is a `dependency` annotated `@ModelingMetadata::Refinement`,
+as a prefix (`#refinement dependency ...`) or in its body (`{ @Refinement; }`).
+The cookbook model states one from a part definition to the requirement it
+refines:
+
+```sysml
+#ModelingMetadata::refinement dependency mirrorRefinesMass
+	from MirrorAssembly to mirrorMassRequirement;
+```
+
+The `refinement` kind runs from each client of the dependency to each of its
+suppliers, so "what refines this requirement" is an **incoming** traversal
+from the requirement:
+
+```sysml
+calc def RefinedBy :> Query {
+	in req : Element;
+	RelatedElements(
+		source = req,
+		relationshipKind = "refinement",
+		direction = "incoming",
+		maxDepth = 1
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RefinedBy req=Cookbook::mirrorMassRequirement"
+✓ Query Cookbook::RefinedBy returned 1 row
+  Row 1: Cookbook::MirrorAssembly
+```
+
+A dependency with several clients or suppliers relates every client to every
+supplier. A dependency without the `Refinement` metadata states no refinement
+edge.
+
 ### Specialization (and the other structural kinds)
 
 `specialization`, `subsetting`, `redefinition` and `typing` traverse the
@@ -853,6 +1063,308 @@ $ sysml cookbook.sysml -run-query "Cookbook::Specializers general=Cookbook::Subs
 Traversal results are elements like any others — feed them into `Project` for
 a traceability table, as the [worked example](worked-example.md) does for its
 requirement section.
+
+## Coverage
+
+`RelatedElements` answers "what satisfies this requirement"; a traceability
+report also has to answer "which requirements does **nothing** satisfy".
+`WhereRelated` is that filter: it keeps each source row by whether at least
+one element is reachable from it over a relationship kind, and takes the same
+`relationshipKind`, `direction` and `maxDepth` as `RelatedElements` — every
+kind it accepts, the same typed errors for an unknown kind or direction, the
+same edge tables and visit budget:
+
+```sysml
+WhereRelated(
+	source = <elements>,
+	relationshipKind = "<kind>",
+	direction = "<direction>",
+	maxDepth = <n>,
+	exists = true            // keep rows with a related element (default),
+	                         // false keeps the rows with none
+)
+```
+
+The rows to check are the requirements under a root. `WhereType` matches
+nested requirement usages as well as top-level ones, and — because a
+`satisfy` usage *is* a `RequirementUsage` in the metamodel — the satisfaction
+assertions too, so the base recipe subtracts those with `Except`:
+
+```sysml
+calc def Requirements :> Query {
+	in root : Element;
+	Except(
+		source = Union(
+			source = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementDefinition"),
+			other = WhereType(source = Descendants(source = root, maxDepth = 10), type = "RequirementUsage")
+		),
+		exclude = WhereType(source = Descendants(source = root, maxDepth = 10), type = "SatisfyRequirementUsage")
+	)
+}
+
+calc def UnsatisfiedRequirements :> Query {
+	in root : Element;
+	WhereRelated(
+		source = Requirements(root = root),
+		relationshipKind = "satisfaction",
+		direction = "incoming",
+		maxDepth = 1,
+		exists = false
+	)
+}
+```
+
+The model's `pointingRequirement` (declared at the end of the package with
+its definition and two nested requirements) is verified by
+`pointingVerification` but satisfied by nothing, and neither are its
+children or the three requirements derived from `massRequirement`:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UnsatisfiedRequirements root=Cookbook"
+✓ Query Cookbook::UnsatisfiedRequirements returned 7 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::pointingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
+```
+
+`UnverifiedRequirements` is the same recipe with
+`relationshipKind = "verification"`; rooted at the package it also finds the
+nested `Traceability` package's `downlinkRequirement`, which the
+[traceability matrix](#traceability-matrix) below shows with no verifier:
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UnverifiedRequirements root=Cookbook"
+✓ Query Cookbook::UnverifiedRequirements returned 7 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::mirrorMassRequirement
+  Row 3: Cookbook::segmentMassRequirement
+  Row 4: Cookbook::instrumentMassRequirement
+  Row 5: Cookbook::pointingRequirement::slewRequirement
+  Row 6: Cookbook::pointingRequirement::trackingRequirement
+  Row 7: Cookbook::Traceability::downlinkRequirement
+```
+
+Rows keep their order and any projected columns, so `WhereRelated` composes
+with `Project` and `OrderBy` like the other filters. Omitting `exists`
+keeps the covered rows instead; `maxDepth` bounds how far the walk looks
+for a related element, and each element it reaches charges the visit budget.
+
+### Set operations: `Except` and `Union`
+
+`Except(source, exclude)` keeps the rows of `source` not among `exclude`, in
+source order; `Union(source, other)` is every row of `source` followed by the
+rows of `other` not already present. Both emit each row once and identify a row the
+way `RelatedElements` de-duplicates: a model element by its declaration, an
+object the session holds by the object itself, a verdict by its assertion and
+the object it was checked on, a state by its object, machine and state path, and
+an event by its place in the trace — so `Verdicts`, `States` and `Events` tables
+can be combined too.
+Combining the two coverage queries gives the requirements with a gap of
+either kind, and subtracting one from the other the requirements with exactly
+one:
+
+```sysml
+calc def UncoveredRequirements :> Query {
+	in root : Element;
+	Union(
+		source = UnsatisfiedRequirements(root = root),
+		other = UnverifiedRequirements(root = root)
+	)
+}
+
+calc def VerifiedButUnsatisfied :> Query {
+	in root : Element;
+	Except(
+		source = UnsatisfiedRequirements(root = root),
+		exclude = UnverifiedRequirements(root = root)
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::UncoveredRequirements root=Cookbook"
+✓ Query Cookbook::UncoveredRequirements returned 8 rows
+  Row 1: Cookbook::PointingRequirement
+  Row 2: Cookbook::pointingRequirement
+  Row 3: Cookbook::mirrorMassRequirement
+  Row 4: Cookbook::segmentMassRequirement
+  Row 5: Cookbook::instrumentMassRequirement
+  Row 6: Cookbook::pointingRequirement::slewRequirement
+  Row 7: Cookbook::pointingRequirement::trackingRequirement
+  Row 8: Cookbook::Traceability::downlinkRequirement
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::VerifiedButUnsatisfied root=Cookbook"
+✓ Query Cookbook::VerifiedButUnsatisfied returned 1 row
+  Row 1: Cookbook::pointingRequirement
+```
+
+`Except` keeps the source's projected columns; `Union` requires both inputs
+to be unprojected or to project the same columns, and is a typed error
+otherwise, since its rows share one table.
+
+## Requirement hierarchy
+
+A requirement tree is the requirement definitions and usages under a root —
+`Requirements` above — in hierarchy order. `Descendants` visits level by
+level, so sort by `qualifiedName`: an element's qualified name prefixes its
+children's, which puts each requirement directly above the ones nested in
+it. Projecting `shortName`, `name` and `documentation` gives the table a
+document renders:
+
+```sysml
+calc def RequirementTree :> Query {
+	in root : Element;
+	Project(
+		source = OrderBy(
+			source = Requirements(root = root),
+			property = "qualifiedName",
+			direction = "ascending",
+			missing = "last",
+			multiple = "error"
+		),
+		properties = ("shortName", "name", "documentation")
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RequirementTree root=Cookbook::pointingRequirement"
+✓ Query Cookbook::RequirementTree returned 2 rows
+  Columns: shortName, name, documentation
+  Row 1: Cookbook::pointingRequirement::slewRequirement
+    shortName = "REQ-2.1"
+    name = "slewRequirement"
+    documentation = "The mount reaches a new target within 60 seconds."
+  Row 2: Cookbook::pointingRequirement::trackingRequirement
+    shortName = "REQ-2.2"
+    name = "trackingRequirement"
+    documentation = "The mount tracks a target for 30 minutes without drift."
+```
+
+Rooted at the package, the same query lists `PointingRequirement`, the
+`Traceability` package's three requirements, `massRequirement` and its three
+derived requirements, and `pointingRequirement` with its two children beneath
+it.
+The [requirements example](examples/requirements.sysml) renders such a tree
+as the last table of its report, [`requirements.md`](examples/requirements.md).
+
+## Traceability matrix
+
+`RelatedElements` answers one requirement at a time. To put every requirement
+in one table with its satisfiers and verifiers beside it, derive the columns
+from the relationships instead: a `RelatedColumn(name, relationshipKind,
+direction, maxDepth, aggregate = "list", targets)` entry of `columns`
+traverses the named relationship from each row's element — the same kinds,
+directions and depth bound as `RelatedElements` — and fills a cell with what
+it reaches. The `aggregate` chooses the cell's shape: `"list"` (the default)
+holds the related elements, `"count"` how many there are, `"any"` whether
+there is at least one — an existence test that stops at the first element it
+reaches. `targets`, when given, keeps only the reached elements among them:
+a dependency matrix whose columns are one query and whose rows are another
+is `Project(source = <rows>, columns = (RelatedColumn(..., targets = <columns>)))`.
+
+The cookbook model's `Traceability` package holds three requirements, a
+`spacecraft` whose parts satisfy them and three verification cases, two of
+which verify the pointing requirement and none the downlink one:
+
+```sysml
+calc def TraceMatrix :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(
+			source = Descendants(source = root, maxDepth = 1),
+			type = "RequirementUsage"
+		),
+		properties = ("shortName", "name"),
+		columns = (
+			RelatedColumn(name = "satisfiedBy", relationshipKind = "satisfaction", direction = "incoming", maxDepth = 1),
+			RelatedColumn(name = "verifiedBy", relationshipKind = "verification", direction = "incoming", maxDepth = 1),
+			RelatedColumn(
+				name = "verifications",
+				relationshipKind = "verification",
+				direction = "incoming",
+				maxDepth = 1,
+				aggregate = "count"
+			)
+		)
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::TraceMatrix root=Cookbook::Traceability"
+✓ Query Cookbook::TraceMatrix returned 3 rows
+  Columns: shortName, name, satisfiedBy, verifiedBy, verifications
+  Row 1: Cookbook::Traceability::pointingRequirement
+    shortName = "TR-1"
+    name = "pointingRequirement"
+    satisfiedBy = Cookbook::Traceability::gimbal
+    verifiedBy = [Cookbook::Traceability::pointingTest, Cookbook::Traceability::pointingAnalysis]
+    verifications = 2
+  Row 2: Cookbook::Traceability::thermalRequirement
+    shortName = "TR-2"
+    name = "thermalRequirement"
+    satisfiedBy = Cookbook::Traceability::radiator
+    verifiedBy = Cookbook::Traceability::thermalTest
+    verifications = 1
+  Row 3: Cookbook::Traceability::downlinkRequirement
+    shortName = "TR-3"
+    name = "downlinkRequirement"
+    satisfiedBy = Cookbook::Traceability::transmitter
+    verifiedBy = (none)
+    verifications = 0
+```
+
+A list cell is genuinely multi-valued: the report brackets several elements
+and prints `(none)` for an empty cell, a document table renders each element
+as it renders a multi-valued `documentation` projection (comma-joined in
+Markdown, one linked value each in HTML), and the gRPC `run_query` response
+carries every element. The elements keep the traversal's order, so the
+verification declared first comes first.
+
+Related columns join the projection like computed ones: `OrderBy` sorts by
+them, a table's `groupBy` groups by them, and `WhereFeature` filters on them.
+A list cell's elements compare and sort as their qualified names, so
+`WhereFeature(feature = "satisfiedBy", operator = "endsWith", value = "::gimbal")`
+keeps the requirements the gimbal satisfies and `OrderBy(property =
+"satisfiedBy", multiple = "first")` sorts by each row's first satisfier.
+Uncovered requirements are the rows whose count is zero:
+
+```sysml
+calc def Unverified :> Query {
+	in root : Element;
+	WhereFeature(
+		source = TraceMatrix(root = root),
+		'feature' = "verifications",
+		operator = "=",
+		value = "0"
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::Unverified root=Cookbook::Traceability"
+✓ Query Cookbook::Unverified returned 1 row
+  Columns: shortName, name, satisfiedBy, verifiedBy, verifications
+  Row 1: Cookbook::Traceability::downlinkRequirement
+    shortName = "TR-3"
+    name = "downlinkRequirement"
+    satisfiedBy = Cookbook::Traceability::transmitter
+    verifiedBy = (none)
+    verifications = 0
+```
+
+A relationship kind or direction `RelatedElements` would refuse is refused
+here too, with the same typed error naming the column; so is an `aggregate`
+other than the three above. The [traceability example](examples/traceability.md)
+renders such a matrix as a document table beside the requirement list and
+the requirements' verdicts.
 
 ## Objects the session holds
 
@@ -936,11 +1448,10 @@ $ sysml cookbook.sysml -instantiate Cookbook::telescope -run-query "Cookbook::He
     mass = 4.5
 ```
 
-A session holding no object returns no rows from `Objects`; running the query
-outside any session (through the library alone) is refused with a typed error
-saying to instantiate an object first. `RelatedElements` reads the model's
-relationships and is refused over an object row — traverse the relationship from
-the element, then bind what it finds.
+A session holding no object returns no rows from `Objects`; outside any
+session the operation is refused with a typed error, and `RelatedElements` is
+refused over an object row — [Which query is
+which](query-kinds.md#object-rows-and-verdict-rows) draws these boundaries.
 
 A document renders the same way: `-instantiate <name> -render-document <doc>`
 creates the object first, and every table or list whose query is bound to that
@@ -1056,3 +1567,152 @@ In a document, a `Verdicts` table renders each cell as
 `<assertion> on <path>: <verdict>`; in HTML a verdict cell is a
 `span.sysml-verdict` carrying `data-verdict`, `data-path` and, for an object
 the session holds, `data-object`, beside the `data-element` of the assertion.
+
+## Where the objects stand and what they did
+
+Objects the session holds may be *running*: an object whose type exhibits a
+state machine starts it when the object is created, and `%send` and
+`%advance` (or `-state` with `-advance` on the command line) drive it. Three
+operations read the run. `States(source = <rows>)` answers the state each
+object's machine is in now — one row per active leaf state, so a `parallel`
+state contributes a row per region; `InState(name = "<state>")` is the
+inverse, the held objects whose machine is in that state; and
+`Events(source, kind, since, before)` reads the trace the session records as
+rows. All three read the session as `Objects` does, and are refused with the
+same `no-runtime` error where there is none;
+[Which query is which](query-kinds.md#runtime-state-and-event-queries) has
+the boundaries in full.
+
+The cookbook model's `Dome` exhibits a `DomeControl` machine: `closed` until
+an `Open` arrives, then `open` with two regions — `pointing`, which slews on a
+`Slew(azimuth)` signal, and `shutter`, which takes a second to reach `opened`
+— and back to `closed` on `Close`:
+
+```sysml
+calc def DomeStates :> Query {
+	in root : Element;
+	Project(source = States(source = root), properties = ("machine", "statePath", "region", "enclosing"))
+}
+
+calc def Opened :> Query {
+	Project(source = InState(name = "open"), properties = ("qualifiedName"))
+}
+
+calc def Accepted :> Query {
+	in root : Element;
+	Project(
+		source = Events(source = root, kind = "accept", since = 1 [s], before = 2.5 [s]),
+		properties = ("time", "event", "payload")
+	)
+}
+```
+
+Sending a signal needs the prompt, so this recipe runs there. `%trace on`
+first, since `Events` reads the trace the session records and refuses
+(`no-trace`) in one that records none — and `%trace off` discards it:
+
+```console
+$ sysml docs/manual/examples/cookbook.sysml
+sysml> %trace on
+sysml> %instantiate dome
+✓ Created instance of Cookbook::dome
+  ID: 1
+sysml> %instantiate spareDome
+✓ Created instance of Cookbook::spareDome
+  ID: 3
+sysml> %state control dome
+sysml> %send Open
+sysml> %advance 1
+sysml> %send Slew(azimuth = 120.0)
+sysml> %advance 1
+sysml> %send Open to spareDome
+sysml> %advance 0.5
+sysml> %send Close to spareDome
+sysml> %advance 0.5
+```
+
+*Which state is `#1.control` in?* — one row per active leaf, with the
+region each runs in and the composite state enclosing both:
+
+```console
+sysml> %run-query DomeStates root=#1
+✓ Query Cookbook::DomeStates returned 2 rows
+  Columns: machine, statePath, region, enclosing
+  Row 1: #1.control in open.slewing
+    machine = "control"
+    statePath = "open.slewing"
+    region = "pointing"
+    enclosing = "open"
+  Row 2: #1.control in open.opened
+    machine = "control"
+    statePath = "open.opened"
+    region = "shutter"
+    enclosing = "open"
+```
+
+A state row's `name` is the leaf's own (`slewing`), `statePath` its name
+qualified by the states enclosing it, `object` and `path` the object, and the
+row answers the state declaration's own properties too, so `WhereName` and
+`WhereFeature` on any of them narrow the table and `OrderBy` orders it. A row
+prints as `<object>.<machine> in <statePath>`, the object as the binding named
+it. `States` over an object exhibiting no state machine is a typed
+`no-state-machine` error, not an empty table.
+
+*Which objects are in `open`?* — `spareDome` opened at `t = 2` and closed
+again at `t = 2.5`, so only `dome` is:
+
+```console
+sysml> %run-query Opened
+✓ Query Cookbook::Opened returned 1 row
+  Columns: qualifiedName
+  Row 1: Cookbook::dome (#1)
+    qualifiedName = "Cookbook::dome"
+```
+
+The name is a leaf or a state enclosing one, by name or dotted path
+(`open.slewing`), and each object is one row however many of its leaves match;
+a name no held object's machine declares is a typed `unknown-state` error.
+The rows are object rows, so `Descendants`, `WhereFeature` and `Verdicts`
+read them as [above](#objects-the-session-holds).
+
+*What did `#1` accept between `t = 1 [s]` and `t = 2.5 [s]`?* — the interval
+is inclusive at `since` and exclusive at `before`, so the `Open` accepted at
+`t = 0` is out, the `Slew` at `t = 1` in, and for `spareDome` the `Open` at
+`t = 2` is in while the `Close` at `t = 2.5` is out:
+
+```console
+sysml> %run-query Accepted root=#1
+✓ Query Cookbook::Accepted returned 1 row
+  Columns: time, event, payload
+  Row 1: t=1 Cookbook::dome.control: accept Slew
+    time = 1.0 [s]
+    event = "Slew"
+    payload = "azimuth = 120.0"
+sysml> %run-query Accepted root=spareDome
+✓ Query Cookbook::Accepted returned 1 row
+  Columns: time, event, payload
+  Row 1: t=2 Cookbook::spareDome.control: accept Open
+    time = 2.0 [s]
+    event = "Open"
+    payload = (none)
+```
+
+`kind` names the records to keep — `accept`, `send`, `transition`, `entry`,
+`exit`, `do`, `choice` (a due order or region order the run drew, with
+`alternatives` and `taken`) or `guard` (one it could not evaluate), several
+separated by commas, `all` by default — and a `source` left out reads every
+object's records. `since` and `before` take a duration or a bare number of
+the clock's seconds; a bound that is not a duration (`1 [m]`), or an interval
+with `before` at or before `since`, is a typed `invalid-interval` error. Each
+row's `time` is the instant read from the runtime clock, `state`, `from` and
+`to` the states an entry, exit or transition touched, `target` the object a
+send was addressed to, and `text` the line `%trace` prints — the rows are the
+record it prints from, so the two never disagree. The rows come in the order
+the run made them; `OrderBy(property = "time", direction = "descending", ...)`
+reverses it.
+
+In a document, a state cell renders as `<path>.<machine> in <statePath>` and
+an event cell as `t=<instant> <path>.<machine>: <text>`; in HTML they are a
+`span.sysml-state` with `data-machine`, `data-state` and `data-region`, and a
+`span.sysml-event` with `data-event-kind` and `data-time`, each carrying the
+object's `data-object`.

@@ -9,18 +9,30 @@ result:
 { "capabilities": { "experimental": {
     "openSysmlRender": true, "openSysmlRenderDocument": true, "openSysmlStdlibContent": true,
     "openSysmlApplyModelEdit": true, "openSysmlDebug": true,
-    "openSysmlCrossDocumentLayout": true } } }
+    "openSysmlCrossDocumentLayout": true, "openSysmlRenderPalette": true,
+    "openSysmlRenderForms": ["text", "mermaid", "markdown", "dot", "plantuml"],
+    "openSysmlRenderStyles": ["pilot", "cameo"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
 the document-rendering ones, `openSysmlStdlibContent` the request that serves
 the bundled standard library's text, `openSysmlApplyModelEdit` the request
-that turns model operations into text edits, and `openSysmlDebug` the
+that turns model operations into text edits, `openSysmlDebug` the
 [`opensysml/debug/*`](#opensysmldebug-requests) requests that run a drawn
-behavior and report where it stands.
+behavior and report where it stands, and `openSysmlRenderPalette` that a
+`palette` named in an `opensysml/render` request colours the result's nodes
+(`fill`, `border`) as well as its DOT or PlantUML artifact. `openSysmlRenderForms` lists
+the forms `opensysml/render` writes and `openSysmlRenderStyles` the drawing styles its `style`
+draws the DOT form in, the first the default; a server without the latter draws the Pilot look
+alone.
 
 A client that does not see that capability must not send these methods. That is
 how a new client and an older server stay compatible.
+
+`openSysmlRenderForms` lists the values `opensysml/render` accepts as `form`, so
+a client offering a *save as* can show what the server it is connected to
+writes rather than a list of its own. A server without it accepts the five named
+on this page.
 
 `openSysmlCrossDocumentLayout` is the one capability both sides advertise, the
 client among its own `experimental` capabilities in the `initialize` request. It
@@ -79,7 +91,8 @@ Renders one view of a document.
 | `textDocument.uri` | The document to render. It must be one the session holds — an open document, or a workspace file the server read. |
 | `view` | The qualified name of a view the document declares, a pseudo-view (below), or omitted. |
 | `form` | `mermaid`, `text`, `markdown`, `dot` or `plantuml`. Omitted writes the machine form of the rendering's kind: `markdown` for a table, `mermaid` for every other kind. `dot` writes Graphviz DOT for a `tree`, `interconnection`, `state` or `action` rendering, without needing Graphviz installed; `plantuml` writes PlantUML in the Pilot visualizer's B&W style for those kinds and a `sequence`, without needing a PlantUML jar. |
-| `palette` | Optional. A palette the `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. |
+| `palette` | Optional. A palette the `dot` and `plantuml` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. A `mermaid` artifact notes the palette as not represented; `text` and `markdown` ignore it. Whatever the form, a server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself draws them the colours the DOT and PlantUML forms take. |
+| `style` | Optional. The drawing style the `dot` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, compartments and the UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). A `mermaid` or `plantuml` artifact notes a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 
 Omitting `view` renders the view the document declares. If the document declares
 several, the request is ambiguous and fails, naming them
@@ -91,7 +104,8 @@ diagram, DOT for a table or a sequence, PlantUML for a table) is refused, and th
 the form the kind does use. A `form` that is not one of the five is refused, and the reply names
 all five. A
 `palette` that names none of the eight is refused, and the reply names them
-(`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`).
+(`unknown palette "rainbow"; the palettes are okabe-ito, …, cividis`). A `style` that is neither is refused likewise
+(`unknown drawing style "sketch"; the styles are pilot, cameo`).
 
 **Pseudo-views.** A document that is still being written usually declares no `view`,
 so a rendering can be requested as if one had been declared:
@@ -119,7 +133,7 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
   "kind": "tree",
   "stated": "",
   "form": "mermaid",
-  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"Kit::Widget<br>«part def»\"]\n  n1[\"cog : Cog<br>«part»\"]\n  n0 --- n1\n  …",
+  "artifact": "%% KitViews::widgetTree — tree rendering\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n  n1[\"cog : Cog<br>«part»\"]\n  n0 --- n1\n  …",
   "nodes": [
     {
       "id": "n0",
@@ -166,8 +180,11 @@ The result, for `{"view": "KitViews::widgetTree"}` over a document declaring
 | `declaration` | On a node or edge a workspace document declares but no qualified name reaches — an unnamed transition, a connection inside an unnamed part — the `range` of that declaration, in place of `fqn`; the range is one of the document `origin.uri` names, this one or, for a client advertising `openSysmlCrossDocumentLayout`, another of the workspace. `opensysml/applyModelEdit`'s `setLayout` and `setRoute` take it, with `declaredIn` when it is another document's, as the target of an inline annotation, since a view body has no name to state one about; no other operation reaches such an element. |
 | `owners` | On a node with an `fqn`: the namespaces declaring it, nearest first, each as its `fqn` and whether it is a `feature`, whether or not the view draws them. A client writes a connection into the nearest owner two nodes share, or into the document when they share none, and spells each end from there — through a feature by `.`, into any other namespace by `::` (`tank.fuelOut`, `Car::tank.fuelOut`). Absent for a top-level declaration. |
 | `palette` | What a diagram of this kind offers to add, in the document's language: `members` are member kinds for `applyModelEdit`'s `addMember`, `connections` are connection kinds for `addConnection`, `typed` are the `members` that may be given a `type`, and `owners` lists, for each member only some bodies declare (`subject`, `actor`, `stakeholder` in a requirement or case, `objective` in a case), the ids of the nodes whose declaration opens such a body — a client offers such a member on those nodes alone, and a member absent from `owners` on every declared node. The same admission decides where a node may be moved: `owners` also lists, under the `notation` of each drawn node that only some bodies declare (`entry action`, `subject`), the nodes that admit it, so a client offers as the new owner of a node the declared nodes, and the document, that its `notation` finds in `owners` — or every one when it is absent. An `interconnection` offers parts, ports, items, attributes and the connection kinds; a `state` diagram states and transitions; an `action` or `sequence` diagram actions, control nodes and successions; a `tree` every kind the language has. Absent for a kind that is not edited from a diagram — a `table`, whose rows name no owner or endpoint to act on, included. |
+| `fill`, `border` | On a node, when the request named a `palette`: the `#RRGGBB` colours the palette gives the node's box and its outline, the same the DOT and PlantUML forms draw it with — a definition its keyword family's colour, a usage a lighter tint of it, both lightened until black text reads on them. A `sequence` participant carries `fill` alone, PlantUML taking no border colour on one. Absent for a node the palette leaves black and white — a control node, a container drawn around its children (a `tree` fills those too, drawing containment as edges) — and for every node when no palette was named. A server that does not advertise `openSysmlRenderPalette` never sends them. |
+| `nameSynthesized` | On a node: `true` when the model did not give the `name`: a migration made it up for an element its source left unnamed (`MigrationMetadata::SynthesizedName`), or it is the language's own `start` or `done` of an action's flow. Such a name keys the node but a diagram does not show it — the DOT form draws the node unnamed, a control node as its bare symbol. Absent otherwise. An edge whose only text would be such a name carries no `label`, as one the source left unnamed. |
 | `x`, `y`, `width`, `height`, `collapsed` | On a node: where the model places it, from a `DiagramLayout::Layout` annotation, in pixels from the canvas's top-left corner with y increasing downward. Absent for a node the model does not place; `width` and `height` only when the annotation sizes it; `collapsed` only when it says so. |
 | `route` | On an edge: the waypoints a `DiagramLayout::Route` annotation gives it, as an array of `{"x", "y"}` in the same coordinates. Absent for an edge with none. |
+| `style` | On a node or an edge: what a `DiagramLayout::Style` annotation says about how it is drawn — `fill`, `line` and `text` as `#RRGGBB`, `font`, `fontSize` in points, `bold`, `italic` — each present only when stated. Absent for a node or edge with none. |
 | `canvas` | The drawing surface the view states with a `DiagramLayout::Canvas` annotation: its `unit` when given, and `width` and `height` together when the annotation sizes it (an explicit `0` is a size). Absent for a view stating none and for every pseudo-view. |
 | `version` | The version of the document the rendering was made from, so a client can tell a rendering of the text it is showing from a stale one. |
 
@@ -197,13 +214,27 @@ picker.
 ```json
 {
   "views": [
-    { "name": "KitViews::widgetParts", "kind": "interconnection", "supported": true },
-    { "name": "KitViews::widgetSequence", "kind": "sequence", "supported": true },
+    {
+      "name": "KitViews::widgetParts",
+      "kind": "interconnection",
+      "supported": true,
+      "range": { "start": { "line": 8, "character": 1 }, "end": { "line": 10, "character": 2 } },
+      "selectionRange": { "start": { "line": 8, "character": 6 }, "end": { "line": 8, "character": 17 } }
+    },
+    {
+      "name": "KitViews::widgetSequence",
+      "kind": "sequence",
+      "supported": true,
+      "range": { "start": { "line": 12, "character": 1 }, "end": { "line": 14, "character": 2 } },
+      "selectionRange": { "start": { "line": 12, "character": 6 }, "end": { "line": 12, "character": 20 } }
+    },
     {
       "name": "KitViews::widgetGeometry",
       "kind": "geometry",
       "supported": false,
-      "reason": "KitViews::widgetGeometry: geometry rendering (view def GeometryView) is not supported"
+      "reason": "KitViews::widgetGeometry: geometry rendering (view def GeometryView) is not supported",
+      "range": { "start": { "line": 16, "character": 1 }, "end": { "line": 18, "character": 2 } },
+      "selectionRange": { "start": { "line": 16, "character": 6 }, "end": { "line": 16, "character": 20 } }
     }
   ],
   "pseudoViews": ["#action", "#interconnection", "#sequence", "#state", "#table", "#tree"]
@@ -215,6 +246,13 @@ with `supported: false` and the reason, so a client can say why it cannot be
 drawn instead of hiding it. `pseudoViews` lists the supported `#<kind>` specs
 in sorted order; a client can use it to offer pseudo-views without duplicating
 the server's list of supported kinds.
+
+`range` is the view's whole declaration in the document and `selectionRange`
+its name, in the same positions as every other LSP range, so a client can tell
+which view the cursor is in and open that one without asking. The trailing
+whitespace between two declarations belongs to neither range. Both fields are
+optional: a server that does not locate views omits them, and a client then
+falls back to asking.
 
 ## `opensysml/documents` (request)
 
@@ -239,7 +277,9 @@ workspace's own files declare.
 Renders one document definition to Markdown: the document is compiled to a plan,
 its queries are executed against the workspace model, and the result is written
 the way the REPL's `%render-document` and `sysml -render-document` write it. It is
-the same pipeline, run against the same workspace the diagnostics are computed from.
+the same pipeline, run against the same workspace the diagnostics are computed from,
+so a cross-document reference links the file name `sysml -render-documents <dir>`
+gives its target, tagged where the set would tag it.
 
 ```json
 { "name": "Observatory::MassReport" }
@@ -250,11 +290,14 @@ the same pipeline, run against the same workspace the diagnostics are computed f
 ```
 
 `name` is the qualified name of a document definition, as `opensysml/documents`
-lists it. An optional `diagramForm`, `"mermaid"` (the default when omitted) or
-`"dot"` or `"plantuml"`, is the form every graph-shaped diagram block of the document is written
-in — a ` ```dot ` fence of Graphviz DOT under `"dot"`, a ` ```plantuml ` fence under
-`"plantuml"`, as `sysml -render-document -diagram-form dot|plantuml` writes; a table-kind
-view is a pipe table whichever form. Any other value fails the request with the typed
+lists it. An optional `diagramForm`, `"mermaid"`, `"dot"` or `"plantuml"`, is the form every
+graph-shaped diagram block of the document is written in — a ` ```dot ` fence of Graphviz DOT
+under `"dot"`, a ` ```plantuml ` fence under `"plantuml"`, as
+`sysml -render-document -diagram-form dot|plantuml` writes. Omitted, the form is chosen per
+diagram as the CLI chooses it: a view some `DiagramLayout::Layout` or `Route` positions is drawn
+by Graphviz where it states (inline SVG when `dot` is installed, a ` ```dot ` fence otherwise, and
+Mermaid under a visible notice naming the missing tool when it is not), every other graph-shaped
+view is a ` ```mermaid ` fence; a table-kind view is a pipe table whichever form. Any other value fails the request with the typed
 error's message naming the three forms, as does `"dot"` on a document holding a `sequence`
 diagram, which has no DOT form. If the name resolves to nothing, names an element that is not a
 document, or names a document whose planning or query execution fails, the
@@ -347,6 +390,7 @@ operation and its fields beside it:
 | `setLayout` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `layout?` | The `DiagramLayout::Layout` annotation placing the target: `layout` is `{ "x", "y", "width"?, "height"?, "collapsed"? }` in the coordinates `opensysml/render` reports, `width` and `height` given together or not at all. With a `view`, the annotation is stated about the target in that view's body, in the document declaring the view, and places it there alone; without one, it is written inline in the target's own body, in the document declaring the target, and places it in every view that states nothing. An annotation already there is rewritten in place, value by value; a target declared without a body gets one; omitting `layout` removes the annotation with the line it stood on (and the body it alone filled). Refused as `referenced-elsewhere`, naming the file, when the document to write is one the server cannot rewrite: a bundled library file, or one the index holds without the workspace holding its source. |
 | `setRoute` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `route?` | The `DiagramLayout::Route` annotation of a connection, transition, succession or flow, `route` being its waypoints as an array of `{"x", "y"}`; `view`, the document written and an omitted or empty `route` mean what they do for `setLayout`. |
 | `setCanvas` | `target`, `canvas?` | The `DiagramLayout::Canvas` annotation of the view `target` names, written into the view's body in the document declaring it: `{ "unit"?, "width"?, "height"? }`, the sizes together or not at all; omitted, the annotation is removed. Refused as `setLayout` is when that document cannot be rewritten. |
+| `setStyle` | `target` or `declaration`, `declaredIn?`, `digest?`, `view?`, `style?` | The `DiagramLayout::Style` annotation of the node or edge the target is drawn as: `style` is `{ "fill"?, "line"?, "text"?, "font"?, "fontSize"?, "bold"?, "italic"? }`, each a colour as `#RRGGBB`, a font family, a size in points or a flag; omitted, the annotation is removed. Written, located and refused as `setLayout` is: into the view `view` names, inline into the element's own body when none is. |
 
 `target` and `owner` are qualified names, as `nodes[].fqn` and `nodes[].owners[].fqn` in a
 rendering give them, each name quoted on its own where the notation requires it; the empty
@@ -396,7 +440,9 @@ result is one of three shapes:
 
 A rename or delete that reaches into other documents, or a layout operation whose
 annotation belongs in one, answers one `TextDocumentEdit` per document it rewrites, the
-requested document first when it is among them:
+requested document first. A document the operations read a target's declaration in and
+leave as it was is answered too, at its version with no `edits`, so that a client pins
+the edit to it:
 
 ```json
 { "version": 7,
@@ -420,7 +466,7 @@ requested document first when it is among them:
 | Field | Meaning |
 | --- | --- |
 | `version` | The document version the answer is about. |
-| `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` per document the operations rewrite — the requested document first, at the request's `version`, when the operations changed it; every other document at the version the server holds for it, or `null` for one it read from disk and has no open buffer of. A layout written into another document alone answers that document alone. Each document's edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. The documents are read and the edits computed together, under one lock, so they agree with each other and with the diagnostics the server had published. |
+| `edit` | A `WorkspaceEdit` with one versioned `TextDocumentEdit` per document the operations rewrite or read a target's declaration in (`declaredIn`) — the requested document first, at the request's `version`; every other document at the version the server holds for it, or `null` for one it read from disk and has no open buffer of. A document the operations leave as it was — the requested one when a layout is written into another document alone, or the one a view-local layout's target is declared in — carries its version and no `edits`. Each document's edits, applied to the version named, produce the text the operations ask for. Every byte outside the edited spans is unchanged: comments, blank lines and indentation survive. The documents are read and the edits computed together, under one lock, so they agree with each other and with the diagnostics the server had published. |
 | `refused` | Why nothing was written. `operation` is the index of the operation at fault, or `-1` when the request as a whole was; `failure` is a stable name (`unknown-target`, `invalid-name`, `owner-unknown`, `owner-inside-target`, `illegal-kind`, `member-name-taken`, `rename-referenced`, `delete-referenced`, `move-referenced`, `referenced-elsewhere`, `not-a-view`, `not-exposed`, `not-drawn`, `not-annotated`, `result-invalid`, …); `message` says it in words. `diagnostics` carries the errors the edited text would have had, located in that text; `referring` names the declarations that still refer to a target whose delete was refused, the reference a rename would capture or a move cannot respell, or the declarations of other documents that refer to what a delete or rename would change and the server cannot rewrite, or to what a move would change — a declaration of another document is qualified by that document. `referrers` names the same declarations one by one, each as `{ "name", "uri" }` with the document declaring it, for a client that groups them by file. |
 | `stale` | The client's `version` is not the document's; nothing was computed. The operations may name declarations that version no longer has, or namesakes that replaced them, so a client does not resend them at the newer version: it shows the newer text or rendering and lets the action be taken again. |
 
@@ -628,8 +674,8 @@ they follow a node whose `id` changes when the rendering is redrawn.
 | `root` | The `id` of the node drawing the behavior itself. |
 | `version` | The document version whose `opensysml/render` result the IDs below belong to, as that result's `version` reports it. |
 | `revision` | The snapshot's number in the session, from 1 up: every answer and every `debugChanged` notification takes the next. A client keeps the highest it has seen and drops any lower one that arrives after it — a notification captured as an edit moved the session can reach the client after the answer to a request that ran the session on. |
-| `state` | `ready` for a behavior not yet initialized, `running` while there is work at the current instant, `waiting` for a behavior parked on the clock or a signal, `suspended` for one stopped at a breakpoint or a quiescent machine, `completed`, `failed`, or `ended` for a session that is over. |
-| `reason` | Why, for the last four: what is waited for, the breakpoint, the runtime's error, or why the session ended. |
+| `state` | `ready` for a behavior not yet initialized, `running` while there is work at the current instant, `waiting` for a behavior parked on the clock or a signal, `suspended` for one stopped at a breakpoint or a quiescent machine, `completed` for a behavior that reached its end, `terminated` for one a `terminate` ended before it (a state machine whose transition reached a terminate action has no active state), `failed`, or `ended` for a session that is over. |
+| `reason` | Why, for `waiting`, `suspended`, `failed` and `ended`: what is waited for, the breakpoint, the runtime's error, or why the session ended. |
 | `time` | The runtime clock's current instant. |
 | `tokens` | Of an action: each control token, with `id`, the `node` it is at, `placed` (false when it runs somewhere the rendering does not draw — a statement inside a node, a flow deeper than the rendering lowers — and `node` is the innermost drawn node around it), `via` (the edge it arrived by), `awaiting` (the join edges it still waits for), `waiting` (the signal or instant an `accept` parks it on) and `due` (the instant a timed wait ends). Empty for a machine. |
 | `activeStates` | Of a machine: the `id` of every active state — each state a token sits in with the composite states and regions enclosing it, outermost first, region by region — so a client fills them all without walking the rendering's nesting. Empty for an action. |
@@ -688,7 +734,7 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ← { "view": "", "kind": "tree",
     "stated": "no view declared; rendering /tmp/kit.sysml directly",
     "form": "mermaid",
-    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"Kit::Widget<br>«part def»\"]\n…",
+    "artifact": "%%  — tree rendering (no view declared; …)\nflowchart TD\n  n0[\"Widget<br>«part def»\"]\n…",
     "nodes": [ … ], "edges": [ … ], "notices": [], "version": 1 }
 ```
 

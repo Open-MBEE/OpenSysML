@@ -36,7 +36,7 @@ spec-numbering convention here is the document's own (PSSM `8.5.9`, fUML `8.8.1`
 |---|---|---|
 | **SysML v2** | 2.0, `formal/26-03-02`, <https://www.omg.org/spec/SysML/2.0> | §7.18.1–§7.18.3 states and transitions (entry/do/exit, `parallel`, transition steps, `done`, a transition to `terminate`); §8.4.13.4 control nodes (`ForkNode`, `JoinNode`, `MergeNode`, `DecisionNode`); §8.4.13.5–§8.4.13.6 send and accept actions; §8.4.13.8 terminate action |
 | **KerML** | 1.0, `formal/26-03-01`, <https://www.omg.org/spec/KerML/1.0> | §9.2.11.1 `StatePerformances`, §9.2.12 `TransitionPerformances`, §9.2.5 `Occurrences` (`isDispatch`, `dispatchScope`, `isRunToCompletion`, `runToCompletionScope`, `incomingTransferSort`), §9.2.10 `ControlPerformances`, §9.2.13 `Clocks` |
-| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/core/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
+| **Bundled semantic library** | the pilot implementation's library snapshot shipped under `internal/workspace/libs/stdlib` (EPL-2.0, see its `NOTICE`) | `Kernel Semantic Library/Occurrences.kerml`, `StatePerformances.kerml`, `TransitionPerformances.kerml`, `ControlPerformances.kerml`, `Clocks.kerml` — the text the runtime executes against, quoted where it differs in wording from the specification PDF |
 
 The record of which pilot release and which OMG documents the conformance work pins is
 [spec-compliance](../../project/spec-compliance.md); this note does not re-pin them.
@@ -99,10 +99,10 @@ of four verdicts.
   offers one.
 - **gap** — a concept the runtime has no behavior for at all.
 
-Test names are conformance fixtures under `internal/core/runtime/testdata/conformance/` (run by
+Test names are conformance fixtures under `internal/exec/runtime/testdata/conformance/` (run by
 `TestExecutionConformance`; a `.trace.golden` beside one is compared by `TestExecutionTrace`),
-subtests of `TestRuntimeRobustness` in `internal/core/runtime/robustness_test.go`, or unit tests
-in the runtime package. File paths are relative to `internal/core/runtime/` unless stated.
+subtests of `TestRuntimeRobustness` in `internal/exec/runtime/robustness_test.go`, or unit tests
+in the runtime package. File paths are relative to `internal/exec/runtime/` unless stated.
 
 ### State machines (PSSM)
 
@@ -140,10 +140,10 @@ their end, entry behaviors included, before the next occurrence is looked at
 (`state_executor.go:enterStateInto` runs the entry body synchronously); the resulting completion
 transitions are *queued* (SM9) and dispatched by a later step, never inside the entry.
 `state_composite_orthogonal_exit` and its trace golden pin one whole step; `state_completion_done`
-pins that the completion step follows the entering step. The runtime never reads a redefinition
-of `isRunToCompletion`, so it implements the library default only; a model redefining it away
-from the default is refused by lowering (noted under *Findings*, as an unsupported v2 feature
-rather than a PSSM question). **agrees.**
+pins that the completion step follows the entering step. The lowered graph carries effective `isRunToCompletion` and `runToCompletionScope` values;
+`state_run_to_completion.go:holdEntry` and `entryStep` split entry cascades at scoped boundaries,
+while free dispatch alternatives remain available at the same instant. The default retains one
+whole-machine step, and the scoped fixtures cover both admissible orders. **agrees.**
 
 **SM3. One occurrence, one dispatch, possibly several transitions.** PSSM §8.5.2 (`select`) builds
 "the set of transitions that can be fired using the proposed event occurrence"; UML 14.2.3.9.4
@@ -312,7 +312,17 @@ at `t` ranks behind an ordinary occurrence still queued with a stamp earlier tha
 occurrence can only exist if the instant it arrived was left undrained, which `runCounting` does
 not do. `state_time_trigger_restarts_on_re_entry` pins the withdrawal of a left state's timer,
 which is what makes a stale `EventTime` event rare; the drop itself has no fixture and rests on
-`dispatchEvent`. **agrees.**
+`dispatchEvent`. **agrees**, under every policy, on the order among completion events too: the
+runtime queues a state's completion as its entry unit is performed (`enterStateInto` →
+`scheduleCompletionTransitions`, for a state that completes at once — `completesAtEntry`), so
+the IDs follow the entry draw (SM22) that decided which state was entered first, as PSSM's pool
+holds completion events in the order generated; `scheduleTransitionEvents` schedules the settled
+configuration's time triggers alone. An entry that performs nothing but generates a completion
+is a drawn alternative of the entry front, its order being observable through the pool's
+(`state_completion_pool_entry_order` and its history and fork kin pin both orders under
+`check`; `TestRuntimeRobustnessCompletionOrder`). Before the change the completions were queued
+once the move had settled, leaf by leaf in region declaration order, agreeing under `declared`
+alone; finding 11 below records it.
 
 **SM11. What the completion of a composite state completes.** PSSM §8.5.5 and requirement *Final 001*
 (§9.4.14): a transition to a final state "represents the completion of the behaviors of the
@@ -379,15 +389,16 @@ Behaviors associated with entering the State, such as the entry Behaviors of sub
 when the state is activated; a do action starts after the entry action completes and continues
 while the state is active"; `StatePerformances.kerml` `succession entry then do` and
 `succession entry then middle`, with substates in `middle`. *Runtime:*
-`state_executor.go:enterStateInto` runs the entry body to its end, then `enterRegionsInto`
-(each region in declaration order to its initial leaf, entry behaviors along the way), then
-`startDoAction` for the state; a substate's do action is likewise started by its own entry.
-`state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
-`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The one ordering difference — the runtime
-enters the regions *before* starting the composite's own do action, PSSM starts the do activity
-before entering the regions — is unobservable in the trace, because the do action does not run
-until the next do round (SM13) and PSSM's do activity runs asynchronously as well; both leave
-"entry, region entries" in that order. **agrees.**
+`state_executor.go:enterStateInto` runs the entry body to its end, then `startDoAction` for the
+state, then `enterRegionsInto` (each region in declaration order to its initial leaf, entry
+behaviors along the way); a substate's do action is likewise started by its own entry, before
+its own body. `state_parallel_entry_behavior`, `state_nested_parallel_entry_exit_behavior`,
+`state_do_action_declaration_order`, `state_entry_exit_action_successions`. The fixed policies
+leave the trace as PSSM leaves it, "entry, region entries" in that order, the do action's steps
+after the move; the one-move engines draw each due step of the composite's own do action
+against its substates' entries as well (SM13, the do step on the entry front:
+`state_do_step_before_own_substate_entries`, `state_do_step_before_own_body_entry`), the order
+PSSM admits with the do activity running asynchronously. **agrees.**
 
 **SM13. The do activity runs asynchronously, interleaved with the machine.** PSSM §8.5.6: the do
 activity executes on a `DoActivityContextObject` of its own, "asynchronously" to the state
@@ -404,9 +415,13 @@ transitions (`settleDoActions`, SM8). `state_concurrent_do` records four admissi
 interleavings of two do actions under the scheduling policies; `TestCompletionWaitsForTheDoBehavior`.
 The step granularity (one action node per machine step) is a tool choice PSSM does not make
 either — its do activity runs in the fUML "as if concurrent" sense — so no trace admissible
-here is inadmissible there. The converse does not hold: the round always precedes the dispatch,
-so a do action that is due steps before the occurrence at the head of the pool is dispatched,
-and the interleavings where the dispatch comes first are not explored (finding 9). **agrees.**
+here is inadmissible there. The converse holds under `check`, `replay` and `explore`, where a
+due do step and the dispatch at the head of the pool are drawn against each other per token move
+(finding 9's fourth site, `ChoiceStepOrder`), and a due do step of an entered state against the
+sibling regions' remaining entry units inside the entry front (the same site's rule on the
+front, under the front's own draw; the fixed policies alone run the whole round before
+they dispatch, one path of that enumeration — see
+[recording the order of orthogonal regions](region-order-scheduling.md)). **agrees.**
 
 **SM14. Order of leaving a state.** PSSM §8.5.5 (`exit`) and requirements *Exiting 001–003*, *005*
 (§9.4.6): exit "commences with the innermost State"; a running do activity "is aborted before the
@@ -462,7 +477,20 @@ trigger's parameters; a guard that evaluates to nothing is not true. *v2/KerML:*
 payload for the guard's duration; a guard with no result (`state_choice_unevaluable_transition`:
 a division by zero) is "not true, so that transition is not selected", and reported as a
 `guard-unevaluable` note rather than a failure. `state_transition_accept_payload`,
-`state_call_trigger_guard`, `state_entry_transition_guard_first`. **agrees.**
+`state_call_trigger_guard`, `state_entry_transition_guard_first`. The guard is a step of the
+`TransitionPerformance` it guards, performed after the trigger has been accepted
+(`TransitionPerformances.kerml`: `bool guard[*] subsets enclosedPerformances`, `succession all
+[*] trigger then [*] guard`), so it reads the payload by the transition's name as the exits and
+effects of the *Read the leaving transition's payload* row below do — `if raise.l > 5`, `if
+raise.d.level > 5` — and a compound transition is one performance, so a guard on a segment out
+of a choice or junction reads the accepting segment's payload by that segment's name
+(`evalTransitionStep`, `stepFiring`: the candidate transition's own firing for a plain guard, the
+compound firing `resolveRoute` holds for a segment's; `transitionPayload` for the read). A guard
+naming a transition not being taken reads null, and comparing it is the operator's type error
+rather than false: the read resolves, so it is not "no result", and a null is no Boolean.
+`state_choice_guard_reads_accepting_segment`, `state_junction_guard_reads_call_argument`,
+`state_guard_reads_own_payload_member`, `state_guard_names_transition_not_taken`,
+`state_guard_reads_deferred_payload`. **agrees.**
 
 **SM18. Innermost first.** PSSM §8.5.2: "transition priorities, which are relative to the level
 of nesting of their source states" — a transition from a substate outranks one from its
@@ -513,35 +541,49 @@ first's as the alternative;
 *Transition 019*, §9.3.3.12: five interleavings of two regions' exits and effects).
 *v2/KerML:* silent — the library orders a transition against its own source and nothing else, and
 `state_explore_region_order`'s header records "the order ... is open". *Runtime:* `dispatchInOrder`
-fires the selected transitions one at a time, drawing the next among the candidates still active
-from the scheduling policy (`chooseRegion`, declaration order by default) and recording a
-`ChoiceRegionOrder`; a firing may leave a sibling's leaf, which is why the draw is per firing.
+runs the selected firings as the queues of one front (`state_unit_front.go`), each firing's
+units — its source's exit, its effects, its target's entry — in the library's order, and draws
+the next unit among the firings with a unit ready from the scheduling policy, recording each
+draw as a `ChoiceRegionOrder` labelled `on <event>` with the units as its alternatives
+(`l1(exit)`, `l1->l2(effect)`); a unit may disable a sibling firing (its source left), which
+then performs nothing. `declared` and `reverse` take the firings whole in declaration order, so
+the run every fixture made before the draws were recorded is the run they make.
 `state_parallel_broadcast`, `state_explore_region_order`, `state_composite_region_depth_order` (a
-`.declared` and a `.seed-1` golden beside the default). **agrees** on the order of the firings:
-every order PSSM admits is a run the policies can produce, and the default is one of them. Each
-firing is one step, though — its source's exit and its effect run together before the next
-region is drawn — where PSSM's "concurrently" also admits the steps of two firings interleaved
-(*Transition 019* admits both sources' exits before either segment's effect, which no policy
-produces); that granularity is finding 9 below, with SM22 and SM23.
+`.declared` and a `.seed-1` golden beside the default), `state_firing_units_interleaved` (two
+regions' firings of exit and effect each: six outcomes, the linearizations of two chains of two).
+*Decision:* a firing is **not atomic** across regions. `TransitionPerformances.kerml` orders a
+firing's own units — `transitionLinkSource then effect`, `effect then
+transitionLink.laterOccurrence`, `accept`/`guard then transitionLinkSource.exit` — and places no
+succession between the units of two performances in sibling regions; §7.18.1 has the regions
+"performed concurrently"; so the unit is the grain, and *Transition 019* (both sources' exits
+before either segment's effect) is the check: every interleaving of the two firings' units is
+a run `explore` reaches, and every one PSSM admits. **agrees.**
 
 **SM22. Entering the regions of a composite state.** PSSM §8.5.5 enters regions concurrently
 (*Entering 004*, §9.3.5.2, enters two regions from one transition; *Transition 011-D*'s alternative
 trace is the interleaving PSSM admits for the exits).
 *v2/KerML:* silent on order among `parallel` substates; §7.18.1 says only that they are performed
-concurrently. *Runtime:* `enterRegionsInto` enters the regions sequentially in declaration order
-(`state_parallel_standard`, `state_typed_region_order`, `state_parallel_entry_behavior`), and
-`enterForkBranches` enters a fork's branches the same way (*Fork 002* admits the other
-interleavings of the branch effects and the entries, *Entering 010* and *Entering 011* those of
-one region's initial-transition effect and the other's entries). No
-`ChoicePoint` is recorded for this order — the run is deterministic and the alternative
-interleavings PSSM admits are not explored. **agrees** on admissibility, and the missing choice
-point is an *Open decision* and finding 9 below.
+concurrently. *Runtime:* `enterRegionsInto` enters the regions as the queues of one front,
+each region's entries a unit at a time, and draws which region's next unit runs from the
+scheduling policy, recording each draw as a `ChoiceEntryOrder` labelled `entering <state>`
+(`state_region_entry_order`, `state_region_entry_order_uneven`, `state_region_entry_nested_front`,
+`state_parallel_standard`, `state_typed_region_order`, `state_parallel_entry_behavior`);
+`enterForkBranches` draws a fork's branches the same way under `fork <name>`, the shared owner
+entered once by the branch drawn first (`state_fork_branch_order`: *Fork 002*'s four traces),
+and a history restores its regions through the same front (`state_history_restore_order`).
+A unit that performs no behavior rides with the performing unit beside it, so exploration
+counts linearizations of behaviors. `declared` and `reverse` take declaration order, the order
+the runtime always took. **agrees.** The firing of a completion a region's entry enables is not a
+unit of the front, and should not be — *Entering 010*, *Entering 011* — finding 11 below.
 
 **SM23. Exiting the regions of a composite state.** PSSM §8.5.5 exits regions concurrently as
-well (*Exiting 003*, §9.3.6.4, exits nested orthogonal regions). *Runtime:* `exitState` exits the regions' active states in declaration
-order, each innermost first (`state_composite_orthogonal_exit` and its trace golden,
-`state_composite_nested_regions_exit_once`); like SM22, no choice is recorded. **agrees**, same
-caveat (finding 9).
+well (*Exiting 003*, §9.3.6.4, exits nested orthogonal regions). *Runtime:* `exitState` exits the
+regions' active states as the queues of one front, each region's exits innermost first, drawing
+which region's next exit runs and recording each draw as a `ChoiceExitOrder` labelled
+`exiting <state>`; the composite's own exit follows every region's
+(`state_region_exit_order`: *Exiting 001*'s three traces; `state_composite_orthogonal_exit` and
+its trace golden, `state_composite_nested_regions_exit_once`). `declared` and `reverse` take
+declaration order. **agrees.**
 
 **SM24. Order of do activities in one round.** PSSM: do activities are independent asynchronous
 executions; the *Behavior* and *Deferred* tests with do activities list up to 84 interleavings.
@@ -698,7 +740,10 @@ disables the second, whose entering the join would need a way through; the owner
 for the next occurrence. The runtime fires nothing at the first completion (SM34: the segments
 fire together, once every source is active) and fails at the second, resolving the route out of
 the join. **differs, v2 silent.** Unchanged by the decisions below: a junction's guards stay
-static, and the runtime's rule here stays the project's.
+static, and the runtime's rule here stays the project's. *Choice 005* traces the same reach
+from the other side — its junction on the composite's default entry is read before `T2(effect)`
+and the composite's entry — and is refused on its acting guards before the order is reached; see
+[A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model).
 
 #### Fork and join
 
@@ -835,14 +880,48 @@ does not exit any States nor does it perform any exit Behaviors"; running do act
 automatically aborted", and entering it "is equivalent to invoking a DestroyObjectAction".
 *v2/KerML:* SysML v2 §7.17.10 defines the terminate action, and §7.18.3 shows `accept Abort via
 commPort then stop; action stop terminate;` as the way "to immediately terminate the containing
-state performance"; `Performances.kerml` `TerminatePerformance`. *Runtime:* the parser accepts
-`terminate` and lowering preserves it (`lower.EffectTerminate`); `action_statements.go:
-actionStmtHost.effect` refuses it with "'terminate' in a body is not executable", and a
-transition to a terminate action fails to resolve its target. The refusal is pinned for a
-calculation only (`robustness_test.go:calc_terminate_is_rejected`, where it is refused as a side
-effect); the runtime has no `terminate` execution for actions or states either. Roadmap Track E
-lists it. **gap** — a v2 gap first, and PSSM's rules for it coincide with §7.17.10's, so the
-same implementation closes both.
+state performance"; `Performances.kerml` `TerminatePerformance`. *Runtime:* lowering carries
+every `terminate` as a `lower.Effect` of kind `EffectTerminate` with the terminated occurrence
+as an evaluable target (`TerminateContaining`, `TerminateEnclosing`, `TerminateNode`,
+`TerminateOccurrence`), and a state graph lists its terminate action usages with the composite
+state each is declared in (`lower.StateGraph.Terminates`, `TerminateOwner`). A `terminate` in
+an action or state-behavior body ends the containing performance, or the occurrence it names,
+at that statement (`action_terminate.go:performances.terminate`,
+`occurrence_terminate.go:terminateOccurrence`): the outputs assigned so far stay, the tokens
+held anywhere in the ended action are dropped, and a state's entry, do or exit behavior ends
+while the state stays active and the machine keeps dispatching. A transition whose target is a
+terminate action usage ends the state-machine performance where it arrives
+(`state_route.go:terminateAt`, `state_executor.go:terminateMachine`): the transition's source
+is exited and its effect run, the states down to the usage's owner are entered, then nothing
+else is exited, running do behaviors are abandoned (`abandonMachine`), and the outcome is
+`Terminated` rather than a final state. Only a calculation still refuses it, as a side effect
+(`robustness_test.go:calc_terminate_is_rejected`). PSSM's rules for the pseudostate — "does
+not exit any States", do activities "automatically aborted" — are these; the source's exit is
+in PSSM's own expected traces (the last step of *Terminate 001*'s admitted trace is the exit of
+the state whose completion transition reaches the pseudostate). **agrees**.
+
+*The braced block as the unit a `terminate` ends.* SysML.xtext reads `entry { … }`, `do { … }`,
+`exit { … }` and a transition's `do { … }` as one `ActionUsage` with an `ActionBody`, so a
+`terminate;` written in one names the performance of the whole block (`Performances.kerml`
+`TerminatePerformance`). The parser takes that reading: a braced block is one anonymous action
+usage whose body is the block's statements, the tree `entry action { … }` produces
+(`parser/behavior.go:parseBracedActionUsage`, reached from `parseStateSubactionBlock` and
+`parseTransitionEffect`; the usage's `Keyword` is empty where none was written, which is how
+the formatter and the converters keep the spelling). Everything downstream sees one action:
+the block is a namespace of its own whose declarations are local to it, lowering gives it one
+`lower.StateBehavior` whose `Body` is one `Block` (`lower/state_behavior.go:lowerStateBehavior`),
+the runtime runs it as it runs any inline body — one statement per do round, so orthogonal
+regions still interleave statement by statement and a do body still resumes between statements
+(`state_anonymous_do_atomic`, `state_concurrent_do`, `state_concurrent_inline_do_bodies`) — and a
+`terminate;` in it resolves to the block's own performance, ending the block and nothing beside
+it (conformance `state_terminate_braced_entry_do_exit_effect`, `state_terminate_braced_do_after_accept`,
+`state_terminate_braced_entry_among_named`, `state_terminate_braced_inherited_by_two_usages`,
+`state_terminate_braced_do_in_one_region`, `state_braced_block_local_attribute`). The one
+grouping left is a transition's own body, `then t { … }`, which is the transition usage's
+`ActionBody` rather than an `EffectBehaviorUsage` and still lowers one behavior per statement:
+`lower.StateBehavior.Block` names the `TransitionMember` those steps share, and a `terminate`
+in one of them ends the steps after it (`state_statements.go:StateExecutor.endedBefore`,
+conformance `state_terminate_transition_body`).
 
 #### Time and change events against the simulation clock
 
@@ -895,12 +974,29 @@ on its result pin, and the behavior of an object nobody starts never runs — ea
 execution of its own, sharing the object's event pool; PSSM §8.5.1 makes a state machine such a
 classifier behavior. *v2/KerML:* §7.18.4 an
 `exhibit state` "must be carried out entirely within the lifetime of the performing occurrence";
-`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* `Context.Instantiate` →
-`classifier_behavior.go:runAttachedBehaviors` starts every exhibited state machine and performed action of a part as
-its own executor on the shared bus and clock (`TestInstantiateStartsExhibitedStateMachine`,
-`TestExhibitedMachinesOfTwoObjectsAreIndependent`, `TestExhibitedMachineWritesItsObjectsFeatureValues`
-in `classifier_behavior_test.go`). One pool per machine rather than per object (SM1) is the one
-structural difference, and it is the v2 one. **agrees.**
+`Objects.kerml`/`Occurrences.kerml` `performances`. *Runtime:* two paths, told apart by what the
+type declares. A behavior the type **exhibits or performs** is bound to every object of it, so
+`Context.Instantiate` → `classifier_behavior.go:runAttachedBehaviors` starts every exhibited state
+machine and performed action of a part as its own executor on the shared bus and clock
+(`TestInstantiateStartsExhibitedStateMachine`, `TestExhibitedMachinesOfTwoObjectsAreIndependent`,
+`TestExhibitedMachineWritesItsObjectsFeatureValues` in `classifier_behavior_test.go`) — the v2
+reading, where a performance a type declares is carried out within every occurrence's lifetime. A
+behavior the type **merely declares** (`action beh : Beh;` in a `part def`,
+`lower.StartableBehaviorOf`) is the fUML reading: construction is passive — `new T()` and a
+materialization run nothing of it — and an explicit `StartObjectBehaviorAction`, spelled
+`perform obj.beh.start;` (`lower.EffectStart`, `start_behavior.go:startBehaviorOn`), starts the
+classifier behavior as the object's own execution, `this` in it the object, a later message waking
+an accept it parks at, a second start of a running behavior starting nothing more, and a start
+that fails undone whole — the start's own work: an older parked behavior a message of the
+started one wakes is drained only after the start is kept (a run boundary, as a store's), so its
+move is never undone with a start (`robustness_classifier_behavior_test.go`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). Lowering tells the start shot from a feature
+declared under that name through the scope tree (`action_graph.go:namesStartableBehavior`): `perform
+vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action
+(`TestPerformOfDeclaredStartActionStaysPerform`). The fUML referee's emitter takes the
+second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
+create, start, send. One pool per machine rather than per object (SM1) is the one structural
+difference, and it is the v2 one. **agrees.**
 
 **SM44. The machine ends; the object does not.** fUML §8.8.1: a classifier behavior completing
 does not destroy its object; the object persists, receives occurrences, and handles them with
@@ -909,7 +1005,11 @@ addressed to it are lost. *v2/KerML:* `done` ends the state performance, `Life` 
 separate. *Runtime:* `completeIfDone` ends the performance (`endPerformanceLife`) and the machine
 reports `StateCompleted`; the object remains, later messages to the machine are dropped
 (`robustness_test.go:state_event_after_completion`, `state_completion_rests_in_done`,
-`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`). **agrees.**
+`classifier_behavior_test.go:TestMessageLeftForACompletedMachineDoesNotBlockANewObject`); a
+started classifier behavior completing preserves its owner the same way — the object, its feature
+values and the behavior's writes to them outlive the behavior, and an activity may still hand the
+object out through a parameter (`robustness_classifier_behavior_test.go:start_runs_the_behavior_as_the_object`,
+`TestStartedActionAwaitingAMessageIsWokenByASibling`). **agrees.**
 
 **SM45. Destroying the object.** fUML §8.7.2.4 `Object::destroy`: "Stop the object activation
 (if any), clear all types, clear all feature values and destroy the object" — a running
@@ -1138,7 +1238,47 @@ member of an object's type with the object as performer, synchronously, and retu
 (`state_call_trigger`, `state_call_trigger_guard`, `state_call_trigger_regions`). Arguments bind
 by name only; the roadmap's "operation invocation with positional arguments" entry under Track E
 holds the positional form. Both fUML calls and both runtime paths are synchronous and
-by-position versus by-name is notation, not semantics. **agrees.**
+by-position versus by-name is notation, not semantics. *The caller's return:* PSSM §8.5.9
+(`CallEventOccurrence`, `SM_ObjectActivation`) releases the caller of a synchronous call once the
+run-to-completion step (§8.5.10) the call event triggers is done, with the return values the triggered
+behaviors — the transition's effect, an entry or an exit — wrote to the operation's output
+parameters, the last write winning. `StateExecutor.Call` (`perform.go`) does the same: it queues
+the call event, runs the machine at the current instant through the step dispatching it and no
+further — a completion event that step queued or a timer it armed is the machine's next step,
+after the caller has resumed, as §8.5.10 makes each occurrence its own step, while a call a
+state defers holds its caller through the steps until the machine recalls and dispatches it, as
+§8.5.9's blocked caller waits for the deferred occurrence — collects what a
+behavior the event fires `return`s or assigns to an output parameter of that name, and hands the
+outputs back typed and by name — under the `out`/`inout` parameters the operation declares as a
+member of the machine's owner (or of the machine standing alone) when it declares one — among
+several so named, the one the call's arguments select as `InvokeOperation` would, and
+`ErrAmbiguousInvocation` before the call is queued when they select none; the arguments
+checked against the declaration's inputs as `InvokeOperation` checks them, so an unbound or
+unknown one is `ErrUnboundParameter` and one of the wrong type `ErrTypeMismatch` before the call
+is queued, and an input the caller omits carries its default, since §8.5.9's
+`CallEventExecution` holds a value for each of the operation's parameters; the call event carries
+the selected declaration (`Call.Declared`) and fires only the triggers naming it — a trigger
+`accept op(x)` naming the owner's `op` declarations with an input for each trigger parameter,
+those with exactly the trigger's parameters when any has, and all of several differing in
+their parameters' types alone, since the notation writes no types (`callTriggerOperations`), as
+a UML `CallEvent` names one `Operation` (UML §13.3.3) — so same-named overloads whose parameter
+names differ reach their own transitions — as §8.5.9
+returns the operation's own parameters — an `inout` no behavior of the step wrote going back as the
+caller passed it, since §8.5.9's `CallEventExecution` holds the argument as that parameter's value
+until a behavior writes it — and under every name the step returned when the trigger
+names no declared operation; a call the run left queued or deferred is `ErrCallNotReturned`,
+since its caller would still be waiting, and an unhandled call returns nothing, as PSSM's
+discarded occurrence does (`state_call_trigger_results`; `TestRuntimeRobustnessCallResults`:
+held, recalled, untaken, empty, repeated and erroring calls, the caller released ahead of the
+completion step and the timer its step set up, a declared operation returning its own
+parameters alone and an `inout` argument as passed, as written and not at all when nothing takes
+the call, a wrong-typed argument refused, a default filled in, an overload firing the trigger
+naming its declaration). Only a write to a behavior's own output parameter comes back — a nested action's
+`return` or its assignment to an `out`/`inout` (`state_statements.go:returnAround`) — because
+§8.5.9 collects the values of the triggered Behavior's output parameters and nothing else; an inline
+`assign` in an entry, exit or effect writes a feature of the machine's owner, not a parameter, so it
+stays state and is no result even when its name coincides with a declared `out`.
+**agrees.**
 
 **A15. One firing per token, or one performance per node.** fUML §8.9.1 and §8.10.1
 (`ActionActivation::fire`, `isReady`, `takeOfferedTokens`): an action whose input pin has
@@ -1325,10 +1465,10 @@ carries one verdict.
 
 | Verdict | Rows |
 |---|---:|
-| **agrees** | 49 |
+| **agrees** | 50 |
 | **differs because v2 differs** | 7 |
 | **differs, v2 silent** | 10 |
-| **gap** | 4 |
+| **gap** | 3 |
 | **Total** | **70** |
 
 The seven **differs because v2 differs** rows are SM15 (a do activity and the machine competing
@@ -1371,9 +1511,8 @@ without contradicting v2:
 - **C8** — a send that reaches no receiver: PSCS loses the occurrence, the runtime fails the
   send with a typed error.
 
-The four **gap** rows:
+The three **gap** rows:
 
-- **SM38** — terminate (the roadmap's "terminate in a body" entry under Track E).
 - **A8** — streaming flows (the roadmap's "streaming flows" entry).
 - **A9** — parallel expansion regions (the roadmap's "concurrent per-element performance"
   entry).
@@ -1381,8 +1520,8 @@ The four **gap** rows:
 
 Every gap is already a Track E entry with a v2 basis of its own; a port of the precise-semantics
 text would not close any of them, because each is a v2 concept the runtime lacks, not a UML
-concept v2 lacks. Terminate is the one gap the PSSM suite tests directly (three tests); the
-other three are fUML rows no PSSM test reaches.
+concept v2 lacks. All three are fUML rows no PSSM test reaches; terminate (SM38), the one gap
+the suite tested directly, is closed.
 
 ## The test suite as a referee: a capability map
 
@@ -1397,12 +1536,12 @@ which supersede the hand count this section was first written with — the moves
 
 | Aspect of the suite | Verdict | Why |
 |---|---|---|
-| **Expressing the test model in SysML v2 textual notation** | **Can, for 65 of 103** (31 with standard notation, 31 with this project's extensions, 3 spellable but reaching the terminate gap); **cannot, for 38** (30 use a construct v2 has no spelling for, 8 more use a behavior shape the notation cannot bind) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
-| **Driving the test** | **Can, with one normalization** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling; the conformance harness queues a case's `events` before the first step (`conformance_test.go:injectEvents`). The two coincide when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
+| **Expressing the test model in SysML v2 textual notation** | **Can, for 66 of 103** (35 with standard notation, 31 with this project's extensions); **cannot, for 37** (29 use a construct v2 has no spelling for, 8 more use a behavior shape the translation does not spell) | Every test's state machine is classified by the UML constructs it uses; the table below gives the construct-to-notation mapping and the per-area result |
+| **Driving the test** | **Can, in the tester's order** | PSSM's `Tester` sends `Start` and the follow-up signals from its own behavior, interleaved with the target's steps by fUML's scheduling, and blocks on each operation it calls until the call's run-to-completion step is done (§8.5.9, `CallEventOccurrence`). The referee's driver (`tools/referee/pssm/run.go:drive`) performs the tester's steps in that order: a send is queued where the tester sends it, a call is `StateExecutor.Call` and returns the operation's outputs, and a `trace(...)` of the tester's own is appended to the target's `log` where the tester makes it, once the call it embeds has returned. The sends coincide with the conformance harness's queued `events` when every send precedes the target's first reaction, which is what the tests' "received when in configuration ..." lists state; a test that needs a signal to arrive mid-run needs a tester `part` in the model instead |
 | **Comparing the expected trace** | **Can, on a model-level string; `%trace` is not the comparand** | PSSM's expected trace is built by the model — every entry, exit and effect behavior calls `trace("<state>(entry)")` on the `TraceBuilder` (501 call actions target the `trace` operation in the XMI). Its translation is an `assign log := log + "<state>(entry)"` in the corresponding `entry`/`exit`/`do` body, compared through the case's `slots`/`outputs`; the runtime's `%trace` and `TestExecutionTrace` goldens record steps, not segments, and would need a projection (enter/exit/effect lines to segments, everything else dropped) to be comparable at all |
 | **Alternative expected traces** | **Can, and exactly** | 36 tests declare more than one admissible trace. The conformance schema's `outcomes` with the `explore` policy replays a case once per linearization of its choice points (`ChoiceRegionOrder`, `ChoiceTransition`, `ChoiceDueOrder`) and fails when a listed outcome is unreachable or an unlisted one is reached — the same set-equality PSSM's alternatives ask for, and stricter than the single-run comparison the PSSM harness performs |
 | **The run-to-completion step table** | **Cannot compare** | Each test's "RTC steps" table lists the pool's contents and the fired transitions per step, including completion events (`CE(<state>)`). The runtime has no pool of completion occurrences (SM9) and the `%trace` records no pool; only the fired transitions and the final trace are comparable |
-| **A pass as evidence about SysML v2 semantics** | **Only on the ten `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (49 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (10 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
+| **A pass as evidence about SysML v2 semantics** | **Only on the ten `differs, v2 silent` rows and as corroboration on the `agrees` rows** | Where PSSM and v2 coincide (50 rows) a pass says the runtime does what both texts say — worth having, but not a second opinion on v2. Where they differ because v2 differs (6 rows) the corresponding tests fail by design and their failure means nothing. Where v2 is silent (10 rows) a pass or a fail reports on a tool choice, which is the one place the suite is informative about this runtime's rules |
 
 ### Which UML construct maps to which notation
 
@@ -1416,75 +1555,89 @@ which supersede the hand count this section was first written with — the moves
 | Call event trigger | `accept op(args)` on an operation invocation, as `state_call_trigger` spells it | standard, with the caller-return caveat of A14 |
 | Deferrable trigger | `defer Sig;` — this project's extension | extension |
 | Fork, join, junction, choice, shallow and deep history pseudostates | State-body `fork`/`join`/`junction`/`choice`/`history`/`deep history` — this project's extensions | extension |
-| Terminate pseudostate | `terminate` — accepted by the parser, refused by the runtime (SM38) | spellable, runtime gap |
-| Entry point, exit point (connection points and connection point references) | none | no spelling |
+| Terminate pseudostate | A terminate action usage in the region, `action t terminate;`, that a transition ends at with `then t` (§7.18.3; SM38) | standard |
+| Entry point, exit point (connection points and connection point references) | none in standard notation. The migrator's reading, established since this table was drawn: a composite state's entry or exit point is a `junction` of that state (a `fork`/`join` when its transitions each start, or come from, a different orthogonal region), reached by path — `then Work::start;`, `first Work::leave then Idle;` — so the runtime runs the state's entry behavior before the junction's outgoing transition, and the transition into the junction before the state's exit behavior, the order UML §14.2.3.4.5 and PSSM §8.5 give connection points; see [sysml-v1-migration.md](../../reference/sysml-v1-migration.md#behaviors). The referee's classifier still counts the construct here, so the table below is unchanged until the referee is rewired onto the migrator | no spelling (referee); extension (migrator) |
 | Local transition, internal transition | none (SM36, SM37) | no spelling |
 | State machine generalization: extended regions, redefined transitions | none | no spelling |
-| Entry, exit or do behavior with parameters (reading the triggering event's data) | none: the notation binds event data on the transition (`accept d : Data`), never on an `entry`/`exit`/`do` action | no translation |
-| Call event whose operation returns a value the tester traces | none: the runtime's call events carry no result back to the caller | no translation |
-| A `trace(...)` call in the tester's own behavior | none: only the target's behaviors append to the model's `log` | no translation |
-| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed | no translation |
+| Entry or do behavior with parameters, or a transition effect with parameters, reading the triggering event's data | the notation binds event data on the transition (`accept d : Data`, `accept op(p1, p2)`, §7.18.2; `TransitionPerformances.kerml`'s `accepter`), never on an `entry`/`do` action, so the accepting transition's effect stores each value in an attribute of the machine (`assign trigger_Data := data;`) and the action declares its parameter bound to it (`in data : Data = trigger_Data;`); an effect reads the `accept`'s own parameters. Holds when every transition entering the state accepts the one event whose data conforms to the parameters — the reading is recorded under [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) below | standard |
+| Exit behavior with parameters, reading the leaving transition's data | the exit's parameters are bound to the leaving transition's own payload, `exit action { in data : Data = 'T1.2'.data; }` — the transition's `accept d : Data` declares `d` a feature of the transition (§7.18.2, `StateTransitionAction::payload` bound to `accepter.payload`), the exit is a step of the transition performance that accepted it (`StatePerformances.kerml`: `accept then transitionLinkSource.exit`, `TransitionPerformances.kerml`: `transitionLinkSource then effect`), and a transition not being taken reads as nothing; an exit several transitions leave spells `T3.d ?? T4.d`, each binding on its own firing, and an outer transition's payload binds the nested exits it performs (PSSM §8.5.5 `exit`). Holds when every triggered transition leaving the state whose data the signature takes accepts the one event; a leaving path binding nothing (a completion, PSSM §8.5.5) binds nothing and leaves the parameter its default — see [Behavior parameters](#behavior-parameters-operation-results-tester-traces-and-standalone-machines) | standard |
+| Entry or do behavior with parameters reached by a completion transition, or by paths accepting different events | none: a completion binds nothing in UML (PSSM 8.5.5) while an attribute the last accepting transition stored would be stale, so the state's action cannot spell both; no test of the suite has the shape | no translation |
+| Call event whose operation returns a value the tester traces | the runtime returns the outputs the triggered behaviors wrote to the caller (A14, `StateExecutor.Call`) and the driver traces them where the tester does; the producing behavior — an effect or entry with an `out`/`return` parameter — is an `action def` with `out` parameters named as the operation's (§7.16.2), used by the effect or entry with its inputs bound as above, and the runtime returns what it assigned. A do activity with outputs has no caller left to return to when it runs — see below | standard |
+| A `trace(...)` call in the tester's own behavior | the tester is the referee's driver, not a model element: its trace is appended to the target's `log` where the tester makes it, once the call it embeds has returned (`run.go:drive`, `tracer.value`); a trace that embeds no call and does not follow one is refused, since the machine may still be running (`stimulation.go:traceStimulus`) | standard, driven |
+| The UML `StateMachine` as the class under test (a standalone machine with attributes, operations, a constructor) | `part def` with `attribute`s, `action def`s and `exhibit state`, as an owned machine's: the reader (`reader.go`) reads the machine as the `Target` whose `Machine` is itself, with its attributes, operations and their methods, and its constructor | standard |
+| A guard whose behavior acts on the model (calls `trace(...)` before returning its value) | none: a v2 guard is a Boolean expression (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`; `bool guard[*]` in `TransitionPerformances.kerml`, the effect a separate `step`), and an expression has no spelling for an action. UML 2.5.1 §14.5.11 `Transition::guard` itself calls such a guard ill formed. Recording the runtime's guard reads as the referee's observable instead is refused too: the reads the suite traces are a junction's on the target's default entry, read at the incoming transition's selection, where the library orders every transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) | no translation |
 | A guard whose behavior is an opaque behavior, not an activity | none: the reader follows an activity's nodes to tell whether the behavior acts, and does not read an opaque body, so the guard is refused rather than carried as its Boolean text alone. A `FunctionBehavior` is the exception — it accesses no object by UML's contract (§13.2.3.3) — and is translated as the expression it spells | no translation |
 | Fork into states of orthogonal regions that have no initial pseudostate | `parallel` regions spell the shape and the `fork` extension the fork; a region a fork enters needs no `entry; then` (finding 6 below, fixed) | extension |
 
 The classification is by construct, in the order of the table: a test whose model uses any
 construct with no spelling or no translation is counted as not expressible whatever else it
-uses; otherwise it is counted under the gap if it uses `terminate`, under the extensions if it
-uses any of them, and as standard otherwise. `internal/pssm/classify.go` is the classifier and
-`TestSuiteClassification` pins this table against the pinned suite. By area:
+uses; otherwise it is counted under the extensions if it uses any of them, and as standard
+otherwise (the three terminate tests were a class of their own, *terminate gap*, while the
+runtime did not execute `terminate`; they are standard since it does). `internal/pssm/classify.go`
+is the classifier and `TestSuiteClassification` pins this table against the pinned suite. By
+area:
 
-| Area | Tests | Standard | Extension | Terminate gap | Not expressible |
-|---|---:|---:|---:|---:|---:|
-| Behavior | 5 | 4 | 0 | 0 | 1 |
-| Transition | 15 | 8 | 1 | 0 | 6 |
-| Event | 16 | 10 | 0 | 0 | 6 |
-| Entering | 5 | 4 | 0 | 0 | 1 |
-| Exiting | 5 | 4 | 0 | 0 | 1 |
-| Entry (entry points) | 6 | 0 | 0 | 0 | 6 |
-| Exit (exit points) | 3 | 0 | 0 | 0 | 3 |
-| Choice | 5 | 0 | 4 | 0 | 1 |
-| Junction | 6 | 0 | 5 | 0 | 1 |
-| Fork | 2 | 0 | 1 | 0 | 1 |
-| Join | 3 | 0 | 3 | 0 | 0 |
-| Final | 1 | 1 | 0 | 0 | 0 |
-| Terminate | 3 | 0 | 0 | 3 | 0 |
-| History | 8 | 0 | 8 | 0 | 0 |
-| Deferred | 10 | 0 | 9 | 0 | 1 |
-| Redefinition | 6 | 0 | 0 | 0 | 6 |
-| Standalone | 3 | 0 | 0 | 0 | 3 |
-| Other | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **103** | **31** | **31** | **3** | **38** |
+| Area | Tests | Standard | Extension | Not expressible |
+|---|---:|---:|---:|---:|
+| Behavior | 5 | 4 | 0 | 1 |
+| Transition | 15 | 8 | 1 | 6 |
+| Event | 16 | 16 | 0 | 0 |
+| Entering | 5 | 4 | 0 | 1 |
+| Exiting | 5 | 4 | 0 | 1 |
+| Entry (entry points) | 6 | 0 | 0 | 6 |
+| Exit (exit points) | 3 | 0 | 0 | 3 |
+| Choice | 5 | 0 | 4 | 1 |
+| Junction | 6 | 0 | 5 | 1 |
+| Fork | 2 | 0 | 1 | 1 |
+| Join | 3 | 0 | 3 | 0 |
+| Final | 1 | 1 | 0 | 0 |
+| Terminate | 3 | 3 | 0 | 0 |
+| History | 8 | 0 | 8 | 0 |
+| Deferred | 10 | 0 | 10 | 0 |
+| Redefinition | 6 | 0 | 0 | 6 |
+| Standalone | 3 | 1 | 0 | 2 |
+| Other | 1 | 0 | 0 | 1 |
+| **Total** | **103** | **41** | **32** | **30** |
 
-Of the 30 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
-an internal transition and 6 the redefinition machinery (several use more than one). Of the 62
-expressible and runnable tests, 20 use orthogonal regions, 8 a do activity, 9 deferral, 8
-history, 6 a junction, 4 a choice and 5 a fork or join; no expressible test has a call event,
-since every test with one also traces its result from the tester.
+Of the 29 with no v2 spelling, 14 use an entry point, 12 an exit point, 9 a local transition, 2
+an internal transition and 6 the redefinition machinery (several use more than one). Of the
+expressible tests, 20 use orthogonal regions, 9 a do activity, 9 deferral, 8
+history, 6 a junction, 4 a choice and 5 a fork or join; seven (*Event 019-A* to *019-E*,
+*Deferred 007*, *Standalone 003*) have a call event the tester calls synchronously, five of
+them tracing after it and four of those its result. Three with a call event (*Event 019-B*,
+*019-C*) or a signal (*Event 017-B*) have an exit behavior that reads the leaving transition's
+data.
 
 #### Moves from the hand count
 
 This section was first written with a hand count of 37 / 33 / 3 / 30, which classified by the
 state-machine constructs alone. Writing the emitter showed nine of those 73 tests to have no
 exact translation, for reasons the construct table did not list; two of the nine (*Fork 002*,
-*Join 001*) have one since the lowerer accepts a fork-entered region without an initial; adjudicating the failures
-found a tenth. Each is recorded here with the
-classifier's reason; the count ratchet in `docs/project/pssm-referee.md` is where a later
-translation moves them back.
+*Join 001*) have one since the lowerer accepts a fork-entered region without an initial, a
+third (*Event 019-A*) since the driver performs the tester's calls and traces in the tester's
+order, and four more (*Event 019-D*, *019-E*, *Deferred 007*, *Standalone 003*) since the
+emitter binds an entry's or effect's parameters from the accepted event's data and returns
+what the behavior assigns to its outputs, and three more (*Event 017-B*, *019-B*, *019-C*)
+since an exit's parameters read the leaving transition's payload; adjudicating the failures
+found a tenth. Each is
+recorded here with the classifier's reason; the count ratchet in `docs/project/pssm-referee.md`
+is where a later translation moves them back.
 
 | Test | Was | Reason |
 |---|---|---|
-| *Event 017-B* | standard | the composite state and its substate have entry, exit and do behaviors with parameters, reading the triggering event's data; the notation binds event data on the transition only |
-| *Event 019-A* | standard | the tester itself calls `trace("End")` after the target's operation returns; only the target's behaviors write the model's `log` |
-| *Event 019-B* | standard | both top-level states have parameterised entry and exit behaviors |
-| *Event 019-C* | standard | the three nested states have parameterised entry, exit and do behaviors |
-| *Event 019-D* | standard | the call trigger's operation `T2` returns a value, which the tester traces; the runtime's call events return nothing to the caller |
-| *Event 019-E* | standard | parameterised behaviors in two substates, an operation result on the call trigger's `T2`, and a tester-side trace of it |
-| *Deferred 007* | extension | the deferred call trigger's operation `T4` returns a value the tester traces |
+| *Event 017-B* | standard | *translated since the exit reads the leaving transition's payload:* the nested state's exit behavior `exit(data)` reads the data of the second `Data` occurrence, the one firing `T1.2` out of it (its exit traces `[in=false]` after an entry with `true`); an attribute the entering `T2` stored would give `[in=true]`, a trace the suite does not admit, so the exit's parameter is bound to `'T1.2'.data`, the transition's own payload, read while `T1.2` is taken. The composite's and the nested state's entries and the nested do activity bind from `T2`; the two admitted traces, with and without the do activity's segment, are both reached and nothing else |
+| *Event 019-A* | standard | *translated since the driver performs the tester's steps in order:* the tester itself calls `trace("End")` after the target's operation returns; the driver now makes the call synchronously and appends the trace to `log` when it returns, reaching the one admitted trace: the source's exit, the call transition's effect, `End`, the next state's segment |
+| *Event 019-B* | standard | *translated since the exit reads the leaving transition's payload:* the source state's exit behavior `exit(p1, p2)` reads the arguments of the `op(42, "input")` call that fires `T2` out of it, and no transition entering the source (the initial's) carries them; its parameters are bound to `T2.p1`, `T2.p2`. `T2`'s effect and the target state's entry bind from the call; the one admitted trace is reached |
+| *Event 019-C* | standard | *translated since the exit reads the leaving transition's payload:* the innermost state's exit behavior `exit(p1 : Boolean)` reads the argument of the `op2(true)` call that fires `T1.1.2` out of it, bound to `'T1.1.2'.p1`; the data entering it is `op1`'s `(42, "input")`, of other types, and the three entries bind from `op1`. The exit activity's `ToString` call that nothing feeds is left out, as UML never executes it; the one admitted trace is reached |
+| *Event 019-D* | standard | *translated since the emitter spells a returning effect:* `T2`'s effect is an action with an `out` parameter named as `op`'s (`out output : String`), its `return "output"` an assignment to it; the runtime returns the assigned value to the caller and the driver traces it as the tester does, reaching the one admitted trace |
+| *Event 019-E* | standard | *translated since the emitter binds entry parameters and returns outputs:* `T2` accepts `'or'(left, right)` and stores both in `trigger_v_or_left`, `trigger_v_or_right`; the two regions' substate entries declare `in left = trigger_v_or_left; in right = trigger_v_or_right;` and assign the operation's two outputs (`out result`, `out 'return'`), each region's entry writing them in the order the regions are entered, so the caller receives the second region's values and the two admitted traces are both reached and nothing else |
+| *Deferred 007* | extension | *translated since the emitter spells a returning effect with inputs:* the deferred `op(p1)` call fires `T4` once the second state is active; `T4`'s effect is `action def T4_effect` with `in p` bound to the accept's `p1` and `out 'return'`, its `return` an assignment of `not p`; the one admitted trace, the first state's exit, `T3(effect)`, `T4(effect)[in=true][out=false]` and the tester's `[out=false]`, is reached |
+| *Standalone 003* | standard | *the standalone machine is read as the target since the reader does so, and translated since the emitter binds entry parameters and returns outputs:* the same shape as *Event 019-E*, the machine itself the class under test with `or` its operation; both admitted traces are reached |
 | *Fork 002* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of a nested composite state, which have no initial pseudostate; the lowerer used to refuse a `parallel` region with no `entry; then` — this project's gap, not v2's |
 | *Join 001* | extension | *translated since finding 6 was fixed:* the fork enters the two regions of the top-level composite state, which have no initial pseudostate; the same lowerer refusal |
-| *Choice 005* | extension | the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short |
+| *Choice 005* | extension | *refused, settled:* the guards of the junction's and the choice's four outgoing transitions each call `trace("T1.n(guard)")` and the admitted trace records the calls, to show when each guard is read; a v2 guard is an expression with no room for an action, so the translation keeps only the guard's value and cannot reach the trace, and is refused rather than run short. Making the runtime's guard reads the referee's observable would not reach the trace either: the junction sits on the composite's default entry and the suite reads its guards before `T2(effect)` and the composite's entry, where the library reads a transition inside a state after the state's `entry` — see [A guard whose behavior acts on the model](#a-guard-whose-behavior-acts-on-the-model) |
 
-The last two were kept apart from the other seven and from the 30 with no spelling: UML allows
+The last two were kept apart from the other seven and from the 29 with no spelling: UML allows
 a fork to target states inside orthogonal regions that have no initial pseudostate, SysML v2
 `parallel` regions can spell the shape, and only the lowerer's check stood in the way. The
 lowerer now accepts a region a fork enters (finding 6), so the two run and the referee reports
@@ -1492,6 +1645,282 @@ them in its expressible buckets; a region with neither an entry transition nor a
 into it is still refused, and the classifier names that *lowerer refuses an orthogonal region
 with neither an entry transition nor a fork branch into it* (*Entry 002 E*, which is not
 expressible on other grounds too).
+
+#### Behavior parameters, operation results, tester traces and standalone machines
+
+Four of the reasons above are not a missing v2 spelling but a translation, driver or runtime
+that did not carry the construct. Each is read here against PSSM and against SysML v2/KerML,
+and either translated — the same behaviors in the same order, the suite's admitted traces the
+oracle — or left refused with what a spelling has to reach.
+
+**The tester's own `trace(...)`** — *translated, in the driver.* PSSM Clause 9.2: the tester is
+the test's second object; it sends signals to the target from its own behavior and, where it
+calls one of the target's operations, blocks until the call returns (§8.5.9
+`CallEventOccurrence`: the caller is released once the run-to-completion step the call event
+triggers is done), then goes on — in *Event 019-A*, to `this.testable.trace("End")`, which
+appends to the target's trace after the source's exit and the call transition's effect, and
+before the `Continue` it sends next makes the next segment. The tester is not a model element of the translation; it is the referee's
+driver, so its steps are performed by `run.go:drive` in the tester's order: a send is queued and
+not waited for, as the tester does not wait for a signal (the pool is FIFO, so every send before
+a call is dispatched before the call event, whatever the tester's and the target's relative
+speed), a call is `StateExecutor.Call` (A14) and returns the operation's outputs, and a trace is the value
+the tester computes appended to the target's `log` — the same store the target's own `trace`
+writes — where the tester makes it. The value is evaluated by `tracer.value` over the suite's test
+library read into the model (`library.go`: `Concat`, `ToString` for Boolean, Integer and
+UnlimitedNatural, `formatParameterValue` spelling `[in=v]`/`[out=v]` as `Util::Tracing` does),
+and a call the trace embeds is the same synchronous `Call`, made once per call action however
+many of its output pins the trace reads (*Event 019-E* reads `result` and `return` of one
+`or(true, true)`; `TestTracerMakesEachCallOnce`). The ordering is PSSM's under every
+scheduling policy because it is fixed by the call's return, not by a draw: nothing of the
+target's runs between the step's end and the tester's next action, and the referee's result is
+identical under `-jobs 1` and `-jobs 8`. A trace that embeds no call and does not directly follow
+one has no such anchor — the tester's `trace` and the target's steps would be interleaved by
+fUML's scheduling — and `stimulation.go:traceStimulus` refuses it rather than order it by fiat;
+no test of the suite is refused on that ground. *Event 019-A* moves from not expressible to
+`pass` on its one admitted trace, `End` third of four segments; `TestDriveTesterTraceAfterCallReturns`,
+`TestDriveRefusesATraceWhileTheMachineMayRun`, `TestDriveCallNotReturnedFails`.
+
+**The standalone machine** — *translated, in the reader.* UML 2.5.1 §13.2.3 and §14.2: a
+`StateMachine` is a `Behavior`, hence a `Class`; the suite's *Standalone* tests type the
+tester's `testable` by the machine itself and give it attributes, operations with method
+activities and a constructor. Its v2 reading is the one an owned
+machine already has: a `part def` with `attribute`s, `action def`s for the operations and
+`exhibit state` for the machine, since a `part def` is what the emitter spells a target class
+as and the machine's regions, states and transitions are read the same way whichever element
+owns them. `reader.go` reads the standalone machine as the `Target` whose `Machine` is itself,
+with the attributes, operations and their methods, and the constructor; the constructor's
+literal writes are the attributes' initial values, as for an owned class (the suite's
+standalone constructors call the base constructor and return `this`). The classifier therefore no longer refuses the
+kind; *Standalone 001* and *Standalone 002* are refused on their entry and exit points, the
+reasons otherwise unchanged
+(`TestSuiteNoTranslationReasons`); *Standalone 003* runs and passes. `standalone_test.go` reads and runs a standalone
+machine with an attribute the constructor initialises and a method that writes it.
+
+**A call trigger whose operation returns a value** — *translated: the runtime and driver carry
+it, and the emitter spells the behavior that produces it.* PSSM §8.5.9 `CallEventOccurrence`
+and `SM_ObjectActivation`: the call's arguments bind the operation's `in` parameters, the
+behaviors the occurrence fires may write the operation's `out`/`return` parameters, and the
+caller is released with those values once the step is done. In the suite the value is produced
+by a *behavior*: *Event 019-D*'s `T2` effect `return "output"`; *Deferred 007*'s `T4` effect
+`return T4_effect(p)` from the call's `in`; *Event 019-E*'s and *Standalone 003*'s entry
+behaviors of two orthogonal regions' substates, each returning its own value, the trace admitting
+either region's as the one the tester sees — the last write wins. The runtime side is A14:
+`StateExecutor.Call` returns what a fired behavior returned or assigned to an output parameter
+of the operation's name, typed and by name, and the driver traces it (above). The producing
+behavior is an `action def` with `out` parameters named as the operation's outputs (§7.16.2), a
+nameless `return` named `return` by the reader wherever the parameter appears (the operation's,
+the behavior's and the tester's read of the result alike) and spelled `out 'return'`, and its
+`return` statement an assignment to that parameter; the effect or entry is a usage of it, its
+inputs bound as the next paragraph says:
+
+```sysml
+action def T2_effect {
+    inout log : String;
+    out output : String;
+    first start;
+    then action body { assign output := "output"; assign log := …; }
+    then done;
+}
+transition first waiting accept op() do { action : T2_effect { inout log = log; } } then done;
+```
+
+The runtime returns what the usage assigned to `output` to the caller of `op()`. The behavior's
+outputs must match the operation's by position and type as its inputs must: §8.5.9 returns the
+values of the operation's output parameters, so `out value : Integer` against
+`op(out result : String)` is a refusal, not an integer under the name `result`. An `inout`
+parameter is one feature of the definition, declared `inout` under the operation's name and
+bound `inout count = trigger_bump_count;` in the usage, so the runtime returns it as the
+operation's `inout`. The body's write to it is evaluated where UML feeds the output parameter
+node, into an `attribute count_written` of the definition, and `assign count := count_written;`
+closes the body: UML posts the node's value when the activity completes, and every read of the
+parameter before that — by the body's later statements or by another inout's write — is of the
+input (`TestParametersInoutBindsOnceAndReturns`, `TestParametersInoutWritesReadInputs`). A do activity
+with outputs is refused instead (`binding.go`): the step that dispatched the call ends while the
+activity runs, so its outputs return to nobody; no test of the suite has the shape. The four
+tests run and pass, each on exactly its admitted traces: the effect's `return` is traced by the
+tester after the effect's own `trace`, and in the two-region case each region's entry assigns
+the output in the order the regions are entered, the second's the value returned
+(`TestParametersCallBindsInputsAndReturnsOutputs`).
+
+**Entry, exit or do behavior with parameters** — *all translated; the exit reads the leaving
+transition's payload.* PSSM §8.5.5 (`StateActivation::enter`, `exit`, `getExecutionFor`): a
+state's behaviors are executed with the triggering occurrence's data — a signal's attribute
+values, a call's `in` arguments — bound to their parameters in order when the behavior's
+signature conforms to the data; a completion or a data-less occurrence binds nothing. In SysML
+v2 the data is the transition's: `accept d : Data` (§7.18.2) declares a payload the transition's
+guard and effect read, and KerML's `TransitionPerformance::accepter` holds the transfer, while
+`StatePerformance::entryAction`, `exitAction` and `doAction` (`StatePerformances.kerml`) are the
+state's, performed with no reference to the transfer that caused them. The spelling routes the
+data through the machine: `binding.go` finds, for each behavior with parameters, the one event
+every triggered transition into its site accepts (a transition's own triggers, or those
+reaching a pseudostate it leaves; a transition into a state's initial pseudostate carries what
+entered the state; a transition from a substate into the state enclosing it enters nothing, as
+PSSM §8.5.8 leaves the target active and completes its region — SM35 — so it neither binds nor
+refuses the entry, `TestParametersEnclosingTargetIsNotEntered`), checks the signature against
+the event's data by position and type, and
+the emitter then stores each value the accept binds in an attribute of the machine named for
+the event, and declares the action's parameter bound to it. A signal `Data` with one scalar
+attribute `value` and an operation `op(p1 : Integer, p2 : String)`:
+
+```sysml
+attribute trigger_Data : Data;                                        // one carrier per signal
+attribute trigger_op_p1 : Integer = 0; attribute trigger_op_p2 : String = "";   // one per input
+transition first wait accept data : Data do { assign trigger_Data := data; } then working;
+transition first working accept op(p1, p2) do {
+    assign trigger_op_p1 := p1;
+    assign trigger_op_p2 := p2;
+} then resting;
+state working { entry action : working_entry { inout log = log; in data : Data = trigger_Data; } }
+state resting { entry action : resting_entry { inout log = log; in p1 = trigger_op_p1; in p2 = trigger_op_p2; } }
+```
+
+The values are the occurrence's own, they are read in the step the occurrence is dispatched in
+(the effect stores before the entry runs, §7.18.3), and the store is no observable unit: it is a
+statement of the transition's effect, which the traces record only through its own `trace`
+calls. An effect that is itself the parameterised behavior reads the `accept`'s parameters
+directly and stores nothing. A bound do activity declares its inputs on the `do action` and
+chains its statements one action each (`first start; then action step1 {…}; then done;`), so
+the declaration is evaluated when the activity starts and not as a step of its own — the plain
+body would spend a do round on it, and a two-step body never finishes before the next event is
+dispatched (`state_executor.go:oneUnit` dispatches after every closed round), so the admitted
+trace with the activity's segment would be unreachable. Each binding is re-read per occurrence
+(`TestParametersRebindPerOccurrence`); `TestParametersSignalBindsEffectAndEntries`,
+`TestParametersDoActivityBindsInputs` pin the two spellings.
+
+An *exit* cannot read a carrier: it runs before the leaving transition's effect (§7.18.3:
+exit, effect, entry), so nothing the leaving transition stores is there yet, and the attribute
+the *entering* transition stored holds the entering occurrence's value — *Event 017-B*'s nested
+exit traces `[in=false]`, the second `Data`, after an entry with `true`. What the exit can read
+is the leaving transition's own payload, since it is a step of that transition's performance.
+Two spellings were weighed against the admitted traces of *Event 017 B*, *019 B* and *019 C*:
+
+| Candidate | The reading | Against the admitted traces |
+|---|---|---|
+| **Read the leaving transition's payload** — `exit action { in p1 : Integer = T2.p1; … }`, each leaving transition's `accept` naming the exit's `in` when it fires | The exit is performed *within* the transition performance that accepted the occurrence: `StateTransitionPerformance` (`StatePerformances.kerml`) orders `accept then transitionLinkSource.exit` and `TransitionPerformance` (`TransitionPerformances.kerml`) orders `transitionLinkSource then effect`, so the accepted transfer is held when the source's exit starts and released only after the effect; its `trigger` subsets `transitionLinkSource.accepted`, the source state performance's own `accepted` transfer (`StatePerformance::accepted`, `acceptable then exit`), so the exit reads a transfer of the performance it is a step of, not a stranger's. In notation `accept d : Data` (§7.18.2) declares `d` a feature of the transition usage — `StateTransitionAction` binds `payload = accepter.payload` (`States.sysml`) — and a feature chain from the transition's name reads it; the parser and name resolution accept `T2.p1` and `'T1.1.2'.p1` as they accept any qualified feature. A transition not being taken performs nothing, so the chain reads nothing then, and the exit shared by several leaving transitions spells the alternatives `T3.d ?? T4.d`, each binding on its own firing. Nested exits read the outer transition's payload the same way: PSSM §8.5.5 `exit` passes the same event to every state left | **translated.** *Event 017 B* reaches its 2 admitted traces and no other, *019 B* its 1, *019 C* its 1; *Standalone 002*'s behavior-parameter reason (its second state's exit) drops, its entry- and exit-point reasons stay; every other row byte-identical |
+| **Stage the value at accept time** — a machine attribute assigned as the transition accepts, before the exit | An `accept` is the transition's action and has no statement of its own; the assignment would be a statement of the effect (§7.18.3), which the library orders after `transitionLinkSource.exit` — so the store either runs after the exit (the exit reads the entering occurrence's value, the refused trace) or is moved ahead of the exit by no text of the specification | **not needed**: the first candidate reaches the admitted sets; recorded so the spelling is not revisited |
+
+The runtime binds the exit's parameters from the lowered transition, not from the notation:
+`lower.Transition.Accepted` names what the trigger binds (the signal payload, the operation's
+inputs, `state_graph.go:AcceptedNames`), the executor knows the transition it is taking before
+the exit runs (`state_executor.go:taking`, chosen by the RTC step's selection) and copies its
+payload into the frame every behavior of the firing reads (`state_statements.go:currentFiring`,
+`stateStmtHost.dataFrame`), and `T.d` evaluates against that frame (`transition_payload.go`):
+the taken transition's value, the null value for a transition not being taken, a `NoValueError`
+when the taken transition accepts `d` but bound nothing. The frame survives joins, queued
+events and nested exits (`state_exit_nested_reads_outer_transition`,
+`state_exit_shared_by_two_transitions`; the transition is the one the name resolves to, so an
+outer transition a nested same-named one shadows is read qualified, `Machine::T.c`,
+`state_exit_shadowed_transition_name` — the emitter declares the transitions an exit reads by
+names unique in the machine instead), a body snapshotted for a later read
+(`frame.snapshot`, `state_exit_payload_deferred_read`), the frames a predicate the state
+declares closes over (`invoke_predicate.go:flattenFrames`, `state_exit_payload_nested_predicate`)
+and the whole of a compound transition — a segment past a choice or a junction declares no
+trigger, so its effect reads the accepting segment's payload by that segment's name, within
+whose performance it runs (`state_route_effect_reads_accepting_segment`) — and a completion
+firing binds nothing, leaving the parameter's default
+(`state_exit_completion_binds_nothing`) or, for an `in level : Integer[0..1]` bound to a
+transition not taken, no value at all (`state_exit_payload_optional_input`);
+`TestRuntimeRobustnessExitParameters` pins the typed errors. A do behavior reads the transition that entered its state for its whole
+run, not whichever firing its steps happen to fall in: the state performance holds the transfer
+that triggered the transition into it (`StatePerformance::incomingTransitionTrigger`,
+`StatePerformances.kerml`), so the executor copies the entering firing into the do behavior as
+it starts (`state_executor.go:startDoAction`, `doAction.firing`) and every step reads it, whether
+the entry front draws the first step before or after the entries of the substates entered with
+it (`state_do_reads_entering_transition`, agreed across every schedule by the checker). The
+emitter (`emit_behavior.go:exitValue`) spells the exit's inputs as the chains; the reader
+(`activity.go:dry`) leaves out an activity node whose required input pin no token ever reaches,
+since UML never executes it (*Event 019 C*'s exit holds a `ToString` call nothing feeds and
+nothing reads; `TestReadStarvedActions`). An exit some leaving paths bind nothing on — a
+completion, or an occurrence whose data the signature does not take — still runs on those
+firings with its inputs empty, and only the activity nodes a token from the input must reach
+never fire (§8.5.5: the input parameter node holds no token, so what it feeds, directly or
+through the nodes before it, never offers): the reader records those inputs per statement
+(`activity.go:needs`, `Statement.Needs`, `TestReadStatementNeeds`) by walking the activity
+once with every input fed and once per input with its parameter node absent, the binder marks
+the site (`Binding.Partial`), and the emitter declares such inputs `[0..1]` and wraps only the
+statements needing them in `if notEmpty(<input>) { … }` (`emit.go:guarded`), importing
+`SequenceFunctions::*` for the guard; a statement needing no input runs as before
+(`TestParametersExitLeftWithoutData`).
+`TestParametersExitBindsLeavingTransition` and `TestParametersExitSharedAndNested` pin the
+spelling. What is refused, with the reason the classifier
+reports under *behavior parameter* (`TestParametersRefusals`):
+
+- a site reached by a completion transition, from the machine's start, or by paths accepting
+  different events: UML binds nothing or a different occurrence there while the carrier would
+  hold the last store; an exit left *only* by paths binding nothing — completion, data-less
+  occurrences, data its signature does not take — is refused the same way, while one left by
+  such a path beside conforming ones binds on the conforming firings and nothing on the
+  others, as §8.5.5 reads (`bindsNothing`, `Binding.Partial`);
+- a signature that does not conform (arity, or a type with no `ScalarValues` counterpart), a
+  signal with several attributes, a transition with several triggers, and a do activity with
+  outputs.
+
+Same-named operations are told apart by identity throughout, as a UML `CallEvent` names one
+`Operation`: the tester's call binds its arguments to the parameters of the one it targets
+(`stimulation.go`), `sameEvent` compares the operations, not their names, and each carries its
+own attributes — the overload's number among the machine's call triggers in document order joins
+the name, `trigger_bump_1_count` for `bump(inout count : Integer)` and `trigger_bump_2_flag` for
+`bump(in flag : Boolean)`, so one carrier never holds the other's value
+(`TestParametersOverloadsByIdentity`, `TestParametersOverloadsBindApart`,
+`TestParametersOverloadsCarryApart`); a `CallBehaviorAction` likewise names one `Behavior`, so
+the reader carries its `xmi:id` and the emitter inlines that owned behavior, not the first of
+its name (`TestParametersAppliesBehaviorByIdentity`). The trigger itself is where the notation runs out:
+`accept bump(count)` names the operation by name and parameter names, the emitted machine
+declares no operation for the runtime to select among, and a call of either overload binds a
+`count`, so two same-named operations one of whose input names cover the other's —
+`bump(inout count : Integer)` and `bump(in count : Boolean)` — have one accept spelling between
+them and a trigger naming either is refused (`emit.go:indistinctOverload`,
+`TestParametersOverloadsWithOneSpellingRefused`); no test of the suite has the shape.
+
+The classifier reports only the behaviors `binding.go` refuses, so *Entry 002-F*'s and
+*Standalone 002*'s entries and exits bind and their reasons name their entry and exit points
+alone.
+
+#### A guard whose behavior acts on the model
+
+*Choice 005* (PSSM §9.4.10) is the one test whose guards act: `T2` (`Start`, effect
+`T2(effect)`) leads `wait` to a composite state with an entry behavior, whose region starts
+through `T1.1` into the junction `Junction1`, out of which `T1.2` (`true`) reaches the choice
+`Choice1` and `T1.3` (`false`) a second substate; out of the choice `T1.4` (`true`) reaches the
+first substate, which has an entry behavior, and `T1.5` (`false`) the second. Each of the four
+guards is an activity that calls `trace("T1.n(guard)")` and then returns its literal, and the
+one admitted trace has seven segments — `T1.2(guard)::T1.3(guard)::T2(effect)`, the
+composite's entry, `T1.4(guard)::T1.5(guard)`, the first substate's entry (the trace is quoted
+in [the referee record](../../project/pssm-referee.md)): the junction's two guards read at
+`T2`'s selection, before its effect and the composite's entry — the static evaluation of §8.5.6
+reaching through the composite's default entry, the same reach SM32 records for *Junction 004*
+— and the choice's two read on arrival, after the composite's entry, the dynamic evaluation of
+§8.5.7. The suite observes *when each guard is read*, and the calls are its only
+means of observing it. Whether the referee can observe the same without giving a v2 guard a
+side effect was tried three ways; none reaches the trace, so the test stays refused with the
+classifier's reason (`guard side effect T1.2; …`), and the table below records why.
+
+*The v2/KerML reading.* A guard is a Boolean expression: `bool guard[*] subsets
+enclosedPerformances;` on `TransitionPerformance` (`TransitionPerformances.kerml`), an
+`Evaluation`, with the transition's action a separate `step effect[*]`, ordered
+`private succession all [*] guard then [*] effect;`. `StateTransitionPerformance`
+(`StatePerformances.kerml`) orders a transition's guard after the acceptable transfers and
+before the source's exit (`private succession all [*] acceptable then [*] guard;`,
+`private succession [*] guard then [1] transitionLinkSource.exit;`), and `StatePerformance`
+orders a state's entry before every middle step (`private succession [1] entry then [*]
+middle;`), the region's transition performances among them. So the library places a guard's
+reading in time — after the trigger, before the exit and the effect — and places every
+transition inside the composite, `T1.1` through the junction included, after the composite's
+`entry`. UML 2.5.1
+§14.5.11 states the other half: guards "should be pure expressions without side effects",
+and "guard expressions with side effects are ill formed".
+
+| Candidate | What it would do | Result against the admitted trace |
+|---|---|---|
+| Guard reads as the referee's observable: the emitter spells the four guards as the pure `true`/`false` they return, the runtime records each guard evaluation as a trace event naming the transition, and the run maps the events to `T1.n(guard)` in `log` | the guard stays a Boolean expression and the model is never mutated; the observable is the runtime's, not the model's | **refused.** Run under the shape the emitter produces (an initial into a junction is spelled as a helper start state whose completion transition reaches the junction, `emit.go`, `TestEmitInitialIntoPseudostate`), the runtime's execution trace reads the junction's guards *after* the composite's `enter` line and the helper state's entry, as the completion transition out of it is selected (`state_route.go:resolveRoute` → `followOut`, SM29: static for *that* transition, whose source is inside the composite), and the choice's after the helper state's exit — `T2(effect)`, the composite's entry, then `T1.2(guard)::T1.3(guard)::T1.4(guard)::T1.5(guard)` and the first substate's entry at best, which the suite does not admit; its one trace needs the junction read at `T2`'s selection, before `T2(effect)`, a reach through the default entry that SM32 records as *differs, v2 silent* and the library's `entry then middle` places the other way. The channel is also short of the suite's reads: `enabledBranches` reads the first guard of a vertex in the open and every further one under `beginProbe`, which restores `ctx.trace` — so of the four reads the execution trace holds two `eval` lines, `T1.2`'s and `T1.4`'s, and `T1.3`'s and `T1.5`'s are rolled back with the probe; a choice branch past the first is read once probed and once more when drawn (`resolveChoice`), a read the suite never traces. Exposing every read as an event would need a rule for probe reads, repeated reads and their identity that no test of the suite fixes and this one contradicts on its first two entries. Reached against admitted: 0 of 1, with one trace the suite refuses. Nothing else moves — no other expressible test has an acting guard (`TestClassifyGuardSideEffect`), and the runtime is unchanged |
+| A `calc def` or an expression with a side effect: spell each guard as a calculation that appends to `log` and returns its literal | the trace would be reached | **refused.** A v2 expression is pure — a `calc def` is a `Function` and a `calc` usage an `Expression` (SysML v2 §7.17), an `Evaluation` that computes a result and performs no action; a transition's guard is an `Expression` (§7.18.3, `validateTransitionFeatureMembershipGuardExpression`), so `bool guard[*]` is an `Evaluation`, not a `step`, and no `assign`, `send` or `perform` may stand in one. What acts is `step effect[*]`, ordered after the guard. UML 2.5.1 §14.5.11 calls the guard with the side effect ill formed, so the spelling would encode a construct the source specification declares malformed to observe an order the target library places differently. Not spelled |
+| A `differs-by-design` row: adjudicate the test as differing because v2 orders the default entry after the composite's entry (SM32) | the test would run with pure guards and its `fail` on the missing four segments would be attributed to the tool choice | **refused.** `differs-by-design` names a *differs because v2 differs* row a test reaches (`rows.go:TestRows`); SM32 is *differs, v2 silent*, so the bucket does not apply, and the test does not run at all: with pure guards it reaches `T2(effect)`, the composite's entry and the first substate's entry, three segments where seven are admitted, and the difference is the construct's, not the order's alone. The classifier's refusal stands; SM31 (choice with no guard true) and SM32 (junction with no path through) are unchanged, and *Junction 002*, *Junction 004* and *Join 003* keep their buckets and reasons |
+
+The classification is the settled one: *guard side effect* is a construct with no translation
+and no faithful observable, `not-expressible` with the reason naming the four transitions,
+byte-identical to the baseline: the settled refusal of a construct v2 cannot spell faithfully,
+not a defect of the suite — the order the test observes is the one §8.5.6 and §8.5.7 define, and
+no v2 spelling observes it.
 
 ### What a translated test looks like
 
@@ -1618,7 +2047,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   machine, a comparator normalizing the `TraceBuilder` string against the model's `log` and
   matching the result against the test's set of expected traces (as a set, under the `explore`
   policy), and a committed baseline of bucket counts (`pass`, `fail`, `not-expressible`,
-  `terminate-gap`, `differs-by-design` for the tests reaching SM15/SM36/SM37) that CI compares
+  `differs-by-design` for the tests reaching SM15/SM36/SM37) that CI compares
   by count and never by pass/fail.
 - **Dependencies.** The translator's hardest part, the `Tester`/`Target` protocol, is a
   fixed pattern in the suite (one `Start`, then the listed signals), so the harness's driver is
@@ -1626,8 +2055,9 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   would be bucketed, not driven. Independent of the bounded-model-checking stages, since the
   `explore` policy already exists; it *benefits* from stage 3 (dispatch-order choice points make
   the set comparison exhaustive for the orthogonal-region tests rather than budget-bounded). No
-  Track E dependency, but the three terminate tests stay in their bucket until Track E closes
-  terminate, after which they move to `pass`/`fail` and the count moves.
+  Track E dependency; the three terminate tests, held in a `terminate-gap` bucket until Track E
+  closed terminate, run since (*Terminate 003* and *001* passed at once, *002* once the do step
+  was drawn on the entry front; all three pass).
 - **Acceptance gate.** The harness reproduces its committed baseline deterministically; the
   `pass` bucket is not a CI gate, only its *count* is, adjudicated on every movement like the
   corpus ratchets. The tool's `-h` says in one sentence what a pass means, in the words of the
@@ -1656,9 +2086,9 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
   the dispatch-order choice points and the `do` interleaving representation would have to be
   defined per mode, and the [analysis framework](analysis-framework.md)'s rule that "the
   interpreter is normative" would have two normative interpreters — every engine (`smt`, `check`)
-  either supports both or is silently wrong under one. Track E's terminate closes for both modes
-  at once (the rules coincide, SM38); its interrupting-performance and streaming entries are fUML
-  rows the mode would not touch.
+  either supports both or is silently wrong under one. Terminate is closed for both modes at
+  once (the rules coincide, SM38); Track E's interrupting-performance and streaming entries are
+  fUML rows the mode would not touch.
 - **Acceptance gate.** The PSSM suite itself, passing on every expressible test — which is the
   one thing this option buys that (b) does not, and only for the 61 expressible tests, since the
   30 with no spelling need new notation first.
@@ -1672,7 +2102,7 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ### (d) Do nothing
 
 - **Scope.** Leave the ten `differs, v2 silent` rows as they are, this note as the record
-  that they were examined, and the four gaps to Track E.
+  that they were examined, and the three gaps to Track E.
 - **Dependencies, gate, user-visible change.** None.
 - **What it leaves.** SM7 — a `defer` that any sibling region's reaction overrides — is a rule
   this project chose without the alternative in view; it stays chosen. SM28 stays a run failure
@@ -1685,8 +2115,8 @@ Track E of the roadmap, on its acceptance gate, and on what a user would see.
 ## Recommendation
 
 **Option (a), with (b) as a follow-on once (a)'s two changes have landed.** The map shows no case
-for porting the precise-semantics family: 49 of 70 rows agree already, 7 differ because SysML v2
-says otherwise and must stay as they are, and the 4 gaps are v2 gaps Track E already owns. What
+for porting the precise-semantics family: 50 of 70 rows agree already, 7 differ because SysML v2
+says otherwise and must stay as they are, and the 3 gaps are v2 gaps Track E already owns. What
 remains is nine tool choices, and on two of them — SM7 and SM28 — PSSM's rule is the reference
 this project's own extensions name (UML) applied consistently, while ours is an accident of
 implementation order; on the other seven the runtime's rule is deliberate and better for a modeler
@@ -1717,46 +2147,39 @@ activity engine and does not become one.
 The rows below report the runtime differing from, or falling short of, SysML v2's or the Kernel
 Semantic Library's *own* text, or from this project's own design notes. They are bug reports and
 unsupported-feature records, not alignment questions: PSSM has nothing to do with them and they
-are not alignment questions. Each names its evidence; items 4 to 8 and 10 are fixed, and say
-where; item 9 is open, and says what a fix takes.
+are not alignment questions. Each names its evidence; items 1, 4 to 10 are fixed, and say where;
+item 11 is adjudicated — a translation limit on three tests, the suite's defect on two, its two
+sites of the runtime's fixed, the pool's order and the do step drawn on the entry front.
 
-1. **Terminate is parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
-   define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepts
-   it and `lower.EffectTerminate` carries it; `action_statements.go:actionStmtHost.effect`
-   refuses it as "'terminate' in a body is not executable"
-   (`robustness_test.go:calc_terminate_is_rejected`). Roadmap Track E, "terminate in a body".
-   That PSSM's *Terminate 001–002* describe the same behavior is a coincidence of the two texts
-   and does not make this a PSSM alignment item: the implementation follows §7.17.10, and the
-   PSSM tests would then pass as a consequence.
+1. **Terminate was parsed and lowered but not executed** (SM38). SysML v2 §7.17.10 and §7.18.3
+   define `terminate`; `Performances.kerml` provides `TerminatePerformance`; the parser accepted
+   it and `lower.EffectTerminate` carried it, and `action_statements.go:actionStmtHost.effect`
+   refused it as "'terminate' in a body is not executable". Fixed: the row SM38 names the
+   lowering (`lower.Effect.Terminates`, `StateGraph.Terminates`) and the execution
+   (`action_terminate.go`, `occurrence_terminate.go`, `state_route.go:terminateAt`) of every
+   position the parser accepts; the calculation refusal alone stays
+   (`robustness_test.go:calc_terminate_is_rejected`). That PSSM's *Terminate 001–002* describe
+   the same behavior is a coincidence of the two texts and did not make this a PSSM alignment
+   item: the implementation follows §7.17.10, and *Terminate 003* passes as a consequence,
+   *Terminate 001* since item 9's region-entry order is drawn, and *002* since item 11's do
+   step on the entry front is drawn: it reaches all five admitted traces and nothing else.
 2. **Streaming flows, parallel expansion and interrupting an ongoing performance** (A8, A9,
    A10). `Flows.sysml` distinguishes `Flow` from `SuccessionFlow` and SysML v2 §7.16.1 says a
    streaming flow may be ongoing while both actions perform; the runtime applies every flow at
    source completion (`action_frame.go:applyDataFlows`) and `lower.ObjectFlow` carries no flow
    kind. Roadmap Track E, "streaming flows", "concurrent per-element performance",
    "interrupting an ongoing performance". Recorded there; not re-scoped here.
-3. **`isRunToCompletion` and `runToCompletionScope` redefinitions are not read** (SM1).
-   `Occurrences.kerml` declares both as redefinable features with defaults; the runtime
-   implements the defaults (one occurrence per step, the whole machine as scope) and never
-   consults a model's redefinition. A model that redefines them was accepted and run under the
-   defaults without a diagnostic. *Refused since the release after 0.7.0:*
-   `lower/run_to_completion.go:refuseRunToCompletionRedefinitions`, applied to the machine's own
-   and inherited members by `lower/state_graph.go:ToStateGraphWithEndpoints` and to every
-   substate's by `lower/state_graph.go:stateNodeFromUsage`, returns the typed
-   `lower.RunToCompletionRedefinition` (an `ErrUnsupportedStateContent`) for `false`, for a scope
-   narrowed to a substate, and for a value lowering cannot read as the default; a redefinition
-   restating the default (`= true`, `= self` on the machine) runs. Only the redefinition a body
-   makes effective is judged — the last one with a value, a specialization's masking the
-   redefinition it inherits as `keptAttributes` masks an attribute — so a machine restating the
-   default over a specialized definition's `false` runs. The target is resolved to its symbol
-   (`resolve.Resolver.RedefinitionTarget`, aliases followed, redefinition chains walked), so an
-   alias of the library feature is refused and the spelling decides only where the target does
-   not resolve; the state rendering (`view/behavior.go:renderStates`) lowers with the same
-   resolver, so it refuses what the runtime refuses. Pinned by the conformance cases
-   `state_run_to_completion_redefined_false`, `_scope_narrowed`, `_inherited_redefinition`,
-   `_region_redefinition`, `_unverified`, `_alias_redefinition`, the positive
-   `_defaults_restated` and `_default_restored`, `view/render_test.go:TestStateRenderingRefusesWhatTheRuntimeRefuses`, and
-   `robustness_test.go:run_to_completion_*`. Unsupported v2 feature still: the refusal implements
-   neither a non-run-to-completion scheduling nor a narrowed scope.
+3. **Run-to-completion values and scopes are lowered and applied** (SM1).
+   `Occurrences.kerml` declares both features with defaults. `lower/run_to_completion.go:resolveRunToCompletion`
+   records each state's effective Boolean value and ancestor scope in `StateGraph`; literal values
+   avoid evaluator traces, while dynamic values use the lowered evaluation scope and report typed
+   failures. `state_run_to_completion.go:holdEntry` identifies the entering chain and
+   `entryStep` exposes free dispatch versus held entry as one scheduling choice, with checker,
+   exploration and replay support. The conformance fixtures
+   `state_run_to_completion_false_self_signal`, `state_run_to_completion_scope_sibling_region`
+   and `state_run_to_completion_false_machine` exercise state, scoped and machine redefinitions;
+   sibling and missing scopes remain typed lowering refusals. **agrees.**
+
 4. **A composite state's completion ends the machine and never fires the composite's own
    completion transition** (SM11). SysML v2 §7.18.3 says a transition to `done` completes "the
    containing state performance" and that the containing state "does not necessarily terminate
@@ -1864,42 +2287,64 @@ where; item 9 is open, and says what a fix takes.
    transition through a junction with two branches enabled*; the test passes.
 
 9. **The order in which orthogonal regions are entered, exited and stepped is not a recorded
-   choice point.** SM21, SM22, SM23 and SM13 each say so of their own site; taken together the
-   sites are one gap, and the PSSM referee measures it: every trace the runtime reaches in the
-   tests below is one the suite admits, and the suite admits others no policy produces, so
-   `explore` reports each run complete after the one interleaving. Four sites. Entering the
+   choice point.** SM21, SM22, SM23 and SM13 each said so of their own site; taken together the
+   sites are one gap, and the PSSM referee measures it: every trace the runtime reached in the
+   tests below is one the suite admits, and the suite admits others no policy produced, so
+   `explore` reported each run complete after the one interleaving. Four sites. Entering the
    regions of a composite state (`state_region_entry.go:enterRegionsInto`) and a fork's branches
    (`enterForkBranches`) in declaration order — *Entering 010* and *Entering 011* (§9.4.5) admit
    one region's initial-transition effect between the other's entries, *Fork 002* the
    two branch effects in either order and the branch target's entry among them, *History 001-C* and
-   *History 002-B* (§9.4.15) the two regions' restored entries and exits interleaved. Exiting
-   them (`state_executor.go:exitState`) in declaration order, each innermost first —
+   *History 002-B* (§9.4.15) the two regions' restored entries and exits interleaved,
+   *Terminate 001* and *Terminate 002* (§9.4.13) the second region's entry before the first's.
+   Exiting them (`state_executor.go:exitState`) in declaration order, each innermost first —
    *Exiting 001* and *Exiting 003* (§9.4.6) admit the two regions' exits in either order. Firing
    the transitions one occurrence selects one whole firing at a time (`dispatchInOrder`, SM21) —
    *Transition 019* (§9.3.3.12) admits both sources' exits before either effect. And stepping a
    due do action before the occurrence at the head of the pool is dispatched
    (`state_executor.go:runStep`, `runDoRound`, SM13) — *Behavior 003 A* admits the
    machine's `AnotherSignal` transition before the do activity's first segment, so that
-   the first state's entry alone is a complete log, and *Transition 017* the do activity's step
-   at any point among the sibling regions' completion effects. SysML v2 §7.18.1 has parallel
-   substates "performed concurrently" and `StatePerformance::do` a sub-performance concurrent
-   with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one order per
-   site is a linearization v2 admits too: not a defect of behavior, a gap of exploration — the
-   `explore` driver enumerates the choice points a run records (`scheduling.md`), and these sites
-   record none. A fix is a scheduling design, not a local change: an entry or exit of several
-   regions, and the steps of a do action against a dispatch, would have to be stepped one
-   region or one action at a time under a draw the policy makes and a `ChoiceRegionOrder`
-   records, as `dispatchInOrder` and `runDoRound` already do among themselves, and the goldens
-   of every fixture that enters or leaves an orthogonal state would move with the trace
-   (`state_parallel_standard`, `state_composite_orthogonal_exit`, `state_concurrent_do` and
-   their kin). Not fixed; the nine tests stay `fail` in
-   `docs/project/pssm-referee.md` citing this item, with a tenth (*Transition 019*) that also
-   reports on SM34, and an eleventh (*Junction 005*, §9.4.11) that item 10's fix left on this
-   gap alone: the other region's initial-transition effect and entry, admitted before or
-   around the junction segment's effect, are entered after it. The design is written
-   ([recording the order of orthogonal regions](region-order-scheduling.md)); it waits on two
-   decisions it puts to the maintainers, the goldens under the default policy and two admitted
-   traces of *Transition 017*.
+   the first state's entry alone is a complete log, *Transition 017* the do activity's step
+   at any point among the sibling regions' completion effects, and *Terminate 002* the do
+   activity's step before the terminating completion transition or not at all. SysML v2 §7.18.1
+   has parallel substates "performed concurrently" and `StatePerformance::do` a sub-performance
+   concurrent with `middle`, so the runs PSSM admits are runs v2 admits, and the runtime's one
+   order per site is a linearization v2 admits too: not a defect of behavior, a gap of
+   exploration — the `explore` driver enumerates the choice points a run records
+   (`scheduling.md`), and these sites recorded none.
+   *Fixed at three sites*, as [recording the order of orthogonal regions](region-order-scheduling.md)
+   lays out: the regions a composite state, a fork or a history enters, the regions a state
+   leaves, and the firings one occurrence selects across regions each run as the queues of one
+   front (`state_unit_front.go`), a unit — one state's entry, one state's exit, one segment's
+   effect — at a time, and each draw of which queue's next unit runs is a choice point the
+   policy makes (`ChoiceEntryOrder`, `ChoiceExitOrder`, `ChoiceRegionOrder` per unit; SM22, SM23,
+   SM21), written to the trace and the witness, replayed, refused and rolled back with its move,
+   and enumerated by `explore` and the checker. `declared` and `reverse` take the order the
+   runtime always took, unit for unit, so no event order under either moved; a unit that
+   performs no behavior is drawn with the performing unit beside it, so *Event 016 B*'s three
+   silent firings across nested regions explore 1152 linearizations rather than some 320 000.
+   *Exiting 001*, *Exiting 003*, *Fork 002*, *Terminate 001* and *Deferred 006 C* reach every
+   admitted trace and pass; *Transition 019* reaches its six and stays `fail` on SM34 alone.
+   *Fixed at the fourth site* at the grain of a token move: a due do step against the
+   dispatch the machine would make at the same instant — "dispatch now" against "keep moving
+   the do flow" — is drawn under `check`, `replay` and `explore` (`ChoiceStepOrder`,
+   `state_executor.go:oneUnit`, `stepDue`), one token move of a due do behavior's flow — an
+   inline body's statement, a step of a do behavior given as an action, a token inside a nested
+   perform — or the dispatch per move, drawn again after every move while a do behavior is due,
+   so a dispatch cuts the flow anywhere or waits for it to rest and a body parked at an
+   `accept` offers no move; `declared`, `reverse` and `seed:<n>` finish the whole round before
+   they dispatch as they always did, so no default trace moved, and their run is one path of
+   the checker's enumeration. *Behavior 003 A* passes; *Transition 017* reaches every placement of
+   its do step and stays `fail` on item 11's pool order and the suite's defect
+   ([omg-issues](../../project/omg-issues.md#pssm-transition-017-admits-a-parents-completion-before-its-regions)),
+   *Terminate 002* on item 11 alone. *Fixed on the entry front too*: once a state's entry
+   unit has performed and started its do behavior (`startDoAction`), each due token move of
+   that behavior is a unit of its region's queue on the entry front, drawn against the sibling
+   regions' remaining entry units under the front's own draw (`state_unit_front.go:offerDoSteps`,
+   `ChoiceEntryOrder`'s `entering <state>` with `do <state>` an alternative beside the
+   entries — no new choice kind) while a sibling has a unit left, then against the dispatch as
+   above; the fixed policies offer no such unit and no golden of theirs moved. *Terminate 002*
+   reaches its fifth admitted trace and passes; every site of this item is closed.
 10. **A segment leaving a junction inside a composite state runs its effect before the
     composite is entered.** PSSM *Junction 005* (§9.4.11): a transition from outside targets a
     junction that lies in one region of an orthogonal state, and the segment out of the
@@ -1941,16 +2386,86 @@ where; item 9 is open, and says what a fix takes.
     moved. *Junction 005* now reaches an admitted trace — the owner's entry, `T1.3(effect)`,
     then the other region's `T2.1(effect)` and its target's entry — and misses only the two
     orders in which the other region's initial effect and entry come before or around
-    `T1.3(effect)` — item 9's region-entry order — so it stays `fail` citing item 9 alone, an
-    eleventh test of that family. What a pseudostate's owner does when the route only passes
+    `T1.3(effect)`: the other region's `T2.1` is a completion transition, fired as a step of its
+    own after the entry settles, so the two are item 11's and it stays `fail` citing item 11
+    alone. What a pseudostate's owner does when the route only passes
     through it — a transition from outside a composite state through its junction to a target
     outside it again — is not entered on the way, as before: the owner lies on no entry chain of
     the move, and no PSSM test or fixture pins that shape.
+11. **A completion's firing is not drawn against the entry front — and should not be.** Found
+    while fixing item 9's entry site: every admitted trace *Entering 010*, *Entering 011*,
+    *Junction 005*, *History 001-C* and *History 002-B* still miss interleaves the firing of a
+    **completion transition** — a region's initial transition, translated as a completion out
+    of a start state (`T2.1(effect)`, *Entering 010*), or the restored state's exit and its
+    successor's entry in the History tests — with the entry units of the sibling region *in the
+    same step*. The runtime dispatches a completion as a run-to-completion step of its own once
+    the entry move has settled (SM9, SM10), so no draw among the entry units reaches such an
+    order. The finding was first read as one gap of exploration, with the fix that a state whose
+    entry leaves it complete offers its completion's firing as a unit of its region's queue on
+    the front that entered it. Enumerated against the five admitted sets in
+    [recording the order of orthogonal regions](region-order-scheduling.md#finding-11-a-pending-completion-inside-the-entry-front),
+    that rule reaches every admitted trace and, on three tests, traces PSSM refuses (two on
+    *Junction 005*, eight and thirty-one on the History pair), and no narrower rule reaches the
+    five; the sets want three different things, none of them that rule. *Adjudicated, not a
+    runtime change:*
+    - *Entering 010*, *Entering 011* and *Junction 005* are about the **initial transition's
+      effect**, which UML runs as part of the region's default entry (UML 2.5.1 §14.2.3.4.5)
+      and which SysML v2 cannot place there: an entry transition (§7.18.3
+      `EntryTransitionMember`) carries a guard at most, so the referee translates the effect as
+      that of an unguarded completion transition out of a behavior-less start state
+      (`emit.go:startTarget`), and a v2 completion transition fires by a step of its own
+      (SM9). The other spellings fail (the design note's candidate table): folded into the
+      target state's `entry` action ahead of its own entry behavior, the effect becomes a step
+      of that state's `StatePerformance` (`step entry[1]`, `StatePerformances.kerml`) and runs
+      on every entry of the state, not only by the initial transition — *Entering 010*'s
+      region 1 enters its initial transition's target explicitly and refuses every trace the
+      fold reaches — and makes one unit of two behaviors PSSM interleaves separately (two of
+      *Entering 011*'s six), and *Junction 005*'s initial transition ends at a junction, so it
+      has no target entry to fold into; folded into the region's entry action it repeats on a
+      history restore (*History 001-B*). *Junction 005* pins that the class is right: the real
+      completion of its default-entered substate is admitted only *after* the sibling's
+      remaining entry unit. A runtime rule that fired a start state's completion in the entry
+      front and not that substate's would tell them
+      apart by the source performing nothing, which neither v2 nor PSSM does. The three stay
+      `fail`, their reasons citing the language difference. Whether that difference takes a
+      *differs because v2 differs* row — moving the three to `differs-by-design` through
+      `tools/referee/pssm/rows.go:TestRows` — is open decision 8.
+    - *History 001-C*'s first half is about the **pool's order** (SM10): PSSM
+      generates a completion event as its source is entered and dispatches in generation order
+      (§8.5.9), so the entry draw decides the pool's order, which `scheduleTransitionEvents`
+      did not follow. A runtime gap, a divergence under `reverse`, `seed:<n>` and `explore`
+      alone; *fixed*: a state's completion is queued as its entry unit is performed, and an
+      entry that generates one is drawn rather than silent (the design note's *silent units*
+      section). As enumerated, it moved no bucket: *History 001-C* reaches both first-half
+      orders, *History 002-B* one more admitted trace and the two §8.5.9 gives that the suite
+      does not register, *Entering 011* its second, and *Transition 017*'s three finding-11
+      traces are reached beside item 9's fourth site.
+    - The rest of the History pair is a **suite defect**, recorded in
+      `docs/project/omg-issues.md`: *002-B* registers a dispatch order §8.5.9's pool cannot give
+      and omits the one it gives, which *001-C* registers for the identical half; both register
+      alternatives that dispatch a default-entered state's completion inside the restore step
+      their own notes and RTC tables end first, and disagree with each other on whether that
+      firing splits around a restored entry. No runtime rule is chosen to reach either; the two
+      stay `fail` citing the defect, and against the specification's own text neither can pass
+      on the downloaded XMI.
+    - *Terminate 002*'s one remaining trace had this shape with a **do step** in place of the
+      completion's firing: a due do step of the entered state drawn against a sibling's entry
+      unit, item 9's fourth site extended to the entry front, where that site drew it against
+      the dispatch alone. Fixed (item 9): the step is a unit of its region's queue on the
+      front, and the test reaches the trace and passes. *Transition 017*'s three were
+      the pool's order, now reached, beside the suite defect of its two anomalous traces.
+
+    No exploration model changes under this item: the pool's fix added a `ChoiceEntryOrder`
+    draw where a completing entry had ridden silently, the do step's fix a `do <state>`
+    alternative at the same draw, and no `check` verdict moved. The five tests of the first
+    two bullets stay `fail` in `docs/project/pssm-referee.md` with the reasons above.
 
 Item 3 has no fixture on `develop`; the first thing it needs is the conformance case that pins
 the behavior, then the fix, in a change set of its own — Track E of the roadmap holds its
-entry. Items 4 to 8 and 10 took that path in the change set that decided them; item 9 waits
-for its.
+entry. Items 4 to 8 and 10 took that path in the change set that decided them, item 9 at three
+of its four sites, the fourth in the change set that drew the do step against the dispatch, and
+item 11's pool order in the change set that queued completions at entry, and the do step against
+a sibling's entry unit in the change set that drew it on the entry front.
 
 ## Open decisions
 
@@ -2013,3 +2528,13 @@ Addressed to the maintainers; each gives the options and the lean.
    Track E entry each for items 3–5 (1 and 2 already have theirs); (ii) issues only. *Lean:* (i),
    so the record that lists "what we don't (yet) support" stays the one place a user looks.
    *Decided:* (i); Track E holds the three entries, items 4 and 5 as landed.
+8. **Finding 11 — does an initial transition's effect take a *differs because v2 differs* row?**
+   *Options:* (i) add a row saying that SysML v2 spells a UML initial transition's effect only as
+   the effect of a completion transition, which fires by a step of its own, and move
+   *Entering 010*, *Entering 011* and *Junction 005* to `differs-by-design`; (ii) leave the three
+   in `fail` with their reasons naming the difference, as the record does now. *Lean:* (ii), for
+   the present: the one *differs because v2 differs* row so far (SM15) names a semantic of a
+   construct both languages have, and the runtime implements the v2 side; this one would name a construct
+   v2 lacks, and a `differs-by-design` count that grows by three on a translation limit reads as
+   conformance gained. The three reasons are precise and stable, and the bucket can be moved in a
+   change of its own if the maintainers read it otherwise.

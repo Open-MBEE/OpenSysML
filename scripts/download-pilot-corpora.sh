@@ -23,4 +23,4 @@ pilot_fetch_subtrees \
 	"kerml/src/examples:$parent/kerml-examples"
 
 echo "Compare them against the pilot implementation with:"
-echo "  go run ./cmd/pilot-diff"
+echo "  go run -C tools ./cmd/pilot-diff"

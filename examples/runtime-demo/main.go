@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/core/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/core/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/core/runtime"
-	"github.com/Open-MBEE/OpenSysML/internal/core/semantics"
-	"github.com/Open-MBEE/OpenSysML/internal/core/source"
-	"github.com/Open-MBEE/OpenSysML/internal/core/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 func main() {
@@ -208,7 +208,8 @@ func parseModel(code string) (*runtime.Model, *symbols.Scope) {
 	}
 
 	resolver := resolve.New(idx)
-	model := runtime.NewModel(semantics.NewModel(resolver), resolver)
+	model := runtime.NewModel(passes.NewTypedModel(resolver), resolver)
+	model.SetExpressionParser(parser.ParseOneExpression)
 
 	return model, rootScope
 }

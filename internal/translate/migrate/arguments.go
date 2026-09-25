@@ -1,0 +1,431 @@
+package migrate
+
+import (
+	"slices"
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
+)
+
+// The note fragments the argument refusals repeat.
+const (
+	thePin       = "the pin "
+	theBehavior  = "the behavior "
+	forParameter = " it passes for the parameter "
+)
+
+// refusal says why a node is written as a placeholder that carries the token and
+// performs nothing, and with which verdict; refused is false when the node is
+// written. The writer asks, and so does the pass finding nodes that produce no value.
+func (a *activity) refusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	switch n.Type {
+	case "ValueSpecificationAction":
+		return a.valueActionRefusal(n)
+	case "CallBehaviorAction":
+		if p := a.m.primitiveCalled(n); p != nil {
+			return a.primitiveRefusal(n, p)
+		}
+		return a.behaviorCallRefusal(n)
+	case "CallOperationAction":
+		return a.operationCallRefusal(n)
+	case "SendSignalAction":
+		return a.sendRefusal(n)
+	}
+	return "", Mapped, false
+}
+
+// valueActionRefusal reports whether a value specification action's value
+// cannot be written in v2.
+func (a *activity) valueActionRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	val := firstOwned(n, "value")
+	if val == nil {
+		return "the action has no value", Unmapped, true
+	}
+	var ok bool
+	var note string
+	if results := n.Owned("result"); len(results) == 0 {
+		_, ok, note = a.m.behaviorValue(val, n)
+	} else {
+		_, ok, note = a.m.typedBehaviorValue(val, results[0], n)
+	}
+	if !ok {
+		return "the value " + describeValue(val) + " is not written: " + note, Approximated, true
+	}
+	return "", Mapped, false
+}
+
+// behaviorCallRefusal reports whether a call behavior action names a behavior
+// no action can call, with unbound arguments or no context to bind. One naming
+// none is a step, bare or declaring its pins; one naming a behavior the model lacks is refused.
+func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	b := a.m.model.Ref(n, "behavior")
+	if b == nil {
+		if len(a.m.model.Unresolved(n, "behavior")) == 0 {
+			return "", Mapped, false
+		}
+		return a.unbehaved(n), Unmapped, true
+	}
+	if op := a.m.methodOf[b]; op != nil {
+		b = op
+	}
+	if !a.m.written(b) {
+		return theBehavior + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
+	}
+	switch cat, _ := a.m.classify(b); cat {
+	case catCalcDef:
+		return "", Mapped, false
+	case catActionDef:
+	default:
+		return theBehavior + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
+	}
+	if c := a.m.contextOf(b); c != nil {
+		if expr, cnote := a.callContext(n, c); expr == "" {
+			return a.uncontexted(b, cnote), Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// operationCallRefusal reports whether a call operation action's operation is
+// unwritten or an argument pin has no parameter.
+func (a *activity) operationCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	op := a.m.model.Ref(n, "operation")
+	if op == nil {
+		return joinNotes(a.m.dangling(n, "operation"), "the action calls no operation"), Unmapped, true
+	}
+	if !a.m.written(op) {
+		return "the operation " + qualifiedName(op) + " it calls has no v2 declaration", Unmapped, true
+	}
+	return "", Mapped, false
+}
+
+// sendRefusal reports whether a send signal action's arguments cannot take the
+// signal's attributes.
+func (a *activity) sendRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
+	sig := a.m.model.Ref(n, "signal")
+	if sig == nil || !a.m.written(sig) {
+		return "", Mapped, false
+	}
+	attrs := a.m.signalAttributes(sig)
+	pins := n.Owned("argument")
+	for i, attr := range attrs {
+		if !requiresValue(attr) {
+			continue
+		}
+		if i >= len(pins) {
+			return a.unargued(sig, attr), Approximated, true
+		}
+		if dry := a.valueless(pins[i]); dry != nil {
+			return a.dryArgument(pins[i], sig, attr, dry), Approximated, true
+		}
+		if pt, at := a.misfit(pins[i], attr); pt != nil {
+			return a.misfitArgument(pins[i], sig, attr, pt, at), Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// primitiveRefusal says why a call to a behavior of the fUML or Alf library is a
+// placeholder: the v2 library has no function for it, a value pin holds a value
+// v2 cannot spell, or a pin standing for a parameter that must hold a value is
+// dry, or may hold none and nothing fills it. A pin that must hold a value and
+// that nothing fills starves the action instead.
+func (a *activity) primitiveRefusal(n *sysmlv1.Element, p *primitiveCall) (why string, v Verdict, refused bool) {
+	if p.outs == nil {
+		return joinNotes(theBehavior+p.qualified()+" it calls has no v2 library function: "+p.note, p.provenance), Unmapped, true
+	}
+	a.settlePins(n)
+	ins := inputPins(n)
+	for i, arg := range p.arguments() {
+		if i < len(ins) {
+			if v, vnote := a.unwritten(n, ins[i]); v != nil {
+				return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + " holds the value " + describeValue(v) + ", which has no v2 expression: " + vnote + "; v1 computes on it, so the action carries the token and performs nothing", Approximated, true
+			}
+		}
+		if !arg.required {
+			continue
+		}
+		if i >= len(ins) {
+			return "the call passes no argument for the parameter " + arg.name + " of " + p.qualified() + ", which must hold a value; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+		if dry := a.valueless(ins[i]); dry != nil {
+			return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing", Approximated, true
+		}
+		if a.holdsNone(ins[i]) {
+			return thePin + describe(ins[i]) + forParameter + arg.name + " of " + p.qualified() + ", which must hold a value, may hold none and nothing fills it; v1 leaves the call undefined without it, so the action carries the token and performs nothing", Approximated, true
+		}
+	}
+	return "", Mapped, false
+}
+
+// unwritten returns the value of a value pin of n that has no v2 expression, and
+// why; nil for another pin or a value that is written. n's pins must be settled
+// first, so a value naming a sibling pin reads it.
+func (a *activity) unwritten(n, pin *sysmlv1.Element) (*sysmlv1.Element, string) {
+	v := firstOwned(pin, "value")
+	if v == nil || pin.Type != "ValuePin" {
+		return nil, ""
+	}
+	if _, ok, note := a.m.typedBehaviorValue(v, pin, n); !ok {
+		return v, note
+	}
+	return nil, ""
+}
+
+// holdsNone reports whether an input pin admitting no value (lower bound 0) is
+// sure to hold none: it is no value pin, and nothing producing a value flows into it.
+func (a *activity) holdsNone(pin *sysmlv1.Element) bool {
+	if pin.Type == "ValuePin" && firstOwned(pin, "value") != nil || a.selfFed[pin] {
+		return false
+	}
+	if lv := firstOwned(pin, "lowerValue"); lv == nil || boundValue(lv) != "0" {
+		return false
+	}
+	return len(a.sources[pin]) == 0 || a.unvaluedSources(pin)
+}
+
+// deaden marks the nodes written as placeholders, whose result pins carry no
+// value, until no further call turns on a value none of them produces.
+func (a *activity) deaden() {
+	for changed := true; changed; {
+		changed = false
+		for _, n := range a.nodes {
+			if a.dead[n] || nodeKind(n) != nodeAction {
+				continue
+			}
+			if _, _, refused := a.refusal(n); refused {
+				a.dead[n] = true
+				changed = true
+			}
+		}
+	}
+}
+
+// produces reports whether a node's output pins may carry a value: a refused call
+// and an opaque action whose body is kept as a comment produce none.
+func (a *activity) produces(n *sysmlv1.Element) bool {
+	if a.dead[n] {
+		return false
+	}
+	return n.Type != "OpaqueAction" || a.opaqueOf(n).ok
+}
+
+// producesAt reports whether an output pin may carry a value: its node must produce
+// one, an opaque body must assign the pin, a call must call a behavior, and its pin
+// must stand for a parameter the callee gives a value.
+func (a *activity) producesAt(pin *sysmlv1.Element) bool {
+	n := pin.Parent
+	if n == nil || !a.produces(n) {
+		return false
+	}
+	if n.Type == "OpaqueAction" {
+		return a.opaqueOf(n).assigned[pin]
+	}
+	if a.stubSource(pin) {
+		return false
+	}
+	if p := a.m.primitiveCalled(n); p != nil {
+		return slices.Index(outputPins(n), pin) < len(p.outs)
+	}
+	callee, p := a.calleeOutput(pin)
+	if callee != nil && p == nil {
+		return false
+	}
+	return p == nil || !a.m.dryOutputs(callee)[p]
+}
+
+// stubSource reports whether an output pin belongs to a call behavior action that
+// calls nothing: the step computes nothing, so the pin holds no value.
+func (a *activity) stubSource(pin *sysmlv1.Element) bool {
+	n := pin.Parent
+	return n != nil && n.Type == "CallBehaviorAction" && a.m.model.Ref(n, "behavior") == nil
+}
+
+// calleeOutput returns the activity a call node's output pin takes its value from and
+// the out parameter it stands for, by position; the callee alone when none is left for it.
+func (a *activity) calleeOutput(pin *sysmlv1.Element) (callee, param *sysmlv1.Element) {
+	n := pin.Parent
+	switch n.Type {
+	case "CallBehaviorAction":
+		callee = a.m.model.Ref(n, "behavior")
+	case "CallOperationAction":
+		if op := a.m.model.Ref(n, "operation"); op != nil {
+			callee = a.m.model.Ref(op, "method")
+		}
+	}
+	if callee == nil || callee.Type != "Activity" {
+		return nil, nil
+	}
+	i := slices.Index(outputPins(n), pin)
+	for _, p := range callee.Owned("ownedParameter") {
+		switch p.Attrs["direction"] {
+		case "out", "return", "inout":
+			if i == 0 {
+				return callee, p
+			}
+			i--
+		}
+	}
+	return callee, nil
+}
+
+// dryOutputs lists the out parameters of an activity no value reaches: no flow
+// leads to their nodes, or only nodes producing no value feed them. The graph is
+// linked as for writing, without writing; a call cycle finds its own outputs produced.
+func (m *migration) dryOutputs(b *sysmlv1.Element) map[*sysmlv1.Element]bool {
+	if dry, settled := m.dryOut[b]; settled {
+		return dry
+	}
+	m.dryOut[b] = nil
+	def := b
+	if op := m.methodOf[b]; op != nil {
+		def = op
+	}
+	a := m.newActivity(b, def)
+	a.link()
+	a.resolveData()
+	a.deaden()
+	a.awaitData()
+	dry := map[*sysmlv1.Element]bool{}
+	for _, p := range b.Owned("ownedParameter") {
+		switch p.Attrs["direction"] {
+		case "out", "return", "inout":
+			if a.dryParameter(p) {
+				dry[p] = true
+			}
+		}
+	}
+	m.dryOut[b] = dry
+	return dry
+}
+
+// dryParameter reports whether no value reaches the nodes of an out parameter.
+func (a *activity) dryParameter(p *sysmlv1.Element) bool {
+	for _, e := range a.edges {
+		tgt := a.m.model.Ref(e, "target")
+		if tgt == nil || nodeKind(tgt) != nodeParam || a.m.model.Ref(tgt, "parameter") != p {
+			continue
+		}
+		if a.edgeSelf[e] {
+			return false
+		}
+		for _, s := range a.edgeSources[e] {
+			if nodeKind(s) != nodePin || a.producesAt(s) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// dryFlow reports whether no value travels an object flow: every pin it comes from
+// produces none, and every parameter takes none.
+func (a *activity) dryFlow(e *sysmlv1.Element) bool {
+	if a.edgeSelf[e] || len(a.edgeSources[e]) == 0 {
+		return false
+	}
+	for _, s := range a.edgeSources[e] {
+		switch {
+		case nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")]:
+		case nodeKind(s) == nodePin && (a.inert[s.Parent] || !a.producesAt(s)):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// valueless returns a node whose pin feeds a pin that no value reaches: every
+// pin flowing into it belongs to a node that produces none and every parameter
+// takes none. A pin nothing feeds, or only such parameters do, never fires instead.
+func (a *activity) valueless(pin *sysmlv1.Element) *sysmlv1.Element {
+	if pin.Type == "ValuePin" && firstOwned(pin, "value") != nil || a.selfFed[pin] {
+		return nil
+	}
+	var dry *sysmlv1.Element
+	for _, s := range a.sources[pin] {
+		switch {
+		case nodeKind(s) == nodeParam && a.m.unvalued[a.m.model.Ref(s, "parameter")]:
+		case nodeKind(s) == nodePin && !a.producesAt(s):
+			dry = s.Parent
+		default:
+			return nil
+		}
+	}
+	return dry
+}
+
+// absentArguments notes which in or inout parameters of a called behavior or
+// operation that must hold a value (no default, lower bound above 0) the call passes
+// no argument pin for, or a pin no value or possibly none reaches; each such
+// parameter is declared admitting none. "" when every one is served.
+func (a *activity) absentArguments(args []*sysmlv1.Element, callee *sysmlv1.Element) string {
+	var notes []string
+	i := 0
+	for _, p := range a.m.actionParameters(callee) {
+		if dir, _ := parameterDirection(p); dir == "out" {
+			continue
+		}
+		if requiresValue(p) {
+			of := " for the parameter " + a.m.nameFor(p) + " of " + qualifiedName(callee)
+			if i >= len(args) {
+				notes = append(notes, "the call passes no argument"+of)
+			} else if why, marked := a.m.admitsNone[args[i]]; marked {
+				holds := " may hold none: "
+				if a.valueless(args[i]) != nil {
+					holds = " receives none: "
+				}
+				notes = append(notes, thePin+describe(args[i])+" it passes"+of+holds+why)
+			}
+		}
+		i++
+	}
+	if len(notes) == 0 {
+		return ""
+	}
+	return strings.Join(notes, "; ") + "; v1 runs the callee without the value, so the parameter is declared admitting none"
+}
+
+// requiresValue reports whether a parameter or property must hold a value: it
+// has no default and its lower bound is not 0.
+func requiresValue(p *sysmlv1.Element) bool {
+	if firstOwned(p, "defaultValue") != nil {
+		return false
+	}
+	lv := firstOwned(p, "lowerValue")
+	return lv == nil || boundValue(lv) != "0"
+}
+
+// unargued says why a send is a placeholder: the signal requires an attribute the
+// action never passes, where v1 would send it holding no value.
+func (a *activity) unargued(sig, attr *sysmlv1.Element) string {
+	return "the send passes no argument for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+}
+
+// dryArgument says why a send is a placeholder: the pin it passes for a required
+// signal attribute is fed by flows no value travels.
+func (a *activity) dryArgument(pin, sig, attr, dry *sysmlv1.Element) string {
+	return thePin + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, receives none: " + describe(dry) + ", which feeds it, produces no value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+}
+
+// misfit returns the types of an argument pin and of the signal attribute it stands
+// for when the attribute cannot take the pin's type; nil, nil when it can or is unknown.
+func (a *activity) misfit(pin, attr *sysmlv1.Element) (pt, at *sysmlv1.Element) {
+	pt, at = a.m.model.Ref(pin, "type"), a.m.model.Ref(attr, "type")
+	if pt == nil || at == nil || pt == at || a.m.inherits(pt, at) || !a.m.written(at) {
+		return nil, nil
+	}
+	return pt, at
+}
+
+// misfitArgument says why a send is a placeholder: the pin it passes for a
+// required signal attribute holds a type the attribute cannot take.
+func (a *activity) misfitArgument(pin, sig, attr, pt, at *sysmlv1.Element) string {
+	return thePin + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, is a " + qualifiedName(pt) + ", which " + a.m.nameFor(attr) + " : " + qualifiedName(at) + " cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
+}
+
+// uncontexted says why a call is a placeholder: the caller holds no object the
+// callee acts on, where v1 would run it on the caller's object, whose ports it lacks.
+func (a *activity) uncontexted(callee *sysmlv1.Element, why string) string {
+	return why + "; v1 runs " + qualifiedName(callee) + " on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing"
+}

@@ -12,8 +12,8 @@ the sentence that justifies each ordering constraint cited, and the orderings th
 open named as open.
 
 The oracle cases live beside the other conformance cases under
-`internal/core/runtime/testdata/conformance/` and run through the same harness
-(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/core/runtime`). Where the
+`internal/exec/runtime/testdata/conformance/` and run through the same harness
+(`go test -run 'TestExecutionConformance|TestExecutionTrace' ./internal/exec/runtime`). Where the
 executor meets the derived expectation, the case also carries a `.trace.golden` that
 regression-locks the executor's linearization. Where it does not, the derived expectation is kept
 in the `.expected.json`, the case is listed in `known_failures.txt` so the harness reports rather
@@ -365,6 +365,35 @@ run before `right`, and the exploration would have reported two outcomes complet
 in one order or the other, before `left2` can run, so `declared` (and `seed:1`) give `x = 2, y = 2`
 and `reverse` gives `x = 1, y = 1`.
 
+### Two writers of one feature before a long tail of closed choices: two values
+
+Fixture: `action_explore_early_race_long_tail` (explored, checked).
+
+```
+start → split ⇉ a { x := 1 } → p1 { p := 1 } → p2 { p := 2 } ─┐
+              ⇉ b { x := 2 } → q1 { q := 1 } → q2 { q := 2 } ─┤→ sync → done
+```
+
+Derived constraints:
+
+- `a` and `b` are each performed exactly once (ForkAction) and `sync` follows both branches
+  (JoinAction), so `x` is `1` or `2`, never `0`, at the end.
+- `p1` HappensBefore `p2` and `q1` HappensBefore `q2`, each branch writing its own feature, so
+  `p` and `q` both end `2` whatever the interleaving.
+
+Open: the order of `a` against `b`, and the interleaving of the two branches — the library links
+neither. The last write of `x` stands, so the two orders of the writes are two outcomes; the
+`C(6, 3) = 20` interleavings of the branches split ten and ten by which write comes last, so the
+twenty linearizations reach exactly two outcomes, `{x = 1, x = 2}`, ten each.
+
+Pinned outcome: that admissible set, stated as `outcomes` citing this section, and a `check`
+divergent over `x` alone. The case is what distinguishes an exploration's plan order: a run meets
+the one open choice first and closed ones after it, so a walk taking the deepest untried
+alternative first spends the ten orders under one write order before it varies the write order,
+and a budget under eleven runs tables one value; a walk varying every choice of the first run
+once before any twice tables both by the second run. `TestExploreVariesEveryChoiceOfTheFirstRunFirst`
+pins that order; the harness explores the case to its complete table of two.
+
 ### A performed action and a sibling accept due at one instant: which resumes first is open
 
 Fixture: `action_explore_performed_and_accept_due_together` (golden, explored).
@@ -407,6 +436,20 @@ been last, and the exploration would have reported `x = 1` alone, complete. The 
 sweep ordinary tokens before paused bodies, so each takes `direct` first, then steps the two
 writes in its own order in the next step: `reverse` (and `seed:1`) writes `x := 2` then `x := 1`,
 giving `x = 1`; `declared` writes them the other way round, giving `x = 2`.
+
+### Dispatch during an entry the model does not run to completion
+
+Fixture: `state_run_to_completion_false_self_signal`,
+`state_run_to_completion_scope_sibling_region`, and
+`state_run_to_completion_scope_parent_transition`, and
+`state_run_to_completion_scope_qualified_source`, and
+`state_run_to_completion_terminate_during_held_entry` (goldens, explored).
+
+An entry that does not run to completion and a dispatch due at the same instant
+may proceed in either order. Dispatching first exits the entered composite
+before its unfinished entry reaches the nested state; completing the entry first
+visits that nested state before the dispatch exits the composite. Both traces
+are valid linearizations of the same instant.
 
 ### A decision inside a loop: every pass is its own open choice
 
@@ -687,8 +730,8 @@ route = 2}`, stated as `outcomes` citing this section; exploration reaches each 
 outcomes, complete). The branch is drawn only as b's transition fires, after the region order is
 drawn: a witness reads `on accept Go: b1 first of a1, b1; junction split -> 2->right`, in that
 order, and the run in which a fires first draws nothing at the junction, so replaying its
-witness meets no draw it does not list. The golden pins the a-first linearization, `seed:1` the
-other one.
+witness meets no draw it does not list. The golden pins the a-first linearization, and so does the
+`seed:1` golden, whose draw falls the same way; the b-first runs are exploration's.
 
 ### A junction's guards are read once, as its incoming transition is selected: a branch enabled then is taken though another region's effect since made its guard unevaluable
 
@@ -716,7 +759,8 @@ Open: the region order, and which enabled branch b takes.
 Pinned outcome: the admissible set `{a2+left with route = 1, a2+right with route = 2}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first run through the second branch among them. The golden pins the
-a-first linearization through the first branch, `seed:1` the b-first one.
+a-first linearization through the first branch, and the `seed:1` golden, its draws falling the same
+way, the same one; the b-first runs are exploration's.
 
 ### Every junction guard on a route is read once, as its transition is selected: a junction beyond a draw takes the branch enabled then though another region's effect since changed what its guards read
 
@@ -745,7 +789,8 @@ Open: the region order, and which of `split`'s enabled branches b takes.
 Pinned outcome: the admissible set `{a2+left with route = 11, a2+left with route = 12}`, stated as
 `outcomes` citing this section; exploration reaches each once per region order (4 runs, 2
 outcomes, complete), the a-first runs among them. The golden pins the a-first linearization
-through the first branch, `seed:1` the b-first one.
+through the first branch, and the `seed:1` golden, its draws falling the same way, the same one;
+the b-first runs are exploration's.
 
 ### A history without a record takes its default transition through a junction with two branches enabled: exactly one is taken, which one is open
 
@@ -774,7 +819,8 @@ transition, and a seed replays it. The golden pins the first branch, `seed:1` th
 
 ### Transitions in sibling regions enabled by one event: each fires, in which order is open
 
-Fixture: `state_explore_region_order` (golden, explored).
+Fixtures: `state_explore_region_order` (golden, explored), `state_firing_units_interleaved`
+(golden, explored).
 
 ```
 work parallel { a: a1 ─ accept Go { last := 1 } → a2
@@ -799,21 +845,104 @@ Open: which region's transition fires first. The two orders reach two outcomes, 
 `last` and by the order `a2` and `b2` are visited in.
 
 Pinned outcome: the admissible set `{last = 2 visiting a2 then b2, last = 1 visiting b2 then a2}`,
-stated as `outcomes` citing this section. The order is a choice point under every policy, reported
-as `choice on accept Go: states a1, b1 react (unordered; took a1 first)`: `declared` and `reverse`
-fire the selected transitions in region declaration order — a tool-defined order — and the default
-golden pins that linearization (`a` first, `last = 2`); `seed:<n>` draws the order, and the `seed:1`
-golden pins the other one (`b` first, `last = 1`); `explore` varies it (`took b1 first` in the
-witness of the second outcome) and must reach both outcomes and no other, in two runs. The fixtures
+stated as `outcomes` citing this section. The order is a choice point under every policy, drawn one
+unit at a time — a firing's source exit, its effect and its target entry are its units, and the
+draw is among the firings with a unit left — and reported as `choice on accept Go: next a1(exit),
+b1(exit) (unordered; took a1(exit) first)`: `declared` and `reverse` take the firings whole in region
+declaration order — a tool-defined order — and the default golden pins that linearization (`a`
+first, `last = 2`); `seed:<n>` draws each unit, the `seed:1` golden's draws falling on the same
+order; `explore` varies every draw (`took b1(exit) first` in the witness of the second
+outcome) and must reach both outcomes and no other. Here the finer grain reaches no third outcome,
+since each region logs one write. `state_firing_units_interleaved` logs each source's exit and each
+effect, so the grain shows: the units of one firing keep their order (`transitionLinkSource then
+effect`, `TransitionPerformances.kerml`), no succession joins them to the other firing's, and the
+six linearizations of two chains of two — a source's exit falling between the other firing's exit
+and effect among them — are the admissible set, each followed by the join's segment. The fixtures
 `state_call_trigger_regions`, `state_composite_region_depth_order`,
 `state_composite_region_deeper_first` and `state_parallel_broadcast` are this same shape and list
 both orders as `outcomes` citing this section, the default golden of each pinning the
 declaration-order linearization. `state_change_region_order` is the shape with a change
 occurrence in place of the signal — one write of `temp` raises `temp > 20` in both regions at once
 — and lists the same two outcomes: a change occurrence is an event like any other, so the poll
-that dispatches it draws the region order the same way (`choice on change: states a1, b1 react
-(unordered; took a1 first)`), and no order between the two raised conditions is derivable from the
+that dispatches it draws the region order the same way (`choice on change: next a1(exit), b1(exit)
+(unordered; took a1(exit) first)`), and no order between the two raised conditions is derivable from the
 library either.
+
+### Regions of a parallel state entered on one occurrence: each is entered, in which order is open
+
+Fixtures: `state_region_entry_order` (golden, explored), `state_region_entry_order_uneven` (golden,
+explored), `state_fork_branch_order` (golden, explored), `state_region_entry_nested_front` (golden,
+explored), `state_history_restore_order` (golden, explored).
+
+```
+idle ─ accept Go → work parallel { left:  { entry { log += "left(entry) " } ; entry; then l { entry { log += "l(entry) " } } }
+                                   right: { entry { log += "right(entry) " } ; entry; then r { entry { log += "r(entry) " } } } }
+```
+
+Derived constraints:
+
+- Entering a parallel state starts one substate performance per region, and those are concurrent
+  (SysML v2 §7.18.1: parallel substates are "performed concurrently"). Within a region the library
+  fixes the order the trace logs: the region's own entry precedes the entry of the state its
+  initial transition reaches (`StatePerformances.kerml` `StatePerformance`: `succession [1] entry
+  then [*] middle`, the substates being `middle` steps), so `left(entry) < l(entry)` and
+  `right(entry) < r(entry)`.
+- No succession joins a step of one region's chain to a step of the other's, and the owner's entry
+  precedes both chains (the regions are its `middle`), so the library leaves the two chains
+  unordered against each other.
+- Every entry appends to `log`, so `log` records the interleaving.
+
+Open: the interleaving of the two chains. Two chains of two have six linearizations.
+
+Pinned outcome: the admissible set of those six values of `log`, stated as `outcomes` citing this
+section. The order is a choice point under every policy, drawn one unit at a time among the regions
+with an entry left and reported as `choice entering work: next left(entry), right(entry) (unordered;
+took left(entry) first)`; `declared` and `reverse` take the regions whole in declaration order — a
+tool-defined order — and the default golden pins that linearization; `seed:<n>` draws each unit;
+`explore` varies every draw and must reach all six and no other. `state_region_entry_order_uneven`
+is the shape with one chain of one (`left` logs its entry, `l` nothing) and one of two: three
+linearizations. `state_fork_branch_order` reaches the two regions through a fork instead of the
+owner's initial transitions: each branch is a chain of its segment's effect then its target's entry,
+the owner's entry is one performance (`Actions.sysml` `ForkAction`, one performance of every target,
+of one `work`) performed by whichever branch is drawn to it first and preceding both targets, so the
+four linearizations of `{T1.1(effect), T1.2(effect)}` around `work(entry)` are the set.
+`state_region_entry_nested_front` makes one region's start state itself parallel: its two regions'
+entries join the front the sibling region is drawn from, three chains of one, six linearizations.
+`state_history_restore_order` restores two regions through a deep history: the restore enters the
+recorded states as a front drawn the same way, and the fixture's eight outcomes are its two entry
+orders on the first occurrence, two exit orders on leaving (the next section) and two restore
+orders.
+
+### Regions of a parallel state left on one occurrence: each is exited, in which order is open
+
+Fixtures: `state_region_exit_order` (golden, explored), `state_history_restore_order` (golden,
+explored).
+
+```
+work parallel { left:  l { exit { log += "l(exit) " } }
+                right: outer { exit { log += "outer(exit) " } ; r { exit { log += "r(exit) " } } } }
+  exit { log += "work(exit) " }
+work ─ accept Go → rest
+```
+
+Derived constraints:
+
+- A transition leaving `work` ends every active substate performance before `work`'s own exit
+  (`StatePerformances.kerml` `StatePerformance`: `succession [*] middle then [1] exit`), and a
+  nested state's exit precedes its parent's by the same succession one level down: `r(exit) <
+  outer(exit)`, and both of `l(exit)` and `outer(exit)` before `work(exit)`.
+- The two regions are concurrent substate performances; no succession joins `l`'s exit to `r`'s or
+  `outer`'s, so the chain of one and the chain of two are unordered against each other.
+
+Open: the interleaving of the two chains. A chain of one and a chain of two have three
+linearizations.
+
+Pinned outcome: the admissible set of those three values of `log`, each ending in `work(exit)`,
+stated as `outcomes` citing this section. The order is a choice point under every policy, drawn one
+unit at a time among the regions with an exit left and reported as `choice exiting work: next
+l(exit), r(exit) (unordered; took l(exit) first)`; `declared` and `reverse` leave the regions whole
+in declaration order — a tool-defined order — and the default golden pins that linearization;
+`seed:<n>` draws each unit; `explore` varies every draw and must reach all three and no other.
 
 ### Two time events due at one instant: each dispatches, in which order is open
 
@@ -853,7 +982,8 @@ A completion event precedes both, never drawn.
 
 ### Do behaviors of sibling regions active at one instant: each proceeds, in which order is open
 
-Fixtures: `state_concurrent_do` (golden, explored), `state_concurrent_do_action_bodies_timed`
+Fixtures: `state_concurrent_do` (golden, explored), `state_anonymous_do_atomic` (golden, explored),
+`state_concurrent_inline_do_bodies` (golden, explored), `state_concurrent_do_action_bodies_timed`
 (golden, explored).
 
 ```
@@ -873,18 +1003,33 @@ Derived constraints:
   one before any performs its next — and which of the due behaviors acts first in a round is a
   tool-defined order.
 - Every statement writes `seq`, so the digits record the interleaving: in `state_concurrent_do`,
-  `left` enters its working state one step before `right` (`1` is alone in its round), the next two
-  rounds each have both due, and `right`'s last statement is alone again (`6` last).
+  each region's start state completes as it is entered, and the pool dispatches the two completions
+  in the order they were generated (PSSM §8.5.9) — the order the entry draw entered the two start
+  states — so the region entered first enters its working state one step before the other (its
+  first digit is alone in its round), the next two rounds each have both due, and the other's last
+  statement is alone again (its last digit last).
 
-Open: which region's do behavior acts first in each round both are due in. Two rounds of two
-orders reach four values of `seq`.
+Open: which region's start state is entered first (the entry draw, whose two orders the pool
+follows), and which region's do behavior acts first in each round both are due in. Two entry
+orders of two rounds of two orders reach eight values of `seq`.
 
-Pinned outcome: the admissible set `{124356, 142356, 124536, 142536}`, stated as `outcomes` citing
-this section. The order is a choice point under every policy, reported as `choice do round at
-t=0.0: states lwork, rwork react (unordered; took lwork first)`: `declared` and `reverse` take the
-order the states were entered in — a tool-defined order — and the default golden pins that
-linearization (`124356`); `seed:<n>` draws the order; `explore` varies it and must reach all four
-values and no other. `state_concurrent_do_action_bodies_timed` is the shape with action bodies
+Pinned outcome: the admissible set `{124356, 142356, 124536, 142536, 415263, 451263, 415623,
+451623}`, stated as `outcomes` citing this section. The entry order is the choice point of
+[regions entered on one occurrence](#regions-of-a-parallel-state-entered-on-one-occurrence-each-is-entered-in-which-order-is-open),
+reported as `choice entering Interleave: next lstart(entry), rstart(entry) (unordered; took
+lstart(entry) first)` — an entry that performs nothing but generates a completion event is drawn,
+its place in the pool being observable — and the round's order is a choice point under every
+policy, reported as `choice do round at t=0.0: states lwork, rwork react (unordered; took lwork
+first)`: `declared` and `reverse` take region declaration order at both and the default golden
+pins that linearization (`124356`); `seed:<n>` draws both; `explore` varies both and must reach
+all eight values and no other. `state_anonymous_do_atomic` is the same machine with each body
+written as `do action { … }` rather than the braced `do { … }`; the two spellings are one
+anonymous inline action of three statements, and an inline body yields after each statement,
+so both interleave and reach the same eight values, not `123456`. `state_concurrent_inline_do_bodies` writes the left body as a `for`
+loop over 1..2 followed by a statement and the right one as a statement followed by an `if` block
+of two: an iteration and a statement of a nested block are each one step, so the same eight values
+and no other are reached.
+`state_concurrent_do_action_bodies_timed` is the shape with action bodies
 that wait on the clock: both behaviors pause at an `accept after 2 [s]` and are due again in the
 round at `t=2.0`, where the order of the two counts is open (`1324` entering order, `3124` the
 other), while the counts at `t=4.0` and `t=5.0` are alone in their rounds.
@@ -925,7 +1070,8 @@ each ending `outer(exit) sync(effect) rest(entry)`, stated as `outcomes` citing 
 order is a choice point under every policy, reported as `choice join sync: states l1, r1 react
 (unordered; took l1 first)`: `declared` and `reverse` take source declaration order — a tool-defined
 order — and the default golden pins that linearization (`left` first); `seed:<n>` draws the order,
-and the `seed:1` golden pins the other; `explore` varies it and must reach both outcomes and no
+the `seed:1` golden's draw falling on the same one after entering the regions right first;
+`explore` varies it and must reach both outcomes and no
 other, in two runs. Each segment exits its source and runs its effect before the next segment is
 drawn (`exit: l1`, `assign log`, `exit: r1`, `assign log` in the golden), so the incoming effects
 interleave with the sources' exits only as the segments do, never across one segment.
@@ -1166,10 +1312,207 @@ blinking of object #1 (unordered; ran state machine blinking of object #1 first)
 the two (`.declared.trace.golden`, `.seed-1.trace.golden`). One executor alone due at an instant
 is not a choice and is not reported.
 
+### A do step and a dispatch due at one instant: which goes first is open
+
+Fixtures: `state_do_step_or_dispatch` (golden, explored), `state_do_step_among_completions`
+(golden, explored), `state_do_step_or_tied_dispatch` (golden, explored),
+`state_do_step_cuts_typed_do` (golden, explored), `state_do_step_cuts_nested_perform` (golden,
+explored), `state_do_step_cuts_control_node_body` (golden, explored, checked),
+`state_do_action_loop_timed_exit` (explored, checked).
+
+```
+state Machine { attribute log : String = "";
+                entry; then top;
+                state top { do action work { first start; then action mark assign log := log + "did "; then done; } }
+                transition first top accept Stop do assign log := log + "stop " then idle;
+                state idle; }
+```
+
+Derived constraints:
+
+- A state's do behavior starts before the state's other middle steps start and is otherwise
+  concurrent with them (`StatePerformances.kerml` `StatePerformance`, `succession do.startShot
+  then nonDoMiddle.startShot`); the succession is on the do performance's start, not on its first
+  action, so a do behavior that has begun and not yet performed its first action is a state the
+  library admits while the machine dispatches.
+- A transition's accept precedes its source's exit (`TransitionPerformances.kerml`
+  `StateTransitionPerformance`, `accept then transitionLinkSource.exit`), and the exit ends the
+  do behavior with the state (`succession [*] middle then [1] exit`): a dispatch that leaves the
+  state cuts the do behavior off wherever it stands.
+- No `HappensBefore` chain connects an action of the do behavior to the dispatch of an occurrence
+  in the machine's pool, so the library orders nothing between the two.
+- An occurrence no performance accepts is not a step of any performance: dropping it, or holding
+  it deferred, moves nothing in the `StatePerformance`, so there is nothing to order against the
+  do behavior's action — and the do behavior's next action may be the `accept` that takes it. The
+  draw is between the do step and a dispatch that *takes* its occurrence: fires a transition, or
+  lets a do behavior already parked at an `accept` go on.
+
+Open: whether the do behavior's next action or the dispatch goes first, at every instant both are
+due. In the fixture `Stop` is in the pool as `top` is entered, so `log` ends `did stop ` or
+`stop `.
+
+Pinned outcome: the admissible set `{did stop , stop }`, stated as `outcomes` citing this section.
+Under `check`, `replay` and `explore` the order is a choice point reported as `choice at t=0.0:
+next do top, dispatch accept Stop (unordered; took do top first)`: one move is one token move of
+a state's do behavior — a statement of an inline body, a step of a do behavior given as an
+action, a token inside a nested perform — drawn against the dispatch the machine would make now
+(`do <state>` naming the due states, then `dispatch <event>`), and the draw is made again after
+every move while a do behavior is due, so the dispatch may cut the flow anywhere or wait for it
+to rest. A dispatch that would drop or defer its occurrence is not drawn ahead
+of a due do step; it waits until no do move is due, as under the fixed policies, so an occurrence a
+do behavior is about to accept — `Tick` in `state_join_completion_segment_waits_for_do_behavior`,
+`b1`'s timer in `state_join_completion_is_not_a_timers_expiry` — is not lost to the draw, and
+those fixtures keep their admissible sets. `declared`, `reverse` and `seed:<n>` run the whole do
+round — every due do behavior, each steppable token once — and dispatch after it, so their traces
+record no such choice and end `did stop `; `explore` must reach both outcomes and no other, and
+the fixed policies' run is always among the runs `check` tables. `state_do_step_cuts_typed_do`
+makes the do behavior a typed action of two steps whose `inout` writes back as it ends: the
+dispatch cuts it at either step (`count = 100`) or takes it after it ended (`111`).
+`state_do_step_cuts_nested_perform` performs that action from an inline do body between two
+assignments: `1000` (cut before the first), `1001` (after it, or inside the perform, whose
+write-back is lost), `1012` (after the perform), `1112` (after the body ended).
+`state_do_step_cuts_control_node_body` forks the do flow through a fork with a body of its own
+(`fork split { assign count := count + 1; }`): a control node's body is performed by the token
+passing through it, so it is a move the dispatch may fall before (`1000`) or after (`1001`, the
+fixed policies' run, whose sweep moves each token once and so ends at the fork), then after
+either branch (`1011`, `1101`) or both (`1111`) — five outcomes, exact under `check`. A control
+node with no body only routes control, and where between two moves it falls no other move
+observes, so it is not drawn.
+`state_do_action_loop_timed_exit` loops a forked do flow through timed waits against a timed
+exit due at the same instant: the exit may cut the flow before either branch writes, after one,
+or after both — the fixed policies' `left = right = 1` — four outcomes, exact under `check`.
+`state_do_step_among_completions` is the shape with two regions'
+completion effects for the dispatch: a region's do step and the other region's completion are
+each drawn at every instant both are due, and the order among the completions themselves is the
+entry draw's, which the pool follows (§8.5.9) — the do step falls before, between or after the
+two effects in either of their orders, six outcomes. `state_do_step_or_tied_dispatch` ties two time triggers at the instant the
+do step is due, one guarded on what the step writes: each tied event is previewed on its own, so
+the unguarded trigger alone is drawn against the step (`choice at t=2.0: next do top, dispatch
+time top 2->idle`) and the guarded one, which the dispatch would drop before the step, waits for
+the round to close, where the two are a dispatch order; `log` ends `did one `, `did two ` or
+`two `, and `explore` reaches the three and no other. Were the tied events judged together, the
+dropped one would hide the acting one behind the step and `two ` would be lost.
+
+### A do step and a sibling region's entry due inside one entry: which goes first is open
+
+Fixtures: `state_do_step_before_sibling_entry` (golden, explored, checked),
+`state_do_step_before_sibling_entries` (golden, explored, checked),
+`state_do_step_before_nested_entries` (golden, explored, checked),
+`state_do_step_nested_before_outer_entry` (golden, explored, checked),
+`state_do_step_before_fork_branch` (golden, explored, checked),
+`state_do_step_before_history_restore` (golden, explored, checked),
+`state_do_step_typed_before_sibling_entry` (golden, explored, checked),
+`state_do_step_cut_by_sibling_completion` (golden, explored, checked),
+`state_do_step_cut_by_sibling_terminate` (golden, explored, checked).
+
+```
+idle ─ accept Go → work parallel { left:  { entry; then l1 { do { log += "did " } } }
+                                   right: { entry; then r1 { entry { log += "r1(entry) " } } } }
+```
+
+Derived constraints:
+
+- Entering `work` starts one performance per region, concurrent with each other (SysML v2
+  §7.18.1); within `left`, `l1`'s entry precedes its do behavior's start
+  (`StatePerformances.kerml` `StatePerformance`, `succession [1] entry then [*] middle`, the do
+  behavior a `middle` step whose start precedes the other middle steps' starts), so `l1(entry) <
+  did`.
+- No succession joins a step of `left`'s chain to a step of `right`'s (the previous section's
+  derivation for the entries), and the do behavior's actions are steps of `left`'s chain: the
+  library orders `did` after `l1`'s entry and against nothing in `right`. That `r1`'s entry is
+  another unit of the same entry occurrence orders nothing — the do behavior has started and its
+  next action is due as any other due action is.
+- Every write appends to `log`, so `log` records the interleaving.
+
+Open: whether the do behavior's next action or the sibling's remaining entry goes first, at every
+draw of the entry front where both are left. The fixture's `log` ends `did r1(entry) ` or
+`r1(entry) did `.
+
+Pinned outcome: the admissible set `{did r1(entry) , r1(entry) did }`, stated as `outcomes` citing
+this section. The step is a unit of its region's queue on the entry front: once the queue has
+performed its entries — the entry unit that started the do behavior and, below a composite, its
+substates' — each due token move of that behavior is drawn against
+the sibling regions' remaining entry units under the front's own draw — the `entering <owner>`
+choice, its alternative labeled `do <state>` beside the entries — for as long as a sibling has a
+unit left; when none has, the remaining moves fall to the do-step site of the previous section,
+drawn against the dispatch after the entry move settles. `declared`, `reverse` and `seed:<n>`
+never take the alternative: they run the entries whole, as before, and the do round after the
+move settles, so their traces record no such draw and end `r1(entry) did `; `check`, `replay`
+and `explore` draw it at every unit and reach both outcomes and no other.
+`state_do_step_before_sibling_entries` leaves two sibling regions' entries, `m1` and `r1`: the
+step falls before, between or after them in either of their orders, six outcomes.
+`state_do_step_before_nested_entries` makes the sibling's start state parallel: its regions'
+entries `a1`, `b1` are units of the same front and the step is drawn against each while one is
+left, six outcomes; `state_do_step_nested_before_outer_entry` puts the do behavior in that nested
+state instead, drawn against the outer sibling's `l1` as against its own sibling's `b1`, six
+outcomes. `state_do_step_before_fork_branch` reaches the regions through a fork: the target one
+branch enters starts its do behavior, and the step is drawn against the other branch's effect and
+its target's entry, three outcomes. `state_do_step_before_history_restore` restores two regions
+through a deep history, one of them into a state with a do behavior: the restore is a front drawn
+the same way, so the step falls before or after the other region's restored entry, on top of the
+first occurrence's firing — where the step falls before the other region's entry, after it, or
+not at all, the `Pause` already in the pool cutting it (the previous section's draw) — and the
+exit's two orders: twelve `log` values.
+`state_do_step_typed_before_sibling_entry` gives the do behavior as a typed `action def` of two
+steps with an `inout` written back as it ends: each step is one move, drawn against the sibling's
+entry while it is left, and the sibling's write lands before the write-back, which overwrites
+it, or after both steps: two `count` values. `state_do_step_cut_by_sibling_completion` completes the
+sibling's state into a transition that leaves the parallel state: the do behavior's two steps
+are drawn against the sibling's entry and then, as the previous section has it, against the
+completion's dispatch that cuts them off, six outcomes; `state_do_step_cut_by_sibling_terminate`
+is PSSM *Terminate 002*'s shape, the sibling completing into a terminate that ends the machine,
+and the do activity's first segment falls before the sibling's entry, after it, or never, its
+second — beyond an accept the terminate leaves unfed — never; with the two entry orders, five
+outcomes, PSSM's five admitted traces.
+
+### A composite's own do step and its substates' entries due inside its entry: which goes first is open
+
+Fixtures: `state_do_step_before_own_substate_entries` (golden, explored, checked),
+`state_do_step_before_own_body_entry` (golden, explored, checked),
+`state_do_step_way_down_before_fork_branch` (golden, explored, checked),
+`state_do_step_machine_before_top_entries` (golden, explored, checked).
+
+```
+idle ─ accept Go → work parallel { do { log += "did " }
+                                   left:  { entry; then l1 { entry { log += "l1(entry) " } } }
+                                   right: { entry; then r1 { entry { log += "r1(entry) " } } } }
+```
+
+Derived constraints:
+
+- `work`'s entry precedes its do behavior's start and its substates' entries alike
+  (`StatePerformances.kerml` `StatePerformance`, `succession [1] entry then [*] middle`: the do
+  behavior and the nested `StatePerformance`s are both `middle` steps), and PSSM §8.5.5 has the
+  do activity start after the entry behavior and run concurrently with what follows it — so
+  `work(entry) < did` and `work(entry) < l1(entry)`, `work(entry) < r1(entry)`.
+- No succession orders the do behavior's actions against the nested performances' entries: they
+  are concurrent `middle` steps of one `StatePerformance`, as the previous section has the
+  regions' chains concurrent with each other.
+- Every write appends to `log`, so `log` records the interleaving.
+
+Open: whether the do behavior's next action or a remaining substate entry goes first, at every
+draw where both are left. The fixture's `log` is `did ` before, between or after `l1(entry) ` and
+`r1(entry) ` in either of their orders.
+
+Pinned outcome: the six interleavings, stated as `outcomes` citing this section. The composite's
+do behavior begins as its own entry unit ends, before its regions are entered, and its due token
+move is drawn on the front entering them beside the regions' queues — the same `entering work`
+choice, the alternative labeled `do work` — for as long as a region has a unit left.
+`declared`, `reverse` and `seed:<n>` never take the alternative and end `l1(entry) r1(entry) did `
+(`reverse`: `r1(entry) l1(entry) did `); `check`, `replay` and `explore` reach the six and no other.
+`state_do_step_before_own_body_entry` gives the composite a serial body two states deep, whose
+entries no front orders: each entry on the way down is drawn against the step at its own
+`entering <owner>` choice, `did ` falling before `w1(entry) `, between it and `w2(entry) `, or
+after both, three outcomes. `state_do_step_way_down_before_fork_branch` reaches the substates
+through a fork: the first branch's way down enters the composite and starts its do behavior,
+which is drawn against the branches' remaining target entries, six outcomes.
+`state_do_step_machine_before_top_entries` is the same shape at the machine, whose do behavior
+begins before its top regions are entered: six outcomes.
+
 ## What the executor gets wrong
 
 Nothing, at present: every derivation above is met and carries a golden. The table this section
-held is empty and so omitted; `internal/core/runtime/testdata/conformance/known_failures.txt` is
+held is empty and so omitted; `internal/exec/runtime/testdata/conformance/known_failures.txt` is
 kept with only its header comments, because the harness reads it and because it is where the
 next unmet derivation goes (see [Adding a case](#adding-a-case)).
 

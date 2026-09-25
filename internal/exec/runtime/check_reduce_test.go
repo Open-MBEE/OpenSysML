@@ -1,0 +1,210 @@
+package runtime
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+)
+
+var updateCheckReduction = flag.Bool("update-check-reduction", false, "Rewrite the reduction ratchet of testdata/check")
+
+// The reduction corpus: one small model per dependence clause of the checker's
+// static reduction, over actions, state machines and both on one clock, and one
+// per kind whose units are independent.
+var reductionCorpus = []reductionCase{
+	{file: "por_shared_write", action: "race"},
+	{file: "por_guard_read", action: "gated"},
+	{file: "por_trigger_read", action: "monitor"},
+	{file: "por_send_accept", action: "communicator"},
+	{file: "por_join", action: "gather"},
+	{file: "por_dynamic_target", action: "dynamic"},
+	{file: "por_independent_branches", action: "parallel"},
+	{file: "por_alias", action: "aliased"},
+	{file: "por_address", action: "addressed"},
+	{file: "por_streaming_flow", action: "stream"},
+	{file: "por_constructor", action: "populate", library: true},
+	{file: "por_state_independent", action: "parallel", states: []string{"stepper"}},
+	{file: "por_state_effect_write", action: "watcher", states: []string{"lighter"}},
+	{file: "por_state_guard_read", action: "turner", states: []string{"router"}},
+	{file: "por_state_do_write", action: "reader", states: []string{"counter"}},
+	{file: "por_state_send_accept", action: "sender", states: []string{"receiver"}},
+	{file: "por_state_join_exit", action: "reader", states: []string{"gather"}},
+	{file: "por_state_join_guard", action: "arm", states: []string{"gather"}},
+	{file: "por_two_machines", states: []string{"turner", "router", "loner"}},
+}
+
+// starter starts the corpus model's invocation: its action, if any, and its
+// state machines, in that order.
+func (c reductionCase) starter(t *testing.T, m *exploreModel) Starter {
+	t.Helper()
+	var actions, states []*symbols.Symbol
+	if c.action != "" {
+		actions = append(actions, m.action(t, c.action))
+	}
+	for _, name := range c.states {
+		states = append(states, m.state(t, name))
+	}
+	return invocationOf(actions, states)
+}
+
+type reductionCase struct {
+	file    string
+	action  string   // the action the invocation runs, if any
+	states  []string // the state machines it runs beside
+	library bool     // the model uses the standard libraries
+}
+
+const reductionExpected = "testdata/check/reduction_expected.txt"
+
+func reductionModel(t *testing.T, file string, library bool) *exploreModel {
+	t.Helper()
+	text, err := os.ReadFile(filepath.Join("testdata", "check", file+".sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if library {
+		return parseLibraryModel(t, string(text))
+	}
+	return parseExploreModel(t, string(text))
+}
+
+func finalOutcomes(report *CheckReport) []string {
+	outcomes := make([]string, len(report.Finals))
+	for i, f := range report.Finals {
+		outcomes[i] = f.Outcome
+	}
+	sort.Strings(outcomes)
+	return outcomes
+}
+
+// Soundness: the reduced search reaches exactly the final states of the full one
+// on every clause of the dependence relation, and every final is witnessed.
+func TestCheckReductionIsSound(t *testing.T) {
+	for _, c := range reductionCorpus {
+		t.Run(c.file, func(t *testing.T) {
+			m := reductionModel(t, c.file, c.library)
+			start := c.starter(t, m)
+			with := checkStart(t, m, start, reduced())
+			without := checkStart(t, m, start, unreduced())
+			if with.Verdict == CheckViolation || without.Verdict == CheckViolation {
+				t.Fatalf("violations: reduced %v, unreduced %v", with.Violations, without.Violations)
+			}
+			if len(with.BoundsHit) != 0 || len(without.BoundsHit) != 0 {
+				t.Fatalf("bounds hit: reduced %v, unreduced %v", with.BoundsHit, without.BoundsHit)
+			}
+			got, want := finalOutcomes(with), finalOutcomes(without)
+			if strings.Join(got, "\n") != strings.Join(want, "\n") {
+				t.Fatalf("reduced finals:\n%s\nunreduced finals:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+			}
+			if len(want) < 1 {
+				t.Fatal("no final state")
+			}
+			if with.States > without.States || with.Moves > without.Moves {
+				t.Fatalf("reduced search did more: %d states, %d moves against %d, %d",
+					with.States, with.Moves, without.States, without.Moves)
+			}
+			for _, final := range with.Finals {
+				replayWitness(t, m, start, final.Witness, final.Outcome)
+			}
+		})
+	}
+}
+
+// Effectiveness: the state and move counts of the reduced search over the
+// corpus are pinned as a ratchet; every movement is adjudicated.
+func TestCheckReductionRatchet(t *testing.T) {
+	got := make(map[string]string, len(reductionCorpus))
+	for _, c := range reductionCorpus {
+		m := reductionModel(t, c.file, c.library)
+		start := c.starter(t, m)
+		with := checkStart(t, m, start, reduced())
+		without := checkStart(t, m, start, unreduced())
+		got[c.file] = fmt.Sprintf("%d\t%d\t%d\t%d", with.States, with.Moves, without.States, without.Moves)
+	}
+	if *updateCheckReduction {
+		var b strings.Builder
+		b.WriteString("# Reduced states, reduced moves, unreduced states, unreduced moves per model of\n")
+		b.WriteString("# the reduction corpus. Regenerate with -update-check-reduction and adjudicate\n")
+		b.WriteString("# every movement: a reduced count rising loses reduction, one falling must keep\n")
+		b.WriteString("# TestCheckReductionIsSound passing.\n")
+		for _, c := range reductionCorpus {
+			fmt.Fprintf(&b, "%s\t%s\n", got[c.file], c.file)
+		}
+		if err := os.WriteFile(reductionExpected, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	content, err := os.ReadFile(reductionExpected)
+	if err != nil {
+		t.Fatalf("read %s: %v (regenerate with -update-check-reduction)", reductionExpected, err)
+	}
+	want := make(map[string]string)
+	for i, line := range strings.Split(string(content), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		at := strings.LastIndex(line, "\t")
+		if at < 0 {
+			t.Fatalf("%s:%d: want counts, a tab and the model, got %q", reductionExpected, i+1, line)
+		}
+		for _, n := range strings.Split(line[:at], "\t") {
+			if _, err := strconv.Atoi(n); err != nil {
+				t.Fatalf("%s:%d: bad count: %v", reductionExpected, i+1, err)
+			}
+		}
+		want[line[at+1:]] = line[:at]
+	}
+	for _, c := range reductionCorpus {
+		if want[c.file] != got[c.file] {
+			t.Errorf("%s: counts %q, pinned %q; adjudicate and regenerate with -update-check-reduction",
+				c.file, got[c.file], want[c.file])
+		}
+	}
+	if len(want) != len(reductionCorpus) {
+		t.Errorf("%s pins %d models, the corpus has %d", reductionExpected, len(want), len(reductionCorpus))
+	}
+}
+
+// A write that redirects a send's address is dependent on the send: the reduced
+// search reaches the message at each node the address may name, as the full one does.
+func TestCheckReductionKeepsEveryAddressee(t *testing.T) {
+	m := reductionModel(t, "por_address", false)
+	addressed := func(node string) CheckProperty {
+		return CheckProperty{Name: node + " unaddressed", Holds: func(ctx *Context, _ *Invocation) (bool, error) {
+			for _, msg := range ctx.PendingMessages() {
+				if inst, held := ctx.instances[msg.Object]; held && symbolText(inst.Type) == node {
+					return false, nil
+				}
+			}
+			return true, nil
+		}}
+	}
+	violated := func(report *CheckReport) []string {
+		names := make([]string, 0, len(report.Violations))
+		for _, v := range report.Violations {
+			names = append(names, v.Name)
+		}
+		sort.Strings(names)
+		return names
+	}
+	with := checkModel(t, m, "addressed", CheckBudget{}, reduced(), addressed("alpha"), addressed("beta"))
+	without := checkModel(t, m, "addressed", CheckBudget{}, unreduced(), addressed("alpha"), addressed("beta"))
+	want := []string{"alpha unaddressed", "beta unaddressed"}
+	if got := violated(without); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unreduced violations %v, want %v", got, want)
+	}
+	if got := violated(with); strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("reduced violations %v, want %v", got, want)
+	}
+	if len(with.BoundsHit) != 0 || with.States > without.States {
+		t.Fatalf("reduced %s against unreduced %s", with.Status(), without.Status())
+	}
+}

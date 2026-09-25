@@ -1,0 +1,10 @@
+{
+  "type": "action",
+  "libraries": true,
+  "evaluate": "test::supervisor",
+  "outputs": {
+    "started": {"type": "Real", "value": 1.0},
+    "elapsed": {"type": "Real", "value": 2.5},
+    "now": {"type": "Real", "value": 3.5}
+  }
+}

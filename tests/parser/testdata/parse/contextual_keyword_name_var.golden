@@ -1,0 +1,41 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="P" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Counter"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="var" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="next" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (OperatorExpr operator="+"
+                (FeatureReference name="var")
+                (LiteralInteger value="1"))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="total" ref=false direction="none" composite=false derived=false ordered=false nonunique=false variable=true prefix="var"
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="scaled" ref=false direction="none" composite=false derived=true ordered=false nonunique=false variable=true keyword="feature" prefix="var"
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Usage kind="action" name="IterateSequence" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+          (Membership visibility="default"
+            (Usage kind="attribute" name="index" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="var" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Integer
+                (*ast.QualifiedName))))
+          (*ast.AssignmentActionNode)
+          (WhileLoopActionNode kind="while" variable=""
+            (OperatorExpr operator="<="
+              (FeatureReference name="index")
+              (LiteralInteger value="10"))
+            (*ast.AssignmentActionNode)
+            (*ast.AssignmentActionNode)
+            (SuccessionEdge source="@assign" target="@assign"))
+          (SuccessionEdge source="@assign" target="@while"))))))

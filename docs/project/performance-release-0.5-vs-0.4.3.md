@@ -32,9 +32,9 @@ findings where they explain what each fix bought.
   (`git worktree add ../opensysml-v0.4.3 v0.4.3`), so `bin/sysml` of each is its
   own binary. The `v0.4.3` tag lives on the upstream remote and is annotated;
   `v0.4.3^{commit}` is `99e02003`.
-- Every package that declares a benchmark — `internal/repl`,
-  `internal/perfbench`, `internal/core/libs`, `internal/core/model`,
-  `internal/grpc`, `internal/lsp` — run on both revisions with
+- Every package that declares a benchmark — `internal/frontend/repl`,
+  `internal/perfbench`, `internal/workspace/libs`, `internal/workspace/model`,
+  `internal/frontend/grpc`, `internal/frontend/lsp` — run on both revisions with
   `go test ./<pkg> -run '^$' -bench . -benchmem -count 6`, compared with
   `benchstat`. A movement is reported when `p ≤ 0.05` and the change exceeds
   about 5%; smaller significant movements are listed as noise.
@@ -51,10 +51,10 @@ findings where they explain what each fix bought.
 
 ### Workloads that are not comparable
 
-- `internal/lsp` has benchmarks only on `main` (formatting was added after
+- `internal/frontend/lsp` has benchmarks only on `main` (formatting was added after
   0.4.3); its 0.4.3 run produced no rows, so there is no comparison.
 - `internal/perfbench`'s `vehicle` corpus benchmarks, `GRPCParseFile*`,
-  `Connect*HTTP*` and `internal/repl`'s `CompiledCalc/*/interpreted` exist only
+  `Connect*HTTP*` and `internal/frontend/repl`'s `CompiledCalc/*/interpreted` exist only
   on `main`.
 - No committed baseline file was regenerated. One observation from running
   the suite: on this machine the provisioned pilot corpora do not match what
@@ -65,7 +65,7 @@ findings where they explain what each fix bought.
   branch, so it is a provisioning question for the corpus pins, not an effect
   of these changes.
 
-## Benchmarks: `internal/repl`
+## Benchmarks: `internal/frontend/repl`
 
 | figure | 0.4.3 | main | main+fix | main+fix vs 0.4.3 |
 | ------ | ----- | ---- | -------- | ----------------- |
@@ -157,9 +157,9 @@ model.
 | empty-session load (`LoadModel/elements=0`) | 255 µs | 263 µs |
 
 Start-up is 1.4 ms slower per process, well inside the < 20 ms the Unreleased
-changelog claims. The growth is the binary: `sysml` now links `internal/grpc`
+changelog claims. The growth is the binary: `sysml` now links `internal/frontend/grpc`
 (and with it the protobuf and gRPC stacks), the Flexo sync client
-(`internal/flexo`), `internal/codegen` and `internal/edit`, none of which 0.4.3
+(`internal/flexo`), `internal/translate/codegen` and `internal/edit`, none of which 0.4.3
 linked, so it maps 16 MiB more text and runs 1.2 ms more package initialisers
 (`protobuf/reflect/protodesc` and `descriptorpb` are the two largest new ones).
 This is the expected price of the feature and is recorded as *explained*.
@@ -367,7 +367,7 @@ allocation profile. `effectiveMembers` (constraint evaluation) and
 `WorkspaceEdit/reindex+diagnostics` +57%, `REPLLoadFile` +28%, and the whole
 of the whole-binary slope, as found. After the fixes: `LoadModel` +7–11%,
 `Analyze/synthetic` +21%, `reindex+diagnostics` +26% (±16%), `REPLLoadFile`
-+4%, `REPLSubmitSnippet` +2%. `internal/core/passes` gained ten files and 61
++4%, `REPLSubmitSnippet` +2%. `internal/check/passes` gained ten files and 61
 commits in the interval; the CPU profile of the 12 000-element validation
 put 0.30 s of the 0.35 s difference in one of them, `ControlNodeSuccessionPass`
 (commit `279408b8`, *validate control-node successions and owning type*),
@@ -448,12 +448,12 @@ git fetch upstream --tags
 git worktree add ../opensysml-v0.4.3 v0.4.3
 (cd ../opensysml-v0.4.3 && make build)
 make build
-for pkg in internal/repl internal/perfbench internal/core/libs internal/core/model internal/grpc internal/lsp; do
+for pkg in internal/frontend/repl internal/perfbench internal/workspace/libs internal/workspace/model internal/frontend/grpc internal/frontend/lsp; do
   (cd ../opensysml-v0.4.3 && go test ./$pkg -run '^$' -bench . -benchmem -count 6) > old.$pkg.txt
   go test ./$pkg -run '^$' -bench . -benchmem -count 6 > new.$pkg.txt
   benchstat old.$pkg.txt new.$pkg.txt
 done
-go test ./internal/repl -run '^$' -bench RunStateMachine/elements=4000 -cpuprofile sm.cpu -memprofile sm.mem
+go test ./internal/frontend/repl -run '^$' -bench RunStateMachine/elements=4000 -cpuprofile sm.cpu -memprofile sm.mem
 go test ./internal/perfbench -run '^$' -bench GRPCVerifyConstraint -benchtime 20x -cpuprofile gv.cpu
 ../opensysml-v0.4.3/bin/sysml -validate gen12000.sysml -cpuprofile old.cpu
 bin/sysml -validate gen12000.sysml -cpuprofile new.cpu

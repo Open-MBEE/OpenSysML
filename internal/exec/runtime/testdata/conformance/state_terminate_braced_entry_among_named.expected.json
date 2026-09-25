@@ -1,0 +1,9 @@
+{
+	"type": "state",
+	"finalState": "s",
+	"stateVisits": ["s"],
+	"outputs": {
+		"a": {"type": "Integer", "value": 1},
+		"log": {"type": "String", "value": "head;tail;"}
+	}
+}

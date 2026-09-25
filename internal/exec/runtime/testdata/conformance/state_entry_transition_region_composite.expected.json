@@ -1,0 +1,26 @@
+{
+  "type": "state",
+  "schedule": "reverse",
+  "events": [
+    {
+      "signal": "Start"
+    },
+    {
+      "signal": "Go"
+    }
+  ],
+  "stateVisits": [
+    "idle",
+    "watching",
+    "running",
+    "waiting",
+    "finished"
+  ],
+  "outputs": {
+    "log": {
+      "type": "String",
+      "value": "running;waiting;finished;"
+    }
+  },
+  "trace": true
+}

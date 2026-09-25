@@ -1,0 +1,46 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="PerformTyped" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Motor"
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="Spin"
+              (Membership visibility="default"
+                (Usage kind="attribute" name="rpm" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))
+              (Membership visibility="default"
+                (Usage kind="attribute" name="result" ref=false direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Real
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="action" name="spin" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Spin
+                (*ast.QualifiedName))))))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Rig"
+          (Membership visibility="default"
+            (Usage kind="part" name="motor" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Motor
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="got" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Definition kind="action" abstract=false variation=false name="Spinup"
+              (Usage kind="action" name="sp" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="perform"
+                (Relationship kind="typing" target=Motor::Spin
+                  (*ast.QualifiedName))
+                (Relationship kind="references" target=(expr)
+                  (FeatureChainExpr member="spin"
+                    (FeatureReference name="motor")))
+                (Membership visibility="default"
+                  (Usage kind="attribute" name="rpm" ref=false direction="in" composite=false derived=false ordered=false nonunique=false
+                    (LiteralReal value="30.0"))))
+              (InitialNode name="start" successor="sp")
+              (Membership visibility="default"
+                (Usage kind="action" name="keep" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+                  (*ast.AssignmentActionNode)))
+              (InitialNode name="sp" successor="keep")
+              (InitialNode name="keep" successor="done"))))))))

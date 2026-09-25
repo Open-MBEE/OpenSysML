@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build DeciSym's sysmlv2-validator (a thin CLI over the OMG SysML v2 Pilot
 # Implementation) into build/pilot-validator/, for the advisory differential
-# harness in cmd/pilot-diff. See docs/project/pilot-differential.md.
+# harness in tools/referee/diff. See docs/project/pilot-differential.md.
 #
 # Both the wrapper commit and the pilot release are pinned; the pilot tag and
 # artifact version come from scripts/pilot-pin.sh and are passed to Maven.
@@ -109,4 +109,4 @@ pilot_install_dir "$work" "$target"
 
 echo "Built $target/validate-sysml (pilot $PILOT_TAG, $PILOT_ARTIFACT_VERSION)"
 echo "Compare it against this implementation with:"
-echo "  go run ./cmd/pilot-diff"
+echo "  go run -C tools ./cmd/pilot-diff"

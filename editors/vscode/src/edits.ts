@@ -13,6 +13,7 @@ import {
   type RenderEdge,
   type RenderNode,
   type RenderOwner,
+  type RenderRow,
   type WorkspaceEdit,
 } from "./protocol";
 
@@ -27,6 +28,8 @@ export interface Rendering {
   view?: string;
   version: number;
   palette?: EditPalette;
+  /** The element rows of a table-kind rendering; absent for a drawn kind. */
+  rows?: RenderRow[];
 }
 
 /**
@@ -166,7 +169,7 @@ export function reparentOperations(
 ): ModelEditOperation[] | undefined {
   const node = rendering.nodes.find((candidate) => candidate.id === id);
   const owner = rendering.nodes.find((candidate) => candidate.id === into);
-  if (!node || !owner || owner.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
+  if (!node || owner?.fqn === undefined || !moveDestinations(node, rendering).some((destination) => destination.node === owner)) {
     return undefined;
   }
   const placed = placementOperations(rendering, nodes, edges);

@@ -1,0 +1,821 @@
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Legacy
+    a sysml:Package ;
+    sysml:qualifiedName "Legacy" ;
+    sysml:elementId "Legacy" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "kerml" ;
+    sysml:declaredName "Legacy" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedRelationship elmt:Legacy___400, elmt:Legacy__twice_om, elmt:Legacy__Sensor_om, elmt:Legacy__s_om, elmt:Legacy__piped_om, elmt:Legacy__piped2_om, elmt:Legacy__made_om ;
+    sysml:ownedImport elmt:Legacy___400 ;
+    sysml:ownedMember elmt:Legacy__twice, elmt:Legacy__Sensor, elmt:Legacy__s, elmt:Legacy__piped, elmt:Legacy__piped2, elmt:Legacy__made ;
+    sysml:ownedMembership elmt:Legacy__twice_om, elmt:Legacy__Sensor_om, elmt:Legacy__s_om, elmt:Legacy__piped_om, elmt:Legacy__piped2_om, elmt:Legacy__made_om ;
+    sysx:sourceText "package Legacy {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy___400\"},{\"@id\":\"Legacy__twice_om\"},{\"@id\":\"Legacy__Sensor_om\"},{\"@id\":\"Legacy__s_om\"},{\"@id\":\"Legacy__piped_om\"},{\"@id\":\"Legacy__piped2_om\"},{\"@id\":\"Legacy__made_om\"}]" ;
+    json:ownedMember "[{\"@id\":\"Legacy__twice\"},{\"@id\":\"Legacy__Sensor\"},{\"@id\":\"Legacy__s\"},{\"@id\":\"Legacy__piped\"},{\"@id\":\"Legacy__piped2\"},{\"@id\":\"Legacy__made\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Legacy__twice_om\"},{\"@id\":\"Legacy__Sensor_om\"},{\"@id\":\"Legacy__s_om\"},{\"@id\":\"Legacy__piped_om\"},{\"@id\":\"Legacy__piped2_om\"},{\"@id\":\"Legacy__made_om\"}]" .
+
+elmt:Legacy___400
+    a sysml:NamespaceImport ;
+    sysml:qualifiedName "Legacy::@0" ;
+    sysml:elementId "Legacy___400" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:importOwningNamespace elmt:Legacy ;
+    sysml:visibility "private" ;
+    sysml:importedNamespace <urn:sysmlv2:element:40bb440c-5036-58e1-8675-5afccb8b8f1d> ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysx:sourceText "    private import ScalarValues::*;\n" .
+
+elmt:Legacy__twice
+    a sysml:Function ;
+    sysml:qualifiedName "Legacy::twice" ;
+    sysml:elementId "Legacy__twice" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__twice_om ;
+    sysml:owningMembership elmt:Legacy__twice_om ;
+    sysml:declaredName "twice" ;
+    sysx:declaredKeyword "function" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Legacy__twice__x, elmt:Legacy__twice___401 ;
+    sysml:ownedMembership elmt:Legacy__twice__x_om, elmt:Legacy__twice___401_om ;
+    sysml:ownedRelationship elmt:Legacy__twice__x_om, elmt:Legacy__twice___401_om ;
+    sysml:ownedFeature elmt:Legacy__twice__x, elmt:Legacy__twice___401 ;
+    sysml:ownedFeatureMembership elmt:Legacy__twice__x_om, elmt:Legacy__twice___401_om ;
+    sysx:sourceText "    function twice {\n" ;
+    sysx:sourceTail "    }\n" ;
+    json:ownedMember "[{\"@id\":\"Legacy__twice__x\"},{\"@id\":\"Legacy__twice___401\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Legacy__twice__x_om\"},{\"@id\":\"Legacy__twice___401_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__twice__x_om\"},{\"@id\":\"Legacy__twice___401_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Legacy__twice__x\"},{\"@id\":\"Legacy__twice___401\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Legacy__twice__x_om\"},{\"@id\":\"Legacy__twice___401_om\"}]" .
+
+elmt:Legacy__twice_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__twice_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__twice ;
+    sysml:ownedMemberElement elmt:Legacy__twice ;
+    sysml:ownedRelatedElement elmt:Legacy__twice ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+elmt:Legacy__twice__x
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "Legacy::twice::x" ;
+    sysml:elementId "Legacy__twice__x" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy__twice ;
+    sysml:owner elmt:Legacy__twice ;
+    sysml:owningRelationship elmt:Legacy__twice__x_om ;
+    sysml:owningMembership elmt:Legacy__twice__x_om ;
+    sysml:declaredName "x" ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:direction "in" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__twice__x_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__twice__x_ft0 ;
+    sysml:ownedRelationship elmt:Legacy__twice__x_ft0 ;
+    sysx:sourceText "        in x : Integer;\n" .
+
+elmt:Legacy__twice__x_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Legacy__twice__x_om" ;
+    sysml:owner elmt:Legacy__twice ;
+    sysml:memberElement elmt:Legacy__twice__x ;
+    sysml:ownedMemberElement elmt:Legacy__twice__x ;
+    sysml:ownedRelatedElement elmt:Legacy__twice__x ;
+    sysml:owningRelatedElement elmt:Legacy__twice ;
+    sysml:membershipOwningNamespace elmt:Legacy__twice ;
+    sysml:ownedMemberFeature elmt:Legacy__twice__x ;
+    sysml:owningType elmt:Legacy__twice .
+
+elmt:Legacy__twice___401
+    a sysml:ReferenceUsage ;
+    sysml:qualifiedName "Legacy::twice::@1" ;
+    sysml:elementId "Legacy__twice___401" ;
+    sysx:memberIndex "1"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy__twice ;
+    sysml:owner elmt:Legacy__twice ;
+    sysml:owningRelationship elmt:Legacy__twice___401_om ;
+    sysml:owningMembership elmt:Legacy__twice___401_om ;
+    sysx:isKindImplicit "true"^^xsd:boolean ;
+    sysml:isResult "true"^^xsd:boolean ;
+    sysml:direction "out" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:value expr:Legacy__twice___401_pvalue ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_om, elmt:Legacy__twice___401_ft0 ;
+    sysml:ownedMembership expr:Legacy__twice___401_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__twice___401_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__twice___401_ft0 ;
+    sysx:sourceText "        return : Integer = x + x;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__twice___401_pvalue_om\"},{\"@id\":\"Legacy__twice___401_ft0\"}]" .
+
+elmt:Legacy__twice___401_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Legacy__twice___401_om" ;
+    sysml:owner elmt:Legacy__twice ;
+    sysml:memberElement elmt:Legacy__twice___401 ;
+    sysml:ownedMemberElement elmt:Legacy__twice___401 ;
+    sysml:ownedRelatedElement elmt:Legacy__twice___401 ;
+    sysml:owningRelatedElement elmt:Legacy__twice ;
+    sysml:membershipOwningNamespace elmt:Legacy__twice ;
+    sysml:ownedMemberFeature elmt:Legacy__twice___401 ;
+    sysml:owningType elmt:Legacy__twice .
+
+expr:Legacy__twice___401_pvalue
+    a sysml:OperatorExpression ;
+    sysx:sourceText "x + x" ;
+    sysml:elementId "Legacy__twice___401_pvalue" ;
+    sysml:operator "+" ;
+    sysml:argument expr:Legacy__twice___401_pvalue_pa0, expr:Legacy__twice___401_pvalue_pa1 ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_pin0_om, expr:Legacy__twice___401_pvalue_pin1_om ;
+    sysml:ownedMembership expr:Legacy__twice___401_pvalue_pin0_om, expr:Legacy__twice___401_pvalue_pin1_om ;
+    sysml:ownedFeatureMembership expr:Legacy__twice___401_pvalue_pin0_om, expr:Legacy__twice___401_pvalue_pin1_om ;
+    sysml:ownedFeature expr:Legacy__twice___401_pvalue_pin0, expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:parameter expr:Legacy__twice___401_pvalue_pin0, expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:input expr:Legacy__twice___401_pvalue_pin0, expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:owner elmt:Legacy__twice___401 ;
+    sysml:owningRelationship expr:Legacy__twice___401_pvalue_om ;
+    sysml:owningMembership expr:Legacy__twice___401_pvalue_om ;
+    json:argument "[{\"@id\":\"Legacy__twice___401_pvalue_pa0\"},{\"@id\":\"Legacy__twice___401_pvalue_pa1\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__twice___401_pvalue_pin0_om\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1_om\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Legacy__twice___401_pvalue_pin0_om\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1_om\"}]" ;
+    json:ownedFeatureMembership "[{\"@id\":\"Legacy__twice___401_pvalue_pin0_om\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1_om\"}]" ;
+    json:ownedFeature "[{\"@id\":\"Legacy__twice___401_pvalue_pin0\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1\"}]" ;
+    json:parameter "[{\"@id\":\"Legacy__twice___401_pvalue_pin0\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1\"}]" ;
+    json:input "[{\"@id\":\"Legacy__twice___401_pvalue_pin0\"},{\"@id\":\"Legacy__twice___401_pvalue_pin1\"}]" .
+
+expr:Legacy__twice___401_pvalue_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa0" ;
+    sysml:referent elmt:Legacy__twice__x ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:owningRelationship expr:Legacy__twice___401_pvalue_pa0_om ;
+    sysml:owningMembership expr:Legacy__twice___401_pvalue_pa0_om ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_pa0_preferent .
+
+expr:Legacy__twice___401_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Legacy__twice___401_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Legacy__twice___401_pvalue ;
+    sysml:owningRelationship expr:Legacy__twice___401_pvalue_pin0_om ;
+    sysml:owningMembership expr:Legacy__twice___401_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Legacy__twice___401_pvalue_pa0_om .
+
+expr:Legacy__twice___401_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Legacy__twice___401_pvalue_pin0_om" ;
+    sysml:owner expr:Legacy__twice___401_pvalue ;
+    sysml:memberElement expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Legacy__twice___401_pvalue ;
+    sysml:ownedMemberFeature expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Legacy__twice___401_pvalue_pin0 .
+
+expr:Legacy__twice___401_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa0_om" ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:memberElement expr:Legacy__twice___401_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Legacy__twice___401_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Legacy__twice___401_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:featureWithValue expr:Legacy__twice___401_pvalue_pin0 ;
+    sysml:value expr:Legacy__twice___401_pvalue_pa0 .
+
+expr:Legacy__twice___401_pvalue_pa1
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "x" ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa1" ;
+    sysml:referent elmt:Legacy__twice__x ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:owningRelationship expr:Legacy__twice___401_pvalue_pa1_om ;
+    sysml:owningMembership expr:Legacy__twice___401_pvalue_pa1_om ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_pa1_preferent .
+
+expr:Legacy__twice___401_pvalue_pin1
+    a sysml:Feature ;
+    sysml:elementId "Legacy__twice___401_pvalue_pin1" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Legacy__twice___401_pvalue ;
+    sysml:owningRelationship expr:Legacy__twice___401_pvalue_pin1_om ;
+    sysml:owningMembership expr:Legacy__twice___401_pvalue_pin1_om ;
+    sysml:ownedRelationship expr:Legacy__twice___401_pvalue_pa1_om ;
+    sysml:ownedMembership expr:Legacy__twice___401_pvalue_pa1_om .
+
+expr:Legacy__twice___401_pvalue_pin1_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Legacy__twice___401_pvalue_pin1_om" ;
+    sysml:owner expr:Legacy__twice___401_pvalue ;
+    sysml:memberElement expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:ownedMemberElement expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:ownedRelatedElement expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue ;
+    sysml:membershipOwningNamespace expr:Legacy__twice___401_pvalue ;
+    sysml:ownedMemberFeature expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:ownedMemberParameter expr:Legacy__twice___401_pvalue_pin1 .
+
+expr:Legacy__twice___401_pvalue_pa1_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa1_om" ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:memberElement expr:Legacy__twice___401_pvalue_pa1 ;
+    sysml:ownedMemberElement expr:Legacy__twice___401_pvalue_pa1 ;
+    sysml:ownedRelatedElement expr:Legacy__twice___401_pvalue_pa1 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:membershipOwningNamespace expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:featureWithValue expr:Legacy__twice___401_pvalue_pin1 ;
+    sysml:value expr:Legacy__twice___401_pvalue_pa1 .
+
+expr:Legacy__twice___401_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__twice___401_pvalue_om" ;
+    sysml:owner elmt:Legacy__twice___401 ;
+    sysml:memberElement expr:Legacy__twice___401_pvalue ;
+    sysml:ownedMemberElement expr:Legacy__twice___401_pvalue ;
+    sysml:ownedRelatedElement expr:Legacy__twice___401_pvalue ;
+    sysml:owningRelatedElement elmt:Legacy__twice___401 ;
+    sysml:membershipOwningNamespace elmt:Legacy__twice___401 ;
+    sysml:featureWithValue elmt:Legacy__twice___401 ;
+    sysml:value expr:Legacy__twice___401_pvalue .
+
+elmt:Legacy__Sensor
+    a sysml:ClassUsage ;
+    sysml:qualifiedName "Legacy::Sensor" ;
+    sysml:elementId "Legacy__Sensor" ;
+    sysx:memberIndex "2"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__Sensor_om ;
+    sysml:owningMembership elmt:Legacy__Sensor_om ;
+    sysml:declaredName "Sensor" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Legacy__Sensor__reading ;
+    sysml:ownedMembership elmt:Legacy__Sensor__reading_om ;
+    sysml:ownedRelationship elmt:Legacy__Sensor__reading_om ;
+    sysml:ownedFeature elmt:Legacy__Sensor__reading ;
+    sysml:ownedFeatureMembership elmt:Legacy__Sensor__reading_om ;
+    sysx:sourceText "    class Sensor {\n" ;
+    sysx:sourceTail "    }\n" .
+
+elmt:Legacy__Sensor_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__Sensor_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__Sensor ;
+    sysml:ownedMemberElement elmt:Legacy__Sensor ;
+    sysml:ownedRelatedElement elmt:Legacy__Sensor ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+elmt:Legacy__Sensor__reading
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Legacy::Sensor::reading" ;
+    sysml:elementId "Legacy__Sensor__reading" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy__Sensor ;
+    sysml:owner elmt:Legacy__Sensor ;
+    sysml:owningRelationship elmt:Legacy__Sensor__reading_om ;
+    sysml:owningMembership elmt:Legacy__Sensor__reading_om ;
+    sysml:declaredName "reading" ;
+    sysx:declaredKeyword "feature" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__Sensor__reading_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__Sensor__reading_ft0 ;
+    sysml:ownedRelationship elmt:Legacy__Sensor__reading_ft0 ;
+    sysx:sourceText "        feature reading : Integer;\n" .
+
+elmt:Legacy__Sensor__reading_om
+    a sysml:FeatureMembership ;
+    sysml:elementId "Legacy__Sensor__reading_om" ;
+    sysml:owner elmt:Legacy__Sensor ;
+    sysml:memberElement elmt:Legacy__Sensor__reading ;
+    sysml:ownedMemberElement elmt:Legacy__Sensor__reading ;
+    sysml:ownedRelatedElement elmt:Legacy__Sensor__reading ;
+    sysml:owningRelatedElement elmt:Legacy__Sensor ;
+    sysml:membershipOwningNamespace elmt:Legacy__Sensor ;
+    sysml:ownedMemberFeature elmt:Legacy__Sensor__reading ;
+    sysml:owningType elmt:Legacy__Sensor .
+
+elmt:Legacy__s
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Legacy::s" ;
+    sysml:elementId "Legacy__s" ;
+    sysx:memberIndex "3"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__s_om ;
+    sysml:owningMembership elmt:Legacy__s_om ;
+    sysml:declaredName "s" ;
+    sysx:declaredKeyword "feature" ;
+    sysml:type elmt:Legacy__Sensor ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__s_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__s_ft0 ;
+    sysml:ownedRelationship elmt:Legacy__s_ft0 ;
+    sysx:sourceText "    feature s : Sensor;\n" .
+
+elmt:Legacy__s_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__s_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__s ;
+    sysml:ownedMemberElement elmt:Legacy__s ;
+    sysml:ownedRelatedElement elmt:Legacy__s ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+elmt:Legacy__piped
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Legacy::piped" ;
+    sysml:elementId "Legacy__piped" ;
+    sysx:memberIndex "4"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__piped_om ;
+    sysml:owningMembership elmt:Legacy__piped_om ;
+    sysml:declaredName "piped" ;
+    sysx:declaredKeyword "feature" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:value expr:Legacy__piped_pvalue ;
+    sysml:ownedRelationship expr:Legacy__piped_pvalue_om, elmt:Legacy__piped_ft0 ;
+    sysml:ownedMembership expr:Legacy__piped_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__piped_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__piped_ft0 ;
+    sysx:sourceText "    feature piped : Integer = s.reading->twice();\n" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__piped_pvalue_om\"},{\"@id\":\"Legacy__piped_ft0\"}]" .
+
+elmt:Legacy__piped_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__piped_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__piped ;
+    sysml:ownedMemberElement elmt:Legacy__piped ;
+    sysml:ownedRelatedElement elmt:Legacy__piped ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+expr:Legacy__piped_pvalue
+    a sysml:InvocationExpression ;
+    sysx:sourceText "s.reading->twice()" ;
+    sysml:elementId "Legacy__piped_pvalue" ;
+    sysml:function elmt:Legacy__twice ;
+    sysml:operand expr:Legacy__piped_pvalue_poperand ;
+    sysml:owner elmt:Legacy__piped ;
+    sysml:owningRelationship expr:Legacy__piped_pvalue_om ;
+    sysml:owningMembership expr:Legacy__piped_pvalue_om .
+
+expr:Legacy__piped_pvalue_poperand
+    a sysml:FeatureChainExpression ;
+    sysx:sourceText "s.reading" ;
+    sysml:elementId "Legacy__piped_pvalue_poperand" ;
+    sysml:argument expr:Legacy__piped_pvalue_poperand_pa0 ;
+    sysml:ownedRelationship expr:Legacy__piped_pvalue_poperand_pin0_om, expr:Legacy__piped_pvalue_poperand_ptargetFeature ;
+    sysml:ownedMembership expr:Legacy__piped_pvalue_poperand_pin0_om ;
+    sysml:ownedFeatureMembership expr:Legacy__piped_pvalue_poperand_pin0_om ;
+    sysml:ownedFeature expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:parameter expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:input expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:targetFeature elmt:Legacy__Sensor__reading ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__piped_pvalue_poperand_pin0_om\"},{\"@id\":\"Legacy__piped_pvalue_poperand_ptargetFeature\"}]" .
+
+expr:Legacy__piped_pvalue_poperand_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "s" ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_pa0" ;
+    sysml:referent elmt:Legacy__s ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:owningRelationship expr:Legacy__piped_pvalue_poperand_pa0_om ;
+    sysml:owningMembership expr:Legacy__piped_pvalue_poperand_pa0_om ;
+    sysml:ownedRelationship expr:Legacy__piped_pvalue_poperand_pa0_preferent .
+
+expr:Legacy__piped_pvalue_poperand_pin0
+    a sysml:Feature ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand ;
+    sysml:owningRelationship expr:Legacy__piped_pvalue_poperand_pin0_om ;
+    sysml:owningMembership expr:Legacy__piped_pvalue_poperand_pin0_om ;
+    sysml:ownedRelationship expr:Legacy__piped_pvalue_poperand_pa0_om ;
+    sysml:ownedMembership expr:Legacy__piped_pvalue_poperand_pa0_om .
+
+expr:Legacy__piped_pvalue_poperand_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_pin0_om" ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand ;
+    sysml:memberElement expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:ownedMemberElement expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:owningRelatedElement expr:Legacy__piped_pvalue_poperand ;
+    sysml:membershipOwningNamespace expr:Legacy__piped_pvalue_poperand ;
+    sysml:ownedMemberFeature expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:ownedMemberParameter expr:Legacy__piped_pvalue_poperand_pin0 .
+
+expr:Legacy__piped_pvalue_poperand_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_pa0_om" ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:memberElement expr:Legacy__piped_pvalue_poperand_pa0 ;
+    sysml:ownedMemberElement expr:Legacy__piped_pvalue_poperand_pa0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped_pvalue_poperand_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:membershipOwningNamespace expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:featureWithValue expr:Legacy__piped_pvalue_poperand_pin0 ;
+    sysml:value expr:Legacy__piped_pvalue_poperand_pa0 .
+
+expr:Legacy__piped_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__piped_pvalue_om" ;
+    sysml:owner elmt:Legacy__piped ;
+    sysml:memberElement expr:Legacy__piped_pvalue ;
+    sysml:ownedMemberElement expr:Legacy__piped_pvalue ;
+    sysml:ownedRelatedElement expr:Legacy__piped_pvalue ;
+    sysml:owningRelatedElement elmt:Legacy__piped ;
+    sysml:membershipOwningNamespace elmt:Legacy__piped ;
+    sysml:featureWithValue elmt:Legacy__piped ;
+    sysml:value expr:Legacy__piped_pvalue .
+
+elmt:Legacy__piped2
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Legacy::piped2" ;
+    sysml:elementId "Legacy__piped2" ;
+    sysx:memberIndex "5"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__piped2_om ;
+    sysml:owningMembership elmt:Legacy__piped2_om ;
+    sysml:declaredName "piped2" ;
+    sysx:declaredKeyword "feature" ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:value expr:Legacy__piped2_pvalue ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_om, elmt:Legacy__piped2_ft0 ;
+    sysml:ownedMembership expr:Legacy__piped2_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__piped2_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__piped2_ft0 ;
+    sysx:sourceText "    feature piped2 : Integer = s.reading->twice(1);\n" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__piped2_pvalue_om\"},{\"@id\":\"Legacy__piped2_ft0\"}]" .
+
+elmt:Legacy__piped2_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__piped2_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__piped2 ;
+    sysml:ownedMemberElement elmt:Legacy__piped2 ;
+    sysml:ownedRelatedElement elmt:Legacy__piped2 ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+expr:Legacy__piped2_pvalue
+    a sysml:InvocationExpression ;
+    sysx:sourceText "s.reading->twice(1)" ;
+    sysml:elementId "Legacy__piped2_pvalue" ;
+    sysml:function elmt:Legacy__twice ;
+    sysml:operand expr:Legacy__piped2_pvalue_poperand ;
+    sysml:argument expr:Legacy__piped2_pvalue_pa0 ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_pin0_om ;
+    sysml:ownedMembership expr:Legacy__piped2_pvalue_pin0_om ;
+    sysml:ownedFeatureMembership expr:Legacy__piped2_pvalue_pin0_om ;
+    sysml:ownedFeature expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:parameter expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:input expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:owner elmt:Legacy__piped2 ;
+    sysml:owningRelationship expr:Legacy__piped2_pvalue_om ;
+    sysml:owningMembership expr:Legacy__piped2_pvalue_om .
+
+expr:Legacy__piped2_pvalue_poperand
+    a sysml:FeatureChainExpression ;
+    sysx:sourceText "s.reading" ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand" ;
+    sysml:argument expr:Legacy__piped2_pvalue_poperand_pa0 ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_poperand_pin0_om, expr:Legacy__piped2_pvalue_poperand_ptargetFeature ;
+    sysml:ownedMembership expr:Legacy__piped2_pvalue_poperand_pin0_om ;
+    sysml:ownedFeatureMembership expr:Legacy__piped2_pvalue_poperand_pin0_om ;
+    sysml:ownedFeature expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:parameter expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:input expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:targetFeature elmt:Legacy__Sensor__reading ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__piped2_pvalue_poperand_pin0_om\"},{\"@id\":\"Legacy__piped2_pvalue_poperand_ptargetFeature\"}]" .
+
+expr:Legacy__piped2_pvalue_poperand_pa0
+    a sysml:FeatureReferenceExpression ;
+    sysx:sourceText "s" ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_pa0" ;
+    sysml:referent elmt:Legacy__s ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:owningRelationship expr:Legacy__piped2_pvalue_poperand_pa0_om ;
+    sysml:owningMembership expr:Legacy__piped2_pvalue_poperand_pa0_om ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_poperand_pa0_preferent .
+
+expr:Legacy__piped2_pvalue_poperand_pin0
+    a sysml:Feature ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand ;
+    sysml:owningRelationship expr:Legacy__piped2_pvalue_poperand_pin0_om ;
+    sysml:owningMembership expr:Legacy__piped2_pvalue_poperand_pin0_om ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_poperand_pa0_om ;
+    sysml:ownedMembership expr:Legacy__piped2_pvalue_poperand_pa0_om .
+
+expr:Legacy__piped2_pvalue_poperand_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_pin0_om" ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand ;
+    sysml:memberElement expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:ownedMemberElement expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue_poperand ;
+    sysml:membershipOwningNamespace expr:Legacy__piped2_pvalue_poperand ;
+    sysml:ownedMemberFeature expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:ownedMemberParameter expr:Legacy__piped2_pvalue_poperand_pin0 .
+
+expr:Legacy__piped2_pvalue_poperand_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_pa0_om" ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:memberElement expr:Legacy__piped2_pvalue_poperand_pa0 ;
+    sysml:ownedMemberElement expr:Legacy__piped2_pvalue_poperand_pa0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped2_pvalue_poperand_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:membershipOwningNamespace expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:featureWithValue expr:Legacy__piped2_pvalue_poperand_pin0 ;
+    sysml:value expr:Legacy__piped2_pvalue_poperand_pa0 .
+
+expr:Legacy__piped2_pvalue_pa0
+    a sysml:LiteralInteger ;
+    sysx:sourceText "1" ;
+    sysml:elementId "Legacy__piped2_pvalue_pa0" ;
+    sysml:value "1"^^xsd:integer ;
+    sysml:owner expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:owningRelationship expr:Legacy__piped2_pvalue_pa0_om ;
+    sysml:owningMembership expr:Legacy__piped2_pvalue_pa0_om .
+
+expr:Legacy__piped2_pvalue_pin0
+    a sysml:Feature ;
+    sysml:elementId "Legacy__piped2_pvalue_pin0" ;
+    sysml:direction "in" ;
+    sysml:owner expr:Legacy__piped2_pvalue ;
+    sysml:owningRelationship expr:Legacy__piped2_pvalue_pin0_om ;
+    sysml:owningMembership expr:Legacy__piped2_pvalue_pin0_om ;
+    sysml:ownedRelationship expr:Legacy__piped2_pvalue_pa0_om ;
+    sysml:ownedMembership expr:Legacy__piped2_pvalue_pa0_om .
+
+expr:Legacy__piped2_pvalue_pin0_om
+    a sysml:ParameterMembership ;
+    sysml:elementId "Legacy__piped2_pvalue_pin0_om" ;
+    sysml:owner expr:Legacy__piped2_pvalue ;
+    sysml:memberElement expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:ownedMemberElement expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue ;
+    sysml:membershipOwningNamespace expr:Legacy__piped2_pvalue ;
+    sysml:ownedMemberFeature expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:ownedMemberParameter expr:Legacy__piped2_pvalue_pin0 .
+
+expr:Legacy__piped2_pvalue_pa0_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__piped2_pvalue_pa0_om" ;
+    sysml:owner expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:memberElement expr:Legacy__piped2_pvalue_pa0 ;
+    sysml:ownedMemberElement expr:Legacy__piped2_pvalue_pa0 ;
+    sysml:ownedRelatedElement expr:Legacy__piped2_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:membershipOwningNamespace expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:featureWithValue expr:Legacy__piped2_pvalue_pin0 ;
+    sysml:value expr:Legacy__piped2_pvalue_pa0 .
+
+expr:Legacy__piped2_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__piped2_pvalue_om" ;
+    sysml:owner elmt:Legacy__piped2 ;
+    sysml:memberElement expr:Legacy__piped2_pvalue ;
+    sysml:ownedMemberElement expr:Legacy__piped2_pvalue ;
+    sysml:ownedRelatedElement expr:Legacy__piped2_pvalue ;
+    sysml:owningRelatedElement elmt:Legacy__piped2 ;
+    sysml:membershipOwningNamespace elmt:Legacy__piped2 ;
+    sysml:featureWithValue elmt:Legacy__piped2 ;
+    sysml:value expr:Legacy__piped2_pvalue .
+
+elmt:Legacy__made
+    a sysml:AttributeUsage ;
+    sysml:qualifiedName "Legacy::made" ;
+    sysml:elementId "Legacy__made" ;
+    sysx:memberIndex "6"^^xsd:integer ;
+    sysml:owningNamespace elmt:Legacy ;
+    sysml:owner elmt:Legacy ;
+    sysml:owningRelationship elmt:Legacy__made_om ;
+    sysml:owningMembership elmt:Legacy__made_om ;
+    sysml:declaredName "made" ;
+    sysx:declaredKeyword "feature" ;
+    sysml:type elmt:Legacy__Sensor ;
+    sysml:value expr:Legacy__made_pvalue ;
+    sysml:ownedRelationship expr:Legacy__made_pvalue_om, elmt:Legacy__made_ft0 ;
+    sysml:ownedMembership expr:Legacy__made_pvalue_om ;
+    sysx:hasBody "false"^^xsd:boolean ;
+    sysml:ownedTyping elmt:Legacy__made_ft0 ;
+    sysml:ownedSpecialization elmt:Legacy__made_ft0 ;
+    sysx:sourceText "    feature made : Sensor = new Sensor();\n" ;
+    json:ownedRelationship "[{\"@id\":\"Legacy__made_pvalue_om\"},{\"@id\":\"Legacy__made_ft0\"}]" .
+
+elmt:Legacy__made_om
+    a sysml:OwningMembership ;
+    sysml:elementId "Legacy__made_om" ;
+    sysml:owner elmt:Legacy ;
+    sysml:memberElement elmt:Legacy__made ;
+    sysml:ownedMemberElement elmt:Legacy__made ;
+    sysml:ownedRelatedElement elmt:Legacy__made ;
+    sysml:owningRelatedElement elmt:Legacy ;
+    sysml:membershipOwningNamespace elmt:Legacy .
+
+expr:Legacy__made_pvalue
+    a sysml:InvocationExpression ;
+    sysx:sourceText "new Sensor()" ;
+    sysml:elementId "Legacy__made_pvalue" ;
+    sysx:isConstructor "true"^^xsd:boolean ;
+    sysml:function elmt:Legacy__Sensor ;
+    sysml:owner elmt:Legacy__made ;
+    sysml:owningRelationship expr:Legacy__made_pvalue_om ;
+    sysml:owningMembership expr:Legacy__made_pvalue_om .
+
+expr:Legacy__made_pvalue_om
+    a sysml:FeatureValue ;
+    sysml:elementId "Legacy__made_pvalue_om" ;
+    sysml:owner elmt:Legacy__made ;
+    sysml:memberElement expr:Legacy__made_pvalue ;
+    sysml:ownedMemberElement expr:Legacy__made_pvalue ;
+    sysml:ownedRelatedElement expr:Legacy__made_pvalue ;
+    sysml:owningRelatedElement elmt:Legacy__made ;
+    sysml:membershipOwningNamespace elmt:Legacy__made ;
+    sysml:featureWithValue elmt:Legacy__made ;
+    sysml:value expr:Legacy__made_pvalue .
+
+elmt:Legacy__twice__x_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__twice__x_ft0" ;
+    sysml:typedFeature elmt:Legacy__twice__x ;
+    sysml:owningFeature elmt:Legacy__twice__x ;
+    sysml:specific elmt:Legacy__twice__x ;
+    sysml:source elmt:Legacy__twice__x ;
+    sysml:owningRelatedElement elmt:Legacy__twice__x ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Legacy__twice__x ;
+    sysml:relatedElement elmt:Legacy__twice__x, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Legacy__twice__x\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:Legacy__twice___401_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__twice___401_ft0" ;
+    sysml:typedFeature elmt:Legacy__twice___401 ;
+    sysml:owningFeature elmt:Legacy__twice___401 ;
+    sysml:specific elmt:Legacy__twice___401 ;
+    sysml:source elmt:Legacy__twice___401 ;
+    sysml:owningRelatedElement elmt:Legacy__twice___401 ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Legacy__twice___401 ;
+    sysml:relatedElement elmt:Legacy__twice___401, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Legacy__twice___401\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+expr:Legacy__twice___401_pvalue_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa0_preferent" ;
+    sysml:memberElement elmt:Legacy__twice__x ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue_pa0 .
+
+expr:Legacy__twice___401_pvalue_pa1_preferent
+    a sysml:Membership ;
+    sysml:elementId "Legacy__twice___401_pvalue_pa1_preferent" ;
+    sysml:memberElement elmt:Legacy__twice__x ;
+    sysml:owner expr:Legacy__twice___401_pvalue_pa1 ;
+    sysml:owningRelatedElement expr:Legacy__twice___401_pvalue_pa1 .
+
+elmt:Legacy__Sensor__reading_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__Sensor__reading_ft0" ;
+    sysml:typedFeature elmt:Legacy__Sensor__reading ;
+    sysml:owningFeature elmt:Legacy__Sensor__reading ;
+    sysml:specific elmt:Legacy__Sensor__reading ;
+    sysml:source elmt:Legacy__Sensor__reading ;
+    sysml:owningRelatedElement elmt:Legacy__Sensor__reading ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Legacy__Sensor__reading ;
+    sysml:relatedElement elmt:Legacy__Sensor__reading, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Legacy__Sensor__reading\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+elmt:Legacy__s_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__s_ft0" ;
+    sysml:typedFeature elmt:Legacy__s ;
+    sysml:owningFeature elmt:Legacy__s ;
+    sysml:specific elmt:Legacy__s ;
+    sysml:source elmt:Legacy__s ;
+    sysml:owningRelatedElement elmt:Legacy__s ;
+    sysml:type elmt:Legacy__Sensor ;
+    sysml:general elmt:Legacy__Sensor ;
+    sysml:target elmt:Legacy__Sensor ;
+    sysml:owner elmt:Legacy__s ;
+    sysml:relatedElement elmt:Legacy__s, elmt:Legacy__Sensor ;
+    json:relatedElement "[{\"@id\":\"Legacy__s\"},{\"@id\":\"Legacy__Sensor\"}]" .
+
+elmt:Legacy__piped_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__piped_ft0" ;
+    sysml:typedFeature elmt:Legacy__piped ;
+    sysml:owningFeature elmt:Legacy__piped ;
+    sysml:specific elmt:Legacy__piped ;
+    sysml:source elmt:Legacy__piped ;
+    sysml:owningRelatedElement elmt:Legacy__piped ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Legacy__piped ;
+    sysml:relatedElement elmt:Legacy__piped, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Legacy__piped\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+expr:Legacy__piped_pvalue_poperand_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_ptargetFeature" ;
+    sysml:memberElement elmt:Legacy__Sensor__reading ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand ;
+    sysml:owningRelatedElement expr:Legacy__piped_pvalue_poperand .
+
+expr:Legacy__piped_pvalue_poperand_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Legacy__piped_pvalue_poperand_pa0_preferent" ;
+    sysml:memberElement elmt:Legacy__s ;
+    sysml:owner expr:Legacy__piped_pvalue_poperand_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__piped_pvalue_poperand_pa0 .
+
+elmt:Legacy__piped2_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__piped2_ft0" ;
+    sysml:typedFeature elmt:Legacy__piped2 ;
+    sysml:owningFeature elmt:Legacy__piped2 ;
+    sysml:specific elmt:Legacy__piped2 ;
+    sysml:source elmt:Legacy__piped2 ;
+    sysml:owningRelatedElement elmt:Legacy__piped2 ;
+    sysml:type elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:general elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:target elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    sysml:owner elmt:Legacy__piped2 ;
+    sysml:relatedElement elmt:Legacy__piped2, elmt:f2350199-2ab1-5258-8514-58812ef25dc6 ;
+    json:relatedElement "[{\"@id\":\"Legacy__piped2\"},{\"@id\":\"f2350199-2ab1-5258-8514-58812ef25dc6\"}]" .
+
+expr:Legacy__piped2_pvalue_poperand_ptargetFeature
+    a sysml:Membership ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_ptargetFeature" ;
+    sysml:memberElement elmt:Legacy__Sensor__reading ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue_poperand .
+
+expr:Legacy__piped2_pvalue_poperand_pa0_preferent
+    a sysml:Membership ;
+    sysml:elementId "Legacy__piped2_pvalue_poperand_pa0_preferent" ;
+    sysml:memberElement elmt:Legacy__s ;
+    sysml:owner expr:Legacy__piped2_pvalue_poperand_pa0 ;
+    sysml:owningRelatedElement expr:Legacy__piped2_pvalue_poperand_pa0 .
+
+elmt:Legacy__made_ft0
+    a sysml:FeatureTyping ;
+    sysml:elementId "Legacy__made_ft0" ;
+    sysml:typedFeature elmt:Legacy__made ;
+    sysml:owningFeature elmt:Legacy__made ;
+    sysml:specific elmt:Legacy__made ;
+    sysml:source elmt:Legacy__made ;
+    sysml:owningRelatedElement elmt:Legacy__made ;
+    sysml:type elmt:Legacy__Sensor ;
+    sysml:general elmt:Legacy__Sensor ;
+    sysml:target elmt:Legacy__Sensor ;
+    sysml:owner elmt:Legacy__made ;
+    sysml:relatedElement elmt:Legacy__made, elmt:Legacy__Sensor ;
+    json:relatedElement "[{\"@id\":\"Legacy__made\"},{\"@id\":\"Legacy__Sensor\"}]" .

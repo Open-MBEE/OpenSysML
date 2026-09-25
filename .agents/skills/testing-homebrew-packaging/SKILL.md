@@ -125,7 +125,7 @@ untap old taps to silence it, or `brew trust local/<tap>`.
 
 ## Proving the solver stays optional at runtime (companion to `depends_on "z3"`)
 
-Discovery lives in `internal/core/solve/solver.go` (`OPENSYSML_SMT`, then `z3`, then `cvc5`) and
+Discovery lives in `internal/exec/solve/solver.go` (`OPENSYSML_SMT`, then `z3`, then `cvc5`) and
 its messages in `errors.go`. Drive `bin/sysml` with a scrubbed PATH — one directory per
 scenario, symlinking only the solver you want — and feed meta-commands on stdin:
 
@@ -156,7 +156,7 @@ only way to exercise it is a hand-built bundle served over `file://`:
 ```bash
 make build VERSION=v9.9.9
 R=/tmp/rel/Open-MBEE/OpenSysML/releases/download/v9.9.9; mkdir -p "$R" /tmp/stage/share/man/man1
-cp bin/sysml bin/sysml-lsp /tmp/stage/; cp man/man1/*.1 /tmp/stage/share/man/man1/
+cp bin/sysml bin/sysml-lsp /tmp/stage/; cp packaging/man/man1/*.1 /tmp/stage/share/man/man1/
 tar czf "$R/opensysml-linux-amd64.tar.gz" -C /tmp/stage sysml sysml-lsp share
 # hand-made SHA256SUMS with that one sum repeated for all four assets, then render, then in the
 # tap copy only: s|https://github.com/…/download|file:///tmp/rel/…/download|g

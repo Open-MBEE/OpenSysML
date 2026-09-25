@@ -1,0 +1,10 @@
+{
+    "type": "state",
+    "trace": true,
+    "events": [{"signal": "Go"}, {"signal": "Go"}],
+    "finalState": "done",
+    "stateVisits": ["idle", "busy", "done"],
+    "outputs": {
+        "log": { "type": "Integer", "value": 12345 }
+    }
+}

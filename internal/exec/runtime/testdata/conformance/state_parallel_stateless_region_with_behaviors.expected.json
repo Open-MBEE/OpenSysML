@@ -1,0 +1,12 @@
+{
+  "type": "state",
+  "events": [
+    {"signal": "Go"},
+    {"signal": "Stop"}
+  ],
+  "finalState": "done",
+  "outputs": {
+    "log": {"type": "Integer", "value": 12}
+  },
+  "trace": true
+}

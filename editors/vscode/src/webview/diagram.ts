@@ -1,9 +1,21 @@
 // The diagram panel's script: draws the server's rendering on an SVG canvas, reports
 // clicks, menu choices and drags back, and highlights the cursor's node.
-import type { EditPalette, FromWebview, PickerEntry, RenderNode, RenderPoint, RenderResult, ToWebview } from "../protocol";
+import {
+  normalizeRender,
+  type EditPalette,
+  type FromWebview,
+  type PickerEntry,
+  type RenderNode,
+  type RenderPoint,
+  type RenderResult,
+  type ToWebview,
+} from "../protocol";
+import { cameoLook, type DiagramStyle, pilotLook, STYLE_LABELS, STYLES, styleOf } from "../style";
 import { MenuCommand, MenuItem, nodeMenu, paletteItems } from "./actions";
+import { autoLayout, type AutoLayout } from "./autolayout";
 import { cssEscape, drawCanvas, liftNode } from "./canvas";
 import { dragHint, Drop, dropOn } from "./drop";
+import { tableOf } from "./table";
 import {
   CanvasLayout,
   insertedWaypoint,
@@ -28,6 +40,7 @@ declare function acquireVsCodeApi(): WebviewApi;
 const vscode = acquireVsCodeApi();
 const body = document.body;
 const picker = document.getElementById("view") as HTMLSelectElement;
+const styler = document.getElementById("style") as HTMLSelectElement;
 const kindLabel = document.getElementById("kind") as HTMLElement;
 const status = document.getElementById("status") as HTMLElement;
 const diagram = document.getElementById("diagram") as HTMLElement;
@@ -39,12 +52,17 @@ const adder = document.getElementById("add") as HTMLSelectElement;
 const menu = document.getElementById("menu") as HTMLUListElement;
 
 const documentURI = (JSON.parse(body.dataset.state ?? "{}") as { uri?: string }).uri ?? "";
-const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult };
+const saved = (vscode.getState() ?? {}) as { view?: string; last?: RenderResult; style?: string };
 let selected = saved.view ?? "";
-let last: RenderResult | undefined = saved.last;
+// A rendering saved by an older extension is normalized like a fresh one, and
+// drawn in the look it was, or the default when it saved none.
+let last: RenderResult | undefined = saved.last === undefined ? undefined : normalizeRender(saved.last);
+let style: DiagramStyle = styleOf(saved.style);
 let selectedNode: string | undefined;
 /** The layout on screen, which gestures act on; undefined while a table or nothing is shown. */
 let layout: CanvasLayout | undefined;
+/** What ELK placed for the rendering on screen; undefined until it answers, and for kinds it does not lay out. */
+let auto: AutoLayout | undefined;
 let gesture: Gesture | undefined;
 /** How far the pointer moves before a press becomes a drag rather than a click. */
 const DRAG_THRESHOLD = 3;
@@ -57,12 +75,21 @@ let paletteEntries: MenuItem[] = [];
 // The extension's number for the drawing shown; an action names the drawing its ids came from.
 let drawn = 0;
 
+fillStyles();
+applyStyle(style);
+
 // The panel is torn down while it is hidden, so the rendering it last drew is
 // put back — dimmed until the server answers — rather than showing nothing.
 if (last) {
   draw(last);
   diagram.classList.add("stale");
 }
+
+// The look changes at once; the extension keeps the choice and renders for its palette.
+styler.addEventListener("change", () => {
+  applyStyle(styleOf(styler.value));
+  vscode.postMessage({ type: "style", style });
+});
 
 picker.addEventListener("change", () => {
   selected = picker.value;
@@ -97,6 +124,18 @@ window.addEventListener("keyup", (event) => {
 // A right-click off a node offers nothing; the browser's own menu offers less.
 diagram.addEventListener("contextmenu", (event) => event.preventDefault());
 
+// A table has no gestures; a click on a row holding a declaration opens it as a
+// node click does.
+diagram.addEventListener("click", (event) => {
+  if (layout || !last?.rows) {
+    return;
+  }
+  const row = (event.target as Element | null)?.closest?.<HTMLTableRowElement>("tr.located[data-opensysml-row]");
+  if (row?.dataset.opensysmlRow !== undefined) {
+    vscode.postMessage({ type: "revealRow", row: Number(row.dataset.opensysmlRow), drawn });
+  }
+});
+
 window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
   // The extension posts into this frame, so its messages carry the frame's own
   // origin; anything from elsewhere is not the extension and is dropped.
@@ -110,9 +149,16 @@ window.addEventListener("message", (event: MessageEvent<ToWebview>) => {
       return;
     case "render":
       // The number names what is on screen; a drawing that failed left the last one up.
+      applyStyle(message.style);
       if (draw(message.result)) {
         drawn = message.drawn;
+        if (message.hint !== undefined) {
+          showHint(message.hint);
+        }
       }
+      return;
+    case "style":
+      applyStyle(message.style);
       return;
     case "error":
       showError(message.message);
@@ -148,6 +194,27 @@ function fillPicker(views: PickerEntry[], pick: string): void {
   showUndrawable(views);
 }
 
+// fillStyles lists the looks the diagram can be drawn in.
+function fillStyles(): void {
+  styler.replaceChildren();
+  for (const entry of STYLES) {
+    const option = document.createElement("option");
+    option.value = entry;
+    option.textContent = STYLE_LABELS[entry];
+    styler.append(option);
+  }
+}
+
+// applyStyle draws what is on screen in a look: the pilot's rules take over from the
+// editor's theme under every look but `theme`, Cameo's ride on them, and a palette's fills ride on each shape.
+function applyStyle(chosen: DiagramStyle): void {
+  style = chosen;
+  styler.value = chosen;
+  diagram.classList.toggle("pilot", pilotLook(chosen));
+  diagram.classList.toggle("cameo", cameoLook(chosen));
+  remember();
+}
+
 // showUndrawable says why a listed view is not drawable, since the picker only
 // says that it is not and holds the reason in a tooltip.
 function showUndrawable(views: PickerEntry[]): void {
@@ -177,19 +244,33 @@ function draw(result: RenderResult): boolean {
     if (result.form === "mermaid") {
       // Mermaid is the machine form a diagram is exported in; the panel draws
       // the same nodes and edges itself, so their geometry is its own to edit.
+      auto = undefined;
       layout = layoutCanvas(result);
       show(layout);
     } else {
-      // A table is written as Markdown rather than drawn, so it is shown as the
-      // artifact it is.
+      // A table is not drawn as geometry: it is drawn as a table from its rows.
       layout = undefined;
-      const pre = document.createElement("pre");
-      pre.textContent = result.artifact;
-      diagram.replaceChildren(pre);
+      diagram.replaceChildren(tableOf(result));
     }
     diagram.classList.remove("stale");
     showStatus("");
     last = result;
+    if (result.form === "mermaid") {
+      // The grid answers at once; ELK's layered layout replaces it when it resolves.
+      showStatus("Laying out…");
+      void autoLayout(result).then((laid) => {
+        if (last !== result) {
+          return;
+        }
+        showStatus("");
+        if (!laid) {
+          return;
+        }
+        auto = laid;
+        layout = layoutCanvas(result, {}, auto);
+        show(layout);
+      });
+    }
     remember();
     showNotices(result);
     // An open menu names nodes of the drawing just replaced.
@@ -307,7 +388,7 @@ function moveGesture(event: PointerEvent): void {
     drawDrag(event.shiftKey);
     return;
   }
-  showDragged(layoutCanvas(result, overridesOf(gesture.placements)));
+  showDragged(layoutCanvas(result, overridesOf(gesture.placements), auto));
 }
 
 // showDragged puts the canvas a gesture has changed on screen. The pointer is captured by the
@@ -331,7 +412,7 @@ function drawDrag(shift: boolean): void {
     const svg = showDragged(layout);
     liftNode(svg, layout, gesture.id, gesture.at.x - gesture.start.x, gesture.at.y - gesture.start.y);
   } else {
-    showDragged(layoutCanvas(last, overridesOf(gesture.placements)));
+    showDragged(layoutCanvas(last, overridesOf(gesture.placements), auto));
   }
   previewDrop(shift);
 }
@@ -606,11 +687,15 @@ function highlight(id: string | undefined): void {
   if (!id) {
     return;
   }
+  if (!layout && id.startsWith("row:")) {
+    diagram.querySelector(`tr[data-opensysml-row="${cssEscape(id.slice(4))}"]`)?.classList.add("opensysml-selected");
+    return;
+  }
   const element = diagram.querySelector(`[data-opensysml-id="${cssEscape(id)}"]`);
   element?.classList.add("opensysml-selected");
 }
 
 // remember keeps what the panel is showing, so a window reload restores it.
 function remember(): void {
-  vscode.setState({ uri: documentURI, view: selected, last });
+  vscode.setState({ uri: documentURI, view: selected, last, style });
 }

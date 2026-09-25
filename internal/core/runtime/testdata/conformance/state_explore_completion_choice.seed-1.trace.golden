@@ -1,9 +1,0 @@
-choice state ready: transitions 1->left, 2->right (unordered; took 2->right)
-exit: ready
-enter: right (entry action)
-stmt assign side
-  eval literal 2 -> 2
-transition: ready -> right
-exit: right
-enter: settled
-transition: right -> settled

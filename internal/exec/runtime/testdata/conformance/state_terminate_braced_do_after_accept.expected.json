@@ -1,0 +1,11 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"events": [{"signal": "Go"}],
+	"finalState": "u",
+	"stateVisits": ["s", "t", "u"],
+	"outputs": {
+		"d": {"type": "Integer", "value": 1}
+	}
+}

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Routing="http://example.com/routing/profile">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Sorter">
+    <packagedElement xmi:type="uml:Class" xmi:id="_sorter" name="Sorter" classifierBehavior="_act">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bias" name="bias">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_biasV" value="0.6"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_act" name="Route">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_left" name="left"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_right" name="right"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_reject" name="reject"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e0" source="_init" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eLeft" source="_decide" target="_left"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eRight" source="_decide" target="_right"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eReject" source="_decide" target="_reject"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fLeft" source="_left" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fRight" source="_right" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_fReject" source="_reject" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_sorter"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_eLeft" probability="bias"/>
+  <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eRight" probability="0.3"/>
+  <Routing:Probability xmi:id="_p3" base_ActivityEdge="_eReject" probability="0.9"/>
+</xmi:XMI>

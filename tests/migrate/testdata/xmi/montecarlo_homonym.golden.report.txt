@@ -1,0 +1,23 @@
+# SysML v1 to v2 migration report: montecarlo_homonym.xmi
+# migrated 17 element(s): 16 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+«SimulationConfig» Class	Gauge Group	_group	-> 'Gauge Group'	(neither Gauge Analysis nor any general of it has a classifier behavior, so the configuration only holds 'gauge analysis')
+
+## mapped (16)
+«Block» Class	Gauge	_gauge	-> Gauge
+«Block» Class	Gauge Analysis	_analysis	-> 'Gauge Analysis'
+«BindingConnector» Connector	Gauge Analysis::<Connector>	_bind
+Property	Gauge::reading	_reading	-> Gauge::reading
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	MonteCarloAnalysis	_mc	-> MonteCarloAnalysis
+Property	MonteCarloAnalysis::Deviation	_mcDeviation	-> MonteCarloAnalysis::Deviation
+Property	MonteCarloAnalysis::Mean	_mcMean	-> MonteCarloAnalysis::Mean
+Property	MonteCarloAnalysis::N	_mcN	-> MonteCarloAnalysis::N
+Property	MonteCarloAnalysis::OutOfSpec	_mcOutOfSpec	-> MonteCarloAnalysis::OutOfSpec
+Package	Results	_results	-> Results
+InstanceSpecification	Results::run 1	_run	-> Results::'run 1'
+Slot	Results::run 1::<Slot>	_runReading	-> Results::'run 1'::reading
+Slot	Results::run 1::<Slot>	_runN	-> Results::'run 1'::N
+Slot	Results::run 1::<Slot>	_runMean	-> Results::'run 1'::Mean
+InstanceSpecification	gauge analysis	_a0	-> 'gauge analysis'

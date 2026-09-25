@@ -5,8 +5,23 @@ OpenSysML's `sysml-lsp` server: diagnostics, hover, go-to-definition, document
 symbols, typed completion, a live diagram panel, and Markdown rendering of
 native document definitions.
 
-This extension is built and side-loaded from this repository. It is deliberately
-**not published** to the Visual Studio Marketplace or Open VSX.
+This extension is side-loaded. It is deliberately **not published** to the Visual
+Studio Marketplace or Open VSX.
+
+## Install from the nightly snapshot
+
+Every night the newest green `develop` commit is packaged as `opensysml-sysml.vsix`
+and attached to the [`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)
+prerelease, beside the `sysml-lsp` it was built with (see
+[docs/project/nightly.md](../../docs/project/nightly.md)):
+
+```bash
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+code --install-extension opensysml-sysml.vsix
+```
+
+Its version is `<manifest version>-nightly-<yyyymmdd>-<commit>`, so a later night
+installs over an earlier one as an update.
 
 ## Build and side-load
 
@@ -26,6 +41,10 @@ Then open any `.sysml` file. The extension finds the server in this order:
 
 If none exist, highlighting still works and a warning explains how to build the
 server. `SysML: Restart Language Server` restarts it after a rebuild.
+
+In an untrusted workspace (Restricted Mode) the extension still works:
+highlighting and a server resolved from `opensysml.server.path` or `PATH`; trust
+the folder to let the workspace's own `bin/sysml-lsp` build be used.
 
 ## The standard library
 
@@ -48,9 +67,11 @@ typed. The diagram opens quietly: focus stays in the text, and the diagrams of
 every file share one editor group, so switching between model files adds a tab
 there instead of another column. Nothing opens for a file that is not on disk
 — an untitled buffer, a `git:` revision, a diff — or for one only peeked at from
-a hover.
+a hover. A file declaring several drawable views opens on its own only when the
+cursor sits in one of them or one was chosen for it before; otherwise nothing
+opens and nothing asks — `SysML: Open Diagram` does the asking.
 
-Close a diagram and it stays closed for that file, across switches to other
+Close a file's last diagram and it stays closed for that file, across switches to other
 files and across a reload of the window, until you ask for it again. Closing
 the file's editor leaves its diagram where it is; renaming the file carries its
 open diagram — or the memory of a closed one — along, deleting the file forgets it. To have no
@@ -73,12 +94,14 @@ own just waits for the server.
 
 | | |
 | --- | --- |
-| **What it draws** | The view the document declares, chosen in the picker when it declares several. A document declaring none is drawn directly, as a model tree, interconnection diagram, state diagram, action flow, sequence diagram or element table — a table is written as Markdown rather than drawn, and is shown as that. A view whose rendering is not supported (`geometry`, `textual`) is listed but not drawable, and the reason is written under the diagram. |
-| **Where things go** | A node the model places — a `DiagramLayout::Layout` annotation in the view's body or the element's own — is drawn exactly there, at the size it states; every other node takes a slot in a grid under its owner, in the order rendered, so the same model draws the same way every time. An edge follows the waypoints its `DiagramLayout::Route` gives it, else runs straight. |
+| **What it draws** | The view the document declares. A document declaring several drawable views opens on the one whose declaration holds the editor's cursor, else the one last chosen for that document in this workspace, else the one picked from a list — the drawable views by name and kind, **All views** to open each in its own panel, and the pseudo-views last; views the server cannot draw are left out of that list (the panel's own picker still shows them, disabled, with the reason), and cancelling opens nothing. A document declaring none is drawn directly, as a model tree, interconnection diagram, state diagram, action flow, sequence diagram or element table — a table is drawn as a table whose rows open their element in the editor when clicked. A view whose rendering is not supported (`geometry`, `textual`) is listed but not drawable, and the reason is written under the diagram. |
+| **Several panels** | A document may have one panel per view open at once; they are titled `Diagram: <file> — <view>` while there are several, each redraws when the model changes, and each highlights the cursor's node. Open Diagram reveals the panel already showing the chosen view, or opens another beside the source for a different one. Picking a view in a panel's picker retargets that panel — unless another panel already draws it, which is revealed instead. Panels come back with their views when the window reloads. |
+| **Where things go** | A node the model places — a `DiagramLayout::Layout` annotation in the view's body or the element's own — is drawn exactly there, at the size it states; every other node is laid out in layers under its owner by the ELK layered algorithm, and an edge without waypoints of its own runs orthogonally around the boxes between two nodes neither the model nor a drag placed, else straight. An edge follows the waypoints its `DiagramLayout::Route` gives it. A rendering of more than 600 nodes keeps the earlier square grid, so a migrated model does not hang the panel. |
+| **Style** | The panel's **Style** list, or the `opensysml.diagram.style` setting, picks the look of every diagram. `theme` (the default) follows the VS Code colour theme. `pilot` is the pilot visualizer's Standard B&W, the look the DOT and PlantUML forms are written in: white canvas, black sans-serif text, thin dark borders, square definitions and rounded usages, a heavier border on a package and a dashed one on a region, bold names over a small italic `«kind»`, thick arrowless connections and dashed flows, filled black pseudo-states. The eight palettes (`okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis`, `cividis`, [described here](../../docs/project/view-rendering-forms.md#palettes)) are that look filled by keyword family — parts one colour, ports another, a usage a lighter tint of its definition's — in the very colours a DOT or PlantUML export of the view takes, since the server names them; text stays black. `cameo` is Cameo Systems Modeler's look — 11px Arial, pale-yellow gradient fills with thin dark borders — and a DOT export under it asks the server for its `cameo` drawing style, so the exported file frames the diagram and draws it as Cameo did. A node's own `DiagramLayout::Style` fill and line colour win over every look. Changing the list keeps the choice in your settings and redraws every open diagram. A `sysml-lsp` too old to name colours draws a palette as `pilot` and says so under the diagram; one too old to list drawing styles (`openSysmlRenderStyles`) draws `cameo` on the canvas but exports the pilot look, and says so too. |
 | **Navigation** | Click a node to open the declaration it was built from; moving the cursor in the editor highlights the node whose declaration contains it. A node built from a standard library declaration opens the bundled library file, read-only. |
 | **While typing** | A rendering that fails mid-keystroke leaves the last good diagram on screen, dimmed, with the error in the status line: the panel never blanks. What a rendering could not represent is listed under it. |
 | **Cost** | The panel asks for a diagram only while visible, and only once an editing burst settles. The panel draws its own SVG, and its CSP allows the bundled script alone — nothing is fetched from the network. |
-| **Export** | `SysML: Export Diagram` saves the server's machine form of the diagram — Mermaid (`.mmd`) for a diagram, with the model's positions as `%% layout:` comments, Markdown for a table — for the view the document's panel shows; with no panel, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. |
+| **Export** | `SysML: Export Diagram` saves the diagram in a form picked from a list — Mermaid (`.mmd`), with the model's positions as `%% layout:` comments; Graphviz DOT (`.dot`), with the positions as `pos` attributes and a `// layout:` header naming the engine that keeps them; PlantUML (`.puml`) in the Pilot visualizer's style; Markdown (`.md`) for a table; or the text form (`.txt`) — for the view the document's panel shows; with no panel or several, the document's one drawable view, its model tree when it declares none, or the view picked from a list when it declares several. The list is the one the server advertises (`openSysmlRenderForms`), the pick goes to the server as the request's `form`, and the save dialog opens on that form's extension and filter; a form the drawn kind has no grammar for is refused by the server, and the message names the form the kind uses. |
 
 ### Editing from the diagram
 
@@ -153,11 +176,12 @@ The command exists only when the server advertises
 | `opensysml.server.enabled` | `true` | Set to `false` for highlighting without a server. |
 | `opensysml.trace.server` | `"off"` | Trace LSP traffic in the "SysML v2" output channel. |
 | `opensysml.diagram.autoOpen` | `true` | Open a model file's diagram beside it when the file is shown. Set to `false` to open diagrams only with `SysML: Open Diagram`. |
+| `opensysml.diagram.style` | `"theme"` | The look every diagram is drawn in: `theme` for the VS Code colour theme, `pilot` for the pilot visualizer's black and white, `cameo` for Cameo Systems Modeler's look (and the server's `cameo` drawing style on DOT export), or one of the eight palettes for the pilot look filled by keyword family. The panel's **Style** list sets the same value. |
 
 ## Grammar generation
 
 `syntaxes/*.tmLanguage.json` are generated — do not edit them by hand. The
-keyword list comes from `internal/core/lexer.Keywords()`, and the contextual
+keyword list comes from `internal/syntax/source.Keywords()`, and the contextual
 words the parser reads as syntax without the lexer reserving them (`point`,
 `initial`, `var` in `.kerml`, …) from `lexer.ContextualWords()`, so highlighting
 cannot drift from either. Generation fails if a word is in both lists, and the

@@ -1,0 +1,20 @@
+materialize: Rig #1
+materialize: Sender #2
+start: performed action fire of #2
+materialize: Fire #3
+materialize: Box #4
+materialize: Receiver #5
+start: exhibited state machine life of #5
+materialize: life #6
+enter: idle
+run: performed action fire of #2
+step 1: token 1@go
+stmt send
+materialize: Go #7
+materialize: cmd #8
+step 2: token 1@done
+step 3: no active tokens
+run: exhibited state machine life of #5
+exit: idle
+enter: got
+transition: idle -> got (event: accept Go)

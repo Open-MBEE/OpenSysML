@@ -1,0 +1,4 @@
+{
+	"verdict": "no violation, exhaustive",
+	"agreed": {"finalState": "fin", "log": "\"waited C-done S1-done \""}
+}

@@ -10,9 +10,11 @@ import (
 
 	"github.com/chzyer/readline"
 
-	"github.com/Open-MBEE/OpenSysML/internal/core/export"
-	"github.com/Open-MBEE/OpenSysML/internal/core/view"
-	"github.com/Open-MBEE/OpenSysML/internal/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
 // runRender renders the view -render names of the model the files named on the
@@ -79,7 +81,10 @@ func runRenderAll(files []string) error {
 		return fmt.Errorf("create rendering directory %s: %w", renderAllDir, err)
 	}
 
-	destinations := map[string]string{}
+	filenames, err := renderFilenames(views, form)
+	if err != nil {
+		return err
+	}
 	for _, info := range views {
 		if !info.Supported {
 			reportRenderSkip(info.Name, info.Reason)
@@ -102,15 +107,7 @@ func runRenderAll(files []string) error {
 			}
 			return err
 		}
-		filename, err := renderFilename(info.Name, writtenForm)
-		if err != nil {
-			return err
-		}
-		path := filepath.Join(renderAllDir, filename)
-		if previous, exists := destinations[path]; exists {
-			return fmt.Errorf("views %s and %s have the same rendering path %s", previous, info.Name, path)
-		}
-		destinations[path] = info.Name
+		path := filepath.Join(renderAllDir, filenames[info.Name])
 		if err := writeArtifactFile(path, artifact, writtenForm); err != nil {
 			return err
 		}
@@ -118,8 +115,34 @@ func runRenderAll(files []string) error {
 	return nil
 }
 
+// renderFilenames is the file -render-all writes each view it writes to, by view name;
+// files meeting letter case aside are tagged until no two meet, or refused if two still do.
+func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string, error) {
+	forms := make(map[string]view.Form, len(views))
+	var names []string
+	for _, info := range views {
+		written := form
+		if written == "" {
+			written = info.Kind.MachineForm()
+		}
+		if info.Supported && info.Kind.SupportsForm(written) {
+			forms[info.Name] = written
+			names = append(names, info.Name)
+		}
+	}
+	filenames, err := filename.Plan(names, func(name string, tagged bool) string {
+		return renderFilename(name, forms[name], tagged)
+	})
+	var collision *filename.CollisionError
+	if errors.As(err, &collision) {
+		return nil, fmt.Errorf("views %s and %s have the same rendering path %s", collision.Names[0], collision.Names[1], collision.File)
+	}
+	return filenames, err
+}
+
 // renderOptions is what -render and -render-all write with: the text width,
-// and the palette -render-palette names, which must be one there is.
+// the palette -render-palette names, the placement -render-unplaced names and
+// the drawing style -render-style names, each of which must be one there is.
 func renderOptions(width int) (view.Options, error) {
 	options := view.Options{Width: width}
 	if renderPalette != "" {
@@ -129,7 +152,44 @@ func renderOptions(width int) (view.Options, error) {
 		}
 		options.Palette = palette
 	}
+	unplaced, err := unplacedOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Unplaced = unplaced
+	style, err := styleOption()
+	if err != nil {
+		return view.Options{}, err
+	}
+	options.Style = style
 	return options, nil
+}
+
+// styleOption is the drawing style -render-style names for a DOT drawing,
+// which must be one there is; none named is the default, the Pilot look.
+func styleOption() (view.DrawingStyle, error) {
+	if renderStyle == "" {
+		return "", nil
+	}
+	style, ok := view.ParseDrawingStyle(renderStyle)
+	if !ok {
+		return "", fmt.Errorf("-render-style: %w", &view.UnknownDrawingStyleError{Name: renderStyle})
+	}
+	return style, nil
+}
+
+// unplacedOption is the placement -render-unplaced names for the nodes a
+// positioned drawing leaves unplaced, which must be one there is; none
+// named is the default, leaving them undrawn.
+func unplacedOption() (view.Unplaced, error) {
+	if renderUnplaced == "" {
+		return "", nil
+	}
+	unplaced, ok := view.ParseUnplaced(renderUnplaced)
+	if !ok {
+		return "", fmt.Errorf("-render-unplaced: %w", &view.UnknownUnplacedError{Name: renderUnplaced})
+	}
+	return unplaced, nil
 }
 
 // loadRenderingModel loads and reports a model whose stdout is reserved for
@@ -162,16 +222,43 @@ func loadRenderingModel(files []string) (*repl.Session, error) {
 			fmt.Fprintf(os.Stderr, "%s: materialization is bounded; not every feature value was materialized\n", name)
 		}
 	}
+	// The runs -record-run names are made and written into the model before a
+	// document is rendered, so its queries see the records.
+	for _, invocation := range modelChecks.records {
+		verdict := modelChecks.record(sess, invocation)
+		writeLines(os.Stderr, verdict.Lines)
+		if verdict.Status != repl.VerdictHolds {
+			return nil, fmt.Errorf("%s: the run was not recorded; nothing was rendered", invocation)
+		}
+	}
 	return sess, nil
 }
 
-func renderFilename(name string, form view.Form) (string, error) {
-	filename := strings.ReplaceAll(name, "::", ".") + renderExtension(form)
-	if filepath.Base(filename) != filename || filename == "." || filename == ".." {
-		return "", fmt.Errorf("view %s does not form a safe rendering filename", name)
+// renderFilename is the file -render-all writes a view to: its qualified name with `::` as `.`, every
+// unsafe byte as `%XX` (the first too under a Windows device-name stem), cut to fit, `~` and a hash when tagged, the extension.
+func renderFilename(name string, form view.Form, tagged bool) string {
+	var b strings.Builder
+	for i := 0; i < len(name); i++ {
+		switch c := name[i]; {
+		case c == ':' && i+1 < len(name) && name[i+1] == ':':
+			b.WriteByte('.')
+			i++
+		case c < 0x20 || c == 0x7f || strings.IndexByte(unsafeFilenameBytes, c) >= 0:
+			fmt.Fprintf(&b, "%%%02X", c)
+		default:
+			b.WriteByte(c)
+		}
 	}
-	return filename, nil
+	encoded := b.String()
+	if filename.DeviceStem(encoded) {
+		encoded = fmt.Sprintf("%%%02X", encoded[0]) + encoded[1:]
+	}
+	return filename.Fit(encoded, renderExtension(form), '%', tagged)
 }
+
+// unsafeFilenameBytes are the printable bytes a rendering filename encodes: path separators,
+// the drive colon, the encoding's own `%`, the `.` standing for `::`, and what Windows reserves.
+const unsafeFilenameBytes = "/\\:%.<>\"|?*"
 
 func renderExtension(form view.Form) string {
 	switch form {

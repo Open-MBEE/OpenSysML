@@ -1,0 +1,43 @@
+exit: start
+enter: Working
+choice entering Working: next rstart(entry), fstart(entry) (unordered; took rstart(entry) first)
+enter: rstart
+enter: fstart
+transition: start -> Working
+exit: rstart
+enter: rWaiting
+    eval literal 1 -> 1
+    eval literal 80 -> 80
+    enter calc RandomFunctions::uniform
+      bind lo = 1 [argument]
+      bind hi = 80 [argument]
+draw uniform(1, 80) = 62.210613654361154
+    exit calc RandomFunctions::uniform -> 62.210613654361154
+  eval invoke uniform -> 62.210613654361154
+eval index -> 62.210613654361154 [s]
+transition: rstart -> rWaiting
+exit: fstart
+enter: fWaiting
+  eval literal 30 -> 30
+eval index -> 30 [s]
+transition: fstart -> fWaiting
+exit: fWaiting
+enter: fDone (entry action)
+stmt action body
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+transition: fWaiting -> fDone (event: time)
+exit: rWaiting
+enter: rDone (entry action)
+stmt action body
+  stmt assign log
+        eval feature log -> 1
+        eval literal 10 -> 10
+      eval operator * -> 10
+      eval literal 2 -> 2
+    eval operator + -> 12
+transition: rWaiting -> rDone (event: time)

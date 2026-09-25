@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <xmi:Documentation exporter="MagicDraw UML" exporterVersion="2024x"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_userLibrary" name="fUML_Library">
+      <packagedElement xmi:type="uml:Package" xmi:id="_userPrimitives" name="PrimitiveBehaviors">
+        <packagedElement xmi:type="uml:Package" xmi:id="_userLists" name="ListFunctions">
+          <packagedElement xmi:type="uml:FunctionBehavior" xmi:id="_userListSize" name="ListSize">
+            <ownedParameter xmi:type="uml:Parameter" xmi:id="_userListSizeList" name="list" direction="in" isOrdered="true" isUnique="false">
+              <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+              <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_userListSizeListL" value="0"/>
+              <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_userListSizeListU" value="*"/>
+            </ownedParameter>
+            <ownedParameter xmi:type="uml:Parameter" xmi:id="_userListSizeResult" name="result" direction="return">
+              <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            </ownedParameter>
+          </packagedElement>
+        </packagedElement>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_recorder" name="Recorder">
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tally" name="Tally">
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_size" name="size" behavior="_userListSize">
+          <argument xmi:type="uml:ValuePin" xmi:id="_sizeList" name="list" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_sizeListL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_sizeListU" value="*"/>
+            <value xmi:type="uml:LiteralString" xmi:id="_sizeListV" value="n=3"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_sizeOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          </result>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_get" name="get">
+          <behavior xmi:type="uml:FunctionBehavior" href="Helpers.mdzip#_jJIy7XOeEd2TgN94jve35g">
+            <xmi:Extension extender="MagicDraw UML 2024x">
+              <referenceExtension referentPath="fUML_Library::PrimitiveBehaviors::ListFunctions::ListGet" referentType="FunctionBehavior"/>
+            </xmi:Extension>
+          </behavior>
+          <argument xmi:type="uml:ValuePin" xmi:id="_getList" name="list" isOrdered="true" isUnique="false">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+            <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_getListL" value="0"/>
+            <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_getListU" value="*"/>
+            <value xmi:type="uml:LiteralString" xmi:id="_getListV" value="n=3"/>
+          </argument>
+          <argument xmi:type="uml:ValuePin" xmi:id="_getIndex" name="index">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+            <value xmi:type="uml:LiteralInteger" xmi:id="_getIndexV" value="1"/>
+          </argument>
+          <result xmi:type="uml:OutputPin" xmi:id="_getOut" name="result">
+            <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+          </result>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c1" source="_init" target="_size"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c2" source="_size" target="_get"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_c3" source="_get" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_recorder"/>
+</xmi:XMI>
