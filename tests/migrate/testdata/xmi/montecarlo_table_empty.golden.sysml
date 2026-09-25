@@ -9,11 +9,7 @@ analysis def 'Blank Analysis Monte Carlo' :> Simulation::MonteCarlo {
 }
 package Results {
     individual part def 'analysis of nothing' :> 'Blank Analysis' {
-        /* not migrated: Slot (_firstN) — the slot holds the simulation tool's MonteCarloAnalysis::N: the real 2.5 is not a value of Natural, which the statistic holds */
         attribute :>> t = 2.5;
-        analysis 'Monte Carlo' : 'Blank Analysis Monte Carlo' {
-            subject :>> analysed : 'analysis of nothing';
-        }
     }
     individual part def 'analysis of nothing else' :> 'Blank Analysis' {
         attribute :>> t = 1.25;

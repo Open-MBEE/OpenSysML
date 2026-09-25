@@ -133,17 +133,8 @@ func (m *migration) monteCarloRecording() []*monteCarloCase {
 		if cs == nil {
 			return
 		}
-		var stats []*sysmlv1.Element
-		count := map[string]int{}
 		for _, slot := range e.Owned("slot") {
-			if stat := monteCarloFeature(m.model.Ref(slot, "definingFeature")); stat != "" {
-				stats = append(stats, slot)
-				count[stat]++
-			}
-		}
-		for _, slot := range stats {
-			stat := monteCarloFeature(m.model.Ref(slot, "definingFeature"))
-			if _, _, _, _, ok := m.monteCarloSlotRecorded(cs, count[stat], e, slot, stat); ok {
+			if monteCarloFeature(m.model.Ref(slot, "definingFeature")) != "" {
 				m.mcRecorded = append(m.mcRecorded, cs)
 				return
 			}
@@ -505,9 +496,24 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 	var lines []string
 	for _, h := range stats {
 		subject := "the slot holds the simulation tool's " + monteCarloAnalysisBlock + "::" + h.stat
-		line, note, reason, member, ok := m.monteCarloSlotRecorded(cs, count[h.stat], e, h.slot, h.stat)
+		member, known := monteCarloMembers[h.stat]
+		switch {
+		case cs == nil:
+			m.unmapped(h.slot, subject+", a statistic of an analysis no classifier of the instance inherits")
+			continue
+		case !known:
+			m.unmapped(h.slot, subject+", a statistic "+monteCarloLibraryCase+" has no counterpart for")
+			continue
+		case cs.observed == nil && h.stat != monteCarloRuns:
+			m.unmapped(h.slot, subject+", but "+cs.note+", so the statistic is of nothing")
+			continue
+		case count[h.stat] > 1:
+			m.unmapped(h.slot, subject+", which "+strconv.Itoa(count[h.stat])+" slots of the instance hold, and a statistic is one number")
+			continue
+		}
+		line, note, ok := m.monteCarloSlotValue(e, h.slot, member)
 		if !ok {
-			m.unmapped(h.slot, subject+reason)
+			m.unmapped(h.slot, subject+": "+note)
 			continue
 		}
 		if line != "" {
@@ -526,28 +532,6 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 			m.w.lines(lines)
 		})
 	}
-}
-
-// monteCarloSlotRecorded is the line a statistic slot records in the
-// individual's analysis, with its verdict note; the reason says why it
-// records none.
-func (m *migration) monteCarloSlotRecorded(cs *monteCarloCase, count int, e, slot *sysmlv1.Element, stat string) (line, note, reason string, member monteCarloStatistic, ok bool) {
-	member, known := monteCarloMembers[stat]
-	switch {
-	case cs == nil:
-		return "", "", ", a statistic of an analysis no classifier of the instance inherits", member, false
-	case !known:
-		return "", "", ", a statistic " + monteCarloLibraryCase + " has no counterpart for", member, false
-	case cs.observed == nil && stat != monteCarloRuns:
-		return "", "", ", but " + cs.note + ", so the statistic is of nothing", member, false
-	case count > 1:
-		return "", "", ", which " + strconv.Itoa(count) + " slots of the instance hold, and a statistic is one number", member, false
-	}
-	line, note, ok = m.monteCarloSlotValue(e, slot, member)
-	if !ok {
-		return "", "", ": " + note, member, false
-	}
-	return line, note, "", member, true
 }
 
 // monteCarloSlotValue writes the value a statistic slot holds as the binding of the
