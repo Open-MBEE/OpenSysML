@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html"
+	"net/http"
 	"path"
 	"regexp"
 	"slices"
@@ -274,11 +275,15 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 	switch {
 	case isRemoteImage(src):
 		cp.location = src
-	case file != "":
+	case file != "" || p.Comment.AttachedStream != "":
 		if location, ok := m.imageFile(file, p.Comment); ok {
 			cp.location = location
 		} else {
-			m.fallbackImageParagraph(sec, cp, "the attached image "+strconv.Quote(file)+" is not in the archive")
+			named := "the attached image " + strconv.Quote(file)
+			if file == "" {
+				named = "the attached image"
+			}
+			m.fallbackImageParagraph(sec, cp, named+" is not in the archive")
 		}
 	case src != "":
 		if location, ok := m.imageFile(src, p.Comment); ok {
@@ -354,9 +359,9 @@ func isRemoteImage(src string) bool {
 	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://")
 }
 
-// imageFile locates the archive entry name names, by exact name, then base
-// name, then an entry path carrying the comment's element id, and registers
-// its bytes for writing beside the notation under images/.
+// imageFile locates the archive entry the comment's attachment names — its
+// stream, the tag's name, or an entry with that base name — and registers its
+// bytes for writing beside the notation under images/.
 func (m *migration) imageFile(name string, c *sysmlv1.Element) (string, bool) {
 	entry := m.findEntry(name, c)
 	if entry == "" {
@@ -366,15 +371,41 @@ func (m *migration) imageFile(name string, c *sysmlv1.Element) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return m.addFile(path.Base(strings.ReplaceAll(name, "\\", "/")), data), true
+	return m.addFile(imageFileName(name, entry, data), data), true
+}
+
+// imageFileName names the written image: the tag's file name when it states
+// one, else the stream id plus the extension the bytes' content type reads.
+func imageFileName(name, entry string, data []byte) string {
+	if base := path.Base(strings.ReplaceAll(name, "\\", "/")); base != "" && base != "." && base != "/" {
+		return base
+	}
+	ext := ""
+	switch http.DetectContentType(data) {
+	case "image/png":
+		ext = ".png"
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/gif":
+		ext = ".gif"
+	case "image/svg+xml":
+		ext = ".svg"
+	}
+	return path.Base(entry) + ext
 }
 
 // findEntry names the archive entry holding the attachment name names: the
-// exact entry, one whose base name equals it, or one whose path carries an id
-// of the attaching element.
+// comment's attached stream, the exact entry, or one whose base name equals
+// it.
 func (m *migration) findEntry(name string, c *sysmlv1.Element) string {
 	names := m.model.AttachmentNames()
-	if len(names) == 0 || name == "" {
+	if len(names) == 0 {
+		return ""
+	}
+	if c != nil && slices.Contains(names, c.AttachedStream) {
+		return c.AttachedStream
+	}
+	if name == "" {
 		return ""
 	}
 	if slices.Contains(names, name) {
@@ -386,31 +417,7 @@ func (m *migration) findEntry(name string, c *sysmlv1.Element) string {
 			return n
 		}
 	}
-	if c != nil {
-		for _, id := range append([]string{c.ID}, stereotypeIDs(c)...) {
-			if id == "" {
-				continue
-			}
-			for _, n := range names {
-				if strings.Contains(n, id) {
-					return n
-				}
-			}
-		}
-	}
 	return ""
-}
-
-// stereotypeIDs lists the ids of c's stereotype applications, so an
-// attachment stored under its application's id is found.
-func stereotypeIDs(c *sysmlv1.Element) []string {
-	ids := make([]string, 0, len(c.Stereotypes))
-	for _, s := range c.Stereotypes {
-		if s.ID != "" {
-			ids = append(ids, s.ID)
-		}
-	}
-	return ids
 }
 
 // unsafeFileChars are the bytes replaced in a written image file's name.

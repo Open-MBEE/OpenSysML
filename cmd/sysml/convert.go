@@ -185,6 +185,9 @@ func writeMigrationFiles(dir string, files map[string][]byte) error {
 	names := slices.Sorted(maps.Keys(files))
 	for _, name := range names {
 		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			return err
+		}
 		if _, err := export.WriteFile(path, files[name]); err != nil {
 			return err
 		}

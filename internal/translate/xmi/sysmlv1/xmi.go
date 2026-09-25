@@ -55,6 +55,9 @@ type Element struct {
 	Children []*Element
 	// Stereotypes are the stereotype applications whose base is this element.
 	Stereotypes []*Stereotype
+	// AttachedStream is the archive entry holding the element's attached file,
+	// "" when none.
+	AttachedStream string
 	// refs are child reference elements (xmi:idref or href) by role.
 	refs map[string][]string
 }
@@ -616,8 +619,32 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
 		adopted := m.adoptValues(raw, owner, ref)
 		m.extensionContent(raw, &ext, ref, adopted)
+		if owner != nil && owner.AttachedStream == "" {
+			owner.AttachedStream = attachedStream(raw)
+		}
 		m.Extensions = append(m.Extensions, ext)
 	}
+}
+
+// attachedStream is the streamContentID an ATTACHED_FILE extension carries:
+// the archive entry the element's attached file is stored under.
+func attachedStream(raw *xmi.Element) string {
+	mark := false
+	for _, d := range raw.Descendants() {
+		if strings.Contains(d.Tag, "ATTACHED_FILE") || d.Attr("source") == "ATTACHED_FILE" {
+			mark = true
+			break
+		}
+	}
+	if !mark {
+		return ""
+	}
+	for _, d := range raw.Descendants() {
+		if local(d.Tag) == "contents" && d.Attr("streamContentID") != "" {
+			return d.Attr("streamContentID")
+		}
+	}
+	return ""
 }
 
 // extensionContent records what an extension block holds, in document order:

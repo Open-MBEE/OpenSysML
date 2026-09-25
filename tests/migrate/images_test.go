@@ -18,6 +18,12 @@ func zipWith(t *testing.T, fixture string, extra map[string][]byte) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return zipData(t, data, extra)
+}
+
+// zipData zips the model bytes with the extra entries, as zipWith does for a file.
+func zipData(t *testing.T, data []byte, extra map[string][]byte) []byte {
+	t.Helper()
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	entries := map[string][]byte{
@@ -66,6 +72,44 @@ func TestImageParagraphsFromArchive(t *testing.T) {
 	if r.Report.Images != 2 {
 		t.Errorf("Report.Images = %d, want 2", r.Report.Images)
 	}
+}
+
+// TestImageParagraphFromStream migrates the layout Cameo writes for real: the
+// comment's ATTACHED_FILE extension names the archive entry by streamContentID
+// and the AttachedFile tag names the file, so the entry's bytes are written
+// under the tag's name.
+func TestImageParagraphFromStream(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const stream = "BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd"
+	jpeg := []byte("\xFF\xD8\xFF\xE0 Clipboard33")
+	doc := strings.Replace(string(data),
+		`<ownedComment xmi:type="uml:Comment" xmi:id="_note_image" body="Figure: the fleet at the depot"/>`,
+		`<ownedComment xmi:type="uml:Comment" xmi:id="_note_image" body="Figure: the fleet at the depot">
+			<xmi:Extension extender="MagicDraw UML 2022x">
+				<md_extensions.ATTACHED_FILE>
+					<MDFoundation:MDExtension source="ATTACHED_FILE">
+						<element href="#_note_image" xsi:type="uml:Comment"/>
+						<contents streamContentID="`+stream+`" xsi:type="binary:StreamIdentityBinaryObject"/>
+					</MDFoundation:MDExtension>
+				</md_extensions.ATTACHED_FILE>
+			</xmi:Extension>
+		</ownedComment>`, 1)
+	doc = strings.Replace(doc, `file="fleet.png"`, `file="Clipboard33.jpg"`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the image comment")
+	}
+	r, err := migrate.Migrate("documents.mdzip", zipData(t, []byte(doc), map[string][]byte{stream: jpeg}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "images/Clipboard33.jpg";`)
+	if !bytes.Equal(r.Files["images/Clipboard33.jpg"], jpeg) {
+		t.Errorf("Files = %v", keysOf(r.Files))
+	}
+	wantOneNote(t, r, "_st_note_blank_image", migrate.Unmapped, `the attached image "depot.png" is not in the archive`)
 }
 
 // TestImageParagraphMissingFromArchive reports what an image paragraph earns
