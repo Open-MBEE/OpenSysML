@@ -338,3 +338,16 @@ func TestToolFollowsTheEngineSelection(t *testing.T) {
 	wants(t, run(t, s, "%engine auto"), "engine: auto")
 	wants(t, run(t, s, "%tool Tools::Heating"), "the process was not started")
 }
+
+// A file reply's source renders like argv: {outputDir} spells its name in angle
+// brackets, not the raw manifest text.
+func TestToolPreviewsAFileReplysRenderedSource(t *testing.T) {
+	s := loadSource(t, toolCaseSource)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"],` +
+		`"invocation":{"args":["--out","{outputDir}"],"stdin":"none"},` +
+		`"reply":{"format":"csv","source":"file:{outputDir}/result.csv","outputs":{"tMax":{"column":"tmax","type":"number","unit":"K"}}}}`
+	toolManifest(t, s, entry)
+
+	wantsInOrder(t, run(t, s, "%tool Tools::Heating"),
+		`  "--out"`, `  "<outputDir>"`,
+		"reply: csv from file:<outputDir>/result.csv",

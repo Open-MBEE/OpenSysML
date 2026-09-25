@@ -36,6 +36,9 @@ type DryRun struct {
 	Outputs []runtime.ToolOutput
 	// Reply is the entry's `reply` block; nil is the object protocol.
 	Reply *Reply
+	// ReplySource is where the reply is read, rendered like argv: stdout, or
+	// file:<template> with {outputDir} spelled <outputDir>.
+	ReplySource string
 }
 
 // DryRunFile is the input file a dry run would write: its name, format and contents.
@@ -142,6 +145,7 @@ func (e ToolEntry) Preview(call *runtime.ToolCall, executable string) (DryRun, e
 	preview := DryRun{
 		Tool: e.ToolName, Version: e.Version, Manifest: e.File, Executable: executable,
 		Protocol: e.Protocol(), Inputs: call.Inputs, Outputs: outputs, Reply: e.Reply,
+		ReplySource: "stdout",
 	}
 	inv := e.Invocation
 	if inv == nil {
@@ -168,6 +172,13 @@ func (e ToolEntry) Preview(call *runtime.ToolCall, executable string) (DryRun, e
 	preview.Args, preview.Env = c.args, c.env
 	preview.Cwd = inv.Cwd
 	preview.Stdin, preview.StdinData = inv.Stdin.Format, c.stdin
+	if r := e.Reply; r != nil && r.compiled != nil && r.compiled.source != nil {
+		source, err := r.compiled.source.render(sc)
+		if err != nil {
+			return DryRun{}, err
+		}
+		preview.ReplySource = "file:" + source
+	}
 	return preview, nil
 }
 
@@ -265,7 +276,7 @@ func (d DryRun) replyLines() []string {
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
 		return []string{"reply: object — the protocol's JSON object, one key per output variable"}
 	}
-	source := r.Source
+	source := d.ReplySource
 	if source == "" {
 		source = "stdout"
 	}
