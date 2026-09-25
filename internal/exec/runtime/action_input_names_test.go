@@ -91,18 +91,18 @@ func TestActionInputsBindsAsAnInvocationDoes(t *testing.T) {
 	if got := ctx.ActionInputNames(mix); fmt.Sprint(got) != "[a b]" {
 		t.Fatalf("ActionInputNames = %v, want [a b]", got)
 	}
-	inputs, err := ctx.ActionInputs(root, mix, []Value{constInt(7)}, map[string]Value{"b": constInt(3)})
+	inputs, err := ctx.ActionInputs(root, mix, []Value{constInt(7)}, []NamedInput{{Name: "b", Value: constInt(3)}})
 	if err != nil {
 		t.Fatalf("ActionInputs: %v", err)
 	}
 	if inputs["a"].Const.Int != 7 || inputs["b"].Const.Int != 3 {
 		t.Fatalf("inputs = %+v, want a = 7 bound positionally, b = 3 by name", inputs)
 	}
-	_, err = ctx.ActionInputs(root, mix, []Value{constInt(7)}, map[string]Value{"a": constInt(3)})
+	_, err = ctx.ActionInputs(root, mix, []Value{constInt(7)}, []NamedInput{{Name: "a", Value: constInt(3)}})
 	if !errors.Is(err, ErrDuplicateArgument) {
 		t.Fatalf("positional and named a = %v, want ErrDuplicateArgument", err)
 	}
-	_, err = ctx.ActionInputs(root, mix, nil, map[string]Value{"c": constInt(1)})
+	_, err = ctx.ActionInputs(root, mix, nil, []NamedInput{{Name: "c", Value: constInt(1)}})
 	if !errors.Is(err, ErrUnknownParameter) {
 		t.Fatalf("named c = %v, want ErrUnknownParameter", err)
 	}

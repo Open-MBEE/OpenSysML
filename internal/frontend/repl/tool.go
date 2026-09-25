@@ -96,9 +96,13 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 		}
 		positional = append(positional, val)
 	}
-	named, err := s.evalArguments(ctx, parsed.named)
-	if err != nil {
-		return err
+	var named []runtime.NamedInput
+	for _, arg := range parsed.named {
+		value, err := ctx.EvalWithScope(arg.node, scope)
+		if err != nil {
+			return fmt.Errorf("argument %s: %w", arg.param, err)
+		}
+		named = append(named, runtime.NamedInput{Name: arg.param, Value: value})
 	}
 	inputs, err := ctx.ActionInputs(scope, sym, positional, named)
 	if err != nil {

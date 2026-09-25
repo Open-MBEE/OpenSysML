@@ -373,3 +373,26 @@ package Tools {
 
 	wants(t, run(t, s, "%tool Tools::Sub(load=30)"), "mass = 30", "the process was not started")
 }
+
+// %tool refuses a named argument given twice, as an invocation does.
+func TestToolRefusesARepeatedNamedArgument(t *testing.T) {
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	action def Base {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in x : Real { @ToolVariable { name = "mass"; } }
+		out tMax : Real { @ToolVariable { name = "tMax"; } }
+	}
+	action def Sub : Base { in attribute load :>> x; }
+}`)
+	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
+	toolManifest(t, s, entry)
+
+	out := run(t, s, "%tool Tools::Sub(load=10,load=20)")
+	wants(t, out, "more than one argument")
+	if strings.Contains(out, "the process was not started") {
+		t.Errorf("a refused argument still previewed:\n%s", out)
+	}
+}
