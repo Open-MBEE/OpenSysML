@@ -67,14 +67,19 @@ func TestEvaluateCrossDocumentRefs(t *testing.T) {
 func TestEvaluateSetEmitsCrossDocumentAnchors(t *testing.T) {
 	fixture := loadEvaluationFixture(t, crossDocumentFixture)
 	plans := []*docplan.Plan{fixture.plan(t, "Appendix"), fixture.plan(t, "Report")}
-	documents, err := EvaluateSet(plans, fixture.context(), queryexec.Options{}, nil)
+	outcomes, err := EvaluateSet(plans, fixture.context(), queryexec.Options{}, nil)
 	if err != nil {
 		t.Fatalf("evaluate set: %v", err)
 	}
-	if len(documents) != 2 {
-		t.Fatalf("documents = %d, want 2", len(documents))
+	if len(outcomes) != 2 {
+		t.Fatalf("documents = %d, want 2", len(outcomes))
 	}
-	appendix := documents[0]
+	for _, outcome := range outcomes {
+		if outcome.Err != nil {
+			t.Fatalf("evaluate %s: %v", outcome.Name, outcome.Err)
+		}
+	}
+	appendix := outcomes[0].Document
 	if appendix.Name() != "Observatory::Appendix" {
 		t.Fatalf("first document = %s", appendix.Name())
 	}

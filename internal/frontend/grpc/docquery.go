@@ -117,14 +117,22 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, held.documentStatus(err)
 	}
+	extension := ".md"
 	if form == renderFormHTML {
-		page, err := docrender.HTML(document, docrender.HTMLOptions{})
+		extension = ".html"
+	}
+	files, err := model.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
+	if err != nil {
+		return nil, documentStatus(err)
+	}
+	if form == renderFormHTML {
+		page, err := docrender.HTML(document, docrender.HTMLOptions{Files: files})
 		if err != nil {
 			return nil, documentStatus(err)
 		}
 		return &pb.RenderDocumentResponse{Html: page}, nil
 	}
-	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
+	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {
 		return nil, documentStatus(err)
 	}

@@ -560,10 +560,11 @@ func runCLI() int {
 		if status := resolveRunBounds(); status != 0 {
 			return status
 		}
-		if err := runRenderDocuments(args); err != nil {
+		status, err := runRenderDocuments(args)
+		if err != nil {
 			return fail(err)
 		}
-		return exitHolds
+		return status
 	}
 
 	if renderAllDir != "" {

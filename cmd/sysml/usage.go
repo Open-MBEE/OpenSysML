@@ -386,11 +386,13 @@ func doc() usage.Doc {
 					"fills their nodes by keyword family from a colourblind-safe palette " +
 					"(okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, " +
 					"viridis or cividis), keeping black text legible on every fill. " +
-					"A DOT drawing of a view whose members carry DiagramLayout positions " +
-					"pins each at its stated place and leaves a member with no position " +
-					"undrawn, so nothing lands on a positioned box; -render-unplaced strip " +
-					"draws those members instead, in rows in a strip below the drawing. " +
-					"The same setting shapes the DOT diagrams of -render-document and " +
+					"A view whose members carry DiagramLayout positions draws the placed " +
+					"members and the edges between them in every graph form, and leaves a " +
+					"member with no position undrawn: the DOT form pins each at its stated " +
+					"place, so nothing lands on a positioned box, while Mermaid and PlantUML " +
+					"lay the same members out themselves. -render-unplaced strip draws the " +
+					"unplaced members too, in rows in a strip below a DOT drawing. " +
+					"The same setting shapes the diagrams of -render-document and " +
 					"-render-documents.",
 			},
 		}, {
@@ -480,6 +482,10 @@ func doc() usage.Doc {
 				usage.Entry("2", "What was asked could not be carried out at all — an unreadable "+
 					"file, a model that did not analyse cleanly, an unresolved name, a "+
 					"failed conversion."),
+				usage.Entry("3", "Part of what was asked was carried out: a -render-documents set "+
+					"in which some document could not be rendered. The others were "+
+					"written, a page stating the error stands in for each that was not, "+
+					"and each failure is reported with the document's qualified name."),
 			},
 		}, {
 			Title: "Output streams",
@@ -594,10 +600,10 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&renderAllDir, "render-all", "", "Render every declared view into this directory")
 	fs.StringVar(&renderForm, "render-form", "", "Form -render or -render-all writes: text, mermaid, markdown, dot or plantuml; default from the destination for -render, each kind's machine form for -render-all")
 	fs.StringVar(&renderPalette, "render-palette", "", "Palette the dot or plantuml form fills nodes from, by keyword family: okabe-ito, tol-bright, tol-muted, tol-light, brewer-set2, brewer-dark2, viridis or cividis; default black and white")
-	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where the dot form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn, strip draws them in rows below the drawing; applies to -render, -render-all and document diagrams")
+	fs.StringVar(&renderUnplaced, "render-unplaced", "", "Where a graph form of a view some Layout positions puts the nodes none does: omit (default) leaves them undrawn in every form, strip draws them, in rows below the dot drawing; applies to -render, -render-all and document diagrams")
 
 	fs.StringVar(&renderDoc, "render-document", "", "Compile this document definition, run its queries and write the rendered document")
-	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory")
+	fs.StringVar(&renderDocsDir, "render-documents", "", "Render every document definition, linked to one another, into this directory; a document that cannot be rendered gets a page stating why and the run exits 3")
 	fs.StringVar(&docForm, "doc-form", "", "Form the documents are written in: markdown (default), html or pdf, which drives an external converter")
 	fs.StringVar(&diagramForm, "diagram-form", "", "Form the documents' graph-shaped diagrams are written in: mermaid (default), dot or plantuml; a table-kind view is a table either way")
 	fs.BoolVar(&pdfTitlePage, "doc-title-page", false, "Put the document title on a page of its own (html or pdf)")

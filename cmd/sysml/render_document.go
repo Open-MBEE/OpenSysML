@@ -86,20 +86,44 @@ func pdfOptions() (docpdf.Options, error) {
 	}, nil
 }
 
-// runRenderDocuments renders every document definition of the model named on
-// the command line as linked files in the directory -render-documents names,
-// so cross-document references resolve on disk.
-func runRenderDocuments(files []string) error {
+// runRenderDocuments renders every document of the model named on the command
+// line into -render-documents as a linked set, writing the pages of the
+// documents that render and, for each that does not, a page stating why; it
+// returns the status of the run and, when nothing was written, what stopped it.
+func runRenderDocuments(files []string) (int, error) {
+	documents, form, err := renderDocumentSet(files)
+	if err != nil {
+		return exitUnevaluable, err
+	}
+	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
+		return exitUnevaluable, fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
+	}
+	if err := commitDocumentSet(documents, form); err != nil {
+		return exitUnevaluable, err
+	}
+	status := exitHolds
+	for _, document := range documents {
+		if document.Err != nil {
+			fmt.Fprintf(os.Stderr, "%sdocument %s could not be rendered: %v\n", commandPrefix, source.QualifiedNameText(document.Name), document.Err)
+			status = exitPartial
+		}
+	}
+	return status, nil
+}
+
+// renderDocumentSet renders the model's documents in the form -doc-form names,
+// the stylesheets of an HTML set among them, without writing anything.
+func renderDocumentSet(files []string) ([]repl.RenderedDocument, string, error) {
 	form, err := documentSetForm()
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	if len(files) == 0 {
-		return errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
+		return nil, "", errors.New("no model to render; name the files the documents are declared in, as `sysml model.sysml -render-documents rendered`")
 	}
 	sess, err := loadRenderingModel(files)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	// A set links its stylesheets as files beside the pages, so a reader
 	// downloads each once and edits it in one place.
@@ -108,7 +132,7 @@ func runRenderDocuments(files []string) error {
 	if form == docFormHTML {
 		links, assets, err := setStylesheets()
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 		sheets = assets
 		opts := documentOptions()
@@ -117,22 +141,18 @@ func runRenderDocuments(files []string) error {
 		opts.NoDefaultStylesheet = true
 		documents, err = sess.RenderDocumentSetHTML(opts)
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	} else {
 		documents, err = sess.RenderDocumentSetMarkdown(markdownOptions())
 		if err != nil {
-			return err
+			return nil, "", err
 		}
 	}
 	if len(documents) == 0 {
-		return errors.New("the model declares no documents; nothing was rendered")
+		return nil, "", errors.New("the model declares no documents; nothing was rendered")
 	}
-	documents = append(documents, sheets...)
-	if err := os.MkdirAll(renderDocsDir, 0o750); err != nil {
-		return fmt.Errorf("create rendering directory %s: %w", renderDocsDir, err)
-	}
-	return commitDocumentSet(documents, form)
+	return append(documents, sheets...), form, nil
 }
 
 // documentOptions carries the flags shaping the document itself, leaving its
@@ -468,8 +488,11 @@ func commitDocumentSet(documents []repl.RenderedDocument, form string) error {
 		}
 		path := filepath.Join(renderDocsDir, document.FileName)
 		what := ""
+		if document.Err != nil {
+			what = ", a page stating why the document could not be rendered"
+		}
 		if replaced[i] {
-			what = ", replaced the existing file"
+			what += ", replaced the existing file"
 		}
 		fmt.Fprintf(os.Stderr, "wrote %s (%s, %d bytes%s)\n", path, setForm(document, form), len(documentBytes(document)), what)
 	}

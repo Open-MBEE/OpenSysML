@@ -1,22 +1,19 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/chzyer/readline"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/filename"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -121,71 +118,26 @@ func runRenderAll(files []string) error {
 // renderFilenames is the file -render-all writes each view it writes to, by view name;
 // files meeting letter case aside are tagged until no two meet, or refused if two still do.
 func renderFilenames(views []model.ViewInfo, form view.Form) (map[string]string, error) {
-	type plan struct {
-		name   string
-		form   view.Form
-		tagged bool
-	}
-	var plans []*plan
+	forms := make(map[string]view.Form, len(views))
+	var names []string
 	for _, info := range views {
 		written := form
 		if written == "" {
 			written = info.Kind.MachineForm()
 		}
 		if info.Supported && info.Kind.SupportsForm(written) {
-			plans = append(plans, &plan{name: info.Name, form: written})
+			forms[info.Name] = written
+			names = append(names, info.Name)
 		}
 	}
-	for {
-		meeting := map[string][]*plan{}
-		var keys []string
-		for _, p := range plans {
-			key := caseFolded(renderFilename(p.name, p.form, p.tagged))
-			if _, seen := meeting[key]; !seen {
-				keys = append(keys, key)
-			}
-			meeting[key] = append(meeting[key], p)
-		}
-		progressed := false
-		for _, key := range keys {
-			group := meeting[key]
-			if len(group) < 2 {
-				continue
-			}
-			settled := true
-			for _, p := range group {
-				if !p.tagged {
-					p.tagged, settled, progressed = true, false, true
-				}
-			}
-			if settled {
-				return nil, fmt.Errorf("views %s and %s have the same rendering path %s",
-					group[0].name, group[1].name, renderFilename(group[0].name, group[0].form, true))
-			}
-		}
-		if !progressed {
-			break
-		}
+	filenames, err := filename.Plan(names, func(name string, tagged bool) string {
+		return renderFilename(name, forms[name], tagged)
+	})
+	var collision *filename.CollisionError
+	if errors.As(err, &collision) {
+		return nil, fmt.Errorf("views %s and %s have the same rendering path %s", collision.Names[0], collision.Names[1], collision.File)
 	}
-	filenames := make(map[string]string, len(plans))
-	for _, p := range plans {
-		filenames[p.name] = renderFilename(p.name, p.form, p.tagged)
-	}
-	return filenames, nil
-}
-
-// caseFolded is text under simple Unicode case folding: two texts fold alike
-// exactly when strings.EqualFold holds of them.
-func caseFolded(text string) string {
-	var b strings.Builder
-	for _, r := range text {
-		least := r
-		for f := unicode.SimpleFold(r); f != r; f = unicode.SimpleFold(f) {
-			least = min(least, f)
-		}
-		b.WriteRune(least)
-	}
-	return b.String()
+	return filenames, err
 }
 
 // renderOptions is what -render and -render-all write with: the text width,
@@ -209,7 +161,7 @@ func renderOptions(width int) (view.Options, error) {
 }
 
 // unplacedOption is the placement -render-unplaced names for the nodes a
-// positioned DOT drawing leaves unplaced, which must be one there is; none
+// positioned drawing leaves unplaced, which must be one there is; none
 // named is the default, leaving them undrawn.
 func unplacedOption() (view.Unplaced, error) {
 	if renderUnplaced == "" {
@@ -279,53 +231,16 @@ func renderFilename(name string, form view.Form, tagged bool) string {
 			b.WriteByte(c)
 		}
 	}
-	filename := b.String()
-	if stem, _, _ := strings.Cut(filename, "."); windowsDeviceNames[strings.ToUpper(strings.TrimRight(stem, " "))] {
-		filename = fmt.Sprintf("%%%02X", filename[0]) + filename[1:]
+	encoded := b.String()
+	if filename.DeviceStem(encoded) {
+		encoded = fmt.Sprintf("%%%02X", encoded[0]) + encoded[1:]
 	}
-	ext := renderExtension(form)
-	if tagged || len(filename)+len(ext) > maxFilenameBytes {
-		sum := sha256.Sum256([]byte(filename))
-		tag := "~" + hex.EncodeToString(sum[:filenameTagBytes])
-		filename = cutFilename(filename, maxFilenameBytes-len(ext)-len(tag)) + tag
-	}
-	return filename + ext
-}
-
-// maxFilenameBytes is the longest name every common filesystem takes for one path component;
-// filenameTagBytes of the encoded name's hash keep a cut name apart from its neighbours.
-const (
-	maxFilenameBytes = 255
-	filenameTagBytes = 8
-)
-
-// cutFilename is the longest prefix of an encoded filename within n bytes that
-// splits neither a UTF-8 sequence nor a `%XX` escape.
-func cutFilename(filename string, n int) string {
-	n = min(n, len(filename))
-	for n > 0 && n < len(filename) && !utf8.RuneStart(filename[n]) {
-		n--
-	}
-	if i := strings.LastIndexByte(filename[:n], '%'); i >= 0 && i > n-3 {
-		n = i
-	}
-	return filename[:n]
+	return filename.Fit(encoded, renderExtension(form), '%', tagged)
 }
 
 // unsafeFilenameBytes are the printable bytes a rendering filename encodes: path separators,
 // the drive colon, the encoding's own `%`, the `.` standing for `::`, and what Windows reserves.
 const unsafeFilenameBytes = "/\\:%.<>\"|?*"
-
-// windowsDeviceNames are the stems Windows reads as devices whatever the extension,
-// trailing spaces and letter case aside: the serial and printer ports include the
-// superscript digits Windows counts among them.
-var windowsDeviceNames = map[string]bool{
-	"CON": true, "PRN": true, "AUX": true, "NUL": true,
-	"COM0": true, "COM1": true, "COM2": true, "COM3": true, "COM4": true, "COM5": true, "COM6": true, "COM7": true, "COM8": true, "COM9": true,
-	"COM¹": true, "COM²": true, "COM³": true,
-	"LPT0": true, "LPT1": true, "LPT2": true, "LPT3": true, "LPT4": true, "LPT5": true, "LPT6": true, "LPT7": true, "LPT8": true, "LPT9": true,
-	"LPT¹": true, "LPT²": true, "LPT³": true,
-}
 
 func renderExtension(form view.Form) string {
 	switch form {

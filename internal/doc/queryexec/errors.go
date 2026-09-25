@@ -206,11 +206,12 @@ func (e *Error) columnMessage() (string, bool) {
 		), true
 	case ErrorColumnCardinality:
 		return fmt.Sprintf(
-			"query %s column %s produced %s values, expected one for %s",
+			"query %s column %s produced %s values for %s, outside its declared multiplicity %s",
 			e.Query,
 			e.Property,
 			e.Actual,
 			e.Target,
+			e.Expected,
 		), true
 	case ErrorColumnDivisionByZero:
 		return fmt.Sprintf("query %s column %s divides by zero for %s", e.Query, e.Property, e.Target), true

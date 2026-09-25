@@ -48,12 +48,26 @@ $ sysml reports.sysml -render-documents rendered
 
 File names are deterministic: the document's fully qualified name with `::`
 replaced by `-`, any byte outside ASCII letters, digits and `_` escaped as
-`.XX` (uppercase hex), plus `.md`. Cross-document references (see
-[the authoring chapter](authoring.md)) therefore resolve as relative links
-between the written files, and repeated runs write identical bytes. Rendering
-a cross-referencing document on its own still succeeds; its external links
-point at the targets' expected file names and dangle until those documents
-are rendered into the same directory.
+`.XX` (uppercase hex), plus `.md`, so documents sharing a short name in
+different packages get distinct files. Two names whose files would meet on a
+case-insensitive file system, a stem that would name a Windows device, and a
+name too long for a file system are written under a tagged name carrying a
+`~` and a hash of the whole name, as `-render-all` writes its views.
+Cross-document references (see [the authoring chapter](authoring.md))
+therefore resolve as relative links between the written files, tagged names
+included, and repeated runs write identical bytes. Rendering a
+cross-referencing document on its own still succeeds; its external links
+point at the file names the set gives the targets and dangle until those
+documents are rendered into the same directory.
+
+Each document in the set is compiled and evaluated on its own. One that
+cannot be rendered — a query column with no value for a row, a diagram past
+its form's limit — does not stop the others: they are written, a page carrying
+the document's title, **This document could not be rendered.** and the error
+is written in its place so links to it resolve — a link into one of its blocks
+lands on a line naming that block, under the anchor the link expects — each
+failure is reported on stderr as `document <qualified name> could not be
+rendered: <reason>`, and the run exits with status 3 rather than 0.
 
 ## HTML
 

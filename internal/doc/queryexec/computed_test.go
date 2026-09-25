@@ -3,6 +3,7 @@ package queryexec
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -271,9 +272,10 @@ calc def Levels :> Query {
 	}
 }
 
-func TestExecuteComputedMultiValuedParameterIsTyped(t *testing.T) {
+// A column reading a multi-valued parameter holds every bound value, in order.
+func TestExecuteComputedMultiValuedParameterFillsCell(t *testing.T) {
 	fixture := computedFixture(t, `
-calc def Bad :> Query {
+calc def Factors :> Query {
 	in root : Element;
 	in factors : Real[0..*];
 	Project(
@@ -281,20 +283,39 @@ calc def Bad :> Query {
 		columns = (Column(name = "f", expression = factors))
 	)
 }`)
-	_, err := fixture.execute(t, "Bad", Bindings{
+	result, err := fixture.execute(t, "Factors", Bindings{
 		"root":    {ElementValue(fixture.symbol(t, "system"))},
 		"factors": {RealValue(1.0), RealValue(2.0)},
 	}, Options{})
-	var executionError *Error
-	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
-		t.Fatalf("error = %v", err)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
 	}
-	if executionError.Property != "f" || executionError.Actual != "2" {
-		t.Fatalf("error provenance = %+v", executionError)
+	if got := cellReals(t, result, "f"); !slices.EqualFunc(got, [][]float64{{1, 2}, {1, 2}}, slices.Equal) {
+		t.Fatalf("f cells = %v, want both factors in order per row", got)
 	}
-	if !executionError.Origin.Located() {
-		t.Fatal("cardinality errors must retain source provenance")
+}
+
+// cellReals reads every real value of the named column, one slice per row; a
+// row's slice is nil where the cell is empty.
+func cellReals(t *testing.T, result *RowSet, column string) [][]float64 {
+	t.Helper()
+	position := slices.IndexFunc(result.Columns(), func(c Column) bool { return c.Name() == column })
+	if position < 0 {
+		t.Fatalf("no column %s in %v", column, result.Columns())
 	}
+	var out [][]float64
+	for _, row := range result.Rows() {
+		var reals []float64
+		for _, value := range row.Cells()[position].Values() {
+			real, ok := value.Real()
+			if !ok {
+				t.Fatalf("%s cell = %+v, want reals", column, row.Cells()[position].Values())
+			}
+			reals = append(reals, real)
+		}
+		out = append(out, reals)
+	}
+	return out
 }
 
 func TestExecuteComputedMetaclassFeatureReadsDeclaration(t *testing.T) {
@@ -426,7 +447,9 @@ calc def Variations :> Query {
 	}
 }
 
-func TestExecuteComputedMultiValuedFeatureIsTyped(t *testing.T) {
+// A column reading a `[0..*]` feature holds the row's values in declaration
+// order, and is empty for a row that binds none.
+func TestExecuteComputedMultiValuedFeatureFillsCell(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 part def Box {
 	attribute sizes : Real[0..*];
@@ -435,12 +458,44 @@ part shed {
 	part b : Box {
 		attribute redefines sizes = (1.0, 2.0);
 	}
+	part c : Box;
+}
+calc def Sizes :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "s", expression = Box::sizes))
+	)
+}`)
+	result, err := fixture.execute(t, "Sizes", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "shed"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := cellReals(t, result, "s"); !slices.EqualFunc(got, [][]float64{{1, 2}, nil}, slices.Equal) {
+		t.Fatalf("s cells = %v, want both sizes for b and an empty cell for c", got)
+	}
+}
+
+// A feature declared without a multiplicity holds exactly one value, so a row
+// binding two fails the column with the declared bound in the error.
+func TestExecuteComputedScalarFeatureRejectsSeveralValues(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Box {
+	attribute size : Real;
+}
+part shed {
+	part b : Box {
+		attribute redefines size = (1.0, 2.0);
+	}
 }
 calc def Bad :> Query {
 	in root : Element;
 	Project(
 		source = Descendants(source = root, maxDepth = 1),
-		columns = (Column(name = "s", expression = Box::sizes))
+		columns = (Column(name = "s", expression = Box::size))
 	)
 }`)
 	_, err := fixture.execute(t, "Bad", Bindings{
@@ -450,11 +505,76 @@ calc def Bad :> Query {
 	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
 		t.Fatalf("error = %v", err)
 	}
-	if executionError.Property != "s" || executionError.Actual != "2" {
+	if executionError.Property != "s" || executionError.Actual != "2" || executionError.Expected != "[1..1]" {
 		t.Fatalf("error provenance = %+v", executionError)
 	}
 	if !executionError.Origin.Located() {
 		t.Fatal("cardinality errors must retain source provenance")
+	}
+	if !strings.Contains(err.Error(), "produced 2 values") || !strings.Contains(err.Error(), "[1..1]") {
+		t.Fatalf("error text = %q, want the count and the declared multiplicity", err)
+	}
+}
+
+// A `null` literal declares an empty cell: on its own, and as the `??`
+// default of a `[1]` feature a row leaves unbound.
+func TestExecuteComputedNullLiteralIsEmptyCell(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Box {
+	attribute size : Real[1];
+}
+part shed {
+	part b : Box;
+}
+calc def Blank :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "none", expression = null), Column(name = "s", expression = Box::size ?? null))
+	)
+}`)
+	result, err := fixture.execute(t, "Blank", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "shed"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	rows := result.Rows()
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want one", len(rows))
+	}
+	for i, cell := range rows[0].Cells() {
+		if len(cell.Values()) != 0 {
+			t.Fatalf("cell %d = %+v, want an empty cell", i, cell.Values())
+		}
+	}
+}
+
+// A `[1]` feature a row leaves unbound is absent, not an empty cell.
+func TestExecuteComputedRequiredFeatureRejectsNoValue(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def Box {
+	attribute size : Real[1];
+}
+part shed {
+	part b : Box;
+}
+calc def Bad :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		columns = (Column(name = "s", expression = Box::size))
+	)
+}`)
+	_, err := fixture.execute(t, "Bad", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "shed"))},
+	}, Options{})
+	var executionError *Error
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnAbsent {
+		t.Fatalf("error = %v, want %v", err, ErrorColumnAbsent)
+	}
+	if executionError.Property != "s" {
+		t.Fatalf("error provenance = %+v", executionError)
 	}
 }
 

@@ -251,17 +251,19 @@ func (c *compiler) compileColumnReference(
 	for _, param := range c.model.BehaviorParametersOf(query) {
 		if !param.IsResult && c.parameterIncludes(param.Symbol, target) {
 			return Expression{
-				operation: OperationParameter,
-				target:    param.Symbol.Name,
-				origin:    symbols.NodeOrigin(owner.DocName, expression),
+				operation:    OperationParameter,
+				target:       param.Symbol.Name,
+				multiplicity: c.parameterMultiplicity(param.Symbol),
+				origin:       symbols.NodeOrigin(owner.DocName, expression),
 			}, c.staticPrimType(param.Symbol), nil
 		}
 	}
 	return Expression{
-		operation: OperationRowProperty,
-		target:    target.Name,
-		value:     declaringTypeFQN(target),
-		origin:    symbols.NodeOrigin(owner.DocName, expression),
+		operation:    OperationRowProperty,
+		target:       target.Name,
+		value:        declaringTypeFQN(target),
+		multiplicity: c.featureMultiplicity(target),
+		origin:       symbols.NodeOrigin(owner.DocName, expression),
 	}, c.staticPrimType(target), nil
 }
 

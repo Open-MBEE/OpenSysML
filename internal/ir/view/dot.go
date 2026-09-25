@@ -60,7 +60,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 	direction := options.Direction
 	w := newDOTWriter(r, options)
 	edges := r.Edges
-	if w.placed > 0 && w.placed < w.nodes {
+	if w.placement.partial() {
 		edges = w.settleUnplaced(r.Roots, r.Edges, options.Unplaced)
 	}
 	for _, edge := range edges {
@@ -125,13 +125,13 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 // it, the clusters and the palette's families collected.
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
-		boxes: map[string]nodeBox{}, omitted: map[string]bool{}, fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots)}
+		placement: placeRendering(r), boxes: map[string]nodeBox{}, omitted: map[string]bool{},
+		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, labels: labelsOf(r.Roots)}
 	w.placeNodes(r.Roots, r.Edges)
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
 		}
-		w.countPlaced(root)
 		w.fills.collect(root)
 	}
 	return w
@@ -141,32 +141,22 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 // asked: boxed in a strip below the drawing, or left undrawn with the edges
 // at them; either is noticed. The edges left to write are returned.
 func (w *dotWriter) settleUnplaced(roots []*Node, edges []Edge, unplaced Unplaced) []Edge {
-	count := w.nodes - w.placed
+	count := w.placement.unplaced()
 	if unplaced == UnplacedStrip {
 		w.stripUnplaced(roots, edges)
-		w.placed = w.nodes
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the drawing", count))
 		return edges
 	}
 	w.omitUnplaced(roots)
-	kept := make([]Edge, 0, len(edges))
-	for _, edge := range edges {
-		if !w.omitted[edge.From] && !w.omitted[edge.To] {
-			kept = append(kept, edge)
-		}
-	}
-	notice := fmt.Sprintf("%d node(s) without a position, left undrawn", count)
-	if dropped := len(edges) - len(kept); dropped > 0 {
-		notice += fmt.Sprintf(", and %d edge(s) at them", dropped)
-	}
-	w.notices = append(w.notices, notice)
+	kept, dropped := w.placement.keptEdges(edges)
+	w.notices = append(w.notices, w.placement.omitNotice(dropped))
 	return kept
 }
 
-// omitUnplaced marks every node under nodes that has no box as undrawn.
+// omitUnplaced marks every node under nodes that has no place as undrawn.
 func (w *dotWriter) omitUnplaced(nodes []*Node) {
 	for _, node := range nodes {
-		if _, ok := w.boxes[node.ID]; !ok {
+		if !w.placement.placed[node.ID] {
 			w.omitted[node.ID] = true
 		}
 		w.omitUnplaced(node.Children)
@@ -276,15 +266,14 @@ type dotWriter struct {
 	enclosing map[string][]string // node ID -> the cluster IDs around it
 	compound  bool                // an edge is clipped at a cluster
 	canvas    *Canvas             // the surface positions are flipped against
+	placement *placement          // which nodes have a place, shared with every form
 	boxes     map[string]nodeBox  // node ID -> the box it is drawn in, for every node that has one
 	stated    map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
 	omitted   map[string]bool     // node IDs left undrawn for want of a box
-	nodes     int                 // nodes in the rendering, and how many have a box
-	placed    int
-	routed    int         // edges with a route to write
-	notices   []string    // geometry the form cannot draw
-	fills     familyFills // the palette fills, by keyword family
-	labels    labeller    // the node labels, headed relative to the roots' namespace
+	routed    int                 // edges with a route to write
+	notices   []string            // geometry the form cannot draw
+	fills     familyFills         // the palette fills, by keyword family
+	labels    labeller            // the node labels, headed relative to the roots' namespace
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -307,17 +296,6 @@ var (
 // dotColorAttr and dotFontAttr are the quoted `color` and `fontname` attributes.
 func dotColorAttr(color string) string { return "color=" + dotQuote(color) }
 func dotFontAttr(name string) string   { return "fontname=" + dotQuote(name) }
-
-// countPlaced counts the nodes under node and those with a box to pin them in.
-func (w *dotWriter) countPlaced(node *Node) {
-	w.nodes++
-	if _, ok := w.boxes[node.ID]; ok {
-		w.placed++
-	}
-	for _, child := range node.Children {
-		w.countPlaced(child)
-	}
-}
 
 // nodeBox is where a node is drawn, top-left to bottom-right in pixels; stated
 // when the Layout gives its size and not only its corner.
@@ -358,11 +336,14 @@ func (w *dotWriter) placeNodes(roots []*Node, edges []Edge) {
 	}
 }
 
-// placeNode records the box of node and of the nodes under it, members first
-// so a cluster can be boxed round them.
+// placeNode records the box of every placed node under and including node,
+// members first so a cluster can be boxed round them.
 func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd) {
 	for _, child := range node.Children {
 		w.placeNode(child, ends)
+	}
+	if !w.placement.placed[node.ID] {
+		return
 	}
 	cluster := len(node.Children) > 0 && !w.tree
 	switch {
@@ -372,7 +353,7 @@ func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd) {
 		w.boxes[node.ID] = w.statedBox(node)
 	case cluster && w.membersBox(node) != nil:
 		w.boxes[node.ID] = *w.membersBox(node)
-	case len(ends[node.ID]) > 0:
+	default:
 		w.boxes[node.ID] = w.routedBox(node, ends[node.ID])
 	}
 }
@@ -427,7 +408,7 @@ func dotReach(node *Node, width, height, ux, uy float64) float64 {
 // Every node drawn in a positioned drawing is pinned, so plain `neato` is never named.
 func (w *dotWriter) engine() string {
 	switch {
-	case w.placed == 0:
+	case w.placement.count == 0:
 		return "dot"
 	case w.routed > 0:
 		return "neato -n2"
@@ -469,7 +450,7 @@ func (w *dotWriter) graphAttributes(direction Direction) []string {
 	if w.compound {
 		attrs = append(attrs, "compound=true")
 	}
-	if w.placed > 0 {
+	if w.placement.count > 0 {
 		attrs = append(attrs, "inputscale=72", "dpi=72")
 	}
 	return attrs
@@ -482,7 +463,7 @@ var dotCanvasCorners = [2]string{"canvas:0", "canvas:1"}
 // canvas, so the drawing's `bb` is the canvas; it needs an engine that keeps pins.
 func (w *dotWriter) writeCanvas() {
 	c := w.canvas
-	if c == nil || !c.HasSize || w.placed == 0 {
+	if c == nil || !c.HasSize || w.placement.count == 0 {
 		return
 	}
 	for i, corner := range [2]Point{{}, {X: c.Width, Y: c.Height}} {
@@ -1005,7 +986,7 @@ func (w *dotWriter) membersBox(node *Node) *nodeBox {
 	var box *nodeBox
 	for _, child := range node.Children {
 		member, ok := w.boxes[child.ID]
-		if !ok || member.low == member.high {
+		if !ok || !w.placement.extent[child.ID] {
 			continue
 		}
 		grown := nodeBox{low: Point{X: member.low.X - dotClusterMargin, Y: member.low.Y - dotClusterMargin},

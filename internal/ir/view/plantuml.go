@@ -19,8 +19,10 @@ func (r *Rendering) PlantUML() (string, error) {
 // direction (PlantUML draws top to bottom or left to right, so a reversed
 // direction takes its nearest and is noted as not represented; the empty
 // direction leaves PlantUML's default) and filled from the stated palette by
-// keyword family, as the DOT form is. Placement is written as comments,
-// PlantUML having no absolute positions; for pinned positions use the DOT form.
+// keyword family, as the DOT form is. A rendering some Layout positions draws
+// the nodes the DOT form draws: the placed ones, and the unplaced ones too under
+// UnplacedStrip. Placement itself is written as comments, PlantUML having no
+// absolute positions; for pinned positions use the DOT form.
 func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if !r.Kind.SupportsForm(FormPlantUML) {
 		return "", &WrongFormError{Form: FormPlantUML, Kind: r.Kind, View: r.View}
@@ -28,6 +30,10 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Palette.check(); err != nil {
 		return "", err
 	}
+	if err := options.Unplaced.check(); err != nil {
+		return "", err
+	}
+	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
 		labels: labelsOf(r.Roots)}
 	for _, root := range r.Roots {

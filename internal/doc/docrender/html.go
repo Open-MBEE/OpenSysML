@@ -171,9 +171,14 @@ type HTMLOptions struct {
 	// Mermaid when empty; a table-kind view is a table whichever it is.
 	DiagramForm view.Form
 
-	// Unplaced is where a DOT diagram some Layout positions puts the nodes
-	// none does: left undrawn when empty, or in a strip below the drawing.
+	// Unplaced is where a diagram some Layout positions puts the nodes none
+	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+
+	// Files is the file each document of the set this one is rendered in is
+	// written to, by qualified name; a cross-document reference links to the
+	// target's file here, or to DocumentHTMLFileName of its name when absent.
+	Files map[string]string
 
 	// DiagramImages are images drawn ahead of the render, one per graph-shaped
 	// diagram in the order Diagrams lists them, each written as <img> in place
@@ -774,31 +779,17 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		// A scheme a document must not navigate to is kept as data, not as a link.
 		return "<a class=\"sysml-link\"" + attr("data-href", run.Target()) + ">" + htmlText(run.Text()) + "</a>"
 	case docir.RunRef:
-		return "<a class=\"sysml-ref\"" + attr("href", htmlRefDestination(run)) +
+		return "<a class=\"sysml-ref\"" + attr("href", refDestination(run, w.opts.Files, DocumentHTMLFileName)) +
 			attr("data-document", run.TargetDocument()) + ">" + htmlText(run.Text()) + "</a>"
 	default:
 		return htmlText(run.Text())
 	}
 }
 
-// htmlRefDestination maps a reference run to its destination: an in-document
-// anchor, or a relative link into another document's HTML file.
-func htmlRefDestination(run docir.TextRun) string {
-	if run.TargetDocument() == "" {
-		return "#" + run.Target()
-	}
-	destination := DocumentHTMLFileName(run.TargetDocument())
-	if run.Target() != "" {
-		destination += "#" + run.Target()
-	}
-	return destination
-}
-
-// DocumentHTMLFileName derives the deterministic HTML file name of a rendered
-// document from its fully-qualified name, escaped as anchors are so distinct
-// documents never collide.
+// DocumentHTMLFileName is the HTML file a document is written to on its own,
+// DocumentFileStem of its qualified name plus `.html`.
 func DocumentHTMLFileName(fqn string) string {
-	return documentFileName(fqn, ".html")
+	return DocumentFileStem(fqn) + ".html"
 }
 
 // contentIDs maps every content node's occurrence path to the identifier the

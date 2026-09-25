@@ -2,6 +2,7 @@ package docir
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -34,41 +35,88 @@ func EvaluateLinked(
 	options queryexec.Options,
 	text view.SourceText,
 ) (*Document, error) {
-	external := make(map[string]map[string]bool)
-	for _, sibling := range siblings {
-		if sibling.Compiled() {
-			collectCrossAnchors(sibling.Content(), external)
-		}
-	}
-	return evaluate(plan, context, options, text, external[plan.Name()])
+	return evaluate(plan, context, options, text, crossAnchors(siblings)[plan.Name()])
+}
+
+// Evaluated is the outcome of evaluating one plan of a set: the document, or
+// under Err the error that kept the plan named Name from evaluating.
+type Evaluated struct {
+	Name     string
+	Document *Document
+	Err      error
 }
 
 // EvaluateSet evaluates a set of compiled document plans together, so a
 // content block one document references from another carries its anchor in
-// the rendered target document.
+// the rendered target document. Each plan evaluates on its own: one that
+// fails leaves the others' documents whole and is reported in its outcome.
+// A plan that is not compiled fails the set.
 func EvaluateSet(
 	plans []*docplan.Plan,
 	context queryexec.Context,
 	options queryexec.Options,
 	text view.SourceText,
-) ([]*Document, error) {
-	external := make(map[string]map[string]bool)
+) ([]Evaluated, error) {
 	for _, plan := range plans {
 		if !plan.Compiled() {
 			return nil, &Error{Kind: ErrorInvalidPlan}
 		}
-		collectCrossAnchors(plan.Content(), external)
 	}
+	external := crossAnchors(plans)
 	context = sharingRelationshipTables(context)
-	documents := make([]*Document, 0, len(plans))
+	outcomes := make([]Evaluated, 0, len(plans))
 	for _, plan := range plans {
 		document, err := evaluate(plan, context, options, text, external[plan.Name()])
-		if err != nil {
-			return nil, err
-		}
-		documents = append(documents, document)
+		outcomes = append(outcomes, Evaluated{Name: plan.Name(), Document: document, Err: err})
 	}
-	return documents, nil
+	return outcomes, nil
+}
+
+// Unrendered is the document a set writes in place of the one named name,
+// titled title, that could not be rendered: a paragraph stating why, then one
+// carrying each anchor the siblings' plans link into it by, so every link into
+// the document lands on the reason rather than on nothing.
+func Unrendered(name, title string, err error, siblings []*docplan.Plan) *Document {
+	if title == "" {
+		title = name
+	}
+	content := []Content{{
+		kind: ContentParagraph,
+		runs: []TextRun{
+			{kind: RunStrong, text: "This document could not be rendered."},
+			{kind: RunPlain, text: err.Error()},
+		},
+	}}
+	for _, anchor := range linkedAnchors(name, siblings) {
+		content = append(content, Content{
+			kind:   ContentParagraph,
+			anchor: anchor.id,
+			runs: []TextRun{
+				{kind: RunCode, text: strings.Join(anchor.path, "::")},
+				{kind: RunPlain, text: "was not rendered with the rest of this document."},
+			},
+		})
+	}
+	return &Document{name: name, title: title, content: content}
+}
+
+// linkedAnchor is a content block of one document that another's reference
+// run links to: its stable anchor and the named path deriving it.
+type linkedAnchor struct {
+	id   string
+	path []string
+}
+
+// linkedAnchors is every block of the document named name that the compiled
+// plans among siblings link into, in anchor order.
+func linkedAnchors(name string, siblings []*docplan.Plan) []linkedAnchor {
+	external := crossAnchors(siblings)
+	anchors := make([]linkedAnchor, 0, len(external[name]))
+	for id, path := range external[name] {
+		anchors = append(anchors, linkedAnchor{id: id, path: path})
+	}
+	sort.Slice(anchors, func(i, j int) bool { return anchors[i].id < anchors[j].id })
+	return anchors
 }
 
 func evaluate(
@@ -76,7 +124,7 @@ func evaluate(
 	context queryexec.Context,
 	options queryexec.Options,
 	text view.SourceText,
-	external map[string]bool,
+	external map[string][]string,
 ) (*Document, error) {
 	if !plan.Compiled() {
 		return nil, &Error{Kind: ErrorInvalidPlan}
@@ -118,21 +166,31 @@ func sharingRelationshipTables(context queryexec.Context) queryexec.Context {
 	return context
 }
 
-// collectCrossAnchors records, per target document, the anchors that other
-// documents' reference runs require it to emit.
-func collectCrossAnchors(planned []docplan.Content, external map[string]map[string]bool) {
-	for _, node := range planned {
-		for _, run := range node.Runs() {
-			if run.Kind() != docplan.RunRef || run.RefDocument() == "" || len(run.RefPath()) == 0 {
-				continue
+// crossAnchors records, per target document, the anchors the compiled plans'
+// reference runs require it to emit, each with the named path deriving it.
+func crossAnchors(plans []*docplan.Plan) map[string]map[string][]string {
+	external := make(map[string]map[string][]string)
+	var collect func(planned []docplan.Content)
+	collect = func(planned []docplan.Content) {
+		for _, node := range planned {
+			for _, run := range node.Runs() {
+				if run.Kind() != docplan.RunRef || run.RefDocument() == "" || len(run.RefPath()) == 0 {
+					continue
+				}
+				if external[run.RefDocument()] == nil {
+					external[run.RefDocument()] = make(map[string][]string)
+				}
+				external[run.RefDocument()][AnchorFor(run.RefPath())] = run.RefPath()
 			}
-			if external[run.RefDocument()] == nil {
-				external[run.RefDocument()] = make(map[string]bool)
-			}
-			external[run.RefDocument()][AnchorFor(run.RefPath())] = true
+			collect(node.Children())
 		}
-		collectCrossAnchors(node.Children(), external)
 	}
+	for _, plan := range plans {
+		if plan.Compiled() {
+			collect(plan.Content())
+		}
+	}
+	return external
 }
 
 type evaluator struct {
