@@ -121,6 +121,9 @@ type Resolver struct {
 	// inCondition is nonzero while a filter condition's own names are resolved,
 	// which the condition does not filter.
 	inCondition int
+	// columnChains is nonzero while a Column's expression argument resolves:
+	// a chain there may be a member path on the row, not a document reference.
+	columnChains int
 	// allVisible is nonzero while the target of an `import all` (or of an
 	// expose) is resolved, which reaches every membership, not the visible ones.
 	allVisible int

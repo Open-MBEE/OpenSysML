@@ -190,6 +190,15 @@ library package DocumentQueries {
 	/* A column expression references row properties by their declared
 	 * feature (e.g. Subsystem::mass), supports +, -, *, / arithmetic,
 	 * string concatenation with +, and ?? for absent-value defaults.
+	 * A feature chain (e.g. stat.runs or 'Monte Carlo'.runs) reads a
+	 * feature of a member nested in the row element, each segment
+	 * resolved against the members of the element reached so far —
+	 * own members before inherited ones; a row lacking a segment is
+	 * absent on that row, a member declaring no value is an empty
+	 * cell, and a member holding more values than its multiplicity
+	 * admits fails the column as a direct feature column does. A
+	 * property string of Project's properties or OrderBy's property
+	 * may hold the same path ("stat.runs").
 	 * A row not conforming to the feature's declaring type reads it as
 	 * absent; a failing expression, an absent result not defaulted
 	 * with ??, or a multi-valued result fails the query with a typed
@@ -291,6 +300,14 @@ library package DocumentQueries {
 	part def Formula :> ContentBlock {
 		attribute source : String[1];
 		attribute caption : String[0..1];
+	}
+
+	/* Image shows an image file: location is a path relative to the document's
+	 * source file, or an http(s)/file URL; alt is its text alternative. */
+	part def Image :> ContentBlock {
+		attribute location : String[1];
+		attribute caption : String[0..1];
+		attribute alt : String[0..1];
 	}
 
 	part def Diagram :> ContentBlock {

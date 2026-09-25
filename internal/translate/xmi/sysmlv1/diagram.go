@@ -8,7 +8,8 @@ import (
 
 // Diagram is one diagram of the model as a tool serialized it inside an
 // xmi:Extension: what it is called, what kind of diagram it is, which element
-// owns it and which elements it shows. Layout is not read.
+// owns it and which elements it shows; from the tool's symbol stream, where and
+// how each symbol is drawn.
 type Diagram struct {
 	// ID is the diagram's xmi:id; "" when the tool wrote none.
 	ID string
@@ -45,6 +46,21 @@ type Diagram struct {
 	// Free counts the symbols standing for no model element, such as a pasted
 	// image or a text box, by the tool's symbol class; set only when Drawn.
 	Free map[string]int
+	// Symbols lists every symbol of the stream in serialized order, nested ones
+	// included, with its geometry, style and ends; set only when Drawn.
+	Symbols []*Symbol
+	// Frame is the diagram frame's rectangle, when the stream draws one.
+	Frame *Bounds
+}
+
+// SymbolByID finds the symbol with the given xmi:id; nil when none has it.
+func (d *Diagram) SymbolByID(id string) *Symbol {
+	for _, s := range d.Symbols {
+		if s.ID == id && id != "" {
+			return s
+		}
+	}
+	return nil
 }
 
 // ElementRef is one element a diagram shows.

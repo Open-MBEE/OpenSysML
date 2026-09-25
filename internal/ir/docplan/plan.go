@@ -19,6 +19,7 @@ const (
 	ContentDefinitions ContentKind = "definitions"
 	ContentFormula     ContentKind = "formula"
 	ContentDiagram     ContentKind = "diagram"
+	ContentImage       ContentKind = "image"
 )
 
 // ListStyle is the declared rendering style of a planned list.
@@ -271,7 +272,7 @@ func (d *DiagramRef) Palette() view.Palette { return d.palette }
 func (d *DiagramRef) Origin() symbols.Origin { return d.origin }
 
 // Content is one planned content node: a section, paragraph, table, list,
-// definitions, formula, or diagram.
+// definitions, formula, diagram, or image.
 type Content struct {
 	kind        ContentKind
 	name        string
@@ -279,6 +280,7 @@ type Content struct {
 	text        string
 	source      string
 	caption     string
+	alt         string
 	style       ListStyle
 	groupBy     string
 	term        string
@@ -303,10 +305,17 @@ func (c Content) Title() string { return c.title }
 // Text returns the static text of a paragraph, empty when query-backed.
 func (c Content) Text() string { return c.text }
 
-// Source returns the LaTeX source of a formula.
+// Source returns the LaTeX source of a formula, or the location an image
+// block shows: a path relative to the document's source file, or a URL.
 func (c Content) Source() string { return c.source }
 
-// Caption returns the declared caption of a table, formula or diagram.
+// Location returns the path or URL an image shows.
+func (c Content) Location() string { return c.source }
+
+// Alt returns the text alternative an image states, empty for none.
+func (c Content) Alt() string { return c.alt }
+
+// Caption returns the declared caption of a table, formula, diagram or image.
 func (c Content) Caption() string { return c.caption }
 
 // Style returns the declared style of a list.
@@ -352,6 +361,7 @@ func cloneContent(content []Content) []Content {
 			text:        child.text,
 			source:      child.source,
 			caption:     child.caption,
+			alt:         child.alt,
 			style:       child.style,
 			groupBy:     child.groupBy,
 			term:        child.term,

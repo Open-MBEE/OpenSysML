@@ -220,6 +220,146 @@ func TestCanvasOfIgnoresACanvasStatedOutsideTheViewBody(t *testing.T) {
 	}
 }
 
+func TestStyleOfPrefersTheViewBodyAndNormalisesColours(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "#ffe8bd"; font = "Arial"; fontSize = 11; bold = true; } }
+		view a { expose engine; metadata Style about engine { line = "#336699"; italic = true; } }
+		view b { expose engine; }
+	`)
+	engine := sym(t, p, "engine")
+	site, ok := m.StyleOf(sym(t, p, "a"), engine)
+	if !ok || site.Style == nil || !site.About {
+		t.Fatalf("StyleOf(a, engine) = %+v, %v", site, ok)
+	}
+	if want := (Style{Line: "#336699", Italic: true}); *site.Style != want {
+		t.Fatalf("view-local style = %+v, want %+v", *site.Style, want)
+	}
+	site, ok = m.StyleOf(sym(t, p, "b"), engine)
+	if !ok || site.Style == nil {
+		t.Fatalf("StyleOf(b, engine) = %+v, %v", site, ok)
+	}
+	if want := (Style{Fill: "#FFE8BD", Font: "Arial", FontSize: 11, Bold: true}); *site.Style != want {
+		t.Fatalf("inline style = %+v, want %+v", *site.Style, want)
+	}
+}
+
+func TestStyleOfReportsAMalformedColour(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "orange"; fontSize = -2; } }
+	`)
+	site, ok := m.StyleOf(nil, sym(t, p, "engine"))
+	if !ok || site.Style != nil {
+		t.Fatalf("StyleOf(nil, engine) = %+v, %v", site, ok)
+	}
+	if len(site.Problems) != 2 ||
+		site.Problems[0].Message != `fill of Style is "orange", not a colour written #RRGGBB` ||
+		site.Problems[1].Message != "fontSize of Style is negative" {
+		t.Fatalf("problems = %+v", site.Problems)
+	}
+}
+
+func TestStyleOfRejectsAMalformedBoolean(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "#FF0000"; bold = 7; } }
+		part pump { @Style { fill = "#FF0000"; italic = "yes"; } }
+	`)
+	for _, name := range []string{"engine", "pump"} {
+		site, ok := m.StyleOf(nil, sym(t, p, name))
+		if !ok || site.Style != nil {
+			t.Errorf("StyleOf(nil, %s) = %+v, %v; want the style withheld", name, site, ok)
+		}
+		if len(site.Problems) != 1 || !strings.HasSuffix(site.Problems[0].Message, "of Style is not a constant boolean") {
+			t.Errorf("%s problems = %+v", name, site.Problems)
+		}
+	}
+}
+
+func TestNotesOfListsEveryNoteInTheView(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Note { text = "always"; x = 1; y = 2; } }
+		view a {
+			expose engine;
+			metadata Note about engine { text = "anchored"; x = 10; y = 20; width = 100; height = 40; }
+			metadata Note about engine { text = "second"; x = 30; y = 40; }
+			@Note { text = "free"; x = 0; y = 0; }
+		}
+		view b { expose engine; }
+	`)
+	engine, a := sym(t, p, "engine"), sym(t, p, "a")
+	notes := m.NotesOf(a, engine)
+	if len(notes) != 3 {
+		t.Fatalf("NotesOf(a, engine) has %d notes, want 3", len(notes))
+	}
+	if n := notes[0].Note; n == nil || n.Text != "always" || notes[0].About {
+		t.Fatalf("inline note = %+v", n)
+	}
+	if n := notes[1].Note; n == nil || n.Text != "anchored" || !n.HasSize || n.Width != 100 || n.Height != 40 {
+		t.Fatalf("first about note = %+v", n)
+	}
+	if n := notes[2].Note; n == nil || n.Text != "second" || n.HasSize {
+		t.Fatalf("second about note = %+v", n)
+	}
+	if got := m.NotesOf(sym(t, p, "b"), engine); len(got) != 1 || got[0].Note.Text != "always" {
+		t.Fatalf("NotesOf(b, engine) = %+v", got)
+	}
+	if free := m.NotesOf(a, a); len(free) != 1 || free[0].Note.Text != "free" {
+		t.Fatalf("NotesOf(a, a) = %+v", free)
+	}
+}
+
+// A note stated in a nested view's body belongs to that view's drawing alone:
+// it is listed for the view stating it, not for the view enclosing it.
+func TestNotesOfScopesANoteStatedInANestedViewToIt(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view outer {
+			expose engine;
+			view inner {
+				expose engine;
+				@Note { text = "inner"; x = 1; y = 2; }
+			}
+		}
+	`)
+	outer := sym(t, p, "outer")
+	inner := sym(t, outer.Scope, "inner")
+	notes := m.NotesOf(inner, inner)
+	if len(notes) != 1 || notes[0].Note == nil || notes[0].Note.Text != "inner" {
+		t.Fatalf("NotesOf(inner, inner) = %+v", notes)
+	}
+	if got := m.NotesOf(outer, inner); len(got) != 0 {
+		t.Fatalf("NotesOf(outer, inner) = %+v, want none", got)
+	}
+}
+
+func TestNotesOfReportsAnIncompleteNote(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Note { x = 1; width = 10; } }
+	`)
+	notes := m.NotesOf(nil, sym(t, p, "engine"))
+	if len(notes) != 1 || notes[0].Note != nil {
+		t.Fatalf("NotesOf(nil, engine) = %+v", notes)
+	}
+	want := []string{
+		"Note binds no text to show",
+		"Note binds no x and y to place the note at",
+		"Note binds one of width and height; a size needs both",
+	}
+	if len(notes[0].Problems) != len(want) {
+		t.Fatalf("problems = %+v", notes[0].Problems)
+	}
+	for i, p := range notes[0].Problems {
+		if p.Message != want[i] {
+			t.Errorf("problem %d = %q, want %q", i, p.Message, want[i])
+		}
+	}
+}
+
 func TestSymbolDeclaringFindsATransitionByItsDeclaration(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

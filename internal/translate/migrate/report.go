@@ -78,14 +78,17 @@ type Report struct {
 	// Exporter is the tool the document says wrote it, when it says.
 	Exporter string  `json:"exporter,omitempty"`
 	Entries  []Entry `json:"entries"`
-	// Layout accounts for the MTIP export the migration was augmented with;
-	// nil when none was.
+	// Layout accounts for the geometry the views were laid out from, an MTIP
+	// export or the diagrams' own symbol streams; nil when there was neither.
 	Layout *LayoutSummary `json:"layout,omitempty"`
+	// Images counts the attached image files the migration wrote beside the
+	// notation for its Image blocks.
+	Images int `json:"images,omitempty"`
 }
 
-// LayoutSummary accounts for what an MTIP export contributed to a migration:
-// how many of its diagram records joined, and how much of their geometry was
-// written into the views.
+// LayoutSummary accounts for what an MTIP export and the diagrams' own symbol
+// streams contributed to a migration: how many diagram records joined, and how
+// much of their geometry, style and notes was written into the views.
 type LayoutSummary struct {
 	Source       string `json:"source"`
 	MTIPVersion  string `json:"mtipVersion,omitempty"`
@@ -120,6 +123,25 @@ type LayoutSummary struct {
 	// presentation properties DiagramLayout carries no attribute for, by tag.
 	Malformed   int            `json:"malformed"`
 	Unsupported map[string]int `json:"unsupported,omitempty"`
+	// StreamDiagrams counts the views laid out from their diagram's own symbol
+	// stream alone, the export holding no record for the diagram;
+	// StreamSupplemented the joined views whose stream placed or routed an
+	// element the export's record did not.
+	StreamDiagrams     int `json:"streamDiagrams"`
+	StreamSupplemented int `json:"streamSupplemented,omitempty"`
+	// Styles counts the symbols drawn in colours or a font of their own;
+	// StylesWritten those whose element the view lays out, so a Style is written.
+	Styles        int `json:"styles"`
+	StylesWritten int `json:"stylesWritten"`
+	// Notes counts the comments and text boxes drawn, every one written as a
+	// Note; NotesAnchored those anchored to an element the view lays out,
+	// NotesFreed those whose anchor reaches none, written free on the view.
+	Notes         int `json:"notes"`
+	NotesAnchored int `json:"notesAnchored"`
+	NotesFreed    int `json:"notesFreed"`
+	// Dropped counts the free symbols standing for no element and written as
+	// nothing, pasted images among them, by the tool's symbol class.
+	Dropped map[string]int `json:"dropped,omitempty"`
 }
 
 // Count returns how many entries carry each verdict.
@@ -154,12 +176,30 @@ func (r *Report) Summary() string {
 	unreferenced := r.Unreferenced()
 	s := fmt.Sprintf("migrated %d element(s): %d mapped, %d approximated, %d unmapped (%d skipped as profile, library or notation-only content, %d as model elements nothing refers to)",
 		total, c[Mapped], c[Approximated], c[Unmapped], c[Skipped]-unreferenced, unreferenced)
-	if r.Layout != nil {
-		s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed",
-			r.Layout.DiagramsJoined, r.Layout.DiagramsJoined+r.Layout.ViewsWithoutLayout, r.Layout.Source,
-			commas(r.Layout.PlacementsWritten), commas(r.Layout.RoutesWritten))
+	if l := r.Layout; l != nil {
+		laidOut := l.DiagramsJoined + l.StreamDiagrams
+		s += fmt.Sprintf("; laid out %d of %d diagrams from %s: %s elements positioned, %s connectors routed, %s styled, %s notes",
+			laidOut, laidOut+l.ViewsWithoutLayout, l.Source,
+			commas(l.PlacementsWritten), commas(l.RoutesWritten), commas(l.StylesWritten), commas(l.Notes))
+	}
+	if r.Images > 0 {
+		s += fmt.Sprintf("; wrote %d image file(s)", r.Images)
 	}
 	return s
+}
+
+// countsByKey words a count per key as "key (n)", keys sorted.
+func countsByKey(counts map[string]int) string {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var parts []string
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s (%d)", key, counts[key]))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // commas groups an integer's digits by thousands for the summary sentence.
@@ -198,25 +238,28 @@ func (r *Report) WriteText(w io.Writer) error {
 		} else {
 			fmt.Fprintf(&b, "# source: %s\n", l.Source)
 		}
-		fmt.Fprintf(&b, "# %d diagram records: %d joined, %d matching no diagram; %d views without layout\n",
-			l.Diagrams, l.DiagramsJoined, l.DiagramsUnmatched, l.ViewsWithoutLayout)
+		if l.Source != streamsSource {
+			fmt.Fprintf(&b, "# %d diagram records: %d joined, %d matching no diagram; ", l.Diagrams, l.DiagramsJoined, l.DiagramsUnmatched)
+		} else {
+			b.WriteString("# ")
+		}
+		fmt.Fprintf(&b, "%d views laid out from their own symbol stream, %d without layout\n", l.StreamDiagrams, l.ViewsWithoutLayout)
+		if l.StreamSupplemented > 0 {
+			fmt.Fprintf(&b, "# %d joined views supplemented from their own symbol stream where the record placed or routed nothing\n", l.StreamSupplemented)
+		}
 		fmt.Fprintf(&b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
 			l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
 			l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
+		fmt.Fprintf(&b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
+			l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
 		for _, k := range l.RoutesByKind {
 			fmt.Fprintf(&b, "# routes of %s: %d %s\n", k.Kind, k.Count, k.Reason)
 		}
+		if len(l.Dropped) > 0 {
+			fmt.Fprintf(&b, "# free symbols dropped: %s\n", countsByKey(l.Dropped))
+		}
 		if len(l.Unsupported) > 0 {
-			tags := make([]string, 0, len(l.Unsupported))
-			for tag := range l.Unsupported {
-				tags = append(tags, tag)
-			}
-			sort.Strings(tags)
-			var props []string
-			for _, tag := range tags {
-				props = append(props, fmt.Sprintf("%s (%d)", tag, l.Unsupported[tag]))
-			}
-			fmt.Fprintf(&b, "# unsupported presentation properties, dropped: %s\n", strings.Join(props, ", "))
+			fmt.Fprintf(&b, "# unsupported presentation properties, dropped: %s\n", countsByKey(l.Unsupported))
 		}
 	}
 	for _, v := range []Verdict{Unmapped, Approximated, Mapped, Skipped} {

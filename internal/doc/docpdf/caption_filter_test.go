@@ -126,14 +126,15 @@ func TestArtworkFilterMarksCaptionOfEmptyTableRendering(t *testing.T) {
 
 // filteredHTML converts markdown to HTML through pandoc with the caption
 // filter written for captions, and checks each caption is marked once and
-// nothing else is.
+// nothing else is; the HTML comes back with its whitespace runs collapsed,
+// since pandoc wraps paragraphs.
 func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) string {
 	t.Helper()
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, markdownFileName), []byte(markdown), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	filter, err := writeArtworkFilter(dir, view.FormMermaid, nil, formulas{}, captions)
+	filter, err := writeArtworkFilter(dir, nil, formulas{}, captions)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) stri
 	if err != nil {
 		t.Fatalf("pandoc: %v\n%s", err, out)
 	}
-	html := string(out)
+	html := strings.Join(strings.Fields(string(out)), " ")
 	for _, caption := range captions {
 		if !strings.Contains(html, `<span class="caption"><em>`+caption+`</em></span>`) {
 			t.Errorf("caption %q not marked:\n%s", caption, html)
@@ -153,4 +154,28 @@ func filteredHTML(t *testing.T, pandoc, markdown string, captions []string) stri
 		t.Errorf("captions marked = %d, want %d:\n%s", got, len(captions), html)
 	}
 	return html
+}
+
+// TestArtworkFilterMarksCaptionPastFallbackNotice checks a positioned
+// diagram's caption is marked when, without Graphviz, the Markdown backend
+// puts the fallback notice between the caption and the Mermaid fence — and
+// that the notice itself stays plain emphasis.
+func TestArtworkFilterMarksCaptionPastFallbackNotice(t *testing.T) {
+	pandoc, err := pandocTool.locate("")
+	if err != nil {
+		t.Skipf("pandoc not installed: %v", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	captions := docrender.Captions(document)
+	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{WithoutGraphviz: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "*PEAS states, as Cameo drew them*\n\n*" + docrender.GraphvizFallbackNotice + "*\n\n```mermaid"; !strings.Contains(markdown, want) {
+		t.Fatalf("Markdown lacks %q:\n%s", want, markdown)
+	}
+	html := filteredHTML(t, pandoc, markdown, captions)
+	if !strings.Contains(html, "<p><em>"+docrender.GraphvizFallbackNotice+"</em></p>") {
+		t.Errorf("fallback notice not kept as emphasized prose:\n%s", html)
+	}
 }

@@ -4,7 +4,6 @@ package docrender
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -22,18 +21,44 @@ const elementColumn = "element"
 // MarkdownOptions are the presentation choices of the Markdown backend. They
 // are options of this backend, never document-model attributes.
 type MarkdownOptions struct {
-	// DiagramForm is the source every graph-shaped diagram is written as,
-	// Mermaid when empty; a table-kind view is a pipe table whichever it is.
+	// DiagramForm is the source every graph-shaped diagram is written as; a
+	// table-kind view is a pipe table whichever it is. Empty picks per diagram:
+	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
+
+	// WithoutGraphviz records that no Graphviz draws DOT for this render, so
+	// the automatic choice writes Mermaid for positioned diagrams too, with an
+	// emphasised notice stating so. An explicit DiagramForm is written regardless.
+	WithoutGraphviz bool
 
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
 
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty; the other forms draw one look.
+	Style view.DrawingStyle
+
 	// Files is the file each document of the set this one is rendered in is
 	// written to, by qualified name; a cross-document reference links to the
 	// target's file here, or to DocumentFileName of its name when absent.
 	Files map[string]string
+
+	// DiagramSVG is SVG markup drawn ahead of the render, one per graph-shaped
+	// diagram in the order Diagrams lists them, each written as an HTML block
+	// in place of its fenced source; an empty entry, or none, keeps the fence.
+	// More entries than diagrams is an error.
+	DiagramSVG []string
+
+	// Drawer draws the DOT diagrams the automatic choice picks, filling
+	// DiagramSVG when that is empty; one that is not available settles the
+	// choice on the Mermaid fallback. Nil leaves the choice to WithoutGraphviz.
+	Drawer DiagramDrawer
+}
+
+// diagramOptions is the part of the options the diagrams are written by.
+func (o MarkdownOptions) diagramOptions() DiagramOptions {
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
 }
 
 // Markdown renders an evaluated document as deterministic CommonMark: the
@@ -49,11 +74,14 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
-	form, err := diagramForm(opts.DiagramForm)
-	if err != nil {
+	diagrams := opts.diagramOptions()
+	if err := diagrams.check(); err != nil {
 		return "", err
 	}
-	w := &markdownWriter{form: form, unplaced: opts.Unplaced, files: opts.Files}
+	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
+		return "", err
+	}
+	w := &markdownWriter{opts: diagrams, files: opts.Files, svg: opts.DiagramSVG}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
 	for _, node := range document.Content() {
@@ -63,34 +91,36 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 		}
 		blocks = append(blocks, rendered...)
 	}
+	if w.diagrams < len(opts.DiagramSVG) {
+		return "", &Error{Kind: ErrorSurplusDiagramImages, Actual: strconv.Itoa(len(opts.DiagramSVG)), Count: w.diagrams}
+	}
 	return strings.Join(blocks, "\n\n") + "\n", nil
 }
 
-// diagramForm resolves the diagram form a render asks for: Mermaid when none
-// is named, otherwise one a diagram is written as.
-func diagramForm(form view.Form) (view.Form, error) {
-	if form == "" {
-		return view.FormMermaid, nil
+// checkStyle rejects a drawing style there is none of; empty is the Pilot look.
+func checkStyle(style view.DrawingStyle) error {
+	if _, ok := view.ParseDrawingStyle(string(style)); !ok {
+		return &view.UnknownDrawingStyleError{Name: string(style)}
 	}
-	if !slices.Contains(view.DiagramForms(), form) {
-		return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
-	}
-	return form, nil
+	return nil
 }
 
 // markdownWriter carries the choices one Markdown render applies to every
 // node it writes.
 type markdownWriter struct {
-	form     view.Form
-	unplaced view.Unplaced
+	opts     DiagramOptions
 	files    map[string]string
+	svg      []string
+	diagrams int
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
-// direction and palette, and the render's placement of unplaced nodes.
-func figureOptions(node docir.Content, unplaced view.Unplaced) view.Options {
+// direction and palette, and the render's placement of unplaced nodes and
+// drawing style.
+func figureOptions(node docir.Content, opts DiagramOptions) view.Options {
 	options := node.Options()
-	options.Unplaced = unplaced
+	options.Unplaced = opts.Unplaced
+	options.Style = opts.Style
 	return options
 }
 
@@ -131,7 +161,9 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentFormula:
 		return renderFormula(node), nil
 	case docir.ContentDiagram:
-		return diagramBlocks(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.unplaced), w.form)
+		return w.diagramFigure(node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts))
+	case docir.ContentImage:
+		return renderImage(node), nil
 	default:
 		return nil, &Error{Kind: ErrorUnknownContent, Content: node.Name(), Actual: string(node.Kind())}
 	}
@@ -184,9 +216,10 @@ func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-// diagramBlocks writes one diagram under its caption in emphasis: a table-kind view
-// as a pipe table, every other kind as a fence in the render's diagram form.
-func diagramBlocks(name, caption string, rendering *view.Rendering, options view.Options, form view.Form) ([]string, error) {
+// diagramFigure is the blocks of one diagram: its caption, then a table-kind
+// view's pipe table, or the fallback notice when the automatic choice did not
+// draw the view as stated and the SVG drawn for it or its source fenced.
+func (w *markdownWriter) diagramFigure(name, caption string, rendering *view.Rendering, options view.Options) ([]string, error) {
 	if rendering == nil {
 		return nil, &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -197,11 +230,37 @@ func diagramBlocks(name, caption string, rendering *view.Rendering, options view
 	if !rendering.Kind.Supported() {
 		return nil, &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind)}
 	}
+	form, fallback := w.opts.formFor(rendering)
 	source, err := diagramSource(name, rendering, options, form)
 	if err != nil {
 		return nil, err
 	}
-	return append(blocks, "```"+string(form)+"\n"+source+"\n```"), nil
+	if fallback != "" {
+		blocks = append(blocks, delimited("*", fallback))
+	}
+	if w.diagrams < len(w.svg) && w.svg[w.diagrams] != "" {
+		blocks = append(blocks, "<figure class=\"sysml-diagram\">\n"+svgBlock(w.svg[w.diagrams])+"\n</figure>")
+	} else {
+		blocks = append(blocks, "```"+string(form)+"\n"+source+"\n```")
+	}
+	w.diagrams++
+	return blocks, nil
+}
+
+// svgBlock is svg markup as one CommonMark HTML block holds it: without the
+// XML prolog and doctype a drawing tool writes, and without blank lines,
+// which would end the block.
+func svgBlock(svg string) string {
+	if i := strings.Index(svg, "<svg"); i > 0 {
+		svg = svg[i:]
+	}
+	var lines []string
+	for _, line := range strings.Split(strings.TrimSpace(svg), "\n") {
+		if strings.TrimSpace(line) != "" {
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 // diagramSource writes a graph-shaped rendering in the resolved diagram form
@@ -296,6 +355,22 @@ const mathFence = "$$"
 func renderFormula(node docir.Content) []string {
 	blocks := captionBlock(node.Caption())
 	return append(blocks, mathFence+"\n"+displayMath(node.Source())+"\n"+mathFence)
+}
+
+// renderImage writes one image under its caption in emphasis, as Markdown's
+// own image syntax; alt defaults to the caption.
+func renderImage(node docir.Content) []string {
+	blocks := captionBlock(node.Caption())
+	alt := node.Alt()
+	if alt == "" {
+		alt = node.Caption()
+	}
+	location := node.Location()
+	location = strings.NewReplacer("<", "%3C", ">", "%3E", "(", "%28", ")", "%29", "\n", "%0A", "\r", "%0D").Replace(location)
+	if strings.Contains(location, " ") {
+		location = "<" + location + ">"
+	}
+	return append(blocks, "!["+inline(alt)+"]("+location+")")
 }
 
 // displayMath prepares LaTeX for a $$ block: lines keep their breaks, blank

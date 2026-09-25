@@ -134,17 +134,22 @@ type rprobe struct {
 
 func parseRProbe(t *testing.T) *rprobe {
 	t.Helper()
+	return parseReplyProbe(t, replyDriver, "ProbeR")
+}
+
+func parseReplyProbe(t *testing.T, src, pkgName string) *rprobe {
+	t.Helper()
 	idx := libs.NewModelIndex()
-	p := parser.New(source.New("rprobe.sysml", []byte(replyDriver)))
+	p := parser.New(source.New("rprobe.sysml", []byte(src)))
 	file := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("parse: %v", p.Diagnostics)
 	}
 	idx.AddDocument("rprobe.sysml", file)
 	idx.ExpandWildcardImports()
-	pkg, ok := idx.DocumentRoot("rprobe.sysml").LookupLocal("ProbeR")
+	pkg, ok := idx.DocumentRoot("rprobe.sysml").LookupLocal(pkgName)
 	if !ok || pkg.Scope == nil {
-		t.Fatal("ProbeR package not indexed")
+		t.Fatalf("%s package not indexed", pkgName)
 	}
 	return &rprobe{idx: idx, pkg: pkg.Scope}
 }
@@ -315,6 +320,40 @@ func TestToolReplyReadsExitCode(t *testing.T) {
 	out, _, err = p.perform(t, entry("exit1", integer), "ExitOnce")
 	if err != nil || runtime.FormatValue(out["code"]) != "1" {
 		t.Fatalf("exit 1 as integer = %v, %v; want 1", out["code"], err)
+	}
+}
+
+// A performance declaring one of the mapped outputs reads only it: the manifest maps all
+// five but Probe asks for `done` alone, and nothing else is bound or faulted for.
+func TestToolReplyReadsOnlyRequestedOutputs(t *testing.T) {
+	p := parseRProbe(t)
+	entry := thermalEntry(toolreply(t), []string{"csv-stdout"}, &Reply{Format: ReplyCSV, Outputs: csvReplyOutputs})
+	out, _, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "ProbeOnce")
+	if err != nil || runtime.FormatValue(out["ok"]) != "false" {
+		t.Fatalf("ProbeOnce over a csv reply = %v, %v; want false", out["ok"], err)
+	}
+}
+
+// An entry built in code, not read from a manifest, has its reply checked by NewTool: a
+// sound one reads the exit status, a faulty one refuses every question with the fault.
+func TestNewToolChecksAProgrammaticReply(t *testing.T) {
+	p := parseRProbe(t)
+	sound := NewTool(ToolEntry{ToolName: "Thermal", Executable: toolreply(t), Variables: []string{"done"},
+		Invocation: &Invocation{Args: []string{"exit3"}},
+		Reply:      &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{"done": {}}}})
+	out, _, err := p.perform(t, registered(t, NewRun(), sound), "ProbeOnce")
+	if err != nil || runtime.FormatValue(out["ok"]) != "true" {
+		t.Fatalf("programmatic exitcode reply = %v, %v; want true", out["ok"], err)
+	}
+
+	faulty := NewTool(ToolEntry{ToolName: "Thermal", Executable: toolreply(t), Variables: []string{"done"},
+		Reply: &Reply{Format: "yaml", Outputs: map[string]*ReplyOutput{"done": {}}}})
+	if _, err := faulty.Process(); !errors.Is(err, ErrManifest) {
+		t.Errorf("process %v, want the ManifestError, so listings show the tool unavailable", err)
+	}
+	question := Question{Kind: Compute, Compute: &ComputeAsk{Call: &runtime.ToolCall{ToolName: "Thermal"}}}
+	if c := faulty.Covers(nil, question); c.Covered || !errors.Is(c.Refusal, ErrManifest) {
+		t.Errorf("%+v, want the refusal a ManifestError naming tool:Thermal", c)
 	}
 }
 

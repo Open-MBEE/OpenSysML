@@ -2,6 +2,8 @@ package view
 
 import (
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -63,8 +65,31 @@ func (r *Rendering) TextWidth(width int) string {
 			b.WriteString(line + "\n")
 		}
 	}
-	writeNotices(&b, r.Notices)
+	if len(r.Notes) > 0 {
+		b.WriteString("\nnotes:\n")
+		for _, note := range r.Notes {
+			b.WriteString(noteText(note, labels) + "\n")
+		}
+	}
+	writeNotices(&b, slices.Concat(r.Notices, r.visualNotices(noStyleInText, false)))
 	return b.String()
+}
+
+// noteText is a note as one line: its text, the node it is anchored on, and its
+// corner and size when positioned.
+func noteText(note Note, labels map[string]string) string {
+	line := "  " + strconv.Quote(note.Text)
+	if note.Anchor != "" {
+		line += " on " + labelOr(labels, note.Anchor)
+	} else if note.EdgeFrom != "" {
+		line += " on " + labelOr(labels, note.EdgeFrom) + " -> " + labelOr(labels, note.EdgeTo)
+	}
+	if note.HasSize {
+		line += fmt.Sprintf(" at (%s, %s) size %s×%s", formatCoord(note.X), formatCoord(note.Y), formatCoord(note.Width), formatCoord(note.Height))
+	} else if note.X != 0 || note.Y != 0 {
+		line += fmt.Sprintf(" at (%s, %s)", formatCoord(note.X), formatCoord(note.Y))
+	}
+	return line
 }
 
 // EmptyReason says why a rendering shows nothing: a view exposing nothing, or a
@@ -261,6 +286,14 @@ func canvasText(c *Canvas) string {
 		line += " in " + c.Unit
 	}
 	return line
+}
+
+// labelOr is the label of the node with the given ID, else the ID itself.
+func labelOr(labels map[string]string, id string) string {
+	if label := labels[id]; label != "" {
+		return label
+	}
+	return id
 }
 
 // nodeLabel names a node where an edge refers to it: its name, else its kind

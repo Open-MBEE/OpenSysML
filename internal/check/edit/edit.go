@@ -74,7 +74,7 @@ type Operation struct {
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
-	// (semantics.LayoutFQN, RouteFQN or CanvasFQN). View names the view whose
+	// (semantics.LayoutFQN, RouteFQN, CanvasFQN or StyleFQN). View names the view whose
 	// body states it about Target; empty, the annotation is inline on Target
 	// and applies in every view.
 	Annotation string
@@ -84,6 +84,7 @@ type Operation struct {
 	Layout *semantics.Layout
 	Route  *semantics.Route
 	Canvas *semantics.Canvas
+	Style  *semantics.Style
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -153,6 +154,17 @@ func SetRouteAt(decl source.Span, view string, route *semantics.Route) Operation
 // size when canvas is nil.
 func SetCanvas(view string, canvas *semantics.Canvas) Operation {
 	return Operation{Kind: OpSetLayout, Target: view, Annotation: semantics.CanvasFQN, Canvas: canvas}
+}
+
+// SetStyle is an operation colouring target in view — inline on target when
+// view is empty — or clearing its Style when style is nil.
+func SetStyle(target, view string, style *semantics.Style) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.StyleFQN, Style: style}
+}
+
+// SetStyleAt is SetStyle of the element declared at decl in the document.
+func SetStyleAt(decl source.Span, view string, style *semantics.Style) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.StyleFQN, Style: style}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -637,12 +649,16 @@ func (m Model) declarationGone(i int, op Operation) error {
 		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(op))}
 }
 
-// checkOverlap refuses edits covering the same non-empty source bytes.
+// checkOverlap refuses edits covering the same non-empty source bytes; an
+// insertion at the first byte of another edit precedes it and is no overlap.
 func checkOverlap(splices []splice) error {
 	ordered := make([]splice, len(splices))
 	copy(ordered, splices)
 	sort.SliceStable(ordered, func(a, b int) bool {
-		return ordered[a].span.Offset < ordered[b].span.Offset
+		if ordered[a].span.Offset != ordered[b].span.Offset {
+			return ordered[a].span.Offset < ordered[b].span.Offset
+		}
+		return ordered[a].span.Len == 0 && ordered[b].span.Len > 0
 	})
 	for i := 1; i < len(ordered); i++ {
 		prev, cur := ordered[i-1], ordered[i]

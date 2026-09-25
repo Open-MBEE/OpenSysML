@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -42,18 +43,25 @@ type toolEngine struct {
 }
 
 // NewTool returns the `tool:<name>` engine of a manifest entry. It registers whether or not
-// the executable is found and refuses through Covers while it is not. An invocation block
-// not yet checked by a manifest load is checked here; a faulty one refuses every question.
+// the executable is found and refuses through Covers while it is not. An invocation or reply
+// block not yet checked by a manifest load is checked here; a faulty one refuses every question.
 func NewTool(entry ToolEntry) External {
 	e := toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	dir, at := "", e.Name()
+	if entry.File != "" {
+		dir, at = filepath.Dir(entry.File), entry.File
+	}
 	if inv := entry.Invocation; inv != nil && inv.compiled == nil {
 		checked := *inv
 		e.entry.Invocation = &checked
-		dir, at := "", e.Name()
-		if entry.File != "" {
-			dir, at = filepath.Dir(entry.File), entry.File
-		}
 		if err := checkInvocation(&e.entry, dir); err != nil {
+			e.fault = &ManifestError{Path: at, Detail: err.Error()}
+		}
+	}
+	if r := entry.Reply; r != nil && r.compiled == nil && e.fault == nil {
+		checked := *r
+		e.entry.Reply = &checked
+		if err := checkReply(&e.entry); err != nil {
 			e.fault = &ManifestError{Path: at, Detail: err.Error()}
 		}
 	}
@@ -170,7 +178,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		process.remove()
 		return Result{}, err
 	}
-	reply, err := e.read(ex, process)
+	reply, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -202,10 +210,14 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
 		part := variable + "="
-		if v.Value.Kind == semantics.ValInvalid {
-			part += strconv.Quote(v.Text)
+		if v.Items != nil {
+			elements := make([]string, len(v.Items))
+			for i, item := range v.Items {
+				elements[i] = renderValue(item)
+			}
+			part += "(" + strings.Join(elements, ", ") + ")"
 		} else {
-			part += semantics.FormatConst(v.Value)
+			part += renderValue(v)
 		}
 		if v.Unit != "" {
 			part += " [" + v.Unit + "]"
@@ -214,6 +226,14 @@ func renderReply(reply map[string]runtime.ToolValue) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, " ")
+}
+
+// renderValue spells one carried value: text quoted, a scalar by FormatConst.
+func renderValue(v runtime.ToolValue) string {
+	if v.Value.Kind == semantics.ValInvalid {
+		return strconv.Quote(v.Text)
+	}
+	return semantics.FormatConst(v.Value)
 }
 
 // outputLimit is the bound on one reply, OutputLimitEnv's unless the engine was built without it.
@@ -271,7 +291,7 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 
 // read parses the execution's reply as the entry's reply block says, reading the file a
 // `file:` source names before the invocation's directory is removed.
-func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
 	tool := e.entry.ToolName
 	r := e.entry.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
@@ -288,13 +308,17 @@ func (e toolEngine) read(ex *execution, process *composed) (map[string]runtime.T
 	if err != nil {
 		return nil, err
 	}
+	wanted := make(map[string]bool, len(call.Outputs))
+	for _, out := range call.Outputs {
+		wanted[out.Variable] = true
+	}
 	if r.Format == ReplyJSON {
-		return r.readJSON(e.entry, source)
+		return r.readJSON(e.entry, source, wanted)
 	}
 	if r.Format == ReplyCSV {
-		return r.readCSV(e.entry, source)
+		return r.readCSV(e.entry, source, wanted)
 	}
-	return r.readLines(e.entry, source)
+	return r.readLines(e.entry, source, wanted)
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —
@@ -327,11 +351,38 @@ func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
 	case !info.Mode().IsRegular():
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: rel + " is not a regular file"}
-	case info.Size() > int64(e.outputLimit()):
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
-			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", e.outputLimit(), rel, OutputLimitEnv)}
 	}
-	return os.ReadFile(path) // #nosec G304 -- a file under the invocation's own directory
+	// Symlinks among the path's ancestors may not lead out of {outputDir} either.
+	real, err := filepath.EvalSymlinks(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
+	case err != nil:
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	realDir, err := filepath.EvalSymlinks(outputDir)
+	if err != nil {
+		realDir = outputDir
+	}
+	if !within(realDir, real) {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
+	}
+	f, err := os.Open(path) // #nosec G304 -- a file under the invocation's own directory
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	defer f.Close() // the read below is the only use; a close error cannot lose data
+	limit := e.outputLimit()
+	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	if len(data) > limit {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", limit, rel, OutputLimitEnv)}
+	}
+	return data, nil
 }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.
@@ -528,31 +579,67 @@ func decodeValue(raw wiredValue) (runtime.ToolValue, error) {
 		return runtime.ToolValue{}, err
 	}
 	out := runtime.ToolValue{Unit: unit}
+	if items, isArray := decoded.([]any); isArray {
+		seq := make([]runtime.ToolValue, 0, len(items))
+		var want string
+		for i, elem := range items {
+			switch elem.(type) {
+			case []any, map[string]any, nil:
+				return runtime.ToolValue{}, fmt.Errorf("element %d is %s, not a number, boolean or string", i, jsonKindOf(elem))
+			}
+			kind := jsonWireKind(elem)
+			if i == 0 {
+				want = kind
+			} else if kind != want {
+				return runtime.ToolValue{}, fmt.Errorf("element %d is a %s after element 0 is a %s", i, kind, want)
+			}
+			if unit != "" && kind != "number" {
+				return runtime.ToolValue{}, fmt.Errorf("a %s has no unit, got %q", kind, unit)
+			}
+			item, _, err := decodeScalar(elem)
+			if err != nil {
+				return runtime.ToolValue{}, fmt.Errorf("element %d: %v", i, err)
+			}
+			seq = append(seq, item)
+		}
+		out.Items = seq
+		return out, nil
+	}
+	value, kind, err := decodeScalar(decoded)
+	if err != nil {
+		if _, isNumber := decoded.(json.Number); isNumber {
+			return runtime.ToolValue{}, err
+		}
+		return runtime.ToolValue{}, fmt.Errorf("%s is not a number, boolean or string", strings.TrimSpace(string(raw.Value)))
+	}
+	if unit != "" && kind != "number" {
+		return runtime.ToolValue{}, fmt.Errorf("a %s has no unit, got %q", kind, unit)
+	}
+	out.Value = value.Value
+	out.Text = value.Text
+	return out, nil
+}
+
+// decodeScalar reads one decoded JSON scalar — a number, boolean or string — reporting
+// its kind so a caller can tell a sequence's element kinds apart; a number reports
+// "number" whichever of Integer and Real it parsed as.
+func decodeScalar(decoded any) (runtime.ToolValue, string, error) {
 	switch v := decoded.(type) {
 	case json.Number:
 		if i, err := strconv.ParseInt(v.String(), 10, 64); err == nil {
-			out.Value = semantics.Value{Kind: semantics.ValInt, Int: i}
-			return out, nil
+			return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValInt, Int: i}}, "number", nil
 		}
 		f, err := strconv.ParseFloat(v.String(), 64)
 		if err != nil || math.IsInf(f, 0) {
-			return runtime.ToolValue{}, fmt.Errorf("%s is not a finite number", v.String())
+			return runtime.ToolValue{}, "", fmt.Errorf("%s is not a finite number", v.String())
 		}
-		out.Value = semantics.Value{Kind: semantics.ValReal, Real: f}
+		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: f}}, "number", nil
 	case bool:
-		if out.Unit != "" {
-			return runtime.ToolValue{}, fmt.Errorf("a boolean has no unit, got %q", out.Unit)
-		}
-		out.Value = semantics.Value{Kind: semantics.ValBool, Bool: v}
+		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValBool, Bool: v}}, "boolean", nil
 	case string:
-		if out.Unit != "" {
-			return runtime.ToolValue{}, fmt.Errorf("a string has no unit, got %q", out.Unit)
-		}
-		out.Text = v
-	default:
-		return runtime.ToolValue{}, fmt.Errorf("%s is not a number, boolean or string", strings.TrimSpace(string(raw.Value)))
+		return runtime.ToolValue{Text: v}, "string", nil
 	}
-	return out, nil
+	return runtime.ToolValue{}, "", errors.New("not a scalar")
 }
 
 // decodeUnit reads a wire value's unit: none when omitted, else a string of unit expression

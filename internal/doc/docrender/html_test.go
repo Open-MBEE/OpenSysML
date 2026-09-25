@@ -762,3 +762,12 @@ func TestHTMLCollectionCells(t *testing.T) {
 		}
 	}
 }
+
+// TestHTMLImageReportFragmentGolden locks the image block's markup: a figure
+// element whose img carries the location verbatim and the alt text, under its
+// caption.
+func TestHTMLImageReportFragmentGolden(t *testing.T) {
+	got := renderFixtureHTML(t, filepath.Join("testdata", "image_report.sysml"),
+		"Pictures::ImageReport", HTMLOptions{Fragment: true})
+	checkGolden(t, got, filepath.Join("testdata", "image_report.fragment.golden.html"))
+}

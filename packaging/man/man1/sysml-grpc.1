@@ -133,8 +133,8 @@ of its own with its own budgets. Default 1000.
 .B OPENSYSML_JOBS
 Runs of one check that may go concurrently \(em the linearizations of an
 exploration, the engines \-engine all consults \(em each on a worker of its
-own over the shared model; \-jobs and %jobs override it. Default the number of
-CPUs.
+own over the shared model; \-jobs and %jobs override it. Default one per CPU,
+fewer where the memory available leaves less than 512 MiB per worker.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,

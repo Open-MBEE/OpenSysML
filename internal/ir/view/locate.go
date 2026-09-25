@@ -206,6 +206,9 @@ func (l *StateLocator) key(v ast.Node) (locatorKey, bool) {
 			return "", false
 		}
 		kind, parent = "state", l.parentOfState(n)
+		if l.graph.Completes(n) {
+			kind = "final"
+		}
 	case *ast.StateRegion:
 		owner := l.graph.RegionOwner[n]
 		if owner != nil && !l.drawn[owner] {
