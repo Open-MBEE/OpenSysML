@@ -596,7 +596,7 @@ func (e *ActionExecutor) toolOutput(tool string, out ToolOutput, answered ToolVa
 			return Value{}, err
 		}
 	}
-	target := &writeTarget{name: out.Parameter, typ: e.ctx.extractType(out.Declared), mult: mult}
+	target := e.ctx.newWriteTarget(out.Declared, out.Parameter, mult)
 	if err := e.ctx.checkWrite(e.ctx.protocolScope(e.root.scope), out.Parameter, target, &value); err != nil {
 		return Value{}, malformed("%v", err)
 	}
