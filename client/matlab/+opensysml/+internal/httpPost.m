@@ -37,8 +37,8 @@ function [status, contentType, bodyText] = post_curl(url, requestJsonText, timeo
     % curl writes status and content type after the marker, on lines of their own.
     marker = sprintf('\n__OPENSYSML_STATUS__\n');
     bodyFile = [tempname '.json'];
-    if ~isempty(regexp(bodyFile, '[^A-Za-z0-9._/\-]', 'once'))
-        error('opensysml:transport', 'refusing a body file path with shell metacharacters: %s', bodyFile);
+    if any(bodyFile == '''') || any(bodyFile == sprintf('\n'))
+        error('opensysml:transport', 'refusing a body file path that breaks quoting: %s', bodyFile);
     end
     fid = fopen(bodyFile, 'w');
     fwrite(fid, requestJsonText);

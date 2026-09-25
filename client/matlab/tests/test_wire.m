@@ -19,6 +19,19 @@ function test_wire()
     if ~exist('matlab.net.http.RequestMessage', 'class')
         conn = opensysml.external('http://x$(id)/');
         assert_error(@() opensysml.call(conn, 'GetServerInfo', struct()), 'opensysml:transport', 'metacharacters');
+
+        % a TMPDIR with a space must not break the single-quoted body file
+        addr = getenv('OPENSYSML_SERVICE');
+        if ~isempty(addr)
+            spaced = fullfile(tempdir, 'octave tmp');
+            mkdir(spaced);
+            oldTmp = getenv('TMPDIR');
+            setenv('TMPDIR', spaced);
+            conn = opensysml.external(addr);
+            answer = opensysml.call(conn, 'GetServerInfo', struct());
+            assert_equal(isstruct(answer), true, 'call under a spaced TMPDIR');
+            setenv('TMPDIR', oldTmp);
+        end
     end
     fprintf('wire ok\n');
 end

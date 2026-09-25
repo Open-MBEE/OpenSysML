@@ -68,6 +68,11 @@ function _abort_child(proc)
     catch
     end
     kill(proc)
+    deadline = time() + 2
+    while process_running(proc) && time() < deadline
+        sleep(0.05)
+    end
+    process_running(proc) && kill(proc, Base.SIGKILL)
     try
         wait(proc)
     catch

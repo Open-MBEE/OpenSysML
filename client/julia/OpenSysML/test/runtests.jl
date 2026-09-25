@@ -163,6 +163,16 @@ end
             @test !success(`pgrep -P $(getpid()) -x sleep`)
         end
         rm(script; force=true)
+
+        # a child that ignores SIGTERM is still reaped, via SIGKILL
+        write(script, "#!/bin/sh\ntrap '' TERM\nsleep 60\n")
+        chmod(script, 0o755)
+        t = @elapsed @test_throws TransportError private(binary=script, timeout=1)
+        @test t >= 1 && t < 10
+        if Sys.which("pgrep") !== nothing
+            @test !success(`pgrep -P $(getpid()) -x sleep`)
+        end
+        rm(script; force=true)
     end
 end
 

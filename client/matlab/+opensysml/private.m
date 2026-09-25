@@ -25,23 +25,33 @@ function conn = private(varargin)
     end
     rdr = javaObject('java.io.BufferedReader', ...
                      javaObject('java.io.InputStreamReader', proc.getInputStream()));
-    line = [];
+    line = ''; complete = false;
     start = tic;
-    while toc(start) < timeoutSec
-        if ~proc.isAlive(), break; end
-        if rdr.ready()
-            line = rdr.readLine();
-            break;
+    while ~complete && toc(start) < timeoutSec
+        readAny = false;
+        while rdr.ready()
+            c = rdr.read();
+            if c < 0
+                if ~isempty(line), complete = true; end
+                break;
+            end
+            readAny = true;
+            if c == 10
+                complete = true;
+                break;
+            end
+            line = [line char(c)];
         end
-        pause(0.05);
+        if ~proc.isAlive() && ~readAny && ~rdr.ready(), break; end
+        if ~complete, pause(0.05); end
     end
-    if isempty(line) && rdr.ready()
-        line = rdr.readLine();
-    end
-    if isempty(line)
+    if isempty(line) || ~complete
         proc.getOutputStream().close();
         proc.destroy();
-        proc.waitFor();
+        if ~proc.waitFor(2, javaMethod('valueOf', 'java.util.concurrent.TimeUnit', 'SECONDS'))
+            proc.destroyForcibly();
+            proc.waitFor();
+        end
         error('opensysml:transport', 'sysml-grpc reported no address within %ds', timeoutSec);
     end
     conn = opensysml.external(char(line));
