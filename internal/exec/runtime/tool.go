@@ -56,10 +56,7 @@ type ToolOutput struct {
 
 // Context is the context the call's performance runs in, nil for a call built outside one.
 func (c *ToolCall) Context() *Context {
-	if c.exec == nil {
-		return nil
-	}
-	return c.exec.ctx
+	return c.ctx
 }
 
 // ToolValue is one value as the tool protocol carries it: a number or truth in Value, or a
