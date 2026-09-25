@@ -435,8 +435,8 @@ func TestApplyModelEditLayoutRefusesWhenAnotherDocumentBecomesInvalid(t *testing
 	}
 }
 
-// declaredIn must name a document the server holds, accompanies a setLayout or
-// setRoute alone, and naming another document must come with the digest of the
+// declaredIn must name a document the server holds, accompanies a setLayout,
+// setRoute or setStyle alone, and naming another document must come with the digest of the
 // text its target was rendered from: each fault is an invalid request, not a
 // refusal.
 func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
@@ -450,8 +450,8 @@ func TestApplyModelEditRejectsMisplacedDeclaredIn(t *testing.T) {
 	}{
 		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Route: []renderPoint{{X: 1, Y: 2}}}, "no document the server holds"},
 		{modelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(uri.File("elsewhere.sysml")), Digest: digest, Layout: &modelEditLayout{X: 1, Y: 2}}, "no document the server holds"},
-		{modelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout or setRoute alone"},
-		{modelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &renderCanvas{Unit: "px"}}, "setLayout or setRoute alone"},
+		{modelEditOperation{Kind: EditRename, Target: "Machinery::Engine", DeclaredIn: protocol.DocumentURI(partsURI), Digest: digest, NewName: "Motor"}, "setLayout, setRoute or setStyle alone"},
+		{modelEditOperation{Kind: EditSetCanvas, Target: "EngineViews::engineView", DeclaredIn: protocol.DocumentURI(viewsURI), Canvas: &renderCanvas{Unit: "px"}}, "setLayout, setRoute or setStyle alone"},
 		{modelEditOperation{Kind: EditSetRoute, Declaration: decl, DeclaredIn: protocol.DocumentURI(partsURI), Route: []renderPoint{{X: 1, Y: 2}}}, "needs the digest"},
 		{modelEditOperation{Kind: EditSetLayout, Target: "Machinery::Engine::rotor", DeclaredIn: protocol.DocumentURI(partsURI), Layout: &modelEditLayout{X: 1, Y: 2}}, "needs the digest"},
 	} {

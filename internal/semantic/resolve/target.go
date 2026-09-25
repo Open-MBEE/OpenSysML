@@ -97,11 +97,35 @@ func (f *refFilter) hides(sym *symbols.Symbol) bool {
 	if f.namingTarget == nil {
 		return false
 	}
-	if sym.NamingTarget == f.namingTarget {
+	if sym.NamingTarget == f.namingTarget || triggerParameterHeaderNames(sym, f.namingTarget) {
 		return true
 	}
 	if f.hideBorrowedName && namedByReference(sym) && sym.Name == f.targetName {
 		return true
+	}
+	return false
+}
+
+// triggerParameterHeaderNames reports whether target is in the header of sym, a
+// transition trigger's parameter (`accept s3 : s3`), which never names itself.
+func triggerParameterHeaderNames(sym *symbols.Symbol, target ast.Node) bool {
+	if sym.OwnerScope == nil {
+		return false
+	}
+	if _, ok := sym.OwnerScope.Node().(*ast.TransitionMember); !ok {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	for _, rel := range usage.Relationships {
+		if rel == nil {
+			continue
+		}
+		if rel.Target == target || ast.AsQualifiedName(rel.Target) == target {
+			return true
+		}
 	}
 	return false
 }

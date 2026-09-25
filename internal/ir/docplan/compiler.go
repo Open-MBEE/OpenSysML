@@ -25,6 +25,7 @@ const (
 	definitionsBaseFQN = "DocumentQueries::Definitions"
 	formulaBaseFQN     = "DocumentQueries::Formula"
 	diagramBaseFQN     = "DocumentQueries::Diagram"
+	imageBaseFQN       = "DocumentQueries::Image"
 	runBaseFQN         = "DocumentQueries::Run"
 	spanBaseFQN        = "DocumentQueries::Span"
 	linkBaseFQN        = "DocumentQueries::Link"
@@ -59,6 +60,7 @@ type bases struct {
 	definitions *symbols.Symbol
 	formula     *symbols.Symbol
 	diagram     *symbols.Symbol
+	image       *symbols.Symbol
 	run         *symbols.Symbol
 	span        *symbols.Symbol
 	link        *symbols.Symbol
@@ -113,6 +115,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		definitions: libraryBase(index, definitionsBaseFQN),
 		formula:     libraryBase(index, formulaBaseFQN),
 		diagram:     libraryBase(index, diagramBaseFQN),
+		image:       libraryBase(index, imageBaseFQN),
 		run:         libraryBase(index, runBaseFQN),
 		span:        libraryBase(index, spanBaseFQN),
 		link:        libraryBase(index, linkBaseFQN),
@@ -123,7 +126,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		linkColumn: libraryBase(index, linkColumnBaseFQN),
 	}
 	if all.document == nil || all.section == nil || all.paragraph == nil ||
-		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil ||
+		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil || all.image == nil ||
 		all.run == nil || all.span == nil || all.link == nil || all.ref == nil ||
 		all.columnRun == nil || all.spanColumn == nil || all.linkColumn == nil {
 		return nil, &Error{Kind: ErrorLibraryUnavailable}
@@ -240,7 +243,8 @@ func (c *compiler) isContent(member *symbols.Symbol) bool {
 		c.model.Conforms(member, c.bases.list) ||
 		c.model.Conforms(member, c.bases.definitions) ||
 		c.model.Conforms(member, c.bases.formula) ||
-		c.model.Conforms(member, c.bases.diagram)
+		c.model.Conforms(member, c.bases.diagram) ||
+		c.model.Conforms(member, c.bases.image)
 }
 
 func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
@@ -266,6 +270,8 @@ func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
 		return c.compileFormula(member)
 	case c.model.Conforms(member, c.bases.diagram):
 		return c.compileDiagram(member)
+	case c.model.Conforms(member, c.bases.image):
+		return c.compileImage(member)
 	default:
 		return Content{}, &Error{
 			Kind:     ErrorInvalidContent,
@@ -1298,6 +1304,45 @@ func (c *compiler) compileFormula(member *symbols.Symbol) (Content, error) {
 		name:    c.effectiveName(member),
 		source:  source,
 		caption: caption,
+		origin:  member.Origin(),
+	}, nil
+}
+
+// compileImage compiles an image block: the location it shows, which must
+// not be blank, an optional caption and an optional text alternative.
+func (c *compiler) compileImage(member *symbols.Symbol) (Content, error) {
+	location, stated, err := c.optionalText(member, "location")
+	if err != nil {
+		return Content{}, err
+	}
+	if !stated || strings.TrimSpace(location) == "" {
+		return Content{}, &Error{
+			Kind:     ErrorMissingImageLocation,
+			Document: c.document,
+			Content:  symbols.FQNOf(member),
+			Origin:   member.Origin(),
+		}
+	}
+	caption, _, err := c.optionalText(member, "caption")
+	if err != nil {
+		return Content{}, err
+	}
+	alt, _, err := c.optionalText(member, "alt")
+	if err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectQuery(member); err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectNestedContent(member); err != nil {
+		return Content{}, err
+	}
+	return Content{
+		kind:    ContentImage,
+		name:    c.effectiveName(member),
+		source:  location,
+		caption: caption,
+		alt:     alt,
 		origin:  member.Origin(),
 	}, nil
 }

@@ -4465,16 +4465,18 @@ func (e *StateExecutor) scanPending(memo *pendingMemo, from int) (Message, bool)
 			saved.readsData = true
 		}
 	}()
-	messages := e.ctx.PendingMessages()
-	for i := from; i < len(messages); i++ {
+	// The bus is read in place, as TakeMessage reads it: a probe may post or drop
+	// messages behind the one examined, and those are visited too.
+	for i := from; i < len(e.ctx.messages); i++ {
+		msg := e.ctx.messages[i]
 		if memo != nil {
 			memo.scanned = i + 1
 		}
-		if takes, err := e.takesMessage(messages[i]); err != nil || takes {
+		if takes, err := e.takesMessage(msg); err != nil || takes {
 			if memo != nil {
-				memo.msg, memo.ok = messages[i], true
+				memo.msg, memo.ok = msg, true
 			}
-			return messages[i], true
+			return msg, true
 		}
 	}
 	return Message{}, false

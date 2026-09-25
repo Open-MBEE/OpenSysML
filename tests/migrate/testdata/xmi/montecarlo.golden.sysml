@@ -155,17 +155,25 @@ package Results {
     }
     calc def 'Statistics Table Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
-            source = DocumentQueries::WhereFeature(
-                source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                    type = ("Timer Analysis")),
-                'feature' = "isIndividual",
-                operator = "=",
-                value = "true"),
+            source = DocumentQueries::OrderBy(
+                source = DocumentQueries::WhereFeature(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                        type = ("Timer Analysis")),
+                    'feature' = "isIndividual",
+                    operator = "=",
+                    value = "true"),
+                property = "'Monte Carlo'.runs",
+                direction = "descending",
+                missing = "last",
+                multiple = "first"),
             properties = ("name"),
             columns = (
-                DocumentQueries::Column(name = "t", expression = Timer::t ?? "")))
+                DocumentQueries::Column(name = "t", expression = Timer::t ?? ""),
+                DocumentQueries::Column(name = "N", expression = 'Monte Carlo'.runs),
+                DocumentQueries::Column(name = "Mean", expression = 'Monte Carlo'.mean),
+                DocumentQueries::Column(name = "Deviation", expression = 'Monte Carlo'.deviation)))
     }
     part def 'Statistics Table Document' :> DocumentQueries::Document {
         attribute redefines title = "Statistics Table";

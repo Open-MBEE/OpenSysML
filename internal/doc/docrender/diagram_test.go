@@ -27,9 +27,10 @@ func renderedDiagram(t *testing.T, caption string, rendering *view.Rendering, di
 
 func renderedDiagramForm(t *testing.T, caption string, rendering *view.Rendering, direction view.Direction, form view.Form) string {
 	t.Helper()
-	blocks, err := diagramBlocks("d", caption, rendering, view.Options{Direction: direction}, form)
+	w := &markdownWriter{opts: DiagramOptions{Form: form}}
+	blocks, err := w.diagramFigure("d", caption, rendering, view.Options{Direction: direction})
 	if err != nil {
-		t.Fatalf("diagramBlocks: %v", err)
+		t.Fatalf("diagramFigure: %v", err)
 	}
 	return strings.Join(blocks, "\n\n")
 }
@@ -125,20 +126,24 @@ func TestDiagramPlantUMLForm(t *testing.T) {
 	}
 }
 
-// The diagram form is resolved once per render: empty is Mermaid, and a form
-// no diagram is written as is a typed error before anything is written.
+// The diagram form is checked once per render: a form no diagram is written
+// as is a typed error before anything is written, while empty picks per
+// diagram — Mermaid for one nothing positions.
 func TestDiagramFormResolution(t *testing.T) {
-	if form, err := diagramForm(""); err != nil || form != view.FormMermaid {
-		t.Fatalf("diagramForm(\"\") = %q, %v", form, err)
+	if form, fallback := (DiagramOptions{}).formFor(graphRendering(view.KindTree)); form != view.FormMermaid || fallback != "" {
+		t.Fatalf("automatic form of an unpositioned view = %q, %q", form, fallback)
 	}
 	for _, form := range view.DiagramForms() {
-		if got, err := diagramForm(form); err != nil || got != form {
-			t.Fatalf("diagramForm(%s) = %q, %v", form, got, err)
+		if err := (DiagramOptions{Form: form}).check(); err != nil {
+			t.Fatalf("check(%s): %v", form, err)
+		}
+		if got, _ := (DiagramOptions{Form: form}).formFor(graphRendering(view.KindTree)); got != form {
+			t.Fatalf("formFor(%s) = %q", form, got)
 		}
 	}
 	var typed *Error
 	for _, form := range []view.Form{view.FormText, view.FormMarkdown, "svg"} {
-		_, err := diagramForm(form)
+		err := (DiagramOptions{Form: form}).check()
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnknownForm || typed.DiagramForm != form {
 			t.Fatalf("%s: error = %v", form, err)
 		}
@@ -152,14 +157,14 @@ func TestDiagramFormResolution(t *testing.T) {
 // table-kind view is a pipe table whichever form is chosen.
 func TestDiagramFormErrors(t *testing.T) {
 	var typed *Error
-	_, err := diagramBlocks("d", "", graphRendering(view.KindSequence), view.Options{}, view.FormDot)
+	_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormDot}}).diagramFigure("d", "", graphRendering(view.KindSequence), view.Options{})
 	if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableForm || typed.Actual != "sequence" || typed.DiagramForm != view.FormDot {
 		t.Fatalf("sequence as dot: error = %v", err)
 	}
 	if !strings.Contains(err.Error(), `kind "sequence"`) || !strings.Contains(err.Error(), "not written as dot") {
 		t.Errorf("message = %q", err)
 	}
-	if _, err := diagramBlocks("d", "", graphRendering(view.KindSequence), view.Options{}, view.FormPlantUML); err != nil {
+	if _, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormPlantUML}}).diagramFigure("d", "", graphRendering(view.KindSequence), view.Options{}); err != nil {
 		t.Fatalf("sequence as plantuml: %v", err)
 	}
 	table := &view.Rendering{Kind: view.KindTable, Columns: []string{"a"}, Rows: [][]string{{"x"}}}
@@ -223,7 +228,7 @@ func TestDiagramTableKindExplainsAnEmptyRendering(t *testing.T) {
 }
 
 func TestDiagramMissingRendering(t *testing.T) {
-	_, err := diagramBlocks("d", "", nil, view.Options{}, view.FormMermaid)
+	_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormMermaid}}).diagramFigure("d", "", nil, view.Options{})
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Kind != ErrorMissingRendering {
 		t.Fatalf("error = %v, want %s", err, ErrorMissingRendering)
@@ -232,7 +237,7 @@ func TestDiagramMissingRendering(t *testing.T) {
 
 func TestDiagramUnrenderableKind(t *testing.T) {
 	for _, kind := range []view.Kind{view.KindTextual, view.KindGeometry} {
-		_, err := diagramBlocks("d", "", &view.Rendering{Kind: kind}, view.Options{}, view.FormMermaid)
+		_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormMermaid}}).diagramFigure("d", "", &view.Rendering{Kind: kind}, view.Options{})
 		var typed *Error
 		if !errors.As(err, &typed) || typed.Kind != ErrorUnrenderableDiagram {
 			t.Fatalf("%s: error = %v, want %s", kind, err, ErrorUnrenderableDiagram)
@@ -260,7 +265,7 @@ func TestDiagramOversized(t *testing.T) {
 		rendering.Edges = append(rendering.Edges, view.Edge{From: "n0", To: "n1"})
 	}
 	var typed *Error
-	_, err := diagramBlocks("Wide", "", rendering, view.Options{}, view.FormMermaid)
+	_, err := (&markdownWriter{opts: DiagramOptions{Form: view.FormMermaid}}).diagramFigure("Wide", "", rendering, view.Options{})
 	if !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
 		t.Fatalf("Markdown: error = %v, want %s", err, ErrorOversizedDiagram)
 	}
@@ -272,7 +277,7 @@ func TestDiagramOversized(t *testing.T) {
 			t.Errorf("message lacks %q: %s", want, typed.Error())
 		}
 	}
-	w := &htmlWriter{form: view.FormMermaid}
+	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}}
 	if err := w.writeFigure("", "Wide", "", rendering, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
 		t.Fatalf("HTML: error = %v, want %s", err, ErrorOversizedDiagram)
 	}

@@ -20,6 +20,7 @@ const (
 	ErrorInvalidRunTarget        ErrorKind = "invalid-run-target"
 	ErrorBlankMath               ErrorKind = "blank-math"
 	ErrorUnknownDefinitionColumn ErrorKind = "unknown-definition-column"
+	ErrorMissingImageLocation    ErrorKind = "missing-image-location"
 )
 
 // Error is a typed document-evaluation failure with its source location.
@@ -64,6 +65,8 @@ func (e *Error) Error() string {
 			"document %s content %s query %s row %d column %q must supply one non-empty link target, got %s",
 			e.Document, e.Content, e.Query, e.Row, e.Column, e.Actual,
 		)
+	case ErrorMissingImageLocation:
+		return fmt.Sprintf("document %s image %s states no location", e.Document, e.Content)
 	case ErrorUnknownDefinitionColumn:
 		return fmt.Sprintf("document %s definitions %s names column %q, which query %s did not project", e.Document, e.Content, e.Column, e.Query)
 	default:

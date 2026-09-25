@@ -23,7 +23,7 @@ import {
   rootOwner,
   validName,
 } from "./edits";
-import { ExportHost, exportRendering, serverForms } from "./export";
+import { ExportHost, exportRendering, serverForms, serverStyles } from "./export";
 import {
   admits,
   APPLY_MODEL_EDIT_CAPABILITY,
@@ -54,7 +54,7 @@ import {
   WorkspaceEdit,
 } from "./protocol";
 import { ActiveEditor, AUTO_OPEN_SETTING, Dismissals, Lifecycle, renamedUri, shouldAutoOpen, TabKind } from "./autoopen";
-import { DiagramStyle, paletteOf, STYLE_SETTING, styleOf } from "./style";
+import { DiagramStyle, drawingStyleOf, paletteOf, STYLE_SETTING, styleOf } from "./style";
 import { CommandContext, PANEL_TYPE, resolveTarget } from "./target";
 import {
   chooseView,
@@ -74,6 +74,9 @@ const NOT_RUNNING = "The SysML v2 language server is not running; run \"SysML: R
 const NOT_SERVED = "The SysML v2 language server does not serve diagrams; update sysml-lsp to draw one.";
 /** Shown under a palette the attached server cannot fill: it predates coloured renderings. */
 export const NO_PALETTE_HINT = "This language server draws no palette; update sysml-lsp to colour the diagram.";
+
+/** What the status line says when the server predates drawing styles and the Cameo look is asked for. */
+export const NO_STYLE_HINT = "This language server draws no Cameo style; update sysml-lsp to export the diagram in it.";
 
 /** The views of a document, as the picker offers them: declared first, then the pseudo-views. */
 interface ViewListing {
@@ -414,7 +417,9 @@ export class DiagramPanels implements vscode.Disposable {
         await vscode.workspace.fs.writeFile(vscode.Uri.parse(location), new TextEncoder().encode(artifact));
       },
     };
-    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)) });
+    const drawing = drawingStyleOf(diagramStyle(resolved.uri));
+    const style = drawing !== undefined && supportsStyle(client, drawing) ? drawing : undefined;
+    const outcome = await exportRendering(host, { uri, documentName, view, forms: serverForms(experimental(client)), style });
     switch (outcome.kind) {
       case "saved":
         this.output.appendLine(`Exported ${outcome.form} of ${documentName} to ${vscode.Uri.parse(outcome.location).fsPath}`);
@@ -761,10 +766,13 @@ class DiagramPanel {
       const style = diagramStyle(this.docURI);
       const palette = paletteOf(style);
       const colours = palette !== undefined && supportsPalette(client);
+      const drawing = drawingStyleOf(style);
+      const styled = drawing !== undefined && supportsStyle(client, drawing);
       const params: RenderParams = {
         textDocument,
         view: this.selected === "" ? undefined : this.selected,
         palette: colours ? palette : undefined,
+        style: styled ? drawing : undefined,
       };
       const result = normalizeRender(await client.sendRequest<RenderResult>(RENDER_METHOD, params));
       // A style chosen meanwhile has its own render queued; a drawing in the old one is dropped.
@@ -794,7 +802,7 @@ class DiagramPanel {
         selected: this.selected,
         drawn: this.drawn,
         style,
-        hint: palette !== undefined && !colours ? NO_PALETTE_HINT : undefined,
+        hint: renderHint(palette !== undefined && !colours, drawing !== undefined && !styled),
       });
       this.highlightActive();
     } catch (err) {
@@ -1317,6 +1325,19 @@ function supportsPalette(client: LanguageClient): boolean {
   return experimental(client)?.[RENDER_PALETTE_CAPABILITY] === true;
 }
 
+/** supportsStyle reports whether the server lists a drawing style among those its render request draws. */
+function supportsStyle(client: LanguageClient, style: string): boolean {
+  return serverStyles(experimental(client)).includes(style);
+}
+
+/** renderHint says what of the chosen look the server could not draw, if anything. */
+export function renderHint(noPalette: boolean, noStyle: boolean): string | undefined {
+  if (noPalette) {
+    return NO_PALETTE_HINT;
+  }
+  return noStyle ? NO_STYLE_HINT : undefined;
+}
+
 /** supportsCrossDocument reports whether the server advertised the cross-document diagram contract. */
 function supportsCrossDocument(client: LanguageClient): boolean {
   return experimental(client)?.[CROSS_DOCUMENT_CAPABILITY] === true;
@@ -1483,6 +1504,20 @@ function html(
       #diagram.pilot .opensysml-table th { background: white; }
       #diagram.pilot .opensysml-table tr.located:hover { background: #eee; }
       #diagram.pilot .opensysml-table tr.opensysml-selected { background: #dbe9ff; color: black; }
+      /* Cameo Systems Modeler's look over the pilot's rules: 11px Arial, pale-yellow gradient fills, thin dark borders. */
+      #diagram.cameo svg { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 11px; }
+      #diagram.cameo .shape { fill: var(--node-fill, url(#cameo-fill)); stroke: var(--node-border, #5B5B59); stroke-width: 1px; }
+      #diagram.cameo .shape.container { fill: var(--node-fill, url(#cameo-fill)); }
+      #diagram.cameo .shape.usage { rx: 8px; }
+      #diagram.cameo .shape.filled { fill: #424242; stroke: #424242; }
+      #diagram.cameo .label { fill: #424242; }
+      #diagram.cameo .label .keyword { font-style: normal; font-size: 0.82em; }
+      #diagram.cameo .collapsed { fill: #424242; }
+      #diagram.cameo .line { stroke: #424242; }
+      #diagram.cameo .connection .line { stroke-width: 1px; }
+      #diagram.cameo .arrow-fill { fill: #424242; }
+      #diagram.cameo .arrow-line { stroke: #424242; }
+      #diagram.cameo .edge-label { fill: #424242; }
       details { margin-top: 0.75rem; font-size: 0.9em; }
       pre { white-space: pre-wrap; }
     </style>
