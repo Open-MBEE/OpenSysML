@@ -739,9 +739,8 @@ func (w *dotWriter) collectDrawn(nodes []*Node) {
 // rendering's trees and not left undrawn for want of a place.
 func (w *dotWriter) draws(id string) bool { return w.drawn[id] && !w.omitted[id] }
 
-// drawnEdges is edges without one an end the drawing holds no node for leaves
-// undrawable — an anchor of a note on a node the rendering dropped, say — each
-// noticed rather than written, DOT having no node of that ID to end it at.
+// drawnEdges is edges without those at an ID the DOT declares no node for,
+// each noticed rather than written to an undeclared node.
 func (w *dotWriter) drawnEdges(edges []Edge) []Edge {
 	kept := make([]Edge, 0, len(edges))
 	for _, edge := range edges {
