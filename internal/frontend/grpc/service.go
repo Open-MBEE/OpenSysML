@@ -456,6 +456,13 @@ func (s *Service) newRuntimeContext(model *runtime.Model) *runtime.Context {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
+	// The runner puts tool-computed actions and calcs of contexts held outside a plan —
+	// feature values, documents, calc usages — to the engines as Compute questions.
+	schedule := ctx.Schedule()
+	if schedule == (runtime.SchedulePolicy{}) {
+		schedule = runtime.DefaultSchedulePolicy
+	}
+	ctx.SetToolRunner(s.engines.ToolRunner(context.Background(), ctx, analysis.BudgetOf(s.budgets, schedule, analysis.Compute, s.jobs), analysis.Auto()))
 	return ctx
 }
 

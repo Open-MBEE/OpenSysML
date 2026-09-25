@@ -1510,8 +1510,9 @@ sweep    built-in  -         observed   sweep            ready
 Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
 the same way with its executable's status (`tool:ModelCenter  tool  object  observed  compute
 ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a
-performance of an action annotated `ToolExecution` asks, and nothing else does, so a tool that
-is unregistered or fails stops that performance rather than falling back to the action's body
+performance of an action — or an invocation of a `calc def` or calc usage — annotated
+`ToolExecution` asks, and nothing else does, so a tool that
+is unregistered or fails stops that performance or calculation rather than falling back to the body
 ([External tools](environment.md#external-tools)). Every engine the manifest directory
 `OPENSYSML_ENGINES` names is listed under its own name, with the manifest's authority and
 answers and the status its file can tell; a `policy`, `sampler` or `module` entry is listed as

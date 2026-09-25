@@ -888,6 +888,31 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		ctx.clock.attach(flow)
 		defer ctx.clock.detach(flow)
 	}
+	run := newCalcRun(shape, reader.scope, reader.self, env)
+	run.outer = nested
+	run.activation, run.perf, run.boundInputs = engine.activation, host.performance(), start.inputs
+
+	// A tool-computed calc runs no body: the tool's answers are its outputs, the
+	// result parameter's answer its result, and reading an unanswered one is the
+	// reply's failure rather than a binding to evaluate.
+	if shape.Tool != nil {
+		result, outputs, err := ctx.computeCalcByTool(shape, ec.scope, env.lookup)
+		if err != nil {
+			if ec.trace != nil {
+				ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
+			}
+			return nil, calcFrame(shape.Kind, shape.Name, err)
+		}
+		run.result, run.returned = result, true
+		for name, value := range outputs {
+			run.outputs[name] = value
+		}
+		if ec.trace != nil {
+			ec.trace.RecordCalculationExit(shape.Kind, shape.Name, result)
+		}
+		return run, nil
+	}
+
 	steps := shape.Steps
 	if start.deferResults {
 		steps, _ = shape.observationSteps()
@@ -910,9 +935,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 		}
 	}
 
-	run := newCalcRun(shape, reader.scope, reader.self, env)
-	run.outer, run.result, run.returned = nested, result, returned
-	run.activation, run.perf, run.boundInputs = engine.activation, host.performance(), start.inputs
+	run.result, run.returned = result, returned
 	// The returned value is the result parameter's, read under its name or as
 	// `result`; every other output states its own value, never the returned one.
 	if returned {
@@ -955,6 +978,12 @@ func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 	if value, ok := run.outputs[out.Name]; ok && out.Name != "" {
 		return value, nil
+	}
+	if run.shape.Tool != nil {
+		// The tool's reply is the output's whole computation: one it left
+		// unanswered has no binding to fall back on.
+		return Value{}, &ToolError{Tool: run.shape.Tool.tool, Kind: ToolMissingOutput,
+			Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Name, run.outputDescription(out), run.shape.Label)}
 	}
 	if out.Value == nil || out.IsInitial {
 		// An output the body assigned, and an `inout` the invocation bound, are values

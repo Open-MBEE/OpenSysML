@@ -423,6 +423,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 		return nil, err
 	}
 	r.session.applyDraws(ctx)
+	r.session.attachTools(ctx)
 	r.ctx = ctx
 	return ctx, nil
 }
