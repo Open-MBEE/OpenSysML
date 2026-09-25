@@ -406,3 +406,41 @@ func TestImageParagraphNotesExtraImages(t *testing.T) {
 	}
 	wantOneNote(t, r, "_st_note_image", migrate.Approximated, "1 more images in the body are left out")
 }
+
+// TestImageNameStaysInsideImages writes an attachment whose tag name climbs
+// directories under images/ as a plain base name, and under the suffix its
+// bytes call for rather than the one the tag states.
+func TestImageNameStaysInsideImages(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fleet := []byte("\x89PNG\r\n\x1a\n fleet bytes")
+	for _, tc := range []struct{ file, entry, want string }{
+		{`../../fleet.txt`, "attachments/fleet.txt", "images/fleet.png"},
+		{`..\..\fleet`, "attachments/fleet", "images/fleet.png"},
+		{`..`, "attachments/..", "images/image.png"},
+		{`fleet.PNG`, "attachments/fleet.PNG", "images/fleet.PNG"},
+	} {
+		doc := strings.Replace(string(data), `file="fleet.png"`, `file="`+tc.file+`"`, 1)
+		if doc == string(data) {
+			t.Fatal("the fixture lacks the image tag")
+		}
+		r, err := migrate.Migrate("documents.mdzip", zipData(t, []byte(doc), map[string][]byte{
+			tc.entry:                fleet,
+			"attachments/depot.png": []byte("\x89PNG\r\n\x1a\n depot bytes"),
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		wantLine(t, r.Notation, `attribute redefines location = "`+tc.want+`";`)
+		if !bytes.Equal(r.Files[tc.want], fleet) {
+			t.Errorf("%q: Files = %v, want %s", tc.file, keysOf(r.Files), tc.want)
+		}
+		for name := range r.Files {
+			if !strings.HasPrefix(name, "images/") || strings.Contains(name[len("images/"):], "/") || strings.Contains(name, "..") {
+				t.Errorf("%q: file %q is not a plain name under images/", tc.file, name)
+			}
+		}
+	}
+}

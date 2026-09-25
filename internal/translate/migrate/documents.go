@@ -498,28 +498,43 @@ func imageContent(data []byte) string {
 	return ""
 }
 
-// imageFileName names the written image: the tag's file name when it states
-// one, else the stream id plus the extension the bytes' content type ct reads.
+// imageExtensions are the file suffixes each image content type is written
+// under, the first being the canonical one.
+var imageExtensions = map[string][]string{
+	"image/png":     {".png"},
+	"image/jpeg":    {".jpg", ".jpeg"},
+	"image/gif":     {".gif"},
+	"image/webp":    {".webp"},
+	"image/bmp":     {".bmp"},
+	"image/svg+xml": {".svg"},
+}
+
+// plainFileName reports base names a file can be written under.
+func plainFileName(base string) bool {
+	return base != "" && base != "." && base != ".." && base != "/"
+}
+
+// imageFileName names the written image: the base of the tag's file name when
+// it states one, else the stream id, with a suffix that matches the content
+// type ct the bytes read as; a stated suffix of another type is replaced.
 func imageFileName(name, entry, ct string) string {
-	if base := path.Base(strings.ReplaceAll(name, "\\", "/")); base != "" && base != "." && base != "/" {
+	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	if !plainFileName(base) {
+		base = path.Base(entry)
+	}
+	if !plainFileName(base) {
+		base = "image"
+	}
+	exts := imageExtensions[ct]
+	if len(exts) == 0 {
 		return base
 	}
-	ext := ""
-	switch ct {
-	case "image/png":
-		ext = ".png"
-	case "image/jpeg":
-		ext = ".jpg"
-	case "image/gif":
-		ext = ".gif"
-	case "image/webp":
-		ext = ".webp"
-	case "image/bmp":
-		ext = ".bmp"
-	case "image/svg+xml":
-		ext = ".svg"
+	if ext := path.Ext(base); slices.Contains(exts, strings.ToLower(ext)) {
+		return base
+	} else if base != ext {
+		base = strings.TrimSuffix(base, ext)
 	}
-	return path.Base(entry) + ext
+	return base + exts[0]
 }
 
 // findEntry names the archive entry holding the attachment name names: the

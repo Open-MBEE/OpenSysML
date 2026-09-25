@@ -64,16 +64,14 @@ func writeAtomic(path, target string, mode os.FileMode, data []byte) error {
 	return s.Commit()
 }
 
-// Staged is a file written and flushed beside its destination but not yet
-// renamed over it, so a set of files can be committed only once every one of
-// them has been written, or discarded together.
+// Staged is a file written beside its destination but not yet renamed over
+// it, so a set of files can be committed together or discarded.
 type Staged struct {
 	path, target, name string
 }
 
-// Stage writes data to a temporary file beside the regular file path names,
-// ready to Commit. Anything that is not a regular file (or absent) cannot be
-// staged, since there is nothing to rename over.
+// Stage writes data to a temporary file beside path, ready to Commit; path
+// must be absent or a regular file, as there is nothing else to rename over.
 func Stage(path string, data []byte) (*Staged, error) {
 	target, info, err := Destination(path)
 	switch {

@@ -220,6 +220,13 @@ func TestDOTCameoHonoursStylesAndPalettes(t *testing.T) {
 	if !strings.Contains(both, `fillcolor="#FFE8BD", color="#333333", label=`) {
 		t.Errorf("a palette overrides a Style's fill:\n%s", both)
 	}
+	puml, err := rendering.PlantUMLWith(Options{Palette: PaletteOkabeIto})
+	if err != nil {
+		t.Fatalf("PlantUML: %v", err)
+	}
+	if !strings.Contains(puml, "#FFE8BD;line:333333") {
+		t.Errorf("a palette overrides a Style's fill in PlantUML:\n%s", puml)
+	}
 }
 
 // Notes are drawn in the Pilot style too, and the forms that draw none say so.

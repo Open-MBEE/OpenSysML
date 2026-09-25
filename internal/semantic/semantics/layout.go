@@ -491,9 +491,9 @@ func (m *Model) readStyle(site *LayoutSite, bindings []MetadataBinding) {
 				ok = m.readReal(site, b, &style.FontSize) && ok
 			}
 		case "bold":
-			m.readBool(site, b, &style.Bold)
+			ok = m.readBool(site, b, &style.Bold) && ok
 		case "italic":
-			m.readBool(site, b, &style.Italic)
+			ok = m.readBool(site, b, &style.Italic) && ok
 		}
 	}
 	if style.FontSize < 0 {
@@ -614,17 +614,18 @@ func (m *Model) readRealValue(site *LayoutSite, scope *symbols.Scope, value ast.
 
 // readBool reads one binding as a boolean, reporting a value that is not a
 // constant truth value.
-func (m *Model) readBool(site *LayoutSite, b MetadataBinding, into *bool) {
+func (m *Model) readBool(site *LayoutSite, b MetadataBinding, into *bool) bool {
 	if b.Value == nil {
-		return
+		return true
 	}
 	v := m.annotationValue(b.Scope, b.Value)
 	if v.Kind != symbols.FilterValueBool {
 		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
 			Message: fmt.Sprintf("%s of %s is not a constant boolean", b.Feature, simpleName(site.TypeFQN))})
-		return
+		return false
 	}
 	*into = v.Bool
+	return true
 }
 
 // bindsFeature reports whether the body binds feature to a value at all.

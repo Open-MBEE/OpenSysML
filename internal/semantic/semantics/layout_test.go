@@ -260,6 +260,23 @@ func TestStyleOfReportsAMalformedColour(t *testing.T) {
 	}
 }
 
+func TestStyleOfRejectsAMalformedBoolean(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "#FF0000"; bold = 7; } }
+		part pump { @Style { fill = "#FF0000"; italic = "yes"; } }
+	`)
+	for _, name := range []string{"engine", "pump"} {
+		site, ok := m.StyleOf(nil, sym(t, p, name))
+		if !ok || site.Style != nil {
+			t.Errorf("StyleOf(nil, %s) = %+v, %v; want the style withheld", name, site, ok)
+		}
+		if len(site.Problems) != 1 || !strings.HasSuffix(site.Problems[0].Message, "of Style is not a constant boolean") {
+			t.Errorf("%s problems = %+v", name, site.Problems)
+		}
+	}
+}
+
 func TestNotesOfListsEveryNoteInTheView(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

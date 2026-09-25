@@ -200,11 +200,8 @@ func convertInput(name string, data []byte, from, to convert.Format) ([]byte, ma
 	return migrated.Output, migrated.Files, nil
 }
 
-// writeMigrationFiles writes the model a migration produced to path and its
-// image files under dir, each at the relative path it was planned for, as one
-// set: every file is staged beside its destination before any replaces what is
-// there, so a model that cannot be saved leaves the images the previous model
-// refers to untouched.
+// writeMigrationFiles writes a migration's model and its image files as one
+// set: all are staged before any is committed, the model first.
 func writeMigrationFiles(path string, out []byte, to convert.Format, replaced bool, dir string, files map[string][]byte) error {
 	var staged []*export.Staged
 	discard := func() {
