@@ -7,8 +7,6 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // DOT is the Graphviz form of a graph-shaped rendering: a `digraph`, written
@@ -193,12 +191,12 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if name := shown(root); name != "" {
-			parts = append(parts, dotEscape(source.Unescape(w.labels.name(root))))
+			parts = append(parts, dotEscape(displayText(w.labels.name(root))))
 		}
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(source.Unescape(lastName(r.View)))+" ]")
+		parts = append(parts, "[ "+dotEscape(displayText(lastName(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }
@@ -1666,17 +1664,29 @@ func (w *dotWriter) noteLines(note Note) []string {
 
 // noteLayers is the notes split at the z-order Graphviz paints in file order:
 // a note whose stated box encloses a drawn node's is written before the nodes,
-// behind them as a Cameo text box drawn as a group frame goes; every other
-// note is written after them, on top, as a note inside a node's box stays.
+// behind them as a Cameo text box drawn as a group frame goes — an enclosing
+// frame ahead of the frames inside it; every other note is written after them,
+// on top, as a note inside a node's box stays.
 func (w *dotWriter) noteLayers() (under, over []int) {
 	for i := range w.notes {
 		if w.noteEnclosesNode(i) {
-			under = append(under, i)
+			under = w.layerUnder(under, i)
 			continue
 		}
 		over = append(over, i)
 	}
 	return under, over
+}
+
+// layerUnder places note i before the first note whose box it encloses, so an
+// outer frame is painted before, and under, the frames inside it.
+func (w *dotWriter) layerUnder(under []int, i int) []int {
+	for at, j := range under {
+		if w.noteBoxes[i].encloses(w.noteBoxes[j]) {
+			return append(under[:at], append([]int{i}, under[at:]...)...)
+		}
+	}
+	return append(under, i)
 }
 
 // noteEnclosesNode reports whether the i-th note's stated box holds the box of

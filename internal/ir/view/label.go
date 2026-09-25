@@ -194,6 +194,18 @@ func shown(node *Node) string {
 	return node.Name
 }
 
+// displayText decodes a quoted name's escapes for a drawn label: a carriage
+// return is a line break and the other control escapes have no glyph, so they
+// are dropped.
+func displayText(raw string) string {
+	text := source.Unescape(raw)
+	if !strings.ContainsAny(text, "\r\b\f") {
+		return text
+	}
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	return strings.NewReplacer("\r", "\n", "\b", "", "\f", "").Replace(text)
+}
+
 // head is the first line of a node's diagram label: its name, followed by
 // " : Type" for a typed usage, each type by the name it ends in. A node with no
 // shown name leads with " : Type" alone when typed, else with its kind.
@@ -202,11 +214,11 @@ func (l labeller) head(node *Node) string {
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
-		return ": " + source.Unescape(source.ReferenceEndNames(typ))
+		return ": " + displayText(source.ReferenceEndNames(typ))
 	case typ == "":
-		return source.Unescape(l.name(node))
+		return displayText(l.name(node))
 	default:
-		return source.Unescape(l.name(node) + " : " + source.ReferenceEndNames(typ))
+		return displayText(l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
 }
 
