@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -48,5 +49,24 @@ func TestADryRunStopsAtAnEngineAheadOfTheTool(t *testing.T) {
 	}
 	if dry.Preview.Tool != "Solver" {
 		t.Errorf("the preview names %q, want Solver", dry.Preview.Tool)
+	}
+}
+
+// A real external engine ahead of the tool is undecided without probing it: its
+// Covers needs a model and a process, neither of which a dry run has — the entry's
+// program does not exist, so any probe would surface as something else.
+func TestADryRunStopsAtAnExternalEngineAheadOfTheTool(t *testing.T) {
+	external := EngineEntry{Kind: KindEngine, Name: "eager", Command: []string{filepath.Join(t.TempDir(), "absent")},
+		Executable: filepath.Join(t.TempDir(), "absent"), Transport: TransportStdio, Protocol: 1,
+		Answers: []Kind{Compute}, Model: []ModelForm{FormSources}, Authority: Proved}
+	entry := ToolEntry{ToolName: "Solver", Executable: standin(t), Variables: []string{"mass", "tMax"}}
+	r := registered(t, NewEngine(external), NewTool(entry))
+	_, err := r.DryRunner(Auto()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
+	var undecided *PreviewUndecidedError
+	if !errors.As(err, &undecided) {
+		t.Fatalf("RunTool under auto = %v, want PreviewUndecidedError", err)
+	}
+	if undecided.Engine != "eager" || undecided.Tool != "Solver" {
+		t.Errorf("undecided = %+v, want engine %q ahead of tool %q", undecided, "eager", "Solver")
 	}
 }

@@ -101,8 +101,8 @@ type dryRunner struct {
 }
 
 // RunTool walks the selection's candidates in the order the real runner consults
-// them: a refusal moves on, a covered non-tool engine cannot be probed here, and the
-// tool's own entry previews its call and answers ToolDryRunError.
+// them, probing only tool entries: a non-tool candidate ahead of the tool's own is
+// undecided under auto/all, refusing or not a tool entry under a named selection.
 func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
@@ -114,6 +114,20 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 		return runtime.ToolAnswer{}, err
 	}
 	for _, c := range candidates {
+		te, ok := c.(toolEngine)
+		if !ok {
+			if d.selection.Mode == SelectNamed {
+				// An external engine cannot be probed without a model and a
+				// process; the built-ins answer Covers of a question not theirs.
+				if _, external := c.(externalEngine); !external {
+					if cov := c.Covers(nil, q); cov.Refusal != nil {
+						return runtime.ToolAnswer{}, cov.Refusal
+					}
+				}
+				return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
+			}
+			return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
+		}
 		cov := c.Covers(nil, q)
 		if cov.Refusal != nil {
 			if d.selection.Mode == SelectNamed {
@@ -121,7 +135,7 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			}
 			continue
 		}
-		if te, ok := c.(toolEngine); ok && te.entry.ToolName == call.ToolName {
+		if te.entry.ToolName == call.ToolName {
 			path, err := te.look(te.entry)
 			if err != nil {
 				return runtime.ToolAnswer{}, &ProcessAbsentError{Engine: te.Name(), Process: te.Describe().Process, Err: err}
@@ -132,10 +146,6 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 			}
 			return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
 		}
-		if d.selection.Mode == SelectNamed {
-			return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
-		}
-		return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
 	}
 	return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 }
