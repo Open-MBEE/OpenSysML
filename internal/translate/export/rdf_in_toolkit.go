@@ -306,13 +306,9 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			memberOwner[member.Value] = owner
 			memberMembership[member.Value] = subject
 			ownerMembers[owner.Value] = append(ownerMembers[owner.Value], member)
-		case m == mFeatureValue:
-			nodeMember[member.Value] = true
-			nodeOwner[member.Value] = owner
-		case expressionMetaclasses[meta(member)]:
-			nodeMember[member.Value] = true
-			nodeOwner[member.Value] = owner
-		case (m == mParameterMembership || m == mReturnParameterMembership) && expressionMetaclasses[meta(owner)]:
+		case m == mFeatureValue,
+			expressionMetaclasses[meta(member)],
+			(m == mParameterMembership || m == mReturnParameterMembership) && expressionMetaclasses[meta(owner)]:
 			nodeMember[member.Value] = true
 			nodeOwner[member.Value] = owner
 		default:

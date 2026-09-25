@@ -583,13 +583,13 @@ func TestComparisonTableComparesTheDeclaredStatistics(t *testing.T) {
 	}
 	// Nor is a run's or a summary's offset from the pooled mean taken raw: runs at
 	// the ends of the Real range are pooled to the deviation they have.
-	max := math.MaxFloat64
+	maxF := math.MaxFloat64
 	huge.Snapshots = []simresults.Snapshot{
-		{ID: "_r1", Values: map[string]float64{"total": -max}},
-		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: max, Deviation: simresults.Real(0)}},
+		{ID: "_r1", Values: map[string]float64{"total": -maxF}},
+		{ID: "_s1", Statistics: &simresults.Statistics{Observable: "total", Runs: 3, Mean: maxF, Deviation: simresults.Real(0)}},
 	}
-	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-max) > 1e293 {
-		t.Errorf("storedDeviation over -max and a summary at max = %v, %v; want %v", dev, ok, max)
+	if dev, ok := storedDeviation(huge, "total"); !ok || math.Abs(dev-maxF) > 1e293 {
+		t.Errorf("storedDeviation over -max and a summary at max = %v, %v; want %v", dev, ok, maxF)
 	}
 
 	// A summary that kept no deviation leaves the tool's blank and says so.

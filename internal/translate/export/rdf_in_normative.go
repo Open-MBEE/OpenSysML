@@ -93,7 +93,7 @@ var relationshipTargetEnds = []string{
 // collapsed statement beside it: the target set its ends name is the set the
 // head's collapsed properties state, a conjugated definition is the `~` of its
 // owner, and a satisfy's subject parameter is the `by` the head states.
-func (d *decoder) normativeImplied(el *element, parent *element) (bool, error) {
+func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 	ownedByParent := func() bool {
 		return parent != nil
 	}
@@ -149,7 +149,7 @@ func (d *decoder) normativeImplied(el *element, parent *element) (bool, error) {
 // restates collapsed targets, it is implied, and any end disagreeing with the
 // owner or naming a target the collapsed form never states is refused: the
 // notation would otherwise pick one of the two statements.
-func (d *decoder) impliedRelationship(el *element, parent *element) (bool, error) {
+func (d *decoder) impliedRelationship(el, parent *element) (bool, error) {
 	what := fmt.Sprintf("the %s <%s>", el.metaclass, el.iri)
 	stated := map[string]bool{}
 	literal := false
@@ -378,7 +378,7 @@ func (d *decoder) parameterMember(el *element) bool {
 // verifyConjugated checks a conjugated port definition against its owner: it
 // is the `~` of the original's name, which the notation derives rather than
 // writing.
-func (d *decoder) verifyConjugated(el *element, parent *element) error {
+func (d *decoder) verifyConjugated(el, parent *element) error {
 	name, _ := d.stringOf(el, rdf.SysML+pDeclaredName)
 	original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName)
 	if !ok {
@@ -732,7 +732,7 @@ func (d *decoder) headEnd(el, parent *element) bool {
 // payload parameter, the trigger AcceptActionUsage, and the SuccessionAsUsage
 // whose second end refers to the target are implied when they agree with the
 // head, refused when they contradict it, and ordinary members otherwise.
-func (d *decoder) transitionImplied(el *element, parent *element) (bool, error) {
+func (d *decoder) transitionImplied(el, parent *element) (bool, error) {
 	subject := rdf.IRI(el.iri)
 	what := fmt.Sprintf("the transition <%s>", parent.iri)
 	m, owned := d.owningMembership[el.iri]

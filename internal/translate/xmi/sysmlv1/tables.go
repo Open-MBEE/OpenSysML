@@ -241,7 +241,7 @@ func (m *Model) matrix(s, filter *Stereotype) *Table {
 	t.ColumnTypes = m.TagRefs(filter, "columnElementType")
 	t.IncludeColumnSubtypes = flag(filter, "includeSubtypesOfColumnTypes")
 	for _, tag := range []string{"rowQuery", "columnQuery"} {
-		if v := filter.Tag(tag); v != "" {
+		if filter.Tag(tag) != "" {
 			t.malformed(tag, "", "a structured query selects the elements")
 		}
 	}

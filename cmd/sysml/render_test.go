@@ -684,7 +684,7 @@ func TestRenderFilenameFitsAPathComponent(t *testing.T) {
 	if got != renderFilename(long+"first", view.FormDot, false) {
 		t.Errorf("renderFilename(long) is not deterministic")
 	}
-	if other := renderFilename(long+"second", view.FormDot, false); other == got {
+	if renderFilename(long+"second", view.FormDot, false) == got {
 		t.Errorf("two long names that differ only past the cut share %q", got)
 	}
 	a := strings.Repeat("a", 230)
