@@ -2485,14 +2485,20 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 	return e
 }
 
-// reportBlock records a written block: a documentation Paragraph joins the
-// comment's own entry, since the comment is one source element; every other
-// block is a row of its own.
+// reportBlock records a written block. A documentation Paragraph joins the
+// comment's own entry, since the comment is one source element; where the view
+// is placed again, the further paragraph is noted on it. Every other block is a
+// row of its own.
 func (m *migration) reportBlock(cp *contentPlan) {
 	e := m.blockEntry(cp)
-	if cp.documentation {
-		m.add(cp.node, e.Verdict, e.Target, e.Note)
+	if !cp.documentation {
+		m.report.Entries = append(m.report.Entries, *e)
 		return
 	}
-	m.report.Entries = append(m.report.Entries, *e)
+	if i, ok := m.indexed[cp.node.ID]; ok {
+		if t := m.report.Entries[i].Target; t != "" && t != e.Target {
+			e.Note = "also written as " + e.Target
+		}
+	}
+	m.add(cp.node, e.Verdict, e.Target, e.Note)
 }

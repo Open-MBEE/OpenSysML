@@ -299,6 +299,7 @@ package 'Fleet Documents' {
         view others :> 'Fleet Views'::'Other Figures';
         view owners :> 'Fleet Views'::'Figure Owners';
         view noFigures :> 'Fleet Views'::'No Figures';
+        view safety :> Safety;
         /* applied stereotype «Document» */
     }
     view Introduction {
@@ -530,6 +531,22 @@ package 'Fleet Documents' {
                 multiple = "first"),
             properties = ("name"))
     }
+    calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Except(
+                source = DocumentQueries::WhereMetadata(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                    'metadata' = ("Fleet Profile::Safety")),
+                exclude = DocumentQueries::WhereName(
+                    source = DocumentQueries::WhereMetadata(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                        'metadata' = ("Fleet Profile::Safety")),
+                    operator = "matches",
+                    value = "^(?:.*Count)$")),
+            properties = ("name", "documentation"))
+    }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
         ref 'parts Method' : 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method';
@@ -600,6 +617,16 @@ package 'Fleet Documents' {
         }
         part 'No Figures' : DocumentQueries::Section {
             attribute redefines title = "No Figures";
+        }
+        part Safety : DocumentQueries::Section {
+            attribute redefines title = "Safety";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "Safety comes first.";
+            }
+            part table : DocumentQueries::Table {
+                attribute redefines caption = "Safety Requirements";
+                calc rows : 'Fleet Brief Safety Requirements Rows';
+            }
         }
     }
 }

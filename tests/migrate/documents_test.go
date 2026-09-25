@@ -450,7 +450,7 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 			}
 		}
 		if len(paragraphs) != 1 || paragraphs[0].Verdict != migrate.Mapped || paragraphs[0].Name != "Fleet Documents::"+view+"::<Comment>" ||
-			paragraphs[0].Note != "the documentation of the view Fleet Documents::"+view {
+			!strings.HasPrefix(paragraphs[0].Note, "the documentation of the view Fleet Documents::"+view) {
 			t.Errorf("entries -> %s = %+v, want one mapped entry for the comment of %s noting the view's documentation", target, paragraphs, view)
 		}
 	}
@@ -468,14 +468,19 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 	if es := entriesFor(r, "_intro_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped || !strings.HasSuffix(es[0].Target, "::Introduction::paragraph") {
 		t.Errorf("the view's documentation comment should have one entry, mapped to the paragraph it opens the section with: %+v", es)
 	}
+	if es := entriesFor(r, "_safety_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped ||
+		es[0].Target != "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph" ||
+		es[0].Note != "the documentation of the view Fleet Documents::Safety; also written as part 'Fleet Documents'::'Fleet Brief Document'::Safety::paragraph" {
+		t.Errorf("the documentation of a view placed in two documents should keep one entry naming both paragraphs: %+v", es)
+	}
 	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
 		`attribute redefines title = "Safety";`,
 		"part paragraph : DocumentQueries::Paragraph {",
 		`attribute redefines text = "Safety comes first.";`,
 		`attribute redefines caption = "Safety Requirements";`)
-	for _, text := range []string{"The fleet, in brief.", "Safety comes first.", "Second note."} {
-		if n := strings.Count(notation, `text = "`+text+`";`); n != 1 {
-			t.Errorf("%q is written as %d paragraph(s), want 1:\n%s", text, n, notation)
+	for text, want := range map[string]int{"The fleet, in brief.": 1, "Safety comes first.": 2, "Second note.": 1} {
+		if n := strings.Count(notation, `text = "`+text+`";`); n != want {
+			t.Errorf("%q is written as %d paragraph(s), want %d:\n%s", text, n, want, notation)
 		}
 	}
 	wantInOrder(t, "Requirements section", notationSection(notation, "Requirements"),

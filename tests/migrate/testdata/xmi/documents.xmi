@@ -306,6 +306,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_others" name="others" type="_view_others" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_owners" name="owners" type="_view_owners" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_nofig" name="noFigures" type="_view_nofig" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_brief_safety" name="safety" type="_view_safety" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_intro" name="Introduction">
