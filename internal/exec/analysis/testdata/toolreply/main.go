@@ -1,6 +1,6 @@
 // Command toolreply stands in for an external tool answering in one of the manifest's
 // reply formats, selected by its first argument: csv-stdout and diverge write a CSV reply
-// on standard output, csv-all and csv-all-mixed-units write a multi-row CSV reply the
+// on standard output, csv-all, csv-all-repeated and csv-all-mixed-units write a multi-row CSV reply the
 // `row: "all"` selector reads, json-file writes a JSON document into the {outputDir}
 // named as its second argument and chatter on standard output, lines and lines-regex
 // write text lines, exit3 and exit1 exit with a status, and sleep never answers. It is
@@ -32,6 +32,8 @@ func main() {
 		fmt.Print(header + "340.9,K,36,km/h,true,0,first\n341.2,K,36,km/h,FALSE,7,second\n")
 	case "csv-all":
 		fmt.Print("t,T,U\n0,300.0,K\n1,310.5,K\n2,341.2,K\n")
+	case "csv-all-repeated":
+		fmt.Print("t,T,U\n0,300.0,K\n1,300.0,K\n2,341.2,K\n")
 	case "csv-all-mixed-units":
 		fmt.Print("t,T,U\n0,300.0,K\n1,310.5,degC\n2,341.2,K\n")
 	case "diverge":

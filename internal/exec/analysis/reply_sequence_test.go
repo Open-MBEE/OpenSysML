@@ -71,7 +71,7 @@ func TestReplyReadsCSVAllRows(t *testing.T) {
 // A JSON array reads as a sequence of its scalars, every element the same wire kind.
 func TestReplyReadsJSONArray(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
-		"T_max": {Path: "/results/temps", UnitPath: "/units/T_max"},
+		"T_max": {Path: jsonPath("/results/temps"), UnitPath: "/units/T_max"},
 	}})
 	source := `{"results":{"temps":[300,310.5,341.2]},"units":{"T_max":"K"}}`
 	out, err := readReply(t, r, entry, source)
@@ -148,5 +148,34 @@ func TestRenderReplySequence(t *testing.T) {
 	}
 	if got, want := renderReply(reply), `note="ok" speeds=(36.0, 72) [km/h]`; got != want {
 		t.Errorf("renderReply = %q, want %q", got, want)
+	}
+}
+
+// A headerless reply holding no records answers the empty sequence; a by-index
+// column has no fields to be past when there is nothing to read.
+func TestReplyReadsCSVAllRowsOverAnEmptyHeaderlessSource(t *testing.T) {
+	headerFalse := false
+	r, entry := replyOf(t, &Reply{Format: ReplyCSV, Header: &headerFalse, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Index: 0, ByIndex: true}, Row: &Row{Kind: RowAll}},
+	}})
+	out, err := readReply(t, r, entry, "")
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if got := out["T_max"]; got.Items == nil || len(got.Items) != 0 {
+		t.Fatalf("T_max = %+v, want the empty sequence", got)
+	}
+
+	// A unit column by index reads nothing over the empty source; the fixed unit
+	// stands alone.
+	r, entry = replyOf(t, &Reply{Format: ReplyCSV, Header: &headerFalse, Outputs: map[string]*ReplyOutput{
+		"T_max": {Column: &Column{Index: 0, ByIndex: true}, Row: &Row{Kind: RowAll}, UnitColumn: &Column{Index: 1, ByIndex: true}},
+	}})
+	out, err = readReply(t, r, entry, "")
+	if err != nil {
+		t.Fatalf("read with a unit column: %v", err)
+	}
+	if got := out["T_max"]; got.Items == nil || len(got.Items) != 0 || got.Unit != "" {
+		t.Fatalf("T_max = %+v, want the empty sequence with no unit", got)
 	}
 }

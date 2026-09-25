@@ -11,7 +11,7 @@ package Records {
         ref part target;
         attribute fuelUsed : ScalarValues::Real;
         attribute memo : ScalarValues::ScalarValue;
-        attribute plan : ScalarValues::ScalarValue[0..*];
+        attribute plan : ScalarValues::ScalarValue[0..*] ordered nonunique;
     }
     part scoutBudget_run1 : ScoutBudgetRun {
         @AnalysisRecords::RecordedRun {

@@ -12,6 +12,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 )
 
+// jsonPath is the *string a programmatic output's Path holds.
+func jsonPath(s string) *string { return &s }
+
 // replyEntryText is a tool entry with the reply block given, as a manifest file spells it.
 func replyEntryText(reply string) string {
 	return `{"toolName": "Thermal", "executable": "solve", "variables": ["mass", "T_max", "v_out", "done", "code", "note", "a", "b"], "reply": ` + reply + `}`
@@ -20,6 +23,7 @@ func replyEntryText(reply string) string {
 func TestManifestReplyAcceptedShapes(t *testing.T) {
 	cases := map[string]string{
 		"json":         `{"format": "json", "outputs": {"T_max": {"path": "/results/0/T_max", "unitPath": "/units/T_max"}}, "errorPath": "/error"}`,
+		"json root":    `{"format": "json", "outputs": {"T_max": {"path": ""}}}`,
 		"csv":          `{"format": "csv", "header": true, "delimiter": ";", "outputs": {"T_max": {"column": "T_max", "row": "first", "unitColumn": "U"}}, "errorColumn": "error"}`,
 		"csv index":    `{"format": "csv", "header": false, "delimiter": "\t", "outputs": {"T_max": {"column": 2, "row": 3}}}`,
 		"lines":        `{"format": "lines", "outputs": {"T_max": {"key": "Tmax"}, "done": {"type": "boolean"}}, "errorKey": "error"}`,
@@ -214,11 +218,11 @@ func replyKind(err error) runtime.ToolErrorKind {
 
 func TestReplyReadsJSON(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, ErrorPath: "/error", Outputs: map[string]*ReplyOutput{
-		"T_max": {Path: "/results/0/T_max", UnitPath: "/units/T_max"},
-		"v_out": {Path: "/results/0/v_out", UnitPath: "/units/v_out"},
-		"done":  {Path: "/results/0/done", Type: TypeBoolean},
-		"code":  {Path: "/results/0/code", Type: TypeInteger},
-		"note":  {Path: "/results/0/note", Type: TypeString},
+		"T_max": {Path: jsonPath("/results/0/T_max"), UnitPath: "/units/T_max"},
+		"v_out": {Path: jsonPath("/results/0/v_out"), UnitPath: "/units/v_out"},
+		"done":  {Path: jsonPath("/results/0/done"), Type: TypeBoolean},
+		"code":  {Path: jsonPath("/results/0/code"), Type: TypeInteger},
+		"note":  {Path: jsonPath("/results/0/note"), Type: TypeString},
 	}})
 	source := `{"results":[{"T_max":341.2,"v_out":36,"done":true,"code":7,"note":"it ran"}],
 		"units":{"T_max":"K","v_out":"km/h"},"error":""}`
@@ -278,8 +282,8 @@ func TestReplyReadsJSON(t *testing.T) {
 // whole document is the empty pointer.
 func TestReplyReadsJSONPointerForms(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
-		"T_max": {Path: "/a~1b/c~0d"},
-		"v_out": {Path: "/list/1"},
+		"T_max": {Path: jsonPath("/a~1b/c~0d")},
+		"v_out": {Path: jsonPath("/list/1")},
 	}})
 	out, err := readReply(t, r, entry, `{"a/b":{"c~d":4.5},"list":[10,20],"done":true,"code":9,"note":"x"}`)
 	if err != nil {
@@ -455,14 +459,14 @@ func TestReplyReadsExitCode(t *testing.T) {
 	r, _ := replyOf(t, &Reply{Format: ReplyExitCode, Success: []int{0, 3}, Outputs: map[string]*ReplyOutput{
 		"done": {Type: TypeBoolean}}})
 	for code, want := range map[int]bool{0: true, 3: true, 1: false} {
-		out := r.readExitCode(&execution{exit: code})
+		out := r.readExitCode(&execution{exit: code}, nil)
 		if out["done"].Value.Bool != want {
 			t.Errorf("exit %d = %+v; want %v", code, out["done"], want)
 		}
 	}
 	r, _ = replyOf(t, &Reply{Format: ReplyExitCode, Outputs: map[string]*ReplyOutput{
 		"code": {Type: TypeInteger}}})
-	out := r.readExitCode(&execution{exit: 3})
+	out := r.readExitCode(&execution{exit: 3}, nil)
 	if out["code"].Value.Int != 3 {
 		t.Errorf("exit 3 as integer = %+v", out["code"])
 	}
@@ -587,8 +591,8 @@ func TestReplySourceRefusals(t *testing.T) {
 // Only the outputs the call requests are read; another mapped output may be absent.
 func TestReplyReadsRequestedOutputs(t *testing.T) {
 	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
-		"T_max": {Path: "/T_max"},
-		"v_out": {Path: "/v_out"},
+		"T_max": {Path: jsonPath("/T_max")},
+		"v_out": {Path: jsonPath("/v_out")},
 	}})
 	out, err := readReply(t, r, entry, `{"T_max": 341.2}`, "T_max")
 	if err != nil {
@@ -601,6 +605,17 @@ func TestReplyReadsRequestedOutputs(t *testing.T) {
 	out, err = readReply(t, r, entry, `{"T_max": 341.2, "v_out": 36}`, "T_max", "done")
 	if err != nil || len(out) != 1 {
 		t.Errorf("an unmapped request: %v, %+v", err, out)
+	}
+}
+
+// The empty pointer selects the whole document, so a bare scalar is the output.
+func TestReplyReadsJSONRootPointer(t *testing.T) {
+	r, entry := replyOf(t, &Reply{Format: ReplyJSON, Outputs: map[string]*ReplyOutput{
+		"T_max": {Path: jsonPath("")},
+	}})
+	out, err := readReply(t, r, entry, `341.2`)
+	if err != nil || out["T_max"].Value.Real != 341.2 {
+		t.Fatalf("root pointer: %v, %+v; want 341.2", err, out)
 	}
 }
 

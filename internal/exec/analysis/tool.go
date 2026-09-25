@@ -301,16 +301,16 @@ func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *compose
 		}
 		return ToolReplyOf(tool, source)
 	}
+	wanted := make(map[string]bool, len(call.Outputs))
+	for _, out := range call.Outputs {
+		wanted[out.Variable] = true
+	}
 	if r.Format == ReplyExitCode {
-		return r.readExitCode(ex), nil
+		return r.readExitCode(ex, wanted), nil
 	}
 	source, err := e.replySource(ex, process)
 	if err != nil {
 		return nil, err
-	}
-	wanted := make(map[string]bool, len(call.Outputs))
-	for _, out := range call.Outputs {
-		wanted[out.Variable] = true
 	}
 	if r.Format == ReplyJSON {
 		return r.readJSON(e.entry, source, wanted)

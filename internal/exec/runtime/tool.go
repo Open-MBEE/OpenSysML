@@ -552,7 +552,7 @@ func (ctx *Context) toolOutput(scope *symbols.Scope, tool string, out ToolOutput
 		return &ToolError{Tool: tool, Kind: ToolMalformed,
 			Detail: out.Variable + ": " + fmt.Sprintf(format, args...)}
 	}
-	mult, _ := ctx.extractMultiplicity(out.Declared)
+	mult, _ := ctx.statedMultiplicity(out.Declared)
 	var value Value
 	if answered.Items != nil {
 		if mult.AtMostOne() {

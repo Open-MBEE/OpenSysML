@@ -806,7 +806,7 @@ silent first-element would be an invented value. The bound value is the runtime'
 of the converted elements, each converted to the coherent unit as a scalar is, so the model
 reads `Tprofile` as it reads any `Real[0..*]`; the multiplicity's bounds are checked as the
 runtime checks any write (an empty sequence to `[1..*]` is refused there, not here). Recording
-spells a sequence as a list literal: `attribute Tprofile : Real[0..*]` declared on the run
+spells a sequence as a list literal: `attribute Tprofile : Real[0..*] ordered nonunique` declared on the run
 definition and `attribute :>> Tprofile = (300.0, 310.5, 341.2);` on each record, with the
 element type the scalars share and the items in reply order, so a record reads as a model
 value and not as a quotation, and a document table cell holds it as it holds any
@@ -897,7 +897,7 @@ For an implementer, and for a reviewer who wants to change one:
   direction wraps or picks; elements share one kind and one unit.
 - A `reply.outputs` entry for a variable this action has no `out` for is `ToolUnknownOutput`,
   as an extra `outputs` key is today; a manifest describes one interface.
-- A recorded sequence output is a typed `[0..*]` attribute with a list literal, not a String of
+- A recorded sequence output is a typed `[0..*] ordered nonunique` attribute with a list literal, not a String of
   its text.
 - The temporary directory is removed on every exit path unless `OPENSYSML_TOOL_KEEP=1`.
 - Divergence compares parsed `ToolValue`s, not reply bytes.

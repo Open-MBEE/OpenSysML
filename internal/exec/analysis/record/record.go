@@ -742,7 +742,9 @@ func writeDefinition(src *strings.Builder, depth int, name string, feats []featu
 			src.WriteString(" : ")
 			src.WriteString(f.typ)
 			if f.multi {
-				src.WriteString("[0..*]")
+				// A record is an observation log: every answered value in reply
+				// order, repeats included.
+				src.WriteString("[0..*] ordered nonunique")
 			}
 			src.WriteString(";\n")
 		}
