@@ -2537,9 +2537,12 @@ its output rather than in an exit code — so assert on the exact rendered text:
   bare `Real`. A qualified expression such as `%eval A::x + 1.0` should still
   work, proving isolation did not remove the loaded package from the index.
 - Two loaded files declaring the same root package are two root namespaces, not
-  a duplicate, and a reference to the name resolves to the first declaration in
-  load order. Use separate `A::X` and `A::Y` files and reverse their load order
-  to prove that behavior.
+  a duplicate. References select the declaration in the document whose name
+  sorts first, independent of CLI argument order (see the CLI reference's
+  Multiple Files section). Put `A::X` in `first.sysml` and `A::Y` in
+  `second.sysml`, then reverse arguments: `A::X` must resolve and `A::Y` must
+  remain unresolved in both orders. Do not confuse reference precedence with
+  document rendering order.
 - For rendering order, `%view` takes a **view**, not an ordinary package.
   `%render #table` renders the loaded documents without a declared view; reverse
   two nonalphabetical package names and assert their member groups reverse.
@@ -2562,8 +2565,8 @@ None for local multi-file CLI/REPL tests.
 `sysml <dir|glob|file>...` and `%load <path>...` expand to model files via
 `internal/workspace/project.Expand`, and every file is accepted before one analysis pass
 (`Session.SubmitAll`), each file a workspace document of its own indexed with the
-others, so load order does not affect name resolution except between root namespaces of
-one name (the first wins). Shapes to expect:
+others. Repeated root names resolve by document-name order, not load order.
+Shapes to expect:
 
 - More than one file prints a `loaded N files:` header listing each path (a single file prints no
   header — a good tell that the multi-file path was taken).
