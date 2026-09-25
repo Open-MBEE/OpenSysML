@@ -75,4 +75,12 @@ package PositionedViews {
 		expose Named::B::X;
 		metadata Layout about Named::A::X { x = 0; y = 0; }
 	}
+
+	// Leaves the first exposed element unplaced: the frame header names the
+	// first root drawn, not the first exposed.
+	view cameoUnplacedFirstView {
+		expose Named::B::X;
+		expose Named::A::X;
+		metadata Layout about Named::A::X { x = 0; y = 0; }
+	}
 }

@@ -135,3 +135,24 @@ func TestPositionedDrawingLabelsIgnoreOmittedNodes(t *testing.T) {
 		}
 	}
 }
+
+// The Cameo frame names the first root the drawing declares, not the first
+// exposed: an unplaced first root is skipped, and the header takes the drawn
+// one's simple name.
+func TestCameoFrameNamesFirstDrawnRoot(t *testing.T) {
+	rendering := render(t, "positioned-views.sysml", "PositionedViews::cameoUnplacedFirstView")
+	dot, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	header := dot
+	if i := strings.Index(dot, "label=<<b>"); i >= 0 {
+		header = dot[i : strings.IndexByte(dot[i:], '\n')+i]
+	}
+	if !strings.Contains(header, "[Block] X [") {
+		t.Errorf("frame header does not name the drawn root X:\n%s", header)
+	}
+	if strings.Contains(header, "B::X") {
+		t.Errorf("frame header names the omitted root:\n%s", header)
+	}
+}

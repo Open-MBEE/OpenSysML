@@ -171,18 +171,21 @@ const (
 )
 
 // frameHeader is the Cameo frame's header text as HTML-like label content:
-// the diagram kind in bold, the context element's type in brackets and its
+// the diagram kind in bold, the first drawn root's type in brackets and its
 // name, then the diagram's name in brackets.
 func (w *dotWriter) frameHeader(r *Rendering) string {
 	parts := []string{"<b>" + cameoFrameKind(r.Kind) + "</b>"}
-	if len(r.Roots) > 0 {
-		root := r.Roots[0]
+	for _, root := range r.Roots {
+		if !w.draws(root.ID) {
+			continue
+		}
 		if typ := cameoFrameType(root.Kind); typ != "" {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if name := shown(root); name != "" {
 			parts = append(parts, dotEscape(w.labels.name(root)))
 		}
+		break
 	}
 	if r.View != "" {
 		parts = append(parts, "[ "+dotEscape(lastName(r.View))+" ]")
