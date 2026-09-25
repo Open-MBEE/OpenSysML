@@ -152,6 +152,20 @@ end
     @test actual["function"]["selfId"] == "@1"
 end
 
+@testset "private service startup is bounded" begin
+    if Sys.isunix()
+        script = tempname()
+        write(script, "#!/bin/sh\nsleep 60\n")
+        chmod(script, 0o755)
+        t = @elapsed @test_throws TransportError private(binary=script, timeout=1)
+        @test t >= 1 && t < 10
+        if Sys.which("pgrep") !== nothing
+            @test !success(`pgrep -P $(getpid()) -x sleep`)
+        end
+        rm(script; force=true)
+    end
+end
+
 @testset "canned service" begin
     listener = listen(ip"127.0.0.1", 0)
     port = getsockname(listener)[2]

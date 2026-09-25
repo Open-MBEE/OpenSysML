@@ -41,14 +41,38 @@ function private(; binary::Union{AbstractString,Nothing}=nothing, timeout::Real=
     catch e
         throw(TransportError("could not start $(bin): $(sprint(showerror, e))"))
     end
+    task = @async readline(proc.out)
+    deadline = time() + Float64(timeout)
+    while !istaskdone(task) && time() < deadline
+        sleep(0.05)
+    end
+    if !istaskdone(task)
+        _abort_child(proc)
+        throw(TransportError("sysml-grpc reported no address within $(timeout)s"))
+    end
     address = try
-        readline(proc.out)
-    catch e
-        kill(proc)
+        fetch(task)
+    catch
+        nothing
+    end
+    if address === nothing || isempty(address)
+        _abort_child(proc)
         throw(TransportError("sysml-grpc exited without reporting an address"))
     end
-    isempty(address) && throw(TransportError("sysml-grpc exited without reporting an address"))
     return Connection(_base_url(address), true, proc, proc.in, Float64(timeout))
+end
+
+function _abort_child(proc)
+    try
+        close(proc.in)
+    catch
+    end
+    kill(proc)
+    try
+        wait(proc)
+    catch
+    end
+    return nothing
 end
 
 function connect(; timeout::Real=30)

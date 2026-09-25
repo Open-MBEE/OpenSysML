@@ -2,9 +2,10 @@ function conn = private(varargin)
 %PRIVATE Start a child sysml-grpc and connect to it. The spawn needs Java
 %   (ProcessBuilder); an Octave built without Java uses opensysml.external.
 
-    binary = '';
+    binary = ''; timeoutSec = 30;
     for i = 1:2:numel(varargin)
         if strcmp(varargin{i}, 'binary'), binary = varargin{i+1}; end
+        if strcmp(varargin{i}, 'timeout'), timeoutSec = varargin{i+1}; end
     end
     if isempty(binary), binary = opensysml.resolveBinary(); end
     if ~exist('java.lang.ProcessBuilder', 'class') && ~isJavaAvailable()
@@ -24,11 +25,27 @@ function conn = private(varargin)
     end
     rdr = javaObject('java.io.BufferedReader', ...
                      javaObject('java.io.InputStreamReader', proc.getInputStream()));
-    line = rdr.readLine();
+    line = [];
+    start = tic;
+    while toc(start) < timeoutSec
+        if ~proc.isAlive(), break; end
+        if rdr.ready()
+            line = rdr.readLine();
+            break;
+        end
+        pause(0.05);
+    end
+    if isempty(line) && rdr.ready()
+        line = rdr.readLine();
+    end
     if isempty(line)
-        error('opensysml:transport', 'sysml-grpc exited without reporting an address');
+        proc.getOutputStream().close();
+        proc.destroy();
+        proc.waitFor();
+        error('opensysml:transport', 'sysml-grpc reported no address within %ds', timeoutSec);
     end
     conn = opensysml.external(char(line));
+    conn.timeout = timeoutSec;
     conn.privateService = true;
     conn.process = proc;
     conn.childStdin = proc.getOutputStream();
