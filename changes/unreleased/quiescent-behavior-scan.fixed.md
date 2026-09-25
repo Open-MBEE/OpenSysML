@@ -1,1 +1,0 @@
-- Checking a constraint or writing a feature no longer rescans every object's behaviors when nothing has changed since the last scan found them all idle, so a batch of checks over many instantiated objects is linear again.

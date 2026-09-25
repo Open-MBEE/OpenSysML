@@ -45,26 +45,26 @@ func TestTransitionFootprintsProjectGuardEffectAndActivity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	go_ := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	goT := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
 	stop := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 1)]
-	if !hasPlace(go_.Reads, "y") || !hasPlace(go_.Reads, "idle") {
-		t.Fatalf("Go reads %v, want the guard's y and the source's activity", placeNames(go_.Reads))
+	if !hasPlace(goT.Reads, "y") || !hasPlace(goT.Reads, "idle") {
+		t.Fatalf("Go reads %v, want the guard's y and the source's activity", placeNames(goT.Reads))
 	}
-	if !hasPlace(go_.Writes, "x") || !hasPlace(go_.Writes, "idle") || !hasPlace(go_.Writes, "busy") {
-		t.Fatalf("Go writes %v, want busy's entry x and the activity of idle and busy", placeNames(go_.Writes))
+	if !hasPlace(goT.Writes, "x") || !hasPlace(goT.Writes, "idle") || !hasPlace(goT.Writes, "busy") {
+		t.Fatalf("Go writes %v, want busy's entry x and the activity of idle and busy", placeNames(goT.Writes))
 	}
 	// The event comes off the machine's own queue: the trigger is not a bus accept.
-	if len(go_.Accepts) != 0 {
-		t.Fatalf("Go accepts %v, want none", go_.Accepts)
+	if len(goT.Accepts) != 0 {
+		t.Fatalf("Go accepts %v, want none", goT.Accepts)
 	}
 	if !hasPlace(stop.Writes, "z") || hasPlace(stop.Writes, "x") {
 		t.Fatalf("Stop writes %v, want its effect's z and not busy's x", placeNames(stop.Writes))
 	}
-	if !strings.Contains(go_.String(), "active idle") {
-		t.Fatalf("footprint renders as %q, want the activity spelt `active idle`", go_.String())
+	if !strings.Contains(goT.String(), "active idle") {
+		t.Fatalf("footprint renders as %q, want the activity spelt `active idle`", goT.String())
 	}
 	// Both leave idle: dependent through its activity, as two reactions of one leaf are.
-	if !go_.Dependent(stop) {
+	if !goT.Dependent(stop) {
 		t.Fatal("two transitions out of one state must be dependent")
 	}
 }
@@ -94,12 +94,12 @@ func TestTransitionFootprintsCoverEnteredDoBehaviors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToStateGraph: %v", err)
 	}
-	go_ := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
-	if !hasPlace(go_.Writes, "x") || !hasPlace(go_.Writes, "y") {
-		t.Fatalf("Go writes %v, want busy's entry x and its do behavior's y", placeNames(go_.Writes))
+	goT := graph.TransitionFootprints()[transitionOut(t, graph, "idle", 0)]
+	if !hasPlace(goT.Writes, "x") || !hasPlace(goT.Writes, "y") {
+		t.Fatalf("Go writes %v, want busy's entry x and its do behavior's y", placeNames(goT.Writes))
 	}
-	if hasPlace(go_.Writes, "z") || hasPlace(go_.Reads, "z") {
-		t.Fatalf("Go touches %v / %v, want nothing of the do behavior of the state it leaves", placeNames(go_.Reads), placeNames(go_.Writes))
+	if hasPlace(goT.Writes, "z") || hasPlace(goT.Reads, "z") {
+		t.Fatalf("Go touches %v / %v, want nothing of the do behavior of the state it leaves", placeNames(goT.Reads), placeNames(goT.Writes))
 	}
 }
 

@@ -1,1 +1,0 @@
-- **Rename conflict checking lives with the rename edit.** `internal/core/rename` is folded into `internal/core/edit`: `rename.Occurrence`, `rename.Conflict` and `rename.Check` are now `edit.RenameOccurrence`, `edit.RenameConflict` and `edit.CheckRename`. No behavior changes.

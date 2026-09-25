@@ -1,1 +1,0 @@
-- Editing a document no longer recomputes workspace-wide gathers inside the edit; they are recomputed on the first diagnostics or query after it, so an edit itself is as cheap as before those gathers existed.

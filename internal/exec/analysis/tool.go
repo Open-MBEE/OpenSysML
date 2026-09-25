@@ -35,15 +35,29 @@ type ComputeAsk struct {
 // once per invocation, with the protocol below over its standard input and output.
 type toolEngine struct {
 	entry   ToolEntry
+	fault   error
 	look    func(ToolEntry) (string, error)
 	timeout func() time.Duration
 	limit   func() int
 }
 
 // NewTool returns the `tool:<name>` engine of a manifest entry. It registers whether or not
-// the executable is found and refuses through Covers while it is not.
+// the executable is found and refuses through Covers while it is not. An invocation block
+// not yet checked by a manifest load is checked here; a faulty one refuses every question.
 func NewTool(entry ToolEntry) External {
-	return toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	e := toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	if inv := entry.Invocation; inv != nil && inv.compiled == nil {
+		checked := *inv
+		e.entry.Invocation = &checked
+		dir, at := "", e.Name()
+		if entry.File != "" {
+			dir, at = filepath.Dir(entry.File), entry.File
+		}
+		if err := checkInvocation(&e.entry, dir); err != nil {
+			e.fault = &ManifestError{Path: at, Detail: err.Error()}
+		}
+	}
+	return e
 }
 
 // Name is `tool:` and the tool's name.
@@ -64,8 +78,12 @@ func (e toolEngine) Origin() Origin {
 	return Origin{Kind: KindTool, Version: e.entry.Version, File: e.entry.File, Command: e.entry.Executable, Exchange: e.entry.Protocol()}
 }
 
-// Process names the executable found, with the tool's version, or reports its absence.
+// Process names the executable found, with the tool's version, or reports its absence or
+// the entry's fault.
 func (e toolEngine) Process() (string, error) {
+	if e.fault != nil {
+		return "", e.fault
+	}
 	path, err := e.look(e.entry)
 	if err != nil {
 		return "", &ProcessAbsentError{Engine: e.Name(), Process: e.Describe().Process, Err: err}
@@ -128,6 +146,9 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		return Result{}, &MalformedQuestionError{Kind: q.Kind, Missing: "a Compute with a Call"}
 	}
 	call := q.Compute.Call
+	if e.fault != nil {
+		return Result{}, e.fault
+	}
 	path, err := e.look(e.entry)
 	if err != nil {
 		return Result{}, &ProcessAbsentError{Engine: e.Name(), Process: e.Describe().Process, Err: err}

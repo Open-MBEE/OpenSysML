@@ -142,7 +142,11 @@ func (e ToolEntry) Protocol() string {
 		}
 		return "object"
 	}
-	base := "argv+" + string(e.Invocation.Stdin.Format)
+	stdin := e.Invocation.Stdin.Format
+	if stdin == "" {
+		stdin = StdinJSON
+	}
+	base := "argv+" + string(stdin)
 	if format != "" {
 		return base + "/" + format
 	}
@@ -333,16 +337,24 @@ func valueText(tool, variable string, v runtime.ToolValue) (string, error) {
 }
 
 // checkInvocation validates an entry's block and parses its templates: each names declared
-// variables only, `{inputFile}` needs an inputFile, and cwd is confined like the executable.
+// variables only, `{inputFile}` needs an inputFile, and cwd is confined to dir like the
+// executable; with no dir (an entry not read from a file) cwd must be absolute.
 func checkInvocation(entry *ToolEntry, dir string) error {
 	inv := entry.Invocation
 	for _, v := range entry.Variables {
-		if reservedHole(v) {
+		switch {
+		case reservedHole(v):
 			return fmt.Errorf("variables names %q, which an invocation template reserves for the call", v)
+		case strings.ContainsAny(v, ".{} \t\r\n"):
+			return fmt.Errorf("variables names %q; with an invocation block a variable name has no period, brace or space", v)
 		}
 	}
-	if inv.Stdin.Format == "" {
+	switch inv.Stdin.Format {
+	case "":
 		inv.Stdin.Format = StdinJSON
+	case StdinJSON, StdinNone, StdinCSV, StdinTemplate:
+	default:
+		return fmt.Errorf("stdin %q is not one of json, none, csv and template", inv.Stdin.Format)
 	}
 	for name := range inv.Env {
 		switch {
@@ -408,6 +420,9 @@ func checkInvocation(entry *ToolEntry, dir string) error {
 	}
 	inv.Cwd = strings.TrimSpace(inv.Cwd)
 	if inv.Cwd != "" {
+		if dir == "" && !filepath.IsAbs(inv.Cwd) {
+			return fmt.Errorf("invocation cwd %q is relative, but the entry has no manifest directory to confine it to", inv.Cwd)
+		}
 		resolved, err := confinedPath(dir, inv.Cwd)
 		if err != nil {
 			return fmt.Errorf("invocation cwd %v", err)

@@ -37,17 +37,17 @@ func TestConvertReadsABranchAsNotationAndTurtle(t *testing.T) {
 func TestConvertReadsABranchIntoAFileAndRecordsTheHead(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
-	out_path := filepath.Join(t.TempDir(), "out.sysml")
+	outPath := filepath.Join(t.TempDir(), "out.sysml")
 
-	out, code := exitCode(t, branchCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml", "-o", out_path))
+	out, code := exitCode(t, branchCommand(stack, binary, stack.server.URL+"/projects/proj-1/branches/main", "-convert", "sysml", "-o", outPath))
 	if code != 0 {
 		t.Fatalf("read a branch to a file: exit %d:\n%s", code, out)
 	}
-	written, err := os.ReadFile(out_path)
+	written, err := os.ReadFile(outPath)
 	if err != nil || !strings.Contains(string(written), "part def Vehicle") {
 		t.Fatalf("the output file: %v\n%s", err, written)
 	}
-	state, err := os.ReadFile(out_path + ".sync.json")
+	state, err := os.ReadFile(outPath + ".sync.json")
 	if err != nil || !strings.Contains(string(state), `"lastSeenCommit": "commit-0"`) || !strings.Contains(string(state), `"projectId": "proj-1"`) {
 		t.Fatalf("sync state after a branch read: %v\n%s", err, state)
 	}
@@ -250,13 +250,13 @@ func TestConvertReadRefusesOutputOverTheSyncState(t *testing.T) {
 	binary := buildCLI(t)
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
-	out_path := writeModel(t, dir, "saved.sysml", "sentinel")
+	outPath := writeModel(t, dir, "saved.sysml", "sentinel")
 
-	out, code := exitCode(t, branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", out_path, "-sync-state", out_path))
+	out, code := exitCode(t, branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", outPath, "-sync-state", outPath))
 	if code != 2 || !strings.Contains(out, "-o and -sync-state both name") {
 		t.Fatalf("-o over the sync state: exit %d:\n%s", code, out)
 	}
-	if content, _ := os.ReadFile(out_path); string(content) != "sentinel" {
+	if content, _ := os.ReadFile(outPath); string(content) != "sentinel" {
 		t.Errorf("the refused read still replaced the file")
 	}
 }
@@ -266,16 +266,16 @@ func TestConvertReadRefusesAStatePinnedElsewhereBeforeWriting(t *testing.T) {
 	stack := newFakeStack(t, liveGraph(t, syncedModel))
 	dir := t.TempDir()
 	state := writeModel(t, dir, "s.sync.json", `{"org":"other","projectId":"proj-1","branch":"main"}`)
-	out_path := filepath.Join(dir, "out.sysml")
+	outPath := filepath.Join(dir, "out.sysml")
 
-	cmd := branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", out_path, "-sync-state", state)
+	cmd := branchCommand(stack, binary, "flexo://proj-1/main", "-convert", "sysml", "-o", outPath, "-sync-state", state)
 	cmd.Env = append(cmd.Env, flexo.EnvOrg+"=acme")
 	out, code := exitCode(t, cmd)
 	if code != 2 || !strings.Contains(out, "org other") {
 		t.Fatalf("a state pinned to another org: exit %d:\n%s", code, out)
 	}
-	if _, err := os.Stat(out_path); !os.IsNotExist(err) {
-		t.Errorf("the refused read still wrote %s", out_path)
+	if _, err := os.Stat(outPath); !os.IsNotExist(err) {
+		t.Errorf("the refused read still wrote %s", outPath)
 	}
 }
 
