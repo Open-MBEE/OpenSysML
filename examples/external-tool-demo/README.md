@@ -54,7 +54,7 @@ stops short of the process:
 
 ```bash
 $ ./bin/sysml examples/external-tool-demo/thermal.sysml -tool-dry-run ThermalDemo::heating
-✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::heating
+✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::Solve
   tool: ThermalSolver 1.0
   protocol: argv+none/csv
   manifest: /home/me/.opensysml-tools/thermal.json

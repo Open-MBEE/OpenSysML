@@ -85,7 +85,7 @@ func TestToolDryRunPreviewsTheComposedInvocation(t *testing.T) {
 
 	got := check(t, binary, toolCaseModel, "-tool-dry-run", "Tools::CheckHeating")
 	wantReport(t, got, 0,
-		"✓ Tools::CheckHeating: dry run of tool 'Solver' for Tools::CheckHeating",
+		"✓ Tools::CheckHeating: dry run of tool 'Solver' for Tools::Heating",
 		"tool: Solver 2.3", "protocol: argv+csv/csv", "executable: "+dryRunStandin(t),
 		`"solve.py"`, `"--mass"`, `"12.5"`, "SOLVER_HOME=/opt/solver", "stdin: csv",
 		"  mass", "  12.5", `tMax: column "tmax", row last, type number, unit K`,

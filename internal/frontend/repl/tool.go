@@ -69,7 +69,7 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	} else {
 		_, err = s.runAnalysisIn(s.direct(), ctx, inv, sym, fqn, heldObjects{s})
 	}
-	return toolDryVerdict(label, fqn, err)
+	return toolDryVerdict(label, err)
 }
 
 // runActionToCompletion runs the action to completion as %action + %continue do,
@@ -94,11 +94,11 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 // toolDryVerdict reports a dry run: the preview the typed error carried, the
 // refusal of the entry or the manifest as the run's error, or that no tool was
 // reached at all.
-func toolDryVerdict(label, actionFQN string, err error) Verdict {
+func toolDryVerdict(label string, err error) Verdict {
 	var dry *analysis.ToolDryRunError
 	if errors.As(err, &dry) {
 		lines := append([]string{fmt.Sprintf("%s %s: dry run of tool '%s' for %s",
-			statusMark(VerdictHolds), label, dry.Preview.Tool, actionFQN)},
+			statusMark(VerdictHolds), label, dry.Preview.Tool, dry.Action)},
 			indent(dry.Preview.Lines())...)
 		return Verdict{Subject: label, Status: VerdictHolds, Lines: lines}
 	}

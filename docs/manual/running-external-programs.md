@@ -79,7 +79,7 @@ tool:ThermalSolver  tool  argv+none/csv  observed  compute  ready (ThermalSolver
 what the call would have been given, without starting the process:
 
 ```text
-✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::heating
+✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::Solve
   tool: ThermalSolver 1.0
   protocol: argv+none/csv
   manifest: /home/me/.opensysml-tools/thermal.json

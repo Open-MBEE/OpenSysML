@@ -96,7 +96,7 @@ func TestToolPreviewsTheComposedInvocation(t *testing.T) {
 
 	out := run(t, s, "%tool Tools::CheckHeating")
 	wantsInOrder(t, out,
-		"✓ Tools::CheckHeating: dry run of tool 'Solver' for Tools::CheckHeating",
+		"✓ Tools::CheckHeating: dry run of tool 'Solver' for Tools::Heating",
 		"tool: Solver 2.3",
 		"protocol: argv+csv/csv",
 		"manifest: "+filepath.Join(os.Getenv(analysis.ToolsEnv)),

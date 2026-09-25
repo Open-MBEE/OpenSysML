@@ -53,6 +53,8 @@ var ErrToolDryRun = errors.New("tool dry run")
 type ToolDryRunError struct {
 	// Preview is what the call would have been given.
 	Preview DryRun
+	// Action is the ToolExecution-annotated action the call was made for.
+	Action string
 }
 
 // Error says the tool was previewed, not run.
@@ -97,7 +99,8 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 	if !ok {
 		return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: engine.Name()}
 	}
-	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
+	fqn := symbols.FQNOf(call.Action)
+	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
 	if cov := e.Covers(nil, q); cov.Refusal != nil {
 		return runtime.ToolAnswer{}, cov.Refusal
 	}
@@ -109,7 +112,7 @@ func (d *dryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 	if err != nil {
 		return runtime.ToolAnswer{}, err
 	}
-	return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview}
+	return runtime.ToolAnswer{}, &ToolDryRunError{Preview: preview, Action: fqn}
 }
 
 // Preview composes the call for the entry without making a temporary directory or
