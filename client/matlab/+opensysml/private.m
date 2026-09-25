@@ -29,7 +29,7 @@ function conn = private(varargin)
     start = tic;
     while ~complete && toc(start) < timeoutSec
         readAny = false;
-        while rdr.ready()
+        while rdr.ready() && toc(start) < timeoutSec && numel(line) < 4096
             c = rdr.read();
             if c < 0
                 if ~isempty(line), complete = true; end
