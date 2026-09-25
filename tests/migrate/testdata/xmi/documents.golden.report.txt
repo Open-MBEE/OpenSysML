@@ -125,7 +125,7 @@ Property	Fleet Documents::Fleet Handbook::traceability	_doc_trace	-> 'Fleet Docu
 «Conform» Generalization	Fleet Documents::Headless::<Generalization>	_gen_headless	-> 'Fleet Documents'::Headless
 «View» Class	Fleet Documents::Introduction	_view_intro	-> 'Fleet Documents'::Introduction
 «CollaboratorParagraph» Comment	Fleet Documents::Introduction::<Comment>	_intro_doc
-«CollaboratorParagraph» Comment	Fleet Documents::Introduction::<Comment>	_st_intro_named	-> part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph	(the documentation of the view Fleet Documents::Introduction)
+«CollaboratorParagraph» Comment	Fleet Documents::Introduction::<Comment>	_intro_doc	-> part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph	(the documentation of the view Fleet Documents::Introduction)
 «Conform» Generalization	Fleet Documents::Introduction::<Generalization>	_gen_intro	-> 'Fleet Documents'::Introduction
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_note_second
 «CollaboratorParagraph» Comment	Fleet Documents::Notes::<Comment>	_note_first

@@ -462,12 +462,20 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 		"part 'paragraph 2' : DocumentQueries::Paragraph {",
 		`attribute redefines text = "The parts of the fleet, by name.";`,
 		`/* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */`)
-	verdicts := map[migrate.Verdict]int{}
-	for _, e := range entriesFor(r, "_st_intro_named") {
-		verdicts[e.Verdict]++
+	if es := entriesFor(r, "_st_intro_named"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
+		t.Errorf("a malformed collaborator over the view's documentation should be refused, and only refused: %+v", es)
 	}
-	if verdicts[migrate.Unmapped] != 1 || verdicts[migrate.Mapped] != 1 || len(verdicts) != 2 {
-		t.Errorf("a malformed collaborator over the view's documentation should be refused while the documentation is written: %+v", entriesFor(r, "_st_intro_named"))
+	paragraphs := 0
+	for _, e := range entriesFor(r, "_intro_doc") {
+		if e.Verdict != migrate.Mapped {
+			t.Errorf("the view's documentation comment should only be mapped: %+v", e)
+		}
+		if strings.HasSuffix(e.Target, "::Introduction::paragraph") {
+			paragraphs++
+		}
+	}
+	if paragraphs != 1 {
+		t.Errorf("the documentation shown beside a malformed collaborator should be mapped to its paragraph under the comment's own id: %+v", entriesFor(r, "_intro_doc"))
 	}
 	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
 		`attribute redefines title = "Safety";`,

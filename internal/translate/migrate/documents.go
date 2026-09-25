@@ -76,6 +76,9 @@ type contentPlan struct {
 	style string
 	// origin says what a text Paragraph stands for: a block's caption or a view's documentation.
 	origin string
+	// documentation marks a Paragraph made of the node's own documentation, so its
+	// report row names the comment and not a DocGen application over it.
+	documentation bool
 	// query and rows are the row query's reserved name and expression, for
 	// the query-backed kinds.
 	query string
@@ -246,7 +249,14 @@ func (m *migration) viewDocumentation(sec *sectionPlan) {
 			return
 		}
 	}
-	cp := &contentPlan{kind: "Paragraph", node: c, label: "Comment", text: commentBody(c), origin: "the documentation of the view " + qualifiedName(v.Class)}
+	cp := &contentPlan{
+		kind:          "Paragraph",
+		node:          c,
+		label:         "Comment",
+		text:          commentBody(c),
+		origin:        "the documentation of the view " + qualifiedName(v.Class),
+		documentation: true,
+	}
 	if !m.imageInBody(sec, cp, c, commentRawBody(c)) {
 		cp.name = sec.names.claim("paragraph")
 	}
@@ -2461,7 +2471,7 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 		verdict = Approximated
 	}
 	var app *sysmlv1.Stereotype
-	if cp.node != nil {
+	if cp.node != nil && !cp.documentation {
 		app = cp.node.DocGen()
 	}
 	e := m.nodeEntry(cp.node, app, verdict, strings.Join(cp.notes, "; "))
