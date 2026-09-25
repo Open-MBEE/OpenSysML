@@ -7,7 +7,9 @@
 // Standard input, output and error are Node's own, so a test drives the process by
 // feeding its stdin. '/' is preopened over '/', which lets a test name fixtures by
 // their absolute path; a deployment would preopen only the directories its models
-// live in.
+// live in. PWD is what a wasip1 program resolves relative paths against — its
+// os.Getwd is that variable and nothing else — so it is set from the working
+// directory of this process, which is where a relative argument would mean.
 import { WASI } from 'node:wasi';
 import fs from 'node:fs';
 
@@ -15,7 +17,7 @@ const [binary, ...args] = process.argv.slice(2);
 const wasi = new WASI({
 	version: 'preview1',
 	args: [binary, ...args],
-	env: Object.fromEntries(Object.entries(process.env)),
+	env: { ...process.env, PWD: process.cwd() },
 	preopens: { '/': '/' },
 	returnOnExit: true,
 });

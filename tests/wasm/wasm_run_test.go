@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -61,6 +62,30 @@ func wasmExecNode() string {
 	return filepath.Join(strings.TrimSpace(string(out)), "lib", "wasm", "wasm_exec_node.js")
 }
 
+// childEnv is the environment every WebAssembly child runs with, the same for both
+// targets so a variable a developer happens to have exported reaches neither half of
+// the gate: these commands read PATH, HOME and TMPDIR, and nothing else a result
+// here depends on. (The one place a manifest is needed sets OPENSYSML_TOOLS and
+// OPENSYSML_ENGINES itself, which wins over anything inherited.)
+//
+// PWD is the working directory. A wasip1 program's os.Getwd is PWD and nothing else,
+// so without it every relative path — and the workspace the manifest rules measure
+// the manifest directory against — resolves against "/". The set is small because
+// wasm_exec.js gives argv and the environment about 8 KiB between them.
+func childEnv(t *testing.T) []string {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("resolving the working directory: %v", err)
+	}
+	return []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		"TMPDIR=" + os.TempDir(),
+		"PWD=" + wd,
+	}
+}
+
 // runner starts a built binary the way its target's runtime runs it.
 type runner struct {
 	target wasmTarget
@@ -84,7 +109,7 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 		return runner{
 			target: target,
 			prefix: []string{node, "--no-warnings", fixture(t, "wasi.mjs")},
-			env:    os.Environ(),
+			env:    childEnv(t),
 			stdin:  stdinFile,
 		}
 	case "js":
@@ -100,15 +125,11 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 		return runner{
 			target: target,
 			prefix: []string{node, "--stack-size=8192", script},
-			// wasm_exec.js writes argv and the environment into linear memory at a
-			// fixed offset and stops at wasmMinDataAddr, leaving about 8 KiB for the
-			// two together: a full CI environment overflows it and the runtime dies
-			// before main. Three short variables are all these cases need.
-			env: []string{
-				"PATH=" + os.Getenv("PATH"),
-				"HOME=" + os.Getenv("HOME"),
-				"TMPDIR=" + os.TempDir(),
-			},
+			// childEnv is deliberately small: wasm_exec.js writes argv and the
+			// environment into linear memory at a fixed offset and stops at
+			// wasmMinDataAddr, leaving about 8 KiB for the two together, so a full CI
+			// environment overflows it and the runtime dies before main.
+			env:   childEnv(t),
 			stdin: stdinPipe,
 		}
 	}
@@ -239,16 +260,41 @@ func emptyFile(t *testing.T) *os.File {
 	return file
 }
 
+// syncBuffer collects what a process writes while the test may read it. os/exec
+// copies into an io.Writer from a goroutine it starts with the process and joins it
+// only in Wait, so an unsynchronized buffer would race with the failure paths that
+// print it — and this suite runs under -race, where the report would land on top of
+// the failure it is meant to explain.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+// Write appends what the process wrote, under the lock a reader takes too.
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+// String is everything written so far, including from the copying goroutine.
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 // session is a running process driven as a client drives it: frames in on standard
 // input, frames out on standard output, and logs kept on standard error, where
 // mixing them would corrupt the frames.
 type session struct {
 	t      *testing.T
+	target wasmTarget
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
-	stderr *bytes.Buffer
+	stderr *syncBuffer
 	waited chan error
 }
 
@@ -272,7 +318,7 @@ func (r runner) start(t *testing.T, binary string, args ...string) *session {
 		cancel()
 		t.Fatalf("piping standard output: %v", err)
 	}
-	var stderr bytes.Buffer
+	var stderr syncBuffer
 	cmd.Stderr = &stderr
 	if err := cmd.Start(); err != nil {
 		cancel()
@@ -280,6 +326,7 @@ func (r runner) start(t *testing.T, binary string, args ...string) *session {
 	}
 	s := &session{
 		t:      t,
+		target: r.target,
 		cmd:    cmd,
 		cancel: cancel,
 		stdin:  stdin,
@@ -364,6 +411,16 @@ func frame(r *bufio.Reader) ([]byte, error) {
 	return body, nil
 }
 
+// check applies the invariant every other run applies: a WebAssembly build answers
+// with an error a reader can act on, never a Go panic. wait calls it once the
+// process has ended, when its output is complete and reading it races nothing.
+func (s *session) check() {
+	s.t.Helper()
+	if strings.Contains(s.stderr.String(), "panic:") {
+		s.t.Errorf("%s panicked:\n%s", s.target.name, s.stderr.String())
+	}
+}
+
 // wait ends the session's input and waits for the process to exit cleanly, failing
 // the test on any other end: an error or a status that is not zero.
 func (s *session) wait() {
@@ -382,6 +439,7 @@ func (s *session) wait() {
 	case <-time.After(runTimeout):
 		s.t.Fatalf("no exit within %s\nstderr:\n%s", runTimeout, s.stderr.String())
 	}
+	s.check()
 }
 
 // TestWasmRuns executes what TestWasmBuilds links: the work a WebAssembly host can
