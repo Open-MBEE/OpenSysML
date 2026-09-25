@@ -764,6 +764,10 @@ an individual's nested usage — an analysis the migrator writes, for instance �
 contributes a column:
 
 ```sysml
+analysis def 'Template Group 1 Monte Carlo' {
+	out runs : ScalarValues::Natural;
+	out mean : ScalarValues::Real;
+}
 individual part def 'template Group 11' :> 'Template Group 1' {
 	analysis 'Monte Carlo' : 'Template Group 1 Monte Carlo' {
 		out :>> runs = 5;
@@ -781,10 +785,10 @@ calc def RunCounts :> Query {
 ```
 
 ```console
-$ sysml tmt.sysml -run-query "RunCounts root=Results"
-✓ Query RunCounts returned 3 rows
+$ sysml cookbook.sysml -run-query "Cookbook::RunCounts root=Cookbook::Results"
+✓ Query Cookbook::RunCounts returned 3 rows
   Columns: name, runs
-  Row 1: Results::'template Group 11'
+  Row 1: Cookbook::Results::'template Group 11'
     name = "template Group 11"
     runs = 5
   ...

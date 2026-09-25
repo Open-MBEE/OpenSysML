@@ -239,11 +239,8 @@ func (e *executor) rowPropertyValues(
 	return declared, nil
 }
 
-// rowMemberValues evaluates a member path — `stat.runs`, `'Monte
-// Carlo'.runs` — on the row element: each segment but the last names a
-// member nested in the element reached so far, own members first. Only
-// element rows carry members; a row of another kind reads the path as absent,
-// and a nonconforming row reads nothing, so ?? can default either.
+// rowMemberValues evaluates a member path on the row element; only element
+// rows carry members, so other rows and nonconforming ones read it as absent.
 func (e *executor) rowMemberValues(
 	expression queryplan.Expression,
 	row Value,

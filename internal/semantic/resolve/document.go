@@ -1476,9 +1476,8 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		if v.Type != nil {
 			called, _ = r.ResolveInvocationName(scope, v.Type)
 		}
-		// A Column invocation's expression argument is evaluated on each
-		// projected row, so a feature chain in it may name members of the
-		// row element rather than a visible reference.
+		// A Column's expression argument evaluates per row, so a chain in it
+		// may name members of the row element, not a visible reference.
 		column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
 		for i, a := range v.Args {
 			if column && i == 1 {
@@ -1556,21 +1555,16 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
 }
 
-// resolveColumnExpression resolves a DocumentQueries::Column expression
-// argument: within it a feature chain whose head resolves in scope resolves
-// normally, while a row-relative chain — `stat.runs` or `'Monte
-// Carlo'.runs`, naming members each row element declares — is no reference
-// and records nothing.
+// resolveColumnExpression resolves a Column's expression argument: a chain
+// whose head resolves is a reference, a row-relative one records nothing.
 func (r *Resolver) resolveColumnExpression(scope *symbols.Scope, node ast.Node) {
 	r.columnChains++
 	defer func() { r.columnChains-- }()
 	r.resolveExpr(scope, node)
 }
 
-// columnChainHeadResolves reports whether a chain in a column expression
-// resolves in scope: the head is the name the chain's operand recursion ends
-// at, and a row-relative chain — one whose head resolves to nothing — reads
-// the row's members instead, so it resolves on no document reference.
+// columnChainHeadResolves reports whether the name a chain's operands bottom
+// out at resolves in scope; an unresolved head makes the chain row-relative.
 func (r *Resolver) columnChainHeadResolves(scope *symbols.Scope, fc *ast.FeatureChainExpr) bool {
 	operand := fc.Operand
 	for {

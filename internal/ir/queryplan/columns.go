@@ -271,13 +271,8 @@ func (c *compiler) compileColumnReference(
 }
 
 // compileColumnChain compiles a feature chain — `stat.runs`, `'Monte
-// Carlo'.runs` — into a member-path read: each segment names a member nested
-// in the element the chain's head reaches, walked at execution. A head
-// resolving in the owner's scope names a feature the row must conform to, as
-// row-property does; an unresolved head — the common case, a member the row
-// element itself declares — is row-relative. Its multiplicity is unknown: the
-// feature the last segment names is found per row, so a member without a
-// value is an empty cell rather than a typed failure.
+// Carlo'.runs` — into a member path walked on each row at execution; a head
+// resolving in scope keeps its declaring type, an unresolved head is row-relative.
 func (c *compiler) compileColumnChain(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
@@ -325,9 +320,8 @@ func (c *compiler) compileColumnChain(
 	}, semantics.PrimUnknown, nil
 }
 
-// columnChainParts flattens a feature chain into its head name and the ordered
-// member names the chain then walks; the head must be a feature reference or
-// a bare qualified name.
+// columnChainParts flattens a feature chain into its head name and the
+// ordered member names the chain walks; the head must be a name.
 func columnChainParts(expression *ast.FeatureChainExpr) (*ast.QualifiedName, []*ast.QualifiedName, bool) {
 	var members []*ast.QualifiedName
 	node := ast.Node(expression)
