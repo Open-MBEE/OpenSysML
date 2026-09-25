@@ -55,7 +55,9 @@ and a document's `Diagram` block is refused at planning time.
 ## Node labels
 
 Every graphical form draws a node's label the way the graphical notation heads a compartment:
-the element's name first, the kind after it. `label.go` composes the lines once, and each writer
+the element's name first, the kind after it. A quoted name's escapes decode in the label — `\n`
+a line break, `\t` a tab, `\'` a quote — the quotes themselves kept; `Node.Name`, the JSON and
+the text form keep the spelling. `label.go` composes the lines once, and each writer
 only joins them:
 
 1. the name, with ` : Type` after it for a typed usage (`pump : Pump`); a definition has just its
@@ -201,7 +203,8 @@ digraph "VehicleViews::vehicleView" {
   action rendering a node with children is
   `subgraph "cluster_<id>" { label=<…>; color=black; penwidth=<w>; … }`, the containment Mermaid writes as `subgraph`;
   in a tree, containment is an `arrowhead=none` edge, as the Mermaid tree draws it, so a tree has
-  no clusters. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
+  no clusters. In a positioned tree a child boxed inside its owner's box draws as a compartment
+  row of it and no edge is written for it; a child boxed outside keeps its edge. Since DOT edges join nodes, not subgraphs, every cluster holds an invisible,
   sizeless anchor node named by the cluster's own ID; an edge whose end is a cluster names that
   anchor, so the rendering's endpoints survive verbatim, and is clipped at the cluster with
   `lhead`/`ltail` — except at an end that encloses the other, where the edge starts or ends
@@ -228,6 +231,9 @@ digraph "VehicleViews::vehicleView" {
   string whose text passes through one helper that writes `&`, `<`, `>`, `"` and `'` as entities.
   The writer never emits an unquoted identifier or unescaped label text.
 - **Order.** Nodes and edges are written in the rendering's order; nothing is emitted from a map.
+  Graphviz paints in file order, so a sibling box enclosing others is written before them, and a
+  note whose stated box encloses a node's is written before the nodes — a Cameo text box used as
+  a group frame paints behind what it frames — while every other note is written after them.
   Within an attribute list, what a node *is* (shape, style, colours, label) precedes where it is
   (`pos`, `width`, `height`).
 

@@ -202,12 +202,18 @@ func (l labeller) head(node *Node) string {
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
-		return ": " + source.ReferenceEndNames(typ)
+		return ": " + source.Unescape(source.ReferenceEndNames(typ))
 	case typ == "":
-		return l.name(node)
+		return source.Unescape(l.name(node))
 	default:
-		return l.name(node) + " : " + source.ReferenceEndNames(typ)
+		return source.Unescape(l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
+}
+
+// headLines is the head split at the line breaks its escapes decode to, each
+// line headed separately by every form's label writer.
+func (l labeller) headLines(node *Node) []string {
+	return strings.Split(l.head(node), "\n")
 }
 
 // keyworded reports whether a node's label has a keyword line, the kind in
@@ -217,9 +223,10 @@ func keyworded(node *Node) bool {
 }
 
 // lines is a node's diagram label in the graphical notation's order: the
-// head, the keyword line when the node has one, then the notes.
+// head, the keyword line when the node has one, then the notes. Every entry
+// is a single line: a name that escapes a line break heads several entries.
 func (l labeller) lines(node *Node) []string {
-	lines := []string{l.head(node)}
+	lines := l.headLines(node)
 	if keyworded(node) {
 		lines = append(lines, "«"+node.Kind+"»")
 	}

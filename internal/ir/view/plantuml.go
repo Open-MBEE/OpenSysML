@@ -415,9 +415,9 @@ func plantumlShapeStereotype(node *Node) string {
 // plantumlLabel is a node's label ready to quote: the name line bold, the
 // keyword line italic at the skin's stereotype size, every line escaped.
 func (w *plantumlWriter) plantumlLabel(node *Node) string {
-	lines := w.labels.lines(node)
-	parts := []string{"**" + plantumlText(lines[0]) + "**"}
-	for _, line := range lines[1:] {
+	head, lines := w.labels.head(node), w.labels.lines(node)
+	parts := []string{"**" + plantumlText(head) + "**"}
+	for _, line := range lines[len(w.labels.headLines(node)):] {
 		parts = append(parts, plantumlText(line))
 	}
 	if keyworded(node) {

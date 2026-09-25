@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // DOT is the Graphviz form of a graph-shaped rendering: a `digraph`, written
@@ -128,10 +130,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		w.openFrame(r, edges)
 		depth = 2
 	}
+	under, over := w.noteLayers()
+	w.writeNotes(under, depth)
 	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, depth)
 	}
-	w.writeNotes(w.notes, depth)
+	w.writeNotes(over, depth)
 	if w.skin.cameo {
 		b.WriteString("  }\n")
 	}
@@ -183,12 +187,12 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if name := shown(root); name != "" {
-			parts = append(parts, dotEscape(w.labels.name(root)))
+			parts = append(parts, dotEscape(source.Unescape(w.labels.name(root))))
 		}
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(lastName(r.View))+" ]")
+		parts = append(parts, "[ "+dotEscape(source.Unescape(lastName(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }
@@ -875,7 +879,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		fmt.Fprintf(&w.b, "%s%s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotNodeAttributes(node), ", "))
 		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
-			if !w.omitted[child.ID] {
+			if !w.omitted[child.ID] && !w.compartmentRow(node, child) {
 				w.writeEdge(node.ID, child.ID, w.skin.containmentAttributes())
 			}
 		}
@@ -890,6 +894,17 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
+// compartmentRow reports whether child is drawn inside parent's box, a
+// compartment row of it, where the row already says what an edge would.
+func (w *dotWriter) compartmentRow(parent, child *Node) bool {
+	outer, ok := w.boxes[parent.ID]
+	if !ok {
+		return false
+	}
+	inner, ok := w.boxes[child.ID]
+	return ok && outer.encloses(inner)
 }
 
 // writeEdge writes one edge between the rendering's endpoints; an end that is
@@ -1186,12 +1201,12 @@ const dotFitFloor = 8
 // tall even at the floor is cut to the lines that fit and ellipsized.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	lines := l.lines(node)
-	size, head, fits := dotFitHead(lines[0], width, height, l.size())
+	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, l.size())
 	var parts labelParts
 	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
 	left := height - float64(len(head))*size*dotLineEm
-	for i := 1; fits && i < len(lines); i++ {
-		keyword := i == 1 && keyworded(node)
+	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
+		keyword := i == len(l.headLines(node)) && keyworded(node)
 		lineSize := size
 		if keyword {
 			lineSize = math.Round(size * l.keywordSize() / l.size())
@@ -1619,11 +1634,42 @@ func (w *dotWriter) noteLines(note Note) []string {
 	return lines
 }
 
-// writeNotes writes each note as a `shape=note` node, white under either skin,
-// pinned in its box when the drawing is positioned.
-func (w *dotWriter) writeNotes(notes []Note, depth int) {
+// noteLayers is the notes split at the z-order Graphviz paints in file order:
+// a note whose stated box encloses a drawn node's is written before the nodes,
+// behind them as a Cameo text box drawn as a group frame goes; every other
+// note is written after them, on top, as a note inside a node's box stays.
+func (w *dotWriter) noteLayers() (under, over []int) {
+	for i := range w.notes {
+		if w.noteEnclosesNode(i) {
+			under = append(under, i)
+			continue
+		}
+		over = append(over, i)
+	}
+	return under, over
+}
+
+// noteEnclosesNode reports whether the i-th note's stated box holds the box of
+// a node the drawing declares.
+func (w *dotWriter) noteEnclosesNode(i int) bool {
+	if i >= len(w.noteBoxes) || !w.noteBoxes[i].stated {
+		return false
+	}
+	box := w.noteBoxes[i]
+	for id, inner := range w.boxes {
+		if w.draws(id) && box.encloses(inner) {
+			return true
+		}
+	}
+	return false
+}
+
+// writeNotes writes each indexed note as a `shape=note` node, white under
+// either skin, pinned in its box when the drawing is positioned.
+func (w *dotWriter) writeNotes(indices []int, depth int) {
 	indent := strings.Repeat("  ", depth)
-	for i, note := range notes {
+	for _, i := range indices {
+		note := w.notes[i]
 		attrs := []string{"shape=note"}
 		if w.skin.cameo {
 			attrs = append(attrs, "fillcolor="+dotQuote(cameoNoteFill), dotColorAttr(cameoLineColor))
@@ -1739,9 +1785,8 @@ const dotKeywordPointSize = 10
 // notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	lines := l.lines(node)
-	parts := labelParts{head: "<b>" + dotEscape(lines[0]) + "</b>"}
-	rest := lines[1:]
+	head, rest := l.head(node), l.lines(node)[len(l.headLines(node)):]
+	parts := labelParts{head: "<b>" + dotEscape(head) + "</b>"}
 	if keyworded(node) {
 		parts.keyword = l.sized(l.keywordSize(), l.keywordText(dotEscape(rest[0])))
 		rest = rest[1:]
