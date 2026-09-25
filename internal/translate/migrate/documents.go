@@ -468,10 +468,11 @@ func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason
 	if !ok {
 		return "", named + " is not in the archive"
 	}
-	if ct := imageContent(data); ct == "" {
+	ct := imageContent(data)
+	if ct == "" {
 		return "", named + " is not an image (content type " + http.DetectContentType(data) + ")"
 	}
-	return m.addFile(imageFileName(name, entry, data), data), ""
+	return m.addFile(imageFileName(name, entry, ct), data), ""
 }
 
 // imageContent reports the archive bytes hold an image: an image/* content
@@ -488,19 +489,23 @@ func imageContent(data []byte) string {
 }
 
 // imageFileName names the written image: the tag's file name when it states
-// one, else the stream id plus the extension the bytes' content type reads.
-func imageFileName(name, entry string, data []byte) string {
+// one, else the stream id plus the extension the bytes' content type ct reads.
+func imageFileName(name, entry, ct string) string {
 	if base := path.Base(strings.ReplaceAll(name, "\\", "/")); base != "" && base != "." && base != "/" {
 		return base
 	}
 	ext := ""
-	switch http.DetectContentType(data) {
+	switch ct {
 	case "image/png":
 		ext = ".png"
 	case "image/jpeg":
 		ext = ".jpg"
 	case "image/gif":
 		ext = ".gif"
+	case "image/webp":
+		ext = ".webp"
+	case "image/bmp":
+		ext = ".bmp"
 	case "image/svg+xml":
 		ext = ".svg"
 	}
@@ -1965,13 +1970,15 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 		c.refuse(s, "it reads stereotype properties, which the query cannot")
 		return
 	}
-	if body := commentText(a.Tag("body")); body != "" {
-		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: body}
-		if !c.m.imageInBody(c.sec, cp, s.Node, a.Tag("body")) {
-			cp.name = c.sec.names.claim("paragraph")
+	if raw := a.Tag("body"); raw != "" {
+		cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«Paragraph» " + s.Node.Type, text: commentText(raw)}
+		if c.m.imageInBody(c.sec, cp, s.Node, raw) || cp.text != "" {
+			if cp.name == "" {
+				cp.name = c.sec.names.claim("paragraph")
+			}
+			c.sec.content = append(c.sec.content, cp)
+			return
 		}
-		c.sec.content = append(c.sec.content, cp)
-		return
 	}
 	if c.broken == "" && c.empty() && len(s.Targets) == 0 && a.Tag("body") == "" {
 		c.refuse(s, "it has no body and shows no element")

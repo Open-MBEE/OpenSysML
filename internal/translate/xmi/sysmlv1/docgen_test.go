@@ -251,3 +251,42 @@ func TestDocGenParagraphsStayInTheirDocument(t *testing.T) {
 		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
 	}
 }
+
+// A 2022x export may point a paragraph's viewId at the document's top view
+// rather than the Document class; the paragraph still lands in its section.
+func TestDocGenParagraphsTopViewId(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Document_View_Collaborator_Profile="http://www.magicdraw.com/schemas/manual/Document_View_Collaborator_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_top" name="top" type="_top" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_top" name="Top">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_sec" name="sec" type="_sec" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sec" name="Sec">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c" body="note"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <sysml:View xmi:id="_st_top" base_Class="_top"/>
+  <sysml:View xmi:id="_st_sec" base_Class="_sec"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_p" base_Element="_c" documentId="mms-1" viewId="_top" sectionId="_sec"/>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Documents) != 1 {
+		t.Fatalf("%d documents, want 1", len(m.Documents))
+	}
+	sec := m.Documents[0].Root.Children[0].Children[0]
+	if len(sec.Paragraphs) != 1 || sec.Paragraphs[0].Comment.ID != "_c" {
+		t.Errorf("section paragraphs = %+v, want _c", sec.Paragraphs)
+	}
+	if len(m.StrayParagraphs) != 0 {
+		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
+	}
+}

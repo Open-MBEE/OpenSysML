@@ -147,6 +147,7 @@ func (m *Model) readDocuments() {
 		}
 		seen[s.Base] = true
 		r.doc = s.Base
+		r.docViews = m.viewTree(s.Base)
 		doc := &DocGenDocument{Class: s.Base, Application: s}
 		doc.Root = r.view(s.Base, nil, map[*Element]bool{}, true)
 		m.Documents = append(m.Documents, doc)
@@ -199,10 +200,12 @@ func predecessor(s *Stereotype) string {
 type docGenReader struct {
 	m        *Model
 	comments map[string][]*Stereotype
-	// doc is the document class whose views are being read; placed are the
-	// paragraph applications some view of some document has shown.
-	doc    *Element
-	placed map[*Stereotype]bool
+	// doc is the document class whose views are being read and docViews the ids
+	// of its view tree's classes; placed are the paragraph applications some
+	// view of some document has shown.
+	doc      *Element
+	docViews map[string]bool
+	placed   map[*Stereotype]bool
 }
 
 // isDocGenView reports whether e is a view class: the SysML View stereotype
@@ -222,6 +225,33 @@ func (e *Element) DocGenView() bool {
 // document mapping reads.
 func IsDocGenProfile(ns string) bool {
 	return ns == DocGenNS || ns == DocGenCollaboratorNS
+}
+
+// viewTree returns the ids of the classes the document's view tree shows:
+// every ownedAttribute whose type isDocGenView accepts, entered deeper under
+// the aggregation rule view follows.
+func (m *Model) viewTree(root *Element) map[string]bool {
+	tree := map[string]bool{}
+	seen := map[*Element]bool{root: true}
+	var walk func(class *Element)
+	walk = func(class *Element) {
+		for _, p := range class.Owned("ownedAttribute") {
+			t := m.Ref(p, "type")
+			if p.Type != "Property" || t == nil || !isDocGenView(t) {
+				continue
+			}
+			tree[t.ID] = true
+			if seen[t] {
+				continue
+			}
+			seen[t] = true
+			if aggregation := p.Attrs["aggregation"]; aggregation != "" && aggregation != "none" {
+				walk(t)
+			}
+		}
+	}
+	walk(root)
+	return tree
 }
 
 // view reads one view placed by property p of its parent (nil at the root)
@@ -267,14 +297,15 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	return v
 }
 
-// paragraphs reads the collaborator paragraphs placed in a view of the current
-// document (a viewId must name the document class, in the 2022x schema as in
-// the old), each moved behind the paragraph its predecessor names.
+// paragraphs reads the collaborator paragraphs placed in a view of the
+// current document (a viewId must name the document class, or a view of its
+// tree in a 2022x export), each moved behind the paragraph its predecessor
+// names.
 func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	byComment := map[string]*DocGenParagraph{}
 	var out []*DocGenParagraph
 	for _, s := range r.comments[class.ID] {
-		if id := s.Tag("viewId"); id != "" && id != r.doc.ID {
+		if id := s.Tag("viewId"); id != "" && id != r.doc.ID && !r.docViews[id] {
 			continue
 		}
 		r.placed[s] = true

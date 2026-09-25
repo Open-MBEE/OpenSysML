@@ -143,10 +143,17 @@ func runConvert(files []string) (int, error) {
 		_, err := os.Stdout.Write(out)
 		return exitHolds, err
 	}
-	if err := writeConversion(outputPath, out, to); err != nil {
+	target, info, err := export.Destination(outputPath)
+	if err != nil {
 		return 0, err
 	}
-	if err := writeMigrationFiles(filepath.Dir(outputPath), imageFiles); err != nil {
+	if len(imageFiles) > 0 && info != nil && !info.Mode().IsRegular() {
+		return 0, fmt.Errorf("-o names %s, which is not a file; the migration writes a model file and the images beside it", outputPath)
+	}
+	if err := writeMigrationFiles(filepath.Dir(target), imageFiles); err != nil {
+		return 0, err
+	}
+	if err := writeConversion(outputPath, out, to); err != nil {
 		return 0, err
 	}
 	return exitHolds, nil

@@ -327,3 +327,58 @@ func TestImageNotAnImage(t *testing.T) {
 	wantOneNote(t, r, "_st_note_image", migrate.Approximated,
 		`the attached image "fleet.png" is not an image (content type text/plain; charset=utf-8)`)
 }
+
+// TestImageUnnamedStreamNamesSVG an SVG stream the AttachedFile tag leaves
+// unnamed is written under the stream id, suffixed by the type the bytes read.
+func TestImageUnnamedStreamNamesSVG(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const stream = "BINARY-aaaabbbb-0000-0000-0000-0000000000ff"
+	svg := []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`)
+	doc := strings.Replace(string(data),
+		`<ownedComment xmi:type="uml:Comment" xmi:id="_note_image" body="Figure: the fleet at the depot"/>`,
+		`<ownedComment xmi:type="uml:Comment" xmi:id="_note_image" body="Figure: the fleet at the depot">
+			<xmi:Extension extender="MagicDraw UML 2022x">
+				<md_extensions.ATTACHED_FILE>
+					<MDFoundation:MDExtension source="ATTACHED_FILE">
+						<element href="#_note_image" xsi:type="uml:Comment"/>
+						<contents streamContentID="`+stream+`" xsi:type="binary:StreamIdentityBinaryObject"/>
+					</MDFoundation:MDExtension>
+				</md_extensions.ATTACHED_FILE>
+			</xmi:Extension>
+		</ownedComment>`, 1)
+	doc = strings.Replace(doc, `file="fleet.png"`, `file=""`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the image comment")
+	}
+	r, err := migrate.Migrate("documents.mdzip", zipData(t, []byte(doc), map[string][]byte{stream: svg}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "images/`+stream+`.svg";`)
+	if !bytes.Equal(r.Files["images/"+stream+".svg"], svg) {
+		t.Errorf("Files = %v", keysOf(r.Files))
+	}
+}
+
+// TestDocGenParagraphBodyImage a DocGen Paragraph step whose body is only an
+// <img> tag becomes an Image when the source resolves.
+func TestDocGenParagraphBodyImage(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/documents.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Replace(string(data),
+		`base_CallBehaviorAction="_per_para" body="One truck."`,
+		`base_CallBehaviorAction="_per_para" body="&lt;img src=&quot;https://example.org/plate.png&quot;&gt;"`, 1)
+	if doc == string(data) {
+		t.Fatal("the fixture lacks the paragraph step")
+	}
+	r, err := migrate.Migrate("documents.xmi", []byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, `attribute redefines location = "https://example.org/plate.png";`)
+}
