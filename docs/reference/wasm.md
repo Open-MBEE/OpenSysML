@@ -22,8 +22,12 @@ information a native build carries:
 ```
 bin/wasm/wasip1/{sysml,sysml-lsp,sysml-grpc}.wasm
 bin/wasm/js/{sysml,sysml-lsp,sysml-grpc}.wasm
-bin/wasm/js/wasm_exec.js      # copied from the Go toolchain: what runs them
+bin/wasm/js/wasm_exec.js      # the runtime a browser page includes
 ```
+
+`wasm_exec.js` is the library, not a runner: a page loads it with a `<script>` tag, and Node
+runs these modules with `$(go env GOROOT)/lib/wasm/wasm_exec_node.js`, which loads its own copy
+beside it.
 
 `make build` is unchanged and stays native; a WebAssembly build is always asked for.
 
@@ -33,13 +37,18 @@ bin/wasm/js/wasm_exec.js      # copied from the Go toolchain: what runs them
 the one Go's own runner uses:
 
 ```bash
-wasmtime run --dir=/ bin/wasm/wasip1/sysml.wasm model.sysml -e 'total'
+wasmtime run --dir=/ --env PWD="$PWD" bin/wasm/wasip1/sysml.wasm model.sysml -e 'total'
 ```
 
-`--dir=/` preopens the working directory's tree — a runtime that preopens nothing can run
-`-version`, but can open no model. The Go toolchain ships the same runner as a script,
-`$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec`, which uses `wasmtime` unless
-`GOWASIRUNTIME` names wasmer, wazero or wasmedge.
+`--dir=/` preopens the filesystem root, which is how the working directory becomes reachable: a
+runtime that preopens nothing can run `-version`, but can open no model. `--env PWD="$PWD"` is
+what makes `model.sysml` resolve where you are — a `wasip1` program's `os.Getwd` is the `PWD` it
+was given and nothing else, so without it the path resolves against `/`.
+
+The Go toolchain ships the same runner as a script,
+`$(go env GOROOT)/lib/wasm/go_wasip1_wasm_exec`: it opens `/`, supplies the working
+directory and environment each runtime needs, and uses `wasmtime` unless `GOWASIRUNTIME` names
+wasmer, wazero or wasmedge.
 
 A host without one of those can use Node's WASI implementation directly:
 
@@ -52,7 +61,9 @@ const [binary, ...args] = process.argv.slice(2);
 const wasi = new WASI({
   version: 'preview1',
   args: [binary, ...args],
-  env: Object.fromEntries(Object.entries(process.env)),
+  // PWD is what a wasip1 program resolves relative paths against; process.cwd()
+  // keeps it right where the shell does not export it.
+  env: { ...process.env, PWD: process.cwd() },
   preopens: { '/': '/' },   // a deployment opens only the directories it needs
   returnOnExit: true,
 });
@@ -63,7 +74,7 @@ process.exit(wasi.start(instance));
 
 Node's WASI host cannot block waiting for a pipe: a read from one with nothing ready comes back
 `EAGAIN` rather than waiting. Drive its processes from a file, or from arguments — `-version`,
-`-check`, `-eval`, `-engines` and the prompt itself all work that way — and use a runtime that
+`-validate`, `-eval`, `-engines` and the prompt itself all work that way — and use a runtime that
 reads pipes properly for anything that speaks a protocol over its standard input.
 
 ## Running a `js` build
