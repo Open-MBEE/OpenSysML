@@ -17,6 +17,10 @@ package Pictures {
 				attribute redefines location = "https://example.test/plates/plate2.png";
 				attribute redefines caption = "Plate 2: from the archive";
 			}
+
+			part spaced : Image {
+				attribute redefines location = "images/plate 3.png";
+			}
 		}
 	}
 }

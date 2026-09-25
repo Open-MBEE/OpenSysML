@@ -308,7 +308,11 @@ func renderImage(node docir.Content) []string {
 	if alt == "" {
 		alt = node.Caption()
 	}
-	return append(blocks, "!["+inline(alt)+"]("+node.Location()+")")
+	location := node.Location()
+	if strings.ContainsAny(location, " ()") && !strings.ContainsAny(location, "<>") {
+		location = "<" + location + ">"
+	}
+	return append(blocks, "!["+inline(alt)+"]("+location+")")
 }
 
 // displayMath prepares LaTeX for a $$ block: lines keep their breaks, blank

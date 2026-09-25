@@ -278,18 +278,18 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 		if location, ok := m.imageFile(file, p.Comment); ok {
 			cp.location = location
 		} else {
-			cp.refused = "the attached image " + strconv.Quote(file) + " is not in the archive"
-			return
+			m.fallbackImageParagraph(sec, cp, "the attached image "+strconv.Quote(file)+" is not in the archive")
 		}
 	case src != "":
 		if location, ok := m.imageFile(src, p.Comment); ok {
 			cp.location = location
 		} else {
-			cp.refused = "the attached image " + strconv.Quote(src) + " is not in the archive"
-			return
+			m.fallbackImageParagraph(sec, cp, "the attached image "+strconv.Quote(src)+" is not in the archive")
 		}
 	default:
-		cp.refused = "the image paragraph's comment names no attached file"
+		m.fallbackImageParagraph(sec, cp, "the image paragraph's comment names no attached file")
+	}
+	if cp.kind != "Image" {
 		return
 	}
 	cp.alt = file
@@ -300,6 +300,21 @@ func (m *migration) planImage(sec *sectionPlan, cp *contentPlan, p *sysmlv1.DocG
 		cp.alt = cp.caption
 	}
 	cp.name = sec.names.claim("image")
+}
+
+// fallbackImageParagraph leaves an image plan whose file cannot be located as
+// the paragraph its caption makes, noted with the reason; an empty caption
+// refuses the plan instead.
+func (m *migration) fallbackImageParagraph(sec *sectionPlan, cp *contentPlan, reason string) {
+	if cp.caption == "" {
+		cp.refused = reason
+		return
+	}
+	cp.notes = append(cp.notes, reason+"; its caption stands as the paragraph")
+	cp.kind = "Paragraph"
+	cp.text = cp.caption
+	cp.caption = ""
+	cp.name = sec.names.claim("paragraph")
 }
 
 // attachmentName is the raw file name the AttachedFile tag states.

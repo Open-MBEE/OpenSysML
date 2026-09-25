@@ -68,8 +68,10 @@ func TestImageParagraphsFromArchive(t *testing.T) {
 	}
 }
 
-// TestImageParagraphMissingFromArchive reports the refusal an image paragraph
-// earns when the archive holds no entry for its attached file.
+// TestImageParagraphMissingFromArchive reports what an image paragraph earns
+// when the archive holds no entry for its attached file: a captioned one
+// falls back to the paragraph its caption makes, with the reason noted, and
+// a captionless one is refused.
 func TestImageParagraphMissingFromArchive(t *testing.T) {
 	data, err := os.ReadFile("testdata/xmi/documents.xmi")
 	if err != nil {
@@ -79,7 +81,9 @@ func TestImageParagraphMissingFromArchive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantOneNote(t, r, "_st_note_image", migrate.Unmapped, `the attached image "fleet.png" is not in the archive`)
+	wantOneNote(t, r, "_st_note_image", migrate.Approximated, `the attached image "fleet.png" is not in the archive; its caption stands as the paragraph`)
+	wantLine(t, r.Notation, `attribute redefines text = "Figure: the fleet at the depot";`)
+	wantOneNote(t, r, "_st_note_blank_image", migrate.Unmapped, `the attached image "depot.png" is not in the archive`)
 	if len(r.Files) != 0 {
 		t.Errorf("Files = %v, want none", keysOf(r.Files))
 	}
