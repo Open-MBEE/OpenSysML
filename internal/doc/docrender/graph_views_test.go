@@ -55,8 +55,8 @@ func TestGraphFormViewsHonourLayout(t *testing.T) {
 		"// kind: state", "// kind: action", "// layout: neato",
 		`pos="70,60!", pin=true`, `pos="230,60!", pin=true`,
 		`pos="70,140!", pin=true`,
-		`[label="accept Start", pos="120,60 120,60 180,60 180,60"];`,
-		`[label="'Fill to Vent'", pos="70,120 70,120 70,80 70,80"];`,
+		`[label="accept Start", pos="e,180,60 120,60 120,60 170,60 170,60", lp="150,72"];`,
+		`[label="'Fill to Vent'", pos="e,70,80 70,120 70,120 70,90 70,90", lp="128.5,100"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)

@@ -521,22 +521,54 @@ func (w *dotWriter) placeNodes(roots []*Node, edges []Edge) {
 			ends[edge.To] = append(ends[edge.To], routeEnd{at: edge.Route[n-1], next: edge.Route[n-2]})
 		}
 	}
+	var derived []*Node
 	for _, root := range roots {
-		w.placeNode(root, ends)
+		w.placeNode(root, ends, &derived)
+	}
+	if len(derived) == 0 {
+		return
+	}
+	for _, node := range derived {
+		w.boxes[node.ID] = w.derivedBox(node, edges)
+	}
+	for _, root := range roots {
+		w.reboxClusters(root)
+	}
+}
+
+// reboxClusters recomputes, members first, the box of every cluster under node
+// boxed round its members, once nodes placed by their neighbours have theirs.
+func (w *dotWriter) reboxClusters(node *Node) {
+	for _, child := range node.Children {
+		w.reboxClusters(child)
+	}
+	if _, ok := w.boxes[node.ID]; !ok || len(node.Children) == 0 || w.tree {
+		return
+	}
+	switch {
+	case node.Geometry != nil && !node.Geometry.HasSize:
+		w.boxes[node.ID] = w.clusterBox(node)
+	case node.Geometry == nil:
+		if members := w.membersBox(node); members != nil {
+			w.boxes[node.ID] = *members
+		}
 	}
 }
 
 // placeNode records the box of every placed node under and including node,
-// members first so a cluster can be boxed round them.
-func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd) {
+// members first so a cluster can be boxed round them; a node placed by its
+// neighbours is collected for boxing once every neighbour has a box.
+func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd, derived *[]*Node) {
 	for _, child := range node.Children {
-		w.placeNode(child, ends)
+		w.placeNode(child, ends, derived)
 	}
 	if !w.placement.placed[node.ID] {
 		return
 	}
 	cluster := len(node.Children) > 0 && !w.tree
 	switch {
+	case w.placement.derived[node.ID]:
+		*derived = append(*derived, node)
 	case node.Geometry != nil && cluster:
 		w.boxes[node.ID] = w.clusterBox(node)
 	case node.Geometry != nil:
@@ -575,6 +607,45 @@ func (w *dotWriter) routedBox(node *Node, ends []routeEnd) nodeBox {
 	n := float64(len(ends))
 	c := Point{X: sum.X / n, Y: sum.Y / n}
 	return nodeBox{low: Point{X: c.X - width/2, Y: c.Y - height/2}, high: Point{X: c.X + width/2, Y: c.Y + height/2}}
+}
+
+// dotEndGap is the space, in pixels, between a start or final node placed by
+// its neighbours and the nearest of them.
+const dotEndGap = 20
+
+// derivedBox is the box of a start or final node its neighbours place: centred
+// over the nodes its edges go to and dotEndGap above the topmost, or under the
+// nodes its edges come from and dotEndGap below the lowest.
+func (w *dotWriter) derivedBox(node *Node, edges []Edge) nodeBox {
+	width, height := w.labels.dotBox(node)
+	start := node.Kind == startKind || node.Kind == "initial"
+	var sum, n float64
+	edge := math.Inf(1)
+	if !start {
+		edge = math.Inf(-1)
+	}
+	for _, e := range edges {
+		other, ok := edgeOtherEnd(e, node.ID)
+		if !ok {
+			continue
+		}
+		box, ok := w.boxes[other]
+		if !ok {
+			continue
+		}
+		sum += box.centre().X
+		n++
+		if start {
+			edge = math.Min(edge, box.low.Y)
+		} else {
+			edge = math.Max(edge, box.high.Y)
+		}
+	}
+	cx := sum / n
+	if start {
+		return nodeBox{low: Point{X: cx - width/2, Y: edge - dotEndGap - height}, high: Point{X: cx + width/2, Y: edge - dotEndGap}}
+	}
+	return nodeBox{low: Point{X: cx - width/2, Y: edge + dotEndGap}, high: Point{X: cx + width/2, Y: edge + dotEndGap + height}}
 }
 
 // dotReach is the distance from the centre of a node's shape to its border along
@@ -991,11 +1062,17 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 // dotTextBox is the box round lines of plain text at the label size, in points,
 // with a node's margin about them: what a note with no stated size takes.
 func (l labeller) dotTextBox(lines []string) (width, height float64) {
-	for _, line := range lines {
-		width = math.Max(width, float64(utf8.RuneCountInString(line))*l.size()*dotGlyphEm)
-		height += l.size() * dotLineEm
-	}
+	width, height = dotTextExtent(lines, l.size())
 	return math.Max(dotNodeWidth, math.Ceil(width+2*dotMarginWidth)), math.Max(dotNodeHeight, math.Ceil(height+2*dotMarginHeight))
+}
+
+// dotTextExtent is the extent, in points, of lines of plain text at a font size.
+func dotTextExtent(lines []string, size float64) (width, height float64) {
+	for _, line := range lines {
+		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*dotGlyphEm)
+		height += size * dotLineEm
+	}
+	return width, height
 }
 
 // size is the label font size the skin draws in, the Pilot's 14pt by default.
@@ -1328,21 +1405,83 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
-		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route)))
+		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route, dotArrowheaded(attrs))))
+		if edge.Label != "" {
+			attrs = append(attrs, "lp="+dotQuote(w.dotPoint(w.dotLabelPoint(edge))))
+		}
 	}
 	return attrs
 }
 
+// dotArrowheaded reports whether an edge with these attributes draws a head at
+// its end: every edge but one that takes the head off.
+func dotArrowheaded(attrs []string) bool {
+	return !slices.Contains(attrs, "arrowhead=none")
+}
+
+// dotArrowLength is the length, in points, of Graphviz's default arrowhead.
+const dotArrowLength = 10
+
 // dotSpline is a polyline of waypoints as Graphviz's cubic B-spline: each
-// segment's ends are its own control points, so the curve is the polyline.
-func (w *dotWriter) dotSpline(route []Point) string {
-	points := []string{w.dotPoint(route[0])}
+// segment's ends are its own control points, so the curve is the polyline. An
+// arrowheaded edge ends `e,x,y` at its last waypoint, the curve stopping an
+// arrow's length short of it, which is what Graphviz draws the head between.
+func (w *dotWriter) dotSpline(route []Point, arrowheaded bool) string {
+	var points []string
+	if arrowheaded {
+		tip := route[len(route)-1]
+		route = append(slices.Clone(route[:len(route)-1]), dotArrowBase(route))
+		points = append(points, "e,"+w.dotPoint(tip))
+	}
+	points = append(points, w.dotPoint(route[0]))
 	for i := 1; i < len(route); i++ {
 		from, to := w.dotPoint(route[i-1]), w.dotPoint(route[i])
 		points = append(points, from, to, to)
 	}
 	return strings.Join(points, " ")
 }
+
+// dotArrowBase is where a route's curve stops for its arrowhead: an arrow's
+// length back from the last waypoint along the last segment, at the segment's
+// midpoint at most so a short segment keeps its direction.
+func dotArrowBase(route []Point) Point {
+	n := len(route)
+	from, tip := route[n-2], route[n-1]
+	d := math.Hypot(tip.X-from.X, tip.Y-from.Y)
+	if d == 0 {
+		return tip
+	}
+	back := math.Min(dotArrowLength, d/2)
+	return Point{X: halfPixel(tip.X - (tip.X-from.X)/d*back), Y: halfPixel(tip.Y - (tip.Y-from.Y)/d*back)}
+}
+
+// dotLabelGap is the space, in pixels, between a routed edge and its label.
+const dotLabelGap = 4
+
+// dotLabelPoint is where a routed edge's label is centred: beside the midpoint
+// of the route's longest segment, clear of it by the label's half-extent and a
+// gap — right of a segment going down, above one going right — not on a box.
+func (w *dotWriter) dotLabelPoint(edge Edge) Point {
+	route := edge.Route
+	best, length := 0, -1.0
+	for i := 1; i < len(route); i++ {
+		if d := math.Hypot(route[i].X-route[i-1].X, route[i].Y-route[i-1].Y); d > length {
+			best, length = i, d
+		}
+	}
+	from, to := route[best-1], route[best]
+	mid := Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
+	if length == 0 {
+		return mid
+	}
+	nx, ny := (to.Y-from.Y)/length, -(to.X-from.X)/length
+	width, height := dotTextExtent([]string{edge.Label}, w.skin.edgePts)
+	off := math.Abs(nx)*width/2 + math.Abs(ny)*height/2 + dotLabelGap
+	return Point{X: halfPixel(mid.X + nx*off), Y: halfPixel(mid.Y + ny*off)}
+}
+
+// halfPixel rounds a coordinate to the nearest half pixel.
+func halfPixel(v float64) float64 { return math.Round(v*2) / 2 }
 
 // containmentAttributes is a tree's containment edge, Mermaid's `---`; Cameo
 // draws it as UML composition, a filled diamond at the owner.

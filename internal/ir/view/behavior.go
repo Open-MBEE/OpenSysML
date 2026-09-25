@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // maxBehaviorDepth bounds how deep a nested action usage is lowered, so a
@@ -202,16 +203,18 @@ func (r *Renderer) regionNode(region *ast.StateRegion, graph *lower.StateGraph, 
 }
 
 // stateNode renders one state with what the machine says about it: whether its
-// body unconditionally starts in it, whether entering it completes, what it runs.
+// body unconditionally starts in it, what it runs as `do / Activity`, what it
+// defers. The `done` vertex a body's completion synthesizes is its final node.
 func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, machine *symbols.Symbol, ids *nodeIDs) *Node {
 	node := &Node{ID: ids.take(), Kind: "state", Name: nameText(state.Name), Type: nodeType(graph.DeclOf(state)),
 		Origin: nodeOrigin(docOf(graph, state, machine.DocName), state)}
+	if graph.Completes(state) {
+		node.Kind, node.Name, node.Type, node.NameSynthesized = "final", ast.DoneFeature, "", true
+		return node
+	}
 	var detail []string
 	if graph.UnconditionalStart(bodyOwning(graph, state)) == state {
 		detail = append(detail, "initial")
-	}
-	if graph.Completes(state) {
-		detail = append(detail, "completes")
 	}
 	if behaviors := graph.Behaviors[state]; behaviors != nil {
 		for _, part := range []struct {
@@ -219,7 +222,7 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 			list []lower.StateBehavior
 		}{{"entry", behaviors.Entry}, {"do", behaviors.Do}, {"exit", behaviors.Exit}} {
 			if len(part.list) > 0 {
-				detail = append(detail, part.name)
+				detail = append(detail, stateBehaviorLabel(part.name, part.list))
 			}
 		}
 	}
@@ -297,13 +300,40 @@ func transitionName(transition *lower.Transition) string {
 func behaviorNames(behaviors []lower.StateBehavior) string {
 	names := make([]string, 0, len(behaviors))
 	for _, behavior := range behaviors {
-		if behavior.Name != "" {
-			names = append(names, nameText(behavior.Name))
+		if name := behaviorName(behavior); name != "" {
+			names = append(names, name)
 			continue
 		}
 		names = append(names, "effect")
 	}
 	return strings.Join(names, ", ")
+}
+
+// behaviorName is what a state behavior is drawn as: its name, else the
+// activity it performs by type (`do action : Reset` reads `Reset`), else "".
+func behaviorName(behavior lower.StateBehavior) string {
+	if behavior.Name != "" {
+		return nameText(behavior.Name)
+	}
+	if typ := nodeType(behavior.Node); typ != "" {
+		return source.ReferenceEndNames(typ)
+	}
+	return ""
+}
+
+// stateBehaviorLabel is a state's compartment line for one kind of behavior, as
+// UML writes it: `do / Activity`, or the kind alone when none is named.
+func stateBehaviorLabel(kind string, behaviors []lower.StateBehavior) string {
+	var names []string
+	for _, behavior := range behaviors {
+		if name := behaviorName(behavior); name != "" {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return kind
+	}
+	return kind + " / " + strings.Join(names, ", ")
 }
 
 // triggerLabel is the event a transition waits for: an accepted signal or called

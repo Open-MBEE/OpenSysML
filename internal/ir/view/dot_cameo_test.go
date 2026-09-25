@@ -136,6 +136,48 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 	}
 }
 
+// A state's compartment names each behaviour, `do / initialize`, by the
+// behaviour's own name or else its type's, and by its kind alone when it has
+// neither, in both styles; the Cameo state is set in 11pt Arial, the Pilot's
+// 14pt Helvetica and keyword line untouched.
+func TestDOTStateBehaviourNames(t *testing.T) {
+	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
+	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("cameo DOT: %v", err)
+	}
+	pilot, err := rendering.DOT()
+	if err != nil {
+		t.Fatalf("pilot DOT: %v", err)
+	}
+	for _, want := range []string{
+		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap",
+	} {
+		for style, dot := range map[string]string{"cameo": cameo, "pilot": pilot} {
+			if !strings.Contains(dot, want) {
+				t.Errorf("%s DOT lacks %q:\n%s", style, want, dot)
+			}
+		}
+	}
+	for _, want := range []string{
+		`fontname="Arial", fontsize=11,`,
+		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">initial, do / initialize</td></tr>`,
+	} {
+		if !strings.Contains(cameo, want) {
+			t.Errorf("cameo DOT lacks %q:\n%s", want, cameo)
+		}
+	}
+	for _, unwanted := range []string{"Helvetica", "«state»", "fontsize=14"} {
+		if strings.Contains(cameo, unwanted) {
+			t.Errorf("cameo DOT has %q:\n%s", unwanted, cameo)
+		}
+	}
+	if !strings.Contains(pilot, `fontname="Helvetica", fontsize=14,`) ||
+		!strings.Contains(pilot, `<b>Init</b><br/><font point-size="10"><i>«state»</i></font><br/>initial, do / initialize>`) {
+		t.Errorf("pilot DOT lost its type:\n%s", pilot)
+	}
+}
+
 // A Style annotation wins over the style's defaults, in Cameo as in Pilot; a
 // palette recolours a Cameo drawing the way it does a Pilot one, and the two
 // options are independent.
