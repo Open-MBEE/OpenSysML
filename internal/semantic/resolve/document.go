@@ -1579,8 +1579,16 @@ func (r *Resolver) columnChainHeadResolves(scope *symbols.Scope, fc *ast.Feature
 		return true
 	}
 	return r.probe(head, func() bool {
-		_, ok := r.ResolveQualified(scope, head)
-		return ok
+		sym, ok := r.ResolveQualified(scope, head)
+		if !ok || sym == nil {
+			return false
+		}
+		// A head naming a parameter is row-relative too: a parameter cannot
+		// be read through, so no reference resolves here.
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && (usage.Direction != ast.DirNone || usage.IsResult) {
+			return false
+		}
+		return true
 	})
 }
 

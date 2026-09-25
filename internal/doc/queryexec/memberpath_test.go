@@ -115,6 +115,32 @@ calc def Runs :> Query {
 	}
 }
 
+// A chain head resolving to a query input parameter stays row-relative: a
+// parameter cannot be read through, so stat.runs reads the row's member.
+func TestExecuteComputedMemberPathParameterHeadIsRowRelative(t *testing.T) {
+	fixture := memberPathFixture(t, `
+calc def Runs :> Query {
+	in root : Element;
+	in stat : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "N", expression = stat.runs))
+	)
+}`)
+	result, err := fixture.execute(t, "Runs", Bindings{
+		"root": {ElementValue(fixture.symbol(t, "Results"))},
+		"stat": {ElementValue(fixture.symbol(t, "Results"))},
+	}, Options{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := cellNumbers(t, result, "N")
+	if !slices.EqualFunc(got, [][]float64{{5}, {7}, nil}, slices.Equal) {
+		t.Fatalf("N cells = %v, want {5}, {7}, empty", got)
+	}
+}
+
 // A quoted head reads a member whose name is not a basic name.
 func TestExecuteComputedMemberPathQuotedHead(t *testing.T) {
 	fixture := memberPathFixture(t, `

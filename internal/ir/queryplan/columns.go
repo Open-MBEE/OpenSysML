@@ -272,7 +272,7 @@ func (c *compiler) compileColumnReference(
 
 // compileColumnChain compiles a feature chain — `stat.runs`, `'Monte
 // Carlo'.runs` — into a member path walked on each row at execution; a head
-// resolving in scope keeps its declaring type, an unresolved head is row-relative.
+// resolving in scope keeps its declaring type, a parameter or unresolved head is row-relative.
 func (c *compiler) compileColumnChain(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
@@ -293,15 +293,22 @@ func (c *compiler) compileColumnChain(
 	}
 	var segments []string
 	declaring := ""
-	if target, resolved := c.resolver.ResolveQualified(owner.Scope, head); resolved && target != nil {
+	resolved := false
+	if target, ok := c.resolver.ResolveQualified(owner.Scope, head); ok && target != nil {
+		parameter := false
 		for _, param := range c.model.BehaviorParametersOf(query) {
 			if !param.IsResult && c.parameterIncludes(param.Symbol, target) {
-				return Expression{}, semantics.PrimUnknown, unsupported()
+				parameter = true
+				break
 			}
 		}
-		segments = append(segments, target.Name)
-		declaring = declaringTypeFQN(target)
-	} else {
+		if !parameter {
+			resolved = true
+			segments = append(segments, target.Name)
+			declaring = declaringTypeFQN(target)
+		}
+	}
+	if !resolved {
 		for _, part := range head.Parts {
 			segments = append(segments, part.Text)
 		}

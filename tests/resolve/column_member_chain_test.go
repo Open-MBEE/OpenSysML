@@ -53,6 +53,19 @@ func TestResolveColumnMemberChainIsRowRelative(t *testing.T) {
 	}
 }
 
+// A chain head resolving to a query input parameter is row-relative too, so
+// a Column expression over it reports no diagnostic.
+func TestResolveColumnMemberChainParameterHeadIsRowRelative(t *testing.T) {
+	doc := strings.Replace(columnChainDoc,
+		"in root : Element;",
+		"in root : Element;\n\tin stat : Element;",
+		1)
+	r := resolvedWithLibraries(t, doc)
+	for _, d := range r.Diagnostics {
+		t.Errorf("unexpected diagnostic: %s", d.Message)
+	}
+}
+
 // The same chain outside a Column expression is an ordinary reference and
 // still reports its unresolved head.
 func TestResolveMemberChainOutsideColumnStillReports(t *testing.T) {
