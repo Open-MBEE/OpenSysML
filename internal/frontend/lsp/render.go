@@ -149,6 +149,19 @@ type renderCanvas struct {
 	Height *float64 `json:"height,omitempty"`
 }
 
+// renderStyle is how a node or edge is drawn where a Style annotation says so:
+// `#RRGGBB` colours of fill, line and text, and the face, size in points and
+// weight of its text; each empty or zero when unstated.
+type renderStyle struct {
+	Fill     string  `json:"fill,omitempty"`
+	Line     string  `json:"line,omitempty"`
+	Text     string  `json:"text,omitempty"`
+	Font     string  `json:"font,omitempty"`
+	FontSize float64 `json:"fontSize,omitempty"`
+	Bold     bool    `json:"bold,omitempty"`
+	Italic   bool    `json:"italic,omitempty"`
+}
+
 // renderRow is one row of a table rendering, located at the element it reports.
 type renderRow struct {
 	Cells  []string      `json:"cells"`

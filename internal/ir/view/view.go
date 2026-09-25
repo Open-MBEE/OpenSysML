@@ -202,6 +202,9 @@ type Node struct {
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
+	// Style is how the element is drawn, from the Style annotation colouring it
+	// in this view; nil leaves the look to the drawing style.
+	Style *Style
 }
 
 // Edge joins two nodes of a rendering.
@@ -219,6 +222,9 @@ type Edge struct {
 	// Route is the waypoints the edge follows, from the Route annotation of the
 	// element it was declared as; empty leaves the routing to the writer.
 	Route []Point
+	// Style is how the edge is drawn, from the Style annotation colouring it;
+	// nil leaves the look to the drawing style.
+	Style *Style
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,
@@ -248,6 +254,9 @@ type Rendering struct {
 	// Canvas is the drawing surface the view states, nil for a view stating
 	// none.
 	Canvas *Canvas
+	// Notes are the note boxes drawn on the canvas, anchored to a node or free,
+	// in the order the nodes they annotate are drawn, free ones last.
+	Notes []Note
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -303,6 +312,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		r.notesOf(view, view, "", out)
 	}
 	return out, nil
 }

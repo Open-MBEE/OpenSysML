@@ -13,7 +13,11 @@ package Plant {
 
 	part def Loop {
 		// The inline position, which a view positions over.
-		part pump : Pump { @Layout { x = 10; y = 20; width = 100; height = 50; } }
+		part pump : Pump {
+			@Layout { x = 10; y = 20; width = 100; height = 50; }
+			@Style { fill = "#ffffdc"; }
+			@Note { text = "always"; x = 10; y = 90; }
+		}
 		part tank : Tank;
 		connection supply connect pump.outlet to tank.inlet {
 			@Route { points = (60, 45, 200, 45); }
@@ -49,6 +53,10 @@ package PlantViews {
 		metadata Layout about Plant::Loop::pump { x = 300; y = 40; collapsed = true; }
 		metadata Layout about Plant::Loop::tank { x = 500; y = 40; width = 120; height = 60; }
 		metadata Route about Plant::Loop::supply { points = (400, 70, 450, 120, 500, 70); }
+		metadata Style about Plant::Loop::pump { fill = "#FFE8BD"; line = "#333333"; font = "Arial"; fontSize = 11; bold = true; }
+		metadata Style about Plant::Loop::supply { line = "#0000FF"; }
+		metadata Note about Plant::Loop::tank { text = "anchored"; x = 650; y = 40; width = 100; height = 30; }
+		@Note { text = "free"; x = 0; y = 700; }
 	}
 
 	// Positions nothing of its own: pump keeps its inline position, tank has none.
@@ -68,6 +76,14 @@ package PlantViews {
 		expose Plant::Machine;
 		metadata Layout about Plant::Machine::off { x = 0; y = 0; }
 		metadata Layout about Plant::Machine::on { x = 0; y = 100; width = 80; height = 40; }
+		metadata Style about Plant::Machine::on { fill = "#EBEBD7"; }
+		metadata Style about Plant::Machine::off_on { line = "#FF0000"; }
+		metadata Note about Plant::Machine::on { text = "resting"; x = 100; y = 100; }
+	}
+
+	view badStyleView : StateTransitionView {
+		expose Plant::Machine;
+		metadata Style about Plant::Machine::on { fill = "yellow"; }
 	}
 }
 

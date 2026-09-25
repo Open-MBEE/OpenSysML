@@ -436,3 +436,100 @@ func TestNoAnnotationLeavesTheOutputUnchanged(t *testing.T) {
 		checkGolden(t, filepath.Join("testdata", tc.name+".text.golden"), rendering.Text())
 	}
 }
+
+// A Style about an element inside the view's body colours it there, over the
+// one written inline; a Style about a connection colours its edge.
+func TestViewLocalStyleOverridesTheInlineOne(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::placedView")
+	pump := findNode(t, rendering.Roots, "pump")
+	want := &Style{Fill: "#FFE8BD", Line: "#333333", Font: "Arial", FontSize: 11, Bold: true}
+	if !reflect.DeepEqual(pump.Style, want) {
+		t.Errorf("pump style = %+v, want %+v", pump.Style, want)
+	}
+	if tank := findNode(t, rendering.Roots, "tank"); tank.Style != nil {
+		t.Errorf("tank style = %+v, want none", tank.Style)
+	}
+	if len(rendering.Edges) != 1 || !reflect.DeepEqual(rendering.Edges[0].Style, &Style{Line: "#0000FF"}) {
+		t.Errorf("edges = %+v, want one styled #0000FF", rendering.Edges)
+	}
+}
+
+// Notes reach the rendering anchored to the node they annotate, the inline one
+// with the view's own, and a Note about the view itself is free on the canvas.
+func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::placedView")
+	pump := findNode(t, rendering.Roots, "pump")
+	tank := findNode(t, rendering.Roots, "tank")
+	want := []Note{
+		{Text: "always", Anchor: pump.ID, X: 10, Y: 90},
+		{Text: "anchored", Anchor: tank.ID, X: 650, Y: 40, Width: 100, Height: 30, HasSize: true},
+		{Text: "free", X: 0, Y: 700},
+	}
+	if !reflect.DeepEqual(rendering.Notes, want) {
+		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	}
+}
+
+// A view colouring nothing shows the inline Style and the inline Note alone.
+func TestInlineStyleIsTheFallbackInAnotherView(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::plainView")
+	pump := findNode(t, rendering.Roots, "pump")
+	if want := (&Style{Fill: "#FFFFDC"}); !reflect.DeepEqual(pump.Style, want) {
+		t.Errorf("pump style = %+v, want the inline %+v", pump.Style, want)
+	}
+	if want := []Note{{Text: "always", Anchor: pump.ID, X: 10, Y: 90}}; !reflect.DeepEqual(rendering.Notes, want) {
+		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	}
+}
+
+// The lowered state graph's nodes and transitions trace back to the elements
+// they were written as, so Styles and Notes reach the state rendering.
+func TestStateStyleAndNoteReachTheStateRendering(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::machineView")
+	on := findNode(t, rendering.Roots, "on")
+	if want := (&Style{Fill: "#EBEBD7"}); !reflect.DeepEqual(on.Style, want) {
+		t.Errorf("on style = %+v, want %+v", on.Style, want)
+	}
+	if want := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100}}; !reflect.DeepEqual(rendering.Notes, want) {
+		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	}
+	off := findNode(t, rendering.Roots, "off")
+	var styled []Edge
+	for _, edge := range rendering.Edges {
+		if edge.Style != nil {
+			styled = append(styled, edge)
+		}
+	}
+	if len(styled) != 1 || styled[0].From != off.ID || styled[0].To != on.ID || styled[0].Style.Line != "#FF0000" {
+		t.Errorf("styled edges = %+v, want off_on alone in #FF0000", styled)
+	}
+}
+
+// A Style that does not read as one is noticed and colours nothing.
+func TestMalformedStyleIsNoticed(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::badStyleView")
+	if on := findNode(t, rendering.Roots, "on"); on.Style != nil {
+		t.Errorf("on style = %+v, want none", on.Style)
+	}
+	if len(rendering.Notices) != 1 || !strings.Contains(rendering.Notices[0], "Style") {
+		t.Errorf("notices = %q, want one about the Style", rendering.Notices)
+	}
+}
+
+// Clone copies the styles and notes, so changing the copy leaves the original.
+func TestCloneCopiesStylesAndNotes(t *testing.T) {
+	rendering := render(t, "layout.sysml", "PlantViews::placedView")
+	clone := rendering.Clone()
+	findNode(t, clone.Roots, "pump").Style.Fill = "#000000"
+	clone.Edges[0].Style.Line = "#000000"
+	clone.Notes[0].Text = "changed"
+	if got := findNode(t, rendering.Roots, "pump").Style.Fill; got != "#FFE8BD" {
+		t.Errorf("original pump fill = %q after editing the clone", got)
+	}
+	if got := rendering.Edges[0].Style.Line; got != "#0000FF" {
+		t.Errorf("original edge line = %q after editing the clone", got)
+	}
+	if got := rendering.Notes[0].Text; got != "always" {
+		t.Errorf("original note = %q after editing the clone", got)
+	}
+}

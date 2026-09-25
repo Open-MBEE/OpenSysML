@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -13,7 +14,21 @@ const (
 	LayoutFQN = "DiagramLayout::Layout"
 	RouteFQN  = "DiagramLayout::Route"
 	CanvasFQN = "DiagramLayout::Canvas"
+	StyleFQN  = "DiagramLayout::Style"
+	NoteFQN   = "DiagramLayout::Note"
 )
+
+// LayoutFQNs lists every DiagramLayout metadata definition.
+var LayoutFQNs = []string{LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN}
+
+// IsLayoutFQN reports whether fqn names a DiagramLayout metadata definition.
+func IsLayoutFQN(fqn string) bool {
+	switch fqn {
+	case LayoutFQN, RouteFQN, CanvasFQN, StyleFQN, NoteFQN:
+		return true
+	}
+	return false
+}
 
 // Layout is the geometry one Layout annotation binds: the top-left corner of
 // the annotated element in pixels, y down, and its size when both were given.
@@ -42,6 +57,27 @@ type Canvas struct {
 	HasSize       bool
 }
 
+// Style is how one Style annotation says its element is drawn: colours as
+// "#RRGGBB", each "" when unstated; Font "" and FontSize 0 likewise.
+type Style struct {
+	Fill, Line, Text string
+	Font             string
+	FontSize         float64
+	Bold, Italic     bool
+}
+
+// Empty reports whether the style states nothing.
+func (s Style) Empty() bool { return s == Style{} }
+
+// Note is one Note annotation: a text box at X, Y, sized when HasSize, drawn
+// anchored to the annotated element, or free when it annotates the view.
+type Note struct {
+	Text          string
+	X, Y          float64
+	Width, Height float64
+	HasSize       bool
+}
+
 // LayoutProblem is a binding of a DiagramLayout annotation that could not be
 // read as the geometry it stands for, located at the node stating it.
 type LayoutProblem struct {
@@ -52,7 +88,7 @@ type LayoutProblem struct {
 // LayoutSite is one DiagramLayout annotation of an element: where it was
 // stated, the geometry it binds, and the bindings that could not be read.
 type LayoutSite struct {
-	// TypeFQN is LayoutFQN, RouteFQN or CanvasFQN.
+	// TypeFQN is LayoutFQN, RouteFQN, CanvasFQN, StyleFQN or NoteFQN.
 	TypeFQN string
 	// Node states the annotation; Scope is where it is declared.
 	Node  ast.Node
@@ -64,11 +100,13 @@ type LayoutSite struct {
 	// applies in that view alone; nil for an inline annotation and for an `about`
 	// one stated outside every view, which apply in every view.
 	View *symbols.Symbol
-	// Exactly one of Layout, Route and Canvas is set when the annotation reads
-	// as geometry; all are nil when a binding it needs has a Problem.
+	// Exactly one of Layout, Route, Canvas, Style and Note is set when the
+	// annotation reads; all are nil when a binding it needs has a Problem.
 	Layout *Layout
 	Route  *Route
 	Canvas *Canvas
+	Style  *Style
+	Note   *Note
 	// PointCount is the number of values a Route binds to points, whether or
 	// not they read as waypoints.
 	PointCount int
@@ -81,7 +119,7 @@ type LayoutSite struct {
 
 // Applies reports whether the site carries geometry a rendering can use.
 func (s *LayoutSite) Applies() bool {
-	return s != nil && (s.Layout != nil || s.Route != nil || s.Canvas != nil)
+	return s != nil && (s.Layout != nil || s.Route != nil || s.Canvas != nil || s.Style != nil || s.Note != nil)
 }
 
 // InView reports whether the site positions its element in view: an `about`
@@ -117,9 +155,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 			continue
 		}
 		fqn := m.fqnOf(a.typ)
-		switch fqn {
-		case LayoutFQN, RouteFQN, CanvasFQN:
-		default:
+		if !IsLayoutFQN(fqn) {
 			continue
 		}
 		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about}
@@ -135,6 +171,10 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 			m.readRoute(site, bindings)
 		case CanvasFQN:
 			m.readCanvas(site, bindings)
+		case StyleFQN:
+			m.readStyle(site, bindings)
+		case NoteFQN:
+			m.readNote(site, bindings)
 		}
 		out = append(out, site)
 	}
@@ -146,11 +186,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 // IsLayoutAnnotation reports whether sym is a metadata usage typed by one of
 // the DiagramLayout definitions: a statement about a picture, not model content.
 func (m *Model) IsLayoutAnnotation(sym *symbols.Symbol) bool {
-	switch m.annotationTypeFQN(sym) {
-	case LayoutFQN, RouteFQN, CanvasFQN:
-		return true
-	}
-	return false
+	return IsLayoutFQN(m.annotationTypeFQN(sym))
 }
 
 // annotationTypeFQN is the qualified name of the metadata definition sym
@@ -190,6 +226,26 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 // resolves a Layout.
 func (m *Model) RouteOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 	return m.resolveSite(view, elem, RouteFQN)
+}
+
+// StyleOf resolves the Style of elem as drawn in view, as LayoutOf resolves a
+// Layout.
+func (m *Model) StyleOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
+	return m.resolveSite(view, elem, StyleFQN)
+}
+
+// NotesOf lists every Note of elem drawn in view, in declaration order: those
+// stated in the view's body and those applying in every view. Unlike a Layout,
+// every Note applies; an element may carry several. With a nil view only the
+// latter apply. A view's own notes are free notes.
+func (m *Model) NotesOf(view, elem *symbols.Symbol) []*LayoutSite {
+	var out []*LayoutSite
+	for _, site := range m.LayoutSitesOf(elem) {
+		if site.TypeFQN == NoteFQN && site.InView(view) {
+			out = append(out, site)
+		}
+	}
+	return out
 }
 
 // CanvasOf resolves the Canvas of view: the first Canvas annotation stated in
@@ -411,6 +467,125 @@ func (m *Model) readCanvas(site *LayoutSite, bindings []MetadataBinding) {
 		canvas.HasSize = hasWidth && hasHeight
 		site.Canvas = canvas
 	}
+}
+
+// readStyle reads a Style body: colours are "#RRGGBB" strings, font a
+// string, fontSize a real, bold and italic booleans, every one optional.
+func (m *Model) readStyle(site *LayoutSite, bindings []MetadataBinding) {
+	style := &Style{}
+	ok := true
+	for _, b := range bindings {
+		switch b.Feature {
+		case "fill":
+			ok = m.readColor(site, b, &style.Fill) && ok
+		case "line":
+			ok = m.readColor(site, b, &style.Line) && ok
+		case "text":
+			ok = m.readColor(site, b, &style.Text) && ok
+		case "font":
+			if b.Value != nil {
+				ok = m.readString(site, b, &style.Font) && ok
+			}
+		case "fontSize":
+			if b.Value != nil {
+				ok = m.readReal(site, b, &style.FontSize) && ok
+			}
+		case "bold":
+			m.readBool(site, b, &style.Bold)
+		case "italic":
+			m.readBool(site, b, &style.Italic)
+		}
+	}
+	if style.FontSize < 0 {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "fontSize of Style is negative"})
+		ok = false
+	}
+	if ok {
+		site.Style = style
+	}
+}
+
+// readNote reads a Note body: text is a required string, x and y required
+// reals, width and height an optional pair.
+func (m *Model) readNote(site *LayoutSite, bindings []MetadataBinding) {
+	note := &Note{}
+	var hasText, hasX, hasY, hasWidth, hasHeight bool
+	for _, b := range bindings {
+		switch b.Feature {
+		case "text":
+			hasText = m.readString(site, b, &note.Text)
+		case "x":
+			hasX = m.readReal(site, b, &note.X)
+		case "y":
+			hasY = m.readReal(site, b, &note.Y)
+		case "width":
+			hasWidth = m.readReal(site, b, &note.Width)
+		case "height":
+			hasHeight = m.readReal(site, b, &note.Height)
+		}
+	}
+	if !bindsFeature(bindings, "text") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Note binds no text to show"})
+	}
+	if !bindsFeature(bindings, "x") || !bindsFeature(bindings, "y") {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Note binds no x and y to place the note at"})
+	}
+	if hasWidth != hasHeight {
+		site.Problems = append(site.Problems, LayoutProblem{Node: site.Node, Message: "Note binds one of width and height; a size needs both"})
+	}
+	if !hasText || !hasX || !hasY {
+		return
+	}
+	note.HasSize = hasWidth && hasHeight
+	site.Note = note
+}
+
+// readString reads one binding as a string, reporting a value that is not a
+// constant string; false then and for a binding with no value.
+func (m *Model) readString(site *LayoutSite, b MetadataBinding, into *string) bool {
+	if b.Value == nil {
+		return false
+	}
+	v := m.annotationValue(b.Scope, b.Value)
+	if v.Kind != symbols.FilterValueString {
+		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
+			Message: fmt.Sprintf("%s of %s is not a constant string", b.Feature, simpleName(site.TypeFQN))})
+		return false
+	}
+	*into = v.Str
+	return true
+}
+
+// readColor reads one binding as a "#RRGGBB" colour; true for a binding with
+// no value, which states no colour.
+func (m *Model) readColor(site *LayoutSite, b MetadataBinding, into *string) bool {
+	if b.Value == nil {
+		return true
+	}
+	var s string
+	if !m.readString(site, b, &s) {
+		return false
+	}
+	if !IsHexColor(s) {
+		site.Problems = append(site.Problems, LayoutProblem{Node: b.Value,
+			Message: fmt.Sprintf("%s of %s is %q, not a colour written #RRGGBB", b.Feature, simpleName(site.TypeFQN), s)})
+		return false
+	}
+	*into = strings.ToUpper(s)
+	return true
+}
+
+// IsHexColor reports whether s is a colour written #RRGGBB.
+func IsHexColor(s string) bool {
+	if len(s) != 7 || s[0] != '#' {
+		return false
+	}
+	for _, c := range s[1:] {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // readReal reads one binding as a real, reporting a value that is not a

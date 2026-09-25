@@ -43,12 +43,13 @@ func (r *Renderer) renderStates(view *symbols.Symbol, exposed []*symbols.Symbol,
 func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.StateGraph, ids *nodeIDs, out *Rendering) *Node {
 	root := &Node{ID: ids.take(), Kind: declKind(machine), Name: r.notationName(machine), NameSynthesized: r.model.NameSynthesized(machine),
 		Type: declType(machine), Origin: symbolOrigin(machine), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.geometryOf(view, machine, out)}
+	r.dress(view, machine, root, out)
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
 	place := func(node *Node, decl ast.Node) *Node {
 		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
 		node.NameSynthesized = r.declaredNameSynthesized(machine, decl)
-		return node
+		return r.declaredDress(view, machine, decl, node, out)
 	}
 
 	// Regions first: a state of an orthogonal region is nested in that region,
@@ -139,6 +140,7 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 		out.Edges = append(out.Edges, Edge{
 			From: start.ID, To: target.ID, Label: r.guardLabel(doc, entry.Guard), Kind: EdgeTransition,
 			Origin: nodeOrigin(doc, entry.Decl), Route: r.declaredRouteOf(view, machine, entry.Decl, out),
+			Style: r.declaredStyleOf(view, machine, entry.Decl, out),
 		})
 	}
 }
@@ -158,6 +160,7 @@ func (r *Renderer) transitionEdges(view, machine *symbols.Symbol, graph *lower.S
 		out.Edges = append(out.Edges, Edge{
 			From: nodes[src].ID, To: target.ID, Label: r.transitionLabel(doc, transition, r.declaredNameSynthesized(machine, transition.Decl)),
 			Kind: EdgeTransition, Origin: nodeOrigin(doc, transition.Decl), Route: r.declaredRouteOf(view, machine, transition.Decl, out),
+			Style: r.declaredStyleOf(view, machine, transition.Decl, out),
 		})
 	}
 }
@@ -450,6 +453,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	}
 	root := &Node{ID: ids.take(), Kind: kind, Name: name, NameSynthesized: r.declaredNameSynthesized(subject.elem, decl), Type: subject.typ,
 		Origin: nodeOrigin(doc, decl), Inherited: inheritedOrigins(graph.Inherited()), Geometry: r.declaredGeometryOf(subject.view, subject.elem, decl, out)}
+	r.declaredDress(subject.view, subject.elem, decl, root, out)
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
@@ -457,6 +461,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+		r.declaredDress(subject.view, subject.elem, node, child, out)
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
@@ -496,7 +501,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			edgeDoc := docOf(graph, edge.Decl, doc)
 			label := r.successionLabel(edge, edgeDoc, doc, r.declaredNameSynthesized(subject.elem, edge.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
-				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out)})
+				Kind: EdgeSuccession, Origin: nodeOrigin(edgeDoc, edge.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, edge.Decl, out),
+				Style: r.declaredStyleOf(subject.view, subject.elem, edge.Decl, out)})
 		}
 		for _, flow := range graph.DataFlows[src] {
 			to, ok := nodes[flow.Target]
@@ -507,7 +513,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			}
 			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
-				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out)})
+				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
+				Style: r.declaredStyleOf(subject.view, subject.elem, flow.Decl, out)})
 		}
 	}
 }

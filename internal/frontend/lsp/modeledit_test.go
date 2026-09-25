@@ -1040,7 +1040,7 @@ package PlantViews {
 		t.Errorf("target and declaration together: err = %v", err)
 	}
 	rename := modelEditOperation{Kind: EditRename, Declaration: &decl, NewName: "x"}
-	if _, err := rename.operation(nil); err == nil || !strings.Contains(err.Error(), "setLayout or setRoute") {
+	if _, err := rename.operation(nil); err == nil || !strings.Contains(err.Error(), "setLayout, setRoute or setStyle") {
 		t.Errorf("rename by declaration: err = %v", err)
 	}
 }
