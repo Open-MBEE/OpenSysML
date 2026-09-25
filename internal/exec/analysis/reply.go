@@ -523,10 +523,6 @@ func checkReplyOutput(format ReplyFormat, variable string, o *ReplyOutput) error
 		if o.Row == nil {
 			o.Row = &Row{Kind: RowLast}
 		}
-	case ReplyLines:
-		if o.Key == "" {
-			o.Key = variable
-		}
 	}
 	return nil
 }
