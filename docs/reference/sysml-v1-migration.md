@@ -428,10 +428,13 @@ and what became of each — `written`, `no v2 member`, `not written`, `unnamed`,
 the results sidecar's `routesByKind`; an export record matching no diagram of the model,
 or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
 no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
-Views the export does not cover are a normal case of export scope and are reported as a count. A
+Views the export does not cover are a normal case of export scope and are reported as a count;
+they are laid out from their diagram's own symbol stream instead, as is every element a joined
+record neither places nor routes (the export wins per element, the stream fills in the rest, and
+the diagram's layout note and the summary's `streamSupplemented` count say when it did). A
 `-layout` file exported from a different project — no record joins — or one that is not a HUDS
-`<packet>` at all refuses with the mismatch stated; without `-layout` the migration's output is
-byte-identical.
+`<packet>` at all refuses with the mismatch stated; without `-layout` every diagram is laid out
+from its own stream alone.
 
 ### Tables, matrices and relation maps
 

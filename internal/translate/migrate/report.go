@@ -124,8 +124,11 @@ type LayoutSummary struct {
 	Malformed   int            `json:"malformed"`
 	Unsupported map[string]int `json:"unsupported,omitempty"`
 	// StreamDiagrams counts the views laid out from their diagram's own symbol
-	// stream, the export holding no record for the diagram.
-	StreamDiagrams int `json:"streamDiagrams"`
+	// stream alone, the export holding no record for the diagram;
+	// StreamSupplemented the joined views whose stream placed or routed an
+	// element the export's record did not.
+	StreamDiagrams     int `json:"streamDiagrams"`
+	StreamSupplemented int `json:"streamSupplemented,omitempty"`
 	// Styles counts the symbols drawn in colours or a font of their own;
 	// StylesWritten those whose element the view lays out, so a Style is written.
 	Styles        int `json:"styles"`
@@ -241,6 +244,9 @@ func (r *Report) WriteText(w io.Writer) error {
 			b.WriteString("# ")
 		}
 		fmt.Fprintf(&b, "%d views laid out from their own symbol stream, %d without layout\n", l.StreamDiagrams, l.ViewsWithoutLayout)
+		if l.StreamSupplemented > 0 {
+			fmt.Fprintf(&b, "# %d joined views supplemented from their own symbol stream where the record placed or routed nothing\n", l.StreamSupplemented)
+		}
 		fmt.Fprintf(&b, "# placements: %d of %d written (%d not exposed, %d resolving to no element); routes: %d of %d written (%d not pinned, %d resolving to no element); malformed: %d\n",
 			l.PlacementsWritten, l.Placements, l.PlacementsUnexposed, l.PlacementsDangling,
 			l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)

@@ -312,7 +312,8 @@ symbol stream and writes it beside the view it produces as
 waypoints, a `Canvas` the size of the diagram frame, a `Style` for a symbol drawn in its own
 colours or font, and a `Note` for every comment and text box — so nothing has to be laid out again.
 No export from another tool is needed; an [MTIP](https://github.com/Open-MBEE/mtip-cameo) export
-given with `-layout` is still honoured and takes precedence for the diagrams it covers
+given with `-layout` is still honoured and takes precedence for every element its record places
+or routes, the stream supplying the elements the record leaves out
 ([the precedence](../reference/sysml-v1-migration.md#layout-from-an-mtip-export)).
 
 The published document then draws those views with Graphviz, in Cameo's look, at the stated

@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -15,6 +16,17 @@ const (
 	streamSource  = "the diagram's own symbol stream"
 	streamsSource = "the diagrams' own symbol streams"
 )
+
+// layoutSourceName words where v's geometry came from for its layout note.
+func (m *migration) layoutSourceName(src layoutSources) string {
+	switch {
+	case src.export && src.stream:
+		return m.layoutSource + " supplemented by " + streamSource
+	case src.export:
+		return m.layoutSource
+	}
+	return streamSource
+}
 
 // drawsAny reports whether any diagram's symbol stream was read.
 func drawsAny(model *sysmlv1.Model) bool {
@@ -56,15 +68,52 @@ func (m *migration) streamRecord(d *sysmlv1.Diagram) *mtip.Diagram {
 	return rec
 }
 
-// layoutRecord is the layout record laying out v: the export's when it holds
-// one for v's diagram, else the diagram's own stream read as one.
-func (m *migration) layoutRecord(v *view) (rec *mtip.Diagram, fromStream bool) {
+// layoutSources names where a view's geometry came from.
+type layoutSources struct {
+	export bool // the export's record covers the diagram
+	stream bool // the diagram's own stream placed or routed something
+}
+
+// layoutRecord is the layout record laying out v: the export's record for v's
+// diagram, with the diagram's own stream supplying every element the record
+// does not place or route; the stream alone when the export has no record.
+func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
+	stream := m.streamRecord(v.d)
+	var export *mtip.Diagram
 	if m.layout != nil {
-		if rec := m.layoutByID[v.d.ID]; rec != nil {
-			return rec, false
+		export = m.layoutByID[v.d.ID]
+	}
+	switch {
+	case export == nil:
+		return stream, layoutSources{stream: stream != nil}
+	case stream == nil:
+		return export, layoutSources{export: true}
+	}
+	merged := *export
+	merged.Placements = slices.Clone(export.Placements)
+	merged.Connectors = slices.Clone(export.Connectors)
+	placed := map[string]bool{}
+	for _, p := range export.Placements {
+		placed[p.ID] = true
+	}
+	routed := map[string]bool{}
+	for _, c := range export.Connectors {
+		routed[c.ID] = true
+	}
+	src := layoutSources{export: true}
+	for _, p := range stream.Placements {
+		if !placed[p.ID] {
+			merged.Placements = append(merged.Placements, p)
+			src.stream = true
 		}
 	}
-	return m.streamRecord(v.d), true
+	for _, c := range stream.Connectors {
+		if !routed[c.ID] {
+			merged.Connectors = append(merged.Connectors, c)
+			src.stream = true
+		}
+	}
+	return &merged, src
 }
 
 // viewDressing is what a diagram's stream adds to its view beyond geometry:

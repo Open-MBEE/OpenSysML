@@ -294,7 +294,8 @@ exactly the bytes it produced before; the existing rendering goldens pin that.
   streams a `.mdzip` carries — each symbol's box, each path's bends, the diagram frame as the
   `Canvas`, a symbol's own `FILL_COLOR`/`PEN_COLOR`/`TEXT_COLOR`/`FONT` as its `Style`, and each
   comment or text box as a `Note` anchored where its anchor reaches — with an MTIP export given by
-  `-layout` taking precedence for the diagrams it covers
+  `-layout` taking precedence for every element its record places or routes and the stream
+  supplying the rest
   ([the mapping](../reference/sysml-v1-migration.md#layout-from-an-mtip-export)).
 - **Other tools.** Any conforming implementation parses and preserves the annotations,
   since user-defined metadata is standard notation. Only a tool that knows the library

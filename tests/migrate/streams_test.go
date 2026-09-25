@@ -91,8 +91,9 @@ func reportText(t *testing.T, r *migrate.Result) string {
 }
 
 // An MTIP export's record of a diagram takes precedence over the diagram's own
-// stream for geometry, while the stream still dresses the view and lays out every
-// diagram the export does not record; the report tells the two sources apart.
+// stream for every element it places or routes, the stream supplying the rest
+// and dressing the view, and lays out every diagram the export does not record;
+// the report tells the sources apart.
 func TestExportPrecedesStream(t *testing.T) {
 	layout, err := mtip.Parse([]byte(modesExport))
 	if err != nil {
@@ -108,20 +109,23 @@ func TestExportPrecedesStream(t *testing.T) {
 	wantInOrder(t, "export geometry", notation,
 		"view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {",
 		"metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 500; y = 300; width = 120; height = 50; }",
+		"metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }",
+		"metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }",
 		`metadata DiagramLayout::Style about Plant::Pump::Modes::Idle {`,
 		`metadata DiagramLayout::Note about Plant::Pump::Modes::Idle {`)
-	if strings.Contains(notation, "about Plant::Pump::Modes::Running {") || strings.Contains(notation, "Route about 'Idle accept Start then Running'") {
-		t.Errorf("the stream's geometry leaks into a diagram the export records:\n%s", notation)
+	if strings.Contains(notation, "about Plant::Pump::Modes::Idle { x = 40;") {
+		t.Errorf("the stream's placement of Idle overrides the export's:\n%s", notation)
 	}
 	wantInOrder(t, "stream fallback", notation,
 		"view Partial {",
 		"metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }")
 	s := r.Report.Layout
-	if s == nil || s.DiagramsJoined != 1 || s.StreamDiagrams != 5 {
-		t.Fatalf("layout summary = %+v; want 1 diagram joined and 5 from streams", s)
+	if s == nil || s.DiagramsJoined != 1 || s.StreamDiagrams != 5 || s.StreamSupplemented != 1 {
+		t.Fatalf("layout summary = %+v; want 1 diagram joined and supplemented, 5 from streams", s)
 	}
 	report := reportText(t, r)
 	wantInOrder(t, "sources", report,
+		"1 joined views supplemented from their own symbol stream",
 		"_diag_partial", "laid out from the diagram's own symbol stream",
-		"_diag_modes", "laid out from modes.layout.xml: 1 of 1 shown elements positioned")
+		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 2 of 3 shown elements positioned")
 }

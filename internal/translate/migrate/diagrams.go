@@ -726,18 +726,21 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	if s == nil {
 		return viewGeometry{}
 	}
-	rec, fromStream := m.layoutRecord(v)
+	rec, src := m.layoutRecord(v)
 	if rec == nil {
 		s.ViewsWithoutLayout++
 		return viewGeometry{}
 	}
-	source := m.layoutSource
-	if fromStream {
-		s.StreamDiagrams++
-		source = streamSource
-	} else {
+	source := m.layoutSourceName(src)
+	switch {
+	case src.export:
 		s.DiagramsJoined++
 		m.layoutJoined[rec.ID] = true
+		if src.stream {
+			s.StreamSupplemented++
+		}
+	default:
+		s.StreamDiagrams++
 	}
 	prefix := diagramLayoutPrefix
 	if m.shadowsLibrary("DiagramLayout", v.host) {
@@ -755,7 +758,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			maxY = h
 		}
 	}
-	if f := v.d.Frame; f != nil && fromStream {
+	if f := v.d.Frame; f != nil && src.stream {
 		grow(f.X+f.Width, f.Y+f.Height)
 	}
 	var written, unexposed, dangling int
