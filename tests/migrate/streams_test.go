@@ -76,11 +76,19 @@ func TestStreamLaysOutView(t *testing.T) {
 	if s.StylesWritten != 2 || s.Notes != 4 || s.NotesAnchored != 2 {
 		t.Errorf("styles written = %d, notes = %d, anchored = %d; want 2, 4 and 2", s.StylesWritten, s.Notes, s.NotesAnchored)
 	}
-	if s.Dropped["ImageShape"] != 2 {
-		t.Errorf("dropped = %v; want 2 ImageShape", s.Dropped)
+	if s.Pictures != 5 || s.PicturesWritten != 3 {
+		t.Errorf("pictures = %d, written = %d; want 5 and 3", s.Pictures, s.PicturesWritten)
 	}
-	wantInOrder(t, "modes entry", reportText(t, r),
-		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 1 ImageShape")
+	if s.Dropped["ImageShape"] != 2 {
+		t.Errorf("dropped = %v; want the 2 ImageShape without bytes to write", s.Dropped)
+	}
+	report := reportText(t, r)
+	wantInOrder(t, "modes entry", report,
+		"_diag_modes", "laid out from the diagram's own symbol stream: 2 of 3 shown elements positioned (1 not exposed), 1 of 2 connectors routed (1 no v2 member), 2 pasted images written as images/Plant_from_the_north.png, 2 pasted images not written: the pasted image \"logo.png\" is not in the archive and the pasted image of symbol _sym_torn has bytes that do not read (octet 19 is \"xx\", not a hexadecimal byte), 2 of 2 symbols drawn in their own colours or font styled, 3 notes written, 2 anchored, free symbols not represented: 2 ImageShape")
+	wantInOrder(t, "layout summary", report,
+		"# pasted images: 3 of 5 written as files and drawn by the view")
+	wantNote(t, r, "_sym_torn", migrate.Unmapped,
+		"the pasted image's bytes do not read: octet 19 is \"xx\", not a hexadecimal byte")
 }
 
 // A symbol drawn in its own colours but without usable geometry — a shape the
@@ -186,7 +194,8 @@ func TestExportPrecedesStream(t *testing.T) {
 	report := reportText(t, r)
 	wantInOrder(t, "sources", report,
 		"1 joined views supplemented from their own symbol stream",
-		"_diag_partial", "laid out from the diagram's own symbol stream",
+		"_diag_partial", "laid out from the diagram's own symbol stream")
+	wantInOrder(t, "joined source", report,
 		"_diag_modes", "laid out from modes.layout.xml supplemented by the diagram's own symbol stream: 2 of 3 shown elements positioned")
 }
 

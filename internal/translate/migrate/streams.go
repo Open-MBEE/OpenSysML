@@ -2,10 +2,13 @@ package migrate
 
 import (
 	"fmt"
+	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/translate/imagefile"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
@@ -118,18 +121,161 @@ func (m *migration) layoutRecord(v *view) (*mtip.Diagram, layoutSources) {
 	return &merged, src
 }
 
-// viewDressing is what a diagram's stream adds to its view beyond geometry:
-// the Style and Note annotation lines and the clauses accounting for them.
-type viewDressing struct {
-	lines []string
-	notes []string
+// picture is a pasted image a diagram's stream carries and the view draws: the
+// symbol placing it, the file it is written as, and whether it lies over an
+// element symbol drawn before it, so the view draws it above the elements.
+type picture struct {
+	sym      *sysmlv1.Symbol
+	location string
+	above    bool
 }
 
-// viewDressing plans the Style of every symbol drawn in its own colours or font
-// whose element the view draws (refOf naming it, positioned or not), the Note of
-// every comment and text box, each anchored to the element its anchor reaches
-// when the view draws that and free on the view otherwise, and counts the free
-// symbols nothing represents.
+// pictures is what became of the pasted images of one diagram's stream: those
+// drawn, in stream order, and why each of the rest is not.
+type pictures struct {
+	drawn []picture
+	lost  []string
+}
+
+// pastedPictures writes the pasted images d's stream carries — their inline
+// bytes, else the archive entry the pasted file's name finds — under images/
+// and places each at its symbol's bounds; one with unreadable or no bytes, no
+// image bytes or no bounds is lost with the reason. Memoized per diagram.
+func (m *migration) pastedPictures(d *sysmlv1.Diagram) *pictures {
+	if p, ok := m.pictureOf[d]; ok {
+		return p
+	}
+	p := &pictures{}
+	m.pictureOf[d] = p
+	if !d.Drawn {
+		return p
+	}
+	unread := map[string]*sysmlv1.ImageError{}
+	for _, e := range d.ImageErrors {
+		unread[e.Symbol] = e
+	}
+	var boxes []*sysmlv1.Bounds
+	for _, sym := range d.Symbols {
+		if !sym.Free() {
+			if sym.Bounds != nil && sym.Class != "DiagramFrame" && sym.ElementID != d.ID {
+				boxes = append(boxes, sym.Bounds)
+			}
+			continue
+		}
+		e := unread[sym.ID]
+		if len(sym.Image) == 0 && sym.Attachment == "" && e == nil {
+			continue
+		}
+		named := "the pasted image"
+		if sym.Attachment != "" {
+			named += " " + strconv.Quote(sym.Attachment)
+		} else if sym.ID != "" {
+			named += " of symbol " + sym.ID
+		}
+		data, ct := sym.Image, sym.ImageType()
+		var entry string
+		switch {
+		case e != nil:
+			p.lost = append(p.lost, named+" has bytes that do not read ("+e.Reason()+")")
+			continue
+		case len(data) > 0 && ct == "":
+			p.lost = append(p.lost, named+" is no image (content type "+imagefile.Described(data)+")")
+			continue
+		case len(data) == 0:
+			var reason string
+			if data, entry, ct, reason = m.archivedImage(named, sym.Attachment, nil); reason != "" {
+				p.lost = append(p.lost, reason)
+				continue
+			}
+		}
+		if sym.Bounds == nil {
+			p.lost = append(p.lost, named+" has no geometry to place it by")
+			continue
+		}
+		fallback := sym.ID
+		if entry != "" {
+			fallback = entry
+		}
+		p.drawn = append(p.drawn, picture{
+			sym:      sym,
+			location: m.addFile(imagefile.Name(sym.Attachment, fallback, ct), data),
+			above:    overlapsAny(sym.Bounds, boxes),
+		})
+	}
+	return p
+}
+
+// overlapsAny reports whether b shares area with one of boxes.
+func overlapsAny(b *sysmlv1.Bounds, boxes []*sysmlv1.Bounds) bool {
+	for _, o := range boxes {
+		if b.X < o.X+o.Width && o.X < b.X+b.Width && b.Y < o.Y+o.Height && o.Y < b.Y+b.Height {
+			return true
+		}
+	}
+	return false
+}
+
+// pictureLine writes the Picture annotation drawing p on the view: the file,
+// the bounds, the pasted file's name as its alternative text, and above when
+// an element symbol drawn before it lies under it.
+func pictureLine(prefix string, p picture) string {
+	b := p.sym.Bounds
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "@%sPicture { location = %s; x = %s; y = %s; width = %s; height = %s;",
+		prefix, stringLiteral(p.location), layoutNumber(b.X), layoutNumber(b.Y), layoutNumber(b.Width), layoutNumber(b.Height))
+	if alt := pastedAlt(p.sym.Attachment); alt != "" {
+		fmt.Fprintf(&sb, " alt = %s;", stringLiteral(alt))
+	}
+	if p.above {
+		sb.WriteString(" above = true;")
+	}
+	sb.WriteString(" }")
+	return sb.String()
+}
+
+// pastedAlt is the pasted file's name without its directories and extension.
+func pastedAlt(name string) string {
+	base := path.Base(strings.ReplaceAll(name, "\\", "/"))
+	if alt := strings.TrimSuffix(base, path.Ext(base)); alt != "" && alt != "." && alt != "/" {
+		return alt
+	}
+	return ""
+}
+
+// picturesClause words what became of a diagram's pasted images for its
+// layout note: the files the drawn ones are written as, and why the rest are not.
+func picturesClause(p *pictures) []string {
+	var clauses []string
+	if n := len(p.drawn); n > 0 {
+		files := make([]string, 0, n)
+		for _, pic := range p.drawn {
+			if !slices.Contains(files, pic.location) {
+				files = append(files, pic.location)
+			}
+		}
+		clauses = append(clauses, plural(n, "pasted image")+" written as "+strings.Join(files, ", "))
+	}
+	if n := len(p.lost); n > 0 {
+		clauses = append(clauses, plural(n, "pasted image")+" not written: "+strings.Join(p.lost, " and "))
+	}
+	return clauses
+}
+
+// viewDressing is what a diagram's stream adds to its view beyond geometry:
+// the Picture, Style and Note annotation lines and the clauses accounting
+// for them, and how many pasted images it draws and loses.
+type viewDressing struct {
+	lines    []string
+	notes    []string
+	pictures int
+	lost     int
+}
+
+// viewDressing plans the Picture of every pasted image written, the Style of
+// every symbol drawn in its own colours or font whose element the view draws
+// (refOf naming it, positioned or not), the Note of every comment and text box,
+// each anchored to the element its anchor reaches when the view draws that and
+// free on the view otherwise, and counts the free symbols nothing represents.
 func (m *migration) viewDressing(v *view, prefix string, refOf func(string) string) viewDressing {
 	d := v.d
 	if !d.Drawn {
@@ -159,10 +305,16 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 		}
 		anchors[note] = append(anchors[note], target.ElementID)
 	}
+	pics := m.pastedPictures(d)
+	drawn := map[*sysmlv1.Symbol]bool{}
+	for _, p := range pics.drawn {
+		drawn[p.sym] = true
+		dress.lines = append(dress.lines, pictureLine(prefix, p))
+	}
 	styledRefs := map[string]bool{}
 	for _, sym := range d.Symbols {
 		switch {
-		case sym.Class == "DiagramFrame" || sym.ElementID == d.ID:
+		case sym.Class == "DiagramFrame" || sym.ElementID == d.ID || drawn[sym]:
 		case isNoteSymbol(sym, m):
 			if sym.Bounds == nil {
 				continue
@@ -216,6 +368,9 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 			}
 		}
 	}
+	dress.pictures, dress.lost = len(pics.drawn), len(pics.lost)
+	s.Pictures += dress.pictures + dress.lost
+	s.PicturesWritten += dress.pictures
 	s.Styles += styles
 	s.StylesWritten += styled
 	s.Notes += notes
@@ -224,6 +379,7 @@ func (m *migration) viewDressing(v *view, prefix string, refOf func(string) stri
 	for class, n := range dropped {
 		s.Dropped[class] += n
 	}
+	dress.notes = append(dress.notes, picturesClause(pics)...)
 	if styles > 0 {
 		dress.notes = append(dress.notes, fmt.Sprintf("%d of %d symbols drawn in their own colours or font styled", styled, styles))
 	}

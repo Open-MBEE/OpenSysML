@@ -93,7 +93,12 @@ type ImageError struct {
 }
 
 func (e *ImageError) Error() string {
-	return fmt.Sprintf("the pasted image's bytes do not read: octet %d is %q, not a hexadecimal byte", e.Offset, e.Octet)
+	return "the pasted image's bytes do not read: " + e.Reason()
+}
+
+// Reason says which octet does not read and why.
+func (e *ImageError) Reason() string {
+	return fmt.Sprintf("octet %d is %q, not a hexadecimal byte", e.Offset, e.Octet)
 }
 
 // IsPath reports whether the symbol is drawn as a line between two others.

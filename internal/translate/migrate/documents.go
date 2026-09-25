@@ -467,22 +467,33 @@ func (m *migration) imageFile(name string, c *sysmlv1.Element) (location, reason
 	if name == "" {
 		named = "the attached image"
 	}
+	data, entry, ct, reason := m.archivedImage(named, name, c)
+	if reason != "" {
+		return "", reason
+	}
+	return m.addFile(imagefile.Name(name, entry, ct), data), ""
+}
+
+// archivedImage finds the image bytes the attachment name names in the archive
+// (c's attached stream, the exact entry, or the unique base name) and their
+// content type; reason says, of named, why there are none.
+func (m *migration) archivedImage(named, name string, c *sysmlv1.Element) (data []byte, entry, ct, reason string) {
 	entry, ambiguous := m.findEntry(name, c)
 	if ambiguous > 1 {
-		return "", named + " matches " + strconv.Itoa(ambiguous) + " archive entries; the attachment names no stream"
+		return nil, "", "", named + " matches " + strconv.Itoa(ambiguous) + " archive entries; the attachment names no stream"
 	}
 	if entry == "" {
-		return "", named + " is not in the archive"
+		return nil, "", "", named + " is not in the archive"
 	}
 	data, ok := m.model.Attachment(entry)
 	if !ok {
-		return "", named + " is not in the archive"
+		return nil, "", "", named + " is not in the archive"
 	}
-	ct := imagefile.ContentType(data)
+	ct = imagefile.ContentType(data)
 	if ct == "" {
-		return "", named + " is not an image (content type " + imagefile.Described(data) + ")"
+		return nil, "", "", named + " is not an image (content type " + imagefile.Described(data) + ")"
 	}
-	return m.addFile(imagefile.Name(name, entry, ct), data), ""
+	return data, entry, ct, ""
 }
 
 // findEntry names the archive entry holding the attachment name names: the

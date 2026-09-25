@@ -184,6 +184,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
 		tableOf:      map[*sysmlv1.Table]*tableDoc{},
+		pictureOf:    map[*sysmlv1.Diagram]*pictures{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
@@ -319,6 +320,8 @@ type migration struct {
 	diagramsOf map[*sysmlv1.Element][]*sysmlv1.Diagram
 	// tableOf plans each table definition's Document beside its diagram's view.
 	tableOf map[*sysmlv1.Table]*tableDoc
+	// pictureOf memoizes pastedPictures: the pasted images each diagram's stream carries.
+	pictureOf map[*sysmlv1.Diagram]*pictures
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
@@ -406,9 +409,10 @@ type migration struct {
 	indexed map[string]int
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
-	// files are the attached image files the documents' Image blocks show, by
-	// the relative path they are written under; fileContents deduplicates by
-	// content, and imagesWritten counts them for the report's summary.
+	// files are the image files written beside the notation, the documents'
+	// attached images and the diagrams' pasted pictures, by the relative path
+	// they are written under; fileContents deduplicates by content, and
+	// imagesWritten counts them for the report's summary.
 	files         map[string][]byte
 	fileContents  map[string]string
 	imagesWritten int

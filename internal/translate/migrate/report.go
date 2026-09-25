@@ -139,8 +139,12 @@ type LayoutSummary struct {
 	Notes         int `json:"notes"`
 	NotesAnchored int `json:"notesAnchored"`
 	NotesFreed    int `json:"notesFreed"`
+	// Pictures counts the pasted images the streams carry; PicturesWritten
+	// those written as files and drawn by a Picture on the view.
+	Pictures        int `json:"pictures"`
+	PicturesWritten int `json:"picturesWritten"`
 	// Dropped counts the free symbols standing for no element and written as
-	// nothing, pasted images among them, by the tool's symbol class.
+	// nothing, the pasted images not written among them, by the tool's symbol class.
 	Dropped map[string]int `json:"dropped,omitempty"`
 }
 
@@ -252,6 +256,9 @@ func (r *Report) WriteText(w io.Writer) error {
 			l.RoutesWritten, l.Routes, l.RoutesUnexposed, l.RoutesDangling, l.Malformed)
 		fmt.Fprintf(&b, "# styles: %d of %d written; notes: %d written (%d anchored, %d freed of an anchor the view does not lay out)\n",
 			l.StylesWritten, l.Styles, l.Notes, l.NotesAnchored, l.NotesFreed)
+		if l.Pictures > 0 {
+			fmt.Fprintf(&b, "# pasted images: %d of %d written as files and drawn by the view\n", l.PicturesWritten, l.Pictures)
+		}
 		for _, k := range l.RoutesByKind {
 			fmt.Fprintf(&b, "# routes of %s: %d %s\n", k.Kind, k.Count, k.Reason)
 		}

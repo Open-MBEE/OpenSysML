@@ -3,12 +3,29 @@ package migrate_test
 import (
 	"archive/zip"
 	"bytes"
+	_ "embed"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
+
+// plantPNG is a real 12×8 PNG, the picture the fixture's diagrams carry pasted.
+//
+//go:embed testdata/xmi/plant.png
+var plantPNG []byte
+
+// cameoHex writes bytes as MagicDraw serializes a pasted image: lowercase
+// hexadecimal octets without zero padding, separated by spaces.
+func cameoHex(data []byte) string {
+	octets := make([]string, len(data))
+	for i, b := range data {
+		octets[i] = strconv.FormatInt(int64(b), 16)
+	}
+	return strings.Join(octets, " ")
+}
 
 // mdzip zips the figures fixture as MagicDraw does, each diagram's symbols in
 // the stream entry its binaryObject names.
@@ -49,10 +66,12 @@ const streamHead = `<?xml version="1.0" encoding="UTF-8"?>
     <geometry>10, 10, 800, 600</geometry>
   </mdElement>`
 
-// A frame alone is a blank diagram; a picture and a text box stand for no
-// model element; a symbol naming an element shows it although the list omits
-// it, or lists another element only, and a listed element no symbol displays
-// is not shown.
+// A frame alone is a blank diagram; a pasted picture and a text box stand for
+// no model element but are drawn; a symbol naming an element shows it although
+// the list omits it, or lists another element only, and a listed element no
+// symbol displays is not shown. The modes diagram pastes the same picture
+// under its states and a sticker of it over one, names a file the archive
+// lacks, and carries bytes that do not read.
 var figureStreams = map[string]string{
 	"BINARY-blank": strings.Replace(streamHead, "%s", "_diag_blank", 1) + `
 </mdOwnedViews>`,
@@ -64,8 +83,14 @@ var figureStreams = map[string]string{
 </mdOwnedViews>`,
 	"BINARY-poster": strings.Replace(streamHead, "%s", "_diag_poster", 1) + `
   <mdElement elementClass="ImageShape" xmi:id="_photo">
+    <properties>
+      <mdElement elementClass="FileProperty">
+        <propertyID>IMAGE</propertyID>
+        <value>Plant from the north.png</value>
+      </mdElement>
+    </properties>
     <geometry>40, 40, 300, 200</geometry>
-    <image>iVBORw0KGgo=</image>
+    <image>` + cameoHex(plantPNG) + `</image>
   </mdElement>
   <mdElement elementClass="TextBox" xmi:id="_legend">
     <geometry>40, 260, 300, 40</geometry>
@@ -84,6 +109,10 @@ var figureStreams = map[string]string{
   </mdElement>
 </mdOwnedViews>`,
 	"BINARY-modes": strings.Replace(streamHead, "%s", "_diag_modes", 1) + `
+  <mdElement elementClass="ImageShape" xmi:id="_sym_backdrop">
+    <geometry>20, 20, 400, 300</geometry>
+    <image>` + cameoHex(plantPNG) + `</image>
+  </mdElement>
   <mdElement elementClass="Pseudostate" xmi:id="_sym_init">
     <elementID xmi:idref="_sm_init"/>
     <geometry>60, 40, 16, 16</geometry>
@@ -165,6 +194,14 @@ var figureStreams = map[string]string{
       </mdElement>
     </properties>
   </mdElement>
+  <mdElement elementClass="ImageShape" xmi:id="_sym_torn">
+    <geometry>600, 200, 100, 100</geometry>
+    <image>89 50 4e 47 d a 1a a 0 0 0 d 49 48 44 52 0 0 0 xx</image>
+  </mdElement>
+  <mdElement elementClass="ImageShape" xmi:id="_sym_sticker">
+    <geometry>350, 120, 40, 40</geometry>
+    <image>` + cameoHex(plantPNG) + `</image>
+  </mdElement>
 </mdOwnedViews>`,
 	"BINARY-partial": strings.Replace(streamHead, "%s", "_diag_partial", 1) + `
   <mdElement elementClass="Class" xmi:id="_sym_partial_tank">
@@ -212,15 +249,31 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		`attribute redefines text = "How the pump is primed";`)
 	wantInOrder(t, "stream-read exposure", notation,
 		"view Unlisted {", "expose Tank;", "expose Pump;")
+	wantInOrder(t, "pasted pictures", notation,
+		"view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {",
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 20; y = 20; width = 400; height = 300; }`,
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }`,
+		"view Poster {",
+		`@DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 40; y = 40; width = 300; height = 200; alt = "Plant from the north"; }`,
+		`@DiagramLayout::Note { text = "The plant from the north";`)
+	if strings.Count(notation, "DiagramLayout::Picture {") != 3 {
+		t.Errorf("pictures drawn = %d, want the 3 with bytes:\n%s", strings.Count(notation, "DiagramLayout::Picture {"), notation)
+	}
+	if got := r.Files["images/Plant_from_the_north.png"]; !bytes.Equal(got, plantPNG) || len(r.Files) != 1 {
+		t.Errorf("files = %d, want the one picture the three symbols share, byte for byte", len(r.Files))
+	}
 	wantInOrder(t, "pictures section", notation,
 		"part Pictures : DocumentQueries::Section {",
 		`attribute redefines text = "Nothing to see";`,
-		`attribute redefines text = "The plant, photographed";`,
 		"part diagram : DocumentQueries::Diagram {",
-		"ref redefines source = Plant::Unlisted;",
+		`attribute redefines caption = "Poster";`,
+		"ref redefines source = Plant::Poster;",
+		`attribute redefines text = "The plant, photographed";`,
 		"part 'diagram 2' : DocumentQueries::Diagram {",
+		"ref redefines source = Plant::Unlisted;",
+		"part 'diagram 3' : DocumentQueries::Diagram {",
 		"ref redefines source = Plant::Stale;")
-	for _, name := range []string{"Blank", "Poster", "Silent"} {
+	for _, name := range []string{"Blank", "Silent"} {
 		if strings.Contains(notation, "source = Plant::"+name+";") {
 			t.Errorf("the empty diagram %s is drawn:\n%s", name, notation)
 		}
@@ -230,7 +283,7 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 	}
 	var es []migrate.Entry
 	for _, e := range entriesFor(r, "_st_pictures_image") {
-		if !strings.HasPrefix(e.Note, "the paragraph is the caption") {
+		if !strings.HasPrefix(e.Note, "the paragraph is the") {
 			es = append(es, e)
 		}
 	}
@@ -246,9 +299,9 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 			": no Diagram shows the SysML Block Definition Diagram 'Blank': it draws nothing at all, and its view exposes nothing, so the figure would be empty and is left out; its caption stands alone",
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::diagram: ",
 			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 2': ",
+			"part 'Plant Documents'::'Plant Handbook Document'::Pictures::'diagram 3': ",
 		},
 		migrate.Approximated: {
-			": no Diagram shows the SysML Block Definition Diagram 'Poster': it shows no model element, only an image and a text box standing for none, and its view exposes nothing, so the figure would be empty and is left out; its caption stands alone",
 			": no Diagram shows the SysML Block Definition Diagram 'Silent': it shows no model element, and its view exposes nothing, so the figure would be empty and is left out",
 		},
 	}
@@ -273,13 +326,17 @@ func TestFiguresFromArchiveStreams(t *testing.T) {
 		"*Priming*", "```mermaid", "Fill", "Vent", "How the pump is primed",
 		"## Pictures",
 		"Nothing to see",
+		"*Poster*", "```dot", "// view: Plant::Poster", `"picture:0" [shape=none, style="", label="", image="images/Plant_from_the_north.png"`, `tooltip="Plant from the north"`,
 		"The plant, photographed",
 		"*Unlisted*", "```dot", "// view: Plant::Unlisted", "// layout: neato -n", "<b>Tank</b>", "«part def»", `pos="160,480!"`,
 		"*Stale*", "```dot", "// view: Plant::Stale", "<b>Tank</b>", "«part def»")
-	// The stream positions three of the four diagrams, so those are drawn
+	// The stream positions four of the five diagrams, so those are drawn
 	// by Graphviz where they state; the unpositioned activity stays Mermaid.
-	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 3 || mermaid != 1 {
-		t.Errorf("Plant Handbook draws %d dot and %d mermaid figures, want 3 and 1:\n%s", dot, mermaid, md)
+	if dot, mermaid := strings.Count(md, "```dot"), strings.Count(md, "```mermaid"); dot != 4 || mermaid != 1 {
+		t.Errorf("Plant Handbook draws %d dot and %d mermaid figures, want 4 and 1:\n%s", dot, mermaid, md)
+	}
+	if modes := md[strings.Index(md, "*Pump Modes*"):]; strings.Count(modes[:strings.Index(modes, "*Priming*")], `image="images/Plant_from_the_north.png"`) != 2 {
+		t.Errorf("the figure of Pump Modes does not draw its backdrop and sticker:\n%s", modes)
 	}
 	if strings.Contains(md, "drawn as Mermaid") {
 		t.Errorf("a Graphviz fallback notice appears where no drawer was asked:\n%s", md)
