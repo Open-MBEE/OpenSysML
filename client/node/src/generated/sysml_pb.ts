@@ -1219,8 +1219,11 @@ export type EngineInfo = Message<"sysml.EngineInfo"> & {
   kind: string;
 
   /**
-   * How the engine is spoken to: "-" for one built in, "object" for a tool's
-   * one JSON object each way, "<transport>/<protocol>" for an engine entry.
+   * How the engine is spoken to: "-" for one built in; for a tool, "object"
+   * for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+   * invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+   * when the reply block reads another format (the format alone when the entry
+   * has no invocation); "<transport>/<protocol>" for an engine entry.
    *
    * @generated from field: string protocol = 10;
    */

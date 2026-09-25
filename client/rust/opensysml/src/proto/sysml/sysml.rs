@@ -546,8 +546,11 @@ pub struct EngineInfo {
     /// "sampler". The fields below are empty for a built-in engine.
     #[prost(string, tag="9")]
     pub kind: ::prost::alloc::string::String,
-    /// How the engine is spoken to: "-" for one built in, "object" for a tool's
-    /// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+    /// How the engine is spoken to: "-" for one built in; for a tool, "object"
+    /// for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+    /// invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+    /// when the reply block reads another format (the format alone when the entry
+    /// has no invocation); "<transport>/<protocol>" for an engine entry.
     #[prost(string, tag="10")]
     pub protocol: ::prost::alloc::string::String,
     /// The manifest entry the engine was registered from, the command it resolved
