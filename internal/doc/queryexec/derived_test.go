@@ -449,7 +449,7 @@ calc def Things :> Query {
 	if got := integerTexts(t, result, 1); !slices.Equal(got, []int64{2}) {
 		t.Errorf("engines = %v, want 2", got)
 	}
-	// A literal of a scalar-valued enumeration is the literal in a cell, as a plain one is.
+	// A literal of a scalar-valued enumeration is the literal element in a cell, as a plain one is.
 	for column, want := range map[int]string{2: "5 [kg]", 3: "10 [kg]", 4: "Observatory::Thing::engine", 5: "Observatory::Color::red", 6: "SI::kilogram",
 		7: "Observatory::Level::high", 8: "Observatory::Level::high"} {
 		if got := cellTexts(t, result, column); !slices.Equal(got, []string{want}) {

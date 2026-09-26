@@ -229,11 +229,19 @@ func monteCarloFeature(e *sysmlv1.Element) string {
 
 // isLibrary reports whether e sits in profile or bundled-library content: a
 // standard or modeling-tool profile (a user's profile is migrated, see
-// userProfile), a package the model marks as a library or auxiliary resource,
-// or a document root with a library name that sits beside the user's Model.
+// userProfile, however the tool marks it: its stereotypes' applications carry
+// the user's data), a package the model marks as a library or auxiliary
+// resource, or a document root with a library name that sits beside the
+// user's Model.
 func (m *migration) isLibrary(e *sysmlv1.Element) bool {
 	for cur := e; cur != nil; cur = cur.Parent {
-		if (cur.Type == "Profile" && !m.userProfile(cur)) || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
+		if cur.Type == "Profile" {
+			if !m.userProfile(cur) {
+				return true
+			}
+			continue
+		}
+		if has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
 			return true
 		}
 		if cur.Parent == nil && cur.Type != "Model" && libraryRoots[cur.Name] && m.besideUserModel(cur) {

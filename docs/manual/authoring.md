@@ -242,7 +242,8 @@ name. An empty result still renders the header and delimiter rows, so the
 document shows *that* the table is empty rather than omitting it. Cell values
 render faithfully: strings unquoted, integers in base 10, reals in shortest
 notation, booleans as `true`/`false`, unbounded multiplicity as `*`, elements
-by qualified name, and quantities as the magnitude followed by the unit the
+— a `general`, an enumeration literal — by name (HTML links each and carries
+its qualified name in `data-element`), and quantities as the magnitude followed by the unit the
 model spelt in brackets — `2290000 [kg]`, escaped in Markdown as
 `2290000 \[kg\]` so the brackets read as text. An attribute whose value is
 not a constant (`mass = dryMass + propellantMass`) is a typed error naming
@@ -285,6 +286,26 @@ part zones : Table {
 The group column must be one the query statically projects — an unknown name
 is a typed error at planning time, not an empty rendering. Row order within
 each group is the query's order.
+
+### Column widths
+
+A `columnWidths` attribute states the relative widths of the projected columns,
+in order, in whatever units the source used — a migrated Cameo table keeps its
+pixel widths — with `0` for a column sized automatically; an entry for every
+column is not required, the rest are automatic. Renderers honour them
+proportionally: HTML writes one `<col>` per column with its share of the table
+width, PDF sizes the columns by them, and Markdown, which has no column widths,
+ignores them ([Wide tables](outputs.md#wide-tables)).
+
+```sysml
+part masses : Table {
+	attribute redefines caption = "Masses";
+	attribute redefines columnWidths = (200, 0, 80);
+	calc rows : MassTable {
+		in root = telescope;
+	}
+}
+```
 
 ## Lists
 

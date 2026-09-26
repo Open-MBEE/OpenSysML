@@ -166,6 +166,15 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereText keeps the projected rows whose text in any of the named columns — every column when none is named — satisfies the comparison. */
+	calc def WhereText {
+		in source : Element[0..*] ordered;
+		in columns : String[0..*] ordered = null;
+		in operator : String[1];
+		in value : String[1];
+		return result : Element[0..*] ordered;
+	}
+
 	calc def WhereFeature {
 		in source : Element[0..*] ordered;
 		in 'feature' : String[1];
@@ -280,6 +289,10 @@ library package DocumentQueries {
 		/* groupBy: a projected column name; rows are grouped by its value
 		 * into subtables in order of first appearance. */
 		attribute groupBy : String[0..1];
+		/* columnWidths: the relative widths of the projected columns in order,
+		 * in the source's units; 0 sizes a column automatically. Renderers
+		 * honour them proportionally. */
+		attribute columnWidths : Integer[0..*] ordered nonunique;
 	}
 
 	part def List :> ContentBlock {
@@ -365,6 +378,17 @@ library package DocumentQueries {
 	calc def Union {
 		in source : Element[0..*] ordered;
 		in other : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Tree: the source rows arranged as a containment tree in pre-order, each
+	 * row nested under the nearest row containing it — its nearest owner among
+	 * the rows, or the individual whose part it is — at the depth the table
+	 * indents it by; rows of ancestors join as intermediate levels where a
+	 * source row nests under them. */
+	calc def Tree {
+		in source : Element[0..*] ordered;
+		in ancestors : Element[0..*] ordered = null;
 		return result : Element[0..*] ordered;
 	}
 }

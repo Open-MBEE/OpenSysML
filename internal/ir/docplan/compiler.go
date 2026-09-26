@@ -1022,6 +1022,10 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	widths, err := c.optionalWidths(member)
+	if err != nil {
+		return Content{}, err
+	}
 	query, err := c.requiredQueryRef(member)
 	if err != nil {
 		return Content{}, err
@@ -1043,13 +1047,74 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 		return Content{}, err
 	}
 	return Content{
-		kind:    ContentTable,
-		name:    c.effectiveName(member),
-		caption: caption,
-		groupBy: groupBy,
-		query:   query,
-		origin:  member.Origin(),
+		kind:         ContentTable,
+		name:         c.effectiveName(member),
+		caption:      caption,
+		groupBy:      groupBy,
+		columnWidths: widths,
+		query:        query,
+		origin:       member.Origin(),
 	}, nil
+}
+
+// optionalWidths reads a table's columnWidths: a sequence of non-negative
+// integer literals, or one such literal, in projection order.
+func (c *compiler) optionalWidths(member *symbols.Symbol) ([]int, error) {
+	for _, candidate := range c.effectiveMembers(member) {
+		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != "columnWidths" {
+			continue
+		}
+		value := c.attributeValue(candidate, make(map[*symbols.Symbol]bool))
+		if value == nil {
+			continue
+		}
+		literals := []ast.Node{value}
+		if sequence, ok := value.(*ast.SequenceExpr); ok {
+			literals = sequence.Elements
+		}
+		widths := make([]int, 0, len(literals))
+		for _, literal := range literals {
+			integer, ok := literal.(*ast.LiteralInteger)
+			if !ok {
+				return nil, c.invalidColumnWidths(member, candidate)
+			}
+			width, err := strconv.Atoi(integer.Value)
+			if err != nil || width < 0 {
+				return nil, c.invalidColumnWidths(member, candidate)
+			}
+			widths = append(widths, width)
+		}
+		return widths, nil
+	}
+	return nil, nil
+}
+
+// attributeValue is the value expression of an attribute declaration,
+// following redefinition lineage when the declaration itself is unvalued.
+func (c *compiler) attributeValue(candidate *symbols.Symbol, seen map[*symbols.Symbol]bool) ast.Node {
+	if candidate == nil || seen[candidate] {
+		return nil
+	}
+	seen[candidate] = true
+	if declaration, ok := candidate.Decl.(*ast.Usage); ok && declaration.Value != nil {
+		return declaration.Value
+	}
+	for _, target := range c.model.RedefinedFeatures(candidate) {
+		if value := c.attributeValue(target, seen); value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func (c *compiler) invalidColumnWidths(member, candidate *symbols.Symbol) error {
+	return &Error{
+		Kind:      ErrorInvalidColumnWidths,
+		Document:  c.document,
+		Content:   symbols.FQNOf(member),
+		Parameter: "columnWidths",
+		Origin:    candidate.Origin(),
+	}
 }
 
 // staticColumns resolves the columns a compiled query statically projects,
@@ -1090,6 +1155,7 @@ func expressionColumns(program *queryplan.Program, expression queryplan.Expressi
 	case queryplan.OperationWhereType,
 		queryplan.OperationWhereMetadata,
 		queryplan.OperationWhereName,
+		queryplan.OperationWhereText,
 		queryplan.OperationWhereFeature,
 		queryplan.OperationOrderBy,
 		queryplan.OperationWhereRelated,

@@ -196,6 +196,6 @@ The declared type of the telescope, by relationship traversal.
 
 | element |
 | --- |
-| Observatory::Assembly \*frame\* |
+| Assembly \*frame\* |
 
 - Assembly \*frame\*

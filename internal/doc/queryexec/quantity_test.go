@@ -8,6 +8,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -97,6 +98,10 @@ func cellTexts(t *testing.T, result *RowSet, column int) []string {
 		}
 		if realVal, ok := value.Real(); ok {
 			out = append(out, semantics.FormatReal(realVal))
+			continue
+		}
+		if sym, ok := value.Element(); ok {
+			out = append(out, symbols.FQNOf(sym))
 			continue
 		}
 		t.Fatalf("cell %d holds an unexpected %s", column, value.Kind())

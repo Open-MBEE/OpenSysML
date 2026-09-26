@@ -1,21 +1,26 @@
 # SysML v1 to v2 migration report: tables.xmi
 # exported by Example UML Tool
-# migrated 55 element(s): 51 mapped, 3 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 63 element(s): 58 mapped, 4 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (1)
 «DependencyMatrix» Diagram	Plant::Requirements::Trace Matrix	_mx_trace	(the criterion Owner chain is a metaChainExpressionSpecification, which no relationship walk expresses)
 
-## approximated (3)
+## approximated (4)
 «InstanceTable» Diagram	Plant::Inventory::Pump Ledger	_tbl_ledger	-> part def Plant::Inventory::'Pump Ledger Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Ledger Rows'; rows of subtypes of the row types are listed too: a type filter admits conforming elements; the column name is written as name 2: column names are unique; Project lists its properties first: name, qualifiedName precede the other columns)
-«InstanceTable» Diagram	Plant::Inventory::Pump Table	_tbl_pumps	-> part def Plant::Inventory::'Pump Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Table Rows'; the column QPROP:Element:classifier is omitted: no query property stands for the UML property classifier)
+«InstanceTable» Diagram	Plant::Inventory::Pump Table	_tbl_pumps	-> part def Plant::Inventory::'Pump Table Document'	(the «InstanceTable» is written as a Document holding a Table over the query 'Pump Table Rows'; the excluded row is subtracted; the rows nest as a compact tree, each under the nearest row containing it; the excluded row _nowhere resolves to no element, and is absent regardless; Project lists its properties first: name, general precede the other columns)
+«DiagramTable» Diagram	Plant::Requirements::Key Requirements	_tbl_key_reqs	-> part def Plant::Requirements::'Key Requirements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Key Requirements Rows'; the saved row filter "1*" keeps the rows whose column level 2 matches; the column QPROP:stereotypeTags:<<Plant Profile::Missing>>.level is omitted: the tag «Plant Profile::Missing».level belongs to no stereotype the document defines; the column level is written as level 2: column names are unique; the saved row filter also names the column 0, which the query does not read)
 «DependencyMatrix» Diagram	Plant::Requirements::Satisfaction Matrix	_mx_satisfy	-> part def Plant::Requirements::'Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Satisfaction Matrix Rows'; the column Trace is written as Trace 2: column names are unique)
 
-## mapped (51)
+## mapped (58)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
-Profile	Plant Profile	_plant_profile	-> 'Plant Profile'
+«auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as a comment)
 Stereotype	Plant Profile::Critical	_st_critical	-> 'Plant Profile'::Critical
+Property	Plant Profile::Critical::grade	_st_critical_grade	-> 'Plant Profile'::Critical::grade
 Property	Plant Profile::Critical::level	_st_critical_level	-> 'Plant Profile'::Critical::level
+Enumeration	Plant Profile::Grade	_enum_grade	-> 'Plant Profile'::Grade
+EnumerationLiteral	Plant Profile::Grade::high	_lit_grade_high	-> 'Plant Profile'::Grade::high
+EnumerationLiteral	Plant Profile::Grade::low	_lit_grade_low	-> 'Plant Profile'::Grade::low
 «DiagramTable» Diagram	Plant::Critical Elements	_tbl_critical	-> part def Plant::'Critical Elements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Critical Elements Rows')
 Diagram	Plant::Critical Elements	_diag_critical	-> Plant::'Critical Elements'	(a Generic Table written as a view rendered asElementTable)
 Package	Plant::Inventory	_pkg_inventory	-> Plant::Inventory
@@ -29,6 +34,8 @@ InstanceSpecification	Plant::Inventory::p2	_inst_p2	-> Plant::Inventory::p2
 Slot	Plant::Inventory::p2::<Slot>	_slot_p2_mass	-> Plant::Inventory::p2::mass
 InstanceSpecification	Plant::Inventory::r1	_inst_r1	-> Plant::Inventory::r1
 Slot	Plant::Inventory::r1::<Slot>	_slot_r1_mass	-> Plant::Inventory::r1::mass
+InstanceSpecification	Plant::Inventory::st1	_inst_st1	-> Plant::Inventory::st1
+Slot	Plant::Inventory::st1::<Slot>	_slot_st1_pumps	-> Plant::Inventory::st1::pumps
 InstanceSpecification	Plant::Inventory::v1	_inst_v1	-> Plant::Inventory::v1
 Slot	Plant::Inventory::v1::<Slot>	_slot_v1_mass	-> Plant::Inventory::v1::mass
 Package	Plant::Requirements	_pkg_reqs	-> Plant::Requirements
@@ -37,6 +44,7 @@ Package	Plant::Requirements	_pkg_reqs	-> Plant::Requirements
 «DeriveReqt» Abstraction	Plant::Requirements::<Abstraction>	_dep_derive	-> Plant::Requirements::'Derive MassRequirement'
 «Requirement» Class	Plant::Requirements::FlowRequirement	_req_flow	-> Plant::Requirements::FlowRequirement
 Comment	Plant::Requirements::FlowRequirement::<Comment>	_cmt_req_flow
+Diagram	Plant::Requirements::Key Requirements	_diag_key_reqs	-> Plant::Requirements::'Key Requirements'	(a Requirement Table written as a view rendered asElementTable)
 «Requirement» Class	Plant::Requirements::MassRequirement	_req_mass	-> Plant::Requirements::MassRequirement
 «DiagramTable» Diagram	Plant::Requirements::Requirement Table	_tbl_reqs	-> part def Plant::Requirements::'Requirement Table Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Requirement Table Rows')
 Diagram	Plant::Requirements::Requirement Table	_diag_reqs	-> Plant::Requirements::'Requirement Table'	(a Requirement Table written as a view rendered asElementTable)

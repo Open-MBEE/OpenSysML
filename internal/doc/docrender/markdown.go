@@ -62,6 +62,11 @@ type MarkdownOptions struct {
 	// NumberFigures captions figures (drawn diagrams, images) "Figure N. …" and
 	// tables (query tables, table-kind diagrams) "Table N. …" in document order.
 	NumberFigures bool
+
+	// TableColumns is the most columns one pipe table is written with: a table
+	// projecting more is written as continuation tables, each repeating the
+	// first column ahead of its share of the rest. 0 writes every table whole.
+	TableColumns int
 }
 
 // diagramOptions is the part of the options the diagrams are written by.
@@ -91,7 +96,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	}
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
-		numbers: captionNumbering{on: opts.NumberFigures},
+		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns,
 	}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
@@ -119,12 +124,13 @@ func checkStyle(style view.DrawingStyle) error {
 // markdownWriter carries the choices one Markdown render applies to every
 // node it writes.
 type markdownWriter struct {
-	opts      DiagramOptions
-	files     map[string]string
-	svg       []string
-	diagrams  int
-	outputDir string
-	numbers   captionNumbering
+	opts         DiagramOptions
+	files        map[string]string
+	svg          []string
+	diagrams     int
+	outputDir    string
+	numbers      captionNumbering
+	tableColumns int
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
@@ -166,7 +172,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentParagraph:
 		return []string{w.blockText(node.Runs())}, nil
 	case docir.ContentTable:
-		return renderTable(node, w.numbers.caption(node).String()), nil
+		return renderTable(node, w.numbers.caption(node).String(), w.tableColumns), nil
 	case docir.ContentList:
 		return w.renderList(node), nil
 	case docir.ContentDefinitions:
@@ -190,43 +196,71 @@ func heading(level int, title string) string {
 	return strings.Repeat("#", level) + " " + inline(title)
 }
 
-// renderTable writes one pipe table, preceded by its caption in emphasis. A
-// query without projected columns gets a single "element" column, and a table
-// without rows still writes its header and delimiter.
-// A grouped table writes one subtable per group, each preceded by its group key in strong
-// emphasis; the group column keeps its place in every subtable.
-func renderTable(node docir.Content, caption string) []string {
-	blocks := captionBlock(caption)
+// renderTable writes a table as a caption block, when captioned, followed by a pipe table
+// whose header is the query's column names; a table without columns writes the row
+// elements themselves under an "element" header, so a result of bare elements stays
+// readable; a table without rows still writes its header and delimiter. A table
+// projecting more columns than limit (when positive) is written as continuation tables
+// of at most limit columns, each repeating the first column under the caption with its
+// continued suffix. A grouped table writes one subtable per group, each preceded by its
+// group key in strong emphasis; the group column keeps its place in every subtable.
+func renderTable(node docir.Content, caption string, limit int) []string {
+	var blocks []string
 	columns := node.Columns()
-	names := make([]string, 0, len(columns))
-	for _, column := range columns {
-		names = append(names, column.Name())
+	for i, part := range tableParts(len(columns), limit) {
+		if i > 0 && strings.TrimSpace(caption) != "" {
+			blocks = append(blocks, captionBlock(caption+" "+continuedSuffix)...)
+		} else {
+			blocks = append(blocks, captionBlock(caption)...)
+		}
+		blocks = append(blocks, renderTablePart(node, columns, part)...)
+	}
+	return blocks
+}
+
+// renderTablePart writes the pipe table, or the grouped subtables, over the
+// columns at the given indexes.
+func renderTablePart(node docir.Content, columns []queryexec.Column, indexes []int) []string {
+	names := make([]string, 0, len(indexes))
+	for _, i := range indexes {
+		names = append(names, columns[i].Name())
 	}
 	if len(names) == 0 {
 		names = []string{elementColumn}
 	}
+	var blocks []string
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
 			blocks = append(blocks, delimited("**", node.GroupBy()+": "+group.Key()))
-			blocks = append(blocks, pipeTable(names, group.Rows(), len(columns)))
+			blocks = append(blocks, pipeTable(names, group.Rows(), indexes))
 		}
 		if len(node.Groups()) == 0 {
-			blocks = append(blocks, pipeTable(names, nil, len(columns)))
+			blocks = append(blocks, pipeTable(names, nil, indexes))
 		}
 		return blocks
 	}
-	return append(blocks, pipeTable(names, node.Rows(), len(columns)))
+	return append(blocks, pipeTable(names, node.Rows(), indexes))
 }
 
 // pipeTable writes one pipe table: header, delimiter, and one line per row.
-func pipeTable(names []string, rows []queryexec.Row, columns int) string {
+func pipeTable(names []string, rows []queryexec.Row, indexes []int) string {
 	var b strings.Builder
-	writeTableRow(&b, names)
+	writeTableRow(&b, names, 0)
 	b.WriteString("|" + strings.Repeat(" --- |", len(names)) + "\n")
 	for _, row := range rows {
-		writeTableRow(&b, tableCells(row, columns))
+		writeTableRow(&b, tableCells(row, indexes), row.Depth())
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// nestingMarker opens the first cell of a row nested depth levels deep: a
+// pipe table carries no row structure, so the depth is written as an indent
+// of non-breaking spaces ending in an arrow.
+func nestingMarker(depth int64) string {
+	if depth <= 0 {
+		return ""
+	}
+	return strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", int(depth)-1) + "↳ "
 }
 
 // diagramFigure is the blocks of one diagram: its caption, then a table-kind
@@ -308,17 +342,18 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 	return "", &Error{Kind: ErrorUnknownForm, DiagramForm: form}
 }
 
-// tableCells renders one row's cells, padded or truncated to the column count.
-// A row of a table without projected columns is its element alone.
-func tableCells(row queryexec.Row, columns int) []string {
-	if columns == 0 {
+// tableCells renders one row's cells at the given column indexes, an empty
+// cell where the row has none. A row of a table without projected columns is
+// its element alone.
+func tableCells(row queryexec.Row, indexes []int) []string {
+	if len(indexes) == 0 {
 		return []string{valueText(row.Element())}
 	}
 	cells := row.Cells()
-	out := make([]string, columns)
-	for i := 0; i < columns; i++ {
+	out := make([]string, len(indexes))
+	for n, i := range indexes {
 		if i < len(cells) {
-			out[i] = cellText(cells[i])
+			out[n] = cellText(cells[i])
 		}
 	}
 	return out
@@ -334,10 +369,13 @@ func cellText(cell queryexec.Cell) string {
 	return strings.Join(parts, ", ")
 }
 
-func writeTableRow(b *strings.Builder, cells []string) {
+func writeTableRow(b *strings.Builder, cells []string, depth int64) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
 		escaped[i] = tableCell(cell)
+	}
+	if len(escaped) > 0 {
+		escaped[0] = nestingMarker(depth) + escaped[0]
 	}
 	b.WriteString("| " + strings.Join(escaped, " | ") + " |\n")
 }
@@ -630,17 +668,17 @@ func destination(target string) string {
 }
 
 // valueText renders one typed value as plain, unescaped text: elements by
-// qualified name (falling back to declared name), objects by the label the
+// name (falling back to qualified name when nameless), objects by the label the
 // session reaches them by (`car.wheels[2]`), verdicts, states and events by
 // their summary, strings as their text, integers in base 10, reals in shortest
 // 'g' form, booleans, infinity as "*", and quantities as their magnitude in
 // the unit written: `2290000 [kg]`.
 func valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
-		if fqn := symbols.FQNOf(element); fqn != "" {
-			return fqn
+		if element.Name != "" {
+			return element.Name
 		}
-		return element.Name
+		return symbols.FQNOf(element)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label

@@ -70,8 +70,9 @@ returned over the service yet.
   tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
   skipped profile or library package. A package is library content
   when it is a standard or tool profile (a user profile is written, see
-  [Profiles and stereotypes](#profiles-and-stereotypes)), is marked «ModelLibrary» or
-  «auxiliaryResource», or is a document root
+  [Profiles and stereotypes](#profiles-and-stereotypes), however the tool marks it — one marked
+  «auxiliaryResource» still holds the stereotypes whose applications carry the user's data), is
+  marked «ModelLibrary» or «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
@@ -504,11 +505,13 @@ calc def 'Pump Table Rows' :> DocumentQueries::Query {
         source = DocumentQueries::OrderBy(
             source = DocumentQueries::WhereFeature(
                 source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Union(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                        other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
-                    type = ("Plant::Structure::Pump")),
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Union(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                            other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                        type = ("Plant::Structure::Pump")),
+                    type = ("Definition")),
                 'feature' = "isIndividual", operator = "=", value = "true"),
             property = "mass", direction = "descending", missing = "last", multiple = "first"),
         properties = ("name"),
@@ -536,9 +539,14 @@ metadata, and a look-alike application from an unbundled profile stays a comment
 |---|---|
 | `scope` (the packages or classifiers whose subtree the table lists); `takeWholeModelAsScope` | `Descendants(source = Named(qualifiedName = (…)))`, unbounded; the whole model is the union of the top-level members and their descendants |
 | `rowElements`, `additionalElements` (explicit rows) | one `Union(source = <scope>, other = Named(qualifiedName = (row, row, …)))`, the rows in their v1 order after the scope's |
-| an instance table's `classifiers` | `WhereType(type = (<the classifiers' v2 names>))` then `WhereFeature('feature' = "isIndividual", operator = "=", value = "true")`, so the rows are the individuals of the classifier and, as in Cameo, of its subtypes; `includeSubtypesOfRowTypes = false` is approximated with the note that subtypes are listed too |
+| `excludedElements` | `Except(source = <rows>, exclude = Named(qualifiedName = (…)))` ahead of the sort, the row noted with their count; an excluded element that resolves to nothing, or that the migration does not write, is absent regardless and the note says so |
+| `displayMode` — `List`, `Compact tree` or `Complete tree`, the literals of the MagicDraw profile's `TableDisplayMode` enumeration — with `showScopeAsRoot` and `expandedRows` | a list stays flat; `Compact tree` wraps the sorted rows in `Tree(source = <rows>)`, which nests each row under the nearest row containing it at the depth the renderers indent by ([hierarchical rows](../manual/outputs.md#hierarchical-rows)), so a nested row's `name` cell is the element's own name (a dotted name the tool gave a nested instance stays as written) and its depth is structural, never spaces in the name; `Complete tree` adds `ancestors = Descendants(source = <scope>)`, so the scope's elements containing the rows join as intermediate levels; `showScopeAsRoot = true` adds the scope itself to the ancestors, as the root (noted, not applied, for a flat list or a table naming no scope). A mode the profile does not define lists the rows flat with the note; `expandedRows` records which nodes the tool had unfolded (`NoExpanded` when none was), which is window state, so every nested row is listed, with the note |
+| an instance table's `classifiers` | `WhereType(type = (<the classifiers' v2 names>))`, then `WhereType(type = "Definition")` and `WhereFeature('feature' = "isIndividual", operator = "=", value = "true")`, so the rows are the individual definitions the instance specifications became — of the classifier and, as in Cameo, of its subtypes — and not the slots typed by them; `includeSubtypesOfRowTypes = false` is approximated with the note that subtypes are listed too |
 | a generic table's `rowElementType` — a UML metaclass or a stereotype | `WhereType` on the v2 kind the metaclass or a standard stereotype [maps to](#mapping) (`Class` and «Block» → `PartDefinition`, «Requirement» → `RequirementDefinition`…); the abstract metaclasses list what they hold in UML, so `Type` and `Classifier` are every `Definition` plus the `ViewUsage`/`ViewpointUsage` a «View»/«Viewpoint» class became, `Namespace` adds `Package` and `StateUsage`, and `PackageableElement` adds `Package` and the dependencies — never the features a classifier owns; `Element` and `NamedElement` alone admit everything; a user stereotype the migration writes as a `metadata def` → `WhereMetadata('metadata' = (…))`, which honors specializations |
-| `columnIds` `QPROP:Element:name`, `documentation`, `qualifiedName`, `owner`, `Id` | `Project(properties = (…))`, in column order; `hideColumns` omits a column; `QPROP:Element:classifier` and other tool properties are omitted with the note |
+| `columnIds` `QPROP:Element:name`, `documentation`, `qualifiedName`, `owner`, `Id`, `Text`, `classifier` | `Project(properties = (…))`, in column order — `Project` lists its properties ahead of its computed columns, so a table interleaving a tag column among these is reordered, with the note: `Id` reads `shortName` and `Text` `documentation`, since a «Requirement»'s `Id` and `Text` tags are written as the requirement def's short name and `doc`; `classifier` reads `general`, the row's type by name; `hideColumns` omits a column, the tool's own columns (`_NUMBER_`, `PROPERTY_COLUMN`, `VALUE_COLUMN`, `MARGIN_COLUMN`) are omitted silently, and other tool properties are omitted with the note |
+| `columnIds` `QPROP:stereotypeTags:<<Profile::Stereotype>>.tag` — a stereotype tag | a standard «Requirement» tag as the property above; a user stereotype's tag as `Column(name = "<tag>", expression = <Profile>::<Stereotype>::<tag> ?? "")` over the feature of the `metadata def` the stereotype [became](#profiles-and-stereotypes), which reads what the row's applications bind it to — every value of a multi-valued tag, as one multi-valued cell, an enumeration literal by its name, as every element cell prints; a tag of a stereotype the migration does not write (library content), or one the archive does not define, is omitted with the reason; the same tag listed twice is two columns, the second `<tag> 2` |
+| `columnWidth` (`-1` = automatic) | `Table.columnWidths`, one entry per projected column in `Project`'s order, `0` for automatic, a width staying with the column it was stated on when `Project` reorders; the renderers honour them proportionally ([Column widths](../manual/authoring.md#column-widths)) |
+| the saved row filter — `SAVE_FILTER_VALUE = true` with `OPTION_FILTER_SEARCHING_TEXT`, `OPTION_FILTER_COLUMN_INDEXES` and the `OPTION_FILTER_*` flags among the diagram's properties | `WhereText(source = <projected rows>, columns = (…), operator = "matches", value = "<pattern>")` after `Project`, since the tool applies its filter box to the rows it lists, explicit ones and exclusions included: the text as a literal, wildcard (`*`, `?`) or regular-expression pattern as the flags say, case-folded unless case-sensitive, anchored by the from-start/from-end flags. `OPTION_FILTER_COLUMN_INDEXES` is a `ChoiceProperty`: its `<value>` (`0^1^3`) is the selection, counting the shown columns from 0, each mapped to the projected column reading it — an empty value, the tool's default, searches every column — while its `<choice>` elements only list the indexes offered; an index of a column the query does not read is noted. A filter not saved with the table (`SAVE_FILTER_VALUE` absent or `false`) is window state and is not applied; a pattern Go's regular expressions do not compile is dropped with the note |
 | `columnIds` `IColumn:<property>` — a value property of the row classifier | `Column(name = "<property>", expression = <Def>::<property> ?? "")`, an empty cell where a row has no slot, as the tool draws it; the property is kept reachable (never written private) because the column names it |
 | built-in and value-property columns interleaved (`name`, `mass`, `qualifiedName`) | `Project(properties = ("name", "qualifiedName"), columns = (Column(…)))` — `Project` lists its properties before its columns, so the built-in columns move ahead of the value properties; approximated with the note. Column names are unique: the built-in properties claim theirs first, and a value property captioned like one (`Pump::name`) is written `name 2` with the note |
 | `sort` `<column>^Asc` / `^Desc` | `OrderBy(property, direction, missing = "last", multiple = "first")` — empty cells last and the first value of a multi-valued slot, the tool's own ordering; `-1`/`_EMPTY_` is no sort, a sort by tool identity is dropped with the note |
@@ -559,8 +567,10 @@ lists the hrefs), a `sort` not of the form `<column>^Asc|Desc`, a `depth` that i
 whole number, an instance table naming no classifier, a matrix with no filter, a criterion
 whose XML does not parse — with every fault stated at once. A refused table is an `unmapped`
 report row and a `not migrated` comment beside its view, which is still written; the rest of the
-model is unaffected. Presentation settings (`displayMode`, `showScopeAsRoot`, colors, widths,
-legend, `rowsOrder`…) draw the table and are dropped without a report row. A [DocGen
+model is unaffected. The presentation settings the table's rendering depends on — exclusions,
+display mode, scope root, column widths, the saved row filter — are applied as the table above
+says, the report row stating each; the ones that only draw it in the tool (colors, `legend`,
+`rowsOrder`, `expandedRows`, the number and margin columns) are dropped without one. A [DocGen
 document](#docgen-documents) whose step draws the table's diagram embeds the same `Table` over
 the same `… Rows` query — the query is written once, beside the view — so the section and the
 standalone document render the same columns and cells.

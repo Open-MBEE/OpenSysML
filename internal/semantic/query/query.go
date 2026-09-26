@@ -34,6 +34,9 @@ const (
 	PropertyOwner = "owner"
 	// PropertyElementType is the resolved declared element type property.
 	PropertyElementType = "type"
+	// PropertyGeneral is the types a definition specializes or a usage is typed by,
+	// in declaration order.
+	PropertyGeneral = "general"
 	// PropertyIsAbstract is the abstractness property.
 	PropertyIsAbstract = "isAbstract"
 	// PropertyIsIndividual is the `individual` modifier of a definition or usage.
@@ -53,6 +56,7 @@ var propertyNames = []string{
 	PropertyID, PropertyType, PropertyName, PropertyDeclaredName,
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
 	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
+	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
 }

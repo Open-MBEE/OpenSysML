@@ -110,17 +110,20 @@ func TestMigratedTablesExecute(t *testing.T) {
 	s := session(t, migrateFixtureFile(t, "tables"))
 
 	// Instance table: individuals of Pump (and its subtypes) under the scope
-	// plus two explicit rows, sorted by mass descending with the empty cell last.
+	// plus two explicit rows, less the excluded one, sorted by mass descending
+	// with the empty cell last; the classifier column is the individual's general.
+	// A slot typed by an individual (st1's pumps, holding p1) is not a row.
 	pumps := rows(t, s, "Plant::Inventory::'Pump Table Rows'")
 	wantInOrder(t, "Pump Table rows", pumps,
-		"returned 5 rows",
-		"Plant::Inventory::r1", `mass = 14`,
-		"Plant::Inventory::p1", `mass = 12.5`, `flow = 3`,
-		"Plant::Inventory::p2", `mass = 9`,
+		"returned 4 rows",
+		"Plant::Inventory::r1", `general = Plant::Structure::ReservePump`, `mass = 14`,
+		"Plant::Inventory::p1", `general = Plant::Structure::Pump`, `mass = 12.5`, `flow = 3`,
 		"Plant::Spares::s1", `mass = 7`,
 		"Plant::Spares::s2", `mass = ""`)
-	if strings.Contains(pumps, "Plant::Inventory::v1") {
-		t.Fatalf("Pump Table lists the valve v1:\n%s", pumps)
+	for _, absent := range []string{"Plant::Inventory::v1", "Plant::Inventory::p2", "st1"} {
+		if strings.Contains(pumps, absent) {
+			t.Fatalf("Pump Table lists %s:\n%s", absent, pumps)
+		}
 	}
 
 	// Built-in columns are projected before the feature columns, and a
@@ -137,6 +140,17 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"returned 3 rows",
 		"FlowRequirement", "The pump keeps the flow above the minimum.",
 		"MassRequirement", "SealRequirement")
+
+	// Requirement Id and Text read the short name and documentation the
+	// requirement's tags became, a stereotype tag its metadata feature, and
+	// the saved row filter keeps the rows whose tag cell matches.
+	key := rows(t, s, "Plant::Requirements::'Key Requirements Rows'")
+	wantInOrder(t, "Key Requirements rows", key,
+		"returned 1 row",
+		"Columns: shortName, name, documentation, level, level 2, grade",
+		"FlowRequirement", `shortName = "R-1"`, `name = "FlowRequirement"`,
+		`documentation = "The pump keeps the flow above the minimum."`, `level = 1`, `level 2 = 1`,
+		`grade = ['Plant Profile'::Grade::high, 'Plant Profile'::Grade::low]`)
 
 	// Dependency matrix: the cell of each requirement row lists the blocks
 	// that satisfy it, and the duplicate criterion column stays distinct.
@@ -270,7 +284,7 @@ func TestTopLevelTableIsWritten(t *testing.T) {
 		t.Errorf("target = %q", es[0].Target)
 	}
 	wantInOrder(t, "top-level Pump Table rows", rows(t, session(t, r), "'Pump Table Rows'"),
-		"returned 5 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
+		"returned 4 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
 }
 
 // The Document each table becomes renders through the real Markdown and HTML
@@ -281,12 +295,11 @@ func TestMigratedTablesRender(t *testing.T) {
 	md := markdown(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table Markdown", md,
 		"# Pump Table",
-		"| name | mass | flow |",
-		"| r1 | 14 |  |",
-		"| p1 | 12.5 | 3 |",
-		"| p2 | 9 |  |",
-		"| s1 | 7 |  |",
-		"| s2 |  |  |")
+		"| name | general | mass | flow |",
+		"| r1 | ReservePump | 14 |  |",
+		"| p1 | Pump | 12.5 | 3 |",
+		"| s1 | Pump | 7 |  |",
+		"| s2 | Pump |  |  |")
 
 	page := html(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table HTML", page,
@@ -300,8 +313,8 @@ func TestMigratedTablesRender(t *testing.T) {
 	matrix := markdown(t, s, "Plant::Requirements::'Satisfaction Matrix Document'")
 	wantInOrder(t, "Satisfaction Matrix Markdown", matrix,
 		"| name | Trace | Trace 2 |",
-		"| FlowRequirement | Plant::Structure::Pump |  |",
-		"| SealRequirement | Plant::Structure::Valve |  |",
+		"| FlowRequirement | Pump |  |",
+		"| SealRequirement | Valve |  |",
 		"| MassRequirement |  |  |")
 }
 
