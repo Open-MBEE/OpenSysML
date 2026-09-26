@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -113,6 +114,51 @@ func TestFeatureMultiplicityDuplicateModifier(t *testing.T) {
 	wantRelationshipError(t, "a.sysml", "part x : A [2] ordered ordered;", "duplicate `ordered`")
 }
 
+// Clause state is one sequence even where a multiplicity interrupts it: a
+// second specialization list and a misplaced multiplicity are still reported.
+func TestClassifierClauseStateCrossesMultiplicity(t *testing.T) {
+	msgs := relationshipDiags(t, "a.kerml", "class X [2] :> A [3] :> B;")
+	foundMult, foundSpec := false, false
+	for _, m := range msgs {
+		foundMult = foundMult || strings.Contains(m, "multiplicity precedes the specialization list")
+		foundSpec = foundSpec || strings.Contains(m, "one specialization list")
+	}
+	if !foundMult || !foundSpec {
+		t.Errorf("expected both the misplaced-multiplicity and second-list errors, got %v", msgs)
+	}
+	wantRelationshipError(t, "a.kerml", "feature x disjoint from y [2] :> z;", "is a specialization")
+	wantRelationshipError(t, "a.kerml", "class :> A [2];", "multiplicity precedes the specialization list")
+}
+
+// `assoc struct` is the compound keyword of an association structure: its `:>`
+// specializes, and the one-list rule applies to it as to `class`.
+func TestAssocStructIsClassifierShaped(t *testing.T) {
+	wantRelationshipError(t, "a.kerml", "assoc struct X :> A :> B;", "one specialization list")
+
+	p := New(source.New("a.kerml", []byte("assoc struct X :> A, B;")))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("expected no diagnostics, got %v", p.Diagnostics)
+	}
+	var u *ast.Usage
+	for _, m := range root.Members {
+		if mem, ok := m.(*ast.Membership); ok {
+			u, _ = mem.Member.(*ast.Usage)
+		}
+	}
+	if u == nil {
+		t.Fatalf("expected a usage member, got %v", root.Members)
+	}
+	if len(u.Relationships) != 2 {
+		t.Fatalf("expected two specialization relationships, got %d", len(u.Relationships))
+	}
+	for _, r := range u.Relationships {
+		if r.Kind != ast.RelSpecializes {
+			t.Errorf("kind = %v, want RelSpecializes", r.Kind)
+		}
+	}
+}
+
 // Declaration tails that the grammars admit stay diagnostic-free.
 func TestRelationshipClauseShapesAccepted(t *testing.T) {
 	for _, tc := range []struct {
@@ -120,12 +166,14 @@ func TestRelationshipClauseShapesAccepted(t *testing.T) {
 	}{
 		// One specialization list states many targets.
 		{"a.sysml", "part def X :> A, B;"},
+		{"a.kerml", "assoc struct X :> A, B;"},
 		// Specialization before the type-relationship clauses, and several of
 		// those in a row.
 		{"a.kerml", "class C specializes A disjoint from B;"},
 		{"a.kerml", "class X disjoint from A, B unions C, D intersects D, E differences E, A;"},
 		// A feature repeats specializations freely.
 		{"a.sysml", "part x :> a :> b;"},
+		{"a.kerml", "feature x :> a [2] :> b;"},
 		{"a.sysml", "part x : A : B;"},
 		{"a.sysml", "part x : A [2] :> b;"},
 		{"a.kerml", "feature x [1] : A;"},
