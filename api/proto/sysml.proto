@@ -839,6 +839,8 @@ message EditOperation {
     DeleteEdit delete = 4;
     MoveEdit move = 5;
     AddConnectionEdit add_connection = 6;
+    AddSatisfyEdit add_satisfy = 7;
+    AddRequirementConstraintEdit add_requirement_constraint = 8;
   }
 }
 
@@ -858,6 +860,40 @@ message AddMemberEdit {
   string value = 6;
   // Optional specialization targets for a definition.
   repeated string specializes = 7;
+  // Whether the declaration is abstract.
+  bool is_abstract = 8;
+  // Optional redefinition targets for a usage.
+  repeated string redefines = 9;
+  // Whether the value uses the default assignment keyword.
+  bool is_default = 10;
+  // Optional usage direction: "in", "out" or "inout".
+  string direction = 11;
+}
+
+// AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+message AddSatisfyEdit {
+  // Namespace FQN receiving the usage.
+  string owner = 1;
+  // Requirement feature reference.
+  string requirement = 2;
+  // Optional satisfying feature reference.
+  string satisfying_feature = 3;
+  // Whether the usage is asserted.
+  bool is_asserted = 4;
+  // Whether the usage is negated.
+  bool is_negated = 5;
+}
+
+// AddRequirementConstraintEdit inserts a require or assume constraint.
+message AddRequirementConstraintEdit {
+  // Requirement-like namespace receiving the constraint.
+  string owner = 1;
+  // Constraint kind: "require" or "assume".
+  string kind = 2;
+  // Constraint expression, written as notation.
+  string expression = 3;
+  // Optional declared name.
+  string name = 4;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

@@ -2024,6 +2024,33 @@ func BodyAdmitsMember(owner ast.Node, kw string) bool {
 	if !ok {
 		return true
 	}
+	return slices.Contains(m.bodies, declarationBodyContext(owner))
+}
+
+// BodyIsCalculation reports whether owner opens a calculation or case body,
+// the body productions that admit return parameters.
+func BodyIsCalculation(owner ast.Node) bool {
+	switch d := owner.(type) {
+	case *ast.Definition:
+		switch d.Kind {
+		case ast.DefCalc, ast.DefCase, ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
+			return true
+		}
+	case *ast.Usage:
+		switch d.Kind {
+		case ast.UsageCalc, ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
+			return true
+		}
+	}
+	return false
+}
+
+// BodyIsRequirement reports whether owner opens a requirement body.
+func BodyIsRequirement(owner ast.Node) bool {
+	return declarationBodyContext(owner) == bodyRequirement
+}
+
+func declarationBodyContext(owner ast.Node) bodyContext {
 	body := bodyOther
 	switch d := owner.(type) {
 	case *ast.Definition:
@@ -2031,7 +2058,7 @@ func BodyAdmitsMember(owner ast.Node, kw string) bool {
 	case *ast.Usage:
 		body = usageBodyContext(d.Kind)
 	}
-	return slices.Contains(m.bodies, body)
+	return body
 }
 
 // parseMisplacedStateSubaction reads an entry/do/exit member outside a state body

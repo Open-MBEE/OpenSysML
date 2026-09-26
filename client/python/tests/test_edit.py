@@ -19,13 +19,16 @@ from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+    CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
 )
 from opensysml.connection import Connection
 from opensysml.conversion import Conversion, FORMAT_SYSML
-from opensysml.edit import EditedDocument, EditResult
+from opensysml.edit import EditedDocument, EditResult, Editor
 from opensysml.errors import (
     EditError,
     EditResultError,
@@ -239,6 +242,101 @@ def test_add_member_and_delete_requests_are_exact(fake_service):
     assert delete.WhichOneof("operation") == "delete"
     assert (delete.delete.target, delete.delete.cascade) == ("Demo::sc", False)
     assert result is not None
+
+
+def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_MEMBER_MODIFIERS,
+            CAPABILITY_SATISFY_AUTHORING,
+            CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_member(
+                "Demo::SC", "attribute", "input", type="Real",
+                abstract=True, redefines=["Demo::SC::old"], default=True, direction="in",
+            )
+            .add_satisfy("Demo::SC", "Demo::SC::r", by="Demo::SC::t", asserted=True)
+            .add_require("Demo::SC", "true", name="valid")
+            .add_assume("Demo::SC", "true")
+            .apply()
+        )
+    member, satisfy, require, assume = service.requests[0].operations
+    assert member.WhichOneof("operation") == "add_member"
+    assert (
+        member.add_member.is_abstract,
+        list(member.add_member.redefines),
+        member.add_member.is_default,
+        member.add_member.direction,
+    ) == (True, ["Demo::SC::old"], True, "in")
+    assert satisfy.WhichOneof("operation") == "add_satisfy"
+    assert (
+        satisfy.add_satisfy.owner, satisfy.add_satisfy.requirement,
+        satisfy.add_satisfy.satisfying_feature, satisfy.add_satisfy.is_asserted,
+        satisfy.add_satisfy.is_negated,
+    ) == ("Demo::SC", "Demo::SC::r", "Demo::SC::t", True, False)
+    assert require.WhichOneof("operation") == "add_requirement_constraint"
+    assert (
+        require.add_requirement_constraint.owner,
+        require.add_requirement_constraint.kind,
+        require.add_requirement_constraint.expression,
+        require.add_requirement_constraint.name,
+    ) == ("Demo::SC", "require", "true", "valid")
+    assert assume.add_requirement_constraint.kind == "assume"
+    assert assume.add_requirement_constraint.name == ""
+
+
+@pytest.mark.parametrize(
+    "operation,missing",
+    [
+        (lambda editor: editor.add_member("Demo::SC", "attribute", "x", abstract=True),
+         CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_member("Demo::SC", "attribute", "x", default=True),
+         CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_member("Demo::SC", "attribute", "x", direction="in"),
+         CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_member("Demo::SC", "ref", "x"), CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_member("Demo::SC", "return", "result"),
+         CAPABILITY_MEMBER_MODIFIERS),
+        (lambda editor: editor.add_satisfy("Demo::SC", "Demo::SC::r"), CAPABILITY_SATISFY_AUTHORING),
+        (lambda editor: editor.add_require("Demo::SC", "true"),
+         CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
+    ],
+)
+def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        editor = operation(conn.load_from_content(MODEL).edit())
+        with pytest.raises(MissingCapabilityError) as error:
+            editor.apply()
+    assert error.value.capability == missing
+    assert service.requests == []
+
+
+def test_add_member_normalizes_reference_strings_and_validates_kind():
+    editor = Editor("hash", None)
+    editor.add_member(
+        "Demo", "part", "wheel", specializes="Vehicle",
+        redefines=("Base::wheel",),
+    )
+    assert editor.operations == [
+        (
+            "add_member", "Demo", "part", "wheel", "", "", "",
+            ["Vehicle"], False, ["Base::wheel"], False, "",
+        )
+    ]
+    with pytest.raises(TypeError, match="kind must be notation text"):
+        editor.add_member("Demo", None, "wheel")
+    with pytest.raises(TypeError, match="redefines must contain only notation strings"):
+        editor.add_member("Demo", "part", "wheel", redefines=["Base::wheel", 1])
 
 
 def test_add_connection_and_typed_helpers_are_exact(fake_service):

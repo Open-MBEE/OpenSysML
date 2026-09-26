@@ -95,6 +95,120 @@
       }
     },
     {
+      "id": "apply_edits/a_member_modifier_writes_an_abstract_definition",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "member_modifiers"
+      ],
+      "model": {
+        "fixture": "editable.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "part def",
+              "name": "AbstractVehicle",
+              "is_abstract": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "abstract part def AbstractVehicle;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 1
+        }
+      }
+    },
+    {
+      "id": "apply_edits/a_satisfy_usage_is_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "satisfy_authoring"
+      ],
+      "model": {
+        "fixture": "requirement_authoring.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_satisfy": {
+              "owner": "Demo::holder",
+              "requirement": "Demo::spec",
+              "satisfying_feature": "owned",
+              "is_asserted": true
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "assert satisfy Demo::spec by owned;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 1
+        }
+      }
+    },
+    {
+      "id": "apply_edits/a_requirement_constraint_is_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "requirement_constraint_authoring"
+      ],
+      "model": {
+        "fixture": "requirement_authoring.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_requirement_constraint": {
+              "owner": "Demo::spec",
+              "kind": "require",
+              "expression": "true",
+              "name": "isValid"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "require constraint isValid { true }"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 1
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_rename_of_an_unreferenced_element_is_applied",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

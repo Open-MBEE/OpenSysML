@@ -845,7 +845,10 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, or an edit
    *     is an {@link Edit.AddMember}, {@link Edit.AddConnection}, {@link Edit.Delete} or
    *     {@link Edit.Move} and it does not advertise {@code authoring}; {@link Edit.AddConnection}
-   *     also requires {@code connection_authoring}
+   *     also requires {@code connection_authoring}; a modifier or a {@code ref}/{@code return}
+   *     member requires {@code member_modifiers}, {@link Edit.AddSatisfy} requires
+   *     {@code satisfy_authoring}, and {@link Edit.AddRequirementConstraint} requires
+   *     {@code requirement_constraint_authoring}
    */
   public EditResult applyEdits(List<Edit> edits) {
     return applyEdits(edits, EditOptions.defaults());
@@ -873,9 +876,14 @@ public final class Model {
     connection.capabilities().require(Capabilities.APPLY_EDITS);
     boolean requestsAuthoring = false;
     boolean requestsConnectionAuthoring = false;
+    boolean requestsMemberModifiers = false;
+    boolean requestsSatisfyAuthoring = false;
+    boolean requestsRequirementConstraintAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
+          || edit instanceof Edit.AddSatisfy
+          || edit instanceof Edit.AddRequirementConstraint
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -883,12 +891,36 @@ public final class Model {
       if (edit instanceof Edit.AddConnection) {
         requestsConnectionAuthoring = true;
       }
+      if (edit instanceof Edit.AddMember addMember
+          && (addMember.isAbstract()
+              || !addMember.redefines().isEmpty()
+              || addMember.isDefault()
+              || !addMember.direction().isEmpty()
+              || addMember.kind().equals("ref")
+              || addMember.kind().equals("return"))) {
+        requestsMemberModifiers = true;
+      }
+      if (edit instanceof Edit.AddSatisfy) {
+        requestsSatisfyAuthoring = true;
+      }
+      if (edit instanceof Edit.AddRequirementConstraint) {
+        requestsRequirementConstraintAuthoring = true;
+      }
     }
     if (requestsAuthoring) {
       connection.capabilities().require(Capabilities.AUTHORING);
     }
     if (requestsConnectionAuthoring) {
       connection.capabilities().require(Capabilities.CONNECTION_AUTHORING);
+    }
+    if (requestsMemberModifiers) {
+      connection.capabilities().require(Capabilities.MEMBER_MODIFIERS);
+    }
+    if (requestsSatisfyAuthoring) {
+      connection.capabilities().require(Capabilities.SATISFY_AUTHORING);
+    }
+    if (requestsRequirementConstraintAuthoring) {
+      connection.capabilities().require(Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

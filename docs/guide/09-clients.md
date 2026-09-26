@@ -1137,9 +1137,11 @@ model = opensysml.loads("package Demo {}", strict=True)
 result = model.edit().add_part_def("", "Vehicle").apply()
 ```
 
-`add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None)`
-accepts notation strings for the declaration. Typed `add_*` helpers cover the common SysML and
-KerML kinds. `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
+`add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
+abstract=False, redefines=None, default=False, direction=None)` accepts notation strings for the
+declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
+`return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`, `add_require`
+and `add_assume` write requirement statements. `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
 `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
 `connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's
 scope, for example `tank.fuelOut`. `add_allocation` and `add_flow` select those kinds directly.
@@ -1227,7 +1229,9 @@ These limitations are intentional:
 Editing is capability-negotiated the same way as conversion: a service that does not report the
 `apply_edits` capability raises `MissingCapabilityError` naming the required upgrade before any
 call is made. An `add_connection` edit also requires both `authoring` and
-`connection_authoring`.
+`connection_authoring`. The new AddMember modifiers and `ref`/`return` kinds
+require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
+requirement-constraint edits require `requirement_constraint_authoring`.
 
 ### Querying a model using the standard query model
 
