@@ -68,7 +68,7 @@ func (c *w10bStructuralChecker) check(decl ast.Node) {
 		c.reportExtra(do, msgOnlyOneDoAction, "state-do-action")
 		c.reportExtra(exit, msgOnlyOneExitAction, "state-exit-action")
 	}
-	if returnOwnerDecl(decl) {
+	if functionDecl(decl) {
 		var returns []ast.Node
 		for _, m := range members {
 			if u, ok := unwrapUsageMember(m); ok && u.IsResult {
@@ -172,16 +172,4 @@ func portOwnerMessage(decl ast.Node) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// returnOwnerDecl reports whether decl may own a `return` parameter: a
-// calculation, an expression or a case.
-func returnOwnerDecl(decl ast.Node) bool {
-	switch d := decl.(type) {
-	case *ast.Definition:
-		return d.Kind == ast.DefCalc || isCaseDefKind(d.Kind)
-	case *ast.Usage:
-		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageExpr || isCaseUsageKind(d.Kind)
-	}
-	return false
 }
