@@ -1451,3 +1451,51 @@ func TestUnwrittenPointLeavesTheStatesMembersTheirNames(t *testing.T) {
 	wantNote(t, r, "_rBoth", migrate.Mapped, "no transition leaves the entry point")
 	session(t, r)
 }
+
+// noExtensionStatement reports every notation line that opens with an
+// extension clause a strict migration must not write.
+func noExtensionStatement(t *testing.T, notation []byte) {
+	t.Helper()
+	for _, line := range strings.Split(string(notation), "\n") {
+		trimmed := strings.TrimSpace(line)
+		for _, kw := range []string{"defer ", "choice ", "junction ", "history ", "deep history "} {
+			if strings.HasPrefix(trimmed, kw) {
+				t.Errorf("strict migration wrote an extension statement %q:\n%s", trimmed, notation)
+			}
+		}
+	}
+}
+
+// Under -strict a migration writes no extension notation: the junction and
+// history vertices and the junction-form connection points of plant_states and
+// station_points are refused as unmapped, as is every transition through them;
+// the standard fork and join stay.
+func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "plant_states", migrate.Options{Strict: true})
+	noExtensionStatement(t, r.Notation)
+	for _, line := range []string{"fork spread;", "join gather;"} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_junc", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
+	wantNote(t, r, "_hist", migrate.Unmapped, "`history <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_deep", migrate.Unmapped, "`deep history <name>;` is an OpenSysML extension")
+	for _, id := range []string{"_tRoute", "_tBusy", "_tSpent", "_tResume", "_tHist"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
+	}
+	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
+	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
+
+	r = migrateFixtureFileOptions(t, "station_points", migrate.Options{Strict: true})
+	noExtensionStatement(t, r.Notation)
+	wantNote(t, r, "_start", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_leave", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_deep", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_out", migrate.Unmapped, "`junction <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_hist", migrate.Unmapped, "`history <name>;` is an OpenSysML extension")
+	wantNote(t, r, "_both", migrate.Mapped, "written as a fork of its state")
+	wantNote(t, r, "_gather", migrate.Mapped, "written as a join of its state")
+	wantNote(t, r, "_plain", migrate.Mapped, "no transition leaves the entry point")
+	for _, id := range []string{"_tGo", "_tDive", "_tDeep", "_tBack", "_tFinish", "_tLeave", "_tOut", "_tResume", "_tStart"} {
+		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
+	}
+}
