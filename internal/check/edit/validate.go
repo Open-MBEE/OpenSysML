@@ -76,6 +76,14 @@ func checkName(i int, name string) error {
 	return nil
 }
 
+func symbolName(name string) string {
+	segments, ok := source.QualifiedNameSegments(name)
+	if ok && len(segments) == 1 {
+		return segments[0]
+	}
+	return name
+}
+
 // validate re-reads every rewritten document the way the original was read and
 // refuses the edit if any carries errors its original did not: an edit never
 // hands back a model that cannot be read again. The documents are judged

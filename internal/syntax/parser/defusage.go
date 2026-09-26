@@ -2042,6 +2042,8 @@ func BodyAdmitsBehaviorUsage(owner ast.Node) bool {
 		return d.Kind != ast.DefEnumeration
 	case *ast.Usage:
 		return d.Kind != ast.UsageMetadata
+	case *ast.SubstateMember:
+		return true
 	default:
 		return true
 	}
@@ -2059,6 +2061,8 @@ func declarationBodyContext(owner ast.Node) bodyContext {
 		body = defBodyContext(d.Kind)
 	case *ast.Usage:
 		body = usageBodyContext(d.Kind)
+	case *ast.SubstateMember:
+		body = usageBodyContext(ast.UsageState)
 	}
 	return body
 }

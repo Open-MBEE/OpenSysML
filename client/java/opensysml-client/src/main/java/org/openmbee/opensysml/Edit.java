@@ -264,6 +264,57 @@ public sealed interface Edit {
     }
   }
 
+  /** Inserts a transition or entry transition into a state body. */
+  record AddTransition(
+      String owner,
+      Optional<String> name,
+      Optional<String> source,
+      String target,
+      Optional<String> trigger,
+      Optional<String> guard,
+      Optional<String> effect,
+      boolean initial)
+      implements Edit {
+
+    public AddTransition {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(source, "source");
+      Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(trigger, "trigger");
+      Objects.requireNonNull(guard, "guard");
+      Objects.requireNonNull(effect, "effect");
+    }
+
+    public static AddTransition of(String owner, String source, String target) {
+      return new AddTransition(
+          owner, Optional.empty(), Optional.of(source), target,
+          Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    public static AddTransition entry(String owner, String target) {
+      return new AddTransition(
+          owner, Optional.empty(), Optional.empty(), target,
+          Optional.empty(), Optional.empty(), Optional.empty(), true);
+    }
+
+    public AddTransition withName(String name) {
+      return new AddTransition(owner, Optional.of(name), source, target, trigger, guard, effect, initial);
+    }
+
+    public AddTransition withTrigger(String trigger) {
+      return new AddTransition(owner, name, source, target, Optional.of(trigger), guard, effect, initial);
+    }
+
+    public AddTransition withGuard(String guard) {
+      return new AddTransition(owner, name, source, target, trigger, Optional.of(guard), effect, initial);
+    }
+
+    public AddTransition withEffect(String effect) {
+      return new AddTransition(owner, name, source, target, trigger, guard, Optional.of(effect), initial);
+    }
+  }
+
   /**
    * Inserts a connection-like usage between two feature references.
    *

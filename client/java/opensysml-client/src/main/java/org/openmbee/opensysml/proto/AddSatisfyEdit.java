@@ -7,7 +7,7 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
+ * AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
  * </pre>
  *
  * Protobuf type {@code sysml.AddSatisfyEdit}
@@ -55,7 +55,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object owner_ = "";
   /**
    * <pre>
-   * Namespace FQN receiving the usage.
+   * Body receiving the usage.
    * </pre>
    *
    * <code>string owner = 1 [json_name = "owner"];</code>
@@ -76,7 +76,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Namespace FQN receiving the usage.
+   * Body receiving the usage.
    * </pre>
    *
    * <code>string owner = 1 [json_name = "owner"];</code>
@@ -423,7 +423,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
+   * AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
    * </pre>
    *
    * Protobuf type {@code sysml.AddSatisfyEdit}
@@ -618,7 +618,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object owner_ = "";
     /**
      * <pre>
-     * Namespace FQN receiving the usage.
+     * Body receiving the usage.
      * </pre>
      *
      * <code>string owner = 1 [json_name = "owner"];</code>
@@ -638,7 +638,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Namespace FQN receiving the usage.
+     * Body receiving the usage.
      * </pre>
      *
      * <code>string owner = 1 [json_name = "owner"];</code>
@@ -659,7 +659,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Namespace FQN receiving the usage.
+     * Body receiving the usage.
      * </pre>
      *
      * <code>string owner = 1 [json_name = "owner"];</code>
@@ -676,7 +676,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Namespace FQN receiving the usage.
+     * Body receiving the usage.
      * </pre>
      *
      * <code>string owner = 1 [json_name = "owner"];</code>
@@ -690,7 +690,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Namespace FQN receiving the usage.
+     * Body receiving the usage.
      * </pre>
      *
      * <code>string owner = 1 [json_name = "owner"];</code>

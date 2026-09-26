@@ -290,7 +290,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			}
 		}
 	}
-	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
+	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -335,7 +335,7 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 			Message: fmt.Sprintf("%q cannot contain members", fqn)}
 	}
 	switch local.Decl.(type) {
-	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage:
+	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage, *ast.SubstateMember:
 		return local.Decl, local.Scope, nil
 	default:
 		return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
@@ -567,6 +567,8 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 		return d.Span(), d.HasBody
 	case *ast.Usage:
 		return d.Span(), d.HasBody
+	case *ast.SubstateMember:
+		return d.Span(), false
 	case *ast.TransitionMember:
 		return d.Span(), d.HasBody
 	case *ast.SuccessionEdge:

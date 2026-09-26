@@ -50,6 +50,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsTransitionAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityTransitionAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
 			return nil, err
@@ -201,6 +206,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
+			*pb.EditOperation_AddTransition,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -241,6 +247,15 @@ func requestsSatisfyAuthoring(operations []*pb.EditOperation) bool {
 func requestsRequirementConstraintAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		if _, ok := operation.GetOperation().(*pb.EditOperation_AddRequirementConstraint); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddTransition); ok {
 			return true
 		}
 	}
@@ -288,6 +303,12 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			ops = append(ops, edit.AddRequirementConstraint(
 				add.GetOwner(), add.GetKind(), add.GetExpression(), add.GetName(),
 			))
+		case *pb.EditOperation_AddTransition:
+			add := op.AddTransition
+			ops = append(ops, edit.AddTransition(
+				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
+				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
+			))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))
@@ -295,7 +316,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			ops = append(ops, edit.Move(op.Move.GetTarget(), op.Move.GetOwner()))
 		default:
 			return nil, statusErrorf(connect.CodeInvalidArgument,
-				"operation %d must be set_value, rename, add_member, add_connection, delete or move", i)
+				"operation %d must name a supported edit operation", i)
 		}
 	}
 	return ops, nil

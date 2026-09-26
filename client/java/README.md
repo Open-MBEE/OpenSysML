@@ -395,9 +395,11 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `rewrite-strings` | replaces each string            |                  70 |
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
-`withDirection`; `Edit.AddSatisfy` and `Edit.AddRequirementConstraint` expose
-requirement authoring. The client checks `member_modifiers`, `satisfy_authoring`
-or `requirement_constraint_authoring` before sending those additions.
+`withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
+`Edit.AddTransition` expose requirement and state-transition authoring.
+`Edit.AddTransition.entry` constructs an entry transition. The client checks
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
+`transition_authoring` before sending those additions.
 
 ## Running the tests
 
