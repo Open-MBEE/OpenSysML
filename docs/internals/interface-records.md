@@ -63,10 +63,12 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `Supers` — direct supertypes, resolved | inheritance, member lookup through the type, conformance |
 | `Redefines`, `References` — redefined features, the feature a reference subsets | masking, distinguishability, end typing |
 | `Alias` — an alias's target | qualified-name resolution through the alias |
-| `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, invocation shapes |
+| `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
+| `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
 | `Multiplicity` — the declared bounds | multiplicity conformance of a redefinition, end multiplicities |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
 | `Annotations`, `About` — the metadata declared on the element with its literal values, and the elements an annotating usage is about | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
+| `Default` — the value a feature of a metadata definition declares | the value an annotation of that type carries for a feature it leaves unbound, which a filter reads |
 | `BaseType`, `ModBindsBaseType` — the base type a metadata definition binds unconditionally | metadata typing |
 | `Relationships` — the relationship members (dependency, satisfy, allocate, …) with their resolved targets | relationship queries, the OOSEM and MOSA audits |
 | `Node`, `Keyword`, `UsageKind`, `DefKind` — what kind of declaration it was | every reader that used to switch on the declaration's type |
@@ -128,8 +130,8 @@ rather than writing an approximate one, and the document stays loaded.
 cannot state without the tree, and the document is held loaded. Today that is:
 a supertype, redefinition, alias, annotation, relationship or base-type target
 no `ElementRef` reaches; supertypes the semantic model marked provisional; a
-quantity-valued annotation; and a metadata definition whose `baseType` is
-bound conditionally. In the four OMG corpora one document of 313 is refused
+quantity-valued annotation or metadata default; and a metadata definition
+whose `baseType` is bound conditionally. In the four OMG corpora one document of 313 is refused
 (`kerml-examples/Simple Tests/MetadataTest.kerml`, a conditional `baseType`
 binding). A refusal is never silent: the error names the fact and the element.
 
@@ -148,7 +150,17 @@ The record also carries the digest of the content it was written from, and
 `Workspace.OpenRecorded` takes that content with the record, refusing other
 bytes (`model.ErrRecordMismatch`): the stored diagnostics locate in the text,
 so a recorded document holds its text, digest and line index as a loaded one
-does, and only its tree, resolver frame and analysis are gone.
+does, and only its tree, resolver frame and analysis are gone. The workspace
+copies the content it is given, so the caller's buffer is its own afterwards.
+
+The record carries the conformance mode its diagnostics answer (`Mode`), and
+`OpenRecorded` refuses a record written under another mode than the
+workspace's, as the key never finds one. The stored diagnostics cannot be
+re-asked under a different mode without the tree, so while a workspace holds a
+recorded document `SetConformanceMode` leaves the mode where it is and returns
+a `symbols.NeedsHydration` naming that document; the REPL's `%strict` reports
+it and the language server shows it to the client. Hydrating the document (a
+later change) lifts the restriction.
 
 The key says nothing about the other documents of the workspace. A record's
 references are restored against the live index when read, so a target that

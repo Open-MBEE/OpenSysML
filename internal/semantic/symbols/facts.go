@@ -80,6 +80,9 @@ type LibraryFacts struct {
 	// BaseType is the fully-qualified name of the type a metadata definition's
 	// own body binds `baseType` to, "" for none (see ModBindsBaseType).
 	BaseType ElementRef
+	// Default is the value a feature of a metadata definition declares, which
+	// an annotation of the type that leaves the feature unbound takes.
+	Default *FilterValue
 }
 
 // NodeKind classifies the declaring node of a recorded symbol.
@@ -256,6 +259,11 @@ const (
 	ModParameterizedByName
 	ModBindsBaseType
 	ModAcceptPayload
+	// ModNamesNothing marks a derived name its target did not supply: the
+	// symbol binds no name (see resolve.Resolver.BindsName).
+	ModNamesNothing
+	// ModValued marks a usage whose declaration binds it a value (`= v`, `default v`).
+	ModValued
 )
 
 // Has reports whether every modifier of mask is set.

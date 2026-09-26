@@ -18,7 +18,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 2
+const interfaceFormatVersion = 3
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -35,6 +35,7 @@ type InterfaceRecord struct {
 	Digest      string // of the content the record was written from, as the workspace fingerprints it
 	Scope       *symbols.DocumentRecord
 	Diagnostics []diag.Diagnostic
+	Mode        diag.ConformanceMode // the diagnostics answer this mode's question
 }
 
 // InterfaceKey derives the cache key of a document's interface record from its
@@ -167,6 +168,12 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			}
 		}
 	}
+	if value, ok := m.MetadataDefaultOf(sym); ok {
+		if value.Quantity != nil {
+			w.fail(sym, "quantity-valued metadata default")
+		}
+		facts.Default = &value
+	}
 	facts.Direction, facts.Modifiers = declaredTraits(sym.Decl)
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
 	facts.Node = symbols.NodeKindOf(sym.Decl)
@@ -232,6 +239,7 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.IsVariable, symbols.ModVariable)
 		set(d.IsParallel, symbols.ModParallel)
 		set(d.ValueIsDefault, symbols.ModDefault)
+		set(d.Value != nil, symbols.ModValued)
 		set(d.IsNegated, symbols.ModNegated)
 		set(d.DeclaresRequirement, symbols.ModDeclaresRequirement)
 		set(d.IsAll, symbols.ModAll)

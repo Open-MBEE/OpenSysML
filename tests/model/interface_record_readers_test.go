@@ -72,6 +72,55 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 }
 `),
 		},
+		// A call names a recorded calculation: its arity and result type are
+		// its parameters, owned and inherited.
+		"behavior parameters": {
+			"calcs.sysml": []byte(`package Calcs {
+	calc def Add { in x : ScalarValues::Integer; in y : ScalarValues::Integer; return : ScalarValues::Integer = x + y; }
+	calc def Add3 :> Add { in z : ScalarValues::Integer; }
+}
+`),
+			"use.sysml": []byte(`package Use {
+	attribute a : ScalarValues::Integer = Calcs::Add(1, 2, 3);
+	attribute b : ScalarValues::Integer = Calcs::Add(1, 2);
+	attribute c : ScalarValues::String = Calcs::Add(1, 2);
+	attribute d : ScalarValues::Integer = Calcs::Add3(1, 2, 3);
+	attribute e : ScalarValues::Integer = Calcs::Add3(1, 2);
+}
+`),
+		},
+		// An annotation of a recorded metadata definition inherits the
+		// defaults its features declare, which a filter reads.
+		"metadata defaults": {
+			"meta.sysml": []byte(`package Meta {
+	metadata def Flagged { attribute flag : ScalarValues::Boolean = true; }
+}
+`),
+			"use.sysml": []byte(`package Use {
+	private import Meta::*;
+	package Items { part def Plain; #Flagged part def Marked; }
+	package Picked { public import Items::*[@Flagged and Flagged::flag]; }
+	part m : Picked::Marked;
+	part p : Picked::Plain;
+}
+`),
+		},
+		// A perform that borrows the name of an action it does not resolve binds
+		// none, so a specialization declaring that name inherits no duplicate.
+		"borrowed name": {
+			"acts.sysml": []byte(`package Acts {
+	action def Flow { perform nope; }
+	part def Base { part x; }
+	part def Derived :> Base { part :>> x; part :>> gone; }
+}
+`),
+			"use.sysml": []byte(`package Use {
+	action def D :> Acts::Flow { action nope; }
+	part def E :> Acts::Derived { part x; part gone; }
+	part d : Acts::Derived { part q :>> x; part r :>> gone; }
+}
+`),
+		},
 	}
 	for name, docs := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -185,5 +234,95 @@ func TestInterfaceRecordKeepsContentAndRefusesBodyQuestions(t *testing.T) {
 	}
 	if _, err := ws.RenameConflict(p[0], "P", "R"); !errors.Is(err, symbols.ErrNeedsHydration) {
 		t.Fatalf("RenameConflict over a recorded document: got %v", err)
+	}
+}
+
+// A workspace owns the content of a recorded document: the bytes the caller
+// passed may be reused, and what the document holds and locates is unchanged.
+func TestInterfaceRecordOwnsItsContent(t *testing.T) {
+	t.Parallel()
+	a := []byte("package A { part def P; part def Q :> Missing; }")
+	loaded := model.NewWorkspace()
+	loaded.OpenAll([]model.Input{{Name: "a.sysml", Content: a, Version: 1}})
+	loaded.DiagnosticsAll([]string{"a.sysml"})
+	rec, err := loaded.InterfaceRecord("a.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.Diagnostics) == 0 {
+		t.Fatal("a.sysml stores no diagnostics: the fixture is vacuous")
+	}
+	ws := model.NewWorkspace()
+	buf := bytes.Clone(a)
+	if err := ws.OpenRecorded(rec, buf); err != nil {
+		t.Fatal(err)
+	}
+	for i := range buf {
+		buf[i] = 'x'
+	}
+	doc := ws.Document("a.sysml")
+	if !bytes.Equal(doc.Content, a) || doc.Digest() != rec.Digest {
+		t.Fatalf("recorded a.sysml holds content %q, digest %q after the caller's buffer changed", doc.Content, doc.Digest())
+	}
+	content, diags, ok := ws.AnalyzedContent("a.sysml")
+	if !ok || !bytes.Equal(content, a) || len(diags) != len(rec.Diagnostics) {
+		t.Fatalf("AnalyzedContent = %q, %d diagnostics, %v", content, len(diags), ok)
+	}
+	span := diags[0].Span
+	if pos := doc.Lines().PosAt(span.Offset); string(content[span.Offset:span.End()]) != "Missing" || pos.Line != 1 {
+		t.Fatalf("the stored diagnostic locates %q at %v", content[span.Offset:span.End()], pos)
+	}
+	if p := ws.LookupQualified("A::P"); len(p) != 1 || p[0].DocName != "a.sysml" {
+		t.Fatalf("A::P: %v", p)
+	}
+}
+
+// A record answers the conformance question it was written under: it installs
+// only into a workspace asking the same, and a workspace holding one keeps its
+// mode until the document is hydrated.
+func TestInterfaceRecordConformanceMode(t *testing.T) {
+	t.Parallel()
+	a := []byte("package A { part def P; part def Q :> Missing; }")
+	loaded := model.NewWorkspace()
+	loaded.OpenAll([]model.Input{{Name: "a.sysml", Content: a, Version: 1}})
+	loaded.DiagnosticsAll([]string{"a.sysml"})
+	rec, err := loaded.InterfaceRecord("a.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Mode != diag.ConformanceDefault {
+		t.Fatalf("record mode %s, want %s", rec.Mode, diag.ConformanceDefault)
+	}
+	strict := model.NewWorkspace(model.WithConformanceMode(diag.ConformanceStrict))
+	if err := strict.OpenRecorded(rec, a); !errors.Is(err, model.ErrRecordMismatch) {
+		t.Fatalf("OpenRecorded into a strict workspace: got %v, want ErrRecordMismatch", err)
+	}
+	if strict.Document("a.sysml") != nil {
+		t.Fatal("a refused record was installed")
+	}
+
+	ws := model.NewWorkspace()
+	if err := ws.SetConformanceMode(diag.ConformanceStrict); err != nil {
+		t.Fatalf("SetConformanceMode over no recorded document: %v", err)
+	}
+	if err := ws.SetConformanceMode(diag.ConformanceDefault); err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.OpenRecorded(rec, a); err != nil {
+		t.Fatal(err)
+	}
+	var needs *symbols.NeedsHydration
+	err = ws.SetConformanceMode(diag.ConformanceStrict)
+	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "a.sysml" {
+		t.Fatalf("SetConformanceMode over a recorded document: got %v, want a NeedsHydration for a.sysml", err)
+	}
+	if ws.ConformanceMode() != diag.ConformanceDefault {
+		t.Fatalf("the mode moved to %s under a recorded document", ws.ConformanceMode())
+	}
+	if diags := ws.Diagnostics("a.sysml"); len(diags) != len(rec.Diagnostics) {
+		t.Fatalf("a.sysml reports %d diagnostics, its record stores %d", len(diags), len(rec.Diagnostics))
+	}
+	if err := ws.SetConformanceMode(diag.ConformanceDefault); err != nil {
+		t.Fatalf("SetConformanceMode to the mode held: %v", err)
 	}
 }

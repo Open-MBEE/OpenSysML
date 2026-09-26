@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -225,15 +226,24 @@ func (w *Workspace) ConformanceMode() diag.ConformanceMode {
 
 // SetConformanceMode switches the mode for a live session — an LSP client
 // changing its setting, a REPL user asking the strict question — and drops the
-// cached diagnostics, which answered the other question.
-func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) {
+// cached diagnostics, which answered the other question. A document held as
+// its interface record stores the diagnostics of the mode it was recorded
+// under and cannot answer another without its tree: while the workspace holds
+// one, the mode stays and a symbols.NeedsHydration naming it is returned.
+func (w *Workspace) SetConformanceMode(mode diag.ConformanceMode) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.analysis.Conformance == mode {
-		return
+		return nil
+	}
+	for _, name := range slices.Sorted(maps.Keys(w.docs)) {
+		if w.docs[name].Recorded() {
+			return &symbols.NeedsHydration{Doc: name, Question: "diagnostics under conformance mode " + mode.String()}
+		}
 	}
 	w.analysis.Conformance = mode
 	w.invalidateAllLocked()
+	return nil
 }
 
 // NewIndexWithStdlib returns an index carrying the standard library for a

@@ -443,8 +443,8 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 	m.metadataDefaults[typ] = nil
 	var values map[string]symbols.FilterValue
 	for _, member := range m.MembersOf(typ) {
-		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || usage.Value == nil {
+		value, ok := m.declaredDefault(member)
+		if !ok {
 			continue
 		}
 		name := simpleSymbolName(member)
@@ -457,10 +457,48 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 		if values == nil {
 			values = make(map[string]symbols.FilterValue)
 		}
-		values[name] = m.annotationValue(member.OwnerScope, usage.Value)
+		values[name] = value
 	}
 	m.metadataDefaults[typ] = values
 	return values
+}
+
+// declaredDefault returns the value member's declaration binds it to, read
+// from its record when its document is recorded.
+func (m *Model) declaredDefault(member *symbols.Symbol) (symbols.FilterValue, bool) {
+	if member.Recorded() {
+		if member.Facts.Default == nil {
+			return symbols.FilterValue{}, false
+		}
+		return *member.Facts.Default, true
+	}
+	usage, ok := member.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return symbols.FilterValue{}, false
+	}
+	return m.annotationValue(member.OwnerScope, usage.Value), true
+}
+
+// MetadataDefaultOf returns the default a feature of a metadata definition or
+// usage declares, as an annotation of that type reads it when it leaves the
+// feature unbound; false for any other symbol.
+func (m *Model) MetadataDefaultOf(sym *symbols.Symbol) (symbols.FilterValue, bool) {
+	if m == nil || sym == nil || sym.OwnerScope == nil || !metadataTyped(sym.OwnerScope.Owner()) {
+		return symbols.FilterValue{}, false
+	}
+	return m.declaredDefault(sym)
+}
+
+// metadataTyped reports whether sym is a metadata definition or usage.
+func metadataTyped(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if kind, ok := sym.DefinitionKind(); ok {
+		return kind == ast.DefMetadata
+	}
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageMetadata
 }
 
 // bodyScope is the scope a metadata usage's body resolves names against. The

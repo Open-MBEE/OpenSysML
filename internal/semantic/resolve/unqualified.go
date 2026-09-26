@@ -129,6 +129,9 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if r == nil || sym == nil || sym.Naming == symbols.NamedByDeclaration {
 		return true
 	}
+	if sym.Recorded() {
+		return !sym.Facts.Modifiers.Has(symbols.ModNamesNothing)
+	}
 	r.EnterDoc(sym.DocName)
 	defer r.LeaveDoc()
 	if named, done := r.effNames[sym]; done {

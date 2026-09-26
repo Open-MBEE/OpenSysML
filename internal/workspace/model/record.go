@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -52,6 +53,7 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 		return nil, err
 	}
 	rec.Digest = doc.digest
+	rec.Mode = w.analysis.Conformance
 	return rec, nil
 }
 
@@ -64,6 +66,7 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 // it built, not rec: a recorded document costs its text, scopes, symbols and
 // diagnostics.
 func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) error {
+	content = bytes.Clone(content)
 	digest := digestOf(content)
 	if digest != rec.Digest {
 		return fmt.Errorf("%w: %s", ErrRecordMismatch, rec.Name)
@@ -74,6 +77,9 @@ func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) erro
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if rec.Mode != w.analysis.Conformance {
+		return fmt.Errorf("%w: %s was recorded under conformance mode %s, the workspace asks %s", ErrRecordMismatch, rec.Name, rec.Mode, w.analysis.Conformance)
+	}
 	doc := &Document{
 		Name:     rec.Name,
 		Content:  content,
