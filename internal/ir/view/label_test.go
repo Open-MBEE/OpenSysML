@@ -179,6 +179,23 @@ func TestLabelsHeadMembersUnderTheirDrawnOwnersType(t *testing.T) {
 	}
 }
 
+// displayText decodes a raw spelling's escapes for a label: a carriage return
+// breaks a line, a backspace or form feed names no glyph and is dropped.
+func TestDisplayTextDropsControlEscapes(t *testing.T) {
+	cases := []struct{ raw, want string }{
+		{`plain`, "plain"},
+		{`a\nb`, "a\nb"},
+		{`a\rb`, "a\nb"},
+		{`a\rb\r\nc\bd\fe`, "a\nb\ncde"},
+		{`'It\'s'`, "'It's'"},
+	}
+	for _, tc := range cases {
+		if got := displayText(tc.raw); got != tc.want {
+			t.Errorf("displayText(%q) = %q, want %q", tc.raw, got, tc.want)
+		}
+	}
+}
+
 // The text form keeps the keyword leading, writes the type after a colon and
 // the notes in parentheses after it.
 func TestTextLabelShape(t *testing.T) {

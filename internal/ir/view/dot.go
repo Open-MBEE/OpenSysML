@@ -133,10 +133,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		depth = 2
 	}
 	w.writePictures(depth, false)
+	under, over := w.noteLayers()
+	w.writeNotes(under, depth, true)
 	for _, root := range w.drawOrder(r.Roots) {
 		w.writeNode(root, depth)
 	}
-	w.writeNotes(w.notes, depth)
+	w.writeNotes(over, depth, false)
 	w.writePictures(depth, true)
 	if w.skin.cameo {
 		b.WriteString("  }\n")
@@ -189,12 +191,12 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 			parts = append(parts, "["+dotEscape(typ)+"]")
 		}
 		if name := shown(root); name != "" {
-			parts = append(parts, dotEscape(w.labels.name(root)))
+			parts = append(parts, dotEscape(displayText(w.labels.name(root))))
 		}
 		break
 	}
 	if r.View != "" {
-		parts = append(parts, "[ "+dotEscape(lastName(r.View))+" ]")
+		parts = append(parts, "[ "+dotEscape(displayText(lastName(r.View)))+" ]")
 	}
 	return strings.Join(parts, " ")
 }
@@ -885,7 +887,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		fmt.Fprintf(&w.b, "%s%s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotNodeAttributes(node), ", "))
 		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
-			if !w.omitted[child.ID] {
+			if !w.omitted[child.ID] && !w.compartmentRow(node, child) {
 				w.writeEdge(node.ID, child.ID, w.skin.containmentAttributes())
 			}
 		}
@@ -900,6 +902,17 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		w.writeNode(child, depth+1)
 	}
 	fmt.Fprintf(&w.b, "%s}\n", indent)
+}
+
+// compartmentRow reports whether child is drawn inside parent's box, a
+// compartment row of it, where the row already says what an edge would.
+func (w *dotWriter) compartmentRow(parent, child *Node) bool {
+	outer, ok := w.boxes[parent.ID]
+	if !ok {
+		return false
+	}
+	inner, ok := w.boxes[child.ID]
+	return ok && outer.encloses(inner)
 }
 
 // writeEdge writes one edge between the rendering's endpoints; an end that is
@@ -1141,12 +1154,13 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 // dotLabelExtent is a label's text extent in points: its widest line by its
 // lines' summed heights, the head in bold glyphs and the keyword line at 10pt.
 func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
+	head := len(l.headLines(node))
 	for i, line := range l.lines(node) {
 		size, glyph := l.size(), dotGlyphEm
 		switch {
-		case i == 0:
+		case i < head:
 			glyph = dotBoldGlyphEm
-		case i == 1 && keyworded(node):
+		case i == head && keyworded(node):
 			size = l.keywordSize()
 		}
 		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
@@ -1196,12 +1210,12 @@ const dotFitFloor = 8
 // tall even at the floor is cut to the lines that fit and ellipsized.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	lines := l.lines(node)
-	size, head, fits := dotFitHead(lines[0], width, height, l.size())
+	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, l.size())
 	var parts labelParts
 	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
 	left := height - float64(len(head))*size*dotLineEm
-	for i := 1; fits && i < len(lines); i++ {
-		keyword := i == 1 && keyworded(node)
+	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
+		keyword := i == len(l.headLines(node)) && keyworded(node)
 		lineSize := size
 		if keyword {
 			lineSize = math.Round(size * l.keywordSize() / l.size())
@@ -1259,15 +1273,10 @@ func (l labeller) assemble(node *Node, parts labelParts) string {
 		title, strings.Join(parts.details, "<br/>"))
 }
 
-// dotFitHead wraps a head line into a box at the largest font size, from the
-// default down to the floor, at which it fits with its words whole, else at the
-// largest at which it fits with a word broken; when none does, the floor's
-// wrapping is cut to the lines the height holds, the last ellipsized.
-func dotFitHead(head string, width, height, from float64) (size float64, lines []string, fits bool) {
-	return dotFitText([]string{head}, dotBoldGlyphEm, width, height, from)
-}
-
-// dotFitText fits several lines of text into a box as dotFitHead fits one: each
+// dotFitText wraps lines of text into a box at the largest font size, from the
+// default down to the floor, at which they fit with their words whole, else at
+// the largest at which they fit with a word broken; when none does, the floor's
+// wrapping is cut to the lines the height holds, the last ellipsized. Each
 // entry is wrapped separately at the runes a glyph of the size holds and the
 // wrappings concatenated; a whole-word pass fails when any entry must break a
 // word.
@@ -1653,11 +1662,55 @@ func (w *dotWriter) noteLines(note Note) []string {
 	return lines
 }
 
-// writeNotes writes each note as a `shape=note` node, white under either skin,
-// pinned in its box when the drawing is positioned.
-func (w *dotWriter) writeNotes(notes []Note, depth int) {
+// noteLayers is the notes split at the z-order Graphviz paints in file order:
+// a note whose stated box encloses a drawn node's is written before the nodes,
+// behind them as a Cameo text box drawn as a group frame goes — an enclosing
+// frame ahead of the frames inside it; every other note is written after them,
+// on top, as a note inside a node's box stays.
+func (w *dotWriter) noteLayers() (under, over []int) {
+	for i := range w.notes {
+		if w.noteEnclosesNode(i) {
+			under = w.layerUnder(under, i)
+			continue
+		}
+		over = append(over, i)
+	}
+	return under, over
+}
+
+// layerUnder places note i before the first note whose box it encloses, so an
+// outer frame is painted before, and under, the frames inside it.
+func (w *dotWriter) layerUnder(under []int, i int) []int {
+	for at, j := range under {
+		if w.noteBoxes[i].encloses(w.noteBoxes[j]) {
+			return append(under[:at], append([]int{i}, under[at:]...)...)
+		}
+	}
+	return append(under, i)
+}
+
+// noteEnclosesNode reports whether the i-th note's stated box holds the box of
+// a node the drawing declares.
+func (w *dotWriter) noteEnclosesNode(i int) bool {
+	if i >= len(w.noteBoxes) || !w.noteBoxes[i].stated {
+		return false
+	}
+	box := w.noteBoxes[i]
+	for id, inner := range w.boxes {
+		if w.draws(id) && box.encloses(inner) {
+			return true
+		}
+	}
+	return false
+}
+
+// writeNotes writes each indexed note as a `shape=note` node, white under
+// either skin, pinned in its box when the drawing is positioned; top captions
+// the note at the top of its box, for a note written under nodes it frames.
+func (w *dotWriter) writeNotes(indices []int, depth int, top bool) {
 	indent := strings.Repeat("  ", depth)
-	for i, note := range notes {
+	for _, i := range indices {
+		note := w.notes[i]
 		attrs := []string{"shape=note"}
 		if w.skin.cameo {
 			attrs = append(attrs, "fillcolor="+dotQuote(cameoNoteFill), dotColorAttr(cameoLineColor))
@@ -1667,6 +1720,9 @@ func (w *dotWriter) writeNotes(notes []Note, depth int) {
 			box = &w.noteBoxes[i]
 		}
 		attrs = append(attrs, w.dotNoteLabel(note, box)...)
+		if top {
+			attrs = append(attrs, "labelloc=t")
+		}
 		if box != nil {
 			attrs = append(attrs, w.dotPin(box.centre()), "width="+dotInches(box.high.X-box.low.X), "height="+dotInches(box.high.Y-box.low.Y))
 			if box.stated {
@@ -1773,9 +1829,8 @@ const dotKeywordPointSize = 10
 // notes, one line each. A state's name is bold too, where the Pilot's is plain:
 // the label's extent estimate (dotLabelExtent) and the other forms are kept to.
 func (l labeller) dotLabel(node *Node) string {
-	lines := l.lines(node)
-	parts := labelParts{head: "<b>" + dotEscape(lines[0]) + "</b>"}
-	rest := lines[1:]
+	head, rest := l.head(node), l.lines(node)[len(l.headLines(node)):]
+	parts := labelParts{head: "<b>" + dotEscape(head) + "</b>"}
 	if keyworded(node) {
 		parts.keyword = l.sized(l.keywordSize(), l.keywordText(dotEscape(rest[0])))
 		rest = rest[1:]

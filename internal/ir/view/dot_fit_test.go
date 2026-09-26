@@ -76,7 +76,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	}
 }
 
-// The fitting estimates with the writer's glyph metrics: dotFitHead wraps a
+// The fitting estimates with the writer's glyph metrics: dotFitText wraps a
 // head at the runes a bold line of the size holds and picks the largest size
 // whose wrapped lines stack within the height, with every word whole where a
 // size down to the floor allows it.
@@ -98,9 +98,9 @@ func TestDOTFitHead(t *testing.T) {
 		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmn", "opqrst…"}, false},
 	}
 	for _, tc := range cases {
-		size, lines, fits := dotFitHead(tc.head, tc.width, tc.height, dotFontSize)
+		size, lines, fits := dotFitText([]string{tc.head}, dotBoldGlyphEm, tc.width, tc.height, dotFontSize)
 		if size != tc.size || fits != tc.fits || strings.Join(lines, "|") != strings.Join(tc.lines, "|") {
-			t.Errorf("dotFitHead(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
+			t.Errorf("dotFitText(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
 		}
 	}
 	for _, tc := range []struct {

@@ -32,6 +32,22 @@ package Elsewhere {
 	part def Y;
 }
 
+package Compartment {
+	part def Owner {
+		attribute a : Real;
+		attribute b : Real;
+		part leg;
+	}
+	part def Outer;
+}
+
+package Quoted {
+	action def 'First Line\nSecond Line';
+	part def 'It\'s';
+	part def 'back\\slash';
+	part def 'ctl\bx\fy\rz';
+}
+
 package PositionedViews {
 	private import Views::*;
 	private import DiagramLayout::*;
@@ -74,6 +90,52 @@ package PositionedViews {
 		expose Named::A::X;
 		expose Named::B::X;
 		metadata Layout about Named::A::X { x = 0; y = 0; }
+	}
+
+	// Boxes a and b inside Owner's box, where they draw as compartment rows;
+	// leg stands outside it, and Outer is a root of its own.
+	view compartmentView {
+		expose Compartment::Owner;
+		expose Compartment::Owner::a;
+		expose Compartment::Owner::b;
+		expose Compartment::Owner::leg;
+		expose Compartment::Outer;
+		metadata Layout about Compartment::Owner { x = 0; y = 0; width = 300; height = 200; }
+		metadata Layout about Compartment::Owner::a { x = 10; y = 30; width = 80; height = 16; }
+		metadata Layout about Compartment::Owner::b { x = 10; y = 50; width = 80; height = 16; }
+		metadata Layout about Compartment::Owner::leg { x = 350; y = 20; width = 60; height = 30; }
+		metadata Layout about Compartment::Outer { x = 450; y = 20; width = 80; height = 40; }
+	}
+
+	// The same owner and members with no position anywhere.
+	view unplacedCompartmentView {
+		expose Compartment::Owner;
+		expose Compartment::Owner::a;
+		expose Compartment::Owner::b;
+	}
+
+	// A stated note box round a node paints behind it; the small note stays on top.
+	view noteFrameView {
+		expose Compartment::Outer;
+		metadata Layout about Compartment::Outer { x = 20; y = 20; width = 60; height = 40; }
+		@Note { text = "frame"; x = 0; y = 0; width = 200; height = 120; }
+		@Note { text = "small"; x = 400; y = 400; width = 50; height = 30; }
+	}
+
+	// An inner frame note declared before the outer one still paints after it.
+	view nestedNoteFrameView {
+		expose Compartment::Outer;
+		metadata Layout about Compartment::Outer { x = 40; y = 40; width = 20; height = 20; }
+		@Note { text = "inner"; x = 20; y = 20; width = 100; height = 100; }
+		@Note { text = "outer"; x = 0; y = 0; width = 200; height = 200; }
+	}
+
+	// Quoted names whose escapes decode in the label.
+	view escapedView {
+		expose Quoted::'First Line\nSecond Line';
+		expose Quoted::'It\'s';
+		expose Quoted::'back\\slash';
+		expose Quoted::'ctl\bx\fy\rz';
 	}
 
 	// Leaves the first exposed element unplaced: the frame header names the
