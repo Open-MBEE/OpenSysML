@@ -172,6 +172,7 @@ nav:
       - guide/09-clients.md
       - guide/10-troubleshooting.md
       - guide/11-migrating-from-sysml-v1.md
+      - guide/modeling-fleets.md
   - Document generation:
       - manual/README.md
       - Introduction and concepts: manual/introduction.md

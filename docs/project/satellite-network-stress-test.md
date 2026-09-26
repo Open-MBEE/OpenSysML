@@ -19,7 +19,7 @@ smallest models carry ±30% of noise from the machine, which the trend does not.
 
 ```bash
 go run -C tools ./cmd/stress-model -planes 8 -satellites 25 -ground-stations 20 -stats > constellation.sysml
-# satellites=200 ground-stations=20 components=4080 connections=3175 requirements=600 elements=37552 bytes=2297852
+# satellites=200 definitions=200 units=200 ground-stations=20 components=4080 connections=3175 requirements=600 assertions=600 elements=37552 bytes=2297852
 sysml -validate -memstats constellation.sysml
 sysml -satisfy -memstats constellation.sysml
 ```
@@ -226,6 +226,126 @@ per-document work was about 10 s of 128 s on one job. The per-document gather
 cache (`passes.Gathers`) removed the quadratic term for the editor path, and
 handing one such gather to a batch's workers removed it for the command line.
 
+## The same constellation as a fleet
+
+Everything above declares a `part def` per satellite. The generator's
+`-fleet` form states the same constellation the way a fleet is engineered
+— a few spacecraft blocks carrying the as-built values as defaults, each
+orbital plane as `part sats : Block[N] ordered`, as-built values only on the
+units that diverge from their block (every sixteenth), the ring link as one
+connector over the collection, one inter-plane link per adjacent pair of
+planes and one downlink per plane and station — the collection connectors
+with `[1]` ends, so each link joins one satellite to one satellite or
+station, though not which to which — and the three requirements
+declared once per block and asserted on the block's configuration and on
+every diverging unit. `-stats` reports both forms alike; the new fields are
+the spacecraft definitions, the units that state values of their own, and the
+satisfy assertions, which in the fleet form outnumber the requirements by
+three per unit.
+The guide chapter [modeling fleets](../guide/modeling-fleets.md) shows the
+source of both forms.
+
+```bash
+go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -stats > legacy.sysml
+# satellites=12800 definitions=12800 units=12800 ground-stations=20 components=256080 connections=204400 requirements=38400 assertions=38400 elements=2354827 bytes=145364954
+go run -C tools ./cmd/stress-model -planes 32 -satellites 400 -ground-stations 20 -fleet -stats > fleet.sysml
+# satellites=12800 definitions=4 units=800 ground-stations=20 components=960 connections=724 requirements=12 assertions=2412 elements=12467 bytes=770621
+```
+
+| satellites | planes × per plane | form | definitions | units | elements | source | `-validate` wall | allocated | peak RSS |
+| ---------- | ------------------ | ---- | ----------- | ----- | -------- | ------ | ---------------- | --------- | -------- |
+| 1 600 | 8 × 200 | one definition per satellite | 1 600 | 1 600 | 294 627 | 18.1 MB | 22.7 s | 6.2 GiB | 2.5 GB |
+| 1 600 | 8 × 200 | fleet | 4 | 104 | 3 203 | 193 KB | 0.22 s | 102 MiB | 108 MB |
+| 12 800 | 32 × 400 | one definition per satellite | 12 800 | 12 800 | 2 354 827 | 145 MB | 331 s | 49.8 GiB | 20.3 GB |
+| 12 800 | 32 × 400 | fleet | 4 | 800 | 12 467 | 771 KB | 0.70 s | 289 MiB | 184 MB |
+
+The single-definition rows here are the plane and station layout the fleet
+uses, so the two forms describe the same planes and stations; the validation table above
+(299 137 and 2 392 417 elements, 19.0 s and 318 s) was taken over a layout
+with a different split into planes and stations, and so slightly more links
+and station components. The fleet form
+declares **190 times fewer elements** at 12 800 satellites and validates in
+0.70 s and 184 MB rather than 331 s and 20.3 GB: validation is a function of
+what the source declares, and the fleet source is the size of four
+spacecraft, twenty stations and the links between thirty-two planes.
+
+What the current runtime does with the 12 800 occurrences, on the same
+machine:
+
+| satellites | operation | wall | allocated | peak RSS |
+| ---------- | --------- | ---- | --------- | -------- |
+| 1 600 | `-instantiate` the network | 0.44 s | 238 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666 MiB | 306 MB |
+| 1 600 | `%eval` of `plane<i>.sats.dryMass`, all 8 planes | 1.85 s | 2.9 GiB | 737 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB |
+| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 42.7 s | 141.3 GiB | 5.2 GB |
+
+The runtime shares one shape — the effective feature list `FeaturesOf`
+caches per type — between the occurrences of a block, and nothing else: each
+occurrence is an object with a value slot per feature, materialized lazily.
+Instantiating the network is therefore linear and cheap (about 60 KB per
+occurrence; the walk of the created object's feature values stops at the
+materialization budget and says so). Checking is not: a `satisfy` on a unit
+reads the unit through the network object, evaluates its summed mass and
+power — materializing its subsystems and components and starting their
+behaviors — and then drains the behaviors every object of the network runs,
+so each check costs more the more of the fleet earlier checks have touched
+(2 MiB allocated per assertion in a network of 8 planes, 10 MiB in one of
+32 planes): the cost is in evaluating the requirements' expressions, in
+starting the behaviors of the parts that evaluation materializes, and in
+polling the running mode machines. Reading one summed attribute over every
+occurrence evaluates it over the full tree of each — the cost the
+single-definition form paid at validation, paid here at the first read.
+
+Three limits of the current language and runtime shape the fleet form:
+
+- A connector end is a feature chain, so the fleet form cannot write the
+  single-definition form's pairing — `ring<i>To<i+1>` closing each plane,
+  `plane<i>To<j>` between the same slots of adjacent planes, `downlink<i>To<k>`
+  to station `i mod G` — without naming every occurrence. It declares one
+  connector over each collection instead, and the runtime realizes that as
+  one link whose ends hold the collections (`%eval network.plane0.ring.a`
+  is every transmitter of the plane), whatever the `[1]` ends declare. The
+  topology the two forms state is therefore not the same: the fleet says
+  each satellite is linked within its plane, to the next plane and to the
+  stations, not to which neighbour or station.
+
+- A `satisfy` whose subject is a collection (`satisfy blockAMass by
+  plane0.sats`) is rejected — the subject must denote one object — so the
+  fleet asserts each requirement on the block's configuration, which stands
+  for every occurrence inheriting the block's values, and on each diverging
+  unit.
+- A collection whose lower bound exceeds 1 000 (`maxMaterializedLowerBound`)
+  is not materialized: a plane of `Spacecraft[1600]` validates, but checking
+  a unit of it reports `multiplicity violation: lower bound too large or
+  infinite`. The 12 800-satellite fleet is therefore 32 planes of 400.
+
+`BenchmarkFleetInstantiate` and `BenchmarkFleetSatisfy` in
+`tests/stressmodel` measure, warm, instantiating the fleet network and
+reading `sats.dryMass` over four planes, and re-checking every assertion:
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
+```
+
+| satellites | elements | instantiate + read four planes | per satellite | allocated | assertions | warm re-check | allocated |
+| ---------- | -------- | ------------------------------ | ------------- | --------- | ---------- | ------------- | --------- |
+| 32 | 1 179 | 29 ms | 0.9 ms | 18.4 MiB | 24 | 0.9 ms | 0.5 MiB |
+| 128 | 1 715 | 87 ms | 0.7 ms | 93.1 MiB | 36 | 1.2 ms | 1.0 MiB |
+| 512 | 3 947 | 460 ms | 0.9 ms | 882 MiB | 108 | 8.5 ms | 7.3 MiB |
+
+Warm, instantiating a fleet and reading a summed attribute over its
+occurrences costs **about 1 ms and 1.7 MiB per satellite** — of the order
+of the per-satellite cost of a cold `-satisfy` over the single-definition
+form — because every
+occurrence's component tree is still materialized to evaluate the sum. What
+would change that is sparse per-occurrence values and verification over
+distinct shapes ([scaling to very large models](large-model-scaling-design.md),
+one definition, many occurrences): an occurrence whose feature holds its
+block's default storing nothing for it, and a check over N occurrences that
+read only block-level values evaluating once.
+
 ## Editing: what an editor pays per keystroke
 
 An editor does not validate once; it re-validates the open file after every
@@ -264,7 +384,9 @@ frame in the resolver, its memoized semantics and its gathered facts stay.
 
 The worst edit is to a document everything else depends on. `Split` writes the
 same network as one document per plane beside the library they build on and
-the constellation joining them (six files at these sizes); `BenchmarkLoadFiles`
+the constellation joining them (six files at these sizes; the fleet form, whose
+planes are members of the network, splits into the library and the
+constellation alone); `BenchmarkLoadFiles`
 opens and analyzes every file through one workspace, and `BenchmarkEditImported`
 edits the library and then asks every file for its diagnostics, as the editor's
 refresh sweep does:
@@ -373,9 +495,12 @@ the interactive band at every operation measured.
 - Most figures are for the whole constellation as one file. The split by
   plane is measured above at two sizes only; an editor also pays the per-file
   analysis once per open file.
-- `-satisfy` instantiates each satellite's tree on its own; it does not
-  instantiate the whole `Network` as one object with 12 800 satellites and
-  their links, and no figure here says what that would cost.
+- `-satisfy` over the single-definition form instantiates each satellite's
+  tree on its own; it does not instantiate the whole `Network` as one object
+  with 12 800 satellites and their links. Only the fleet section
+  instantiates the network whole, and its occurrences are lazily materialized
+  objects whose component trees are read only where a check or an
+  evaluation reaches them.
 - Runtime execution is a mode machine driven to its initial state per
   instantiation, not a long simulation with events. Event throughput is
   measured separately in `docs/project/execution-performance-2026-09.md`.

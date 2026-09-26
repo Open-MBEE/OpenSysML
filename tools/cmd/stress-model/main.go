@@ -1,5 +1,7 @@
 // Command stress-model writes a large generated satellite-network model to stdout,
-// or one file per orbital plane; see docs/project/satellite-network-stress-test.md.
+// or one file per orbital plane, with one definition per satellite or, with -fleet,
+// as occurrences of a few spacecraft blocks. See docs/project/satellite-network-stress-test.md
+// and docs/guide/modeling-fleets.md.
 package main
 
 import (
@@ -20,6 +22,7 @@ func main() {
 	planes := flag.Int("planes", 4, "orbital planes in the constellation")
 	perPlane := flag.Int("satellites", 8, "satellites in each orbital plane")
 	stations := flag.Int("ground-stations", 3, "ground stations the constellation downlinks to")
+	fleet := flag.Bool("fleet", false, "declare each plane as occurrences of one spacecraft block rather than one definition per satellite")
 	stats := flag.Bool("stats", false, "report on stderr what the model declares")
 	split := flag.String("split-planes", "", "write one .sysml per orbital plane, beside the library and the constellation, into this directory instead of stdout")
 	flag.Parse()
@@ -31,7 +34,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "stress-model: -planes and -satellites must be at least 1 and -ground-stations at least 0")
 		os.Exit(2)
 	}
-	n := stressmodel.SatelliteNetwork{Planes: *planes, Satellites: *perPlane, GroundStations: *stations}
+	n := stressmodel.SatelliteNetwork{Planes: *planes, Satellites: *perPlane, GroundStations: *stations, Fleet: *fleet}
 	var (
 		s   stressmodel.Stats
 		err error
@@ -46,8 +49,8 @@ func main() {
 		os.Exit(1)
 	}
 	if *stats {
-		fmt.Fprintf(os.Stderr, "satellites=%d ground-stations=%d components=%d connections=%d requirements=%d elements=%d bytes=%d\n",
-			s.Satellites, s.GroundStations, s.Components, s.Connections, s.Requirements, s.Elements, s.Bytes)
+		fmt.Fprintf(os.Stderr, "satellites=%d definitions=%d units=%d ground-stations=%d components=%d connections=%d requirements=%d assertions=%d elements=%d bytes=%d\n",
+			s.Satellites, s.Definitions, s.Units, s.GroundStations, s.Components, s.Connections, s.Requirements, s.Assertions, s.Elements, s.Bytes)
 	}
 }
 
