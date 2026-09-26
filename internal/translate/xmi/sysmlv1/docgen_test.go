@@ -333,3 +333,76 @@ func TestDocGenViewTreeEntersACompositeAfterAReference(t *testing.T) {
 		t.Errorf("%d stray paragraphs, want none", len(m.StrayParagraphs))
 	}
 }
+
+// A paragraph's predecessor tag is kept as written: one naming a paragraph of
+// the view places it as a follower; one of the publisher's generated-item form
+// is read into its anchor kind and target; any other heads the order unanchored.
+func TestDocGenParagraphAnchors(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi"
+         xmlns:Document_View_Collaborator_Profile="http://www.magicdraw.com/schemas/manual/Document_View_Collaborator_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_sec" name="sec" type="_view_sec" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_view_sec" name="Sec">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_intro" body="intro"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_after" body="after the figure"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_next" body="next"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_other" body="after an unknown item"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_c_gone" body="after a gone paragraph"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <sysml:View xmi:id="_st_sec" base_Class="_view_sec"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_intro" base_Element="_c_intro" documentId="mms-1" viewId="_doc" ownerId="_view_sec"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_after" base_Element="_c_after" documentId="mms-1" viewId="_doc" ownerId="_view_sec" siblingId="Containment_DiagramMainImage__d1"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_next" base_Element="_c_next" documentId="mms-1" viewId="_doc" ownerId="_view_sec" siblingId="_c_after"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_other" base_Element="_c_other" documentId="mms-1" viewId="_doc" ownerId="_view_sec" siblingId="Containment_TableMainImage__t1"/>
+  <Document_View_Collaborator_Profile:CollaboratorParagraph xmi:id="_st_gone" base_Element="_c_gone" documentId="mms-1" viewId="_doc" ownerId="_view_sec" siblingId="_2022x_1_gone"/>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sec := m.Documents[0].Root.Children[0]
+	got := map[string]*DocGenParagraph{}
+	for _, p := range sec.Paragraphs {
+		got[p.Comment.ID] = p
+	}
+	if len(got) != 5 {
+		t.Fatalf("%d paragraphs, want 5", len(got))
+	}
+	cases := []struct {
+		id, predecessor string
+		anchor          *DocGenAnchor
+		placed          bool
+	}{
+		{"_c_intro", "", nil, false},
+		{"_c_after", "Containment_DiagramMainImage__d1", &DocGenAnchor{Kind: DiagramMainImage, Target: "d1"}, false},
+		{"_c_next", "_c_after", nil, true},
+		{"_c_other", "Containment_TableMainImage__t1", &DocGenAnchor{Kind: "TableMainImage", Target: "t1"}, false},
+		{"_c_gone", "_2022x_1_gone", nil, false},
+	}
+	for _, c := range cases {
+		p := got[c.id]
+		if p.Predecessor != c.predecessor {
+			t.Errorf("%s: Predecessor = %q, want %q", c.id, p.Predecessor, c.predecessor)
+		}
+		if p.Placed != c.placed {
+			t.Errorf("%s: Placed = %v, want %v", c.id, p.Placed, c.placed)
+		}
+		switch {
+		case c.anchor == nil && p.Anchor != nil:
+			t.Errorf("%s: Anchor = %+v, want none", c.id, *p.Anchor)
+		case c.anchor != nil && (p.Anchor == nil || *p.Anchor != *c.anchor):
+			t.Errorf("%s: Anchor = %+v, want %+v", c.id, p.Anchor, *c.anchor)
+		}
+	}
+	for i, p := range sec.Paragraphs {
+		if p.Comment.ID == "_c_next" && sec.Paragraphs[i-1].Comment.ID != "_c_after" {
+			t.Errorf("_c_next follows %s, want _c_after", sec.Paragraphs[i-1].Comment.ID)
+		}
+	}
+}

@@ -107,6 +107,15 @@ func (m *migration) unplacedTables() {
 	}
 }
 
+// tablePart writes a DocumentQueries::Table part named name under host,
+// captioned caption, whose rows the query rows (a reference) computes.
+func (m *migration) tablePart(host *sysmlv1.Element, name, caption, rows string) {
+	m.blockPart(host, name, "Table", nil, func() {
+		m.w.line("attribute redefines caption = " + stringLiteral(caption) + ";")
+		m.w.line("calc rows : " + rows + ";")
+	})
+}
+
 // writeTable writes a table definition as a query and a Document holding one
 // Table over it, or as a comment when the definition has no query form.
 func (m *migration) writeTable(td *tableDoc) {
@@ -123,10 +132,7 @@ func (m *migration) writeTable(td *tableDoc) {
 	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
 		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
 			m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
-			m.blockPart(host, "rows", "Table", nil, func() {
-				m.w.line("attribute redefines caption = " + stringLiteral(td.title) + ";")
-				m.w.line("calc rows : " + m.siblingRef(host, td.query) + ";")
-			})
+			m.tablePart(host, "rows", td.title, m.siblingRef(host, td.query))
 		})
 	})
 	note := "the «" + kind + "» is written as a Document holding a Table over the query " + writeName(td.query)

@@ -435,7 +435,8 @@ func TestMigratedDocumentsRender(t *testing.T) {
 // A view's own documentation opens its section, before what its method
 // produces, as DocGen prints it: at every depth, tool HTML reduced to text,
 // once when the same comment is also one of the view's collaborator paragraphs,
-// and not at all for a view that has none.
+// and not at all for a view that has none. A collaborator paragraph following
+// nothing comes right after it, before the method's content, refused or not.
 func TestViewDocumentationOpensItsSection(t *testing.T) {
 	r := migrateFixtureFile(t, "documents")
 	notation := string(r.Notation)
@@ -458,10 +459,10 @@ func TestViewDocumentationOpensItsSection(t *testing.T) {
 		`attribute redefines title = "Introduction";`,
 		"part paragraph : DocumentQueries::Paragraph {",
 		`attribute redefines text = "The fleet, in brief.";`,
+		`/* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */`,
 		`attribute redefines caption = "Fleet Parts";`,
 		"part 'paragraph 2' : DocumentQueries::Paragraph {",
-		`attribute redefines text = "The parts of the fleet, by name.";`,
-		`/* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */`)
+		`attribute redefines text = "The parts of the fleet, by name.";`)
 	if es := entriesFor(r, "_st_intro_named"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
 		t.Errorf("a malformed collaborator over the view's documentation should be refused, and only refused: %+v", es)
 	}

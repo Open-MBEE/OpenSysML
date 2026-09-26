@@ -62,6 +62,35 @@ type sectionPlan struct {
 	names columnNames
 	// refused says why the method produced nothing, when it was refused whole.
 	refused string
+	// figures marks where the section drew, left out or refused the figure of
+	// each diagram, for the paragraphs anchored to them.
+	figures []figureMark
+}
+
+// figureMark is the index in a section's content after everything the
+// figure of the diagram d produced.
+type figureMark struct {
+	d  *sysmlv1.Diagram
+	at int
+}
+
+// mark records that the figure of d ends at the current end of the content.
+func (sec *sectionPlan) mark(d *sysmlv1.Diagram) {
+	sec.figures = append(sec.figures, figureMark{d: d, at: len(sec.content)})
+}
+
+// insert puts blocks into the content at index at, moving the figure marks
+// beyond it along.
+func (sec *sectionPlan) insert(at int, blocks ...*contentPlan) {
+	if len(blocks) == 0 {
+		return
+	}
+	sec.content = slices.Insert(sec.content, at, blocks...)
+	for i := range sec.figures {
+		if sec.figures[i].at >= at {
+			sec.figures[i].at += len(blocks)
+		}
+	}
 }
 
 // contentPlan is one content block a presentation node produces, or the
@@ -91,6 +120,15 @@ type contentPlan struct {
 	source  *view
 	anchor  *anchor
 	section *sectionPlan
+	// diagram is the diagram a figure stands for, drawn, left out or refused,
+	// so a paragraph anchored to the figure finds its place.
+	diagram *sysmlv1.Diagram
+	// table is the table definition an embedded Table shares its row query
+	// with; the query is written beside the definition's view, not the document.
+	table *tableDoc
+	// app is the application the block is reported under; the node's DocGen
+	// application when nil.
+	app     *sysmlv1.Stereotype
 	notes   []string
 	refused string
 	// target is the block's qualified name once written, for its report row.
@@ -190,17 +228,26 @@ func claimed(sec *sectionPlan, into columnNames) {
 	}
 }
 
-// planSection opens a section with its view's documentation, lowers the view's
-// method into the section's content, then plans its child views as sections
-// after the content, in declaration order.
+// planSection opens a section with its view's documentation and the
+// collaborator paragraphs that follow nothing, lowers the view's method into
+// the section's content, places the paragraphs anchored to that content, then
+// plans its child views as sections after the content, in declaration order.
 func (m *migration) planSection(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
 	dp.notes = append(dp.notes, v.Malformed...)
 	m.viewDocumentation(sec)
-	m.planMethod(dp, sec)
-	for _, p := range v.Paragraphs {
-		sec.content = append(sec.content, m.collaboratorParagraph(sec, p))
+	var anchored [][]*sysmlv1.DocGenParagraph
+	for _, g := range paragraphGroups(v.Paragraphs) {
+		if g[0].Predecessor != "" {
+			anchored = append(anchored, g)
+			continue
+		}
+		for _, p := range g {
+			sec.content = append(sec.content, m.collaboratorParagraph(sec, p))
+		}
 	}
+	m.planMethod(dp, sec)
+	m.placeParagraphs(sec, anchored)
 	for _, child := range v.Children {
 		title := strings.TrimSpace(child.Class.Name)
 		if title == "" {
@@ -213,15 +260,137 @@ func (m *migration) planSection(dp *docPlan, sec *sectionPlan) {
 	}
 }
 
+// paragraphGroups splits a view's paragraphs, which the reader ordered, into
+// runs of a paragraph that follows no other paragraph and the ones following it.
+func paragraphGroups(paragraphs []*sysmlv1.DocGenParagraph) [][]*sysmlv1.DocGenParagraph {
+	var groups [][]*sysmlv1.DocGenParagraph
+	for _, p := range paragraphs {
+		if p.Placed && len(groups) > 0 {
+			groups[len(groups)-1] = append(groups[len(groups)-1], p)
+			continue
+		}
+		groups = append(groups, []*sysmlv1.DocGenParagraph{p})
+	}
+	return groups
+}
+
+// placeParagraphs puts each run of anchored paragraphs after the figure its
+// head's anchor names, where the section drew, left out or refused it; a run
+// whose anchor finds no figure follows the section's content. The head notes
+// any placement its anchor did not decide alone.
+func (m *migration) placeParagraphs(sec *sectionPlan, groups [][]*sysmlv1.DocGenParagraph) {
+	unresolved := map[string]bool{}
+	for _, g := range groups {
+		a := g[0].Anchor
+		if a == nil || a.Kind != sysmlv1.DiagramMainImage || m.model.Diagram(a.Target) != nil {
+			continue
+		}
+		if in, _ := m.findFigure(sec, a.Target); in == nil {
+			unresolved[a.Target] = true
+		}
+	}
+	for _, g := range groups {
+		blocks := make([]*contentPlan, len(g))
+		for i, p := range g {
+			blocks[i] = m.collaboratorParagraph(sec, p)
+		}
+		in, at, note := m.anchorPlace(sec, g[0], len(unresolved))
+		if note != "" {
+			blocks[0].notes = append(blocks[0].notes, note)
+		}
+		if in == nil {
+			sec.content = append(sec.content, blocks...)
+			continue
+		}
+		in.insert(at, blocks...)
+	}
+}
+
+// anchorPlace finds where the paragraph p's anchor puts it: the section and
+// index after the figure of the diagram the anchor names, deduced to be the
+// section's only figure when the anchor names no diagram of the model and no
+// other anchor is as unresolved, which the note says. A nil section says the
+// paragraph follows the content instead, and why.
+func (m *migration) anchorPlace(sec *sectionPlan, p *sysmlv1.DocGenParagraph, unresolved int) (in *sectionPlan, at int, note string) {
+	tag := strconv.Quote(p.Predecessor)
+	follows := ", so the paragraph follows the section's generated content"
+	a := p.Anchor
+	switch {
+	case a == nil:
+		return nil, 0, "its predecessor tag " + tag + " names neither another paragraph of the view nor a figure" + follows
+	case a.Kind != sysmlv1.DiagramMainImage:
+		return nil, 0, "its anchor " + tag + " names an item of the kind " + a.Kind + ", which the migration does not place" + follows
+	}
+	if in, f := m.findFigure(sec, a.Target); in != nil {
+		return in, f.at, ""
+	}
+	if d := m.model.Diagram(a.Target); d != nil {
+		return nil, 0, "its anchor names the figure of the " + diagramKind(d) + " '" + d.Name + "', which the section's method does not draw" + follows
+	}
+	figures := m.figures(sec)
+	switch {
+	case len(figures) == 0:
+		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws no figure" + follows
+	case len(figures) > 1:
+		return nil, 0, "its anchor " + tag + " names no diagram of the model, and the section draws " + strconv.Itoa(len(figures)) + " figures" + follows
+	case unresolved > 1:
+		return nil, 0, "its anchor " + tag + " names no diagram of the model, as do " + strconv.Itoa(unresolved-1) + " other anchors in the section" + follows
+	}
+	in, f := figures[0].in, figures[0].mark
+	return in, f.at, "its anchor " + tag + " names no diagram of the model; the paragraph is placed after the section's only figure, of the " + diagramKind(f.d) + " '" + f.d.Name + "'"
+}
+
+// placedFigure is a figure mark with the section it is in.
+type placedFigure struct {
+	in   *sectionPlan
+	mark figureMark
+}
+
+// figures lists the figure marks of sec and the sections nested in its content.
+func (m *migration) figures(sec *sectionPlan) []placedFigure {
+	var out []placedFigure
+	for _, f := range sec.figures {
+		out = append(out, placedFigure{sec, f})
+	}
+	for _, cp := range sec.content {
+		if cp.section != nil {
+			out = append(out, m.figures(cp.section)...)
+		}
+	}
+	return out
+}
+
+// findFigure finds the figure mark of the diagram with id in sec or a section
+// nested in its content; nil when none.
+func (m *migration) findFigure(sec *sectionPlan, id string) (*sectionPlan, *figureMark) {
+	for i := range sec.figures {
+		if sec.figures[i].d.ID == id {
+			return sec, &sec.figures[i]
+		}
+	}
+	for _, cp := range sec.content {
+		if cp.section != nil {
+			if in, f := m.findFigure(cp.section, id); in != nil {
+				return in, f
+			}
+		}
+	}
+	return nil, nil
+}
+
 // planMethod walks the activity chain of the view's viewpoint method into
-// content blocks; a view without a method contributes only its structure,
-// unless its viewpoint's method tag names something that is not one.
+// content blocks. A view conforming to no viewpoint gets DocGen's default
+// behavior instead; one whose viewpoint's method tag names something that is
+// not a method is refused.
 func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
 	if v.Method == nil {
-		if v.MethodMalformed != "" {
+		switch {
+		case v.MethodMalformed != "":
 			sec.refused = "the viewpoint " + qualifiedName(v.Viewpoint) + "'s method is not migrated: " + v.MethodMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Viewpoint, v.Viewpoint.Stereotype("Viewpoint"), Unmapped, sec.refused))
+		case v.Viewpoint == nil:
+			m.defaultView(dp, sec)
 		}
 		return
 	}
@@ -234,6 +403,61 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c := &chain{m: m, dp: dp, sec: sec, active: []*sysmlv1.Element{v.Method}}
 	c.start(v)
 	c.run(steps)
+}
+
+// defaultView applies what DocGen does for a view conforming to no viewpoint
+// (MDK's DocumentGenerator.parseView): a view that is itself a diagram shows
+// its own figure; any other shows, after its documentation, the figure of
+// each diagram it exposes in order — a table for a table diagram — and
+// nothing for an exposed element that is not a diagram.
+func (m *migration) defaultView(dp *docPlan, sec *sectionPlan) {
+	v := sec.v
+	origin := "the view " + qualifiedName(v.Class) + " conforms to no viewpoint, so DocGen's default behavior applies"
+	f := figureOf{node: v.Class, app: viewApplication(v.Class), label: "«View» " + v.Class.Type, origin: origin}
+	if d := m.model.Diagram(v.Class.ID); d != nil {
+		f.title = strings.TrimSpace(d.Name)
+		m.figure(dp, sec, f, d)
+		m.note(v.Class, origin+": the view is the "+diagramKind(d)+" '"+d.Name+"', so it shows its own figure")
+		return
+	}
+	var drew, skipped []string
+	for _, ref := range v.Exposed {
+		if d := m.model.Diagram(ref.ID); d != nil {
+			f.title = strings.TrimSpace(d.Name)
+			m.figure(dp, sec, f, d)
+			drew = append(drew, "the "+diagramKind(d)+" '"+d.Name+"'")
+			continue
+		}
+		if ref.Element == nil {
+			skipped = append(skipped, "the id "+strconv.Quote(ref.ID)+", which resolves to no element")
+			continue
+		}
+		skipped = append(skipped, "the "+kindOf(ref.Element)+" "+qualifiedName(ref.Element))
+	}
+	var shows []string
+	if len(drew) > 0 {
+		shows = append(shows, "after the view's documentation it shows "+strings.Join(drew, ", "))
+	}
+	switch n := len(skipped); {
+	case n == 1:
+		shows = append(shows, "it shows nothing for "+skipped[0]+", which is exposed but is not a diagram")
+	case n == 2:
+		shows = append(shows, "it shows nothing for "+skipped[0]+" and "+skipped[1]+", which are exposed but are not diagrams")
+	case n > 2:
+		shows = append(shows, fmt.Sprintf("it shows nothing for the %d exposed elements that are not diagrams (%s, %s and %d more)", n, skipped[0], skipped[1], n-2))
+	}
+	if len(shows) > 0 {
+		m.note(v.Class, origin+": "+strings.Join(shows, "; "))
+	}
+}
+
+// viewApplication is the View application on a view class, of SysML or of
+// the DocGen profile, under which what the view itself shows is reported.
+func viewApplication(class *sysmlv1.Element) *sysmlv1.Stereotype {
+	if s := class.Stereotype("View"); s != nil {
+		return s
+	}
+	return class.DocGen()
 }
 
 // viewDocumentation opens the section with the view's own documentation, unless a
@@ -1831,9 +2055,7 @@ func (c *chain) captionText(s *sysmlv1.DocGenStep, i int) string {
 // captionParagraph plans the Paragraph holding a block's caption, which a
 // document prints under the block; note says whose caption it is.
 func (c *chain) captionParagraph(s *sysmlv1.DocGenStep, note, text string) {
-	cp := &contentPlan{kind: "Paragraph", node: s.Node, label: "«" + c.kind(s) + "» " + s.Node.Type, text: text, origin: note}
-	cp.name = c.sec.names.claim("paragraph")
-	c.sec.content = append(c.sec.content, cp)
+	c.m.captionParagraph(c.sec, figureOf{node: s.Node, app: s.Application, label: "«" + c.kind(s) + "» " + s.Node.Type}, note, text)
 }
 
 // block plans a query-backed block: its query name is reserved in the
@@ -2031,10 +2253,10 @@ func (c *chain) paragraph(s *sysmlv1.DocGenStep) {
 	c.block(s, "Paragraph", c.caption(s, "Paragraph"), qcall("Project", qarg1("source", c.ctx), qstrs("properties", prop)))
 }
 
-// image lowers an Image: one Diagram block per diagram among the current
-// elements, showing its migrated view, captioned by the diagram's title and
-// followed by its caption paragraph when DocGen shows captions. A chain whose
-// diagrams are not all known draws none: a partial set would pass for the whole.
+// image lowers an Image: one figure per diagram among the current elements,
+// captioned by the diagram's title and followed by its caption paragraph when
+// DocGen shows captions. A chain whose diagrams are not all known draws none:
+// a partial set would pass for the whole.
 func (c *chain) image(s *sysmlv1.DocGenStep) {
 	if c.broken != "" {
 		c.refuse(s, "the diagrams it shows pass through "+c.broken)
@@ -2050,92 +2272,166 @@ func (c *chain) image(s *sysmlv1.DocGenStep) {
 	}
 	titles := s.Application.Tags["titles"]
 	for i, d := range c.diagrams {
-		v := c.m.viewOf[d]
-		if v == nil || !v.placed {
-			c.refuse(s, "the Diagram '"+d.Name+"' is not written as a view")
-			continue
-		}
-		form, why := c.m.form(d)
-		if form.rendering == textualRendering {
-			c.refuse(s, joinNotes("the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw", why))
-			continue
-		}
-		if empty := c.m.emptyView(v, form); empty != "" {
-			if c.noteImage(s, i, d, titles) {
-				continue
-			}
-			note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
-			verdict := Approximated
-			if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
-				verdict = Mapped
-			}
-			if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && c.m.imageBase == nil {
-				note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
-			}
-			if text := c.captionText(s, i); text != "" {
-				note += "; its caption stands alone"
-				c.captionParagraph(s, "the paragraph is the caption of the figure left out for the diagram '"+d.Name+"'", text)
-			}
-			c.m.report.Entries = append(c.m.report.Entries, *c.m.nodeEntry(s.Node, s.Application, verdict, note))
-			continue
-		}
-		def, _, why := c.m.viewSteps(v)
-		if why != "" {
-			c.refuse(s, why)
-			continue
-		}
-		cp := &contentPlan{kind: "Diagram", node: s.Node, label: "«Image» " + s.Node.Type, source: v}
-		if def != nil {
-			cp.anchor = c.dp.anchor(def)
-		}
 		title := strings.TrimSpace(d.Name)
 		if i < len(titles) && strings.TrimSpace(titles[i]) != "" {
 			title = strings.TrimSpace(titles[i])
 		}
-		cp.caption = c.title(s, title)
-		cp.name = c.sec.names.claim("diagram")
-		c.sec.content = append(c.sec.content, cp)
-		if text := c.captionText(s, i); text != "" {
-			c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
-		}
+		f := figureOf{node: s.Node, app: s.Application, label: "«" + c.kind(s) + "» " + s.Node.Type, title: c.title(s, title), text: c.captionText(s, i)}
+		c.m.figure(c.dp, c.sec, f, d)
 	}
+}
+
+// figureOf is what a section asks for when it draws a diagram: the node
+// asking and the application it is reported under, the title DocGen prints
+// as the caption, the caption paragraph under it, and origin, said of what is
+// written when the figure is not a step's.
+type figureOf struct {
+	node   *sysmlv1.Element
+	app    *sysmlv1.Stereotype
+	label  string
+	title  string
+	text   string
+	origin string
+}
+
+// figure plans what a section shows for the diagram d: the Table of its
+// table definition when that is written (and a refusal, never a listing of
+// the view's elements, when it is not), else a Diagram of its view, else the
+// Image its note carries, else nothing when the view would be empty. The
+// caption paragraph follows, and the place is marked for the paragraphs
+// anchored to the figure.
+func (m *migration) figure(dp *docPlan, sec *sectionPlan, f figureOf, d *sysmlv1.Diagram) {
+	defer sec.mark(d)
+	v := m.viewOf[d]
+	if v == nil || !v.placed {
+		m.refuseFigure(sec, f, d, "the Diagram '"+d.Name+"' is not written as a view")
+		return
+	}
+	if len(v.tables) > 0 {
+		for _, td := range v.tables {
+			m.tableFigure(sec, f, td)
+		}
+		return
+	}
+	form, why := m.form(d)
+	if form.rendering == textualRendering {
+		m.refuseFigure(sec, f, d, joinNotes("the "+diagramKind(d)+" '"+d.Name+"' is a view rendered as textual notation, which a document does not draw", why))
+		return
+	}
+	if empty := m.emptyView(v, form); empty != "" {
+		if m.noteImage(sec, f, d) {
+			return
+		}
+		note := "no Diagram shows the " + diagramKind(d) + " '" + d.Name + "': " + empty + ", so the figure would be empty and is left out"
+		verdict := Approximated
+		if d.Drawn && len(d.Shown) == 0 && len(d.Free) == 0 {
+			verdict = Mapped
+		}
+		if src, _, _ := firstImg(d.Documentation); src != "" && serverImagePath(src) && m.imageBase == nil {
+			note += "; the note's image " + strconv.Quote(src) + " is served by the View Editor; pass -image-base-url to show it"
+		}
+		if f.text != "" {
+			note += "; its caption stands alone"
+			m.captionParagraph(sec, f, "the paragraph is the caption of the figure left out for the diagram '"+d.Name+"'", f.text)
+		}
+		m.report.Entries = append(m.report.Entries, *m.nodeEntry(f.node, f.app, verdict, joinNotes(f.origin, note)))
+		return
+	}
+	def, _, why := m.viewSteps(v)
+	if why != "" {
+		m.refuseFigure(sec, f, d, why)
+		return
+	}
+	cp := m.figureBlock(sec, f, "Diagram", d)
+	cp.source = v
+	if def != nil {
+		cp.anchor = dp.anchor(def)
+	}
+	cp.caption = f.title
+	sec.content = append(sec.content, cp)
+	if f.text != "" {
+		m.captionParagraph(sec, f, "the paragraph is the Diagram's caption", f.text)
+	}
+}
+
+// figureBlock is a block of the given kind standing for the diagram d, named
+// after its kind in the section.
+func (m *migration) figureBlock(sec *sectionPlan, f figureOf, kind string, d *sysmlv1.Diagram) *contentPlan {
+	cp := &contentPlan{kind: kind, node: f.node, app: f.app, label: f.label, origin: f.origin, diagram: d}
+	cp.name = sec.names.claim(strings.ToLower(kind))
+	return cp
+}
+
+// tableFigure plans the Table a section shows for a diagram with a table
+// definition: the rows are the definition's own query, written once beside
+// its view, so the standalone Document and the section share them. A
+// definition with no query form is refused: a listing of the view's
+// elements would not be the table.
+func (m *migration) tableFigure(sec *sectionPlan, f figureOf, td *tableDoc) {
+	m.lowerTable(td)
+	d := td.t.Diagram
+	kind := "the «" + string(td.t.Kind) + "» '" + d.Name + "'"
+	if !td.written() {
+		m.refuseFigure(sec, f, d, joinNotes(kind+" has no query form, so the table is left out rather than shown as a listing of its view's elements: "+td.l.refused, strings.Join(td.l.notes, "; ")))
+		return
+	}
+	cp := m.figureBlock(sec, f, "Table", d)
+	cp.caption = f.title
+	cp.table, cp.query, cp.rows = td, td.query, td.l.rows
+	cp.notes = append(cp.notes, td.l.notes...)
+	sec.content = append(sec.content, cp)
+	if f.text != "" {
+		m.captionParagraph(sec, f, "the paragraph is the Table's caption", f.text)
+	}
+}
+
+// refuseFigure stands a comment in the section for the figure of d that is
+// not drawn, and reports why.
+func (m *migration) refuseFigure(sec *sectionPlan, f figureOf, d *sysmlv1.Diagram, why string) {
+	why = joinNotes(f.origin, why)
+	cp := &contentPlan{kind: "Diagram", node: f.node, app: f.app, label: f.label, diagram: d, refused: why}
+	sec.content = append(sec.content, cp)
+	m.report.Entries = append(m.report.Entries, *m.nodeEntry(f.node, f.app, Unmapped, why))
+}
+
+// captionParagraph plans the Paragraph holding a figure's caption, which a
+// document prints under the figure; note says whose caption it is.
+func (m *migration) captionParagraph(sec *sectionPlan, f figureOf, note, text string) {
+	cp := &contentPlan{kind: "Paragraph", node: f.node, app: f.app, label: f.label, text: text, origin: joinNotes(f.origin, note)}
+	cp.name = sec.names.claim("paragraph")
+	sec.content = append(sec.content, cp)
 }
 
 // noteImage plans a figure's Image block when the empty diagram's note holds
 // an <img> whose source resolves in the archive or against the base URL: its
 // title is the caption and the img's alt the alt text, and a note saying more
 // than the title follows as the caption paragraph.
-func (c *chain) noteImage(s *sysmlv1.DocGenStep, i int, d *sysmlv1.Diagram, titles []string) bool {
+func (m *migration) noteImage(sec *sectionPlan, f figureOf, d *sysmlv1.Diagram) bool {
 	src, alt, _ := firstImg(d.Documentation)
 	if src == "" {
 		return false
 	}
-	location, _ := c.m.imageFile(src, nil)
+	location, _ := m.imageFile(src, nil)
 	if location == "" {
-		location, _ = c.m.imageLocation(src)
+		location, _ = m.imageLocation(src)
 	}
 	if location == "" {
 		return false
 	}
-	title := strings.TrimSpace(d.Name)
-	if i < len(titles) && strings.TrimSpace(titles[i]) != "" {
-		title = strings.TrimSpace(titles[i])
-	}
-	cp := &contentPlan{kind: "Image", node: s.Node, label: "«Image» " + s.Node.Type,
-		location: location, caption: c.title(s, title), alt: alt}
+	cp := m.figureBlock(sec, f, "Image", d)
+	cp.location, cp.caption, cp.alt = location, f.title, alt
 	if cp.alt == "" {
 		cp.alt = cp.caption
 	}
-	cp.name = c.sec.names.claim("image")
-	c.sec.content = append(c.sec.content, cp)
+	sec.content = append(sec.content, cp)
 	if text := commentText(d.Documentation); text != "" && !captionCovers(cp.caption, text) {
-		c.captionParagraph(s, "the paragraph is the note the figure's image carries", text)
+		m.captionParagraph(sec, f, "the paragraph is the note the figure's image carries", text)
 	}
-	if text := c.captionText(s, i); text != "" {
-		c.captionParagraph(s, "the paragraph is the Diagram's caption", text)
+	if f.text != "" {
+		m.captionParagraph(sec, f, "the paragraph is the Diagram's caption", f.text)
 	}
-	c.m.report.Entries = append(c.m.report.Entries,
-		*c.m.nodeEntry(s.Node, s.Application, Approximated, "the figure shows the image the diagram's note carries, "+location))
+	m.report.Entries = append(m.report.Entries,
+		*m.nodeEntry(f.node, f.app, Approximated, joinNotes(f.origin, "the figure shows the image the diagram's note carries, "+location)))
 	return true
 }
 
@@ -2237,7 +2533,7 @@ func (m *migration) writeDocument(dp *docPlan) {
 // writeQueries writes the row queries of every query-backed block under sec.
 func (m *migration) writeQueries(sec *sectionPlan, prefix string) {
 	for _, cp := range m.blocks(sec) {
-		if cp.query != "" && cp.refused == "" {
+		if cp.query != "" && cp.refused == "" && cp.table == nil {
 			m.writeQueryDef(cp.query, prefix, cp.rows)
 		}
 	}
@@ -2334,10 +2630,11 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 			}
 		})
 	case "Table":
-		m.blockPart(dp.host, cp.name, "Table", nil, func() {
-			m.w.line("attribute redefines caption = " + stringLiteral(cp.caption) + ";")
-			m.w.line("calc rows : " + m.siblingRef(dp.host, cp.query) + ";")
-		})
+		rows := m.siblingRef(dp.host, cp.query)
+		if cp.table != nil {
+			rows = m.synthesizedRef(cp.table.v.host, cp.query, dp.host)
+		}
+		m.tablePart(dp.host, cp.name, cp.caption, rows)
 	case "List":
 		m.blockPart(dp.host, cp.name, "List", nil, func() {
 			m.w.line("attribute redefines style = " + stringLiteral(cp.style) + ";")
@@ -2428,13 +2725,16 @@ func (m *migration) blockEntry(cp *contentPlan) *Entry {
 	if len(cp.notes) > 0 {
 		verdict = Approximated
 	}
-	var app *sysmlv1.Stereotype
-	if cp.node != nil {
+	app := cp.app
+	if app == nil && cp.node != nil {
 		app = cp.node.DocGen()
 	}
 	e := m.nodeEntry(cp.node, app, verdict, strings.Join(cp.notes, "; "))
 	e.Target = "part " + cp.target
-	if cp.query != "" {
+	switch {
+	case cp.table != nil:
+		e.Note = joinNotes("the "+diagramKind(cp.table.t.Diagram)+" '"+cp.table.t.Diagram.Name+"' is written as a Table over the query "+writeName(cp.query)+" of its «"+string(cp.table.t.Kind)+"»", e.Note)
+	case cp.query != "":
 		e.Note = joinNotes("its rows are the query "+writeName(cp.query), e.Note)
 	}
 	if cp.origin != "" {

@@ -429,6 +429,7 @@ package 'Fleet Documents' {
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "The fleet, in brief.";
             }
+            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
@@ -436,7 +437,6 @@ package 'Fleet Documents' {
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
-            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
         }
         part Requirements : DocumentQueries::Section {
             attribute redefines title = "Requirements";
