@@ -1,0 +1,33 @@
+package Records {
+    part def HeatCheckRun :> AnalysisRecords::AnalysisRun {
+        attribute :>> caseName default = "P::heatCheck";
+        attribute tMax : ScalarValues::Real;
+    }
+    part heatCheck_run1 : HeatCheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "run";
+            tools = ("ThermalSolver 2.3 from /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5", "EchoTool: /opt/bin/echo < {\"toolName\":\"EchoTool\"}");
+        }
+        attribute :>> caseName = "P::heatCheck";
+        attribute :>> kind = "run";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> subjectName = "P::block";
+        attribute :>> tMax = 87.2;
+    }
+    part heatCheck_run2 : HeatCheckRun {
+        @AnalysisRecords::RecordedRun {
+            runAt = "2026-01-01T00:00:00Z";
+            tool = "sysml test";
+            command = "%record P::check";
+            kind = "run";
+        }
+        attribute :>> caseName = "P::heatCheck";
+        attribute :>> kind = "run";
+        attribute :>> 'objective' = "undecided";
+        attribute :>> subjectName = "P::block";
+        attribute :>> tMax = 84.9;
+    }
+}

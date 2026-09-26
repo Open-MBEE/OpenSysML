@@ -185,6 +185,7 @@ nav:
       - Worked example: manual/worked-example.md
       - Requirements traceability examples: manual/traceability-examples.md
       - Recording analysis runs: manual/recording-analysis-runs.md
+      - Running external programs from a model: manual/running-external-programs.md
       - Limitations and troubleshooting: manual/troubleshooting.md
       - Worked example output: manual/examples/observatory.md
       - Requirements example output: manual/examples/requirements.md

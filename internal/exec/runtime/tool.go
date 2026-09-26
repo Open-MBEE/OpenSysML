@@ -54,6 +54,11 @@ type ToolOutput struct {
 	Declared *symbols.Symbol
 }
 
+// Context is the context the call's performance runs in, nil for a call built outside one.
+func (c *ToolCall) Context() *Context {
+	return c.ctx
+}
+
 // ToolValue is one value as the tool protocol carries it: a number or truth in Value, or a
 // string in Text when Value is invalid, and for a quantity the unit expression it is measured in.
 // A non-nil Items makes the value a sequence: each item is a scalar (its own Value/Text, Unit
@@ -82,6 +87,10 @@ type ToolRunner interface {
 
 // ErrToolNotRegistered is the typed error for a ToolExecution naming a tool no manifest entry registers.
 var ErrToolNotRegistered = errors.New("tool is not registered")
+
+// ErrToolDryRun is the error a dry run stops the performance with at its first
+// tool call; it passes through unchanged.
+var ErrToolDryRun = errors.New("tool dry run")
 
 // ToolNotRegisteredError reports the tool a performance named and nothing answers to.
 type ToolNotRegisteredError struct {

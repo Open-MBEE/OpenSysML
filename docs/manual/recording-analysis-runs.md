@@ -174,7 +174,9 @@ vocabulary the records are written in:
 
 - `RecordedRun` — the metadata annotation a record carries: `runAt` (the UTC
   timestamp), `tool`, `command`, `kind` (`"run"`, `"trade"`, `"sweep"`,
-  `"runs"` or `"sample"`).
+  `"runs"` or `"sample"`), and `tools` (each external tool call the run made,
+  in call order, as `tool version from manifest: executable argv` — see
+  [Running external programs from a model](running-external-programs.md)).
 - `AnalysisRun` — the record definition's supertype: `caseName`, `kind`,
   `'objective'` (the run's objective verdict, `"undecided"` when the case
   declares none), `iteration` (its position in a sweep or sample), `'subject'`

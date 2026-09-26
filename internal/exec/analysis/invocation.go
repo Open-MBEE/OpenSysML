@@ -443,13 +443,43 @@ type composed struct {
 	tempDir string
 }
 
-// compose renders the accepted block for one call: argv, environment, working directory and
-// standard input, with the input file and output directory in a fresh temporary directory.
-func (inv *Invocation) compose(call *runtime.ToolCall, entry ToolEntry, request []byte) (*composed, error) {
+// callScope is the scope one call's templates render from, before the invocation's
+// directories name their holes.
+func callScope(call *runtime.ToolCall) scope {
 	sc := scope{tool: call.ToolName, uri: call.URI, inputs: make(map[string]runtime.ToolValue, len(call.Inputs))}
 	for _, in := range call.Inputs {
 		sc.inputs[in.Variable] = in.Value
 	}
+	return sc
+}
+
+// inputData is what the block's inputFile carries: the JSON request, or the inputs as CSV.
+func (f *InputFile) inputData(call *runtime.ToolCall, entry ToolEntry, request []byte) ([]byte, error) {
+	if f.Format == InputCSV {
+		return csvBytes(call, entry)
+	}
+	return request, nil
+}
+
+// render spells argv, environment and standard input of the composed process.
+func (inv *Invocation) render(c *composed, sc scope, call *runtime.ToolCall, entry ToolEntry, request []byte) error {
+	var err error
+	if c.args, err = inv.renderArgs(sc); err != nil {
+		return err
+	}
+	if c.env, err = inv.renderEnv(sc); err != nil {
+		return err
+	}
+	if c.stdin, err = inv.renderStdin(sc, call, entry, request); err != nil {
+		return err
+	}
+	return nil
+}
+
+// compose renders the accepted block for one call: argv, environment, working directory and
+// standard input, with the input file and output directory in a fresh temporary directory.
+func (inv *Invocation) compose(call *runtime.ToolCall, entry ToolEntry, request []byte) (*composed, error) {
+	sc := callScope(call)
 	c := &composed{dir: inv.Cwd}
 	if inv.InputFile != nil || inv.compiled.outputDir {
 		dir, err := os.MkdirTemp("", "opensysml-tool-")
@@ -460,12 +490,10 @@ func (inv *Invocation) compose(call *runtime.ToolCall, entry ToolEntry, request 
 		c.tempDir, sc.outputDir = dir, dir
 		if f := inv.InputFile; f != nil {
 			sc.inputFile = filepath.Join(dir, f.Name)
-			data := request
-			if f.Format == InputCSV {
-				if data, err = csvBytes(call, entry); err != nil {
-					c.remove()
-					return nil, err
-				}
+			data, err := f.inputData(call, entry, request)
+			if err != nil {
+				c.remove()
+				return nil, err
 			}
 			if err := os.WriteFile(sc.inputFile, data, 0o600); err != nil {
 				c.remove()
@@ -474,16 +502,7 @@ func (inv *Invocation) compose(call *runtime.ToolCall, entry ToolEntry, request 
 			}
 		}
 	}
-	var err error
-	if c.args, err = inv.renderArgs(sc); err != nil {
-		c.remove()
-		return nil, err
-	}
-	if c.env, err = inv.renderEnv(sc); err != nil {
-		c.remove()
-		return nil, err
-	}
-	if c.stdin, err = inv.renderStdin(sc, call, entry, request); err != nil {
+	if err := inv.render(c, sc, call, entry, request); err != nil {
 		c.remove()
 		return nil, err
 	}
