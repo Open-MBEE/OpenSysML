@@ -728,18 +728,20 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
     DELETE_FIELD_NUMBER: _ClassVar[int]
     MOVE_FIELD_NUMBER: _ClassVar[int]
+    ADD_CONNECTION_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
     delete: DeleteEdit
     move: MoveEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ...) -> None: ...
+    add_connection: AddConnectionEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
     __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes")
@@ -758,6 +760,22 @@ class AddMemberEdit(_message.Message):
     value: str
     specializes: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class AddConnectionEdit(_message.Message):
+    __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    FROM_END_FIELD_NUMBER: _ClassVar[int]
+    TO_END_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    kind: str
+    from_end: str
+    to_end: str
+    name: str
+    type: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., from_end: _Optional[str] = ..., to_end: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
 
 class DeleteEdit(_message.Message):
     __slots__ = ("target", "cascade")

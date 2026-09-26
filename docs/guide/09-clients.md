@@ -1139,7 +1139,12 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None)`
 accepts notation strings for the declaration. Typed `add_*` helpers cover the common SysML and
-KerML kinds, `delete(target, cascade=False)` removes declarations transactionally, and
+KerML kinds. `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
+`connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
+`connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's
+scope, for example `tank.fuelOut`. `add_allocation` and `add_flow` select those kinds directly.
+The optional `type` is accepted only for kinds that permit a typing target.
+`delete(target, cascade=False)` removes declarations transactionally, and
 `move(target, owner)` carries a declaration, body and comments included, into another namespace
 of the same document (`""` is the document itself), respelling the references the move
 would otherwise break.
@@ -1221,7 +1226,8 @@ These limitations are intentional:
 
 Editing is capability-negotiated the same way as conversion: a service that does not report the
 `apply_edits` capability raises `MissingCapabilityError` naming the required upgrade before any
-call is made.
+call is made. An `add_connection` edit also requires both `authoring` and
+`connection_authoring`.
 
 ### Querying a model using the standard query model
 

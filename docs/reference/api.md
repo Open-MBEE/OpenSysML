@@ -84,6 +84,16 @@ A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDoc
 `Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
 capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
 
+The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
+and `type` fields:
+
+| Operation | Fields | Writes |
+| --- | --- | --- |
+| `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
+
+`type` is accepted only for connection kinds that permit a typing target.
+`add_connection` requires both the `authoring` and `connection_authoring` capabilities.
+
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
 for _, doc := range result.Documents {
@@ -120,8 +130,11 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
 specializes=None)` and its typed `add_*` helpers create declarations while
-preserving untouched source bytes. `Editor.delete(target, cascade=False)`
-removes declarations transactionally; `Editor.move(target, owner)` carries one
+preserving untouched source bytes. `Editor.add_connection(owner, kind, from_,
+to, name=None, type=None)` writes a connection-like usage between feature
+references; `add_allocation` and `add_flow` are typed helpers.
+`Editor.delete(target, cascade=False)` removes declarations transactionally;
+`Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the
 move would break. `opensysml.loads(content, language=None,
 strict=False)` loads inline SysML or KerML for this workflow.

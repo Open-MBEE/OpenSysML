@@ -8,7 +8,7 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, deleting a declaration, and moving one into another namespace.
+member or connection, deleting a declaration, and moving one into another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
@@ -307,6 +307,30 @@ class Editor:
         self._add(("add_member", owner, kind, name, type or "", multiplicity or "",
                    value or "", list(specializes)))
         return self
+
+    def add_connection(self, owner, kind, from_, to, name=None, type=None):
+        """Add a connection-like usage between two feature references."""
+        for label, text in (("kind", kind), ("from_", from_), ("to", to)):
+            if not isinstance(text, str):
+                raise TypeError(
+                    f"{label} must be notation text, not {text.__class__.__name__}"
+                )
+        for label, text in (("name", name), ("type", type)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(
+                    f"{label} must be notation text, not {text.__class__.__name__}"
+                )
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_connection", owner, kind, from_, to, name or "", type or ""))
+        return self
+
+    def add_allocation(self, owner, from_, to, **kwargs):
+        """Add an ``allocation ... allocate from_ to to`` usage."""
+        return self.add_connection(owner, "allocation", from_, to, **kwargs)
+
+    def add_flow(self, owner, from_, to, **kwargs):
+        """Add a ``flow ... from from_ to to`` usage."""
+        return self.add_connection(owner, "flow", from_, to, **kwargs)
 
     def delete(self, target, cascade=False):
         """Delete a declaration, optionally removing declarations that refer to it."""

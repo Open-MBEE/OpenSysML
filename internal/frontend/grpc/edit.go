@@ -35,6 +35,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsConnectionAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityConnectionAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -179,7 +184,17 @@ func editResultToProto(result *edit.Result, edited string, sole bool) *pb.ApplyE
 func requestsAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		switch operation.GetOperation().(type) {
-		case *pb.EditOperation_AddMember, *pb.EditOperation_Delete, *pb.EditOperation_Move:
+		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
+			*pb.EditOperation_Delete, *pb.EditOperation_Move:
+			return true
+		}
+	}
+	return false
+}
+
+func requestsConnectionAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddConnection); ok {
 			return true
 		}
 	}
@@ -205,6 +220,13 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Value = add.GetValue()
 			member.Specializes = append([]string(nil), add.GetSpecializes()...)
 			ops = append(ops, member)
+		case *pb.EditOperation_AddConnection:
+			add := op.AddConnection
+			connection := edit.AddConnection(
+				add.GetOwner(), add.GetKind(), add.GetFromEnd(), add.GetToEnd(), add.GetName(),
+			)
+			connection.Type = add.GetType()
+			ops = append(ops, connection)
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))
@@ -212,7 +234,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			ops = append(ops, edit.Move(op.Move.GetTarget(), op.Move.GetOwner()))
 		default:
 			return nil, statusErrorf(connect.CodeInvalidArgument,
-				"operation %d must be set_value, rename, add_member, delete or move", i)
+				"operation %d must be set_value, rename, add_member, add_connection, delete or move", i)
 		}
 	}
 	return ops, nil

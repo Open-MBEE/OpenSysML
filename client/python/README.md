@@ -41,7 +41,11 @@ untouched source:
 ```python
 model.edit().add_part_def("", "Vehicle").apply()
 model.edit().add_part("Vehicle", "engine", type="Engine").apply()
+model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 ```
+
+`Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
+connection-like usages; `add_allocation` and `add_flow` are typed helpers.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 

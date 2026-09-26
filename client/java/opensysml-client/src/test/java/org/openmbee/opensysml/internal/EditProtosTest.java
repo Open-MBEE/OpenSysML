@@ -76,6 +76,25 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
+    var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
+    assertEquals("Demo::System", minimal.getAddConnection().getOwner());
+    assertEquals("flow", minimal.getAddConnection().getKind());
+    assertEquals("a.out", minimal.getAddConnection().getFromEnd());
+    assertEquals("b.in", minimal.getAddConnection().getToEnd());
+    assertEquals("", minimal.getAddConnection().getName());
+    assertEquals("", minimal.getAddConnection().getType());
+
+    var full =
+        Protos.proto(
+            Edit.AddConnection.of("Demo::System", "allocation", "a", "b")
+                .withName("alloc1")
+                .withType("AllocationType"));
+    assertEquals("alloc1", full.getAddConnection().getName());
+    assertEquals("AllocationType", full.getAddConnection().getType());
+  }
+
+  @Test
   void aDeleteEditCarriesItsCascadeAndAMoveEditItsOwner() {
     var delete = Protos.proto(new Edit.Delete("Demo::A", true));
     assertEquals("Demo::A", delete.getDelete().getTarget());

@@ -80,6 +80,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
 
+  /** {@code ApplyEdits} can add connection-like usages. */
+  public static final String CONNECTION_AUTHORING = "connection_authoring";
+
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";
 
