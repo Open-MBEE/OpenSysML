@@ -113,9 +113,10 @@
     display: table-header-group;
   }
 
-  /* The paragraph leading into a table stays on the table's page, as a
-     heading does above and a caption does as part of its table. */
-  .sysml-document p:has(+ .sysml-table) {
+  /* The paragraph leading into a table and the table's caption stay on the
+     page its header and first rows start on. */
+  .sysml-document p:has(+ .sysml-table),
+  .sysml-document .sysml-table > caption {
     break-after: avoid;
     page-break-after: avoid;
   }

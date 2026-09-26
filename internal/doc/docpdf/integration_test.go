@@ -1136,3 +1136,31 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines reads
+// back that a continuation table's caption is set on the page its header and
+// first rows start on, however the table before it fills the page.
+func TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines(t *testing.T) {
+	const rows = 52
+	document := wideResultsDocument(t, rows)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{NumberFigures: true})
+			pages := strings.Split(strings.TrimRight(text, "\f\n"), "\f")
+			continued := 0
+			for i, page := range pages {
+				_, rest, split := strings.Cut(page, "(continued)")
+				if !split {
+					continue
+				}
+				continued++
+				if !strings.Contains(rest, "name") || !strings.Contains(rest, "Alignment Scenario") {
+					t.Errorf("page %d sets the continuation caption without its header and rows:\n%s", i+1, page)
+				}
+			}
+			if continued != 1 {
+				t.Errorf("the continuation caption is set on %d pages, want one:\n%s", continued, text)
+			}
+		})
+	}
+}
