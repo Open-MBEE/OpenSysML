@@ -106,8 +106,8 @@ func (s *Session) readSources(paths []string) ([]SourceFile, error) {
 		if err != nil {
 			return nil, readError(name, err)
 		}
-		if name == docName {
-			return nil, &ReservedNameError{Name: name}
+		if err := reservedName(name); err != nil {
+			return nil, err
 		}
 		files = append(files, SourceFile{Name: name, Text: string(data)})
 	}
@@ -122,6 +122,15 @@ type ReservedNameError struct {
 
 func (e *ReservedNameError) Error() string {
 	return fmt.Sprintf("cannot load %s: the name is reserved for the text typed at the prompt", e.Name)
+}
+
+// reservedName is the *ReservedNameError refusing a file named as the
+// transcript, nil for any other name.
+func reservedName(name string) error {
+	if name != docName {
+		return nil
+	}
+	return &ReservedNameError{Name: name}
 }
 
 // ReadError is a file a load could not read, under the name it is reported by.
