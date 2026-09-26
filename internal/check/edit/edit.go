@@ -42,6 +42,8 @@ const (
 	OpAddSatisfy
 	// OpAddRequirementConstraint inserts a requirement constraint.
 	OpAddRequirementConstraint
+	// OpAddTransition inserts a transition usage into a state body.
+	OpAddTransition
 )
 
 // Operation is one change to make to a model's source.
@@ -89,6 +91,15 @@ type Operation struct {
 	ConstraintKind string
 	Expression     string
 	ConstraintName string
+	// TransitionSource, TransitionTarget, TransitionName and the optional
+	// trigger, guard and effect describe an OpAddTransition.
+	TransitionName   string
+	TransitionSource string
+	TransitionTarget string
+	Trigger          string
+	Guard            string
+	Effect           string
+	Initial          bool
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -145,6 +156,15 @@ func AddRequirementConstraint(owner, kind, expression, name string) Operation {
 	return Operation{
 		Kind: OpAddRequirementConstraint, Owner: owner, ConstraintKind: kind,
 		Expression: expression, ConstraintName: name,
+	}
+}
+
+// AddTransition inserts a state transition, or an entry transition when initial.
+func AddTransition(owner, name, from, to, trigger, guard, effect string, initial bool) Operation {
+	return Operation{
+		Kind: OpAddTransition, Owner: owner, TransitionName: name,
+		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
+		Guard: guard, Effect: effect, Initial: initial,
 	}
 }
 
@@ -575,6 +595,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddRequirementConstraint {
 		sp, err := m.addRequirementConstraintSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddTransition {
+		sp, err := m.addTransitionSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

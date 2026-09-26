@@ -879,11 +879,13 @@ public final class Model {
     boolean requestsMemberModifiers = false;
     boolean requestsSatisfyAuthoring = false;
     boolean requestsRequirementConstraintAuthoring = false;
+    boolean requestsTransitionAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
           || edit instanceof Edit.AddSatisfy
           || edit instanceof Edit.AddRequirementConstraint
+          || edit instanceof Edit.AddTransition
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -906,6 +908,9 @@ public final class Model {
       if (edit instanceof Edit.AddRequirementConstraint) {
         requestsRequirementConstraintAuthoring = true;
       }
+      if (edit instanceof Edit.AddTransition) {
+        requestsTransitionAuthoring = true;
+      }
     }
     if (requestsAuthoring) {
       connection.capabilities().require(Capabilities.AUTHORING);
@@ -921,6 +926,9 @@ public final class Model {
     }
     if (requestsRequirementConstraintAuthoring) {
       connection.capabilities().require(Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING);
+    }
+    if (requestsTransitionAuthoring) {
+      connection.capabilities().require(Capabilities.TRANSITION_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

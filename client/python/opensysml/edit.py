@@ -8,7 +8,8 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member or connection, deleting a declaration, and moving one into another namespace.
+member, connection or transition, deleting a declaration, and moving one into
+another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
@@ -349,6 +350,32 @@ class Editor:
         self._add(("add_requirement_constraint", owner, kind, expression, name))
         return self
 
+    def add_transition(self, owner, source, target, name=None, trigger=None,
+                       guard=None, effect=None):
+        """Add a transition with optional trigger, guard and effect clauses."""
+        if not isinstance(source, str):
+            raise TypeError(f"source must be notation text, not {source.__class__.__name__}")
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        for label, text in (("name", name), ("trigger", trigger),
+                            ("guard", guard), ("effect", effect)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add((
+            "add_transition", owner, name or "", source, target,
+            trigger or "", guard or "", effect or "", False,
+        ))
+        return self
+
+    def add_entry_transition(self, owner, target):
+        """Add an entry transition to target in a state body."""
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_transition", owner, "", "", target, "", "", "", True))
+        return self
+
     def add_require_constraint(self, owner, expression, name=None):
         """Add a ``require constraint`` to a requirement-like body."""
         return self.add_requirement_constraint(owner, "require", expression, name)
@@ -538,13 +565,53 @@ class Editor:
         """Add a ``metaclass`` declaration."""
         return self.add_member(owner, "metaclass", name, **kwargs)
 
-    def add_calc_def(self, owner, name, **kwargs):
-        """Add a ``calc def`` declaration."""
-        return self.add_member(owner, "calc def", name, **kwargs)
+    def add_calc_def(
+        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+    ):
+        """Add a ``calc def`` with input parameters and an optional result.
 
-    def add_calc(self, owner, name, **kwargs):
-        """Add a ``calc`` declaration."""
-        return self.add_member(owner, "calc", name, **kwargs)
+        ``return_expression`` is bound to the result parameter; it does not
+        write a ``return <expr>;`` statement.
+        """
+        inputs = _parameter_pairs(inputs, "inputs")
+        _optional_text(return_type, "return_type")
+        _optional_text(return_expression, "return_expression")
+        owner = _owner_id(owner)
+        self.add_member(owner, "calc def", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        if return_type is not None or return_expression is not None:
+            self.add_return(
+                qualified_name, type=return_type, value=return_expression
+            )
+        return self
+
+    def add_calc(
+        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+    ):
+        """Add a ``calc`` with input parameters and an optional result.
+
+        ``return_expression`` is bound to the result parameter; it does not
+        write a ``return <expr>;`` statement.
+        """
+        inputs = _parameter_pairs(inputs, "inputs")
+        _optional_text(return_type, "return_type")
+        _optional_text(return_expression, "return_expression")
+        owner = _owner_id(owner)
+        self.add_member(owner, "calc", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        if return_type is not None or return_expression is not None:
+            self.add_return(
+                qualified_name, type=return_type, value=return_expression
+            )
+        return self
 
     def add_parameter(self, owner, direction, name, type=None, kind="ref", **kwargs):
         """Add a directional parameter usage."""
@@ -556,13 +623,39 @@ class Editor:
         """Add a return parameter member."""
         return self.add_member(owner, "return", name, **kwargs)
 
-    def add_action_def(self, owner, name, **kwargs):
-        """Add an ``action def`` declaration."""
-        return self.add_member(owner, "action def", name, **kwargs)
+    def add_action_def(self, owner, name, inputs=None, outputs=None, **kwargs):
+        """Add an ``action def`` with input and output parameters."""
+        inputs = _parameter_pairs(inputs, "inputs")
+        outputs = _parameter_pairs(outputs, "outputs")
+        owner = _owner_id(owner)
+        self.add_member(owner, "action def", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        for parameter_name, parameter_type in outputs:
+            self.add_parameter(
+                qualified_name, "out", parameter_name, type=parameter_type
+            )
+        return self
 
-    def add_action(self, owner, name, **kwargs):
-        """Add an ``action`` declaration."""
-        return self.add_member(owner, "action", name, **kwargs)
+    def add_action(self, owner, name, inputs=None, outputs=None, **kwargs):
+        """Add an ``action`` with input and output parameters."""
+        inputs = _parameter_pairs(inputs, "inputs")
+        outputs = _parameter_pairs(outputs, "outputs")
+        owner = _owner_id(owner)
+        self.add_member(owner, "action", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        for parameter_name, parameter_type in outputs:
+            self.add_parameter(
+                qualified_name, "out", parameter_name, type=parameter_type
+            )
+        return self
 
     def add_state_def(self, owner, name, **kwargs):
         """Add a ``state def`` declaration."""
@@ -600,6 +693,36 @@ def _target_id(target):
         f"target must be a symbol id (FQN) or a Symbol, not "
         f"{type(target).__name__}"
     )
+
+
+def _owner_id(owner):
+    return owner if isinstance(owner, str) else _target_id(owner)
+
+
+def _parameter_pairs(parameters, argument):
+    if parameters is None:
+        return []
+    if not isinstance(parameters, list):
+        raise TypeError(
+            f"{argument} must be a list of 2-tuples of strings, "
+            f"not {parameters.__class__.__name__}"
+        )
+    pairs = []
+    for index, pair in enumerate(parameters):
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            raise TypeError(f"{argument}[{index}] must be a 2-tuple of strings")
+        if not all(isinstance(value, str) for value in pair):
+            raise TypeError(f"{argument}[{index}] name and type must be strings")
+        pairs.append(pair)
+    return pairs
+
+
+def _optional_text(value, argument):
+    if value is not None and not isinstance(value, str):
+        raise TypeError(
+            f"{argument} must be notation text or None, "
+            f"not {value.__class__.__name__}"
+        )
 
 
 def _notation_references(label, values):

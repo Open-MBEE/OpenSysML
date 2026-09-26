@@ -42,6 +42,15 @@ func addRequirementConstraintOp(owner, kind, expression, name string) *pb.EditOp
 	}}
 }
 
+func addTransitionOp(owner, name, source, target, trigger, guard, effect string, initial bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{
+		AddTransition: &pb.AddTransitionEdit{
+			Owner: owner, Name: name, Source: source, Target: target,
+			Trigger: trigger, Guard: guard, Effect: effect, Initial: initial,
+		},
+	}}
+}
+
 func deleteOp(target string, cascade bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_Delete{
 		Delete: &pb.DeleteEdit{Target: target, Cascade: cascade},
@@ -258,6 +267,32 @@ func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityTransitionAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "state def S { state idle; }\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addTransitionOp("S", "", "", "idle", "", "", "", true),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilityTransitionAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilityTransitionAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMemberOp("S", "state", "toasting")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "state toasting") {
+		t.Fatalf("add_member response = %+v, want the new state", added)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -287,6 +322,11 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "requirement constraint",
 			capability: CapabilityRequirementConstraintAuthoring,
 			operation:  addRequirementConstraintOp("Demo::r", "require", "true", ""),
+		},
+		{
+			name:       "transition",
+			capability: CapabilityTransitionAuthoring,
+			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
 		},
 	}
 	for _, tc := range tests {
@@ -373,7 +413,7 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 	for _, capability := range []string{
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
-		CapabilityMemberModifiers, CapabilityInlineLanguage,
+		CapabilityMemberModifiers, CapabilityTransitionAuthoring, CapabilityInlineLanguage,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

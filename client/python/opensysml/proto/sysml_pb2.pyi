@@ -728,7 +728,7 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
@@ -737,6 +737,7 @@ class EditOperation(_message.Message):
     ADD_CONNECTION_FIELD_NUMBER: _ClassVar[int]
     ADD_SATISFY_FIELD_NUMBER: _ClassVar[int]
     ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
@@ -745,7 +746,8 @@ class EditOperation(_message.Message):
     add_connection: AddConnectionEdit
     add_satisfy: AddSatisfyEdit
     add_requirement_constraint: AddRequirementConstraintEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ...) -> None: ...
+    add_transition: AddTransitionEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
     __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction")
@@ -798,6 +800,26 @@ class AddRequirementConstraintEdit(_message.Message):
     expression: str
     name: str
     def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., expression: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class AddTransitionEdit(_message.Message):
+    __slots__ = ("owner", "name", "source", "target", "trigger", "guard", "effect", "initial")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    GUARD_FIELD_NUMBER: _ClassVar[int]
+    EFFECT_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    name: str
+    source: str
+    target: str
+    trigger: str
+    guard: str
+    effect: str
+    initial: bool
+    def __init__(self, owner: _Optional[str] = ..., name: _Optional[str] = ..., source: _Optional[str] = ..., target: _Optional[str] = ..., trigger: _Optional[str] = ..., guard: _Optional[str] = ..., effect: _Optional[str] = ..., initial: _Optional[bool] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

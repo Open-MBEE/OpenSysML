@@ -97,15 +97,21 @@ and `type` fields:
 | Operation | Fields | Writes |
 | --- | --- | --- |
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
-| `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a body whose grammar admits behavior usages, including package, action, calculation, and requirement bodies. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
+| `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
+| `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
-`authoring` and `requirement_constraint_authoring`. An `add_member` edit with any new modifier or
+`authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
+`transition_authoring`. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
+
+Regular transitions always write `first <source>` and may add `accept <trigger>`, `if <guard>` and
+`do <effect>` clauses. An entry transition has no name, source or clauses, and is refused when the
+state already has an entry action.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
@@ -145,7 +151,11 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 specializes=None, abstract=False, redefines=None, default=False, direction=None)`
 and its typed `add_*` helpers create declarations while preserving untouched
 source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
-`add_require_constraint` and `add_assume_constraint`.
+`add_require_constraint`, `add_assume_constraint`, `add_transition` and
+`add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
+and `return_expression`; the expression is bound to a result parameter, not
+written as a `return <expr>;` statement. Action helpers accept `inputs` and
+`outputs`, each a list of `(name, type)` string pairs.
 `Editor.delete(target, cascade=False)` removes declarations transactionally;
 `Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the
