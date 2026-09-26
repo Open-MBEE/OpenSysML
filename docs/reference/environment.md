@@ -186,7 +186,7 @@ Each member of `outputs` is a selector:
 |---|---|---|
 | `path` | `json`, required | An [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer to the value (`/results/0/T_max`); `~0` spells `~`, `~1` spells `/`, and the empty pointer `""` names the whole document |
 | `column` | `csv`, required | The column: a header name, or a zero-based index as an integer |
-| `row` | `csv` | Which data record (the header is not one): `"first"`, `"last"` (the default) or a zero-based index |
+| `row` | `csv` | Which data records (the header is not one): `"first"`, `"last"` (the default), a zero-based index or `"all"` |
 | `key` | `lines` | The key on the left of the first `=` or `:` (default the variable's name); a line with neither is ignored |
 | `type` | all but `object` | What the text is read as: `"number"` (the default), `"integer"`, `"real"`, `"boolean"` or `"string"`. Under `exitcode` only `boolean` (the default) and `integer` are admitted |
 | `unit` | all but `object`, `exitcode` | The value's unit as a fixed expression (`K`, `km/h`) |
@@ -203,7 +203,23 @@ selector finding nothing names the variable and where it was looked
 the type cannot read is `malformed output` naming the variable and place (`T_max in column
 T_max, row 3: "n/a" is not a number`), a tool refusal is `tool error`, and a file the tool
 did not write, a non-zero exit (except under `exitcode`), oversize output or a timeout fail
-as they do today. Sequence-valued outputs (`row: "all"`, a JSON array) are refused for now.
+as they do today.
+
+Three selector forms answer a **sequence** rather than a single value: `row: "all"` reads every
+CSV data record in order (a reply with no data record answers the empty sequence), a `path`
+naming a JSON array reads its elements, and under the `object` protocol `"value": [..]` does
+the same. Every element is a scalar, and all elements of one answer are the same kind — all
+numbers, all Booleans or all Strings (integers and reals are one kind); a nested array, an
+object, `null` or a kind mixing is `malformed output` naming the element's index. A
+`unitColumn` under `row: "all"` is read on every record and all records must agree; the
+shared unit is the sequence's, converted once for every element.
+
+A sequence binds only to a parameter whose multiplicity admits more than one value
+(`[0..*]`, `[1..*]`, `[0..n]` with n > 1), and a scalar only to a single-valued one — neither
+is ever silently wrapped or truncated, and the multiplicity's bounds are enforced like any
+write (a scalar for `Real[0..*]`, a sequence for `Real`, and a fifth value for `Real[2..4]`
+are each `malformed output`). `lines` has no sequence form: every match or key there answers
+one value.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines
