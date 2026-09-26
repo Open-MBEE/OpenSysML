@@ -170,6 +170,8 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 - **A migrated DocGen view's own documentation opens its section.** The comment a document view carries as its documentation was written as the `doc` of the migrated `view` but never reached the `DocumentQueries::Section`, so a rendered document showed a heading with the view's prose missing wherever the text was the view's documentation rather than a collaborator paragraph or a method step. The section now opens with that documentation as a `Paragraph`, before the method's content and at every depth of the view tree, as DocGen prints it; a comment that is also shown by one of the view's collaborator paragraphs is written once, in its place, while a malformed collaborator application over it is refused without hiding the documentation.
 
+- **Tool previews do not print passed-through environment values.** `-tool-dry-run` and `%tool` list variables taken from this process (`PATH`, `HOME`, `TMPDIR`, `LANG` and the `OPENSYSML_TOOL_ENV_PASSTHROUGH` names) as `NAME=<from this process>`; only the manifest's own `env` entries show their rendered values.
+
 ### Performance
 
 - **Occurrences of one shape share their derived defaults and their verdicts.** A `=` default
