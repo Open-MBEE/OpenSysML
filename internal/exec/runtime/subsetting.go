@@ -549,7 +549,7 @@ func (ctx *Context) fillOptionalSubsetters(inst *Instance, name string, n int) (
 		} else {
 			fill.fv.Values = ctx.collectionOf(fill.fv.Feature, fill.held)
 		}
-		fill.fv.Materialized = true
+		fill.fv.Materialized, fill.fv.intrinsic = true, false
 		ctx.invalidateDependents(fill.fv)
 	}
 	return made, undo, nil

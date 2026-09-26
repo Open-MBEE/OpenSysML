@@ -18,15 +18,21 @@ type derivation struct {
 
 // deriveFeatureValue evaluates fv's `=` expression, recording what it reads, over
 // again while a read wrote under it; the step limit bounds a run that never settles.
-func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name string) (Value, error) {
+// It reports whether the derivation read declared values within inst alone, and those reads.
+func (ctx *Context) deriveFeatureValue(inst *Instance, fv *FeatureValue, name string) (Value, bool, []sharedRead, error) {
 	if !ctx.derivable(fv) {
-		return ctx.evalFeatureValueDefault(inst, fv, name)
+		top := ctx.beginTrace(inst, fv)
+		val, err := ctx.evalFeatureValueDefault(inst, fv, name)
+		clean, reads := ctx.endTrace(top)
+		return val, clean, reads, err
 	}
 	for {
 		ctx.forgetReads(fv)
+		top := ctx.beginTrace(inst, fv)
 		val, stale, err := ctx.deriveOnce(inst, fv, name)
+		clean, reads := ctx.endTrace(top)
 		if err != nil || !stale {
-			return val, err
+			return val, clean, reads, err
 		}
 	}
 }
@@ -105,8 +111,11 @@ func (ctx *Context) deriveOnce(inst *Instance, fv *FeatureValue, name string) (v
 }
 
 // noteRead lists the value being derived, if any, as a dependent of the fv just read,
-// and fv among what it reads.
-func (ctx *Context) noteRead(fv *FeatureValue) {
+// held by inst, and fv among what it reads; a derivation being observed sees the read.
+func (ctx *Context) noteRead(inst *Instance, fv *FeatureValue) {
+	if len(ctx.tracing) != 0 {
+		ctx.observeRead(inst, fv)
+	}
 	if len(ctx.deriving) == 0 {
 		return
 	}
@@ -114,15 +123,20 @@ func (ctx *Context) noteRead(fv *FeatureValue) {
 	if dep == fv {
 		return
 	}
-	for _, listed := range fv.dependents {
+	ctx.listRead(fv, dep)
+}
+
+// listRead lists dep as a dependent of src and src among what dep reads, once.
+func (ctx *Context) listRead(src, dep *FeatureValue) {
+	for _, listed := range src.dependents {
 		if listed == dep {
 			return
 		}
 	}
-	ctx.noteProbeWrite(fv)
+	ctx.noteProbeWrite(src)
 	ctx.noteProbeWrite(dep)
-	fv.dependents = append(fv.dependents, dep)
-	dep.reads = append(dep.reads, fv)
+	src.dependents = append(src.dependents, dep)
+	dep.reads = append(dep.reads, src)
 }
 
 // held is what a feature value held before a write, with what depended on it then.
@@ -292,7 +306,7 @@ func (ctx *Context) invalidate(dependents []*FeatureValue) (deriving []*FeatureV
 			ctx.invalidateDependents(dep)
 		default:
 			ctx.noteProbeWrite(dep)
-			dep.Value, dep.Values, dep.Materialized = Value{}, Value{}, false
+			dep.Value, dep.Values, dep.Materialized, dep.intrinsic = Value{}, Value{}, false, false
 			ctx.invalidateDependents(dep)
 		}
 	}

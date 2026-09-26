@@ -1,0 +1,11 @@
+{
+  "type": "satisfy",
+  "libraries": true,
+  "evaluate": "test::fleet",
+  "assertions": {
+    "satisfy launchLimit by unit1": true,
+    "satisfy launchLimit by unit2": false,
+    "satisfy launchLimit by unit3": true,
+    "satisfy launchLimit by unit4": true
+  }
+}

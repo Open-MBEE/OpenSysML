@@ -269,8 +269,8 @@ declares **190 times fewer elements** at 12 800 satellites and validates in
 what the source declares, and the fleet source is the size of four
 spacecraft, twenty stations and the links between thirty-two planes.
 
-What the current runtime does with the 12 800 occurrences, on the same
-machine:
+What the runtime did with the 12 800 occurrences before it shared derived
+defaults and verdicts between them (the next section), on the same machine:
 
 | satellites | operation | wall | allocated | peak RSS |
 | ---------- | --------- | ---- | --------- | -------- |
@@ -321,30 +321,110 @@ Three limits of the current language and runtime shape the fleet form:
   a unit of it reports `multiplicity violation: lower bound too large or
   infinite`. The 12 800-satellite fleet is therefore 32 planes of 400.
 
+Before the runtime shared derived defaults, instantiating a fleet and
+reading a summed attribute over its occurrences cost, warm, **about 2 ms and
+1 MiB per satellite** — the per-satellite cost of a cold `-satisfy` over the
+single-definition form — because every occurrence's component tree was
+materialized to evaluate the sum.
+
+### Sharing derived defaults and verdicts between the occurrences
+
+The runtime now holds, in side tables of the `Context`, what the occurrences
+of one shape have in common beyond their feature list
+([scaling to very large models](large-model-scaling-design.md), one
+definition, many occurrences):
+
+- **Shared derived defaults.** The first pristine occurrence of a shape — an
+  object of a type, with its classifiers, held by a feature — to derive a
+  `=` default whose evaluation read only declared values under itself records
+  the value, and the paths it read, against the shape. Every other pristine
+  occurrence of the shape takes the recorded value when it is read, without
+  materializing the subtree the derivation walked; the features that
+  subtree would have materialized are owed, and settled if anything later
+  asks for them. A write, a binding, a behavior run, a classifier or a
+  redefinition anywhere the derivation read makes the occurrence derive on
+  its own, as does a random draw, a clock read or a lifetime read in the
+  derivation — all three are the run's, not the shape's — and a write under
+  an occurrence invalidates what it took. An occurrence with a destroyed
+  object along a read path takes nothing either: its read reports the
+  object destroyed, as it does without sharing. Only scalars held by value —
+  numbers, strings, quantities, complex numbers, enumeration literals, null —
+  are shared; a value naming an object or a
+  sequence is derived per occurrence. Every occurrence still has a feature
+  value per effective feature: what is shared is the derivation, and the
+  value it produced, not the slot.
+- **Verification over distinct shapes.** Within one `satisfy` report the
+  checks whose subjects are occurrences of one shape are evaluated once per
+  distinct set of inputs: a check that read only declared values evaluates
+  once for the shape, one that read a value an occurrence states of its own
+  once per distinct value read, and the verdict is fanned out to every
+  occurrence with its own subject path. The verdicts, their messages and
+  their order are those of evaluating every check.
+
+`OPENSYSML_SHARED_DEFAULTS=0` turns both off, which is how
+`TestSparseValuesDifferential` in `internal/exec/runtime` compares every
+readable value and every verdict, sharing on and off, over the fixtures, the
+execution-conformance models and generated fleets.
+
+Measured one run each on the machine named at the top, with `-memstats`
+and `/usr/bin/time`; the "before" binary is the runtime of the table above,
+built beside the "after" and run the same hour (the earlier table's figures
+differ from it by run-to-run variance):
+
+| satellites | operation | before wall | allocated | peak RSS | after wall | allocated | peak RSS |
+| ---------- | --------- | ----------- | --------- | -------- | ---------- | --------- | -------- |
+| 1 600 | `-validate` | 0.22 s | 102.2 MiB | 108 MB | 0.23 s | 102.1 MiB | 104 MB |
+| 1 600 | `-instantiate` the network | 0.44 s | 238.4 MiB | 195 MB | 0.45 s | 238.5 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666.0 MiB | 306 MB | 0.60 s | 381.6 MiB | 272 MB |
+| 1 600 | `%eval` of `plane<i>.sats.dryMass`, all 8 planes | 1.85 s | 2.9 GiB | 737 MB | 0.58 s | 306.3 MiB | 252 MB |
+| 12 800 | `-validate` | 0.70 s | 289.4 MiB | 184 MB | 0.73 s | 289.0 MiB | 175 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB | 1.97 s | 1.1 GiB | 763 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB | 4.59 s | 7.2 GiB | 1.32 GB |
+| 12 800 | `%eval` of `plane<i>.sats.dryMass`, all 32 planes | 42.7 s | 141.3 GiB | 5.2 GB | 3.85 s | 2.7 GiB | 1.24 GB |
+
+The reports are identical line for line: the same 2 412 verdicts in the same
+order, and the same 12 800 masses. Validation does not move — nothing in
+loading changed — and neither does instantiation, which derives nothing.
+Checking halves, and the whole of that comes from the shared defaults:
+every assertion of this workload names a diverging unit, which states its
+own as-built masses, so no verdict here stands for another and each is
+evaluated — but what each evaluation costs is lower because the
+components' `mass` and `powerDraw` defaults are taken from the shape rather
+than materialized and started. What remains is the per-unit work the
+assertions on the diverging units do: materializing the unit's subsystems,
+whose behaviors then run to the end of the report. Verdict fan-out shows
+where units state nothing of their own: a requirement satisfied by such
+units is decided once for all of them, and once more per unit stating a
+value (`satisfy_distinct_shapes_mixed` under
+`internal/exec/runtime/testdata/conformance/`). Reading one summed
+attribute over every occurrence is where the sharing pays most — the first occurrence of each block derives `dryMass`
+over its component tree, the other 12 796 take it — and is now **11 times
+faster with 52 times less allocation**.
+
 `BenchmarkFleetInstantiate` and `BenchmarkFleetSatisfy` in
 `tests/stressmodel` measure, warm, instantiating the fleet network and
-reading `sats.dryMass` over four planes, and re-checking every assertion:
+reading `sats.dryMass` over four planes, and re-checking every assertion in
+a session that has already checked them once:
 
 ```bash
 go test ./tests/stressmodel -run '^$' -bench Fleet -benchmem -benchtime 3x
 ```
 
-| satellites | elements | instantiate + read four planes | per satellite | allocated | assertions | warm re-check | allocated |
-| ---------- | -------- | ------------------------------ | ------------- | --------- | ---------- | ------------- | --------- |
-| 32 | 1 179 | 29 ms | 0.9 ms | 18.4 MiB | 24 | 0.9 ms | 0.5 MiB |
-| 128 | 1 715 | 87 ms | 0.7 ms | 93.1 MiB | 36 | 1.2 ms | 1.0 MiB |
-| 512 | 3 947 | 460 ms | 0.9 ms | 882 MiB | 108 | 8.5 ms | 7.3 MiB |
+| satellites | elements | instantiate + read four planes, before | after | per satellite, after | allocated, before | after | assertions | warm re-check, before | after | allocated, before | after |
+| ---------- | -------- | -------------------------------------- | ----- | -------------------- | ----------------- | ----- | ---------- | --------------------- | ----- | ----------------- | ----- |
+| 32 | 1 179 | 29 ms | 16 ms | 0.49 ms | 18.4 MiB | 7.7 MiB | 24 | 0.9 ms | 2.5 ms | 0.5 MiB | 1.0 MiB |
+| 128 | 1 715 | 87 ms | 28 ms | 0.22 ms | 93.1 MiB | 15.0 MiB | 36 | 1.2 ms | 2.4 ms | 1.0 MiB | 2.0 MiB |
+| 512 | 3 947 | 460 ms | 73 ms | 0.14 ms | 882 MiB | 44.6 MiB | 108 | 8.5 ms | 12.2 ms | 7.3 MiB | 10.7 MiB |
 
-Warm, instantiating a fleet and reading a summed attribute over its
-occurrences costs **about 1 ms and 1.7 MiB per satellite** — of the order
-of the per-satellite cost of a cold `-satisfy` over the single-definition
-form — because every
-occurrence's component tree is still materialized to evaluate the sum. What
-would change that is sparse per-occurrence values and verification over
-distinct shapes ([scaling to very large models](large-model-scaling-design.md),
-one definition, many occurrences): an occurrence whose feature holds its
-block's default storing nothing for it, and a check over N occurrences that
-read only block-level values evaluating once.
+Instantiating and reading over the occurrences is now sub-linear per
+satellite — the per-satellite cost falls as the fleet grows, since the
+derivation is paid per block and the rest is one object and one shared read
+per occurrence. The warm re-check is **slower** by one to four
+milliseconds per report: in a session where every value is already
+materialized there is no derivation left to share, and the report still
+traces what each check reads to decide which verdicts it may fan out. That
+is the cost of sharing when it finds nothing to share; the cold `-satisfy`
+above, where it does, is the case the fleet form is for.
 
 ## Editing: what an editor pays per keystroke
 

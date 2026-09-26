@@ -199,6 +199,21 @@ type Context struct {
 	// deriving are the `=` values being derived, innermost last; every feature
 	// value read while one is records it as a dependent (see dependents.go).
 	deriving []derivation
+	// tracing observes the derivations under way, innermost last, for the reads
+	// that decide whether each is one every occurrence of its shape shares.
+	tracing []derivationTrace
+	// shareDefaults turns on the sharing of derived defaults between occurrences of
+	// one shape; sharedDefaults holds them, shapes interns the shapes they are
+	// keyed by, and sharedTaken counts the values taken from it (shared_default.go).
+	shareDefaults  bool
+	sharedDefaults map[sharedKey]*sharedDefault
+	shapes         map[shapeNode]*shapeNode
+	sharedTaken    int64
+	// verdicts is the span sharing verdicts between objects of one shape; nil outside one.
+	verdicts *verdictMemo
+	// behaviorsAttached counts the object behaviors attached so far, so a
+	// derivation knows whether one was attached under it.
+	behaviorsAttached int64
 	// runBoundaries mark, innermost last, where in objectBehaviors and in
 	// pendingBehaviors the behaviors a change still to be kept or undone attached
 	// begin: the only ones a drain under it may run (see nextRunnableBehavior).
@@ -336,6 +351,10 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		bindingOwners:           make(map[featureValueRef]*ast.Usage),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
+
+		shareDefaults:  SharedDefaultsFromEnv(),
+		sharedDefaults: make(map[sharedKey]*sharedDefault),
+		shapes:         make(map[shapeNode]*shapeNode),
 	}
 	ctx.took = &idMark{high: 1}
 	ctx.ids = newIDSequence(ctx.took)
@@ -1126,11 +1145,13 @@ func (ctx *Context) CheckConstraintOn(sym *symbols.Symbol, scope *symbols.Scope,
 	if err := RequireConstraint(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("constraint", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "constraint", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkConstraintOn(sym, scope, subject)
+	})
+}
 
+// checkConstraintOn is CheckConstraintOn evaluated on the object it resolved to.
+func (ctx *Context) checkConstraintOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Evaluate every condition the constraint states, inherited ones included.
 	conds := ctx.conditionsOf(sym, ctx.chainMembers(sym, scope))
 	holds, err := ctx.evaluateConditions(conditionCheck{
@@ -1430,11 +1451,13 @@ func (ctx *Context) CheckRequirementOn(sym *symbols.Symbol, scope *symbols.Scope
 	if err := RequireRequirement(sym); err != nil {
 		return CheckResult{Subject: self}, err
 	}
-	subject, err := ctx.checkSubject("requirement", sym.Name, sym, self)
-	if err != nil {
-		return CheckResult{}, err
-	}
+	return ctx.checkOn(sym, "requirement", sym.Name, sym, self, func(subject carrier) (CheckResult, error) {
+		return ctx.checkRequirementOn(sym, scope, subject)
+	})
+}
 
+// checkRequirementOn is CheckRequirementOn evaluated on the object it resolved to.
+func (ctx *Context) checkRequirementOn(sym *symbols.Symbol, scope *symbols.Scope, subject carrier) (CheckResult, error) {
 	// Requirement-local bindings are shared by every member, whichever scope it
 	// was declared in.
 	members := ctx.chainMembers(sym, scope)

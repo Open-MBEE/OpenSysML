@@ -188,13 +188,35 @@ costs:
 | one `part def` per satellite, 32 planes of 400 | 2 354 827 | 145 MB | 331 s | 49.8 GiB | 20.3 GB |
 | four blocks, `part sats : Block[400]` in 32 planes | 12 467 | 771 KB | 0.70 s | 289 MiB | 184 MB |
 
-The runtime then pays for the occurrences when something asks for them: the
-same network instantiates in 2.06 s and 801 MB, its 2 412 `satisfy`
-assertions check in 8.84 s and 23.4 GiB allocated, and reading one summed
-attribute over every occurrence costs 42.7 s and 141.3 GiB, because each
-occurrence is still an object with a value slot per feature whose component
-tree is materialized to evaluate it. Both forms, their element counts and
-what the runtime does with 12 800 occurrences are in the
+The runtime then pays for the occurrences when something asks for them. Each
+occurrence is an object with a value slot per effective feature, but a `=`
+default derived from nothing but declared values is derived once per shape
+— type, classifiers and holding feature — and taken from a `Context` side
+table by every other pristine occurrence of the shape, without materializing
+the subtree the derivation walked; within one report, a check over
+occurrences of one shape is evaluated once per distinct set of inputs and
+its verdict fanned out (`internal/exec/runtime/shared_default.go`,
+`shared_verdict.go`; `OPENSYSML_SHARED_DEFAULTS=0` turns it off, and a
+context recording a trace shares nothing, so the trace lists every
+evaluation). Measured on
+the same machine, before and after that sharing, one run each with
+`-memstats` and `/usr/bin/time`:
+
+| satellites | operation | before wall | allocated | peak RSS | after wall | allocated | peak RSS |
+| ---------- | --------- | ----------- | --------- | -------- | ---------- | --------- | -------- |
+| 1 600 | `-instantiate` the network | 0.44 s | 238.4 MiB | 195 MB | 0.45 s | 238.5 MiB | 195 MB |
+| 1 600 | `-satisfy`, 324 assertions | 0.71 s | 666.0 MiB | 306 MB | 0.60 s | 381.6 MiB | 272 MB |
+| 1 600 | read `dryMass` over every occurrence | 1.85 s | 2.9 GiB | 737 MB | 0.58 s | 306.3 MiB | 252 MB |
+| 12 800 | `-instantiate` the network | 2.06 s | 1.1 GiB | 801 MB | 1.97 s | 1.1 GiB | 763 MB |
+| 12 800 | `-satisfy`, 2 412 assertions | 8.84 s | 23.4 GiB | 1.49 GB | 4.59 s | 7.2 GiB | 1.32 GB |
+| 12 800 | read `dryMass` over every occurrence | 42.7 s | 141.3 GiB | 5.2 GB | 3.85 s | 2.7 GiB | 1.24 GB |
+
+The reports and values are identical before and after. What remains of the
+checking cost is per diverging unit — every assertion of this workload names
+one, which states its own as-built masses — whose subsystems are
+materialized and whose behaviors then run to the end of the report. Both
+forms, their element counts and what the runtime does with 12 800
+occurrences are in the
 [stress-test record](../project/satellite-network-stress-test.md) and the
 guide chapter on [modeling fleets](../guide/modeling-fleets.md).
 
