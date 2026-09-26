@@ -29,14 +29,21 @@ func TestTopLevelRedefinitionRetainsValueInOwnedAttribute(t *testing.T) {
 		t.Fatalf("parse turtle: %v", err)
 	}
 	writer := elementNamed(t, graph, "P::Writer")
-	attribute := elementNamed(t, graph, "P::Writer::tempo")
+	owned := graph.Objects(writer, rdf.SysML+"ownedMember")
+	if len(owned) != 1 {
+		t.Fatalf("Writer has %d owned members, want one", len(owned))
+	}
+	attribute := owned[0]
 	if got := rdf.LocalName(graph.Type(attribute)); got != "AttributeUsage" {
 		t.Fatalf("redefined member has type %q, want AttributeUsage", got)
 	}
 	if got, ok := graph.Object(attribute, rdf.SysML+"owningNamespace"); !ok || got != writer {
 		t.Errorf("attribute owningNamespace = %v, want %v", got, writer)
 	}
-	membership := rdf.OwningMembershipIRI("P::Writer::tempo")
+	membership, ok := graph.Object(attribute, rdf.SysML+"owningMembership")
+	if !ok {
+		t.Fatal("redefined attribute has no owning membership")
+	}
 	if got := graph.Objects(writer, rdf.SysML+"ownedMembership"); len(got) == 0 || got[0] != membership {
 		t.Errorf("Writer ownedMembership = %v, want membership %v", got, membership)
 	}
