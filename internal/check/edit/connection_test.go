@@ -240,6 +240,13 @@ func TestAddConnectionDuplicateNamesInOneRequestRefuse(t *testing.T) {
 	}
 }
 
+func TestAddConnectionRejectsQuotedDuplicateName(t *testing.T) {
+	m := loadContent(t, "assembly-quoted-duplicate.sysml", interconnectionFixture)
+	addFailure(t, m, AddConnection(
+		"Vehicle::Assembly", "connection", "tank.fuelOut", "engine.fuelIn", "'tank'",
+	), FailureMemberNameTaken)
+}
+
 func TestKindListings(t *testing.T) {
 	sysml := strings.Join(ConnectionKinds(source.KindSysML), " ")
 	if sysml != "allocation binding connection flow interface succession transition" {

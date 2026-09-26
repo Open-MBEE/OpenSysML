@@ -260,6 +260,11 @@ func TestAddMemberDuplicateRootNamesRefuse(t *testing.T) {
 	}
 }
 
+func TestAddMemberRejectsQuotedDuplicateName(t *testing.T) {
+	m := loadContent(t, "add-quoted-duplicate.sysml", "package P { part def X; }\n")
+	addFailure(t, m, AddMember("P", "part def", "'X'"), FailureMemberNameTaken)
+}
+
 // memberKindTypes pairs each typed usage kind with a definition kind it may be
 // typed by. SysML usages are typed by their own `def`.
 var memberKindTypes = map[string]string{

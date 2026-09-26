@@ -61,6 +61,7 @@ private static final long serialVersionUID = 0L;
     ADD_CONNECTION(6),
     ADD_SATISFY(7),
     ADD_REQUIREMENT_CONSTRAINT(8),
+    ADD_TRANSITION(9),
     OPERATION_NOT_SET(0);
     private final int value;
     private OperationCase(int value) {
@@ -86,6 +87,7 @@ private static final long serialVersionUID = 0L;
         case 6: return ADD_CONNECTION;
         case 7: return ADD_SATISFY;
         case 8: return ADD_REQUIREMENT_CONSTRAINT;
+        case 9: return ADD_TRANSITION;
         case 0: return OPERATION_NOT_SET;
         default: return null;
       }
@@ -349,6 +351,37 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.AddRequirementConstraintEdit.getDefaultInstance();
   }
 
+  public static final int ADD_TRANSITION_FIELD_NUMBER = 9;
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return Whether the addTransition field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddTransition() {
+    return operationCase_ == 9;
+  }
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return The addTransition.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddTransitionEdit getAddTransition() {
+    if (operationCase_ == 9) {
+       return (org.openmbee.opensysml.proto.AddTransitionEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder() {
+    if (operationCase_ == 9) {
+       return (org.openmbee.opensysml.proto.AddTransitionEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -386,6 +419,9 @@ private static final long serialVersionUID = 0L;
     }
     if (operationCase_ == 8) {
       output.writeMessage(8, (org.openmbee.opensysml.proto.AddRequirementConstraintEdit) operation_);
+    }
+    if (operationCase_ == 9) {
+      output.writeMessage(9, (org.openmbee.opensysml.proto.AddTransitionEdit) operation_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -427,6 +463,10 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 8) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(8, (org.openmbee.opensysml.proto.AddRequirementConstraintEdit) operation_);
+    }
+    if (operationCase_ == 9) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(9, (org.openmbee.opensysml.proto.AddTransitionEdit) operation_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -477,6 +517,10 @@ private static final long serialVersionUID = 0L;
         if (!getAddRequirementConstraint()
             .equals(other.getAddRequirementConstraint())) return false;
         break;
+      case 9:
+        if (!getAddTransition()
+            .equals(other.getAddTransition())) return false;
+        break;
       case 0:
       default:
     }
@@ -523,6 +567,10 @@ private static final long serialVersionUID = 0L;
       case 8:
         hash = (37 * hash) + ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER;
         hash = (53 * hash) + getAddRequirementConstraint().hashCode();
+        break;
+      case 9:
+        hash = (37 * hash) + ADD_TRANSITION_FIELD_NUMBER;
+        hash = (53 * hash) + getAddTransition().hashCode();
         break;
       case 0:
       default:
@@ -686,6 +734,9 @@ private static final long serialVersionUID = 0L;
       if (addRequirementConstraintBuilder_ != null) {
         addRequirementConstraintBuilder_.clear();
       }
+      if (addTransitionBuilder_ != null) {
+        addTransitionBuilder_.clear();
+      }
       operationCase_ = 0;
       operation_ = null;
       return this;
@@ -759,6 +810,10 @@ private static final long serialVersionUID = 0L;
           addRequirementConstraintBuilder_ != null) {
         result.operation_ = addRequirementConstraintBuilder_.build();
       }
+      if (operationCase_ == 9 &&
+          addTransitionBuilder_ != null) {
+        result.operation_ = addTransitionBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -804,6 +859,10 @@ private static final long serialVersionUID = 0L;
         }
         case ADD_REQUIREMENT_CONSTRAINT: {
           mergeAddRequirementConstraint(other.getAddRequirementConstraint());
+          break;
+        }
+        case ADD_TRANSITION: {
+          mergeAddTransition(other.getAddTransition());
           break;
         }
         case OPERATION_NOT_SET: {
@@ -892,6 +951,13 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 8;
               break;
             } // case 66
+            case 74: {
+              input.readMessage(
+                  internalGetAddTransitionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 9;
+              break;
+            } // case 74
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2058,6 +2124,148 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 8;
       onChanged();
       return addRequirementConstraintBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddTransitionEdit, org.openmbee.opensysml.proto.AddTransitionEdit.Builder, org.openmbee.opensysml.proto.AddTransitionEditOrBuilder> addTransitionBuilder_;
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     * @return Whether the addTransition field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddTransition() {
+      return operationCase_ == 9;
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     * @return The addTransition.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddTransitionEdit getAddTransition() {
+      if (addTransitionBuilder_ == null) {
+        if (operationCase_ == 9) {
+          return (org.openmbee.opensysml.proto.AddTransitionEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 9) {
+          return addTransitionBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    public Builder setAddTransition(org.openmbee.opensysml.proto.AddTransitionEdit value) {
+      if (addTransitionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addTransitionBuilder_.setMessage(value);
+      }
+      operationCase_ = 9;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    public Builder setAddTransition(
+        org.openmbee.opensysml.proto.AddTransitionEdit.Builder builderForValue) {
+      if (addTransitionBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addTransitionBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 9;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    public Builder mergeAddTransition(org.openmbee.opensysml.proto.AddTransitionEdit value) {
+      if (addTransitionBuilder_ == null) {
+        if (operationCase_ == 9 &&
+            operation_ != org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddTransitionEdit.newBuilder((org.openmbee.opensysml.proto.AddTransitionEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 9) {
+          addTransitionBuilder_.mergeFrom(value);
+        } else {
+          addTransitionBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 9;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    public Builder clearAddTransition() {
+      if (addTransitionBuilder_ == null) {
+        if (operationCase_ == 9) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 9) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addTransitionBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddTransitionEdit.Builder getAddTransitionBuilder() {
+      return internalGetAddTransitionFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder() {
+      if ((operationCase_ == 9) && (addTransitionBuilder_ != null)) {
+        return addTransitionBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 9) {
+          return (org.openmbee.opensysml.proto.AddTransitionEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddTransitionEdit, org.openmbee.opensysml.proto.AddTransitionEdit.Builder, org.openmbee.opensysml.proto.AddTransitionEditOrBuilder> 
+        internalGetAddTransitionFieldBuilder() {
+      if (addTransitionBuilder_ == null) {
+        if (!(operationCase_ == 9)) {
+          operation_ = org.openmbee.opensysml.proto.AddTransitionEdit.getDefaultInstance();
+        }
+        addTransitionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddTransitionEdit, org.openmbee.opensysml.proto.AddTransitionEdit.Builder, org.openmbee.opensysml.proto.AddTransitionEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddTransitionEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 9;
+      onChanged();
+      return addTransitionBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EditOperation)
