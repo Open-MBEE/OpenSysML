@@ -146,8 +146,8 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 	}, nil
 }
 
-// Edit is one source-preserving change to a model's notation: SetValue, Rename,
-// AddMember, AddConnection, Delete or Move. A type switch over them is exhaustive.
+// Edit is one source-preserving change to a model's notation. A type switch
+// over the supported edit operations is exhaustive.
 type Edit interface {
 	isEdit()
 }
@@ -196,9 +196,9 @@ type AddMember struct {
 	Direction string
 }
 
-// AddSatisfy inserts a satisfy usage into a body that admits behavior usages.
+// AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
 type AddSatisfy struct {
-	// Owner is the namespace receiving the usage.
+	// Owner is the package or body receiving the usage.
 	Owner string
 	// Requirement is the requirement feature reference.
 	Requirement string
@@ -220,6 +220,31 @@ type AddRequirementConstraint struct {
 	Expression string
 	// Name is the optional constraint name.
 	Name string
+}
+
+// AddTransition inserts a state transition or entry transition into a state body.
+type AddTransition struct {
+	// Owner is the state definition or usage receiving the transition.
+	Owner string
+	// Name is the optional transition name.
+	Name string
+	// Source is the source feature reference; empty only for an entry transition.
+	Source string
+	// Target is the target feature reference.
+	Target string
+	// Trigger is optional text after `accept`.
+	Trigger string
+	// Guard is an optional boolean expression after `if`.
+	Guard string
+	// Effect is optional effect text after `do`.
+	Effect string
+	// Initial writes an entry transition instead of a regular transition.
+	Initial bool
+}
+
+// AddEntryTransition constructs an entry transition to target in owner.
+func AddEntryTransition(owner, target string) AddTransition {
+	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
 // AddConnection inserts a connection-like usage into a namespace or document root.
@@ -262,6 +287,7 @@ func (AddSatisfy) isEdit() { /* marker: closed Edit set */ }
 func (AddRequirementConstraint) isEdit() {
 	/* marker: closed Edit set */
 }
+func (AddTransition) isEdit() { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
@@ -424,6 +450,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddRequirementConstraint:
 			required[CapabilityAuthoring] = true
 			required[CapabilityRequirementConstraintAuthoring] = true
+		case AddTransition:
+			required[CapabilityAuthoring] = true
+			required[CapabilityTransitionAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -433,7 +462,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		for _, capability := range []string{
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
-			CapabilityMemberModifiers,
+			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -533,6 +562,14 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
 				Owner: operation.Owner, Kind: operation.Kind,
 				Expression: operation.Expression, Name: operation.Name,
+			},
+		}}, nil
+	case AddTransition:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{
+			AddTransition: &pb.AddTransitionEdit{
+				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
+				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
+				Effect: operation.Effect, Initial: operation.Initial,
 			},
 		}}, nil
 	case AddConnection:

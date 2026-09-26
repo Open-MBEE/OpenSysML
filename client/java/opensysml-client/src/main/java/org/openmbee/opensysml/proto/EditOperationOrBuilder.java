@@ -130,5 +130,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddRequirementConstraintEditOrBuilder getAddRequirementConstraintOrBuilder();
 
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return Whether the addTransition field is set.
+   */
+  boolean hasAddTransition();
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return The addTransition.
+   */
+  org.openmbee.opensysml.proto.AddTransitionEdit getAddTransition();
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   */
+  org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

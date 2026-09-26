@@ -120,6 +120,11 @@ type conformanceEditOperation struct {
 	Direction         string   `json:"direction,omitempty"`
 	Requirement       string   `json:"requirement,omitempty"`
 	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
+	TransitionSource  string   `json:"source,omitempty"`
+	Trigger           string   `json:"trigger,omitempty"`
+	Guard             string   `json:"guard,omitempty"`
+	Effect            string   `json:"effect,omitempty"`
+	Initial           bool     `json:"initial,omitempty"`
 	Asserted          bool     `json:"is_asserted,omitempty"`
 	Negated           bool     `json:"is_negated,omitempty"`
 	Expression        string   `json:"expression,omitempty"`
@@ -256,6 +261,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 						Name: op.Name,
 					},
 				},
+			})
+		case "add_transition":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddTransition{AddTransition: &pb.AddTransitionEdit{
+					Owner: op.Owner, Name: op.Name, Source: op.TransitionSource,
+					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
+					Effect: op.Effect, Initial: op.Initial,
+				}},
 			})
 		case "delete":
 			operations = append(operations, &pb.EditOperation{

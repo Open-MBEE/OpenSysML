@@ -19,6 +19,7 @@ from opensysml.capabilities import (
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
+    CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -977,6 +978,7 @@ class Connection:
         requests_member_modifiers = False
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
+        requests_transition_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1078,6 +1080,28 @@ class Connection:
                 add = operation.add_requirement_constraint
                 add.owner, add.kind = owner, constraint_kind
                 add.expression, add.name = expression, name
+            elif kind == 'add_transition':
+                if len(operation_data) != 9:
+                    raise ValueError("malformed add_transition operation: expected 9 fields")
+                (
+                    _, owner, name, source, target, trigger, guard, effect, initial
+                ) = operation_data
+                if not all(isinstance(text, str) for text in (
+                    owner, name, source, target, trigger, guard, effect
+                )) or not isinstance(initial, bool):
+                    raise ValueError("malformed add_transition operation: text fields and initial must be valid")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_TRANSITION_AUTHORING,
+                    upgrade_remedy(CAPABILITY_TRANSITION_AUTHORING),
+                )
+                requests_authoring = True
+                requests_transition_authoring = True
+                add = operation.add_transition
+                add.owner, add.name, add.source, add.target = owner, name, source, target
+                add.trigger, add.guard, add.effect = trigger, guard, effect
+                add.initial = initial
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1100,7 +1124,7 @@ class Connection:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, delete or move"
+                    f"add_requirement_constraint, add_transition, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1112,6 +1136,8 @@ class Connection:
             requested_capabilities.append(CAPABILITY_SATISFY_AUTHORING)
         if requests_requirement_constraint_authoring:
             requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
+        if requests_transition_authoring:
+            requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

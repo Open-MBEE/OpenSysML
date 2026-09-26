@@ -111,6 +111,29 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddTransitionEditCarriesClausesAndEntryFlag() {
+    var operation =
+        Protos.proto(
+            Edit.AddTransition.of("Demo::S", "idle", "toasting")
+                .withName("go")
+                .withTrigger("CycleStart")
+                .withGuard("ready")
+                .withEffect("action cool"));
+    assertEquals("Demo::S", operation.getAddTransition().getOwner());
+    assertEquals("go", operation.getAddTransition().getName());
+    assertEquals("idle", operation.getAddTransition().getSource());
+    assertEquals("toasting", operation.getAddTransition().getTarget());
+    assertEquals("CycleStart", operation.getAddTransition().getTrigger());
+    assertEquals("ready", operation.getAddTransition().getGuard());
+    assertEquals("action cool", operation.getAddTransition().getEffect());
+    assertFalse(operation.getAddTransition().getInitial());
+
+    var entry = Protos.proto(Edit.AddTransition.entry("Demo::S", "idle"));
+    assertEquals("idle", entry.getAddTransition().getTarget());
+    assertTrue(entry.getAddTransition().getInitial());
+  }
+
+  @Test
   void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
     var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
     assertEquals("Demo::System", minimal.getAddConnection().getOwner());
