@@ -112,6 +112,9 @@ type Feature struct {
 	// Multi marks a feature whose declared multiplicity admits more than one
 	// value.
 	Multi bool
+
+	// Unique marks a multi-valued feature that holds no two equal values.
+	Unique bool
 }
 
 // Existing is what Generate must fit the records it makes into.
@@ -180,11 +183,12 @@ var reservedFeatures = map[string]bool{
 
 // feature is one member the record definition declares for a run value.
 type feature struct {
-	name   string
-	ref    bool   // object-valued
-	typ    string // declared type as written, "" for a ref
-	unitOf string // nonempty: this feature is the unit companion of the named one
-	multi  bool   // declares [0..*]
+	name     string
+	ref      bool   // object-valued
+	typ      string // declared type as written, "" for a ref
+	unitOf   string // nonempty: this feature is the unit companion of the named one
+	multi    bool   // declares [0..*]
+	repeated bool   // a sequence contains equal elements
 }
 
 // valueKind classifies how a value is spelled: its declared type and, for a
@@ -214,11 +218,12 @@ const (
 // whether the member is multi-valued, and — for a quantity — the unit text its
 // companion feature records.
 type shape struct {
-	kind    valueKind
-	literal string
-	typ     string
-	unit    string
-	multi   bool
+	kind     valueKind
+	literal  string
+	typ      string
+	unit     string
+	multi    bool
+	repeated bool
 }
 
 // classify decides the feature shape a value asks for.
@@ -269,7 +274,6 @@ func classify(v runtime.Value, r *Run) shape {
 // beside its kind, so the whole value falls back to its text. The empty sequence
 // is unset but multi-valued: it settles a member to [0..*] and spells `()`.
 func classifySequence(v runtime.Value, r *Run) shape {
-	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
 	seq := v.Sequence()
 	var elements []runtime.Value
 	if seq != nil {
@@ -278,6 +282,8 @@ func classifySequence(v runtime.Value, r *Run) shape {
 	if len(elements) == 0 {
 		return shape{kind: kindUnset, multi: true, literal: "()"}
 	}
+	repeated := hasRepeatedElement(elements)
+	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r)), repeated: repeated}
 	literals := make([]string, 0, len(elements))
 	var settled shape
 	for i, element := range elements {
@@ -291,7 +297,9 @@ func classifySequence(v runtime.Value, r *Run) shape {
 		case es.kind == settled.kind && es.unit == settled.unit && (es.kind != kindEnum || es.typ == settled.typ):
 			// Same kind; for a quantity es.unit == settled.unit holds the share, and
 			// enumeration literals must spell literals of the one enum.
-		case numericPair(es.typ, settled.typ):
+		case (es.kind == kindInteger || es.kind == kindReal) &&
+			(settled.kind == kindInteger || settled.kind == kindReal) &&
+			numericPair(es.typ, settled.typ):
 			settled = shape{kind: kindReal, typ: scalarValuesReal}
 		default:
 			return fallback
@@ -299,6 +307,7 @@ func classifySequence(v runtime.Value, r *Run) shape {
 		literals = append(literals, es.literal)
 	}
 	settled.multi = true
+	settled.repeated = repeated
 	settled.literal = "(" + strings.Join(literals, ", ") + ")"
 	return settled
 }
@@ -410,6 +419,9 @@ func buildFeatures(req *Request) ([]feature, error) {
 	// First pass: settle each member's shape over every run that supplies it.
 	var names []string
 	shapes := map[string]shape{}
+	// A repeated element anywhere in a member's runs marks its feature, even
+	// when a merge settles the shape over values that did not repeat.
+	repeated := map[string]bool{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
 			if m.inOf == "" {
@@ -421,6 +433,9 @@ func buildFeatures(req *Request) ([]feature, error) {
 				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
 			}
 			sh := classify(m.value, &req.Runs[i])
+			if sh.repeated {
+				repeated[m.name] = true
+			}
 			cur, seen := shapes[m.name]
 			if !seen {
 				names = append(names, m.name)
@@ -519,12 +534,25 @@ func buildFeatures(req *Request) ([]feature, error) {
 		}
 		f := feature{name: name}
 		applyShape(&f, shapes[name])
+		f.repeated = repeated[name]
 		feats = append(feats, f)
 		if shapes[name].kind == kindQuantity {
 			feats = append(feats, feature{name: name + "Unit", typ: scalarValuesString, unitOf: name})
 		}
 	}
 	return feats, nil
+}
+
+// hasRepeatedElement reports whether two elements of a sequence are equal values.
+func hasRepeatedElement(elements []runtime.Value) bool {
+	seen := runtime.NewSet()
+	for _, element := range elements {
+		if seen.Contains(element) {
+			return true
+		}
+		seen.Add(element)
+	}
+	return false
 }
 
 // numericPair reports whether the types are Integer and Real in either order:
@@ -700,6 +728,9 @@ func checkExisting(req *Request, feats []feature, defName string) error {
 				want = "single-valued"
 			}
 			return fmt.Errorf("record definition %s declares %s as %s but the run values need %s; record into another package with `into`", def, f.name, kind, want)
+		}
+		if f.multi && f.repeated && decl.Unique {
+			return fmt.Errorf("record definition %s declares %s unique but the run values repeat a value; record into another package with `into`", def, f.name)
 		}
 		if !f.ref && f.typ != "" && decl.TypeFQN != "" && decl.TypeFQN != f.typ &&
 			f.typ != scalarValuesScalarValue && decl.TypeFQN != scalarValuesScalarValue {

@@ -513,6 +513,7 @@ func recordAttributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Sym
 			f.TypeFQN = idx.GetFQN(types[0])
 		}
 		f.Multi = !sem.GoverningMultiplicityOf(m).AtMostOne()
+		f.Unique = sem.IsUnique(m)
 		attrs[m.Name] = f
 	}
 	return attrs
