@@ -101,9 +101,15 @@
     background: var(--sysml-surface);
   }
 
-  /* A sized table lays its columns out at the shares its <col> widths state. */
+  /* A sized table lays its columns out at the shares its <col> widths state,
+     breaking a token wider than its cell rather than overflowing it. */
   .sysml-document .sysml-table-sized {
     table-layout: fixed;
+  }
+
+  .sysml-document .sysml-table-sized th,
+  .sysml-document .sysml-table-sized td {
+    overflow-wrap: break-word;
   }
 
   /* A nested row's first cell is indented one --sysml-row-indent per level of
