@@ -496,7 +496,7 @@ func (tc *typeChecker) checkChainReferenceKind(scope *symbols.Scope, target ast.
 }
 
 func (tc *typeChecker) checkNearestDeclaredUsageTyping(target *symbols.Symbol, decl declKind) bool {
-	if _, ok := target.Decl.(*ast.Usage); !ok ||
+	if !target.DeclaresUsage() ||
 		decl.isDef || decl.isReference || decl.keyword == "" ||
 		decl.keyword == "feature" || decl.hasType ||
 		w11aInheritedTypingKinds[decl.useKind] {
@@ -530,6 +530,9 @@ func nearestDeclaredUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol
 		return nil
 	}
 	visited[sym] = true
+	if sym.Recorded() {
+		return nearestRecordedUsageTypesOf(resolver, sym, visited)
+	}
 	decl, ok := sym.Decl.(*ast.Usage)
 	if !ok {
 		return nil
@@ -569,6 +572,43 @@ func nearestDeclaredUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol
 			continue
 		}
 		types = append(types, nearestDeclaredUsageTypesOf(resolver, target, visited)...)
+	}
+	return types
+}
+
+// nearestRecordedUsageTypesOf is nearestDeclaredUsageTypesOf over a recorded
+// usage, whose relationships its record names.
+func nearestRecordedUsageTypesOf(resolver *resolve.Resolver, sym *symbols.Symbol, visited map[*symbols.Symbol]bool) []w8dUsageType {
+	if !sym.DeclaresUsage() {
+		return nil
+	}
+	var inherited []*symbols.Symbol
+	for _, ref := range sym.RecordedRelationships(ast.RelTyping) {
+		if target := resolver.RecordedElement(ref); target != nil {
+			inherited = append(inherited, target)
+		}
+	}
+	if len(inherited) > 0 {
+		facts := sym.Facts
+		if facts.Modifiers.Has(symbols.ModReference) || facts.Direction != ast.DirNone ||
+			facts.Keyword == "" || facts.Keyword == "feature" ||
+			!usageKindCanBeTypedByDefinition(facts.UsageKind) {
+			return nil
+		}
+		types := make([]w8dUsageType, 0, len(inherited))
+		for _, target := range inherited {
+			types = append(types, w8dUsageType{sym: target, declared: true})
+		}
+		return types
+	}
+	var types []w8dUsageType
+	for _, rel := range sym.Facts.Relationships {
+		if rel.Kind != ast.RelSubsets && rel.Kind != ast.RelRedefines && rel.Kind != ast.RelReferences {
+			continue
+		}
+		if target := resolver.RecordedElement(rel.Target); target != nil {
+			types = append(types, nearestDeclaredUsageTypesOf(resolver, target, visited)...)
+		}
 	}
 	return types
 }

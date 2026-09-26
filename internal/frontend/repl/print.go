@@ -57,6 +57,9 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 	if sym != nil {
 		doc = s.ws.Document(sym.DocName)
 	}
+	if sym != nil && sym.Recorded() {
+		return []string{errPrefix + symbols.NeedsTree(sym, "printing "+shown).Error()}, false, nil
+	}
 	if doc == nil || sym == nil || sym.Decl == nil {
 		// A symbol the library index answered with is declared in a file this
 		// session never read, or was restored from an index cache holding no tree.

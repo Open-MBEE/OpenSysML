@@ -253,6 +253,9 @@ func NamespaceFiltersIn(scope *Scope) []ElementFilter {
 	if scope == nil {
 		return nil
 	}
+	if scope.recorded {
+		return scope.filters
+	}
 	return extractNamespaceFilters(scope.Node(), scope)
 }
 
@@ -265,12 +268,8 @@ func ImportFiltersIn(scope *Scope) []ElementFilter {
 		return nil
 	}
 	var out []ElementFilter
-	for _, m := range namespaceMembers(scope.Node()) {
-		if mem, ok := m.(*ast.Membership); ok {
-			m = mem.Member
-		}
-		imp, ok := m.(*ast.Import)
-		if !ok || imp.FilterExpr == nil {
+	for _, imp := range scope.Imports() {
+		if imp.FilterExpr == nil {
 			continue
 		}
 		out = append(out, ElementFilter{

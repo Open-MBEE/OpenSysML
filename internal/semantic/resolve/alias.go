@@ -25,6 +25,9 @@ func (r *Resolver) AliasNamesNothing(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Kind != symbols.SymbolAlias {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.Facts.Alias.IsZero()
+	}
 	al, ok := sym.Decl.(*ast.Alias)
 	if !ok || al.For == nil {
 		return false
@@ -80,6 +83,10 @@ func (r *Resolver) resolveAliasTarget(sym *symbols.Symbol) (*symbols.Symbol, boo
 // aliasStep resolves one alias's target, named by a qualified name resolved from
 // the alias's own scope.
 func (r *Resolver) aliasStep(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if sym.Recorded() {
+		target := r.idx.Element(sym.Facts.Alias)
+		return target, target != nil
+	}
 	al, ok := sym.Decl.(*ast.Alias)
 	if !ok || al.For == nil {
 		return nil, false

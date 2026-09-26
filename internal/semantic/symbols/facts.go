@@ -13,7 +13,7 @@ type LibraryFacts struct {
 	// Supers are the fully-qualified names of the semantic direct supertypes,
 	// in derivation order. Nil when an edge has no qualified name to restore it
 	// by, which leaves the whole set to be derived from the declaration.
-	Supers []string
+	Supers []ElementRef
 
 	// Unit is the reduction of a measurement unit to base units. Nil for a
 	// symbol that is not a measurement unit.
@@ -26,6 +26,246 @@ type LibraryFacts struct {
 	// Abstract records that the declaration is abstract. False means concrete or
 	// not recorded, which leaves the declaration to say.
 	Abstract bool
+
+	// Recorded marks the facts of an interface-record symbol, one installed with
+	// no declaration at all (see DocumentRecord). Every field below is then
+	// authoritative: a zero value is the answer, not "derive it".
+	Recorded bool
+
+	// Alias is the fully-qualified name an alias symbol names.
+	Alias ElementRef
+
+	// Redefines are the fully-qualified names of the features the declaration
+	// redefines by an explicit clause, in declaration order.
+	Redefines []ElementRef
+
+	// References is the fully-qualified name of the feature the declaration
+	// reference-subsets (`references f`, `perform a`), or "".
+	References ElementRef
+
+	// Direction is the declared feature direction of a usage.
+	Direction ast.FeatureDirection
+
+	// Modifiers are the declaration's boolean modifiers (`end`, `derived`, ...).
+	Modifiers Modifiers
+
+	// Multiplicity is the declared multiplicity as evaluated, nil when the
+	// declaration states none.
+	Multiplicity *MultiplicityFacts
+
+	// Annotations is the metadata annotating the element, inline on its own
+	// declaration, as names and constants.
+	Annotations []AnnotationFacts
+
+	// About are the fully-qualified names of the elements a metadata usage
+	// annotates through its `about` clause.
+	About []ElementRef
+
+	// Node is the class of declaration the symbol was made from.
+	Node NodeKind
+
+	// Keyword is the keyword the declaration was written with (`part`,
+	// `feature`, a user-defined keyword), "" when it states none.
+	Keyword string
+
+	// UsageKind and DefKind are the syntactic kind of a usage or definition.
+	UsageKind ast.UsageKind
+	DefKind   ast.DefinitionKind
+
+	// Relationships are the relationships the declaration writes, in order,
+	// each with the fully-qualified name of what it resolved to, or "" for one
+	// that resolved to nothing.
+	Relationships []RelationshipFacts
+
+	// BaseType is the fully-qualified name of the type a metadata definition's
+	// own body binds `baseType` to, "" for none (see ModBindsBaseType).
+	BaseType ElementRef
+}
+
+// NodeKind classifies the declaring node of a recorded symbol.
+type NodeKind uint8
+
+const (
+	NodeNone NodeKind = iota
+	NodeDefinition
+	NodeUsage
+	NodeConnectorEnd
+	NodeCrossFeature
+	NodeSubject
+	NodeAssume
+	NodeRequire
+	NodeBodyExpr
+	NodeAlias
+	NodeImport
+	NodeOther
+)
+
+// NodeKindOf classifies a declaring node.
+func NodeKindOf(decl ast.Node) NodeKind {
+	switch decl.(type) {
+	case nil:
+		return NodeNone
+	case *ast.Definition:
+		return NodeDefinition
+	case *ast.Usage:
+		return NodeUsage
+	case *ast.ConnectorEnd:
+		return NodeConnectorEnd
+	case *ast.CrossFeatureMember:
+		return NodeCrossFeature
+	case *ast.SubjectMember:
+		return NodeSubject
+	case *ast.AssumeMember:
+		return NodeAssume
+	case *ast.RequireMember:
+		return NodeRequire
+	case *ast.BodyExpr:
+		return NodeBodyExpr
+	case *ast.Alias:
+		return NodeAlias
+	case *ast.Import:
+		return NodeImport
+	}
+	return NodeOther
+}
+
+// RelationshipFacts is one written relationship of a declaration.
+type RelationshipFacts struct {
+	Kind   ast.RelationshipKind
+	Target ElementRef
+}
+
+// DeclaresUsage reports whether the symbol was declared by a usage, from its
+// declaration or its record.
+func (s *Symbol) DeclaresUsage() bool {
+	if s.Recorded() {
+		return s.Facts.Node == NodeUsage
+	}
+	_, ok := s.Decl.(*ast.Usage)
+	return ok
+}
+
+// DeclaresDefinition reports whether the symbol was declared by a definition.
+func (s *Symbol) DeclaresDefinition() bool {
+	if s.Recorded() {
+		return s.Facts.Node == NodeDefinition
+	}
+	_, ok := s.Decl.(*ast.Definition)
+	return ok
+}
+
+// UsageKind is the syntactic kind of the usage declaring the symbol.
+func (s *Symbol) UsageKind() (ast.UsageKind, bool) {
+	if s.Recorded() {
+		return s.Facts.UsageKind, s.Facts.Node == NodeUsage
+	}
+	if u, ok := s.Decl.(*ast.Usage); ok {
+		return u.Kind, true
+	}
+	return 0, false
+}
+
+// DefinitionKind is the syntactic kind of the definition declaring the symbol.
+func (s *Symbol) DefinitionKind() (ast.DefinitionKind, bool) {
+	if s.Recorded() {
+		return s.Facts.DefKind, s.Facts.Node == NodeDefinition
+	}
+	if d, ok := s.Decl.(*ast.Definition); ok {
+		return d.Kind, true
+	}
+	return 0, false
+}
+
+// Keyword is the keyword the symbol's definition or usage was written with.
+func (s *Symbol) Keyword() string {
+	if s.Recorded() {
+		return s.Facts.Keyword
+	}
+	switch d := s.Decl.(type) {
+	case *ast.Definition:
+		return d.Keyword
+	case *ast.Usage:
+		return d.Keyword
+	}
+	return ""
+}
+
+// RecordedRelationships are the relationships a recorded symbol's declaration
+// wrote of one kind, by target name.
+func (s *Symbol) RecordedRelationships(kind ast.RelationshipKind) []ElementRef {
+	if !s.Recorded() {
+		return nil
+	}
+	var out []ElementRef
+	for _, rel := range s.Facts.Relationships {
+		if rel.Kind == kind {
+			out = append(out, rel.Target)
+		}
+	}
+	return out
+}
+
+// MultiplicityFacts is a declared multiplicity range as evaluated: a bound is
+// either known, unbounded (`*`), or unknown when it names a value the record
+// cannot carry.
+type MultiplicityFacts struct {
+	Lower, Upper BoundFacts
+}
+
+// BoundFacts is one evaluated multiplicity bound.
+type BoundFacts struct {
+	Value    int64
+	Known    bool
+	Infinite bool
+}
+
+// Modifiers is the set of boolean modifiers a declaration states, as a
+// recorded fact reads them.
+type Modifiers uint32
+
+// The modifiers a declaration can state (KerML 8.3.3, SysML v2 8.3.9).
+const (
+	ModEnd Modifiers = 1 << iota
+	ModDerived
+	ModInitial
+	ModReference
+	ModComposite
+	ModPortion
+	ModVariation
+	ModVariant
+	ModIndividual
+	ModConjugated
+	ModResult
+	ModOrdered
+	ModNonunique
+	ModConstant
+	ModVariable
+	ModParallel
+	ModDefault
+	ModNegated
+	ModDeclaresRequirement
+	ModAll
+	ModChain
+	ModEvent
+	// The traits below answer, for a recorded symbol, what the resolver asks
+	// of a declaration (see resolve.DeclarationTraits).
+	ModParameter
+	ModImplicitlyRedefined
+	ModContributesName
+	ModUnresolvedRedefinition
+	ModParameterizedByName
+	ModBindsBaseType
+	ModAcceptPayload
+)
+
+// Has reports whether every modifier of mask is set.
+func (m Modifiers) Has(mask Modifiers) bool { return m&mask == mask }
+
+// Recorded reports whether sym is an interface-record symbol: one installed
+// from a document's record, with no declaration to read. A reader that needs
+// the declaration answers such a symbol with ErrNeedsHydration.
+func (s *Symbol) Recorded() bool {
+	return s != nil && s.Decl == nil && s.Facts != nil && s.Facts.Recorded
 }
 
 // IsAbstract reports whether sym is declared abstract, reading the installed

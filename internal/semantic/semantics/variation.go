@@ -33,6 +33,9 @@ func DeclaresVariant(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModVariant)
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.IsVariant
 }

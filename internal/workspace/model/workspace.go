@@ -486,6 +486,9 @@ func (w *Workspace) AnalyzedContent(name string) ([]byte, []diag.Diagnostic, boo
 
 // diagnosticsLocked analyzes doc, caching the result. Caller holds the lock.
 func (w *Workspace) diagnosticsLocked(name string, doc *Document) []diag.Diagnostic {
+	if doc.Recorded() {
+		return doc.recorded.diagnostics
+	}
 	w.settleGathersLocked()
 	if cached, ok := w.diagCache[name]; ok {
 		return cached

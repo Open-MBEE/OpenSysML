@@ -549,6 +549,10 @@ func (cc *constraintChecker) checkRedefinition(sym *symbols.Symbol) {
 }
 
 func (cc *constraintChecker) featuringOwners(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	if sym.Recorded() {
+		owners := cc.model.RecordedRelationshipTargets(sym, ast.RelFeaturedBy)
+		return owners, len(owners) > 0
+	}
 	owners := make([]*symbols.Symbol, 0, 1)
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelFeaturedBy || rel.Target == nil {
@@ -672,6 +676,15 @@ func (cc *constraintChecker) shareRedefinedTarget(t, f *symbols.Symbol) bool {
 
 // collectRedefined resolves sym's redefinition targets into `into`, transitively.
 func (cc *constraintChecker) collectRedefined(sym *symbols.Symbol, into map[*symbols.Symbol]bool) {
+	if sym.Recorded() {
+		for _, target := range cc.model.RecordedRelationshipTargets(sym, ast.RelRedefines) {
+			if !into[target] {
+				into[target] = true
+				cc.collectRedefined(target, into)
+			}
+		}
+		return
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelRedefines || rel.Target == nil {
 			continue
@@ -728,6 +741,12 @@ func isPackageLevelFeature(sym *symbols.Symbol) bool {
 // extractUsageType extracts the type of a usage via its RelTyping relationship.
 // Returns nil if no explicit type is found.
 func extractUsageType(cc *constraintChecker, sym *symbols.Symbol) *symbols.Symbol {
+	if sym.Recorded() {
+		for _, typ := range cc.model.RecordedRelationshipTargets(sym, ast.RelTyping) {
+			return typ
+		}
+		return nil
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil || rel.Kind != ast.RelTyping {
 			continue

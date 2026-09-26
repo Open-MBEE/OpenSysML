@@ -139,6 +139,9 @@ func (s *Server) renameable(sym *symbols.Symbol, name string, span source.Span) 
 		// the references alone would break the model.
 		return renameTarget{}, source.Span{}, fmt.Errorf("cannot rename %q: declared outside the workspace", sym.Name)
 	}
+	if sym.Recorded() {
+		return renameTarget{}, source.Span{}, symbols.NeedsTree(sym, "renaming "+sym.Name)
+	}
 	target := renameTarget{sym: sym, name: name, declSpan: sym.NameSpan}
 	if name != sym.Name {
 		if sp := shortNameSpan(sym); name == sym.ShortName && sp.Len > 0 {

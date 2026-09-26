@@ -235,7 +235,7 @@ func newBuilder(model *semantics.Model, res *resolve.Resolver) *builder {
 // infoOf computes one symbol's identity, or nil for a symbol that has no
 // qualified name to derive an id from (an alias adds no element of its own).
 func (b *builder) infoOf(sym *symbols.Symbol) *Info {
-	if sym == nil || sym.Decl == nil || sym.Kind == symbols.SymbolAlias {
+	if sym == nil || (sym.Decl == nil && !sym.Recorded()) || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
 	fqn := b.idx.GetFQN(sym)
@@ -251,7 +251,7 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 		if site.TypeFQN != ElementIdFQN {
 			continue
 		}
-		d := Declaration{About: site.About, Node: site.Node, Span: site.Node.Span(), Scope: site.Scope}
+		d := Declaration{About: site.About, Node: site.Node, Span: siteSpan(site), Scope: site.Scope}
 		if id, ok := siteString(site, "id"); ok {
 			d.Declared = true
 			d.ID = id
@@ -295,7 +295,7 @@ func (b *builder) scopeOf(sym *symbols.Symbol) *Scope {
 		if site.TypeFQN != ProjectRefFQN {
 			continue
 		}
-		d := ScopeDeclaration{Node: site.Node, Span: site.Node.Span(), Scope: site.Scope}
+		d := ScopeDeclaration{Node: site.Node, Span: siteSpan(site), Scope: site.Scope}
 		d.ProjectID, _ = siteString(site, "projectId")
 		d.Branch, _ = siteString(site, "branch")
 		d.Org, _ = siteString(site, "org")
@@ -336,6 +336,14 @@ func enclosingSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		}
 	}
 	return nil
+}
+
+// siteSpan locates the node stating an annotation; a recorded one has none.
+func siteSpan(site semantics.AnnotationSite) source.Span {
+	if site.Node == nil {
+		return source.Span{}
+	}
+	return site.Node.Span()
 }
 
 // siteString is the constant string value one annotation binds to feature.

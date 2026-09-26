@@ -238,7 +238,24 @@ func (m *Model) baseTypeRebound(binder *symbols.Symbol, binders []*symbols.Symbo
 
 // bindsBaseType reports whether def's own body binds baseType.
 func (m *Model) bindsBaseType(def *symbols.Symbol) bool {
+	if def.Recorded() {
+		return def.Facts.Modifiers.Has(symbols.ModBindsBaseType)
+	}
 	return len(baseTypeBindings(def)) > 0
+}
+
+// BaseTypeFacts is what def's own body binds baseType to, for its record: the
+// type, whether the body binds baseType at all, and whether the binding is the
+// same for every annotated element, which a conditional binding is not.
+func (m *Model) BaseTypeFacts(def *symbols.Symbol) (base *symbols.Symbol, bound, unconditional bool) {
+	bindings := baseTypeBindings(def)
+	for _, usage := range bindings {
+		if op, ok := usage.Value.(*ast.OperatorExpr); ok && op.Operator == ast.OpConditional {
+			return nil, true, false
+		}
+	}
+	base, bound = m.ownBaseTypeOf(def, nil)
+	return base, bound, true
 }
 
 // baseTypeBindings lists the usages in def's own body that redefine and bind baseType.
@@ -263,6 +280,12 @@ func baseTypeBindings(def *symbols.Symbol) []*ast.Usage {
 // ownBaseTypeOf returns the type def's own body binds baseType to for annotated,
 // and whether the body binds baseType at all.
 func (m *Model) ownBaseTypeOf(def, annotated *symbols.Symbol) (*symbols.Symbol, bool) {
+	if def.Recorded() {
+		if def.Facts.BaseType.IsZero() {
+			return nil, def.Facts.Modifiers.Has(symbols.ModBindsBaseType)
+		}
+		return m.recordedElement(def.Facts.BaseType), true
+	}
 	bindings := baseTypeBindings(def)
 	for _, usage := range bindings {
 		name := metaCastOperand(m.baseTypeBinding(def, annotated, usage.Value))

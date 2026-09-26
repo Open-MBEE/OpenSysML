@@ -326,7 +326,7 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 		for _, sym := range target.Scope.Members() {
 			children.add(sym)
 		}
-		for _, childImp := range r.importsOf(target.Scope.Node()) {
+		for _, childImp := range r.scopeImports(target.Scope) {
 			if !r.importVisibleFrom(target, scope, childImp) || r.importStack[childImp] {
 				continue
 			}

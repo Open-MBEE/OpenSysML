@@ -44,6 +44,11 @@ func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journalNew(r, r.redefined, sym, sym.Decl)
 	r.redefined[sym] = nil
+	if sym.Recorded() {
+		out := r.recordedElements(sym.Facts.Redefines)
+		r.redefined[sym] = out
+		return out
+	}
 	out := r.explicitRedefinitions(sym)
 	if model, ok := r.model.(endRedefinitionLookup); ok {
 		for _, end := range model.ImplicitEndRedefinitions(sym) {

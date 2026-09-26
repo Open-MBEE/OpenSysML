@@ -79,7 +79,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 
 // snapshotKindDigest pins the SymbolKind and PseudostateKind numbering the snapshot
 // stream persists under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
-const snapshotKindDigest = "ed11b7ec256dac79"
+const snapshotKindDigest = "a005a8f89b4d1796"
 
 func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	var b strings.Builder

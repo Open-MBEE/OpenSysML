@@ -9,7 +9,7 @@ import (
 // formatVersion is the on-disk record format version. Bump it whenever the
 // persisted shape changes; a change to what a record captures needs no bump,
 // since the build ID in the cache key already invalidates records (see buildid.go).
-const formatVersion = 27
+const formatVersion = 28
 
 // factRecord is the derived analysis persisted for one library symbol, named by
 // the fully-qualified name it is declared under. It holds no declaration and no
@@ -17,10 +17,10 @@ const formatVersion = 27
 // declaration states is read from it rather than restored.
 type factRecord struct {
 	FQN       string
-	Supers    []string        // FQNs of the semantic direct supertypes (see supersOf)
-	Unit      *unitFacts      // for measurement units: their reduction to base units
-	Dimension *dimensionFacts // for measurement units: the dimension they measure in
-	Abstract  bool            // the declaration is abstract (KerML 7.3.2.2)
+	Supers    []symbols.ElementRef // the semantic direct supertypes (see supersOf)
+	Unit      *unitFacts           // for measurement units: their reduction to base units
+	Dimension *dimensionFacts      // for measurement units: the dimension they measure in
+	Abstract  bool                 // the declaration is abstract (KerML 7.3.2.2)
 }
 
 // unitFacts is the gob-encodable projection of a measurement unit reduced to
@@ -151,7 +151,7 @@ func dimensionFactsOf(sym *symbols.Symbol, model *semantics.Model, idx *symbols.
 // while checking that every declared generalization target resolves. Nothing is
 // recorded for a symbol with an edge that has no qualified name to restore it by,
 // or whose edges are still provisional: those are derived on every load instead.
-func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) ([]string, bool) {
+func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) ([]symbols.ElementRef, bool) {
 	var rels []*ast.Relationship
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
@@ -182,27 +182,24 @@ func supersOf(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) (
 			complete = false
 		}
 	}
-	var out []string
-	seen := map[string]bool{}
+	var out []symbols.ElementRef
+	seen := map[*symbols.Symbol]bool{}
 	derived := model.DirectSupertypes(sym)
 	if model.SupertypesProvisional(sym) {
 		return nil, false
 	}
 	for _, super := range derived {
-		superFQN := idx.GetFQN(super)
-		if superFQN == "" {
-			return nil, false
-		}
-		// A nameless target — an unnamed result parameter — has no name to
-		// restore it by, so the whole edge set is derived on load.
-		if idx.Declaring(superFQN) != super {
+		ref, ok := idx.RefTo(super)
+		if !ok {
+			// A target no reference reaches leaves the whole edge set to be
+			// derived on load.
 			return nil, complete
 		}
-		if seen[superFQN] {
+		if seen[super] {
 			continue
 		}
-		seen[superFQN] = true
-		out = append(out, superFQN)
+		seen[super] = true
+		out = append(out, ref)
 	}
 	return out, complete
 }

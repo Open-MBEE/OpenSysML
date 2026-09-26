@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -27,6 +28,23 @@ type Document struct {
 	Scope            *symbols.Scope
 	sf               *source.SourceFile
 	digest           string
+	// recorded is set for a document installed from its interface record (see
+	// Workspace.OpenRecorded): the diagnostics stored with the record, which the
+	// document reports in place of an analysis. The record itself is not kept;
+	// its facts live on the symbols of Scope.
+	recorded *recordedDiagnostics
+}
+
+// recordedDiagnostics are what a recorded document reports: the diagnostics
+// its analysis found when its record was written, verbatim.
+type recordedDiagnostics struct {
+	diagnostics []diag.Diagnostic
+}
+
+// Recorded reports whether the document is held as its interface record: its
+// scope tree carries facts in place of declarations, so AST is nil.
+func (d *Document) Recorded() bool {
+	return d != nil && d.recorded != nil
 }
 
 // newDocument parses content, which the workspace owns and never writes, and
