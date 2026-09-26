@@ -224,14 +224,16 @@ func (s *Session) Views() ([]model.ViewInfo, error) {
 func (s *Session) symbolsInLoadOrder(in func(*symbols.Scope) []*symbols.Symbol) []*symbols.Symbol {
 	idx := s.browseIndex()
 	var out []*symbols.Symbol
-	for _, doc := range s.sessionDocs() {
-		out = append(out, in(idx.DocumentRoot(doc.Name))...)
+	// Each document's symbols are placed where its text sits in the buffer, so
+	// sorting restores submission order across the documents.
+	at := make(map[*symbols.Symbol]int)
+	for _, l := range s.locatedDocs() {
+		for _, sym := range in(idx.DocumentRoot(l.doc.Name)) {
+			at[sym] = l.base + sym.DeclSpan.Offset
+			out = append(out, sym)
+		}
 	}
-	// The language documents are masked copies of one joined buffer, so their
-	// spans share coordinates and sorting restores submission order.
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset
-	})
+	sort.SliceStable(out, func(i, j int) bool { return at[out[i]] < at[out[j]] })
 	return out
 }
 
@@ -244,8 +246,19 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
+}
+
+// sessionSourceFile locates the file a span of a session document was loaded from:
+// a loaded file is a document named for its path; the transcript's spans are typed.
+func (s *Session) sessionSourceFile(doc string, span source.Span) string {
+	if doc != docName {
+		return source.FileNamed(doc, span)
+	}
+	sn, _ := s.snippetAt(span.Offset)
+	return source.FileNamed(sn.origin, span)
 }
 
 // sessionSourceText reads notation from the session's loaded documents, and
@@ -411,6 +424,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(r.session.sessionSourceText())
+	sem.SetSourceFile(r.session.sessionSourceFile)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {

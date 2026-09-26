@@ -56,6 +56,45 @@
       }
     },
     {
+      "id": "apply_edits/an_allocation_is_written_between_two_features",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "connection_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_connection.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_connection": {
+              "owner": "Demo::System",
+              "kind": "allocation",
+              "from_end": "a",
+              "to_end": "b",
+              "name": "alloc1"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "allocation alloc1 allocate a to b;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 1
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_rename_of_an_unreferenced_element_is_applied",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

@@ -27,23 +27,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
-// docName is the in-memory workspace key for the accumulated REPL buffer.
-// Text loaded from a .kerml file keeps that file's language: it is masked out
-// of docName and analyzed in kermlDocName, whose name carries the KerML kind
-// the parser's file-kind gates read. Both documents span the same joined
-// buffer byte for byte, so every offset locates the same snippet in either.
+// docName is the workspace key of the transcript: the typed submissions, joined,
+// with each loaded file masked out — a file is a workspace document of its own.
 const docName = "<repl>"
 
-// kermlDocName is the workspace key for the buffer's KerML text.
-const kermlDocName = "<repl>.kerml"
-
 // parseDocName is the document a snippet from origin is parsed and analyzed
-// in, which carries the kind of the file it was loaded from.
+// in: the file itself when it was loaded from one, else the transcript.
 func parseDocName(origin string) string {
-	if source.KindOf(origin) == source.KindKerML {
-		return kermlDocName
+	if origin == "" {
+		return docName
 	}
-	return docName
+	return origin
 }
 
 // snippet is one accepted submission source, the top-level names it declares,
@@ -75,7 +69,8 @@ type snippet struct {
 	diags []diag.Diagnostic
 }
 
-// Session accumulates submissions into a single implicit <repl> document.
+// Session accumulates submissions: what is typed into the transcript document,
+// and each loaded file into a document of its own.
 type Session struct {
 	// mu serializes commands; state guards the session for readers beside one
 	// (Complete answers Tab while a line evaluates). Exported commands take both,
@@ -96,9 +91,10 @@ type Session struct {
 	// replaced is a context a debugging session still runs against, whose identity
 	// sequence the context built next takes over.
 	replaced   *runtime.Context
-	idx        *symbols.Index               // index over the session document, shared by lookup and runtime
+	idx        *symbols.Index               // index over the session documents, shared by lookup and runtime
 	libSource  libs.Source                  // the library files idx holds, for their spans' text
-	idxVersion int                          // document version idx holds, 0 when it holds none
+	idxVersion int                          // session version idx holds, 0 when it holds none
+	idxDocs    []string                     // the session documents idx holds, taken back when they go
 	about      *semantics.AboutIndex        // the `about` annotations of idx, renewed with it and shared by every runtime model over it
 	names      *nameTable                   // simple names of the documents, rebuilt when their scope trees change
 	instances  map[string]*runtime.Instance // FQN -> instance for %instantiate tracking
@@ -294,16 +290,17 @@ func (s *stateSession) selfOf() string {
 
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
-	return &Session{
+	s := &Session{
 		ws:          model.NewWorkspace(),
 		instances:   make(map[string]*runtime.Instance),
 		budgets:     runtime.DefaultBudgets(),
-		jobs:        analysis.DefaultJobs(),
 		engines:     engines.Default(),
 		verbosity:   VerbosityNormal,
 		toolVersion: "sysml dev",
 		now:         time.Now,
 	}
+	s.setJobs(analysis.DefaultJobs())
+	return s
 }
 
 // SetToolVersion names the tool a recorded run's provenance reports.
@@ -415,15 +412,35 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	p := parser.New(source.New(parseDocName(origin), []byte(src)))
-	root := p.ParseFile()
+	return s.acceptParsed(origin, src, preparse(origin, src))
+}
+
+// parsed is what a submission's text parses to, taken before it is accepted so
+// the files of one load can be parsed at once.
+type parsed struct {
+	p      *parser.Parser
+	root   *ast.RootNamespace
+	closes bool
+}
+
+// preparse parses src as the submission from origin, and probes whether it
+// closes its own text.
+func preparse(origin, src string) parsed {
+	doc := parseDocName(origin)
+	p := parser.New(source.New(doc, []byte(src)))
+	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
+}
+
+// acceptParsed is acceptFrom over a parse already taken.
+func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []string, drops []dropReport) {
+	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
 	text := src
 	// A submission that does not close its own text is masked out of the buffer
 	// rather than left to absorb the submissions after it, and declares nothing:
 	// what the parser recovered from it is not what was meant.
-	if !closesItsOwnText(parseDocName(origin), src) {
+	if !pre.closes {
 		key := fileKeyOf(origin)
 		if key != "" {
 			// Re-reading the file supersedes what it declared before, which it no
@@ -635,7 +652,7 @@ const sessionOrigin = "<session>"
 // write the session's text as a document of their own.
 const SessionOrigin = sessionOrigin
 
-// joined is the buffer the session analyzes: every accepted submission, with a
+// joined is the buffer the session presents: every accepted submission, with a
 // submission that does not close its own text masked out so it cannot change how
 // the others parse. Masking is byte for byte, so every offset still locates the
 // snippet and line it came from.
@@ -651,15 +668,13 @@ func (s *Session) joined() string {
 	return strings.Join(parts, "\n")
 }
 
-// joinedFor is the buffer one session document analyzes: joined, with the
-// snippets of the other language masked out too, so each document parses its
-// own snippets as the kind its name carries while keeping every offset. The
-// second result reports whether any snippet of that language survives.
-func (s *Session) joinedFor(name string) (string, bool) {
+// transcript is the buffer the transcript document analyzes: joined, with the
+// loaded files masked out too; the second result reports whether any typed text remains.
+func (s *Session) transcript() (string, bool) {
 	parts := make([]string, len(s.snippets))
 	found := false
 	for i, sn := range s.snippets {
-		if sn.open || parseDocName(sn.origin) != name {
+		if sn.open || sn.origin != "" {
 			parts[i] = maskedText(sn.src)
 			continue
 		}
@@ -667,6 +682,34 @@ func (s *Session) joinedFor(name string) (string, bool) {
 		parts[i] = sn.src
 	}
 	return strings.Join(parts, "\n"), found
+}
+
+// openDocuments brings the workspace to the session's documents: the transcript,
+// and one document per loaded file that parses, gone when its snippet goes.
+func (s *Session) openDocuments() {
+	var inputs []model.Input
+	if typed, found := s.transcript(); found {
+		inputs = append(inputs, model.Input{Name: docName, Content: []byte(typed), Version: s.version})
+	} else {
+		s.ws.Remove(docName)
+	}
+	live := make(map[string]bool, len(s.snippets))
+	for _, sn := range s.snippets {
+		if sn.origin == "" || sn.open {
+			continue
+		}
+		live[sn.origin] = true
+		if doc := s.ws.Document(sn.origin); doc == nil || doc.Version != sn.gen {
+			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen})
+		}
+	}
+	for _, name := range s.ws.DocumentNames() {
+		if name != docName && !live[name] {
+			s.ws.Remove(name)
+		}
+	}
+	// One batch: the documents are parsed at once and the imports expanded once.
+	s.ws.OpenAll(inputs)
 }
 
 // text is the buffer as it was submitted, masking nothing: what %save writes
@@ -720,39 +763,49 @@ func (s *Session) maskedSpans() []source.Span {
 	return out
 }
 
-// openDiagnostics reports the findings of the masked submissions, located in the
-// session buffer so every surface places them in the file they came from.
-func (s *Session) openDiagnostics() []diag.Diagnostic {
-	var out []diag.Diagnostic
+// foreignSpans locates the loaded files in the buffer, each a document of its
+// own whose findings gated nothing of the transcript's.
+func (s *Session) foreignSpans() []source.Span {
+	var out []source.Span
 	acc := 0
 	for _, sn := range s.snippets {
-		if sn.open {
-			for _, d := range sn.diags {
-				d.Span.Offset += acc
-				out = append(out, d)
-			}
+		if sn.origin != "" {
+			out = append(out, source.Span{Offset: acc, Len: len(sn.src)})
 		}
-		acc += len(sn.src) + 1 // the newline joined() writes between snippets
+		acc += len(sn.src) + 1
 	}
 	return out
 }
 
-// diagnostics reports the analysis of the buffer together with the syntax errors
-// of the submissions masked out of it. The masked text is blanked rather than
-// removed, so what the analysis finds is about the submissions that did parse
-// and is reported as it stands. Both session documents share the buffer's
-// coordinates, so their findings interleave by offset.
+// diagnostics reports the analysis of every session document and the syntax errors
+// of the masked submissions, each moved to where its text sits in the session buffer.
 func (s *Session) diagnostics() []diag.Diagnostic {
-	analyzed := append([]diag.Diagnostic{}, s.ws.Diagnostics(docName)...)
-	analyzed = append(analyzed, s.ws.Diagnostics(kermlDocName)...)
-	open := s.openDiagnostics()
-	if len(open) == 0 {
-		sort.SliceStable(analyzed, func(i, j int) bool { return analyzed[i].Span.Offset < analyzed[j].Span.Offset })
-		return analyzed
+	names := []string{docName}
+	for _, sn := range s.snippets {
+		if sn.origin != "" && !sn.open {
+			names = append(names, sn.origin)
+		}
 	}
-	out := make([]diag.Diagnostic, 0, len(analyzed)+len(open))
-	out = append(out, analyzed...)
-	out = append(out, open...)
+	// One batch: the documents not analyzed yet are analyzed at once.
+	analyzed := s.ws.DiagnosticsAll(names)
+	out := append([]diag.Diagnostic{}, analyzed[0]...)
+	next := 1
+	acc := 0
+	for _, sn := range s.snippets {
+		var own []diag.Diagnostic
+		switch {
+		case sn.open:
+			own = sn.diags
+		case sn.origin != "":
+			own = analyzed[next]
+			next++
+		}
+		for _, d := range own {
+			d.Span.Offset += acc
+			out = append(out, d)
+		}
+		acc += len(sn.src) + 1 // the newline joined() writes between snippets
+	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Span.Offset < out[j].Span.Offset })
 	return out
 }
@@ -830,10 +883,32 @@ func (s *Session) submitAll(srcs []string) Result {
 // SubmitFiles accumulates every file as one submission: all of them are accepted
 // before the buffer is reindexed and analyzed, so a declaration in one resolves
 // against the others no matter which order they arrive in. This is what makes
-// loading a multi-file project order-independent.
+// loading a multi-file project order-independent. A file's Name is its
+// workspace document, so a file named as the transcript is refused: nothing is
+// accepted and the result carries the *ReservedNameError as Refused.
 func (s *Session) SubmitFiles(files []SourceFile) Result {
 	defer s.enter()()
+	for _, f := range files {
+		if err := reservedName(f.Name); err != nil {
+			return s.refuse(err)
+		}
+	}
 	return s.submitFiles(files)
+}
+
+// refuse is the result of a submission no part of which was accepted: the
+// session as it stands, with nothing of its own but the refusal.
+func (s *Session) refuse(err error) Result {
+	text := s.text()
+	return Result{
+		Members:     s.sessionMembers(),
+		Diagnostics: s.diagnostics(),
+		Source:      text,
+		Offset:      len(text),
+		Refused:     err,
+		masked:      s.maskedSpans(),
+		foreign:     s.foreignSpans(),
+	}
 }
 
 func (s *Session) submitFiles(files []SourceFile) Result {
@@ -850,9 +925,14 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	)
 	seen := map[string]bool{}
 	s.version++
+	load := len(files) > 0 && files[0].Name != ""
 	byFile = make([][]string, len(files))
+	parses := make([]parsed, len(files))
+	model.ParallelFor(s.jobs, len(files), func(i int) {
+		parses[i] = preparse(files[i].Name, files[i].Text)
+	})
 	for i, f := range files {
-		names, dropped := s.acceptFrom(f.Name, f.Text)
+		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true
@@ -887,13 +967,14 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 		Origins: s.origins(),
 		own:     own,
 		masked:  s.maskedSpans(),
+		foreign: s.foreignSpans(),
 		Notices: notices,
 	}
-	res.Blocked = s.blockedBy(res)
+	res.Blocked = s.blockedBy(res, load)
 	return res, byFile, whole
 }
 
-// rebuildOver replaces the open document and everything derived from it — the
+// rebuildOver replaces the open documents and everything derived from them — the
 // runtime context, the resolutions held objects and debugging sessions were
 // made against — after the snippets changed, reporting what it carried over.
 func (s *Session) rebuildOver(drops []dropReport) []string {
@@ -901,14 +982,8 @@ func (s *Session) rebuildOver(drops []dropReport) []string {
 	// before the new text replaces that resolution, so what the new document does
 	// not change can be told apart from what it does.
 	over := s.recordCarryover()
-	sysml, _ := s.joinedFor(docName)
-	s.ws.Open(docName, []byte(sysml), s.version)
-	if kerml, found := s.joinedFor(kermlDocName); found {
-		s.ws.Open(kermlDocName, []byte(kerml), s.version)
-	} else {
-		s.ws.Remove(kermlDocName)
-	}
-	// The document is a new AST and scope tree, so the context derived from the
+	s.openDocuments()
+	// The documents are new ASTs and scope trees, so the context derived from the
 	// previous one is replaced; the objects it holds are carried into the new one
 	// where the declarations they were materialized against are unchanged. The
 	// index is re-used and brought up to date on the next lookup instead, which is
@@ -1156,17 +1231,13 @@ func (s *Session) Clear() []string {
 // goes is reported and recorded rather than silently emptied.
 func (s *Session) clear() []string {
 	notices, lost := s.resetLoss()
-	s.ws.Remove(docName)
-	s.ws.Remove(kermlDocName)
+	for _, name := range s.ws.DocumentNames() {
+		s.ws.Remove(name)
+	}
 	s.snippets = nil
 	s.version = 0
 	s.rtCtx, s.replaced = nil, nil
-	if s.idx != nil {
-		// Drop the documents, keep the library the index was built with.
-		s.idx.RemoveDocument(docName)
-		s.idx.RemoveDocument(kermlDocName)
-		s.idxVersion, s.about = 0, semantics.NewAboutIndex()
-	}
+	s.dropIndexedDocs()
 	s.instances = make(map[string]*runtime.Instance)
 	s.unnamed, s.given = nil, nil
 	s.lost = lost
@@ -1231,6 +1302,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
+	sem.SetSourceFile(s.sessionSourceFile)
 	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
@@ -1268,49 +1340,127 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 // and the ones its wildcard imports surfaced, so a submission costs its own
 // document rather than a reload of the library.
 func (s *Session) symbolIndex() *symbols.Index {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	docs := s.sessionDocs()
+	if !hasScope(docs) {
+		s.dropIndexedDocs()
 		return nil
 	}
 	if s.idx == nil {
 		s.idx, s.libSource = model.NewIndexWithStdlib()
 		s.about = semantics.NewAboutIndex()
-	} else if s.idxVersion == doc.Version {
+	} else if s.idxVersion == s.version {
 		return s.idx
 	}
-	s.idx.AddDocument(docName, doc.AST)
-	if kdoc := s.ws.Document(kermlDocName); kdoc != nil {
-		s.idx.AddDocument(kermlDocName, kdoc.AST)
-	} else {
-		s.idx.RemoveDocument(kermlDocName)
+	live := make(map[string]bool, len(docs))
+	for _, doc := range docs {
+		live[doc.Name] = true
+	}
+	for _, name := range s.idxDocs {
+		if !live[name] {
+			s.idx.RemoveDocument(name)
+		}
+	}
+	s.idxDocs = s.idxDocs[:0]
+	for _, doc := range docs {
+		s.idx.AddDocument(doc.Name, doc.AST)
+		s.idxDocs = append(s.idxDocs, doc.Name)
 	}
 	s.idx.ExpandWildcardImports()
-	s.idxVersion, s.about = doc.Version, semantics.NewAboutIndex()
+	s.idxVersion, s.about = s.version, semantics.NewAboutIndex()
 	return s.idx
 }
 
-// sessionDocs returns the session's open documents, the SysML buffer first,
-// so a caller reading the whole session reads both languages.
-func (s *Session) sessionDocs() []*model.Document {
-	var out []*model.Document
-	for _, name := range []string{docName, kermlDocName} {
-		if doc := s.ws.Document(name); doc != nil {
-			out = append(out, doc)
+// dropIndexedDocs takes the session's documents back out of the index, keeping
+// the library it was built with.
+func (s *Session) dropIndexedDocs() {
+	if s.idx == nil {
+		return
+	}
+	for _, name := range s.idxDocs {
+		s.idx.RemoveDocument(name)
+	}
+	s.idxDocs = nil
+	s.idxVersion, s.about = 0, semantics.NewAboutIndex()
+}
+
+// hasScope reports whether any of the documents built a scope tree.
+func hasScope(docs []*model.Document) bool {
+	for _, doc := range docs {
+		if doc.Scope != nil {
+			return true
 		}
+	}
+	return false
+}
+
+// hasDeclarations reports whether the session holds a document with a scope tree.
+func (s *Session) hasDeclarations() bool {
+	return hasScope(s.sessionDocs())
+}
+
+// rootScopeOf is the root scope of the session document declaring sym, and for a
+// symbol the session declares nowhere that of its first document with one.
+func (s *Session) rootScopeOf(sym *symbols.Symbol) *symbols.Scope {
+	if doc := s.ws.Document(sym.DocName); doc != nil && doc.Scope != nil {
+		return doc.Scope
+	}
+	for _, doc := range s.sessionDocs() {
+		if doc.Scope != nil {
+			return doc.Scope
+		}
+	}
+	return nil
+}
+
+// locatedDoc is a session document with the buffer offset its text begins at.
+type locatedDoc struct {
+	doc  *model.Document
+	base int
+}
+
+// locatedDocs returns the transcript, whose offsets are the buffer's, then each
+// loaded file's document at the offset its text sits in the buffer.
+func (s *Session) locatedDocs() []locatedDoc {
+	var out []locatedDoc
+	if doc := s.ws.Document(docName); doc != nil {
+		out = append(out, locatedDoc{doc: doc})
+	}
+	acc := 0
+	for _, sn := range s.snippets {
+		if sn.origin != "" {
+			if doc := s.ws.Document(sn.origin); doc != nil {
+				out = append(out, locatedDoc{doc: doc, base: acc})
+			}
+		}
+		acc += len(sn.src) + 1 // the newline joined() writes between snippets
 	}
 	return out
 }
 
-// sessionMembers returns the top-level members of both session documents in
-// buffer order, which their shared coordinates make the span order.
-func (s *Session) sessionMembers() []ast.Node {
-	var out []ast.Node
-	for _, doc := range s.sessionDocs() {
-		if doc.AST != nil {
-			out = append(out, doc.AST.Members...)
+// sessionDocs returns the session's documents, the transcript first and then the
+// loaded files in buffer order.
+func (s *Session) sessionDocs() []*model.Document {
+	located := s.locatedDocs()
+	out := make([]*model.Document, len(located))
+	for i, l := range located {
+		out[i] = l.doc
+	}
+	return out
+}
+
+// sessionMembers returns the top-level members of every session document in
+// buffer order, each offset by where its document's text sits.
+func (s *Session) sessionMembers() []Member {
+	var out []Member
+	for _, l := range s.locatedDocs() {
+		if l.doc.AST == nil {
+			continue
+		}
+		for _, m := range l.doc.AST.Members {
+			out = append(out, Member{Node: m, Offset: l.base + m.Span().Offset, scope: l.doc.Scope})
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Span().Offset < out[j].Span().Offset })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Offset < out[j].Offset })
 	return out
 }
 

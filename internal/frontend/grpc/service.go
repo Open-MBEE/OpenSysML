@@ -82,6 +82,9 @@ const CapabilityApplyEdits = "apply_edits"
 // CapabilityAuthoring names add-member and delete source authoring operations.
 const CapabilityAuthoring = "authoring"
 
+// CapabilityConnectionAuthoring names the ApplyEdits add_connection operation.
+const CapabilityConnectionAuthoring = "connection_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -195,6 +198,7 @@ var capabilities = []string{
 	CapabilityEditDocuments,
 	CapabilityPerformer,
 	CapabilityRenderDocumentHTML,
+	CapabilityConnectionAuthoring,
 }
 
 type capabilityAvailability struct {

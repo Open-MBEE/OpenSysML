@@ -234,13 +234,17 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 })
 ```
 
-Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `Delete`,
-`Move` — and either all apply, answering the edited source, or none do and the
+Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
+`Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
 result, err := client.ApplyEdits(ctx, model,
 	opensysml.SetValue{Target: "Demo::sedan::mass", Value: "1200.0[SI::kg]"})
+
+result, err = client.ApplyEdits(ctx, model, opensysml.AddConnection{
+	Owner: "Demo::System", Kind: "allocation", From: "a", To: "b", Name: "alloc1",
+})
 
 var refused *opensysml.EditError
 if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureDeleteReferenced {

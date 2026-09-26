@@ -85,5 +85,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.MoveEditOrBuilder getMoveOrBuilder();
 
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return Whether the addConnection field is set.
+   */
+  boolean hasAddConnection();
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return The addConnection.
+   */
+  org.openmbee.opensysml.proto.AddConnectionEdit getAddConnection();
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   */
+  org.openmbee.opensysml.proto.AddConnectionEditOrBuilder getAddConnectionOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

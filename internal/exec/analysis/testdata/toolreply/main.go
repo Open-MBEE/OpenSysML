@@ -2,9 +2,9 @@
 // reply formats, selected by its first argument: csv-stdout and diverge write a CSV reply
 // on standard output, csv-all, csv-all-repeated and csv-all-mixed-units write a multi-row CSV reply the
 // `row: "all"` selector reads, json-file writes a JSON document into the {outputDir}
-// named as its second argument and chatter on standard output, lines and lines-regex
-// write text lines, exit3 and exit1 exit with a status, and sleep never answers. It is
-// built by the tests that run it and lives under testdata, out of every build.
+// named as its second argument and chatter on standard output, lines, lines-regex and
+// chatter write text lines, exit3 and exit1 exit with a status, and sleep never answers.
+// It is built by the tests that run it and lives under testdata, out of every build.
 package main
 
 import (
@@ -57,6 +57,17 @@ func main() {
 		fmt.Println("chatter: wrote result.json")
 	case "lines":
 		fmt.Print("starting solve\nT_max = 341.2\nv_out: 36\ndone = TRUE\ncode : 7\nnote = it ran\nall done\n")
+	case "chatter":
+		path := os.Getenv(CounterEnv)
+		n := 0
+		if data, err := os.ReadFile(filepath.Clean(path)); err == nil { // #nosec G304 -- the test names the file
+			n, _ = strconv.Atoi(string(bytes.TrimSpace(data)))
+		}
+		if err := os.WriteFile(path, []byte(strconv.Itoa(n+1)), 0o600); err != nil {
+			fmt.Fprintln(os.Stderr, "counter:", err)
+			os.Exit(2)
+		}
+		fmt.Printf("started at 10:%02d\nT_max = 341.2\nv_out = 36\ndone = TRUE\ncode = 7\nnote = it ran\n", n)
 	case "lines-regex":
 		fmt.Println("chatter with no separator")
 		fmt.Println("T=341.2K v=36km/h done=TRUE code=7 note=it ran")

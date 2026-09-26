@@ -730,6 +730,19 @@ final class Api {
         }
         yield member;
       }
+      case ADD_CONNECTION -> {
+        org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();
+        Edit.AddConnection connection =
+            Edit.AddConnection.of(
+                add.getOwner(), add.getKind(), add.getFromEnd(), add.getToEnd());
+        if (!add.getName().isEmpty()) {
+          connection = connection.withName(add.getName());
+        }
+        if (!add.getType().isEmpty()) {
+          connection = connection.withType(add.getType());
+        }
+        yield connection;
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->

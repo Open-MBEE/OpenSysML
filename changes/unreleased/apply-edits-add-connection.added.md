@@ -1,0 +1,1 @@
+- **Add connection-like usages through `ApplyEdits`.** Python exposes `Editor.add_connection`, `add_allocation` and `add_flow`; Go and Java expose `AddConnection`. The operation requires both the `authoring` and `connection_authoring` capabilities.

@@ -278,7 +278,7 @@ func TestDiagramOversized(t *testing.T) {
 		}
 	}
 	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}}
-	if err := w.writeFigure("", "Wide", "", rendering, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
+	if err := w.writeFigure("", "Wide", caption{}, rendering, view.Options{}); !errors.As(err, &typed) || typed.Kind != ErrorOversizedDiagram {
 		t.Fatalf("HTML: error = %v, want %s", err, ErrorOversizedDiagram)
 	}
 	if got := renderedDiagramForm(t, "", rendering, "", view.FormDot); !strings.HasPrefix(got, "```dot\n") {

@@ -138,9 +138,10 @@ Draw this many values uniformly from each \-sweep range instead of stepping
 through it; needs \-seed
 .TP
 .BR \-jobs " \fIn\fP"
-Runs of one check that may go concurrently, each on a worker of its own;
-default OPENSYSML_JOBS, else one per CPU, fewer where the memory available
-leaves less than 512 MiB per worker
+Runs of one check that may go concurrently, each on a worker of its own, and
+files of one load that are parsed and validated at once; the result is the
+same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the
+memory available leaves less than 512 MiB per worker
 .SS Analysis engines
 .TP
 .B \-engines
@@ -302,6 +303,10 @@ Write a table of contents ahead of the content (html or pdf)
 .TP
 .B \-doc\-number\-sections
 Number the section headings hierarchically (html or pdf)
+.TP
+.B \-doc\-number\-figures
+Number the figures and tables in their captions, Figure 1. and Table 1. in
+document order (markdown, html or pdf)
 .TP
 .BR \-pdf\-engine " \fIconverter\fP"
 Converter \-doc\-form pdf drives: weasyprint (default), pandoc or prince
@@ -481,9 +486,10 @@ its connectors.
 .PP
 \-jobs is how many runs of one check may go concurrently \(em the
 linearizations of an exploration, the engines \-engine all consults \(em each
-on a worker of its own over the shared model; the result is the same at any
-count. By default one per CPU, fewer where the memory available leaves less
-than 512 MiB per worker.
+on a worker of its own over the shared model, and how many files of one load
+are parsed and validated at once; the result is the same at any count. By
+default one per CPU, fewer where the memory available leaves less than 512 MiB
+per worker.
 .SH ANALYSIS ENGINES
 .RS 2
 .nf
@@ -978,8 +984,9 @@ of its own with its own budgets. Default 1000.
 .B OPENSYSML_JOBS
 Runs of one check that may go concurrently \(em the linearizations of an
 exploration, the engines \-engine all consults \(em each on a worker of its
-own over the shared model; \-jobs and %jobs override it. Default one per CPU,
-fewer where the memory available leaves less than 512 MiB per worker.
+own over the shared model, and files of one load that are parsed and validated
+at once; \-jobs and %jobs override it. Default one per CPU, fewer where the
+memory available leaves less than 512 MiB per worker.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,

@@ -2,12 +2,14 @@ package view
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Point is one position on a rendering's canvas, in pixels from the top-left
@@ -54,6 +56,56 @@ type Note struct {
 	X, Y          float64
 	Width, Height float64
 	HasSize       bool
+}
+
+// Picture is a DiagramLayout::Picture drawn on the canvas: its file as the view
+// states it, the view's directory ("" in no file), its box, alt text, and z-order.
+type Picture struct {
+	Location      string
+	Dir           string
+	X, Y          float64
+	Width, Height float64
+	Alt           string
+	Above         bool
+}
+
+// Path is the picture's file as a path from the working directory: Location
+// under Dir, or Location itself when it is absolute or Dir is unknown.
+func (p Picture) Path() string {
+	if p.Dir == "" || filepath.IsAbs(p.Location) {
+		return p.Location
+	}
+	return filepath.Join(p.Dir, filepath.FromSlash(p.Location))
+}
+
+// picturesOf adds to out the Pictures drawn on view in declaration order, each located
+// from the file stating it; one that does not read is noticed.
+func (r *Renderer) picturesOf(view *symbols.Symbol, out *Rendering) {
+	out.Pictures = append(out.Pictures, r.statedPictures(view, out)...)
+}
+
+// undrawnPicturesOf notices the Pictures view states when out is of a kind
+// that draws none, a table or a sequence, so they are not silently dropped.
+func (r *Renderer) undrawnPicturesOf(view *symbols.Symbol, out *Rendering) {
+	if pictures := r.statedPictures(view, out); len(pictures) > 0 {
+		out.Notices = append(out.Notices, pictureNotice(pictures, fmt.Sprintf("%s %s rendering draws no picture", out.Kind.article(), out.Kind)))
+	}
+}
+
+// statedPictures reads the Pictures view states, in order, each located from
+// the file stating it; one that does not read is noticed on out.
+func (r *Renderer) statedPictures(view *symbols.Symbol, out *Rendering) []Picture {
+	var pictures []Picture
+	for _, site := range r.model.PicturesOf(view) {
+		r.noteLayoutProblems(site, view, out)
+		if site.Picture == nil {
+			continue
+		}
+		p := site.Picture
+		dir := source.Dir(r.model.SourceFileOf(site.Origin()))
+		pictures = append(pictures, Picture{Location: p.Location, Dir: dir, X: p.X, Y: p.Y, Width: p.Width, Height: p.Height, Alt: p.Alt, Above: p.Above})
+	}
+	return pictures
 }
 
 // styleOf is the Style colouring elem in view (nil view: inline Style only),

@@ -841,6 +841,7 @@ message EditOperation {
     AddMemberEdit add_member = 3;
     DeleteEdit delete = 4;
     MoveEdit move = 5;
+    AddConnectionEdit add_connection = 6;
   }
 }
 
@@ -860,6 +861,23 @@ message AddMemberEdit {
   string value = 6;
   // Optional specialization targets for a definition.
   repeated string specializes = 7;
+}
+
+// AddConnectionEdit inserts a usage whose ends connect two features.
+message AddConnectionEdit {
+  // Namespace FQN receiving the usage; empty means the document root.
+  string owner = 1;
+  // Usage kind: SysML connection, interface, allocation, binding, flow,
+  // succession or transition; KerML connector, binding, flow or succession.
+  string kind = 2;
+  // First feature reference resolved from the owner.
+  string from_end = 3;
+  // Second feature reference resolved from the owner.
+  string to_end = 4;
+  // Optional declared name.
+  string name = 5;
+  // Optional typing target, legal only for typed connection kinds.
+  string type = 6;
 }
 
 // DeleteEdit removes a declaration and its owned trivia.

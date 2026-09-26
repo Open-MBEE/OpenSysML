@@ -843,8 +843,9 @@ public final class Model {
    *     says why and its {@link EditException#referrers()} name what references the target
    * @throws ServiceException if the request itself was rejected
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, or an edit
-   *     is an {@link Edit.AddMember}, {@link Edit.Delete} or {@link Edit.Move} and it does not
-   *     advertise {@code authoring}
+   *     is an {@link Edit.AddMember}, {@link Edit.AddConnection}, {@link Edit.Delete} or
+   *     {@link Edit.Move} and it does not advertise {@code authoring}; {@link Edit.AddConnection}
+   *     also requires {@code connection_authoring}
    */
   public EditResult applyEdits(List<Edit> edits) {
     return applyEdits(edits, EditOptions.defaults());
@@ -863,17 +864,31 @@ public final class Model {
    *     document of the model has
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, an edit
    *     writes a declaration and it does not advertise {@code authoring}, or a document is named
-   *     and it does not advertise {@code edit_documents}
+   *     and it does not advertise {@code edit_documents}; {@link Edit.AddConnection} also requires
+   *     {@code connection_authoring}
    */
   public EditResult applyEdits(List<Edit> edits, EditOptions options) {
     Objects.requireNonNull(edits, "edits");
     Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.APPLY_EDITS);
+    boolean requestsAuthoring = false;
+    boolean requestsConnectionAuthoring = false;
     for (Edit edit : edits) {
-      if (edit instanceof Edit.AddMember || edit instanceof Edit.Delete || edit instanceof Edit.Move) {
-        connection.capabilities().require(Capabilities.AUTHORING);
-        break;
+      if (edit instanceof Edit.AddMember
+          || edit instanceof Edit.AddConnection
+          || edit instanceof Edit.Delete
+          || edit instanceof Edit.Move) {
+        requestsAuthoring = true;
       }
+      if (edit instanceof Edit.AddConnection) {
+        requestsConnectionAuthoring = true;
+      }
+    }
+    if (requestsAuthoring) {
+      connection.capabilities().require(Capabilities.AUTHORING);
+    }
+    if (requestsConnectionAuthoring) {
+      connection.capabilities().require(Capabilities.CONNECTION_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -799,7 +798,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 
 // contextScope is the namespace a pinned context evaluates in: the element's own
 // scope, so its members are named without qualification, else the scope it was
-// declared in, searched through both session documents.
+// declared in, searched through every session document.
 func (s *Session) contextScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
@@ -853,14 +852,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		return literalResult, litErr
 	}
 
-	doc := s.ws.Document(docName)
+	declared := s.hasDeclarations()
 
 	// The library is indexed with or without session declarations, so a name it
 	// declares is answered from it; only compound expressions, handled below,
-	// need the session's own document.
+	// need the session's own documents.
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		if doc == nil || doc.Scope == nil {
+		if !declared {
 			return nil, s.errWithoutDeclarations(expr)
 		}
 		return nil, err
@@ -954,12 +953,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 
 	// A compound expression is evaluated in the session's own namespace; an empty
 	// session has none, so only the library answers there.
-	if doc == nil || doc.Scope == nil {
+	if !declared {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
-	// Complex expression with feature refs - inject into session context
-	tempSrc := s.joined() + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
+	// Complex expression with feature refs - parsed after the transcript, the
+	// loaded files masked out of it as they are out of the transcript document
+	typed, _ := s.transcript()
+	tempSrc := typed + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
 	p := parser.New(source.New("eval", []byte(tempSrc)))
 	root := p.ParseFile()
 
@@ -1856,8 +1857,7 @@ func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *a
 // calcSymbol resolves the calc %calc names. It is resolved before the runtime is
 // built, so a misspelling is reported as one whatever the session holds.
 func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, errors.New("no declarations loaded")
 	}
 	sym, _, lerr := s.lookupSymbolOfKinds(calcName, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
@@ -2164,31 +2164,21 @@ func (s *Session) doConstraint(name string) ([]string, bool, error) {
 // promptScope is the namespace a prompt expression is evaluated in: the last
 // namespace the session declared, whose imports are then visible to it exactly
 // as they are to a member written there (KerML 8.2.3.5.3). A session that
-// declared no namespace evaluates at the document root. Both session documents
-// are read, in buffer order, so a namespace loaded from a .kerml file counts.
+// declared no namespace evaluates at the document root. Every session document
+// is read, in buffer order, so a namespace a loaded file declares counts.
 func (s *Session) promptScope() *symbols.Scope {
 	docs := s.sessionDocs()
 	if len(docs) == 0 {
 		return nil
 	}
-	type entry struct {
-		member ast.Node
-		scope  *symbols.Scope
-	}
-	var members []entry
-	for _, doc := range docs {
-		if doc.AST == nil || doc.Scope == nil {
-			continue
-		}
-		for _, m := range doc.AST.Members {
-			members = append(members, entry{m, doc.Scope})
+	var members []Member
+	for _, m := range s.sessionMembers() {
+		if m.scope != nil {
+			members = append(members, m)
 		}
 	}
-	sort.SliceStable(members, func(i, j int) bool {
-		return members[i].member.Span().Offset < members[j].member.Span().Offset
-	})
 	for i := len(members) - 1; i >= 0; i-- {
-		member := members[i].member
+		member := members[i].Node
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
 		}
@@ -2210,7 +2200,7 @@ func (s *Session) promptScope() *symbols.Scope {
 		}
 	}
 	// No namespace to work in: the root holding the last declaration, so a
-	// top-level member loaded from a .kerml file is still in reach.
+	// top-level member of the last loaded file is still in reach.
 	if len(members) > 0 {
 		return members[len(members)-1].scope
 	}

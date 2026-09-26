@@ -287,6 +287,9 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 	if path, twice := repeatedKey(data); twice {
 		return fault("the entry names "+path+" twice", nil)
 	}
+	if path, isNull := nullMember(data); isNull {
+		return fault("the entry sets "+path+" to null", nil)
+	}
 	entry.File = path
 	entry.Kind = KindTool
 	entry.ToolName = strings.TrimSpace(entry.ToolName)

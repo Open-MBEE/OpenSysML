@@ -106,6 +106,13 @@ const replyDriver = `package ProbeR {
 	action def SignalOnce {
 		action step : Signal { in mass = 1500 [SI::kg]; }
 	}
+
+	action def Subsets {
+		first p;
+		then e;
+		action p : Probe;
+		action e : Exit;
+	}
 }`
 
 var replyVariables = []string{"mass", "T_max", "v_out", "done", "code", "note"}
@@ -216,6 +223,14 @@ var csvReplyOutputs = map[string]*ReplyOutput{
 	"done":  {Column: &Column{Name: "done"}, Type: TypeBoolean},
 	"code":  {Column: &Column{Name: "code"}, Type: TypeInteger},
 	"note":  {Column: &Column{Name: "note"}, Type: TypeString},
+}
+
+var linesReplyOutputs = map[string]*ReplyOutput{
+	"T_max": {Key: "T_max", Type: TypeReal, Unit: "K"},
+	"v_out": {Key: "v_out", Type: TypeReal, Unit: "km/h"},
+	"done":  {Key: "done", Type: TypeBoolean},
+	"code":  {Key: "code", Type: TypeInteger},
+	"note":  {Key: "note", Type: TypeString},
 }
 
 // A CSV reply on standard output is read cell by cell; the unit column's `km/h` is
@@ -363,6 +378,22 @@ func TestToolReplyReadsNoRequestedOutputs(t *testing.T) {
 	}
 }
 
+// Two performances asking for different outputs of one reply compare by what the tool
+// wrote, not by either subset: no divergence is noted.
+func TestToolReplySeesNoFalseDivergence(t *testing.T) {
+	p := parseRProbe(t)
+	entry := thermalEntry(toolreply(t), []string{"csv-stdout"}, &Reply{Format: ReplyCSV, Outputs: csvReplyOutputs})
+	_, ctx, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Subsets")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(runtime.ToolDivergence); ok {
+			t.Fatalf("note %v, want none: the subset bound is not the reply written", note)
+		}
+	}
+}
+
 // An entry built in code, not read from a manifest, has its reply checked by NewTool: a
 // sound one reads the exit status, a faulty one refuses every question with the fault.
 func TestNewToolChecksAProgrammaticReply(t *testing.T) {
@@ -444,5 +475,26 @@ func TestToolReplyReportsDivergence(t *testing.T) {
 	}
 	if d, ok := notes[0].(runtime.ToolDivergence); !ok || d.Tool != "Thermal" {
 		t.Fatalf("note %v, want Thermal diverging", notes[0])
+	}
+}
+
+// Chatter a reply's mapping does not read is not divergence: two runs whose lines differ
+// only in an unmapped line compare equal on the mapped outputs.
+func TestToolReplyIgnoresUnmappedChatter(t *testing.T) {
+	p := parseRProbe(t)
+	t.Setenv(ToolEnvPassthroughEnv, "TOOLREPLY_COUNTER")
+	t.Setenv("TOOLREPLY_COUNTER", filepath.Join(t.TempDir(), "count"))
+	entry := thermalEntry(toolreply(t), []string{"chatter"}, &Reply{Format: ReplyLines, Outputs: linesReplyOutputs})
+	out, ctx, err := p.perform(t, toolRegistry(t, manifestDir(t, entry)), "Twice")
+	if err != nil {
+		t.Fatalf("perform: %v", err)
+	}
+	if got := runtime.FormatValue(out["T1"]); got != "341.2 [SI::K]" || runtime.FormatValue(out["T2"]) != got {
+		t.Errorf("T1 = %s, T2 = %s", runtime.FormatValue(out["T1"]), runtime.FormatValue(out["T2"]))
+	}
+	for _, note := range ctx.Notes() {
+		if _, ok := note.(runtime.ToolDivergence); ok {
+			t.Fatalf("note %v, want none: the chatter is not a mapped output", note)
+		}
 	}
 }

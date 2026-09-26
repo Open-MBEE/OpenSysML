@@ -187,7 +187,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		process.remove()
 		return failed(err)
 	}
-	reply, err := e.read(call, ex, process)
+	reply, wrote, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return failed(err)
@@ -207,15 +207,15 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Claim:    ClaimValue,
 		Strength: Observed,
 		Values:   values,
-		Reply:    renderReply(reply),
+		Reply:    wrote,
 		Tool:     use,
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil
 }
 
-// renderReply spells the tool's reply canonically, by variable name, as it was written and
-// before binding: two invocations of equal inputs compare by it.
+// renderReply spells a reply's outputs canonically, by variable name, as it was written
+// and before binding: two invocations of equal inputs compare by it.
 func renderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
@@ -300,35 +300,58 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 }
 
 // read parses the execution's reply as the entry's reply block says, reading the file a
-// `file:` source names before the invocation's directory is removed.
-func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, error) {
+// `file:` source names before the invocation's directory is removed. Only the outputs the
+// call requests are bound, the first requested variable's fault failing; the divergence
+// text is the canonical rendering of every mapped output the reply yielded.
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, string, error) {
 	tool := e.entry.ToolName
 	r := e.entry.Reply
 	if r == nil || r.Format == "" || r.Format == ReplyObject {
 		source, err := e.replySource(ex, process)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		return ToolReplyOf(tool, source)
+		parsed, err := ToolReplyOf(tool, source)
+		if err != nil {
+			return nil, "", err
+		}
+		return parsed, renderReply(parsed), nil
 	}
-	wanted := make(map[string]bool, len(call.Outputs))
-	for _, out := range call.Outputs {
-		wanted[out.Variable] = true
-	}
+	var outputs map[string]runtime.ToolValue
+	var faults map[string]error
 	if r.Format == ReplyExitCode {
-		return r.readExitCode(ex, wanted), nil
+		outputs = r.readExitCode(ex)
+	} else {
+		source, err := e.replySource(ex, process)
+		if err != nil {
+			return nil, "", err
+		}
+		if r.Format == ReplyJSON {
+			outputs, faults, err = r.readJSON(e.entry, source)
+		} else if r.Format == ReplyCSV {
+			outputs, faults, err = r.readCSV(e.entry, source)
+		} else {
+			outputs, faults, err = r.readLines(e.entry, source)
+		}
+		if err != nil {
+			return nil, "", err
+		}
 	}
-	source, err := e.replySource(ex, process)
-	if err != nil {
-		return nil, err
+	requested := make([]string, 0, len(call.Outputs))
+	for _, out := range call.Outputs {
+		requested = append(requested, out.Variable)
 	}
-	if r.Format == ReplyJSON {
-		return r.readJSON(e.entry, source, wanted)
+	sort.Strings(requested)
+	bound := make(map[string]runtime.ToolValue, len(requested))
+	for _, variable := range requested {
+		if fault, ok := faults[variable]; ok {
+			return nil, "", fault
+		}
+		if value, ok := outputs[variable]; ok {
+			bound[variable] = value
+		}
 	}
-	if r.Format == ReplyCSV {
-		return r.readCSV(e.entry, source, wanted)
-	}
-	return r.readLines(e.entry, source, wanted)
+	return bound, renderReply(outputs), nil
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —
@@ -566,6 +589,56 @@ func repeatedKey(document []byte) (string, bool) {
 			open[top].seen[key], open[top].inKey = true, true
 			path = append(path, key)
 			continue
+		}
+		valueDone()
+	}
+}
+
+// nullMember is the dotted path of the first member an object anywhere in a JSON document
+// sets to null, which a struct decode would hide as a zero value; malformed JSON is not walked.
+func nullMember(document []byte) (string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(document))
+	// One frame per open object or array; only an object's frame has a key in hand.
+	type frame struct {
+		isObject bool
+		inKey    bool
+	}
+	var path []string
+	var open []*frame
+	valueDone := func() {
+		if top := len(open) - 1; top >= 0 && open[top].inKey {
+			open[top].inKey = false
+			path = path[:len(path)-1]
+		}
+	}
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return "", false
+		}
+		switch tok {
+		case json.Delim('{'):
+			open = append(open, &frame{isObject: true})
+			continue
+		case json.Delim('['):
+			open = append(open, &frame{})
+			continue
+		case json.Delim('}'), json.Delim(']'):
+			open = open[:len(open)-1]
+			valueDone()
+			continue
+		}
+		top := len(open) - 1
+		if top >= 0 && open[top].isObject {
+			if !open[top].inKey {
+				key, _ := tok.(string)
+				open[top].inKey = true
+				path = append(path, key)
+				continue
+			}
+			if tok == nil {
+				return strings.Join(path, "."), true
+			}
 		}
 		valueDone()
 	}

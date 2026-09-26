@@ -27,7 +27,7 @@ func (r *Renderer) treeDepth() int {
 // the Layout that positions its element in the view it is shown under.
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
-	descendants := r.exposedDescendants(exposed)
+	descendants := r.exposedDescendants(exposed, r.containedMembers)
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
 			continue
@@ -38,12 +38,12 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 }
 
 // exposedDescendants is the key of each exposed element a surviving root's
-// containment tree already draws — a fixpoint, since an element whose
+// walk by members already draws — a fixpoint, since an element whose
 // containers are all suppressed must stand as a root itself.
-func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol) map[symbols.ElementKey]bool {
+func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	by := make([]map[symbols.ElementKey]bool, len(exposed))
 	for i, elem := range exposed {
-		by[i] = r.treeDescendants(elem)
+		by[i] = r.treeDescendants(elem, members)
 	}
 	suppressed := map[symbols.ElementKey]bool{}
 	for range exposed {
@@ -75,9 +75,10 @@ func (r *Renderer) exposedDescendants(exposed []*symbols.Symbol) map[symbols.Ele
 	return suppressed
 }
 
-// treeDescendants is the set of element keys treeNode draws below sym, dry-run
-// by the same walk: a member is drawn even when the guard stubs its node.
-func (r *Renderer) treeDescendants(sym *symbols.Symbol) map[symbols.ElementKey]bool {
+// treeDescendants is the set of element keys the walk given by members draws
+// below sym, dry-run by the same walk: a member is drawn even when the guard
+// stubs its node.
+func (r *Renderer) treeDescendants(sym *symbols.Symbol, members func(*symbols.Symbol) []*symbols.Symbol) map[symbols.ElementKey]bool {
 	out := map[symbols.ElementKey]bool{}
 	var walk func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int)
 	walk = func(sym *symbols.Symbol, seen map[*symbols.Symbol]bool, depth int) {
@@ -85,7 +86,7 @@ func (r *Renderer) treeDescendants(sym *symbols.Symbol) map[symbols.ElementKey]b
 			return
 		}
 		seen[sym] = true
-		for _, member := range r.containedMembers(sym) {
+		for _, member := range members(sym) {
 			out[symbols.KeyOf(member)] = true
 			walk(member, seen, depth+1)
 		}
@@ -113,7 +114,7 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
-			descendants := r.exposedDescendants(exposed)
+			descendants := r.exposedDescendants(exposed, r.containedMembers)
 			for _, elem := range exposed {
 				if descendants[symbols.KeyOf(elem)] {
 					continue

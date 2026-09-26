@@ -160,6 +160,79 @@ public sealed interface Edit {
   }
 
   /**
+   * Inserts a connection-like usage between two feature references.
+   *
+   * @param owner FQN of the namespace to receive the usage; empty for the document root
+   * @param kind the written connection kind, such as {@code "allocation"} or {@code "flow"}
+   * @param from the first feature reference, written as notation
+   * @param to the second feature reference, written as notation
+   * @param name the declared identifier, when named
+   * @param type a typing target, when written
+   */
+  record AddConnection(
+      String owner,
+      String kind,
+      String from,
+      String to,
+      Optional<String> name,
+      Optional<String> type)
+      implements Edit {
+
+    /**
+     * Creates the edit.
+     *
+     * @param owner receiving namespace, never {@code null}
+     * @param kind connection kind, never {@code null}
+     * @param from first feature reference, never {@code null}
+     * @param to second feature reference, never {@code null}
+     * @param name optional declared identifier
+     * @param type optional typing target
+     */
+    public AddConnection {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(kind, "kind");
+      Objects.requireNonNull(from, "from");
+      Objects.requireNonNull(to, "to");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(type, "type");
+    }
+
+    /**
+     * Creates an unnamed, untyped connection.
+     *
+     * @param owner receiving namespace, empty for the document root
+     * @param kind connection kind
+     * @param from first feature reference
+     * @param to second feature reference
+     * @return the edit
+     */
+    public static AddConnection of(String owner, String kind, String from, String to) {
+      return new AddConnection(
+          owner, kind, from, to, Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * The same connection with a declared name.
+     *
+     * @param name the identifier
+     * @return the edit carrying it
+     */
+    public AddConnection withName(String name) {
+      return new AddConnection(owner, kind, from, to, Optional.of(name), type);
+    }
+
+    /**
+     * The same connection with a typing target.
+     *
+     * @param type the type target, as notation
+     * @return the edit carrying it
+     */
+    public AddConnection withType(String type) {
+      return new AddConnection(owner, kind, from, to, name, Optional.of(type));
+    }
+  }
+
+  /**
    * Removes a declaration and its owned trivia.
    *
    * @param target the declaration to remove, as {@link Symbol#id()} names it

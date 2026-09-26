@@ -80,6 +80,8 @@ CAPABILITY_FEATURE_VALUES = "feature_values"
 CAPABILITY_APPLY_EDITS = "apply_edits"
 #: Source-preserving add-member and delete authoring operations.
 CAPABILITY_AUTHORING = "authoring"
+#: The ``ApplyEdits`` ``add_connection`` operation.
+CAPABILITY_CONNECTION_AUTHORING = "connection_authoring"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers
 #: each edited document by name in ``EditResult.documents``, with each applied
 #: edit's document and each referrer's. Without it the service edits a model of

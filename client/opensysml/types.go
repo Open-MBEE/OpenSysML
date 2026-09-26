@@ -25,6 +25,7 @@ const (
 	CapabilityFeatureValues        = sysmlgrpc.CapabilityFeatureValues
 	CapabilityApplyEdits           = sysmlgrpc.CapabilityApplyEdits
 	CapabilityAuthoring            = sysmlgrpc.CapabilityAuthoring
+	CapabilityConnectionAuthoring  = sysmlgrpc.CapabilityConnectionAuthoring
 	CapabilityEditDocuments        = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage       = sysmlgrpc.CapabilityInlineLanguage
 	CapabilityStrictConformance    = sysmlgrpc.CapabilityStrictConformance

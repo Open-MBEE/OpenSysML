@@ -28,10 +28,15 @@ func NewDeclaredReader(model *semantics.Model, resolver *resolve.Resolver) *Decl
 // NewDeclaredReaderIn creates a reader on a fresh declarative context seeded
 // from held: its tool runner, so tool-computed calcs a derived feature calls
 // answer through the same runner, the parser reading the units they answer
-// in, and the notes a run makes, which held's own Notes report.
+// in, the budgets it runs under, and the notes a run makes, which held's own
+// Notes report.
 func NewDeclaredReaderIn(held *Context) *DeclaredReader {
 	r := NewDeclaredReader(held.Semantics(), held.Resolver())
 	r.ctx.model.parse = held.model.parse
+	if err := r.ctx.SetBudgets(held.Budgets()); err != nil {
+		// held's budgets were validated when it was configured.
+		panic(err)
+	}
 	r.ctx.SetToolRunner(held.ToolRunner())
 	r.ctx.forwardNotes = held.note
 	return r

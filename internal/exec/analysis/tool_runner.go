@@ -152,7 +152,7 @@ func refusalOf(plan Plan, tool string) error {
 
 // remember records the reply the call's request was answered with and reports whether an
 // earlier call with the same request was answered another; the reply is compared as the
-// tool wrote it, not as any one action binds it.
+// canonical rendering of every mapped output, not as any one action binds it.
 func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, error) {
 	request, err := ToolRequestOf(call)
 	if err != nil {

@@ -2338,8 +2338,16 @@ Each is a few hundred lines over the language's HTTP+JSON: connect, parse, evalu
 behavior, decode `Value` by the I1 rules (64-bit integers, quantities, enumerations, unset), and
 surface diagnostics as the language's errors. Each ships with the I2 fixtures as its tests and a
 page on starting `sysml-grpc` (binary provisioning from the release, the flags, TLS, the health
-check). Not started; each is about a session once I1 and I2 exist, and they can go in parallel.
-Publishing (CRAN, the Julia registry, File Exchange) is account-gated and goes with R2.
+check).
+
+The Julia and MATLAB packages are **landed but unreleased** on `develop`: `client/julia/OpenSysML`
+(JSON over HTTP.jl + JSON.jl, Julia >= 1.10) and `client/matlab` (`+opensysml`, MATLAB R2019b+ and
+GNU Octave 7+, the Octave path over curl since an Octave built without Java (the snap and the
+CI build) cannot spawn a private child). Both drive every conformance
+scenario through the public `call`/`callRaw` and write the shared report
+format; `make conformance-julia` and `make conformance-matlab` run them, and CI has
+a `julia-client` and a `matlab-client` job. The R package is **not started**. Publishing (CRAN,
+the Julia registry, File Exchange) is account-gated and goes with R2.
 
 ## I4 — a C client, and the C ABI
 
@@ -2638,9 +2646,9 @@ what M2 needs.
 
 # Proposed
 
-Four pieces of work proposed outside the tracks. The first two are landed on `develop` after
+Five pieces of work proposed outside the tracks. The first two are landed on `develop` after
 the tag; the third has its design and first step landed and three pull requests open; the fourth
-is not started and waits on an input file.
+is landed; the fifth is not started.
 
 **The PDF path onto the HTML backend (landed, #358).** The backend
 [html-document-backend.md](html-document-backend.md) designs is implemented: `docrender.HTML`
@@ -2736,6 +2744,29 @@ Open follow-up: most placed elements are not exposed because activity and state 
 name of their own outside their body — naming them so a view can expose (and so lay out) them
 is a separate migration item. Builds on #524's view usages and the landed `DiagramLayout`
 library; independent of every track.
+
+**Behavioral editing through the diagram (not started).** The `opensysml/applyModelEdit`
+request over `internal/check/edit` writes the *structure* of a behavior: `addMember` declares a
+`state`, `action`, `fork`, `join`, `merge` or `decision` in a body, `addConnection` writes a
+`transition` or `succession` between two drawn nodes, and `rename`, `setValue`, `move`,
+`delete`, `setLayout` and `setRoute` apply to them as to any member. What no operation writes
+is the text a behavior's semantics live in — a transition's `accept` trigger, `if` guard and
+`do` effect; an action's parameters and the `flow`s and `bind`s between their pins; a state's
+`entry`, `do` and `exit` actions — so a state or action diagram drawn from the lowered
+`StateGraph`/`ActionGraph` can be arranged and extended from the canvas but its behavior still
+has to be typed in the source. The proposal is a family of operations in `internal/check/edit`
+that rewrite exactly those clauses of an existing declaration with the same source-preserving
+discipline the existing operations keep (only the bytes the parse says carry the clause are
+replaced; the result is re-parsed and re-analyzed before it is handed back, and refused when it
+would not read): setting or clearing a transition's trigger, guard and effect; adding, retyping
+and removing an action's `in`/`out`/`inout` parameters; writing a `flow` or `bind` between two
+pins as `addConnection` writes a `succession`; and a state's entry/do/exit action. Each is one
+`kind` on `opensysml/applyModelEdit`, one row in [the LSP reference](../reference/lsp.md), one
+menu action in the VS Code panel, and — since the lowering is what the diagram draws — one
+round trip the lowering tests already cover: the edited text lowers to the graph the canvas
+asked for. Builds on the landed edit operations and the state and action renderings;
+independent of every track, and the prerequisite for any diagram-first authoring of behaviors,
+in the VS Code panel or in a standalone desktop editor over the same request.
 
 # Track P — package layering (earmarked for 0.9.0)
 

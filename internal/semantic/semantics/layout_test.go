@@ -360,6 +360,75 @@ func TestNotesOfReportsAnIncompleteNote(t *testing.T) {
 	}
 }
 
+func TestPicturesOfListsEveryPictureOfTheView(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view a {
+			expose engine;
+			@Picture { location = "images/bench.png"; x = 0; y = 0; width = 823; height = 577; alt = "the bench"; }
+			@Picture { location = "images/logo.png"; x = 700; y = 20; width = 80; height = 40; above = true; }
+		}
+		view b { expose engine; }
+	`)
+	a := sym(t, p, "a")
+	pics := m.PicturesOf(a)
+	if len(pics) != 2 {
+		t.Fatalf("PicturesOf(a) has %d pictures, want 2", len(pics))
+	}
+	if pic := pics[0].Picture; pic == nil || pic.Location != "images/bench.png" || pic.X != 0 || pic.Y != 0 ||
+		pic.Width != 823 || pic.Height != 577 || pic.Alt != "the bench" || pic.Above {
+		t.Fatalf("first picture = %+v", pic)
+	}
+	if pic := pics[1].Picture; pic == nil || pic.Location != "images/logo.png" || pic.X != 700 || pic.Y != 20 ||
+		pic.Width != 80 || pic.Height != 40 || pic.Alt != "" || !pic.Above {
+		t.Fatalf("second picture = %+v", pic)
+	}
+	if got := m.PicturesOf(sym(t, p, "b")); len(got) != 0 {
+		t.Fatalf("PicturesOf(b) = %+v", got)
+	}
+	if got := m.PicturesOf(nil); got != nil {
+		t.Fatalf("PicturesOf(nil) = %+v", got)
+	}
+}
+
+func TestPicturesOfReportsAnIncompletePicture(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		view a {
+			@Picture { x = 1; width = 10; }
+			@Picture { location = ""; x = 0; y = 0; width = 0; height = 10; }
+			@Picture { location = "https://example.org/a.png"; x = 0; y = 0; width = 10; height = 10; }
+			@Picture { location = "data:image/png;base64,iVBORw0KGgo="; x = 0; y = 0; width = 10; height = 10; }
+		}
+	`)
+	pics := m.PicturesOf(sym(t, p, "a"))
+	if len(pics) != 4 || pics[0].Picture != nil || pics[1].Picture != nil || pics[2].Picture != nil || pics[3].Picture != nil {
+		t.Fatalf("PicturesOf(a) = %+v", pics)
+	}
+	for i, want := range [][]string{{
+		"Picture binds no location to read the picture from",
+		"Picture binds no x and y to place the picture at",
+		"Picture binds no width and height to size the picture to",
+	}, {
+		"location of Picture is empty",
+		"width and height of Picture must be positive",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
+	}} {
+		if len(pics[i].Problems) != len(want) {
+			t.Fatalf("picture %d problems = %+v", i, pics[i].Problems)
+		}
+		for j, p := range pics[i].Problems {
+			if p.Message != want[j] {
+				t.Errorf("picture %d problem %d = %q, want %q", i, j, p.Message, want[j])
+			}
+		}
+	}
+}
+
 func TestSymbolDeclaringFindsATransitionByItsDeclaration(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

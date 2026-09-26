@@ -108,6 +108,9 @@ type conformanceEditOperation struct {
 	Owner        string   `json:"owner,omitempty"`
 	MemberKind   string   `json:"member_kind,omitempty"`
 	MemberName   string   `json:"member_name,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	FromEnd      string   `json:"from_end,omitempty"`
+	ToEnd        string   `json:"to_end,omitempty"`
 	Type         string   `json:"type,omitempty"`
 	Multiplicity string   `json:"multiplicity,omitempty"`
 	Specializes  []string `json:"specializes,omitempty"`
@@ -217,6 +220,13 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Kind: op.MemberKind, Name: op.MemberName,
 					Type: op.Type, Multiplicity: op.Multiplicity,
 					Value: op.Value, Specializes: op.Specializes,
+				}},
+			})
+		case "add_connection":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddConnection{AddConnection: &pb.AddConnectionEdit{
+					Owner: op.Owner, Kind: op.MemberKind, FromEnd: op.FromEnd,
+					ToEnd: op.ToEnd, Name: op.Name, Type: op.Type,
 				}},
 			})
 		case "delete":

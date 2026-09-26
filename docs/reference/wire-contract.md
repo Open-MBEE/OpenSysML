@@ -802,7 +802,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -2181,8 +2181,12 @@ taking an empty `documents` for a batch that rewrote nothing.
 
 The four snippets below are **illustrations, not shipped code**. They are not in `client/`, not
 tested, and not run by CI; they exist to show how short a correct decoder is in each language
-and where its pitfalls lie. A real client for any of these languages is one that passes the
-scenarios in `conformance/scenarios/*.json` through its own public API, as every shipped client
+and where its pitfalls lie. The Julia and MATLAB illustrations have since grown into the shipped
+[`client/julia`](../../client/julia/OpenSysML/README.md) and
+[`client/matlab`](../../client/matlab/README.md) packages, which run the conformance suite
+through their own APIs; the R and C snippets remain illustrations only. A real client for any of
+these languages is one that passes the scenarios in `conformance/scenarios/*.json` through its
+own public API, as every shipped client
 does ([Every client runs the same conformance suite](clients.md#every-client-runs-the-same-conformance-suite)).
 Each snippet is a POST helper that classifies Connect errors, plus the `Value` decoder from
 [The decoding rule](#the-decoding-rule); everything else (the `Instance` table, verdicts,

@@ -18,6 +18,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -240,6 +241,71 @@ def test_add_member_and_delete_requests_are_exact(fake_service):
     assert result is not None
 
 
+def test_add_connection_and_typed_helpers_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_CONNECTION_AUTHORING,
+        )
+    )
+
+    class Owner:
+        id = "Demo::SC"
+
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_connection(
+                Owner(), "flow", "tank.fuelOut", "engine.fuelIn",
+                name="fuelFlow", type="Fuel",
+            )
+            .add_allocation("Demo::SC", "a", "b", name="alloc1")
+            .add_flow("Demo::SC", "c", "d")
+            .apply()
+        )
+    connection, allocation, flow = service.requests[0].operations
+    assert connection.WhichOneof("operation") == "add_connection"
+    assert (
+        connection.add_connection.owner, connection.add_connection.kind,
+        connection.add_connection.from_end, connection.add_connection.to_end,
+        connection.add_connection.name, connection.add_connection.type,
+    ) == (
+        "Demo::SC", "flow", "tank.fuelOut", "engine.fuelIn", "fuelFlow", "Fuel",
+    )
+    assert (
+        allocation.add_connection.kind, allocation.add_connection.from_end,
+        allocation.add_connection.to_end, allocation.add_connection.name,
+    ) == ("allocation", "a", "b", "alloc1")
+    assert (
+        flow.add_connection.kind, flow.add_connection.from_end,
+        flow.add_connection.to_end,
+    ) == ("flow", "c", "d")
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("Demo::SC", 1, "a", "b"),
+        ("Demo::SC", "flow", None, "b"),
+        ("Demo::SC", "flow", "a", 2),
+        ("Demo::SC", "flow", "a", "b", 1),
+        ("Demo::SC", "flow", "a", "b", None, 1),
+    ],
+)
+def test_add_connection_rejects_non_string_fields(fake_service, args):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        with pytest.raises(TypeError):
+            edit.add_connection(*args)
+    assert service.requests == []
+    assert len(edit) == 0
+
+
 def test_move_request_is_exact(fake_service):
     port, service = fake_service(
         capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
@@ -285,15 +351,35 @@ def test_authoring_capability_gates_add_delete_and_move(fake_service):
         add = model.edit().add_part("Demo::SC", "new")
         delete = model.edit().delete("Demo::sc")
         move = model.edit().move("Demo::sc", "Demo::SC")
+        connection = model.edit().add_connection("Demo::SC", "flow", "a", "b")
         with pytest.raises(MissingCapabilityError) as add_error:
             add.apply()
         with pytest.raises(MissingCapabilityError) as delete_error:
             delete.apply()
         with pytest.raises(MissingCapabilityError) as move_error:
             move.apply()
+        with pytest.raises(MissingCapabilityError) as connection_error:
+            connection.apply()
     assert add_error.value.capability == CAPABILITY_AUTHORING
     assert delete_error.value.capability == CAPABILITY_AUTHORING
     assert move_error.value.capability == CAPABILITY_AUTHORING
+    assert connection_error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
+
+def test_connection_authoring_capability_gates_add_connection(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        connection = (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_connection("Demo::SC", "flow", "a", "b")
+        )
+        with pytest.raises(MissingCapabilityError) as error:
+            connection.apply()
+    assert error.value.capability == CAPABILITY_CONNECTION_AUTHORING
     assert service.requests == []
 
 
@@ -663,6 +749,15 @@ class TestEditRoundTripAgainstRealService:
             vehicle = again.find("Vehicle")
             assert vehicle is not None
             assert any(part.name == "engine" for part in vehicle.parts())
+
+    def test_authoring_adds_an_allocation(self, real_service):
+        source = "package Demo { part def System { part a; part b; } }"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_allocation(
+                "Demo::System", "a", "b", name="alloc1"
+            ).apply()
+        assert "allocation alloc1 allocate a to b;" in str(result)
 
     def test_a_value_is_added_to_a_feature_that_had_none(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

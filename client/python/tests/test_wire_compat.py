@@ -345,15 +345,19 @@ def test_apply_edits_is_an_added_rpc():
 
 
 def test_edit_messages_pin_their_field_numbers():
-    """The edit messages' own numbering, pinned from the release that added it."""
+    """The edit messages' field numbers, including the additive connection fields."""
     expected = {
         "ApplyEditsRequest": {"model_hash": 1, "operations": 2, "document": 3, "accept_documents": 4},
         "EditOperation": {
-            "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5
+            "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
+            "add_connection": 6,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
+        },
+        "AddConnectionEdit": {
+            "owner": 1, "kind": 2, "from_end": 3, "to_end": 4, "name": 5, "type": 6,
         },
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},
