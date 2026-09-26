@@ -99,8 +99,7 @@ and `type` fields:
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
-| `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. |
-| `add_entry_transition` | `owner`, `target` | An entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+| `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
