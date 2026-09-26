@@ -114,8 +114,11 @@ func (d *DryRunner) Reached() (*ToolDryRunError, bool) {
 
 // RunTool walks the selection's candidates in the order the real runner consults
 // them, probing only tool entries: a non-tool candidate ahead of the tool's own is
-// undecided under auto, passed under all (every covering engine runs there), and
-// refusing or not a tool entry under a named selection.
+// undecided under auto, and refusing or not a tool entry under a named selection.
+// Under all every covering engine runs, so a built-in ahead of the tool is passed —
+// one refusing the call never runs, one covering it runs beside the tool — while an
+// external engine, which cannot be probed, leaves the preview undecided; a built-in
+// covering the call decides it when no entry of the tool's name is registered.
 func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
@@ -127,20 +130,25 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 		return runtime.ToolAnswer{}, err
 	}
 	var own error
+	var covering Engine
 	for _, c := range candidates {
 		te, ok := c.(toolEngine)
 		if !ok {
-			if d.selection.Mode == SelectNamed {
-				// An external engine cannot be probed without a model and a
-				// process; the built-ins answer Covers of a question not theirs.
-				if _, external := c.(externalEngine); !external {
+			// An external engine cannot be probed without a model and a
+			// process; the built-ins answer Covers of a question not theirs.
+			_, external := c.(externalEngine)
+			switch {
+			case d.selection.Mode == SelectNamed:
+				if !external {
 					if cov := c.Covers(nil, q); cov.Refusal != nil {
 						return runtime.ToolAnswer{}, cov.Refusal
 					}
 				}
 				return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
-			}
-			if d.selection.Mode == SelectAll {
+			case d.selection.Mode == SelectAll && !external:
+				if cov := c.Covers(nil, q); cov.Refusal == nil && covering == nil {
+					covering = c
+				}
 				continue
 			}
 			return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
@@ -175,6 +183,9 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 	}
 	if own != nil {
 		return runtime.ToolAnswer{}, own
+	}
+	if covering != nil {
+		return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: covering.Name(), Tool: call.ToolName}
 	}
 	return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 }
