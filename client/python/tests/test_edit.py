@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
+    CAPABILITY_TRANSITION_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -244,6 +245,79 @@ def test_add_member_and_delete_requests_are_exact(fake_service):
     assert result is not None
 
 
+def test_calc_and_action_helpers_expand_into_member_edits(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_MEMBER_MODIFIERS,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_calc_def(
+                "Demo", "C", inputs=[("x", "ScalarValues::Real")],
+                return_type="ScalarValues::Real", return_expression="x * 2",
+                abstract=True,
+            )
+            .add_action(
+                "Demo::C", "run", inputs=[("request", "Input")],
+                outputs=[("response", "Output")],
+            )
+            .add_calc("", "BareCalc", inputs=[("value", "Real")])
+            .apply()
+        )
+    calc, parameter, result, action, action_input, action_output, bare_calc, bare_input = (
+        operation.add_member for operation in service.requests[0].operations
+    )
+    assert (calc.kind, calc.name, calc.is_abstract) == ("calc def", "C", True)
+    assert (
+        parameter.owner,
+        parameter.kind,
+        parameter.name,
+        parameter.type,
+        parameter.direction,
+    ) == ("Demo::C", "ref", "x", "ScalarValues::Real", "in")
+    assert (
+        result.owner,
+        result.kind,
+        result.type,
+        result.value,
+    ) == ("Demo::C", "return", "ScalarValues::Real", "x * 2")
+    assert (action.owner, action.kind, action.name) == (
+        "Demo::C", "action", "run"
+    )
+    assert (action_input.owner, action_input.direction, action_input.name) == (
+        "Demo::C::run", "in", "request"
+    )
+    assert (action_output.owner, action_output.direction, action_output.name) == (
+        "Demo::C::run", "out", "response"
+    )
+    assert (bare_calc.owner, bare_calc.name) == ("", "BareCalc")
+    assert (bare_input.owner, bare_input.name) == ("BareCalc", "value")
+
+
+@pytest.mark.parametrize(
+    "method,argument,value",
+    [
+        ("add_calc", "inputs", (("x", "Real"),)),
+        ("add_calc", "inputs", [("x",)]),
+        ("add_calc_def", "inputs", [("x", 1)]),
+        ("add_action", "outputs", (("result", "Real"),)),
+        ("add_action", "outputs", [("result", 1)]),
+    ],
+)
+def test_calc_and_action_helpers_reject_invalid_parameter_shapes(
+    method, argument, value
+):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError, match=argument):
+        getattr(editor, method)("Demo", "Declaration", **{argument: value})
+    assert len(editor) == 0
+
+
 def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     port, service = fake_service(
         capabilities=(
@@ -252,6 +326,7 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
             CAPABILITY_MEMBER_MODIFIERS,
             CAPABILITY_SATISFY_AUTHORING,
             CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+            CAPABILITY_TRANSITION_AUTHORING,
         )
     )
     with Connection(port=port, auto_start=False) as conn:
@@ -265,9 +340,14 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
             .add_satisfy("Demo::SC", "Demo::SC::r", by="Demo::SC::t", asserted=True)
             .add_require_constraint("Demo::SC", "true", name="valid")
             .add_assume_constraint("Demo::SC", "true")
+            .add_transition(
+                "Demo::SC", "a", "b", name="go", trigger="CycleStart",
+                guard="ready", effect="action cool",
+            )
+            .add_entry_transition("Demo::SC", "a")
             .apply()
         )
-    member, satisfy, require, assume = service.requests[0].operations
+    member, satisfy, require, assume, transition, entry = service.requests[0].operations
     assert member.WhichOneof("operation") == "add_member"
     assert (
         member.add_member.is_abstract,
@@ -290,6 +370,20 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     ) == ("Demo::SC", "require", "true", "valid")
     assert assume.add_requirement_constraint.kind == "assume"
     assert assume.add_requirement_constraint.name == ""
+    assert transition.WhichOneof("operation") == "add_transition"
+    assert (
+        transition.add_transition.owner,
+        transition.add_transition.name,
+        transition.add_transition.source,
+        transition.add_transition.target,
+        transition.add_transition.trigger,
+        transition.add_transition.guard,
+        transition.add_transition.effect,
+        transition.add_transition.initial,
+    ) == ("Demo::SC", "go", "a", "b", "CycleStart", "ready", "action cool", False)
+    assert entry.add_transition.owner == "Demo::SC"
+    assert entry.add_transition.target == "a"
+    assert entry.add_transition.initial
 
 
 def test_member_modifier_capability_accumulates_across_operations(fake_service):
@@ -303,6 +397,18 @@ def test_member_modifier_capability_accumulates_across_operations(fake_service):
         with pytest.raises(MissingCapabilityError) as error:
             edit.apply()
     assert error.value.capability == CAPABILITY_MEMBER_MODIFIERS
+    assert service.requests == []
+
+def test_transition_requires_authoring_alongside_transition_capability(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_TRANSITION_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_transition("Demo::S", "idle", "toasting")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
     assert service.requests == []
 
 
@@ -350,6 +456,8 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
         (lambda editor: editor.add_satisfy("Demo::SC", "Demo::SC::r"), CAPABILITY_SATISFY_AUTHORING),
         (lambda editor: editor.add_require_constraint("Demo::SC", "true"),
          CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
+        (lambda editor: editor.add_transition("Demo::SC", "a", "b"),
+         CAPABILITY_TRANSITION_AUTHORING),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -914,6 +1022,112 @@ class TestEditRoundTripAgainstRealService:
             ).apply()
             edited = str(result)
             assert "out ref response : ScalarValues::Real;" in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_state_transitions_round_trip(self, real_service):
+        source = (
+            "package P {\n"
+            "    attribute def CycleStart;\n"
+            "    attribute def CycleEnd;\n"
+            "    state def ToastingCycle;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_state("P::ToastingCycle", "idle")
+                .add_state("P::ToastingCycle", "toasting")
+                .add_state("P::ToastingCycle::toasting", "heating")
+                .add_entry_transition("P::ToastingCycle", "idle")
+                .add_transition(
+                    "P::ToastingCycle", "idle", "toasting",
+                    name="idle_to_toasting", trigger="CycleStart",
+                )
+                .add_transition(
+                    "P::ToastingCycle", "toasting", "idle",
+                    name="toasting_to_idle", trigger="CycleEnd",
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert "entry; then idle;" in edited
+            assert (
+                "transition idle_to_toasting first idle accept CycleStart then toasting;"
+                in edited
+            )
+            assert (
+                "transition toasting_to_idle first toasting accept CycleEnd then idle;"
+                in edited
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_calc_helper_adds_inputs_and_bound_result(self, real_service):
+        source = "package P {\n    private import ScalarValues::*;\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_calc_def(
+                "P",
+                "DeliveredEnergy",
+                inputs=[
+                    ("power", "ISQ::PowerValue"),
+                    ("duration", "ISQ::TimeValue"),
+                    ("efficiency", "ScalarValues::Real"),
+                ],
+                return_type="ISQ::EnergyValue",
+                return_expression="power * duration * efficiency",
+            ).apply()
+            edited = str(result)
+            assert "in ref power : ISQ::PowerValue;" in edited
+            assert "in ref duration : ISQ::TimeValue;" in edited
+            assert "in ref efficiency : ScalarValues::Real;" in edited
+            assert (
+                "return : ISQ::EnergyValue = power * duration * efficiency;"
+                in edited
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_action_helpers_add_nested_parameters_and_succession(self, real_service):
+        source = (
+            "package BreadHandling {\n"
+            "    item def Bread;\n"
+            "    item def Toast;\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_action_def(
+                    "BreadHandling",
+                    "BreadHandling",
+                    inputs=[("bread", "Bread")],
+                    outputs=[("toast", "Toast")],
+                )
+                .add_action(
+                    "BreadHandling::BreadHandling",
+                    "load_bread",
+                    inputs=[("bread", "Bread")],
+                    outputs=[("loaded", "Bread")],
+                )
+                .add_action(
+                    "BreadHandling::BreadHandling",
+                    "eject_toast",
+                    inputs=[("loaded", "Bread")],
+                    outputs=[("toast", "Toast")],
+                )
+                .add_succession(
+                    "BreadHandling::BreadHandling", "load_bread", "eject_toast"
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert "action load_bread" in edited
+            assert "action eject_toast" in edited
+            assert "succession first load_bread then eject_toast;" in edited
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
 

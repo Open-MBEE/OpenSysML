@@ -779,6 +779,25 @@ final class Api {
         }
         yield constraint;
       }
+      case ADD_TRANSITION -> {
+        org.openmbee.opensysml.proto.AddTransitionEdit add = operation.getAddTransition();
+        Edit.AddTransition transition = add.getInitial()
+            ? Edit.AddTransition.entry(add.getOwner(), add.getTarget())
+            : Edit.AddTransition.of(add.getOwner(), add.getSource(), add.getTarget());
+        if (!add.getName().isEmpty()) {
+          transition = transition.withName(add.getName());
+        }
+        if (!add.getTrigger().isEmpty()) {
+          transition = transition.withTrigger(add.getTrigger());
+        }
+        if (!add.getGuard().isEmpty()) {
+          transition = transition.withGuard(add.getGuard());
+        }
+        if (!add.getEffect().isEmpty()) {
+          transition = transition.withEffect(add.getEffect());
+        }
+        yield transition;
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->

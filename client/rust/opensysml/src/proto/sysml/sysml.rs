@@ -985,7 +985,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1008,6 +1008,8 @@ pub mod edit_operation {
         AddSatisfy(super::AddSatisfyEdit),
         #[prost(message, tag="8")]
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
+        #[prost(message, tag="9")]
+        AddTransition(super::AddTransitionEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1047,10 +1049,10 @@ pub struct AddMemberEdit {
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
 }
-/// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
+/// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AddSatisfyEdit {
-    /// Namespace FQN receiving the usage.
+    /// Body receiving the usage.
     #[prost(string, tag="1")]
     pub owner: ::prost::alloc::string::String,
     /// Requirement feature reference.
@@ -1081,6 +1083,34 @@ pub struct AddRequirementConstraintEdit {
     /// Optional declared name.
     #[prost(string, tag="4")]
     pub name: ::prost::alloc::string::String,
+}
+/// AddTransitionEdit inserts a transition usage, or an entry transition, into a state body.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddTransitionEdit {
+    /// State body receiving the transition.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Optional transition name.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// Source feature reference; empty only for an entry transition.
+    #[prost(string, tag="3")]
+    pub source: ::prost::alloc::string::String,
+    /// Target feature reference.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    /// Optional text after `accept`.
+    #[prost(string, tag="5")]
+    pub trigger: ::prost::alloc::string::String,
+    /// Optional boolean expression after `if`.
+    #[prost(string, tag="6")]
+    pub guard: ::prost::alloc::string::String,
+    /// Optional effect text after `do`.
+    #[prost(string, tag="7")]
+    pub effect: ::prost::alloc::string::String,
+    /// Write `entry; then <target>;` instead of a regular transition.
+    #[prost(bool, tag="8")]
+    pub initial: bool,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

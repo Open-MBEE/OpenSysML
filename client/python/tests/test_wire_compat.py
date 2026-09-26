@@ -351,6 +351,7 @@ def test_edit_messages_pin_their_field_numbers():
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
+            "add_transition": 9,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
@@ -366,6 +367,10 @@ def test_edit_messages_pin_their_field_numbers():
         },
         "AddRequirementConstraintEdit": {
             "owner": 1, "kind": 2, "expression": 3, "name": 4,
+        },
+        "AddTransitionEdit": {
+            "owner": 1, "name": 2, "source": 3, "target": 4, "trigger": 5,
+            "guard": 6, "effect": 7, "initial": 8,
         },
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},
