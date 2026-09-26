@@ -157,8 +157,7 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 // row per value in a context of its own, held objects made there from their declarations or
 // from one image of the held graph; the session's state is released while the rows run.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
@@ -213,7 +212,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
-	runScope := declaringScope(sym, doc.Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
 		row, err := s.rowObjects(rt, args.objects, image)

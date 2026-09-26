@@ -36,12 +36,19 @@ func renderFixtureDocument(t *testing.T, path, name string) string {
 // semantics, docplan, then document IR evaluation.
 func fixtureDocument(t *testing.T, path, name string) *docir.Document {
 	t.Helper()
+	return fixtureDocumentAt(t, path, filepath.Base(path), name)
+}
+
+// fixtureDocumentAt is fixtureDocument with the source read as if it were the
+// file sourceName, so a document's origin has that file's directory.
+func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Document {
+	t.Helper()
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
 	index := libs.NewModelIndex()
-	sf := source.New(filepath.Base(path), []byte(content))
+	sf := source.New(sourceName, []byte(content))
 	p := parser.New(sf)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -286,12 +293,13 @@ func TestMarkdownQuantityReportGolden(t *testing.T) {
 }
 
 // TestMarkdownCollectionCells checks a `[0..*]` column: a row holding two values
-// renders them comma-joined in order and a row holding none renders empty.
+// renders them comma-joined in order, a one-element sequence its single value,
+// and a row holding none renders empty.
 func TestMarkdownCollectionCells(t *testing.T) {
 	got := renderFixtureDocument(t,
 		filepath.Join("testdata", "collection_report.sysml"),
 		"Calibration::TimingReport")
-	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n"
+	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n| single | 36 | single |\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("rendering does not contain %q\n%s", want, got)
 	}

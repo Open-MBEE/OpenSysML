@@ -249,6 +249,35 @@ func TestReloadingAFixedFileClearsItsSyntaxError(t *testing.T) {
 	}
 }
 
+// The reverse: a file reloaded with its enclosure left open is masked, and takes
+// its declarations out of the index with it, so a qualified lookup no longer
+// finds what the session no longer holds; the library stays reachable.
+func TestReloadingAFileLeftOpenDropsItsSymbols(t *testing.T) {
+	s := NewSession()
+	path := filepath.Join(t.TempDir(), "model.sysml")
+	if err := os.WriteFile(path, []byte("package P { attribute x = 1; }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.LoadFile(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.lookupSymbol("P::x"); err != nil {
+		t.Fatalf("P::x did not resolve after the load: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("package P {\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.LoadFile(path); err != nil {
+		t.Fatal(err)
+	}
+	if sym, _, err := s.lookupSymbol("P::x"); err == nil {
+		t.Errorf("P::x should be gone with the file that declared it, found %v", sym)
+	}
+	if _, _, err := s.lookupSymbol("ScalarValues::Real"); err != nil {
+		t.Errorf("the library should still answer a qualified lookup: %v", err)
+	}
+}
+
 // Typed input that leaves an enclosure open is masked the same way, and the
 // declarations already in the buffer are untouched.
 func TestOpenTypedSubmissionKeepsTheBuffer(t *testing.T) {

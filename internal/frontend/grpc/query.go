@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -12,24 +11,27 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // Query property names, as the SysML v2 API & Services standard's clients write
 // them. docs/reference/api.md documents what each one reports.
 const (
-	QueryPropID                = corequery.PropertyID
-	QueryPropType              = corequery.PropertyType
-	QueryPropName              = corequery.PropertyName
-	QueryPropDeclaredName      = corequery.PropertyDeclaredName
-	QueryPropShortName         = corequery.PropertyShortName
-	QueryPropDeclaredShortName = corequery.PropertyDeclaredShortName
-	QueryPropDocumentation     = corequery.PropertyDocumentation
-	QueryPropQualifiedName     = corequery.PropertyQualifiedName
-	QueryPropOwner             = corequery.PropertyOwner
-	QueryPropIsAbstract        = corequery.PropertyIsAbstract
-	QueryPropElementType       = corequery.PropertyElementType
-	QueryPropMultiplicityLower = corequery.PropertyMultiplicityLower
-	QueryPropMultiplicityUpper = corequery.PropertyMultiplicityUpper
+	QueryPropID                   = corequery.PropertyID
+	QueryPropType                 = corequery.PropertyType
+	QueryPropName                 = corequery.PropertyName
+	QueryPropDeclaredName         = corequery.PropertyDeclaredName
+	QueryPropShortName            = corequery.PropertyShortName
+	QueryPropDeclaredShortName    = corequery.PropertyDeclaredShortName
+	QueryPropDocumentation        = corequery.PropertyDocumentation
+	QueryPropQualifiedName        = corequery.PropertyQualifiedName
+	QueryPropOwner                = corequery.PropertyOwner
+	QueryPropIsAbstract           = corequery.PropertyIsAbstract
+	QueryPropElementType          = corequery.PropertyElementType
+	QueryPropMultiplicityLower    = corequery.PropertyMultiplicityLower
+	QueryPropMultiplicityUpper    = corequery.PropertyMultiplicityUpper
+	QueryPropSatisfiedRequirement = corequery.PropertySatisfiedRequirement
+	QueryPropSatisfyingFeature    = corequery.PropertySatisfyingFeature
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -92,7 +94,8 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 
 	sc := cached.SymbolContext()
 	defer sc.Lock()()
-	eval := &queryEval{sc: sc, reader: corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics)}
+	eval := &queryEval{sc: sc, cached: cached}
+	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).WithIdentity(eval.identity)
 	if req.OslcQuery != "" {
 		parsed, err := corequery.ParseOSLC(req.OslcQuery)
 		if err != nil {
@@ -141,6 +144,7 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 type queryEval struct {
 	sc     *SymbolContext
 	reader *corequery.PropertyReader
+	cached *CachedModel
 }
 
 // candidates returns the elements a query considers, in declaration order: every
@@ -160,6 +164,12 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 	for _, fqn := range scope {
 		roots := e.sc.Index.LookupQualified(fqn)
 		if len(roots) == 0 {
+			e.positionalNames(cached)
+			if sym := cached.byPositional[fqn]; sym != nil {
+				roots = []*symbols.Symbol{sym}
+			}
+		}
+		if len(roots) == 0 {
 			return nil, queryErrorf(QueryErrUnknownScope,
 				"query scope names an element the model does not have: %q", fqn)
 		}
@@ -178,6 +188,44 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 		}
 	}
 	return out, nil
+}
+
+func (e *queryEval) identity(sym *symbols.Symbol) string {
+	if identity := corequery.QualifiedIdentity(e.sc.Index, sym); identity != "" {
+		return identity
+	}
+	e.positionalNames(e.cached)
+	return e.cached.positional[sym]
+}
+
+func (e *queryEval) positionalNames(cached *CachedModel) {
+	if cached == nil {
+		return
+	}
+	cached.positionalOnce.Do(func() {
+		if cached.Index == nil {
+			cached.positional, cached.byPositional = export.PositionalIdentities(nil, nil, nil)
+			return
+		}
+		docs := make([]export.PositionalDocument, 0, len(cached.Documents))
+		for _, doc := range cached.Documents {
+			if doc == nil || doc.Source == nil {
+				continue
+			}
+			root := cached.Index.DocumentRoot(doc.Source.Name())
+			if root == nil {
+				continue
+			}
+			docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
+		}
+		cached.positional, cached.byPositional = export.PositionalIdentities(
+			cached.Index,
+			docs,
+			func(sym *symbols.Symbol) bool {
+				return corequery.QualifiedIdentity(cached.Index, sym) != ""
+			},
+		)
+	})
 }
 
 // nested returns every element declared inside an element, in declaration
@@ -211,7 +259,7 @@ func (w *elementWalk) scope(s *symbols.Scope) {
 		return
 	}
 	w.walked[s] = true
-	for _, sym := range append(s.Members(), s.AnonymousMembers()...) {
+	for _, sym := range s.AllMembers() {
 		w.visit(sym)
 	}
 	for _, child := range s.Children() {
@@ -227,36 +275,10 @@ func (w *elementWalk) visit(sym *symbols.Symbol) {
 		return
 	}
 	w.seen[sym] = true
-	if w.eval.identifies(sym) {
+	if w.eval.identity(sym) != "" {
 		w.out = append(w.out, sym)
 	}
 	w.members(sym)
-}
-
-// identifies reports whether an element's qualified name is the `@id` the
-// standard's clients expect: a real qualified name that names this element back,
-// so a later query may use it as a scope.
-func (e *queryEval) identifies(sym *symbols.Symbol) bool {
-	fqn := e.sc.Index.GetFQN(sym)
-	if !hasQualifiedIdentity(fqn) {
-		return false
-	}
-	return slices.Contains(e.sc.Index.LookupQualified(fqn), sym)
-}
-
-// hasQualifiedIdentity reports whether a qualified name identifies an element.
-// An unnamed one — a doc note, an anonymous usage — has an empty segment, so its
-// name is neither unique nor a name a scope could use.
-func hasQualifiedIdentity(fqn string) bool {
-	if fqn == "" {
-		return false
-	}
-	for _, segment := range strings.Split(fqn, "::") {
-		if segment == "" {
-			return false
-		}
-	}
-	return true
 }
 
 // members walks what an element declares. A library element restored from cache
@@ -297,7 +319,7 @@ func unknownProperty(name string) *QueryError {
 // plus the selected properties it has.
 func (e *queryEval) project(sym *symbols.Symbol, selected []string) *pb.QueryResultElement {
 	element := &pb.QueryResultElement{
-		Id:         e.sc.Index.GetFQN(sym),
+		Id:         e.identity(sym),
 		Type:       corequery.MetamodelTypeNameOf(sym),
 		Properties: make(map[string]string, len(selected)),
 	}

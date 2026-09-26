@@ -307,6 +307,7 @@ func (e *evaluator) evaluateNode(node docplan.Content) (Content, error) {
 			source:  node.Location(),
 			caption: node.Caption(),
 			alt:     node.Alt(),
+			file:    e.context.Model.SourceFileOf(node.Origin()),
 			origin:  node.Origin(),
 		}, nil
 	default:

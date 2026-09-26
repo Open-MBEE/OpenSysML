@@ -134,51 +134,97 @@ report for the synthetic model there, because most of their elements are
 attribute redefinitions with a literal value rather than definitions with
 bodies of their own.
 
-## Running: instantiation, state machines and satisfaction
+### Split by plane, parallel
 
-`sysml -satisfy -memstats` loads and validates the model, then for every
-`satisfy` assertion instantiates its subject — a satellite's configured usage,
-with its subsystem and component tree — starts the mode machine the spacecraft
-exhibits, evaluates the summed mass and power over the instance and checks the
-requirement's constraint against it. Three assertions per satellite; every one
-holds.
+A project of this size is not one file. `stress-model -split-planes <dir>`
+writes the same constellation as one `.sysml` per orbital plane plus
+`library.sysml` (the definitions every plane shares) and `constellation.sysml`
+(the ground segment and the cross-plane network); the split declares the same
+network and analyzes to the same diagnostics as the single file
+(`TestSatelliteNetworkSplitValidates`). The generator lists what it wrote in
+`.stress-model-files` beside the model, each with a digest of its content, and
+a later generation into the same directory replaces only files on that list
+that still read as written, removes those of them it did not write again, and
+writes nothing at all when a file it would write is not on the list, has been
+edited or is not a regular file — so a smaller constellation leaves no plane of
+a larger one behind and nothing else in the directory, a file of the user's or
+an edited plane, is touched. `sysml -validate` over the files parses
+them on a pool of workers, indexes them once, expands wildcard imports once
+and analyzes them on the pool, each document with a resolver and semantic
+model of its own; the facts the workspace-wide audits (OOSEM, MOSA, identity
+metadata) need of every document are gathered once for the batch and read by
+every worker. `-jobs N` (or `OPENSYSML_JOBS`), the same setting that bounds
+how many runs of one check go concurrently, sets the pool, default one worker
+per CPU. The diagnostics are the same at any job count, in command-line order.
 
-| satellites | assertions | wall | of which load | allocated | peak RSS |
-| ---------- | ---------- | ---- | ------------- | --------- | -------- |
-| 2 | 6 | 0.10–0.15 s | 0.06 s | 65 MiB | 90 MB |
-| 10 | 30 | 0.23–0.25 s | 0.13 s | 122 MiB | 118 MB |
-| 50 | 150 | 0.90–0.98 s | 0.49 s | 402 MiB | 210 MB |
-| 100 | 300 | 1.86–1.95 s | 0.95 s | 762 MiB | 310 MB |
-| 200 | 600 | 3.9–4.1 s | 2.0 s | 1.5 GiB | 530 MB |
-| 400 | 1 200 | 8.3 s | 4.5 s | 2.9 GiB | 975 MB |
-| 800 | 2 400 | 17.5–17.9 s | 8.7 s | 6.0 GiB | 1.83 GB |
-| 1 600 | 4 800 | 38.1 s | 19.0 s | 12.8 GiB | 3.8 GB |
-| 3 200 | 9 600 | 83 s | 42 s | 28.9 GiB | 7.6 GB |
+```bash
+go run -C tools ./cmd/stress-model -planes 32 -satellites 50 -ground-stations 160 -split-planes constellation/
+/usr/bin/time -v sysml -validate -memstats -jobs 8 constellation/*.sysml
+```
 
-Checking the whole constellation costs **about 2.0× a validation** of the
-same model at every size, and the extra is linear: about 3.2 ms, 1.2 MiB
-allocated and 0.45 MB of peak RSS per assertion — that is, per instantiation
-of a satellite with its twenty components and a running state machine. A CPU
-profile at 400 satellites puts the run's own share (30% of samples, the rest
-being the load) almost entirely in `runtime.(*Context).Instantiate`:
-materializing the parts that run behaviors (`materializeBehavingParts`,
-`runsBehaviors`) and shaping the features of each type (`FeaturesOf`,
-`semantics.(*Model).ShapeFeatures`). Evaluating the budgets is a small part.
+Same machine as above (`Intel Xeon Platinum 8559C`, 8 CPUs, 31 GiB, Go
+1.25.0, Linux); one run per row; *CPU* is `(user + system) / wall`.
 
-Re-checking a loaded constellation is much cheaper than the first check,
-because the runtime's per-type memoization — feature shapes, which types run
-behaviors, the verification cases under each scope — is then warm.
-`BenchmarkSatisfy` measures the warm re-check of every assertion:
+| model | files | jobs | wall | user | CPU | allocated | peak RSS |
+| ----- | ----- | ---- | ---- | ---- | --- | --------- | -------- |
+| 200 satellites, one file | 1 | — | 2.15 s | 2.6 s | 126% | 806 MiB | 393 MB |
+| 200 satellites, split | 10 | 1 | 2.63 s | 3.3 s | 129% | 957 MiB | 358 MB |
+| | | 2 | 1.69 s | 3.3 s | 201% | 972 MiB | 379 MB |
+| | | 4 | 1.29 s | 3.3 s | 271% | 974 MiB | 414 MB |
+| | | 8 | 1.19 s | 3.9 s | 341% | 976 MiB | 507 MB |
+| 1 600 satellites, one file | 1 | — | 20.3 s | 26.1 s | 133% | 6.1 GiB | 2.38 GB |
+| 1 600 satellites, split | 34 | 1 | 22.0 s | 27.6 s | 129% | 7.5 GiB | 2.27 GB |
+| | | 2 | 14.3 s | 29.5 s | 213% | 7.6 GiB | 2.12 GB |
+| | | 4 | 10.7 s | 29.9 s | 288% | 7.6 GiB | 2.23 GB |
+| | | 8 | 9.24 s | 32.4 s | 365% | 7.6 GiB | 2.63 GB |
 
-| satellites | assertions | warm re-check | allocated |
-| ---------- | ---------- | ------------- | --------- |
-| 32 | 96 | 3.5 ms | 1.9 MiB |
-| 128 | 384 | 20 ms | 11.2 MiB |
-| 512 | 1 536 | 144 ms | 104 MiB |
+Three things the table says:
 
-That is under 0.1 ms per assertion warm, against 3.2 ms cold: the first check
-pays for building the runtime's view of every type, and a session that keeps
-the model loaded — the REPL, the gRPC service — amortizes it.
+- **Splitting the file costs little, and the pool pays it back.** One file
+  validates in 20.3 s; the same model in 34 files takes 22.0 s on one job
+  — the split adds the per-plane packages, their imports, the sibling-file
+  dependency scan and the gather of 34 documents instead of one — and 9.24 s
+  on eight, 2.2× the single file's speed. The 200-satellite split goes from
+  2.63 s to 1.19 s. Peak RSS stays within a tenth of the single file's:
+  2.63 GB at eight jobs against 2.38 GB, since the workers share one gather
+  and hold only their own document's memoization.
+- **The gather is what bounds the pool.** Eight jobs reach 365% CPU, not
+  700%. A CPU profile of the eight-job run (9.57 s wall, 34.2 s of samples)
+  puts 4.5 s in the three audits' gather — the OOSEM union 3.6 s, identity
+  0.52 s, MOSA 0.37 s — which the first context to ask runs over all 34
+  documents while the other workers wait for it; before the pool, the scan
+  of the files for the root namespaces they import from siblings
+  (`project.Dependencies`, 0.87 s) and installing the 34 scope trees in the
+  index and expanding wildcard imports (`commitBatch`, 1.0 s) are serial
+  too. Over 6 s of the 9.24 s is therefore on one thread. Gathering the
+  documents on the pool as well — each worker gathering its own document's
+  facts into the union, in a context of its own, before analysis starts —
+  would take most of the 4.5 s off the critical path and is the remaining
+  step to the ~5 s the [scaling design](large-model-scaling-design.md) sets
+  for this run.
+- **The analysis itself parallelizes.** Outside the gather the profile is
+  the per-document work: name resolution 9.0 s of the 34.2 s, the
+  inherited-name conflict pass 4.0 s, type checking 1.2 s, the collector
+  marking eight workers' allocations at once 5.6 s. On one job the 34
+  analyses are 17.1 s of samples, 3.9 s of them the gather, so a document
+  averages 0.39 s: no one file is a straggler that would bound the pool the
+  way the gather does. `BenchmarkAnalyzeSplitPerDocument` in
+  `tests/stressmodel` analyzes the split's six files over one index with
+  the three audits left out, the pool's own speedup: 3.91 s → 1.09 s at 512
+  satellites on one job versus eight, the largest file about a quarter of
+  the work. `BenchmarkValidateSplit`, the whole load audits included, runs
+  6.30 s → 2.14 s.
+
+**What the gather cost before.** The three audits used to gather every
+workspace document once per document analyzed, each analysis in a model of
+its own, so the gather was done 34 times over 34 documents: the 34-file split
+took 129 s on one job and 30.9 s on eight (658% CPU, 39.1 GiB allocated,
+7.24 GB peak RSS for eight workspace-wide memoizations held at once), against
+18.5 s for the single file of that build. The profile of that run spent 75% of
+its samples in `OOSEMMethodPass`, `IdentityMetadataPass` and `MOSAPass`; the
+per-document work was about 10 s of 128 s on one job. The per-document gather
+cache (`passes.Gathers`) removed the quadratic term for the editor path, and
+handing one such gather to a batch's workers removed it for the command line.
 
 ## The same constellation as a fleet
 
@@ -446,11 +492,9 @@ the interactive band at every operation measured.
   usage cost more per element, long documentation comments cost less — but
   the shape of the curve (linear load, memory-bound batch, workspace-bound
   editing) does not depend on the regularity.
-- The whole constellation is one file except where a figure says it was
-  split. Splitting it over files changes two things: the CLI submits files one
-  at a time and reindexes after each, which is quadratic in the file count
-  (`docs/internals/performance.md`, notes for further work), and an editor pays
-  the per-file analysis once per open file.
+- Most figures are for the whole constellation as one file. The split by
+  plane is measured above at two sizes only; an editor also pays the per-file
+  analysis once per open file.
 - `-satisfy` over the single-definition form instantiates each satellite's
   tree on its own; it does not instantiate the whole `Network` as one object
   with 12 800 satellites and their links. Only the fleet section
@@ -471,18 +515,13 @@ validation, and one definition with many occurrences — is in
 [scaling to very large models](large-model-scaling-design.md). The three
 items below are the ones the profiles point at directly.
 
-- **Hand the gathered facts to the batch pipeline.** The OOSEM, MOSA and
-  identity audits now gather each workspace document once and judge each
-  analyzed document over the union, which is what made the 34-file split load
-  in 18 s rather than 126 s through one workspace. A batch that analyzes
-  documents on parallel workers with private contexts gathers per worker
-  again unless the workspace's gathers are what the batch hands them.
 - **Make a one-shot validation skip the bookkeeping.** The persistent model
   records, on every memoized read, which document depends on the entry's
   owner, so that the owner's replacement invalidates the reader. A validation
   that will never edit pays that for nothing — about a sixth of its wall time
-  at 200 satellites. Analyzing each document in a private context over the
-  read-only index, as a parallel batch does, records nothing.
+  at 200 satellites. `sysml -validate` already analyzes each document in a
+  private context over the read-only index and records nothing; a consumer
+  validating once through `Workspace.Diagnostics` still pays it.
 - **Reduce allocation per element.** Nineteen KiB allocated per element
   against 2.7 KiB held means a load produces seven times its own weight in
   garbage, and the collector's quarter of the profile is the price. The

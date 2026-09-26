@@ -531,7 +531,7 @@ func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
 // a drawn figure by the page's height as well as its width and keep it whole,
 // so a tall graph is scaled onto one page with its caption rather than cut.
 func TestStylesheetsKeepFiguresWithinThePage(t *testing.T) {
-	opts, err := htmlOptions(Options{}, false, t.TempDir(), nil, formulas{})
+	opts, err := htmlOptions(Options{}, false, t.TempDir(), "", nil, formulas{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,7 +566,7 @@ func stripCSSComments(css string) string {
 // pageOptions is htmlOptions for options a test knows to be well-formed.
 func pageOptions(t *testing.T, opts Options, dir string, images []string, math formulas) docrender.HTMLOptions {
 	t.Helper()
-	htmlOpts, err := htmlOptions(opts, false, dir, images, math)
+	htmlOpts, err := htmlOptions(opts, false, dir, "", images, math)
 	if err != nil {
 		t.Fatalf("htmlOptions: %v", err)
 	}

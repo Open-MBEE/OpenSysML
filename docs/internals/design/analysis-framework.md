@@ -661,6 +661,23 @@ inputs answering unequal outputs is a reported divergence, and an entry without 
 behaves byte for byte as this section describes. The `ToolExecution` and `ToolVariable`
 metadata gain no field for any of it.
 
+Of the two, `invocation` is implemented: it composes the command from the same values —
+arguments, environment variables, a working directory, the standard input's form and an input
+file — through templates whose placeholders name the declared variables, the annotation's
+`toolName` and `uri`, and the per-invocation directory. The model still influences values
+only, never what runs: each template is one `argv` entry passed to the process directly, no
+shell is involved, the working directory is confined to the manifest's directory as the
+executable is, and the process environment is a minimal base plus what the block and
+`OPENSYSML_TOOL_ENV_PASSTHROUGH` name rather than the parent's. A `reply` block may then say
+how the answer is read — still the one JSON object by default, or an RFC 6901 pointer into a
+JSON document, a CSV cell, a `key = value` line or regex group, or the exit status itself,
+read from standard output or a file under `{outputDir}` — and each output carries its `type`
+and unit into the same `ToolCall.Bind` conversion the object protocol uses. The timeout, the
+size bounds and the divergence report — which compares the canonical rendering of every
+mapped output the reply yields, not either call's bound subset — are the same code path
+whatever the format; an entry without the blocks starts the
+executable exactly as before.
+
 ## User surface
 
 Existing flags, commands, RPCs and their outputs keep their meaning. What is added:

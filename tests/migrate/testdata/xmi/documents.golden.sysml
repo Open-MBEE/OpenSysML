@@ -299,9 +299,11 @@ package 'Fleet Documents' {
         view others :> 'Fleet Views'::'Other Figures';
         view owners :> 'Fleet Views'::'Figure Owners';
         view noFigures :> 'Fleet Views'::'No Figures';
+        view safety :> Safety;
         /* applied stereotype «Document» */
     }
     view Introduction {
+        doc /* The fleet, in brief. */
         satisfy 'Fleet Viewpoints'::'Parts Viewpoint';
         expose Fleet::Structure::**;
     }
@@ -312,6 +314,7 @@ package 'Fleet Documents' {
         expose Fleet::Requirements::**;
     }
     view Safety {
+        doc /* Safety comes first. */
         satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
         public import Fleet::*;
         /* applied stereotype «view» */
@@ -423,13 +426,17 @@ package 'Fleet Documents' {
         attribute redefines title = "Fleet Handbook";
         part Introduction : DocumentQueries::Section {
             attribute redefines title = "Introduction";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The fleet, in brief.";
+            }
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
             }
-            part paragraph : DocumentQueries::Paragraph {
+            part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
+            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
         }
         part Requirements : DocumentQueries::Section {
             attribute redefines title = "Requirements";
@@ -445,6 +452,9 @@ package 'Fleet Documents' {
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Safety comes first.";
+                }
                 part table : DocumentQueries::Table {
                     attribute redefines caption = "Safety Requirements";
                     calc rows : 'Fleet Handbook Safety Requirements Rows';
@@ -521,6 +531,22 @@ package 'Fleet Documents' {
                 multiple = "first"),
             properties = ("name"))
     }
+    calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Except(
+                source = DocumentQueries::WhereMetadata(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                    'metadata' = ("Fleet Profile::Safety")),
+                exclude = DocumentQueries::WhereName(
+                    source = DocumentQueries::WhereMetadata(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                        'metadata' = ("Fleet Profile::Safety")),
+                    operator = "matches",
+                    value = "^(?:.*Count)$")),
+            properties = ("name", "documentation"))
+    }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
         ref 'parts Method' : 'Fleet Viewpoints'::'Parts Viewpoint'::'Parts Method';
@@ -591,6 +617,16 @@ package 'Fleet Documents' {
         }
         part 'No Figures' : DocumentQueries::Section {
             attribute redefines title = "No Figures";
+        }
+        part Safety : DocumentQueries::Section {
+            attribute redefines title = "Safety";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "Safety comes first.";
+            }
+            part table : DocumentQueries::Table {
+                attribute redefines caption = "Safety Requirements";
+                calc rows : 'Fleet Brief Safety Requirements Rows';
+            }
         }
     }
 }
