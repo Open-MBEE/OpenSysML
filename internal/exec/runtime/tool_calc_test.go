@@ -596,6 +596,20 @@ func TestToolCalcDeclaredReaderForwardsDivergence(t *testing.T) {
 	t.Fatalf("held notes = %v, want a ToolDivergence for Thermo", ctx.Notes())
 }
 
+// The reader runs under the budgets of the context it was seeded from.
+func TestToolCalcDeclaredReaderCarriesBudgets(t *testing.T) {
+	ctx, _ := analysisFixture(t, toolCalcModel)
+	want := ctx.Budgets()
+	want.MaxSteps = 7
+	want.MaxCalcDepth = 3
+	if err := ctx.SetBudgets(want); err != nil {
+		t.Fatalf("SetBudgets: %v", err)
+	}
+	if got := NewDeclaredReaderIn(ctx).ctx.Budgets(); got != want {
+		t.Fatalf("reader budgets = %+v, want %+v", got, want)
+	}
+}
+
 // A runner answering without Bind — as one is free to — that leaves one of the
 // call's outputs unanswered is refused the same as a reply Bind would reject:
 // the output it left out was answered by nothing, not bound to a zero value.
