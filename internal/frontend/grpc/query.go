@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -12,8 +11,6 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
@@ -194,8 +191,8 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 }
 
 func (e *queryEval) identity(sym *symbols.Symbol) string {
-	if e.identifies(sym) {
-		return e.sc.Index.GetFQN(sym)
+	if identity := corequery.QualifiedIdentity(e.sc.Index, sym); identity != "" {
+		return identity
 	}
 	e.positionalNames(e.cached)
 	return e.cached.positional[sym]
@@ -206,106 +203,29 @@ func (e *queryEval) positionalNames(cached *CachedModel) {
 		return
 	}
 	cached.positionalOnce.Do(func() {
-		candidates := make(map[string]map[*symbols.Symbol]bool)
-		type positionalCandidate struct {
-			name string
-			sym  *symbols.Symbol
+		if cached.Index == nil {
+			cached.positional, cached.byPositional = export.PositionalIdentities(nil, nil, nil)
+			return
 		}
+		docs := make([]export.PositionalDocument, 0, len(cached.Documents))
 		for _, doc := range cached.Documents {
 			if doc == nil || doc.Source == nil {
 				continue
 			}
-			file := source.NewWithKind(doc.Source.Name(), doc.Source.Bytes(), doc.Source.Kind())
-			p := parser.New(file)
-			root := p.ParseFile()
-			if len(p.Diagnostics) != 0 {
+			root := cached.Index.DocumentRoot(doc.Source.Name())
+			if root == nil {
 				continue
 			}
-			names, err := export.DeclarationNames(file, root)
-			if err != nil {
-				continue
-			}
-			scope := cached.Index.DocumentRoot(doc.Source.Name())
-			seen := make(map[*symbols.Scope]bool)
-			var walk func(*symbols.Scope)
-			walk = func(current *symbols.Scope) {
-				if current == nil || seen[current] {
-					return
-				}
-				seen[current] = true
-				for _, sym := range current.AllMembers() {
-					if sym == nil || sym.DocName != doc.Source.Name() ||
-						e.identifies(sym) || sym.Decl == nil {
-						continue
-					}
-					if sym.Name != "" && !sym.EffectiveName() && sym.Owner() == nil {
-						continue
-					}
-					name, ok := names[sym.Decl.Span()]
-					if !ok || !isPositionalIdentity(name) || len(e.sc.Index.LookupQualified(name)) != 0 {
-						continue
-					}
-					if candidates[name] == nil {
-						candidates[name] = make(map[*symbols.Symbol]bool)
-					}
-					candidates[name][sym] = true
-				}
-				for _, child := range current.Children() {
-					walk(child)
-				}
-			}
-			walk(scope)
+			docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
 		}
-
-		accepted := make([]positionalCandidate, 0, len(candidates))
-		for name, claims := range candidates {
-			if len(claims) != 1 {
-				continue
-			}
-			for sym := range claims {
-				accepted = append(accepted, positionalCandidate{name: name, sym: sym})
-			}
-		}
-		slices.SortFunc(accepted, func(a, b positionalCandidate) int {
-			aDepth, bDepth := strings.Count(a.name, "::"), strings.Count(b.name, "::")
-			if aDepth < bDepth {
-				return -1
-			}
-			if aDepth > bDepth {
-				return 1
-			}
-			return strings.Compare(a.name, b.name)
-		})
-
-		cached.positional = make(map[*symbols.Symbol]string)
-		cached.byPositional = make(map[string]*symbols.Symbol)
-		for _, candidate := range accepted {
-			sym := candidate.sym
-			owner := sym.Owner()
-			if sym.Name != "" && !sym.EffectiveName() {
-				if owner == nil || cached.positional[owner] == "" {
-					continue
-				}
-			} else if owner != nil && !e.identifies(owner) && cached.positional[owner] == "" {
-				continue
-			}
-			cached.positional[sym] = candidate.name
-			cached.byPositional[candidate.name] = sym
-		}
+		cached.positional, cached.byPositional = export.PositionalIdentities(
+			cached.Index,
+			docs,
+			func(sym *symbols.Symbol) bool {
+				return corequery.QualifiedIdentity(cached.Index, sym) != ""
+			},
+		)
 	})
-}
-
-func isPositionalIdentity(name string) bool {
-	for _, segment := range strings.Split(name, "::") {
-		if len(segment) < 2 || segment[0] != '@' {
-			continue
-		}
-		value, err := strconv.Atoi(segment[1:])
-		if err == nil && value >= 0 && strconv.Itoa(value) == segment[1:] {
-			return true
-		}
-	}
-	return false
 }
 
 // nested returns every element declared inside an element, in declaration
@@ -359,32 +279,6 @@ func (w *elementWalk) visit(sym *symbols.Symbol) {
 		w.out = append(w.out, sym)
 	}
 	w.members(sym)
-}
-
-// identifies reports whether an element's qualified name is the `@id` the
-// standard's clients expect: a real qualified name that names this element back,
-// so a later query may use it as a scope.
-func (e *queryEval) identifies(sym *symbols.Symbol) bool {
-	fqn := e.sc.Index.GetFQN(sym)
-	if !hasQualifiedIdentity(fqn) {
-		return false
-	}
-	return slices.Contains(e.sc.Index.LookupQualified(fqn), sym)
-}
-
-// hasQualifiedIdentity reports whether a qualified name identifies an element.
-// An unnamed one — a doc note, an anonymous usage — has an empty segment, so its
-// name is neither unique nor a name a scope could use.
-func hasQualifiedIdentity(fqn string) bool {
-	if fqn == "" {
-		return false
-	}
-	for _, segment := range strings.Split(fqn, "::") {
-		if segment == "" {
-			return false
-		}
-	}
-	return true
 }
 
 // members walks what an element declares. A library element restored from cache
