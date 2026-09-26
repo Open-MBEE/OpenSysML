@@ -2562,6 +2562,29 @@ its output rather than in an exit code — so assert on the exact rendered text:
 
 None for local multi-file CLI/REPL tests.
 
+### Parallel file-load verification
+
+- The shared concurrency knob is `-jobs N` / `OPENSYSML_JOBS`, also observable
+  with `%jobs`. It bounds both plan execution and files parsed/validated in one
+  load. Compare stdout, stderr and exit status at 1, 2 and 8 jobs plus an
+  environment override; test invalid values against a nonexistent path to
+  distinguish startup rejection from a load failure. `-workers` is not a
+  supported replacement flag.
+- Generate a small multi-file model from the nested tools module:
+  `go run -C tools ./cmd/stress-model -planes 4 -satellites 10 -ground-stations 8 -split-planes <scratch-dir>`.
+  Verify SHA256/name manifest records, then shrink the model: unchanged surplus
+  output should disappear, while an edited surplus plane and user file survive.
+  Editing a still-current output should refuse the entire regeneration with
+  `nothing written`; compare all directory bytes before and after.
+- A load containing `part component : Needed::T;` gives a non-vacuous batch
+  diagnostic. In `%verbosity debug`, declare `package Needed { part def T; }`,
+  then `package Needed {}`, then restore `T`. Whole-buffer diagnostics must
+  change 1→0→1→0. An empty package removes its members; a nonempty declaration
+  merges with existing members and is not a suitable deletion probe.
+- For save/reload, retain comments and loaded-file declarations and assert
+  only the latest prompt redeclaration survives. Re-evaluate a compound
+  expression after `%clear` and reloading the saved file.
+
 `sysml <dir|glob|file>...` and `%load <path>...` expand to model files via
 `internal/workspace/project.Expand`, and every file is accepted before one analysis pass
 (`Session.SubmitAll`), each file a workspace document of its own indexed with the

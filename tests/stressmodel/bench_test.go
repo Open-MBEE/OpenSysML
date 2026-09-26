@@ -6,7 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -112,6 +117,90 @@ func BenchmarkEditBeside(b *testing.B) {
 				_ = ws.Diagnostics("ops.sysml")
 			}
 		})
+	}
+}
+
+// BenchmarkValidateSplit loads a network split one file per plane as the command
+// line does, on one worker and on one per CPU.
+func BenchmarkValidateSplit(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		for _, jobs := range []int{1, runtime.GOMAXPROCS(0)} {
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/jobs=%d", stats.Satellites, len(files), jobs), func(b *testing.B) {
+				load := func() {
+					sess := repl.NewSession()
+					if err := sess.SetJobs(jobs); err != nil {
+						b.Fatal(err)
+					}
+					sess.SubmitFiles(files)
+					if sess.HasErrors() {
+						b.Fatalf("the split network did not analyse cleanly:\n%s", strings.Join(sess.DiagnosticLines(), "\n"))
+					}
+				}
+				load()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					load()
+				}
+			})
+		}
+	}
+}
+
+// perDocumentRegistry is the default registry without the workspace-wide audits.
+func perDocumentRegistry() *passes.Registry {
+	reg := passes.NewRegistry()
+	for _, p := range passes.DefaultRegistry().Passes() {
+		switch p.(type) {
+		case passes.OOSEMMethodPass, identity.MetadataPass, passes.MOSAPass:
+			continue
+		}
+		reg.Register(p)
+	}
+	return reg
+}
+
+// BenchmarkAnalyzeSplitPerDocument analyzes the split network's files over one
+// index without the workspace-wide audits: the pool's own speedup.
+func BenchmarkAnalyzeSplitPerDocument(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		idx, _ := model.NewIndexWithStdlib()
+		roots := make([]*ast.RootNamespace, len(files))
+		names := make([]string, len(files))
+		for i, f := range files {
+			p := parser.New(source.New(f.Name, []byte(f.Text)))
+			roots[i] = p.ParseFile()
+			if len(p.Diagnostics) > 0 {
+				b.Fatalf("%s: %s", f.Name, p.Diagnostics[0].Message)
+			}
+			names[i] = f.Name
+			idx.AddDocument(f.Name, roots[i])
+		}
+		idx.ExpandWildcardImports()
+		batch := &passes.Batch{Documents: names}
+		passes.PrepareBatch(idx, batch)
+		reg := perDocumentRegistry()
+		for _, jobs := range []int{1, runtime.GOMAXPROCS(0)} {
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/jobs=%d", stats.Satellites, len(files), jobs), func(b *testing.B) {
+				analyze := func() {
+					model.ParallelFor(jobs, len(files), func(i int) {
+						ctx := passes.NewContext(names[i], idx, nil)
+						ctx.Batch = batch
+						if diags := reg.Run(ctx, names[i], roots[i]); len(diags) > 0 {
+							b.Errorf("%s: %s", names[i], diags[0].Message)
+						}
+					})
+				}
+				analyze()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					analyze()
+				}
+			})
+		}
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -289,16 +290,17 @@ func (s *stateSession) selfOf() string {
 
 // NewSession returns a session over a fresh workspace.
 func NewSession() *Session {
-	return &Session{
+	s := &Session{
 		ws:          model.NewWorkspace(),
 		instances:   make(map[string]*runtime.Instance),
 		budgets:     runtime.DefaultBudgets(),
-		jobs:        analysis.DefaultJobs(),
 		engines:     engines.Default(),
 		verbosity:   VerbosityNormal,
 		toolVersion: "sysml dev",
 		now:         time.Now,
 	}
+	s.setJobs(analysis.DefaultJobs())
+	return s
 }
 
 // SetToolVersion names the tool a recorded run's provenance reports.
@@ -410,15 +412,35 @@ func (s *Session) accept(origin, src string) {
 // A loaded file supersedes only itself and what the prompt said about the same
 // names, since several files of one model commonly open the same package.
 func (s *Session) acceptFrom(origin, src string) (declared []string, drops []dropReport) {
-	p := parser.New(source.New(parseDocName(origin), []byte(src)))
-	root := p.ParseFile()
+	return s.acceptParsed(origin, src, preparse(origin, src))
+}
+
+// parsed is what a submission's text parses to, taken before it is accepted so
+// the files of one load can be parsed at once.
+type parsed struct {
+	p      *parser.Parser
+	root   *ast.RootNamespace
+	closes bool
+}
+
+// preparse parses src as the submission from origin, and probes whether it
+// closes its own text.
+func preparse(origin, src string) parsed {
+	doc := parseDocName(origin)
+	p := parser.New(source.New(doc, []byte(src)))
+	return parsed{p: p, root: p.ParseFile(), closes: closesItsOwnText(doc, src)}
+}
+
+// acceptParsed is acceptFrom over a parse already taken.
+func (s *Session) acceptParsed(origin, src string, pre parsed) (declared []string, drops []dropReport) {
+	p, root := pre.p, pre.root
 	names := declaredNames(root)
 	declared = names
 	text := src
 	// A submission that does not close its own text is masked out of the buffer
 	// rather than left to absorb the submissions after it, and declares nothing:
 	// what the parser recovered from it is not what was meant.
-	if !closesItsOwnText(parseDocName(origin), src) {
+	if !pre.closes {
 		key := fileKeyOf(origin)
 		if key != "" {
 			// Re-reading the file supersedes what it declared before, which it no
@@ -665,8 +687,9 @@ func (s *Session) transcript() (string, bool) {
 // openDocuments brings the workspace to the session's documents: the transcript,
 // and one document per loaded file that parses, gone when its snippet goes.
 func (s *Session) openDocuments() {
+	var inputs []model.Input
 	if typed, found := s.transcript(); found {
-		s.ws.Open(docName, []byte(typed), s.version)
+		inputs = append(inputs, model.Input{Name: docName, Content: []byte(typed), Version: s.version})
 	} else {
 		s.ws.Remove(docName)
 	}
@@ -677,7 +700,7 @@ func (s *Session) openDocuments() {
 		}
 		live[sn.origin] = true
 		if doc := s.ws.Document(sn.origin); doc == nil || doc.Version != sn.gen {
-			s.ws.Open(sn.origin, []byte(sn.src), sn.gen)
+			inputs = append(inputs, model.Input{Name: sn.origin, Content: []byte(sn.src), Version: sn.gen})
 		}
 	}
 	for _, name := range s.ws.DocumentNames() {
@@ -685,6 +708,8 @@ func (s *Session) openDocuments() {
 			s.ws.Remove(name)
 		}
 	}
+	// One batch: the documents are parsed at once and the imports expanded once.
+	s.ws.OpenAll(inputs)
 }
 
 // text is the buffer as it was submitted, masking nothing: what %save writes
@@ -755,7 +780,16 @@ func (s *Session) foreignSpans() []source.Span {
 // diagnostics reports the analysis of every session document and the syntax errors
 // of the masked submissions, each moved to where its text sits in the session buffer.
 func (s *Session) diagnostics() []diag.Diagnostic {
-	out := append([]diag.Diagnostic{}, s.ws.Diagnostics(docName)...)
+	names := []string{docName}
+	for _, sn := range s.snippets {
+		if sn.origin != "" && !sn.open {
+			names = append(names, sn.origin)
+		}
+	}
+	// One batch: the documents not analyzed yet are analyzed at once.
+	analyzed := s.ws.DiagnosticsAll(names)
+	out := append([]diag.Diagnostic{}, analyzed[0]...)
+	next := 1
 	acc := 0
 	for _, sn := range s.snippets {
 		var own []diag.Diagnostic
@@ -763,7 +797,8 @@ func (s *Session) diagnostics() []diag.Diagnostic {
 		case sn.open:
 			own = sn.diags
 		case sn.origin != "":
-			own = s.ws.Diagnostics(sn.origin)
+			own = analyzed[next]
+			next++
 		}
 		for _, d := range own {
 			d.Span.Offset += acc
@@ -892,8 +927,12 @@ func (s *Session) submitEach(files []SourceFile) (res Result, byFile [][]string,
 	s.version++
 	load := len(files) > 0 && files[0].Name != ""
 	byFile = make([][]string, len(files))
+	parses := make([]parsed, len(files))
+	model.ParallelFor(s.jobs, len(files), func(i int) {
+		parses[i] = preparse(files[i].Name, files[i].Text)
+	})
 	for i, f := range files {
-		names, dropped := s.acceptFrom(f.Name, f.Text)
+		names, dropped := s.acceptParsed(f.Name, f.Text, parses[i])
 		for _, name := range names {
 			if !seen[name] {
 				seen[name] = true

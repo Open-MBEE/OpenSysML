@@ -148,14 +148,27 @@ func TestLoadRefusesTheTranscriptsName(t *testing.T) {
 // written to a file for it as check does.
 func checkPaths(t *testing.T, binary string, args ...string) runOutcome {
 	t.Helper()
-	return checkPathsIn(t, "", binary, args...)
+	return checkPathsEnv(t, binary, nil, args...)
+}
+
+// checkPathsEnv is checkPaths with variables added to the binary's environment.
+func checkPathsEnv(t *testing.T, binary string, env []string, args ...string) runOutcome {
+	t.Helper()
+	return runPaths(t, "", binary, env, args...)
 }
 
 // checkPathsIn is checkPaths run from dir, so a relative path is read there.
 func checkPathsIn(t *testing.T, dir, binary string, args ...string) runOutcome {
 	t.Helper()
+	return runPaths(t, dir, binary, nil, args...)
+}
+
+// runPaths runs the binary on the paths in dir with env added to its environment.
+func runPaths(t *testing.T, dir, binary string, env []string, args ...string) runOutcome {
+	t.Helper()
 	cmd := exec.Command(binary, args...)
 	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

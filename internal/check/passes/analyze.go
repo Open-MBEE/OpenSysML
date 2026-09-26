@@ -7,6 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/diagram"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/document"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -120,6 +121,32 @@ func dropEscalatedWarnings(diags []diag.Diagnostic) []diag.Diagnostic {
 func AnalyzeWithOptions(name string, kind source.Kind, root *ast.RootNamespace,
 	parseDiags []diag.Diagnostic, idx *symbols.Index, opts Options) []diag.Diagnostic {
 	return analyze(NewContextWithOptions(name, kind, idx, parseDiags, opts), root)
+}
+
+// PrepareBatch links what resolving every workspace document would write into
+// its scope tree, so AnalyzeInBatch contexts only read the index. Call it alone,
+// first. Every document, not only the batch's: the workspace-wide gathers read
+// them all. The linker resolves as a context does, model attached.
+func PrepareBatch(idx *symbols.Index, batch *Batch) {
+	if idx == nil || batch == nil {
+		return
+	}
+	linker := resolve.New(idx)
+	model := NewTypedModel(linker)
+	linker.SetModel(model)
+	model.SetSourceText(batch.Source)
+	for _, name := range idx.WorkspaceDocuments() {
+		linker.LinkMetadataBodies(name)
+	}
+}
+
+// AnalyzeInBatch validates one document of a prepared batch in a context of its
+// own; the result does not depend on which documents share the batch.
+func AnalyzeInBatch(name string, kind source.Kind, root *ast.RootNamespace,
+	parseDiags []diag.Diagnostic, idx *symbols.Index, opts Options, batch *Batch) []diag.Diagnostic {
+	ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)
+	ctx.InBatch(batch)
+	return analyze(ctx, root)
 }
 
 // AnalyzeShared validates a document over a resolver and model kept across
