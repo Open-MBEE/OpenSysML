@@ -108,8 +108,20 @@ func TestElementRefFallsBackToTheNameWhenItsDocumentIsGone(t *testing.T) {
 		t.Fatalf("Element(%+v) = %v with no declaration left, want nil", ref, got)
 	}
 	addDoc(t, read, "copy.sysml", "package P { part def T; }")
+	if got := read.Element(ref); got != nil {
+		t.Fatalf("Element(%+v) = %v with a workspace declaration, want nil", ref, got)
+	}
+	read.MarkLibrary("copy.sysml")
 	got := read.Element(ref)
 	if got == nil || got.DocName != "copy.sysml" || FQNOf(got) != "P::T" {
 		t.Fatalf("Element(%+v) = %v, want copy.sysml's P::T", ref, got)
+	}
+
+	edited := buildIndex(t, map[string]string{"bundled.sysml": bundled})
+	addDoc(t, edited, "other.sysml", "package P { part def T; }")
+	edited.MarkLibrary("other.sysml")
+	addDoc(t, edited, "bundled.sysml", "package P { part def U; }")
+	if got := edited.Element(ref); got != nil {
+		t.Fatalf("Element(%+v) = %v with its document still held, want nil", ref, got)
 	}
 }

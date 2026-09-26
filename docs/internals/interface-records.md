@@ -62,7 +62,7 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | ---- | ------- |
 | `Supers` — direct supertypes, resolved | inheritance, member lookup through the type, conformance |
 | `Redefines`, `References` — redefined features, the feature a reference subsets | masking, distinguishability, end typing |
-| `Alias` — an alias's target | qualified-name resolution through the alias |
+| `Alias` — the element an alias's own target names, an alias itself in a chain; zero when it names nothing | qualified-name resolution through the alias, an alias to nothing skipped as loaded |
 | `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
 | `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities |

@@ -235,6 +235,37 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 }
 `),
 		},
+		// A classifier's own multiplicity gives an end typed by it its one.
+		"classifier multiplicity": {
+			"one.kerml": []byte(`package One {
+	classifier One [1];
+	classifier Many [0..*];
+}
+`),
+			"use.kerml": []byte(`package Use {
+	assoc R { end feature p : One::One; end feature q : One::Many; end feature r : One::Many; }
+	struct S { end feature g : One::Many; end feature h : One::One; }
+}
+`),
+		},
+		// An alias in a cycle names an alias, an alias to nothing names nothing.
+		"alias cycle": {
+			"p.sysml": []byte(`package P {
+	alias A for B;
+	alias B for A;
+	alias C for Missing;
+	part def D;
+	alias E for D;
+}
+`),
+			"q.sysml": []byte(`package Q {
+	private import P::*;
+	part a : A;
+	part c : C;
+	part e : E;
+}
+`),
+		},
 		// A usage the classification has no kind for is still a feature, and
 		// is named by its notation where a reference to it is refused.
 		"unclassified usage": {

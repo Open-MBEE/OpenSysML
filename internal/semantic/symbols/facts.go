@@ -36,7 +36,8 @@ type LibraryFacts struct {
 	// authoritative: a zero value is the answer, not "derive it".
 	Recorded bool
 
-	// Alias is the fully-qualified name an alias symbol names.
+	// Alias is the element an alias symbol's own target names, an alias itself
+	// in a chain; zero when the target resolves to nothing.
 	Alias ElementRef
 
 	// Redefines are the fully-qualified names of the features the declaration

@@ -96,7 +96,7 @@ func (m *Model) RangeIn(scope *symbols.Scope, mult *ast.Multiplicity) (Range, bo
 // not a usage or declares none.
 func (m *Model) MultiplicityOf(sym *symbols.Symbol) (Range, bool) {
 	if sym.Recorded() {
-		if sym.Kind == symbols.SymbolMultiplicity {
+		if sym.Kind == symbols.SymbolMultiplicity || sym.Facts.Node == symbols.NodeDefinition {
 			return Range{}, false
 		}
 		return recordedRange(sym.Facts.Multiplicity)
@@ -134,14 +134,18 @@ func recordedRangeIn(facts *symbols.MultiplicityFacts) (Range, bool) {
 	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
 }
 
-// MultiplicityFactsOf states the multiplicity sym declares — as a usage does,
-// or as a `multiplicity` member's range — as a record fact, nil when it
-// declares none. A bound only the declaring scope evaluates is marked Named.
+// MultiplicityFactsOf states the multiplicity sym declares — as a usage or a
+// definition does, or as a `multiplicity` member's range — as a record fact,
+// nil when it declares none. A bound only the declaring scope evaluates is
+// marked Named.
 func (m *Model) MultiplicityFactsOf(sym *symbols.Symbol) *symbols.MultiplicityFacts {
 	mult := UsageMultiplicityOf(sym)
 	scope := declScope(sym)
-	if decl, ok := sym.Decl.(*ast.MultiplicityDecl); ok {
+	switch decl := sym.Decl.(type) {
+	case *ast.MultiplicityDecl:
 		mult, scope = decl.Range, sym.OwnerScope
+	case *ast.Definition:
+		mult = decl.Multiplicity
 	}
 	if mult == nil {
 		return nil

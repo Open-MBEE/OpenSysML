@@ -7,10 +7,11 @@ import "slices"
 // element itself when it does), that document, and one member ordinal per step
 // down from it to an element the name does not reach. Naming the document
 // keeps the reference on its target when another document later declares the
-// same name. A zero ElementRef names nothing; one without a document, or whose
-// document no longer declares the name, names whichever declaration the index
-// lists first: a copy of a library file standing in for the bundled one takes
-// over the references the other library files make into it.
+// same name. A zero ElementRef names nothing; one without a document names
+// whichever declaration the index lists first; one whose document the index no
+// longer holds names the library's declaration, if any: a copy of a library
+// file standing in for the bundled one takes over the references the other
+// library files make into it.
 type ElementRef struct {
 	FQN  string
 	Path []int32
@@ -123,8 +124,13 @@ func (idx *Index) Element(ref ElementRef) *Symbol {
 			break
 		}
 	}
-	if sym == nil && len(decls) > 0 {
-		sym = decls[0]
+	if sym == nil && !idx.knows(ref.Doc) {
+		for _, d := range decls {
+			if idx.IsLibraryDocument(d.DocName) {
+				sym = d
+				break
+			}
+		}
 	}
 	for _, at := range ref.Path {
 		if sym == nil {
