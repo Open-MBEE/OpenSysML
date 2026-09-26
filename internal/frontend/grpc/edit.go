@@ -40,6 +40,21 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsSatisfyAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilitySatisfyAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsRequirementConstraintAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityRequirementConstraintAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsMemberModifiers(req.Operations) {
+		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -185,7 +200,20 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
+			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
+			return true
+		}
+	}
+	return false
+}
+
+func requestsMemberModifiers(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add != nil && (add.GetIsAbstract() || len(add.GetRedefines()) > 0 ||
+			add.GetIsDefault() || add.GetDirection() != "" ||
+			add.GetKind() == "ref" || add.GetKind() == "return") {
 			return true
 		}
 	}
@@ -195,6 +223,24 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 func requestsConnectionAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		if _, ok := operation.GetOperation().(*pb.EditOperation_AddConnection); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsSatisfyAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddSatisfy); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsRequirementConstraintAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddRequirementConstraint); ok {
 			return true
 		}
 	}
@@ -219,6 +265,10 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Multiplicity = add.GetMultiplicity()
 			member.Value = add.GetValue()
 			member.Specializes = append([]string(nil), add.GetSpecializes()...)
+			member.IsAbstract = add.GetIsAbstract()
+			member.Redefines = append([]string(nil), add.GetRedefines()...)
+			member.IsDefault = add.GetIsDefault()
+			member.Direction = add.GetDirection()
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection
@@ -227,6 +277,17 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			)
 			connection.Type = add.GetType()
 			ops = append(ops, connection)
+		case *pb.EditOperation_AddSatisfy:
+			add := op.AddSatisfy
+			ops = append(ops, edit.AddSatisfy(
+				add.GetOwner(), add.GetRequirement(), add.GetSatisfyingFeature(),
+				add.GetIsAsserted(), add.GetIsNegated(),
+			))
+		case *pb.EditOperation_AddRequirementConstraint:
+			add := op.AddRequirementConstraint
+			ops = append(ops, edit.AddRequirementConstraint(
+				add.GetOwner(), add.GetKind(), add.GetExpression(), add.GetName(),
+			))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

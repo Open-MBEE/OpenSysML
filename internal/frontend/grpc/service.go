@@ -85,6 +85,16 @@ const CapabilityAuthoring = "authoring"
 // CapabilityConnectionAuthoring names the ApplyEdits add_connection operation.
 const CapabilityConnectionAuthoring = "connection_authoring"
 
+// CapabilitySatisfyAuthoring names the ApplyEdits add_satisfy operation.
+const CapabilitySatisfyAuthoring = "satisfy_authoring"
+
+// CapabilityRequirementConstraintAuthoring names the ApplyEdits
+// add_requirement_constraint operation.
+const CapabilityRequirementConstraintAuthoring = "requirement_constraint_authoring"
+
+// CapabilityMemberModifiers names the additional AddMember modifiers and kinds.
+const CapabilityMemberModifiers = "member_modifiers"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -199,6 +209,9 @@ var capabilities = []string{
 	CapabilityPerformer,
 	CapabilityRenderDocumentHTML,
 	CapabilityConnectionAuthoring,
+	CapabilitySatisfyAuthoring,
+	CapabilityRequirementConstraintAuthoring,
+	CapabilityMemberModifiers,
 }
 
 type capabilityAvailability struct {

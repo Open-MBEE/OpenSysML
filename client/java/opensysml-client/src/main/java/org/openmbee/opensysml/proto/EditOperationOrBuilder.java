@@ -100,5 +100,35 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddConnectionEditOrBuilder getAddConnectionOrBuilder();
 
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   * @return Whether the addSatisfy field is set.
+   */
+  boolean hasAddSatisfy();
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   * @return The addSatisfy.
+   */
+  org.openmbee.opensysml.proto.AddSatisfyEdit getAddSatisfy();
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSatisfyEditOrBuilder getAddSatisfyOrBuilder();
+
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   * @return Whether the addRequirementConstraint field is set.
+   */
+  boolean hasAddRequirementConstraint();
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   * @return The addRequirementConstraint.
+   */
+  org.openmbee.opensysml.proto.AddRequirementConstraintEdit getAddRequirementConstraint();
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   */
+  org.openmbee.opensysml.proto.AddRequirementConstraintEditOrBuilder getAddRequirementConstraintOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

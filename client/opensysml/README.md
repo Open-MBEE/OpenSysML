@@ -235,7 +235,7 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 ```
 
 Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
-`Delete`, `Move` — and either all apply, answering the edited source, or none do and the
+`AddSatisfy`, `AddRequirementConstraint`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
@@ -246,11 +246,26 @@ result, err = client.ApplyEdits(ctx, model, opensysml.AddConnection{
 	Owner: "Demo::System", Kind: "allocation", From: "a", To: "b", Name: "alloc1",
 })
 
+result, err = client.ApplyEdits(ctx, model,
+	opensysml.AddMember{
+		Owner: "Demo::System", Kind: "attribute", Name: "active",
+		Type: "Boolean", IsDefault: true, Value: "true",
+	},
+	opensysml.AddSatisfy{
+		Owner: "Demo::System::safety", Requirement: "Demo::Safe", By: "Demo::System",
+		Asserted: true,
+	},
+)
+
 var refused *opensysml.EditError
 if errors.As(err, &refused) && refused.Failure == opensysml.EditFailureDeleteReferenced {
 	// refused.Referrers names what still refers to it, each with its document
 }
 ```
+
+The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
+`AddSatisfy` and `AddRequirementConstraint` require `satisfy_authoring` and
+`requirement_constraint_authoring`, respectively, alongside `authoring`.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

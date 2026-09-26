@@ -25,6 +25,23 @@ func addConnectionOp(owner, kind, from, to, name, typ string) *pb.EditOperation 
 	}}
 }
 
+func addSatisfyOp(owner, requirement, by string, asserted, negated bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
+		AddSatisfy: &pb.AddSatisfyEdit{
+			Owner: owner, Requirement: requirement, SatisfyingFeature: by,
+			IsAsserted: asserted, IsNegated: negated,
+		},
+	}}
+}
+
+func addRequirementConstraintOp(owner, kind, expression, name string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddRequirementConstraint{
+		AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
+			Owner: owner, Kind: kind, Expression: expression, Name: name,
+		},
+	}}
+}
+
 func deleteOp(target string, cascade bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_Delete{
 		Delete: &pb.DeleteEdit{Target: target, Cascade: cascade},
@@ -241,6 +258,92 @@ func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
+	tests := []struct {
+		name       string
+		capability string
+		operation  *pb.EditOperation
+	}{
+		{
+			name:       "member modifiers",
+			capability: CapabilityMemberModifiers,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "part def", Name: "X", IsAbstract: true},
+			}},
+		},
+		{
+			name:       "return member kind",
+			capability: CapabilityMemberModifiers,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "return", Name: "result"},
+			}},
+		},
+		{
+			name:       "satisfy",
+			capability: CapabilitySatisfyAuthoring,
+			operation:  addSatisfyOp("Demo::r", "Demo::r", "Demo::t", true, false),
+		},
+		{
+			name:       "requirement constraint",
+			capability: CapabilityRequirementConstraintAuthoring,
+			operation:  addRequirementConstraintOp("Demo::r", "require", "true", ""),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := mustNewServiceWithout(t, tc.capability)
+			hash := mustParsedModel(t, srv, "package Demo { requirement r; part t; }\n")
+			_, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+				ModelHash: hash, Operations: []*pb.EditOperation{tc.operation},
+			})
+			if connect.CodeOf(err) != connect.CodeUnimplemented ||
+				!strings.Contains(err.Error(), tc.capability) {
+				t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, tc.capability)
+			}
+			added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+				ModelHash: hash,
+				Operations: []*pb.EditOperation{
+					addMemberOp("Demo", "part", "stillSupported"),
+				},
+			})
+			if err != nil || added.Error != "" || !strings.Contains(added.Content, "part stillSupported") {
+				t.Fatalf("ordinary add_member = %+v, %v; want success", added, err)
+			}
+		})
+	}
+}
+
+func TestApplyEditsNewOperationsRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, `package Demo {
+    requirement def R { subject x : Real; }
+    requirement r : R;
+    part t;
+}
+`)
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addSatisfyOp("Demo::r", "Demo::r", "Demo::t", true, false),
+			addRequirementConstraintOp("Demo::r", "require", "true", "valid"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	for _, want := range []string{
+		"assert satisfy Demo::r by Demo::t;",
+		"require constraint valid { true }",
+	} {
+		if !strings.Contains(added.Content, want) {
+			t.Errorf("content missing %q:\n%s", want, added.Content)
+		}
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -267,7 +370,11 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetServerInfo: %v", err)
 	}
-	for _, capability := range []string{CapabilityAuthoring, CapabilityConnectionAuthoring, CapabilityInlineLanguage} {
+	for _, capability := range []string{
+		CapabilityAuthoring, CapabilityConnectionAuthoring,
+		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
+		CapabilityMemberModifiers, CapabilityInlineLanguage,
+	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)
 		}

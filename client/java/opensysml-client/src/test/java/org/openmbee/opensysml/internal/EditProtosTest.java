@@ -68,11 +68,46 @@ class EditProtosTest {
                 .withType("Real")
                 .withMultiplicity("0..1")
                 .withValue("1.0")
-                .withSpecializes(List.of("Demo::A::y")));
+                .withSpecializes(List.of("Demo::A::y"))
+                .withAbstract(true)
+                .withRedefines(List.of("Demo::A::old"))
+                .withDefault(true)
+                .withDirection("in"));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
     assertEquals(List.of("Demo::A::y"), full.getAddMember().getSpecializesList());
+    assertTrue(full.getAddMember().getIsAbstract());
+    assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
+    assertTrue(full.getAddMember().getIsDefault());
+    assertEquals("in", full.getAddMember().getDirection());
+  }
+
+  @Test
+  void anAddSatisfyEditCarriesItsRequirementAndFlags() {
+    var operation =
+        Protos.proto(
+            Edit.AddSatisfy.of("Demo::r", "Demo::r")
+                .withSatisfyingFeature("Demo::t")
+                .withAsserted(true)
+                .withNegated(true));
+    assertEquals("Demo::r", operation.getAddSatisfy().getOwner());
+    assertEquals("Demo::r", operation.getAddSatisfy().getRequirement());
+    assertEquals("Demo::t", operation.getAddSatisfy().getSatisfyingFeature());
+    assertTrue(operation.getAddSatisfy().getIsAsserted());
+    assertTrue(operation.getAddSatisfy().getIsNegated());
+  }
+
+  @Test
+  void anAddRequirementConstraintEditCarriesItsExpressionAndName() {
+    var operation =
+        Protos.proto(
+            Edit.AddRequirementConstraint.of("Demo::r", "require", "true")
+                .withName("valid"));
+    assertEquals("Demo::r", operation.getAddRequirementConstraint().getOwner());
+    assertEquals("require", operation.getAddRequirementConstraint().getKind());
+    assertEquals("true", operation.getAddRequirementConstraint().getExpression());
+    assertEquals("valid", operation.getAddRequirementConstraint().getName());
   }
 
   @Test

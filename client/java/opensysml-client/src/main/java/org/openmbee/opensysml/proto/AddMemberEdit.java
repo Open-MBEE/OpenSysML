@@ -40,6 +40,9 @@ private static final long serialVersionUID = 0L;
     value_ = "";
     specializes_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
+    redefines_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    direction_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -390,6 +393,136 @@ private static final long serialVersionUID = 0L;
     return specializes_.getByteString(index);
   }
 
+  public static final int IS_ABSTRACT_FIELD_NUMBER = 8;
+  private boolean isAbstract_ = false;
+  /**
+   * <pre>
+   * Whether the declaration is abstract.
+   * </pre>
+   *
+   * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+   * @return The isAbstract.
+   */
+  @java.lang.Override
+  public boolean getIsAbstract() {
+    return isAbstract_;
+  }
+
+  public static final int REDEFINES_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList redefines_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return A list containing the redefines.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getRedefinesList() {
+    return redefines_;
+  }
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return The count of redefines.
+   */
+  public int getRedefinesCount() {
+    return redefines_.size();
+  }
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the element to return.
+   * @return The redefines at the given index.
+   */
+  public java.lang.String getRedefines(int index) {
+    return redefines_.get(index);
+  }
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the redefines at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getRedefinesBytes(int index) {
+    return redefines_.getByteString(index);
+  }
+
+  public static final int IS_DEFAULT_FIELD_NUMBER = 10;
+  private boolean isDefault_ = false;
+  /**
+   * <pre>
+   * Whether the value uses the default assignment keyword.
+   * </pre>
+   *
+   * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+   * @return The isDefault.
+   */
+  @java.lang.Override
+  public boolean getIsDefault() {
+    return isDefault_;
+  }
+
+  public static final int DIRECTION_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object direction_ = "";
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The direction.
+   */
+  @java.lang.Override
+  public java.lang.String getDirection() {
+    java.lang.Object ref = direction_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      direction_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The bytes for direction.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDirectionBytes() {
+    java.lang.Object ref = direction_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      direction_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -424,6 +557,18 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < specializes_.size(); i++) {
       com.google.protobuf.GeneratedMessage.writeString(output, 7, specializes_.getRaw(i));
+    }
+    if (isAbstract_ != false) {
+      output.writeBool(8, isAbstract_);
+    }
+    for (int i = 0; i < redefines_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, redefines_.getRaw(i));
+    }
+    if (isDefault_ != false) {
+      output.writeBool(10, isDefault_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(direction_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, direction_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -460,6 +605,25 @@ private static final long serialVersionUID = 0L;
       size += dataSize;
       size += 1 * getSpecializesList().size();
     }
+    if (isAbstract_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(8, isAbstract_);
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < redefines_.size(); i++) {
+        dataSize += computeStringSizeNoTag(redefines_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getRedefinesList().size();
+    }
+    if (isDefault_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(10, isDefault_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(direction_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, direction_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -489,6 +653,14 @@ private static final long serialVersionUID = 0L;
         .equals(other.getValue())) return false;
     if (!getSpecializesList()
         .equals(other.getSpecializesList())) return false;
+    if (getIsAbstract()
+        != other.getIsAbstract()) return false;
+    if (!getRedefinesList()
+        .equals(other.getRedefinesList())) return false;
+    if (getIsDefault()
+        != other.getIsDefault()) return false;
+    if (!getDirection()
+        .equals(other.getDirection())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -516,6 +688,18 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + SPECIALIZES_FIELD_NUMBER;
       hash = (53 * hash) + getSpecializesList().hashCode();
     }
+    hash = (37 * hash) + IS_ABSTRACT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getIsAbstract());
+    if (getRedefinesCount() > 0) {
+      hash = (37 * hash) + REDEFINES_FIELD_NUMBER;
+      hash = (53 * hash) + getRedefinesList().hashCode();
+    }
+    hash = (37 * hash) + IS_DEFAULT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getIsDefault());
+    hash = (37 * hash) + DIRECTION_FIELD_NUMBER;
+    hash = (53 * hash) + getDirection().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -659,6 +843,11 @@ private static final long serialVersionUID = 0L;
       value_ = "";
       specializes_ =
           com.google.protobuf.LazyStringArrayList.emptyList();
+      isAbstract_ = false;
+      redefines_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      isDefault_ = false;
+      direction_ = "";
       return this;
     }
 
@@ -714,6 +903,19 @@ private static final long serialVersionUID = 0L;
         specializes_.makeImmutable();
         result.specializes_ = specializes_;
       }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.isAbstract_ = isAbstract_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        redefines_.makeImmutable();
+        result.redefines_ = redefines_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.isDefault_ = isDefault_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.direction_ = direction_;
+      }
     }
 
     @java.lang.Override
@@ -766,6 +968,27 @@ private static final long serialVersionUID = 0L;
           ensureSpecializesIsMutable();
           specializes_.addAll(other.specializes_);
         }
+        onChanged();
+      }
+      if (other.getIsAbstract() != false) {
+        setIsAbstract(other.getIsAbstract());
+      }
+      if (!other.redefines_.isEmpty()) {
+        if (redefines_.isEmpty()) {
+          redefines_ = other.redefines_;
+          bitField0_ |= 0x00000100;
+        } else {
+          ensureRedefinesIsMutable();
+          redefines_.addAll(other.redefines_);
+        }
+        onChanged();
+      }
+      if (other.getIsDefault() != false) {
+        setIsDefault(other.getIsDefault());
+      }
+      if (!other.getDirection().isEmpty()) {
+        direction_ = other.direction_;
+        bitField0_ |= 0x00000400;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -830,6 +1053,27 @@ private static final long serialVersionUID = 0L;
               specializes_.add(s);
               break;
             } // case 58
+            case 64: {
+              isAbstract_ = input.readBool();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 74: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureRedefinesIsMutable();
+              redefines_.add(s);
+              break;
+            } // case 74
+            case 80: {
+              isDefault_ = input.readBool();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
+            case 90: {
+              direction_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1542,6 +1786,333 @@ private static final long serialVersionUID = 0L;
       ensureSpecializesIsMutable();
       specializes_.add(value);
       bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+
+    private boolean isAbstract_ ;
+    /**
+     * <pre>
+     * Whether the declaration is abstract.
+     * </pre>
+     *
+     * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+     * @return The isAbstract.
+     */
+    @java.lang.Override
+    public boolean getIsAbstract() {
+      return isAbstract_;
+    }
+    /**
+     * <pre>
+     * Whether the declaration is abstract.
+     * </pre>
+     *
+     * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+     * @param value The isAbstract to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIsAbstract(boolean value) {
+
+      isAbstract_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the declaration is abstract.
+     * </pre>
+     *
+     * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIsAbstract() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      isAbstract_ = false;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.LazyStringArrayList redefines_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureRedefinesIsMutable() {
+      if (!redefines_.isModifiable()) {
+        redefines_ = new com.google.protobuf.LazyStringArrayList(redefines_);
+      }
+      bitField0_ |= 0x00000100;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @return A list containing the redefines.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getRedefinesList() {
+      redefines_.makeImmutable();
+      return redefines_;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @return The count of redefines.
+     */
+    public int getRedefinesCount() {
+      return redefines_.size();
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param index The index of the element to return.
+     * @return The redefines at the given index.
+     */
+    public java.lang.String getRedefines(int index) {
+      return redefines_.get(index);
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the redefines at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getRedefinesBytes(int index) {
+      return redefines_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param index The index to set the value at.
+     * @param value The redefines to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRedefines(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureRedefinesIsMutable();
+      redefines_.set(index, value);
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param value The redefines to add.
+     * @return This builder for chaining.
+     */
+    public Builder addRedefines(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureRedefinesIsMutable();
+      redefines_.add(value);
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param values The redefines to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllRedefines(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureRedefinesIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, redefines_);
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRedefines() {
+      redefines_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000100);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional redefinition targets for a usage.
+     * </pre>
+     *
+     * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+     * @param value The bytes of the redefines to add.
+     * @return This builder for chaining.
+     */
+    public Builder addRedefinesBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureRedefinesIsMutable();
+      redefines_.add(value);
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private boolean isDefault_ ;
+    /**
+     * <pre>
+     * Whether the value uses the default assignment keyword.
+     * </pre>
+     *
+     * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+     * @return The isDefault.
+     */
+    @java.lang.Override
+    public boolean getIsDefault() {
+      return isDefault_;
+    }
+    /**
+     * <pre>
+     * Whether the value uses the default assignment keyword.
+     * </pre>
+     *
+     * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+     * @param value The isDefault to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIsDefault(boolean value) {
+
+      isDefault_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Whether the value uses the default assignment keyword.
+     * </pre>
+     *
+     * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIsDefault() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      isDefault_ = false;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object direction_ = "";
+    /**
+     * <pre>
+     * Optional usage direction: "in", "out" or "inout".
+     * </pre>
+     *
+     * <code>string direction = 11 [json_name = "direction"];</code>
+     * @return The direction.
+     */
+    public java.lang.String getDirection() {
+      java.lang.Object ref = direction_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        direction_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional usage direction: "in", "out" or "inout".
+     * </pre>
+     *
+     * <code>string direction = 11 [json_name = "direction"];</code>
+     * @return The bytes for direction.
+     */
+    public com.google.protobuf.ByteString
+        getDirectionBytes() {
+      java.lang.Object ref = direction_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        direction_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional usage direction: "in", "out" or "inout".
+     * </pre>
+     *
+     * <code>string direction = 11 [json_name = "direction"];</code>
+     * @param value The direction to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDirection(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      direction_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional usage direction: "in", "out" or "inout".
+     * </pre>
+     *
+     * <code>string direction = 11 [json_name = "direction"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDirection() {
+      direction_ = getDefaultInstance().getDirection();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional usage direction: "in", "out" or "inout".
+     * </pre>
+     *
+     * <code>string direction = 11 [json_name = "direction"];</code>
+     * @param value The bytes for direction to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDirectionBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      direction_ = value;
+      bitField0_ |= 0x00000400;
       onChanged();
       return this;
     }

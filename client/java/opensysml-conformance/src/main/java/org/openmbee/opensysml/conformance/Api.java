@@ -728,6 +728,18 @@ final class Api {
         if (add.getSpecializesCount() > 0) {
           member = member.withSpecializes(add.getSpecializesList());
         }
+        if (add.getIsAbstract()) {
+          member = member.withAbstract(true);
+        }
+        if (add.getRedefinesCount() > 0) {
+          member = member.withRedefines(add.getRedefinesList());
+        }
+        if (add.getIsDefault()) {
+          member = member.withDefault(true);
+        }
+        if (!add.getDirection().isEmpty()) {
+          member = member.withDirection(add.getDirection());
+        }
         yield member;
       }
       case ADD_CONNECTION -> {
@@ -742,6 +754,30 @@ final class Api {
           connection = connection.withType(add.getType());
         }
         yield connection;
+      }
+      case ADD_SATISFY -> {
+        org.openmbee.opensysml.proto.AddSatisfyEdit add = operation.getAddSatisfy();
+        Edit.AddSatisfy satisfy = Edit.AddSatisfy.of(add.getOwner(), add.getRequirement());
+        if (!add.getSatisfyingFeature().isEmpty()) {
+          satisfy = satisfy.withSatisfyingFeature(add.getSatisfyingFeature());
+        }
+        if (add.getIsAsserted()) {
+          satisfy = satisfy.withAsserted(true);
+        }
+        if (add.getIsNegated()) {
+          satisfy = satisfy.withNegated(true);
+        }
+        yield satisfy;
+      }
+      case ADD_REQUIREMENT_CONSTRAINT -> {
+        org.openmbee.opensysml.proto.AddRequirementConstraintEdit add =
+            operation.getAddRequirementConstraint();
+        Edit.AddRequirementConstraint constraint =
+            Edit.AddRequirementConstraint.of(add.getOwner(), add.getKind(), add.getExpression());
+        if (!add.getName().isEmpty()) {
+          constraint = constraint.withName(add.getName());
+        }
+        yield constraint;
       }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());

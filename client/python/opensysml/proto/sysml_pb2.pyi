@@ -728,23 +728,27 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
     DELETE_FIELD_NUMBER: _ClassVar[int]
     MOVE_FIELD_NUMBER: _ClassVar[int]
     ADD_CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    ADD_SATISFY_FIELD_NUMBER: _ClassVar[int]
+    ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
     delete: DeleteEdit
     move: MoveEdit
     add_connection: AddConnectionEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ...) -> None: ...
+    add_satisfy: AddSatisfyEdit
+    add_requirement_constraint: AddRequirementConstraintEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
-    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes")
+    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -752,6 +756,10 @@ class AddMemberEdit(_message.Message):
     MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     SPECIALIZES_FIELD_NUMBER: _ClassVar[int]
+    IS_ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    REDEFINES_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
     owner: str
     kind: str
     name: str
@@ -759,7 +767,37 @@ class AddMemberEdit(_message.Message):
     multiplicity: str
     value: str
     specializes: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ...) -> None: ...
+    is_abstract: bool
+    redefines: _containers.RepeatedScalarFieldContainer[str]
+    is_default: bool
+    direction: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ...) -> None: ...
+
+class AddSatisfyEdit(_message.Message):
+    __slots__ = ("owner", "requirement", "satisfying_feature", "is_asserted", "is_negated")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_FIELD_NUMBER: _ClassVar[int]
+    SATISFYING_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    IS_ASSERTED_FIELD_NUMBER: _ClassVar[int]
+    IS_NEGATED_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    requirement: str
+    satisfying_feature: str
+    is_asserted: bool
+    is_negated: bool
+    def __init__(self, owner: _Optional[str] = ..., requirement: _Optional[str] = ..., satisfying_feature: _Optional[str] = ..., is_asserted: _Optional[bool] = ..., is_negated: _Optional[bool] = ...) -> None: ...
+
+class AddRequirementConstraintEdit(_message.Message):
+    __slots__ = ("owner", "kind", "expression", "name")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    EXPRESSION_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    kind: str
+    expression: str
+    name: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., expression: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class AddConnectionEdit(_message.Message):
     __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")

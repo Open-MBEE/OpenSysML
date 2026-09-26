@@ -406,7 +406,7 @@ not a compatibility promise.
 
 `opensysml-conformance` runs the language-neutral scenarios **through the public
 API** and writes the report shape `tools/cmd/conformance` writes; `mvn -f
-client/java/pom.xml test` is what CI runs. Of 134 scenarios, 129 run and pass over
+client/java/pom.xml test` is what CI runs. Of 138 scenarios, 133 run and pass over
 both `connect` and `connect-json`, and 5 are skipped — the requests the public API
 cannot express: a
 `ParseFile` naming no source, a `Query` with both a structured and an OSLC query or
