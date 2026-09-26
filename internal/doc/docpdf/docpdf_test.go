@@ -500,7 +500,9 @@ func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
 	for _, want := range []string{
 		"@page wide { size: A4 landscape; }",
 		"body {\n  font-family: \"Times New Roman\", Times, \"Liberation Serif\", \"Nimbus Roman\", serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
-		wide + " { page: wide; font-size: 9pt; }",
+		wide + " { page: wide; font-size: 9pt; table-layout: fixed; }",
+		wide + " thead > tr > th:first-child { width: 22%; }",
+		"table:has(thead > tr > th:nth-child(11)) { font-size: 8pt; }",
 		"p:has(+ " + wide + "),",
 		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
@@ -526,7 +528,8 @@ func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	for _, want := range []string{
 		"table {\n  border-collapse: collapse;\n  margin: 0.8em 0;\n  width: 100%;\n}",
 		"tr {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}",
-		"th, td {\n  border: 0.5pt solid #666666;\n  padding: 0.3em 0.6em;\n  text-align: left;\n  overflow-wrap: anywhere;\n}",
+		"th, td {\n  border: 0.5pt solid #666666;\n  padding: 0.3em 0.6em;\n  text-align: left;\n  overflow-wrap: break-word;\n}",
+		"thead { display: table-header-group; }",
 	} {
 		if !strings.Contains(css, want) {
 			t.Fatalf("pandoc stylesheet lacks %q: a wide cell would run off the page or a row split across pages", want)

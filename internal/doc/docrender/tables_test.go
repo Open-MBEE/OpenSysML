@@ -128,3 +128,36 @@ func TestMarkdownTableRowDepth(t *testing.T) {
 		t.Fatalf("nestingMarker(3) = %q", marker)
 	}
 }
+
+// TestMarkdownTableContinuation locks the Markdown backend's split under
+// TableColumns: continuation pipe tables each repeat the first column under
+// the caption with its continued suffix, and the option leaves a narrower
+// table whole.
+func TestMarkdownTableContinuation(t *testing.T) {
+	got, err := Markdown(fixtureDocument(t, sizedReportPath(), sizedReport), MarkdownOptions{TableColumns: 8, NumberFigures: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"*Table 2. Readings*\n\n| name | a | b | c | d | e | f | g |\n",
+		"*Table 2. Readings (continued)*\n\n| name | h | i | j | k | l | m | n |\n",
+		"*Table 2. Readings (continued)*\n\n| name | o | p | q | r | s |\n",
+		"| sample | 1 | 2 | 3 | 4 | 5 | 6 | 7 |",
+		"| sample | 8 | 9 | 10 | 11 | 12 | 13 | 14 |",
+		"| sample | 15 | 16 | 17 | 18 | 19 |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Markdown lacks %q:\n%s", want, got)
+		}
+	}
+	if n := strings.Count(got, "(continued)"); n != 2 {
+		t.Fatalf("continuation captions = %d, want 2:\n%s", n, got)
+	}
+	if strings.Contains(got, "Table 3.") {
+		t.Fatalf("continuation tables took caption numbers of their own:\n%s", got)
+	}
+	whole := renderFixtureDocument(t, sizedReportPath(), sizedReport)
+	if strings.Contains(whole, "continued") {
+		t.Fatalf("the default split a table:\n%s", whole)
+	}
+}

@@ -145,7 +145,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
 			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
-			OutputDir: base, NumberFigures: opts.NumberFigures,
+			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts),
 		})
 		if err != nil {
 			return nil, err

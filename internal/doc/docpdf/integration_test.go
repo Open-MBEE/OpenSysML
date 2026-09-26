@@ -1071,7 +1071,7 @@ func TestRenderNumberedCaptionsWithInstalledEngines(t *testing.T) {
 }
 
 // TestRenderTwentyColumnTableWithInstalledEngines renders a sized
-// twenty-column table of thirty rows through each installed converter and
+// twenty-column table of two dozen rows through each installed converter and
 // reads back the wide-table policy: the column set split into continuation
 // tables of at most DefaultTableColumns, every one on landscape pages that
 // each repeat the header and the row-naming first column, the row names set
@@ -1091,6 +1091,7 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 				t.Fatalf("%d pages for %d rows over two continuation tables:\n%s", len(pages), rows, text)
 			}
 			landscape, continued := 0, 0
+			inContinuation := false
 			for i, page := range pages {
 				names := strings.Count(page, "Alignment Scenario")
 				if names == 0 {
@@ -1106,15 +1107,19 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 				if head := page[:strings.Index(page, "Alignment Scenario")]; !strings.Contains(head, "name") {
 					t.Errorf("page %d repeats no header ahead of its rows:\n%s", i+1, page)
 				}
-				if strings.Contains(page, "(continued)") {
+				first, rest, split := strings.Cut(page, "(continued)")
+				if split {
 					continued++
+				} else if inContinuation {
+					first, rest = "", page
 				}
-				if strings.Contains(page, "tAcquisition") && !strings.Contains(page, "(continued)") {
+				if strings.Contains(first, "tAcquisition") {
 					t.Errorf("page %d sets the last column in the first table:\n%s", i+1, page)
 				}
-				if strings.Contains(page, "postSegXchgTimeLimit") && strings.Contains(page, "(continued)") {
+				if strings.Contains(rest, "postSegXchgTimeLimit") {
 					t.Errorf("page %d sets the first value column in a continuation table:\n%s", i+1, page)
 				}
+				inContinuation = inContinuation || split
 			}
 			if landscape < 2 || continued == 0 {
 				t.Fatalf("%d landscape table pages, %d continued; want the second table on its own pages:\n%s", landscape, continued, text)
