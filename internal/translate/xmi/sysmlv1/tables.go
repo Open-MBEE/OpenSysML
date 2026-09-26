@@ -139,8 +139,10 @@ type Column struct {
 type RowFilter struct {
 	// Text is the text searched for.
 	Text string
-	// Columns are the indexes of the columns searched, among the columns
-	// shown in their order; nil when every column is searched.
+	// Columns are the indexes of the columns searched, counted from 0 among
+	// the columns shown in their order, as the property's value lists them
+	// joined by ^; nil when the value is empty and every column is searched.
+	// The property's choices are the indexes on offer, not a selection.
 	Columns []int
 	// Wildcard reads Text as a wildcard pattern (* and ?); Regexp as a
 	// regular expression; CaseSensitive matches case; FromStart and FromEnd
@@ -322,11 +324,9 @@ func rowFilter(d *Diagram) *RowFilter {
 		FromEnd:       d.Flag("OPTION_FILTER_FROM_END"),
 	}
 	if columns, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); ok {
-		for _, choice := range columns.Choices {
-			for _, index := range strings.Split(choice, "^") {
-				if i, err := strconv.Atoi(index); err == nil && i >= 0 {
-					f.Columns = append(f.Columns, i)
-				}
+		for _, index := range strings.Split(columns.Value, "^") {
+			if i, err := strconv.Atoi(index); err == nil && i >= 0 {
+				f.Columns = append(f.Columns, i)
 			}
 		}
 	}

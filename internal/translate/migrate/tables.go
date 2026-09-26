@@ -3,6 +3,7 @@ package migrate
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -26,9 +27,13 @@ func (td *tableDoc) written() bool {
 }
 
 // lowered is a table definition lowered to a query: the row expression, the
-// notes that make it approximate, and why it was refused when it was.
+// widths of its columns, the settings applied faithfully, the notes that make
+// it approximate, and why it was refused when it was.
 type lowered struct {
 	rows    qx
+	widths  []int
+	roots   []string
+	applied []string
 	notes   []string
 	refused string
 }
@@ -37,6 +42,11 @@ func (l *lowered) note(s string) {
 	if s != "" {
 		l.notes = append(l.notes, s)
 	}
+}
+
+// apply records a table setting the query honors exactly.
+func (l *lowered) apply(s string) {
+	l.applied = append(l.applied, s)
 }
 
 func (l *lowered) refuse(why string) {
@@ -109,11 +119,23 @@ func (m *migration) unplacedTables() {
 
 // tablePart writes a DocumentQueries::Table part named name under host,
 // captioned caption, whose rows the query rows (a reference) computes.
-func (m *migration) tablePart(host *sysmlv1.Element, name, caption, rows string) {
+func (m *migration) tablePart(host *sysmlv1.Element, name, caption, rows string, widths []int) {
 	m.blockPart(host, name, "Table", nil, func() {
 		m.w.line("attribute redefines caption = " + stringLiteral(caption) + ";")
+		if slices.ContainsFunc(widths, func(w int) bool { return w > 0 }) {
+			m.w.line("attribute redefines columnWidths = (" + joinInts(widths) + ");")
+		}
 		m.w.line("calc rows : " + rows + ";")
 	})
+}
+
+// joinInts writes integers as a comma-separated sequence.
+func joinInts(ns []int) string {
+	parts := make([]string, len(ns))
+	for i, n := range ns {
+		parts[i] = strconv.Itoa(n)
+	}
+	return strings.Join(parts, ", ")
 }
 
 // writeTable writes a table definition as a query and a Document holding one
@@ -132,10 +154,11 @@ func (m *migration) writeTable(td *tableDoc) {
 	m.inside(blockNames("Document", columnNames{"rows": true}), func() {
 		m.w.block("part def "+writeName(td.doc)+" :> "+m.queryPrefix(host)+"Document", func() {
 			m.w.line("attribute redefines title = " + stringLiteral(td.title) + ";")
-			m.tablePart(host, "rows", td.title, m.siblingRef(host, td.query))
+			m.tablePart(host, "rows", td.title, m.siblingRef(host, td.query), l.widths)
 		})
 	})
 	note := "the «" + kind + "» is written as a Document holding a Table over the query " + writeName(td.query)
+	note = joinNotes(note, strings.Join(l.applied, "; "))
 	note = joinNotes(note, strings.Join(l.notes, "; "))
 	verdict := Mapped
 	if len(l.notes) > 0 {
@@ -168,7 +191,9 @@ func (m *migration) lowerTable(td *tableDoc) {
 }
 
 // lowerElementTable lowers an instance or generic table: the scope's
-// descendants and the explicit rows, filtered by row type, sorted, projected.
+// descendants and the explicit rows, filtered by row type, less the excluded
+// rows, sorted, nested as the display mode says, projected with the columns'
+// widths, then filtered by the saved row filter over the projected cells.
 func (m *migration) lowerElementTable(t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) {
 	src := m.scopeQuery(t.Scope, t.WholeModel, t.Rows, l)
 	if l.refused != "" {
@@ -178,8 +203,15 @@ func (m *migration) lowerElementTable(t *sysmlv1.Table, host *sysmlv1.Element, l
 	if l.refused != "" {
 		return
 	}
+	rows = m.excluded(rows, t.Excluded, l)
 	rows = m.sorted(rows, t, host, l)
-	l.rows = m.projected(rows, t, host, l)
+	rows = m.arranged(rows, t, l)
+	rows, p := m.projected(rows, t, host, l)
+	if l.refused != "" {
+		return
+	}
+	l.rows = m.textFiltered(rows, t.RowFilter, p, l)
+	l.widths = p.widths
 }
 
 // scopeQuery is the elements a table draws rows from: every descendant of its
@@ -220,6 +252,7 @@ func (m *migration) scopeQuery(scope []sysmlv1.ElementRef, whole bool, rows []sy
 	missing := summarizeMissing(unresolved, "resolve to no element", "resolves to no element")
 	missing = append(missing, summarizeMissing(ambiguous, "name several module elements", "names several module elements")...)
 	missing = append(missing, summarizeMissing(unwritten, "are not migrated", "is not migrated")...)
+	l.roots = roots
 	var src qx
 	switch {
 	case len(roots) > 0:
@@ -415,23 +448,29 @@ func union(qs []qx) qx {
 }
 
 // queryProperties maps the UML properties a column or sort reads to the query
-// properties the row's migrated element has.
+// properties the row's migrated element has. A requirement's Id and Text tags
+// are written as its short name and documentation; the classifier of an
+// instance is the general of the individual it became.
 var queryProperties = map[string]string{
 	"name":          "name",
 	"documentation": "documentation",
 	"qualifiedName": "qualifiedName",
 	"owner":         "owner",
 	"ID":            "@id",
-	"Id":            "@id",
-	"id":            "@id",
+	"Id":            "shortName",
+	"id":            "shortName",
+	"Text":          "documentation",
+	"text":          "documentation",
+	"classifier":    "general",
 	"type":          "type",
 	"isAbstract":    "isAbstract",
 }
 
 // columnSource is what a column reads of a row: a query property (feature
-// nil), a classifier feature a Column reads (feature set), or a member path
-// written as its own Column (path set, captioned caption); why says why it
-// reads nothing a query can.
+// nil), a classifier feature or stereotype tag a Column reads (feature set,
+// captioned caption when it differs from the key), or a member path written
+// as its own Column (path set, captioned caption); why says why it reads
+// nothing a query can.
 type columnSource struct {
 	key     string
 	feature *sysmlv1.Element
@@ -464,6 +503,8 @@ func (m *migration) columnKey(c sysmlv1.Column, host *sysmlv1.Element, rows rowS
 		return columnSource{key: m.nameOf(f), feature: f}
 	case sysmlv1.ColumnPropertyPair:
 		return columnSource{why: columnSubject + c.ID + " reads a property of a property, which no Column expression reads"}
+	case sysmlv1.ColumnStereotypeTag:
+		return m.tagColumn(c)
 	}
 	return columnSource{why: columnSubject + c.ID + " is of a form the migrator does not read"}
 }
@@ -575,13 +616,19 @@ func columnByID(t *sysmlv1.Table, id string) (sysmlv1.Column, bool) {
 }
 
 // projected selects the table's shown columns in their order: query
-// properties as properties, features as Column expressions reading them.
-func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) qx {
+// properties as properties, features and tags as Column expressions reading
+// them, each with the width the tool saved for it.
+func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, l *lowered) (qx, *projection) {
 	p := &projection{}
-	shown := 0
+	shown, visible := 0, 0
 	rs := m.rowSetOf(t)
 	for _, c := range t.Columns {
-		if c.Hidden || c.Kind == sysmlv1.ColumnTool {
+		if c.Hidden {
+			continue
+		}
+		p.ordinal = visible
+		visible++
+		if c.Kind == sysmlv1.ColumnTool {
 			continue
 		}
 		shown++
@@ -593,60 +640,80 @@ func (m *migration) projected(rows qx, t *sysmlv1.Table, host *sysmlv1.Element, 
 		switch {
 		case src.path:
 			// A member path reads an absent statistic as an empty cell already.
-			p.column(src.caption, qlit(src.key))
+			p.column(src.caption, qlit(src.key), c.Width)
 		case src.feature == nil:
-			if !p.property(src.key) {
+			if !p.property(src.key, c.Width) {
 				l.note(columnSubject + c.ID + " repeats the column " + src.key + " and is omitted")
 			}
+		case src.caption != "":
+			p.column(src.caption, qlit(m.ref(src.feature, host)+" ?? \"\""), c.Width)
 		default:
-			p.column(src.key, qlit(m.ref(src.feature, host)+" ?? \"\""))
+			p.column(src.key, qlit(m.ref(src.feature, host)+" ?? \"\""), c.Width)
 		}
 	}
 	if shown > 0 && p.empty() {
 		l.refuse("none of the table's columns reads what a query can")
-		return rows
+		return rows, p
 	}
 	if shown == 0 {
 		l.note("the table shows no column beyond the row number; rows are projected by name")
-		p.property("name")
+		p.property("name", 0)
 	}
 	project, notes := p.build(rows)
 	for _, n := range notes {
 		l.note(n)
 	}
-	return project
+	return project, p
 }
 
 // projection is a table's columns in source order: query properties and
-// computed columns alike, written as one Project.
+// computed columns alike, written as one Project. Once built, widths are the
+// projected columns' widths in Project's order and names maps each shown
+// source column, counted from 0, to the projected column reading it.
 type projection struct {
 	entries []projectionEntry
 	listed  columnNames
+	ordinal int
+	widths  []int
+	names   map[int]string
 }
 
-// projectionEntry is a query property, or a computed column when computed.
+// projectionEntry is a query property, or a computed column when computed;
+// ordinal counts the shown source column it reads, width is that column's.
 type projectionEntry struct {
 	name       string
 	computed   bool
 	expression qx
+	ordinal    int
+	width      int
 }
 
-// property lists a query property once; false when it is listed already.
-func (p *projection) property(name string) bool {
+// property lists a query property once; false when it is listed already, in
+// which case the source column still maps to the listed one.
+func (p *projection) property(name string, width int) bool {
 	if p.listed[name] {
+		p.alias(p.ordinal, name)
 		return false
 	}
 	if p.listed == nil {
 		p.listed = columnNames{}
 	}
 	p.listed[name] = true
-	p.entries = append(p.entries, projectionEntry{name: name})
+	p.entries = append(p.entries, projectionEntry{name: name, ordinal: p.ordinal, width: width})
 	return true
 }
 
 // column adds a computed column captioned name.
-func (p *projection) column(name string, expression qx) {
-	p.entries = append(p.entries, projectionEntry{name: name, computed: true, expression: expression})
+func (p *projection) column(name string, expression qx, width int) {
+	p.entries = append(p.entries, projectionEntry{name: name, computed: true, expression: expression, ordinal: p.ordinal, width: width})
+}
+
+// alias maps a shown source column to the projected column named name.
+func (p *projection) alias(ordinal int, name string) {
+	if p.names == nil {
+		p.names = map[int]string{}
+	}
+	p.names[ordinal] = name
 }
 
 func (p *projection) empty() bool {
@@ -676,9 +743,16 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 	}
 	var props []string
 	var cols []qx
+	var widths []int
 	for _, e := range p.entries {
 		if !e.computed {
 			props = append(props, e.name)
+			widths = append(widths, e.width)
+			p.alias(e.ordinal, e.name)
+		}
+	}
+	for _, e := range p.entries {
+		if !e.computed {
 			continue
 		}
 		name := names.claim(e.name)
@@ -686,7 +760,10 @@ func (p *projection) build(source qx) (project qx, notes []string) {
 			notes = append(notes, columnSubject+e.name+" is written as "+name+": column names are unique")
 		}
 		cols = append(cols, qcall("Column", qarg1("name", qstr(name)), qarg1("expression", e.expression)))
+		widths = append(widths, e.width)
+		p.alias(e.ordinal, name)
 	}
+	p.widths = widths
 	if p.reordered() {
 		notes = append(notes, "Project lists its properties first: "+strings.Join(props, ", ")+" precede the other columns")
 	}

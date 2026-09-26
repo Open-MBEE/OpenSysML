@@ -28,8 +28,8 @@ const savedFilter = `<?xml version='1.0' encoding='UTF-8'?>
   </mdElement>
   <mdElement elementClass='ChoiceProperty'>
     <propertyID>OPTION_FILTER_COLUMN_INDEXES</propertyID>
-    <value></value>
-    <choice xmi:value='%s'/>
+    <value>%s</value>
+    <choice xmi:value='0^1^2^3^4^5^6'/>
     <index xmi:value='-1'/>
   </mdElement>
   <mdElement elementClass='StringProperty'>
@@ -170,7 +170,7 @@ func TestDiagramPropertiesAreDecoded(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := m.Diagrams[0]
-	if p, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); !ok || p.Class != "ChoiceProperty" || p.Value != "" || strings.Join(p.Choices, ",") != "0^1^2" {
+	if p, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); !ok || p.Class != "ChoiceProperty" || p.Value != "0^1^2" || strings.Join(p.Choices, ",") != "0^1^2^3^4^5^6" {
 		t.Errorf("column indexes property %+v %v", p, ok)
 	}
 	if p, ok := d.Property("OPTION_FILTER_SEARCHING_TEXT"); !ok || p.Value != "Key" {
@@ -196,6 +196,15 @@ func TestDiagramPropertiesSingleChoiceAndGarbage(t *testing.T) {
 	}
 	if f := m.Tables[0].RowFilter; f == nil || f.Text != "Driver" || fmt.Sprint(f.Columns) != "[6]" {
 		t.Errorf("row filter %+v", f)
+	}
+	// An empty value selects no column, so every column is searched; the
+	// choices on offer are not a selection.
+	m, err = Parse(tableDocument(timingTable, ` diagramProperties="`+hexBytes(fmt.Sprintf(savedFilter, "", "Key"))+`"`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f := m.Tables[0].RowFilter; f == nil || f.Text != "Key" || f.Columns != nil {
+		t.Errorf("row filter over every column %+v", f)
 	}
 	for _, bad := range []string{"zz 3c", hexBytes("<not xml")} {
 		m, err := Parse(tableDocument(timingTable, ` diagramProperties="`+bad+`"`))

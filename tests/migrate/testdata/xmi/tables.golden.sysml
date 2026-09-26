@@ -1,7 +1,13 @@
 package 'Plant Profile' {
     metadata def Critical {
         attribute level : ScalarValues::Integer;
+        attribute grade : Grade[0..*];
     }
+    enum def Grade {
+        high;
+        low;
+    }
+    /* applied stereotype «auxiliaryResource» */
 }
 package Plant {
     package Structure {
@@ -74,22 +80,25 @@ package Plant {
         }
         calc def 'Pump Table Rows' :> DocumentQueries::Query {
             DocumentQueries::Project(
-                source = DocumentQueries::OrderBy(
-                    source = DocumentQueries::WhereFeature(
-                        source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Union(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                                other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
-                            type = ("Plant::Structure::Pump")),
-                        'feature' = "isIndividual",
-                        operator = "=",
-                        value = "true"),
-                    property = "mass",
-                    direction = "descending",
-                    missing = "last",
-                    multiple = "first"),
-                properties = ("name"),
+                source = DocumentQueries::Tree(
+                    source = DocumentQueries::OrderBy(
+                        source = DocumentQueries::Except(
+                            source = DocumentQueries::WhereFeature(
+                                source = DocumentQueries::WhereType(
+                                    source = DocumentQueries::Union(
+                                        source = DocumentQueries::Descendants(
+                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                                        other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                                    type = ("Plant::Structure::Pump")),
+                                'feature' = "isIndividual",
+                                operator = "=",
+                                value = "true"),
+                            exclude = DocumentQueries::Named(qualifiedName = ("Plant::Inventory::p2"))),
+                        property = "mass",
+                        direction = "descending",
+                        missing = "last",
+                        multiple = "first")),
+                properties = ("name", "general"),
                 columns = (
                     DocumentQueries::Column(name = "mass", expression = Plant::Structure::Pump::mass ?? ""),
                     DocumentQueries::Column(name = "flow", expression = Plant::Structure::Pump::'flow' ?? "")))
@@ -98,6 +107,7 @@ package Plant {
             attribute redefines title = "Pump Table";
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Pump Table";
+                attribute redefines columnWidths = (200, 0, 0, 0);
                 calc rows : 'Pump Table Rows';
             }
         }
@@ -146,6 +156,7 @@ package Plant {
             doc /* The pump keeps the flow above the minimum. */
             comment /* The pump keeps the flow up. */
             @'Plant Profile'::Critical {
+                grade = ('Plant Profile'::Grade::high, 'Plant Profile'::Grade::low);
                 level = 1;
             }
         }
@@ -187,6 +198,44 @@ package Plant {
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Requirement Table";
                 calc rows : 'Requirement Table Rows';
+            }
+        }
+        view 'Key Requirements' {
+            expose FlowRequirement;
+            expose SealRequirement;
+            expose MassRequirement;
+            expose 'Key Requirements Document';
+            render Views::asElementTable;
+        }
+        calc def 'Key Requirements Rows' :> DocumentQueries::Query {
+            DocumentQueries::WhereText(
+                source = DocumentQueries::Project(
+                    source = DocumentQueries::OrderBy(
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Union(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))),
+                                other = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement"))),
+                            type = ("RequirementDefinition")),
+                        property = "shortName",
+                        direction = "ascending",
+                        missing = "last",
+                        multiple = "first"),
+                    properties = ("shortName", "name", "documentation"),
+                    columns = (
+                        DocumentQueries::Column(name = "level", expression = 'Plant Profile'::Critical::level ?? ""),
+                        DocumentQueries::Column(name = "level 2", expression = 'Plant Profile'::Critical::level ?? ""),
+                        DocumentQueries::Column(name = "grade", expression = 'Plant Profile'::Critical::grade ?? ""))),
+                columns = ("level 2"),
+                operator = "matches",
+                value = "(?i)1.*")
+        }
+        part def 'Key Requirements Document' :> DocumentQueries::Document {
+            attribute redefines title = "Key Requirements";
+            part rows : DocumentQueries::Table {
+                attribute redefines caption = "Key Requirements";
+                attribute redefines columnWidths = (60, 0, 400, 80, 0, 0);
+                calc rows : 'Key Requirements Rows';
             }
         }
         view 'Satisfaction Matrix' {

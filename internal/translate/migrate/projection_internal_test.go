@@ -15,9 +15,9 @@ func projectText(p *projection) (string, []string) {
 // property behind a computed column is written first and noted.
 func TestProjectionWritesPropertiesFirst(t *testing.T) {
 	plain := &projection{}
-	plain.property("name")
-	plain.property("qualifiedName")
-	plain.column("mass", qlit("Pump::mass"))
+	plain.property("name", 0)
+	plain.property("qualifiedName", 0)
+	plain.column("mass", qlit("Pump::mass"), 0)
 	got, notes := projectText(plain)
 	want := `Project(
     source = rows,
@@ -29,16 +29,16 @@ func TestProjectionWritesPropertiesFirst(t *testing.T) {
 	}
 
 	pure := &projection{}
-	pure.property("name")
+	pure.property("name", 0)
 	if got, _ := projectText(pure); got != `Project(source = rows, properties = ("name"))` {
 		t.Errorf("pure projection = %s", got)
 	}
 
 	mixed := &projection{}
-	mixed.property("name")
-	mixed.column("mass", qlit("Pump::mass"))
-	mixed.property("owner")
-	mixed.column("flow", qlit("Pump::flow"))
+	mixed.property("name", 0)
+	mixed.column("mass", qlit("Pump::mass"), 0)
+	mixed.property("owner", 0)
+	mixed.column("flow", qlit("Pump::flow"), 0)
 	got, notes = projectText(mixed)
 	want = `Project(
     source = rows,
@@ -56,12 +56,12 @@ func TestProjectionWritesPropertiesFirst(t *testing.T) {
 // another computed caption, is suffixed; a repeated property is listed once.
 func TestProjectionClaimsPropertyNamesFirst(t *testing.T) {
 	p := &projection{}
-	p.column("name", qlit("Pump::label"))
-	if !p.property("name") || p.property("name") {
+	p.column("name", qlit("Pump::label"), 0)
+	if !p.property("name", 0) || p.property("name", 0) {
 		t.Fatal("a property is listed exactly once")
 	}
-	p.column("mass", qlit("Pump::mass"))
-	p.column("mass", qlit("Pump::dryMass"))
+	p.column("mass", qlit("Pump::mass"), 0)
+	p.column("mass", qlit("Pump::dryMass"), 0)
 	got, notes := projectText(p)
 	want := `Project(
     source = rows,

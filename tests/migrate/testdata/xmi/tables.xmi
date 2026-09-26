@@ -17,6 +17,14 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_critical_level" name="level">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
         </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_critical_grade" name="grade" type="_enum_grade">
+          <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_st_critical_grade_lower"/>
+          <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_st_critical_grade_upper" value="*"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_grade" name="Grade">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_grade_high" name="high"/>
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_grade_low" name="low"/>
       </packagedElement>
       <packagedElement xmi:type="uml:Extension" xmi:id="_ext_critical" memberEnd="_st_critical_base _ext_critical_end">
         <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_critical_end" name="extension_Critical" type="_st_critical" aggregation="composite"/>
@@ -146,6 +154,19 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_key_reqs" name="Key Requirements" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Requirement Table" umlType="Class Diagram" diagramProperties="3c 3f 78 6d 6c 20 76 65 72 73 69 6f 6e 3d 27 31 2e 30 27 20 65 6e 63 6f 64 69 6e 67 3d 27 55 54 46 2d 38 27 3f 3e a 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 44 69 61 67 72 61 6d 50 72 6f 70 65 72 74 69 65 73 27 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 42 6f 6f 6c 65 61 6e 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 53 41 56 45 5f 46 49 4c 54 45 52 5f 56 41 4c 55 45 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 20 78 6d 69 3a 76 61 6c 75 65 3d 27 74 72 75 65 27 2f 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 42 6f 6f 6c 65 61 6e 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 4f 50 54 49 4f 4e 5f 46 49 4c 54 45 52 5f 57 49 4c 44 43 41 52 44 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 20 78 6d 69 3a 76 61 6c 75 65 3d 27 74 72 75 65 27 2f 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 43 68 6f 69 63 65 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 4f 50 54 49 4f 4e 5f 46 49 4c 54 45 52 5f 43 4f 4c 55 4d 4e 5f 49 4e 44 45 58 45 53 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 3e 30 5e 35 3c 2f 76 61 6c 75 65 3e a 20 20 20 20 3c 63 68 6f 69 63 65 20 78 6d 69 3a 76 61 6c 75 65 3d 27 30 5e 31 5e 32 5e 33 5e 34 5e 35 5e 36 27 2f 3e a 20 20 20 20 3c 69 6e 64 65 78 20 78 6d 69 3a 76 61 6c 75 65 3d 27 2d 31 27 2f 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 53 74 72 69 6e 67 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 4f 50 54 49 4f 4e 5f 46 49 4c 54 45 52 5f 53 45 41 52 43 48 49 4e 47 5f 54 45 58 54 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 3e 31 2a 3c 2f 76 61 6c 75 65 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e">
+                <diagramContents>
+                  <usedElements>_req_flow</usedElements>
+                  <usedElements>_req_seal</usedElements>
+                  <usedElements>_req_mass</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_critical" name="Critical Elements" ownerOfDiagram="_pkg_plant">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>
@@ -214,9 +235,12 @@
   <sysml:Satisfy xmi:id="_st_satisfy_valve" base_Abstraction="_dep_satisfy_valve"/>
   <sysml:DeriveReqt xmi:id="_st_derive" base_Abstraction="_dep_derive"/>
   <Plant_Profile:Critical xmi:id="_app_critical_pump" base_Class="_blk_pump" level="2"/>
-  <Plant_Profile:Critical xmi:id="_app_critical_req" base_Class="_req_flow" level="1"/>
+  <Plant_Profile:Critical xmi:id="_app_critical_req" base_Class="_req_flow" level="1">
+    <grade>high</grade>
+    <grade>low</grade>
+  </Plant_Profile:Critical>
 
-  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_pumps" base_Diagram="_diag_pumps" scope="_pkg_inventory" includeSubtypesOfRowTypes="true" showScopeAsRoot="false" displayMode="Compact tree" additionalElements="_inst_s1 _inst_s2">
+  <MagicDraw_Profile:InstanceTable xmi:id="_tbl_pumps" base_Diagram="_diag_pumps" scope="_pkg_inventory" includeSubtypesOfRowTypes="true" showScopeAsRoot="false" displayMode="Compact tree" additionalElements="_inst_s1 _inst_s2" excludedElements="_inst_p2 _nowhere">
     <classifiers xmi:idref="_blk_pump"/>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:name</columnIds>
@@ -246,6 +270,32 @@
     <columnIds>QPROP:Element:name</columnIds>
     <columnIds>QPROP:Element:documentation</columnIds>
     <sort>QPROP:Element:name^Asc</sort>
+  </MagicDraw_Profile:DiagramTable>
+
+  <MagicDraw_Profile:auxiliaryResource xmi:id="_aux_plant_profile" base_Element="_plant_profile"/>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_key_reqs" base_Diagram="_diag_key_reqs" scope="_pkg_reqs" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+    <rowElements xmi:idref="_req_flow"/>
+    <rowElements xmi:idref="_req_seal"/>
+    <rowElements xmi:idref="_req_mass"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:Id</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <columnIds>QPROP:Element:Text</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Critical&gt;&gt;.level</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Critical&gt;&gt;.level</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Critical&gt;&gt;.grade</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Missing&gt;&gt;.level</columnIds>
+    <columnIds>PROPERTY_COLUMN</columnIds>
+    <columnIds>VALUE_COLUMN</columnIds>
+    <hideColumns>PROPERTY_COLUMN</hideColumns>
+    <hideColumns>VALUE_COLUMN</hideColumns>
+    <sort>QPROP:Element:Id^Asc</sort>
+    <columnWidth>35</columnWidth>
+    <columnWidth>60</columnWidth>
+    <columnWidth>-1</columnWidth>
+    <columnWidth>400</columnWidth>
+    <columnWidth>80</columnWidth>
   </MagicDraw_Profile:DiagramTable>
 
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_critical" base_Diagram="_diag_critical" scope="_pkg_plant" includeSubtypesOfRowTypes="true">
