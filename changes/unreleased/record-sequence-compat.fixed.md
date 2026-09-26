@@ -1,0 +1,2 @@
+- **Sequence records preserve compatible values.** Mixed quantity and plain-number sequences are recorded as text rather than losing their shared unit, and repeated values refuse an existing unique member while remaining valid for `ordered nonunique` members.
+- **Existing sequence declarations retain their uniqueness semantics.** Generated record definitions continue to admit repeated observations, while older unique definitions name `into` when a repeated sequence cannot fit.
