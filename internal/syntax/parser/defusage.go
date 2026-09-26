@@ -2028,21 +2028,23 @@ func BodyAdmitsMember(owner ast.Node, kw string) bool {
 }
 
 // BodyIsCalculation reports whether owner opens a calculation or case body,
-// the body productions that admit return parameters.
+// including constraint bodies, which use CalculationBody.
 func BodyIsCalculation(owner ast.Node) bool {
+	return declarationBodyContext(owner) == bodyCalc ||
+		declarationBodyContext(owner) == bodyCase
+}
+
+// BodyAdmitsBehaviorUsage reports whether owner’s body production admits a
+// BehaviorUsageElement such as `satisfy`.
+func BodyAdmitsBehaviorUsage(owner ast.Node) bool {
 	switch d := owner.(type) {
 	case *ast.Definition:
-		switch d.Kind {
-		case ast.DefCalc, ast.DefCase, ast.DefAnalysisCase, ast.DefVerificationCase, ast.DefUseCase:
-			return true
-		}
+		return d.Kind != ast.DefEnumeration
 	case *ast.Usage:
-		switch d.Kind {
-		case ast.UsageCalc, ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase:
-			return true
-		}
+		return d.Kind != ast.UsageMetadata
+	default:
+		return true
 	}
-	return false
 }
 
 // BodyIsRequirement reports whether owner opens a requirement body.

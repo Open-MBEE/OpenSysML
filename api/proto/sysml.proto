@@ -870,7 +870,7 @@ message AddMemberEdit {
   string direction = 11;
 }
 
-// AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
 message AddSatisfyEdit {
   // Namespace FQN receiving the usage.
   string owner = 1;

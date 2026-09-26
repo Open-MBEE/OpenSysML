@@ -88,7 +88,7 @@ capability before reading `Documents`, `Referrers` or an applied edit's `Documen
 `is_abstract`, `redefines`, `is_default` and `direction`. Abstract and directional notation is
 limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
 references, while `is_default` requires a value. The `ref` and `return` kinds are also available
-for SysML members. A return parameter is restricted to calculation and case bodies; the edit layer
+for SysML members. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
@@ -97,7 +97,7 @@ and `type` fields:
 | Operation | Fields | Writes |
 | --- | --- | --- |
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
-| `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a requirement-like body. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
+| `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a body whose grammar admits behavior usages, including package, action, calculation, and requirement bodies. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 
 `type` is accepted only for connection kinds that permit a typing target.
@@ -145,7 +145,7 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 specializes=None, abstract=False, redefines=None, default=False, direction=None)`
 and its typed `add_*` helpers create declarations while preserving untouched
 source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
-`add_require` and `add_assume`.
+`add_require_constraint` and `add_assume_constraint`.
 `Editor.delete(target, cascade=False)` removes declarations transactionally;
 `Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the

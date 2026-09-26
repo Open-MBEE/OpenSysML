@@ -1140,8 +1140,9 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
 abstract=False, redefines=None, default=False, direction=None)` accepts notation strings for the
 declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
-`return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`, `add_require`
-and `add_assume` write requirement statements. `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
+`return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
+`add_require_constraint` and `add_assume_constraint` write requirement statements.
+`add_connection(owner, kind, from_, to, name=None, type=None)` writes a
 `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
 `connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's
 scope, for example `tank.fuelOut`. `add_allocation` and `add_flow` select those kinds directly.

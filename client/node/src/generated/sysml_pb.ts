@@ -2379,7 +2379,7 @@ export const AddMemberEditSchema: GenMessage<AddMemberEdit> = /*@__PURE__*/
   messageDesc(file_sysml, 45);
 
 /**
- * AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+ * AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
  *
  * @generated from message sysml.AddSatisfyEdit
  */

@@ -28,6 +28,12 @@ func (m Model) addSatisfySplice(i int, op Operation) (splice, error) {
 		e.OperationIndex = i
 		return splice{}, e
 	}
+	if !parser.BodyAdmitsBehaviorUsage(owner) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("satisfy is not admitted in the body of %s", ownerName(op.Owner)),
+		}
+	}
 	text := ""
 	if op.Asserted {
 		text += "assert "

@@ -304,7 +304,7 @@ class Editor:
                     f"{text.__class__.__name__}"
                 )
         if not isinstance(name, str):
-            raise TypeError(f"name must be notation text, not {type(name).__name__}")
+            raise TypeError(f"name must be notation text, not {name.__class__.__name__}")
         owner = owner if isinstance(owner, str) else _target_id(owner)
         specializes = _notation_references("specializes", specializes)
         redefines = _notation_references("redefines", redefines)
@@ -313,7 +313,7 @@ class Editor:
         if not isinstance(default, bool):
             raise TypeError("default must be bool")
         if direction is not None and not isinstance(direction, str):
-            raise TypeError(f"direction must be notation text, not {type(direction).__name__}")
+            raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
         base = ("add_member", owner, kind, name, type or "", multiplicity or "",
                 value or "", list(specializes))
         if (abstract or redefines or default or direction is not None
@@ -323,7 +323,7 @@ class Editor:
         return self
 
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
-        """Add a ``satisfy`` usage to a requirement-like body."""
+        """Add a ``satisfy`` usage to a body that admits behavior usages."""
         if not isinstance(requirement, str):
             raise TypeError(
                 f"requirement must be notation text, not {type(requirement).__name__}"
@@ -349,11 +349,11 @@ class Editor:
         self._add(("add_requirement_constraint", owner, kind, expression, name))
         return self
 
-    def add_require(self, owner, expression, name=None):
+    def add_require_constraint(self, owner, expression, name=None):
         """Add a ``require constraint`` to a requirement-like body."""
         return self.add_requirement_constraint(owner, "require", expression, name)
 
-    def add_assume(self, owner, expression, name=None):
+    def add_assume_constraint(self, owner, expression, name=None):
         """Add an ``assume constraint`` to a requirement-like body."""
         return self.add_requirement_constraint(owner, "assume", expression, name)
 
@@ -546,9 +546,11 @@ class Editor:
         """Add a ``calc`` declaration."""
         return self.add_member(owner, "calc", name, **kwargs)
 
-    def add_parameter(self, owner, name, **kwargs):
-        """Add a ``parameter`` usage."""
-        return self.add_member(owner, "parameter", name, **kwargs)
+    def add_parameter(self, owner, direction, name, type=None, kind="ref", **kwargs):
+        """Add a directional parameter usage."""
+        return self.add_member(
+            owner, kind, name, type=type, direction=direction, **kwargs
+        )
 
     def add_return(self, owner, name="", **kwargs):
         """Add a return parameter member."""

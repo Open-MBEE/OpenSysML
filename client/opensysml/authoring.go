@@ -196,9 +196,9 @@ type AddMember struct {
 	Direction string
 }
 
-// AddSatisfy inserts a satisfy usage into a requirement-like body.
+// AddSatisfy inserts a satisfy usage into a body that admits behavior usages.
 type AddSatisfy struct {
-	// Owner is the requirement-like namespace receiving the usage.
+	// Owner is the namespace receiving the usage.
 	Owner string
 	// Requirement is the requirement feature reference.
 	Requirement string

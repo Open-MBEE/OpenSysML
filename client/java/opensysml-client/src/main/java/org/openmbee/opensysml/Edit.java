@@ -211,7 +211,7 @@ public sealed interface Edit {
     }
   }
 
-  /** Inserts a satisfy usage into a requirement-like body. */
+  /** Inserts a satisfy usage into a body that admits behavior usages. */
   record AddSatisfy(
       String owner,
       String requirement,

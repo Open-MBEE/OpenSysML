@@ -162,11 +162,23 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
 		return splice{}, e
 	}
+	if op.MemberKind == "metadata" && op.Value != "" {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "kind \"metadata\" cannot carry a value",
+		}
+	}
 	if op.Value != "" {
 		valueOp := op
 		valueOp.Target = op.MemberName
 		if err := m.checkValue(i, valueOp); err != nil {
 			return splice{}, err
+		}
+	}
+	if op.IsDefault && (kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot carry a default value", op.MemberKind),
 		}
 	}
 	if op.IsDefault && op.Value == "" {
@@ -208,7 +220,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("kind %q is a usage and cannot carry specializes targets", op.MemberKind),
 		}
 	}
-	if op.IsAbstract && !kind.definition && (!kind.typed || memberPrefixExcluded(op.MemberKind)) {
+	if op.IsAbstract && (op.MemberKind == "enum def" ||
+		(!kind.definition && (!kind.typed || memberPrefixExcluded(op.MemberKind)))) {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot be abstract", op.MemberKind),
@@ -221,16 +234,16 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("kind %q cannot carry a direction", op.MemberKind),
 		}
 	}
-	if op.IsDefault && (kind.definition || !kind.typed) {
-		return splice{}, &Error{
-			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: fmt.Sprintf("kind %q cannot carry a default value", op.MemberKind),
-		}
-	}
 	if len(op.Redefines) > 0 && kind.definition {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
+		}
+	}
+	if len(op.Redefines) > 0 && op.MemberKind == "metadata" {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
 		}
 	}
 	if op.MemberKind == "return" && (op.IsAbstract || op.Direction != "" || len(op.Redefines) > 0) {
@@ -261,7 +274,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	if op.MemberKind == "return" && !parser.BodyIsCalculation(owner) {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
-			Message: "return parameters are only admitted in calculation and case bodies",
+			Message: "return parameters are only admitted in calculation, constraint and case bodies",
 		}
 	}
 	if op.MemberKind == "return" {
@@ -288,7 +301,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
-		"fork", "join", "merge", "decide", "return":
+		"fork", "join", "merge", "decide", "metadata", "return":
 		return true
 	default:
 		return false
@@ -411,7 +424,7 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 	if hasBody {
 		if parser.BodyIsCalculation(owner) {
 			members := ast.DeclMembers(owner)
-			if len(members) > 0 && ast.IsExpression(members[len(members)-1]) {
+			if len(members) > 0 && isCalculationResultMember(members[len(members)-1]) {
 				return m.memberInsertionBeforeResult(members[len(members)-1], text, indent)
 			}
 		}
@@ -443,6 +456,14 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 		text: open + text + "\n" + ownerIndent + "}",
 		at:   len(open),
 	}
+}
+
+func isCalculationResultMember(member ast.Node) bool {
+	if ast.IsExpression(member) {
+		return true
+	}
+	condition, ok := member.(*ast.ConstraintMember)
+	return ok && condition.Keyword == "" && condition.Expression != nil
 }
 
 func (m Model) memberInsertionBeforeResult(result ast.Node, text, indent string) insertion {

@@ -7,7 +7,7 @@ package org.openmbee.opensysml.proto;
 
 /**
  * <pre>
- * AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+ * AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
  * </pre>
  *
  * Protobuf type {@code sysml.AddSatisfyEdit}
@@ -423,7 +423,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+   * AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
    * </pre>
    *
    * Protobuf type {@code sysml.AddSatisfyEdit}

@@ -4375,7 +4375,7 @@ func (x *AddMemberEdit) GetDirection() string {
 	return ""
 }
 
-// AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
 type AddSatisfyEdit struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace FQN receiving the usage.

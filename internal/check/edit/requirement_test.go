@@ -34,6 +34,30 @@ func TestAddSatisfyRejectsNonRequirementTarget(t *testing.T) {
 	}
 }
 
+func TestAddSatisfyWritesAtPackageLevel(t *testing.T) {
+	const src = `part def Vehicle;
+requirement def R { subject s : Vehicle; }
+package Demo {
+    requirement r : R { subject s : Vehicle; }
+    part t : Vehicle;
+}
+`
+	m := loadContent(t, "satisfy-package.sysml", src)
+	res, err := Apply(m, []Operation{AddSatisfy("Demo", "r", "t", true, false)})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if got := string(res.Content); !strings.Contains(got, "assert satisfy r by t;") {
+		t.Fatalf("package-level satisfy not written:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "satisfy-package.sysml", string(res.Content)))
+}
+
+func TestAddSatisfyRejectsEnumerationBody(t *testing.T) {
+	m := loadContent(t, "satisfy-enum.sysml", "enum def E { one; }\n")
+	addFailure(t, m, AddSatisfy("E", "r", "t", false, false), FailureIllegalKind)
+}
+
 func TestAddSatisfyRejectsKerML(t *testing.T) {
 	m := loadContent(t, "satisfy.kerml", "package P;\n")
 	addFailure(t, m, AddSatisfy("", "R", "", false, false), FailureIllegalKind)

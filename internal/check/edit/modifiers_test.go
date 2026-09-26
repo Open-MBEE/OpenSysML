@@ -75,6 +75,22 @@ func TestAddMemberModifiers(t *testing.T) {
 		requireClean(t, loadContent(t, "result.sysml", string(res.Content)))
 	})
 
+	t.Run("direction before constraint result expression", func(t *testing.T) {
+		const src = "constraint def K { in x : ScalarValues::Real; x > 0 }\n"
+		m := loadContent(t, "constraint-result.sysml", src)
+		op := AddMember("K", "ref", "y")
+		op.Type, op.Direction = "ScalarValues::Real", "in"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		const want = "constraint def K { in x : ScalarValues::Real; in y : ScalarValues::Real; x > 0 }\n"
+		if got := string(res.Content); got != want {
+			t.Fatalf("content = %q, want %q", got, want)
+		}
+		requireClean(t, loadContent(t, "constraint-result.sysml", string(res.Content)))
+	})
+
 	t.Run("return parameter", func(t *testing.T) {
 		m := loadContent(t, "return.sysml", "calc def C { in x : ScalarValues::Real; }\n")
 		op := AddMember("C", "return", "result")
@@ -87,6 +103,20 @@ func TestAddMemberModifiers(t *testing.T) {
 			t.Fatalf("return parameter not written:\n%s", got)
 		}
 		requireClean(t, loadContent(t, "return.sysml", string(res.Content)))
+	})
+
+	t.Run("return parameter in constraint", func(t *testing.T) {
+		m := loadContent(t, "constraint-return.sysml", "constraint def K { true }\n")
+		op := AddMember("K", "return", "r")
+		op.Type = "ScalarValues::Boolean"
+		res, err := Apply(m, []Operation{op})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		if got := string(res.Content); !strings.Contains(got, "return r : ScalarValues::Boolean;") {
+			t.Fatalf("return parameter not written:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "constraint-return.sysml", string(res.Content)))
 	})
 }
 
@@ -111,6 +141,66 @@ func TestAddMemberModifierRefusals(t *testing.T) {
 			op: func() Operation {
 				op := AddMember("", "package", "Q")
 				op.IsAbstract = true
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "abstract enumeration definition",
+			m:    loadContent(t, "enum.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "enum def", "E")
+				op.IsAbstract = true
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "abstract metadata usage",
+			m:    loadContent(t, "metadata.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "metadata", "m")
+				op.IsAbstract = true
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "direction on metadata usage",
+			m:    loadContent(t, "metadata.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "metadata", "m")
+				op.Direction = "in"
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "default on metadata usage",
+			m:    loadContent(t, "metadata.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "metadata", "m")
+				op.IsDefault = true
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "redefines on metadata usage",
+			m:    loadContent(t, "metadata.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "metadata", "m")
+				op.Redefines = []string{"Base"}
+				return op
+			}(),
+			want: FailureIllegalKind,
+		},
+		{
+			name: "value on metadata usage",
+			m:    loadContent(t, "metadata.sysml", "package P;\n"),
+			op: func() Operation {
+				op := AddMember("P", "metadata", "m")
+				op.Value = "true"
 				return op
 			}(),
 			want: FailureIllegalKind,

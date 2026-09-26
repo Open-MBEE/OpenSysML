@@ -1047,7 +1047,7 @@ pub struct AddMemberEdit {
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
 }
-/// AddSatisfyEdit inserts a satisfy usage into a requirement-like body.
+/// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AddSatisfyEdit {
     /// Namespace FQN receiving the usage.

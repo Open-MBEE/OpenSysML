@@ -263,8 +263,8 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
                 abstract=True, redefines=["Demo::SC::old"], default=True, direction="in",
             )
             .add_satisfy("Demo::SC", "Demo::SC::r", by="Demo::SC::t", asserted=True)
-            .add_require("Demo::SC", "true", name="valid")
-            .add_assume("Demo::SC", "true")
+            .add_require_constraint("Demo::SC", "true", name="valid")
+            .add_assume_constraint("Demo::SC", "true")
             .apply()
         )
     member, satisfy, require, assume = service.requests[0].operations
@@ -293,6 +293,35 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
 
 
 @pytest.mark.parametrize(
+    "name,expected",
+    [
+        (None, "name must be notation text, not NoneType"),
+        (3, "name must be notation text, not int"),
+    ],
+)
+def test_add_member_rejects_invalid_names_with_type_message(fake_service, name, expected):
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        with pytest.raises(TypeError) as error:
+            edit.add_member("Demo::SC", "attribute", name)
+    assert str(error.value) == expected
+    assert service.requests == []
+    assert len(edit) == 0
+
+
+def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        with pytest.raises(TypeError) as error:
+            edit.add_member("Demo::SC", "attribute", "output", direction=3)
+    assert str(error.value) == "direction must be notation text, not int"
+    assert service.requests == []
+    assert len(edit) == 0
+
+
+@pytest.mark.parametrize(
     "operation,missing",
     [
         (lambda editor: editor.add_member("Demo::SC", "attribute", "x", abstract=True),
@@ -305,7 +334,7 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
         (lambda editor: editor.add_member("Demo::SC", "return", "result"),
          CAPABILITY_MEMBER_MODIFIERS),
         (lambda editor: editor.add_satisfy("Demo::SC", "Demo::SC::r"), CAPABILITY_SATISFY_AUTHORING),
-        (lambda editor: editor.add_require("Demo::SC", "true"),
+        (lambda editor: editor.add_require_constraint("Demo::SC", "true"),
          CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
     ],
 )
@@ -847,6 +876,32 @@ class TestEditRoundTripAgainstRealService:
             vehicle = again.find("Vehicle")
             assert vehicle is not None
             assert any(part.name == "engine" for part in vehicle.parts())
+
+    def test_add_parameter_precedes_calculation_result(self, real_service):
+        source = "calc def C { in x : ScalarValues::Real; x * 2 }\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_parameter(
+                "C", "in", "power", type="ScalarValues::Real"
+            ).apply()
+            edited = str(result)
+            assert edited == (
+                "calc def C { in x : ScalarValues::Real; "
+                "in power : ScalarValues::Real; x * 2 }\n"
+            )
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_add_parameter_to_action_definition(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content("action def A;\n")
+            result = model.edit().add_parameter(
+                "A", "out", "response", type="ScalarValues::Real"
+            ).apply()
+            edited = str(result)
+            assert "out response : ScalarValues::Real;" in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
 
     def test_authoring_adds_an_allocation(self, real_service):
         source = "package Demo { part def System { part a; part b; } }"
