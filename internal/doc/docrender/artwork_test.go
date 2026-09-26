@@ -108,7 +108,7 @@ func TestCaptionsFollowDocumentOrder(t *testing.T) {
 		"Observatory states, left to right",
 		"Type of telescope",
 	}
-	if got := Captions(document); !reflect.DeepEqual(got, want) {
+	if got := Captions(document, false); !reflect.DeepEqual(got, want) {
 		t.Errorf("Captions = %q, want %q", got, want)
 	}
 	markdown, err := Markdown(document, MarkdownOptions{})
@@ -126,10 +126,10 @@ func TestCaptionsFollowDocumentOrder(t *testing.T) {
 	}
 
 	document = fixtureDocument(t, filepath.Join("testdata", mathFixture), "Optics::OpticsReport")
-	if got := Captions(document); !reflect.DeepEqual(got, []string{"Collecting area of a circular mirror"}) {
+	if got := Captions(document, false); !reflect.DeepEqual(got, []string{"Collecting area of a circular mirror"}) {
 		t.Errorf("formula captions = %q", got)
 	}
-	if Captions(nil) != nil {
+	if Captions(nil, false) != nil {
 		t.Error("nil document has captions")
 	}
 }
@@ -148,7 +148,7 @@ func TestHTMLDiagramImages(t *testing.T) {
 		t.Errorf("the second diagram must keep its source and the first lose it:\n%s", got)
 	}
 	w := &htmlWriter{forms: DiagramOptions{Form: view.FormMermaid}, opts: HTMLOptions{DiagramImages: []string{"masses.svg"}}}
-	if err := w.writeFigure("", "d", "Masses", &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, view.Options{}); err != nil {
+	if err := w.writeFigure("", "d", captionOf("Masses"), &view.Rendering{Kind: view.KindTable, Columns: []string{"name"}, Rows: [][]string{{"optics"}}}, view.Options{}); err != nil {
 		t.Fatal(err)
 	}
 	if table := w.b.String(); strings.Contains(table, "<img") || !strings.Contains(table, `<table class="sysml-table"`) || w.diagrams != 0 {

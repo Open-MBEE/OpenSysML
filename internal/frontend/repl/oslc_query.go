@@ -31,6 +31,7 @@ func (s *Session) query(text string) ([]string, error) {
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
 	model.SetSourceText(s.sessionSourceText())
+	model.SetSourceFile(s.sessionSourceFile)
 	adapter := &replQueryModel{
 		session: s,
 		index:   idx,

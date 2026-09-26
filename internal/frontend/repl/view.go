@@ -246,8 +246,19 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
+}
+
+// sessionSourceFile locates the file a span of a session document was loaded from:
+// a loaded file is a document named for its path; the transcript's spans are typed.
+func (s *Session) sessionSourceFile(doc string, span source.Span) string {
+	if doc != docName {
+		return source.FileNamed(doc, span)
+	}
+	sn, _ := s.snippetAt(span.Offset)
+	return source.FileNamed(sn.origin, span)
 }
 
 // sessionSourceText reads notation from the session's loaded documents, and
@@ -413,6 +424,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(r.session.sessionSourceText())
+	sem.SetSourceFile(r.session.sessionSourceFile)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {

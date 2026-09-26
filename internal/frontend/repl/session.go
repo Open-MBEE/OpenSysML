@@ -883,7 +883,9 @@ func (s *Session) submitAll(srcs []string) Result {
 // SubmitFiles accumulates every file as one submission: all of them are accepted
 // before the buffer is reindexed and analyzed, so a declaration in one resolves
 // against the others no matter which order they arrive in. This is what makes
-// loading a multi-file project order-independent.
+// loading a multi-file project order-independent. A file's Name is its
+// workspace document, so it must not be the transcript's; the path loaders
+// refuse such a file before it gets here.
 func (s *Session) SubmitFiles(files []SourceFile) Result {
 	defer s.enter()()
 	return s.submitFiles(files)
@@ -1280,6 +1282,7 @@ func (s *Session) runtimeModel() (*runtime.Model, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(s.sessionSourceText())
+	sem.SetSourceFile(s.sessionSourceFile)
 	sem.ShareAbout(s.about)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)

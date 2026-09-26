@@ -700,6 +700,10 @@ and did not change. A view-render RPC added later would take the form as a strin
 - `internal/ir/view/bookkeeping_test.go`: a tree over migrated views carries none of their
   `DiagramLayout` annotations, `SynthesizedName` markers or `render` members, while a user's
   metadata usage and a rendering usage outside a view are still drawn.
+- `internal/ir/view/interconnection_roots_test.go`: an exposed feature drawn nested in another
+  exposed feature is no second root — drawn once, keeping its stated position, the connection
+  joining the nested node, in every form and whatever the expose order; and an exposed feature
+  whose container is not exposed still stands as a root.
 - `internal/ir/view/dot_style_test.go`, `palette_test.go`: the B&W defaults; a definition
   square and a usage rounded; the pseudo-state rules named and unnamed, placed and not; the
   package, element and region cluster widths; the connection's `penwidth=3`; the family of every

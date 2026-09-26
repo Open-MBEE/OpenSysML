@@ -155,6 +155,10 @@ type HTMLOptions struct {
 	// NumberSections numbers the section headings hierarchically.
 	NumberSections bool
 
+	// NumberFigures numbers figures and tables as MarkdownOptions.NumberFigures,
+	// the label in a sysml-caption-number span.
+	NumberFigures bool
+
 	// Lang is the page language, "en" when empty.
 	Lang string
 
@@ -210,6 +214,10 @@ type HTMLOptions struct {
 	// Math is typeset HTML for formulas, keyed as Formulas lists them, written
 	// in place of the delimited LaTeX; a formula with none keeps its LaTeX.
 	Math map[Formula]string
+
+	// OutputDir is the directory the page is written into, when known, so an
+	// image's source-relative location is written relative to it; empty writes it as stated.
+	OutputDir string
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -260,7 +268,7 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 			return "", err
 		}
 	}
-	w := &htmlWriter{opts: opts, base: base, forms: diagrams, ids: contentIDs(document)}
+	w := &htmlWriter{opts: opts, base: base, forms: diagrams, ids: contentIDs(document), captions: captionNumbering{on: opts.NumberFigures}}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
 	if err := w.writeDocument(document); err != nil {
 		return "", err
@@ -301,8 +309,21 @@ type htmlWriter struct {
 	forms    DiagramOptions
 	ids      map[string]string
 	numbers  map[string]string
+	captions captionNumbering
 	diagrams int
 	mermaid  []string
+}
+
+// captionMarkup is a caption's inner HTML: its number, when it has one, in a
+// span ahead of its text.
+func captionMarkup(c caption) string {
+	switch {
+	case c.label == "":
+		return htmlText(c.text)
+	case c.text == "":
+		return "<span class=\"sysml-caption-number\">" + htmlText(c.label) + "</span>"
+	}
+	return "<span class=\"sysml-caption-number\">" + htmlText(c.label+".") + "</span> " + htmlText(c.text)
 }
 
 func (w *htmlWriter) writeDocument(document *docir.Document) error {
@@ -523,8 +544,8 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 	w.b.WriteString("<table class=\"sysml-table\"" + attr("id", id) + " data-content=\"table\"" +
 		attr(attrName, node.Name()) + attr(attrQuery, node.Query()) +
 		attr("data-group-by", node.GroupBy()) + ">\n")
-	if node.Caption() != "" {
-		w.b.WriteString("<caption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</caption>\n")
+	if c := w.captions.caption(node); c.String() != "" {
+		w.b.WriteString("<caption class=\"sysml-caption\">" + captionMarkup(c) + "</caption>\n")
 	}
 	w.writeTableHead(names)
 	if node.GroupBy() != "" {
@@ -670,8 +691,8 @@ func (w *htmlWriter) writeFormula(node docir.Content, id string) {
 	w.b.WriteString("</figure>\n")
 }
 
-// writeImage writes one image as a figure: its location verbatim, so a
-// relative path stays relative to the document, and its caption.
+// writeImage writes one image as a figure: its location as the page refers
+// to it (see HTMLOptions.OutputDir), and its caption.
 func (w *htmlWriter) writeImage(node docir.Content, id string) {
 	alt := node.Alt()
 	if alt == "" {
@@ -679,9 +700,9 @@ func (w *htmlWriter) writeImage(node docir.Content, id string) {
 	}
 	w.b.WriteString("<figure class=\"sysml-image\"" + attr("id", id) + " data-content=\"image\"" +
 		attr(attrName, node.Name()) + ">\n")
-	w.b.WriteString("<img" + attr("src", node.Location()) + attr("alt", alt) + ">\n")
-	if node.Caption() != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</figcaption>\n")
+	w.b.WriteString("<img" + attr("src", imageOf(node).Source(w.opts.OutputDir)) + attr("alt", alt) + ">\n")
+	if c := w.captions.caption(node); c.String() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(c) + "</figcaption>\n")
 	}
 	w.b.WriteString("</figure>\n")
 }
@@ -711,10 +732,10 @@ func displayMathHTML(source string) string {
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.forms))
+	return w.writeFigure(id, node.Name(), w.captions.caption(node), node.Rendering(), figureOptions(node, w.forms))
 }
 
-func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {
+func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *view.Rendering, options view.Options) error {
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
@@ -745,7 +766,7 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 		w.b.WriteString(svgBlock(w.diagramSVG()) + "\n")
 		w.diagrams++
 	case w.diagramImage() != "":
-		alt := caption
+		alt := caption.text
 		if alt == "" {
 			alt = name
 		}
@@ -758,8 +779,8 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 			w.mermaid = append(w.mermaid, source)
 		}
 	}
-	if caption != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")
+	if caption.String() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(caption) + "</figcaption>\n")
 	}
 	w.b.WriteString("</figure>\n")
 	return nil

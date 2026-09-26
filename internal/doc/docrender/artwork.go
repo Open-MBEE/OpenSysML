@@ -1,11 +1,14 @@
 package docrender
 
 import (
+	"net/url"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // This file lists what a document shows that a backend may draw or typeset
@@ -150,10 +153,12 @@ func Diagrams(document *docir.Document, opts DiagramOptions) ([]Diagram, error) 
 }
 
 // Image is one image block of a document: its name, the location it shows,
-// its alt text and caption.
+// the directory of the source file stating that location ("" when the
+// source is no file on disk), its alt text and caption.
 type Image struct {
 	Name     string
 	Location string
+	Dir      string
 	Alt      string
 	Caption  string
 }
@@ -168,13 +173,82 @@ func Images(document *docir.Document) []Image {
 	walk = func(nodes []docir.Content) {
 		for _, node := range nodes {
 			if node.Kind() == docir.ContentImage {
-				images = append(images, Image{Name: node.Name(), Location: node.Location(), Alt: node.Alt(), Caption: node.Caption()})
+				images = append(images, imageOf(node))
 			}
 			walk(node.Children())
 		}
 	}
 	walk(document.Content())
 	return images
+}
+
+// imageOf is the image block a content node is.
+func imageOf(node docir.Content) Image {
+	return Image{Name: node.Name(), Location: node.Location(), Dir: source.Dir(node.File()), Alt: node.Alt(), Caption: node.Caption()}
+}
+
+// Remote reports a location rendered where it stands: an http(s) URL an
+// engine or browser fetches, or a data URL carrying the image itself.
+func (i Image) Remote() bool {
+	lower := strings.ToLower(i.Location)
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "data:")
+}
+
+// Relative reports a location that is a relative path: one stated relative
+// to the document's source file, as DocumentQueries::Image documents.
+func (i Image) Relative() bool {
+	if i.Remote() || strings.HasPrefix(i.Location, "/") || filepath.IsAbs(i.Location) {
+		return false
+	}
+	u, err := url.Parse(i.Location)
+	return err != nil || u.Scheme == ""
+}
+
+// Path is the file a local location names: relative to the source file's directory,
+// else to base; absolute paths and file URLs as written; "" when remote.
+func (i Image) Path(base string) string {
+	switch {
+	case i.Remote():
+		return ""
+	case !i.Relative():
+		if u, err := url.Parse(i.Location); err == nil && u.Scheme == "file" {
+			return filepath.FromSlash(u.Path)
+		}
+		return i.Location
+	case i.Dir != "":
+		return filepath.Join(i.Dir, filepath.FromSlash(i.Location))
+	}
+	return filepath.Join(base, filepath.FromSlash(i.Location))
+}
+
+// Source is how a rendering written into outputDir refers to the image: a source
+// file's relative path made relative to outputDir; anything else as stated.
+func (i Image) Source(outputDir string) string {
+	if outputDir == "" || i.Dir == "" || !i.Relative() {
+		return i.Location
+	}
+	target := i.Path("")
+	if rel, err := relativePath(outputDir, target); err == nil {
+		return filepath.ToSlash(rel)
+	}
+	if abs, err := filepath.Abs(target); err == nil {
+		return filepath.ToSlash(abs)
+	}
+	return filepath.ToSlash(target)
+}
+
+// relativePath is target relative to dir, the two made absolute first so a
+// relative and an absolute path compare.
+func relativePath(dir, target string) (string, error) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Rel(absDir, absTarget)
 }
 
 // Formula is one formula of a document as the HTML backend keys it: its LaTeX
@@ -258,17 +332,20 @@ func displayFormula(source string) Formula {
 // writes ahead of its block, for a consumer telling a caption from a
 // paragraph that happens to be emphasized. Each is listed as written, without
 // surrounding blanks; a blank caption is written nowhere and listed nowhere.
-func Captions(document *docir.Document) []string {
+// With numbered set, as MarkdownOptions.NumberFigures, the figures and tables
+// are listed with their numbers, a block without a caption by its number alone.
+func Captions(document *docir.Document, numbered bool) []string {
 	if document == nil {
 		return nil
 	}
 	var captions []string
+	numbers := captionNumbering{on: numbered}
 	var walk func(nodes []docir.Content)
 	walk = func(nodes []docir.Content) {
 		for _, node := range nodes {
 			switch node.Kind() {
 			case docir.ContentTable, docir.ContentDiagram, docir.ContentFormula, docir.ContentImage:
-				if caption := strings.TrimSpace(node.Caption()); caption != "" {
+				if caption := strings.TrimSpace(numbers.caption(node).String()); caption != "" {
 					captions = append(captions, caption)
 				}
 			}

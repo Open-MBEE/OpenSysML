@@ -161,8 +161,8 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		flow = string(direction)
 	}
 	fmt.Fprintf(b, "flowchart %s\n", flow)
-	if r.Empty() {
-		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -248,10 +248,10 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
 	}
-	if r.Empty() {
+	if r.blank() {
 		// A state diagram takes a note only attached to a state, so the reason
 		// is a state of its own.
-		fmt.Fprintf(b, "  state \"%s\" as empty\n", mermaidText(r.EmptyReason()))
+		fmt.Fprintf(b, "  state \"%s\" as empty\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	starts := map[string][]Edge{}
@@ -303,10 +303,10 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 // messages in the order the rendering settled on.
 func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller) {
 	b.WriteString("sequenceDiagram\n")
-	if r.Empty() {
+	if r.blank() {
 		// A sequence diagram carries no free text, so the reason is a
 		// participant of its own.
-		fmt.Fprintf(b, "  participant empty as %s\n", mermaidText(r.EmptyReason()))
+		fmt.Fprintf(b, "  participant empty as %s\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	for _, node := range r.Roots {
