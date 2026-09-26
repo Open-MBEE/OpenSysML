@@ -23,6 +23,8 @@ run that would never finish into a reported error instead of a hang.
 | `OPENSYSML_ENGINES` | unset (no engines) | Directory of the **engine manifest**: one JSON file per external analysis engine — a model checker, a simulator, a solver — spoken to over its standard input by the protocol on [External engines](external-engines.md), listed by `-engines` and selected by `-engine <name>` like any engine of the build. Read beside `OPENSYSML_TOOLS` under the same rules; see [External engines](#external-engines) |
 | `OPENSYSML_TOOL_TIMEOUT` | `10s` | How long one tool process may take, as a Go duration (`5s`, `500ms`), after which the performance fails with a timeout; for an external engine, how long its `describe` and `covers` may take and the grace a `run` has to answer `cancel` before its process is ended. A value that is not a positive duration is the default |
 | `OPENSYSML_TOOL_MAX_OUTPUT` | `64M` | How much one external process may write before it is cut off: a tool's one reply and the whole of its standard error, an external engine's one protocol line and the whole of its standard error. Bytes, or bytes with a `K`, `M` or `G` suffix; a value that is not a positive size is the default |
+| `OPENSYSML_TOOL_ENV_PASSTHROUGH` | unset | Comma-separated names of this process's environment variables handed to a tool started under a manifest [`invocation`](#external-tools) block, beside `PATH`, `HOME`, `TMPDIR` and `LANG`; nothing else of the environment reaches such a tool. A tool without the block inherits the whole environment as before |
+| `OPENSYSML_TOOL_KEEP` | unset | `1` keeps the per-invocation directory a tool's `{inputFile}` and `{outputDir}` name, for inspection; otherwise it is removed once the reply is read |
 | `OPENSYSML_GRPC_INDEX_POOL` | `4` | Whether `sysml-grpc` builds the one shared standard library index ahead of the requests needing it; any positive value prewarms, `0` builds it on the first request instead |
 | `OPENSYSML_GRPC_MAX_HELD_OBJECTS` | `10000` | The most objects `sysml-grpc` keeps for one cached model, nested objects counted: `Instantiate` creates them and document queries bind and enumerate them for as long as the model stays cached. An `Instantiate`, query or render whose objects would pass the bound fails whole with `RESOURCE_EXHAUSTED`, leaving none of them, until the model leaves the cache, which releases them together; nothing is evicted behind an id a client holds. Read at startup |
 | `OPENSYSML_WEASYPRINT`, `OPENSYSML_PANDOC`, `OPENSYSML_PRINCE` | unset (look on `PATH`) | Executable of the HTML-to-PDF converter `-render-document -doc-form pdf` drives under `-pdf-engine weasyprint` (the default; `pandoc` also needs it), `pandoc` or `prince`; the selected one absent is a typed `tool-missing` error naming its variable |
@@ -98,6 +100,51 @@ a loaded model's directory is refused with the workspace named, since a model mu
 to register a program — and a directory or entry writable by anyone but its owner is refused
 (`is writable by others (mode 0664); a manifest entry and its directory may be written by their
 owner alone`). A fault in one entry registers nothing from its directory.
+
+**Invocation.** Without more, the executable is started with no arguments and the request
+below on its standard input. An optional `invocation` block composes the command from the
+model's values instead, for a program that takes its inputs as arguments, environment
+variables or a file:
+
+```json
+{
+  "toolName": "Dynamics",
+  "executable": "bin/dynamics.py",
+  "variables": ["mass", "power", "a", "v"],
+  "invocation": {
+    "args": ["--mass", "{mass}", "--power", "{power.value}", "--power-unit", "{power.unit}",
+             "--inputs", "{inputFile}", "--out", "{outputDir}/result.json"],
+    "env": {"OMP_NUM_THREADS": "4", "RUN_URI": "{uri}"},
+    "cwd": "work",
+    "stdin": "none",
+    "inputFile": {"format": "csv", "name": "inputs.csv"}
+  }
+}
+```
+
+| Member | Meaning |
+|---|---|
+| `args` | Templates, each rendered to exactly one argument of the process: a value holding spaces, quotes or a shell's metacharacters stays one argument, since no shell is involved and nothing is split |
+| `env` | Variables added to the process environment, values rendered from templates. The environment is otherwise `PATH`, `HOME`, `TMPDIR` and `LANG` from this process plus the names `OPENSYSML_TOOL_ENV_PASSTHROUGH` lists; the parent environment is not inherited |
+| `cwd` | The working directory: an absolute path taken as written, or a manifest-relative one followed through its links and refused unless it stays inside the manifest's directory, as `executable` is |
+| `stdin` | What the process reads: `"json"` (the default) the request object below; `"none"` nothing; `"csv"` one header row and one data row — the inputs sent in `variables` order, each measured one followed by a `<name>.unit` column; or `{"template": "..."}`, the template rendered |
+| `inputFile` | A file written before the process starts into a directory made for the invocation: `format` `json` (the request object) or `csv` (the CSV form above), `name` a bare file name. `{inputFile}` is its path |
+
+A template is literal text with placeholders: `{mass}` and `{mass.value}` are the variable's
+value as the request would carry it (a number, `true`/`false` or the string itself, no quotes),
+`{mass.unit}` its unit's short name or empty; `{toolName}` and `{uri}` are the annotation's;
+`{inputFile}` is the input file's path and `{outputDir}` the invocation's directory, made empty
+for the process to write into; `{{` and `}}` are literal braces. A placeholder naming a variable
+not in `variables`, an `{inputFile}` without an `inputFile` member, a malformed placeholder,
+and a `cwd` outside the manifest directory are manifest faults; beside the block a `variables`
+entry spelled like a reserved placeholder or containing a period, brace or space is refused
+too, so `{mass.unit}` always means the unit of `mass` and a CSV header never repeats. A declared variable the performance
+did not send fails it before the process starts (`tool 'Dynamics': input not carried: the
+invocation names {mass} but the call sent no value for mass`).
+The invocation's directory is removed once the reply is read unless `OPENSYSML_TOOL_KEEP=1`.
+The reply is read from standard output as below whatever the block says, and the timeout, size
+bounds and divergence report apply unchanged; `-engines` shows the protocol as `argv+json`,
+`argv+none`, `argv+csv` or `argv+template` rather than `object`.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines
