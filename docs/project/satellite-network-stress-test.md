@@ -520,17 +520,17 @@ runs):
 
 | satellites | planes | all loaded | planes recorded | the records alone | record on disk / plane |
 | ---------- | ------ | ---------- | --------------- | ----------------- | ---------------------- |
-| 128 | 4 | 64.6 MiB | 47.3 MiB | 17.0 MiB | 1 389 KiB |
-| 512 | 4 | 215 MiB | 145 MiB | 37.2 MiB | 5 554 KiB |
-| 1 600 | 32 | 697 MiB | 481 MiB | 156 MiB | 2 172 KiB |
+| 128 | 4 | 64.6 MiB | 48.6 MiB | 18.4 MiB | 1 389 KiB |
+| 512 | 4 | 215 MiB | 150 MiB | 42.4 MiB | 5 554 KiB |
+| 1 600 | 32 | 697 MiB | 497 MiB | 172 MiB | 2 172 KiB |
 
-A satellite held in a record costs about **100 KiB** at 1 600 satellites
+A satellite held in a record costs about **110 KiB** at 1 600 satellites
 against about 446 KiB loaded; the rest of the recorded workspace is
 `constellation.sysml`, which states every satellite's ground link and is
 loaded. In a process of its own, reading the records from the cache rather
 than parsing the planes (`TestPlaneResidencyProcess`), the 1 600-satellite
-workspace's peak RSS goes from 2 602 MiB to 1 277 MiB and its live heap from
-732 MiB to 517 MiB. `docs/internals/performance.md` has the full table and
+workspace's peak RSS goes from 2 604 MiB to 1 287 MiB and its live heap from
+732 MiB to 534 MiB. `docs/internals/performance.md` has the full table and
 what the record still holds per satellite.
 
 ## Where the time goes

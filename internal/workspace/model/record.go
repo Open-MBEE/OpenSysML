@@ -17,6 +17,10 @@ var ErrNoDocument = errors.New("workspace: no such document")
 // is asked for: the workspace does not keep the record it was installed from.
 var ErrRecorded = errors.New("workspace: the document is held as its interface record")
 
+// ErrRecordMismatch reports content offered with an interface record that was
+// written from other bytes: its diagnostics and spans would not be the content's.
+var ErrRecordMismatch = errors.New("workspace: content does not match its interface record")
+
 // InterfaceRecord writes the interface record of the named loaded document from
 // the analysis of it this workspace holds, analyzing it first if it has not
 // been (see libs.WriteInterface). A document that stands in for a library file
@@ -43,22 +47,41 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 		return nil, fmt.Errorf("%w: %v", libs.ErrUnrecordable, err)
 	}
 	resolver, sem := w.semanticsLocked()
-	return libs.WriteInterface(name, source.KindOf(name), w.index, resolver, sem, gathered, diags)
+	rec, err := libs.WriteInterface(name, source.KindOf(name), w.index, resolver, sem, gathered, diags)
+	if err != nil {
+		return nil, err
+	}
+	rec.Digest = doc.digest
+	return rec, nil
 }
 
-// OpenRecorded installs a document from its interface record, in place of any
-// document of its name: tree-less scopes and symbols carrying the record's
-// facts, reporting the diagnostics stored with it. Dependents are invalidated
-// as by any replacement. The workspace keeps what it built, not rec: a
-// recorded document costs its scopes, symbols and diagnostics.
-func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord) error {
+// OpenRecorded installs a document from its interface record and the content
+// the record was written from, in place of any document of its name: tree-less
+// scopes and symbols carrying the record's facts, reporting the diagnostics
+// stored with it against content, whose positions they hold. Content is
+// checked against the record's digest, ErrRecordMismatch when it differs.
+// Dependents are invalidated as by any replacement. The workspace keeps what
+// it built, not rec: a recorded document costs its text, scopes, symbols and
+// diagnostics.
+func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) error {
+	digest := digestOf(content)
+	if digest != rec.Digest {
+		return fmt.Errorf("%w: %s", ErrRecordMismatch, rec.Name)
+	}
 	scope, err := symbols.BuildRecorded(rec.Scope, rec.Name)
 	if err != nil {
 		return err
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	doc := &Document{Name: rec.Name, Scope: scope, recorded: &recordedDiagnostics{diagnostics: rec.Diagnostics}}
+	doc := &Document{
+		Name:     rec.Name,
+		Content:  content,
+		Scope:    scope,
+		sf:       source.New(rec.Name, content),
+		digest:   digest,
+		recorded: &recordedDiagnostics{diagnostics: rec.Diagnostics},
+	}
 	w.docs[rec.Name] = doc
 	w.changes[rec.Name]++
 	w.displaceLocked(rec.Name)

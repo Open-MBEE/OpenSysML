@@ -629,22 +629,24 @@ go test ./tests/stressmodel -run '^$' -bench PlaneResidency -benchtime 1x -count
 
 | satellites | planes | all loaded | planes recorded | of which the records | loaded / satellite | record / satellite | record on disk / plane |
 | ---------- | ------ | ---------- | --------------- | -------------------- | ------------------ | ------------------ | ---------------------- |
-| 32 | 4 | 26.5 MiB | 22.4 MiB | 10.1 MiB | 848 KiB | 325 KiB | 348 KiB |
-| 128 | 4 | 64.6 MiB | 47.3 MiB | 17.0 MiB | 517 KiB | 136 KiB | 1 389 KiB |
-| 512 | 4 | 215 MiB | 145 MiB | 37.2 MiB | 430 KiB | 74 KiB | 5 554 KiB |
-| 1 600 | 32 | 697 MiB | 481 MiB | 156 MiB | 446 KiB | 100 KiB | 2 172 KiB |
+| 32 | 4 | 26.5 MiB | 22.7 MiB | 10.4 MiB | 848 KiB | 336 KiB | 348 KiB |
+| 128 | 4 | 64.6 MiB | 48.6 MiB | 18.4 MiB | 517 KiB | 147 KiB | 1 389 KiB |
+| 512 | 4 | 215 MiB | 150 MiB | 42.4 MiB | 430 KiB | 85 KiB | 5 554 KiB |
+| 1 600 | 32 | 697 MiB | 497 MiB | 172 MiB | 446 KiB | 110 KiB | 2 172 KiB |
 
 "Of which the records" is what installing the plane records added to a
 workspace holding the library and the constellation file; the remainder of
 "planes recorded" is the constellation document itself, loaded and analyzed
 — it states a connection per satellite, so it is the largest document of the
 split and grows with the constellation. At 1 600 satellites a satellite held
-as part of a record costs **about 100 KiB** against about 446 KiB loaded,
-4.5x less; the design's prior of 10–50x is not reached. What the record still
+as part of a record costs **about 110 KiB** against about 446 KiB loaded,
+4x less; the design's prior of 10–50x is not reached. What the record still
 holds per satellite is its members: a satellite is some forty features, each
 a recorded symbol with its facts, and the record keeps every one because a
 qualified name from another document can name any of them and the diagnostic
 it gets ("not visible" against "does not exist") depends on which it finds.
+About 10 KiB of the 110 is the plane file's text, which a recorded document
+keeps so that its stored diagnostics locate in it.
 The per-satellite record cost falls with the constellation because the four
 records of the small networks carry a fixed cost of about 8 MiB between them
 that 32 satellites do not amortize.
@@ -656,8 +658,8 @@ and never parses a plane), 1 600 satellites:
 
 | process | live heap after GC | peak RSS | wall |
 | ------- | ------------------ | -------- | ---- |
-| planes loaded | 732 MiB | 2 602 MiB | 10.3 s |
-| planes recorded, from the cache | 517 MiB | 1 277 MiB | 5.6 s |
+| planes loaded | 732 MiB | 2 604 MiB | 10.4 s |
+| planes recorded, from the cache | 534 MiB | 1 287 MiB | 5.9 s |
 
 The 32 plane records on disk total 68 MiB, 43 KiB per satellite, as gob in
 the library cache's directory. Nothing writes or reads them yet outside the

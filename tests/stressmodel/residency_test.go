@@ -71,7 +71,7 @@ func measurePlaneResidency(b *testing.B, cache *libs.Cache, digest string, files
 			b.Fatal(err)
 		}
 		records = append(records, rec)
-		key := cache.InterfaceKey([]byte(sourceOf(files, plane)), digest, diag.ConformanceDefault)
+		key := cache.InterfaceKey(plane, []byte(sourceOf(files, plane)), digest, diag.ConformanceDefault)
 		if err := cache.StoreInterface(key, rec); err != nil {
 			b.Fatal(err)
 		}
@@ -89,7 +89,7 @@ func measurePlaneResidency(b *testing.B, cache *libs.Cache, digest string, files
 	recorded.OpenAll(kept)
 	beforeRecords := liveHeap()
 	for _, rec := range records {
-		if err := recorded.OpenRecorded(rec); err != nil {
+		if err := recorded.OpenRecorded(rec, []byte(sourceOf(files, rec.Name))); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -180,11 +180,11 @@ func TestPlaneResidencyProcess(t *testing.T) {
 	case "recorded":
 		ws.OpenAll(kept)
 		for _, plane := range planes {
-			rec, ok := cache.LoadInterface(cache.InterfaceKey(plane.Content, digest, diag.ConformanceDefault))
+			rec, ok := cache.LoadInterface(cache.InterfaceKey(plane.Name, plane.Content, digest, diag.ConformanceDefault))
 			if !ok {
 				t.Fatalf("no record for %s in the cache: run with OPENSYSML_RESIDENCY=write first", plane.Name)
 			}
-			if err := ws.OpenRecorded(rec); err != nil {
+			if err := ws.OpenRecorded(rec, plane.Content); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -200,7 +200,7 @@ func TestPlaneResidencyProcess(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := cache.StoreInterface(cache.InterfaceKey(plane.Content, digest, diag.ConformanceDefault), rec); err != nil {
+			if err := cache.StoreInterface(cache.InterfaceKey(plane.Name, plane.Content, digest, diag.ConformanceDefault), rec); err != nil {
 				t.Fatal(err)
 			}
 		}

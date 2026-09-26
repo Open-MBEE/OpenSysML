@@ -115,9 +115,12 @@ name alone declares, then one member ordinal per step down to the element the
 name does not reach, plus the declaring document when several documents
 declare the same name. `Index.RefTo` writes one; `Index.Element` restores it
 against the live index, so the reference joins whatever residency its target
-has. When an element has no such reference — one declared twice in its own
-document — the writer refuses the record (`libs.ErrUnrecordable`) rather than
-writing an approximate one, and the document stays loaded.
+has. The ordinals count members of scopes a record keeps, so `RefTo` writes no
+reference to a member of a scope the record drops — a metadata body, a
+control-flow or constraint body — since nothing could restore it. When an
+element has no such reference — one declared twice in its own document, or one
+of those members — the writer refuses the record (`libs.ErrUnrecordable`)
+rather than writing an approximate one, and the document stays loaded.
 
 ## What the writer refuses
 
@@ -132,12 +135,29 @@ binding). A refusal is never silent: the error names the fact and the element.
 
 ## Cache key
 
-`Cache.InterfaceKey(content, libraryDigest, mode)` is the document's content
-hash, the digest of the library set it was analyzed against, the conformance
-mode, the build identifier and the record format version. A record written
-under any other library, mode, build or format is never found; nothing has to
-be invalidated. `interfaceFormatVersion` in `libs/interface.go` moves whenever
+`Cache.InterfaceKey(name, content, libraryDigest, mode)` is the document's
+name and content hash, the digest of the library set it was analyzed against,
+the conformance mode, the build identifier and the record format version. A
+record written under any other library, mode, build or format is never found;
+nothing has to be invalidated. The name is in the key because the record names
+its document: two files of equal content are two documents, each with its own
+record. `interfaceFormatVersion` in `libs/interface.go` moves whenever
 `LibraryFacts` or the record structs change shape or meaning.
+
+The record also carries the digest of the content it was written from, and
+`Workspace.OpenRecorded` takes that content with the record, refusing other
+bytes (`model.ErrRecordMismatch`): the stored diagnostics locate in the text,
+so a recorded document holds its text, digest and line index as a loaded one
+does, and only its tree, resolver frame and analysis are gone.
+
+The key says nothing about the other documents of the workspace. A record's
+references are restored against the live index when read, so a target that
+another document renamed or removed is simply not found; but the diagnostics
+stored with the record, and facts the analysis derived from its siblings, are
+those of the analysis that wrote it. A recorded document whose siblings change
+is a dependent under §3's invalidation relation, and the workspace hydrates it
+(a later change) rather than keeping its record; until that lands, a record is
+installed only into the workspace it was written from.
 
 ## Readers of the tree
 
@@ -146,8 +166,12 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
 `internal/workspace` and `internal/frontend` falls in one of four classes:
 
 1. **Fact readers.** The resolver and semantic model read the fact when the
-   symbol is recorded and the tree when it is not; these are the paths the
-   differential test exercises for every fixture and corpus document.
+   symbol is recorded and the tree when it is not — a declaration's kind from
+   `Facts.Node`, `DefKind` and `UsageKind` (whether a redefining scope's owner
+   is a feature, whether a satisfied element is a viewpoint), its modifiers
+   from `Facts.Modifiers` (`variation`); these are the paths the differential
+   test exercises for every fixture and corpus document, and
+   `TestInterfaceRecordDeclarationReaders` for each such question.
 2. **Readers of the document under analysis.** A check pass reads the
    declarations of the document it is analyzing, and a recorded document is
    never analyzed; a reader of a *foreign* symbol in a pass goes through the
@@ -161,7 +185,11 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    with the document and the question) for a recorded document; the frontend
    that receives it hydrates (a later change) or reports it. `Workspace.NewRuntime`
    refuses a workspace holding a recorded document, so the runtime never
-   evaluates against a record.
+   evaluates against a record. The reverse-reference index is built from the
+   references a document's body writes, which its record does not carry, so
+   `ReferencesTo`, `NameReferencesTo` and `RenameConflict` answer with a
+   `NeedsHydration` for the first recorded document rather than a list that
+   omits it; the language server's references and rename report that.
 
 ## What the record costs
 

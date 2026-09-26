@@ -37,6 +37,9 @@ func (idx *Index) declaringAll(fqn string) []*Symbol {
 // RefTo names sym for a record fact; ok is false for an element no reference
 // reaches, such as one declared twice in its own document.
 func (idx *Index) RefTo(sym *Symbol) (ref ElementRef, ok bool) {
+	if sym == nil || sym.OwnerScope == nil || !sym.OwnerScope.inRecord() {
+		return ElementRef{}, false
+	}
 	var path []int32
 	for cur := sym; cur != nil; {
 		if cur.Name != "" {

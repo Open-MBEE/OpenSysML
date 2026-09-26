@@ -118,6 +118,23 @@ func RecordScope(root *Scope, keep func(*Symbol) bool, facts func(*Symbol) Libra
 	return w.rec, nil
 }
 
+// recordKeeps reports whether a record keeps a child scope: the own scope of a
+// member declared outside any body-local or metadata-body scope.
+func recordKeeps(child *Scope) bool {
+	return child.owner != nil && !child.bodyLocal && child.annotated == nil && child.owner.Scope == child
+}
+
+// inRecord reports whether a record of s's document keeps s: the document root,
+// or a scope every level of which recordKeeps.
+func (s *Scope) inRecord() bool {
+	for cur := s; cur.parent != nil; cur = cur.parent {
+		if !recordKeeps(cur) {
+			return false
+		}
+	}
+	return true
+}
+
 type recordWriter struct {
 	rec        *DocumentRecord
 	keep       func(*Symbol) bool
@@ -154,7 +171,7 @@ func (w *recordWriter) scope(s *Scope, owner int32) int32 {
 	var children []int32
 	for _, child := range s.children {
 		ownerSym := child.owner
-		if ownerSym == nil || child.bodyLocal || child.annotated != nil || ownerSym.Scope != child || !w.keep(ownerSym) {
+		if !recordKeeps(child) || !w.keep(ownerSym) {
 			continue
 		}
 		symID := w.symbol(ownerSym)

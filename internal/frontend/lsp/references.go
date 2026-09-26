@@ -50,7 +50,11 @@ func (s *Server) References(ctx context.Context, params *protocol.ReferenceParam
 	}
 	// Both identities of a segment: the element it reaches and, where it wrote
 	// an alias name, the alias — each names the target for a reader.
-	for _, ref := range s.ws.ReferencesTo(target) {
+	refs, err := s.ws.ReferencesTo(target)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range refs {
 		add(ref.Doc, ref.Content, ref.Span)
 	}
 	return out, nil

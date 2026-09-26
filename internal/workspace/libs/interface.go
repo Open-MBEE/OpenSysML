@@ -18,7 +18,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 1
+const interfaceFormatVersion = 2
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -32,18 +32,21 @@ var ErrUnrecordable = errors.New("libs: document interface cannot be recorded")
 type InterfaceRecord struct {
 	Name        string
 	Kind        source.Kind
+	Digest      string // of the content the record was written from, as the workspace fingerprints it
 	Scope       *symbols.DocumentRecord
 	Diagnostics []diag.Diagnostic
 }
 
 // InterfaceKey derives the cache key of a document's interface record from its
-// content, the digest of the library it was analyzed against, the conformance
-// mode, the build and the record format version: a record written under any
-// other is never found.
-func (c *Cache) InterfaceKey(content []byte, libraryDigest string, mode diag.ConformanceMode) string {
+// name and content, the digest of the library it was analyzed against, the
+// conformance mode, the build and the record format version: a record written
+// under any other is never found. The name is part of the key because the
+// record names its document (two files of equal content are two documents).
+func (c *Cache) InterfaceKey(name string, content []byte, libraryDigest string, mode diag.ConformanceMode) string {
 	sum := sha256.Sum256(content)
-	return hex.EncodeToString(sum[:]) + "-l" + libraryDigest + "-c" + strconv.Itoa(int(mode)) +
-		"-b" + buildID() + "-i" + strconv.Itoa(interfaceFormatVersion)
+	nameSum := sha256.Sum256([]byte(name))
+	return hex.EncodeToString(sum[:]) + "-n" + hex.EncodeToString(nameSum[:8]) + "-l" + libraryDigest +
+		"-c" + strconv.Itoa(int(mode)) + "-b" + buildID() + "-i" + strconv.Itoa(interfaceFormatVersion)
 }
 
 // LoadInterface returns the interface record stored under key, or (nil, false)

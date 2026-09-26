@@ -31,7 +31,8 @@ type Document struct {
 	// recorded is set for a document installed from its interface record (see
 	// Workspace.OpenRecorded): the diagnostics stored with the record, which the
 	// document reports in place of an analysis. The record itself is not kept;
-	// its facts live on the symbols of Scope.
+	// its facts live on the symbols of Scope. Content and sf are the text the
+	// record was written from, so the diagnostics' spans locate in it.
 	recorded *recordedDiagnostics
 }
 
@@ -42,7 +43,8 @@ type recordedDiagnostics struct {
 }
 
 // Recorded reports whether the document is held as its interface record: its
-// scope tree carries facts in place of declarations, so AST is nil.
+// scope tree carries facts in place of declarations, so AST is nil while
+// Content, Digest and Lines are the text's.
 func (d *Document) Recorded() bool {
 	return d != nil && d.recorded != nil
 }

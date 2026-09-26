@@ -88,7 +88,7 @@ func recordDifferential(t *testing.T, docs map[string][]byte) (recorded int) {
 		if err != nil {
 			t.Fatalf("%s: %v", target, err)
 		}
-		key := cache.InterfaceKey(docs[target], digest, diag.ConformanceDefault)
+		key := cache.InterfaceKey(target, docs[target], digest, diag.ConformanceDefault)
 		if err := cache.StoreInterface(key, written); err != nil {
 			t.Fatalf("%s: %v", target, err)
 		}
@@ -96,7 +96,7 @@ func recordDifferential(t *testing.T, docs map[string][]byte) (recorded int) {
 		if !ok {
 			t.Fatalf("%s: record not read back from the cache", target)
 		}
-		if err := ws.OpenRecorded(rec); err != nil {
+		if err := ws.OpenRecorded(rec, docs[target]); err != nil {
 			t.Fatalf("%s: %v", target, err)
 		}
 		recorded++
@@ -264,7 +264,7 @@ func TestInterfaceRecordNeedsHydration(t *testing.T) {
 	}
 	ws := model.NewWorkspace()
 	ws.OpenAll([]model.Input{{Name: "b.sysml", Content: []byte("package B { private import A::*; part p : P; }"), Version: 1}})
-	if err := ws.OpenRecorded(rec); err != nil {
+	if err := ws.OpenRecorded(rec, []byte("package A { part def P { attribute x : ScalarValues::Integer = 1; } }")); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(ws.Diagnostics("b.sysml")); n != 0 {

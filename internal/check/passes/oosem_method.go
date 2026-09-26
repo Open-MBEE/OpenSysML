@@ -374,6 +374,9 @@ func (a *oosemAudit) noteSatisfaction(requirements []*symbols.Symbol) {
 }
 
 func isViewpoint(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.DefKind == ast.DefViewpoint || sym.Facts.UsageKind == ast.UsageViewpoint
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
 		return d.Kind == ast.DefViewpoint
