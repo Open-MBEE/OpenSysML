@@ -87,6 +87,8 @@ func TestToolPreviewsTheComposedInvocation(t *testing.T) {
 	s := loadSource(t, toolCaseSource)
 	record := filepath.Join(t.TempDir(), "requests.jsonl")
 	t.Setenv("TOOL_STANDIN_RECORD", record)
+	t.Setenv("OPENSYSML_TEST_SECRET", "hunter2")
+	t.Setenv(analysis.ToolEnvPassthroughEnv, "OPENSYSML_TEST_SECRET")
 	entry := `{"kind":"tool","toolName":"Solver","version":"2.3",` +
 		`"executable":"` + toolStandin(t) + `","variables":["mass","tMax"],` +
 		`"invocation":{"args":["solve.py","--mass","{mass}","{outputDir}/out.txt"],` +
@@ -104,7 +106,7 @@ func TestToolPreviewsTheComposedInvocation(t *testing.T) {
 		"executable: "+toolStandin(t),
 		"argv:",
 		`  "solve.py"`, `  "--mass"`, `  "12.5"`, `  "<outputDir>/out.txt"`,
-		"env:", "  SOLVER_HOME=/opt/solver",
+		"env:", "  OPENSYSML_TEST_SECRET=<from this process>", "  PATH=<from this process>", "  SOLVER_HOME=/opt/solver",
 		"cwd: inherited",
 		"stdin: csv", "  mass", "  12.5",
 		"input file: <inputFile> (csv, named inputs.csv)", "  mass", "  12.5",

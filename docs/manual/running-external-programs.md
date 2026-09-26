@@ -79,6 +79,11 @@ tool:ThermalSolver  tool  argv+none/csv  observed  compute  ready (ThermalSolver
 what the call would have been given, without starting the process. What the
 preview performed is discarded: the session is as it found it.
 
+The `env` block lists the manifest's own `env` entries with their rendered
+values; a variable taken from this process (`PATH`, `HOME`, `TMPDIR`, `LANG`
+and each `OPENSYSML_TOOL_ENV_PASSTHROUGH` names) is listed by name only, as
+`NAME=<from this process>`.
+
 ```text
 ✓ ThermalDemo::heating: dry run of tool 'ThermalSolver' for ThermalDemo::Solve
   tool: ThermalSolver 1.0

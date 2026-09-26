@@ -395,6 +395,54 @@ func TestInvocationEnvPassthroughRefusesMalformedNames(t *testing.T) {
 	}
 }
 
+// The dry-run preview names a variable taken from this process without printing it:
+// "<from this process>" stands in for PATH and each passthrough name, while the
+// block's own entries show their rendered values.
+func TestPreviewEnvRedactsProcessValues(t *testing.T) {
+	t.Setenv("OPENSYSML_TEST_SECRET", "hunter2")
+	t.Setenv(ToolEnvPassthroughEnv, "OPENSYSML_TEST_SECRET")
+	inv := checked(t, &Invocation{Env: map[string]string{"RUN_URI": "{uri}"}}, "label")
+	sc := scope{tool: "Solver", uri: "solver://eq", inputs: map[string]runtime.ToolValue{"label": {Text: "r1"}}}
+
+	preview, err := inv.previewEnv(sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(map[string]string, len(preview))
+	for _, pair := range preview {
+		name, value, _ := strings.Cut(pair, "=")
+		got[name] = value
+	}
+	for name, want := range map[string]string{
+		"OPENSYSML_TEST_SECRET": "<from this process>",
+		"PATH":                  "<from this process>",
+		"RUN_URI":               "solver://eq",
+	} {
+		if got[name] != want {
+			t.Errorf("preview env %s=%q, want %q in %v", name, got[name], want, preview)
+		}
+	}
+	rendered, err := inv.renderEnv(sc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = make(map[string]string, len(rendered))
+	for _, pair := range rendered {
+		name, value, _ := strings.Cut(pair, "=")
+		got[name] = value
+	}
+	if got["OPENSYSML_TEST_SECRET"] != "hunter2" {
+		t.Errorf("renderEnv %v lacks the passed-through value", rendered)
+	}
+
+	t.Setenv(ToolEnvPassthroughEnv, "OPENSYSML_TEST_SECRET, BAD=VALUE")
+	_, err = inv.previewEnv(sc)
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Tool != "Solver" || fault.Kind != runtime.ToolProcessFailed {
+		t.Errorf("previewEnv: %v, want a ToolError{Tool: Solver, Kind: ToolProcessFailed}", err)
+	}
+}
+
 func sortedPairs(env []string) bool {
 	for i := 1; i < len(env); i++ {
 		if env[i-1] > env[i] {

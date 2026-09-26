@@ -1,0 +1,1 @@
+- **Tool previews do not print passed-through environment values.** `-tool-dry-run` and `%tool` list variables taken from this process (`PATH`, `HOME`, `TMPDIR`, `LANG` and the `OPENSYSML_TOOL_ENV_PASSTHROUGH` names) as `NAME=<from this process>`; only the manifest's own `env` entries show their rendered values.
