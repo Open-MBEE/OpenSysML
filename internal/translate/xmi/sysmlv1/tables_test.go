@@ -87,6 +87,7 @@ const timingTable = `
     <rowElements xmi:idref="_i2"/>
     <expandedRows>0,_i1:1,_i2</expandedRows>
     <expandedRows>x,_i2</expandedRows>
+    <expandedRows>NoExpanded</expandedRows>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:name</columnIds>
     <columnIds>QPROP:Element:classifier</columnIds>

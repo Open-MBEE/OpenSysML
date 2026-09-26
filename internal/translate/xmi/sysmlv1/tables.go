@@ -292,9 +292,16 @@ func (t *Table) readRows(m *Model, s *Stereotype) {
 	}
 }
 
+// expandedNone is the expandedRows value MagicDraw writes for a table none of
+// whose rows is expanded.
+const expandedNone = "NoExpanded"
+
 // readExpanded reads one expandedRows value: entries of the form
-// <level>,<id> joined by colons, one per expanded row.
+// <level>,<id> joined by colons, one per expanded row, or expandedNone.
 func (t *Table) readExpanded(m *Model, v string) {
+	if v == expandedNone {
+		return
+	}
 	for _, entry := range strings.Split(v, ":") {
 		if entry == "" {
 			continue

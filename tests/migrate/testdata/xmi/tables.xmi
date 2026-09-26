@@ -266,6 +266,7 @@
 
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_reqs" base_Diagram="_diag_reqs" takeWholeModelAsScope="true" includeSubtypesOfRowTypes="true">
     <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+    <expandedRows>NoExpanded</expandedRows>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:name</columnIds>
     <columnIds>QPROP:Element:documentation</columnIds>
