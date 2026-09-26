@@ -107,7 +107,8 @@ func html(t *testing.T, s *repl.Session, name string) string {
 // the tool showed: the instance rows of the scope plus the explicit rows,
 // sorted as the table was, with the matrix cells naming the related elements.
 func TestMigratedTablesExecute(t *testing.T) {
-	s := session(t, migrateFixtureFile(t, "tables"))
+	r := migrateFixtureFile(t, "tables")
+	s := session(t, r)
 
 	// Instance table: individuals of Pump (and its subtypes) under the scope
 	// plus two explicit rows, less the excluded one, sorted by mass descending
@@ -151,6 +152,21 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"FlowRequirement", `shortName = "R-1"`, `name = "FlowRequirement"`,
 		`documentation = "The pump keeps the flow above the minimum."`, `level = 1`, `level 2 = 1`,
 		`grade = ['Plant Profile'::Grade::high, 'Plant Profile'::Grade::low]`)
+
+	// A saved filter whose column selection cannot be counted is dropped, not
+	// read as every column, so every row stays; an unreadable width or
+	// expanded-row entry is noted, and the table is still written.
+	wantNote(t, r, "_tbl_bad_filter", migrate.Approximated,
+		`the saved row filter "1*" names its columns in a form the reader does not count, and is dropped: OPTION_FILTER_COLUMN_INDEXES "0^bad": not column indexes joined by ^`)
+	wantNote(t, r, "_tbl_bad_filter", migrate.Approximated, `the tool wrote columnWidth "wide": not a width in pixels or -1, which is dropped`)
+	wantNote(t, r, "_tbl_reqs", migrate.Approximated, `the tool wrote expandedRows "x,_req_flow": not in the form <level>,<id>, which is dropped`)
+	unfiltered := rows(t, s, "Plant::Requirements::'Badly Filtered Requirements Rows'")
+	wantInOrder(t, "Badly Filtered Requirements rows", unfiltered, "returned 3 rows", "FlowRequirement")
+	for _, name := range []string{"SealRequirement", "MassRequirement"} {
+		if !strings.Contains(unfiltered, name) {
+			t.Errorf("Badly Filtered Requirements drops %s:\n%s", name, unfiltered)
+		}
+	}
 
 	// Dependency matrix: the cell of each requirement row lists the blocks
 	// that satisfy it, and the duplicate criterion column stays distinct.

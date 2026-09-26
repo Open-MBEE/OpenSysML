@@ -1057,12 +1057,12 @@ func numericKind(kind ValueKind) bool {
 	return kind == ValueInteger || kind == ValueReal || kind == ValueInfinity
 }
 
-// resolveType resolves a type a filter names: a qualified name as written, a
-// metaclass name as the library's metaclass, and a simple name otherwise as the
-// one element of the model bearing it.
+// resolveType resolves a type a filter names: a qualified name as the element
+// written, a simple name as the metaclass of that name, else as the one element
+// of the model bearing it.
 func (e *executor) resolveType(name string) *symbols.Symbol {
-	if matches := e.context.Index.LookupQualified(name); len(matches) == 1 {
-		return matches[0]
+	if strings.Contains(name, "::") {
+		return e.resolveClassification(name)
 	}
 	if meta := e.context.Model.Metaclass(name); meta != nil {
 		return meta
@@ -1096,15 +1096,21 @@ func filtered(source sequence) sequence {
 	return sequence{columns: append([]Column(nil), source.columns...)}
 }
 
+// appendSelected appends row index of source to result; once either side
+// nests, result keeps a depth for every row, flat rows at 0.
 func appendSelected(result *sequence, source sequence, index int) {
 	result.values = append(result.values, source.values[index])
 	if index < len(source.cells) {
 		result.cells = append(result.cells, cloneCells(source.cells[index]))
 	}
-	if len(source.depths) > 0 {
-		result.depths = append(result.depths, source.depthAt(index))
-		relevel(result.depths)
+	if len(source.depths) == 0 && len(result.depths) == 0 {
+		return
 	}
+	for len(result.depths) < len(result.values)-1 {
+		result.depths = append(result.depths, 0)
+	}
+	result.depths = append(result.depths, source.depthAt(index))
+	relevel(result.depths)
 }
 
 // relevel lowers the last depth so a row whose ancestors a filter dropped

@@ -245,6 +245,33 @@ package Plant {
                 calc rows : 'Key Requirements Rows';
             }
         }
+        view 'Badly Filtered Requirements' {
+            expose FlowRequirement;
+            expose SealRequirement;
+            expose MassRequirement;
+            expose 'Badly Filtered Requirements Document';
+            render Views::asElementTable;
+        }
+        calc def 'Badly Filtered Requirements Rows' :> DocumentQueries::Query {
+            DocumentQueries::Project(
+                source = DocumentQueries::OrderBy(
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))),
+                        type = ("RequirementDefinition")),
+                    property = "shortName",
+                    direction = "ascending",
+                    missing = "last",
+                    multiple = "first"),
+                properties = ("shortName", "name"))
+        }
+        part def 'Badly Filtered Requirements Document' :> DocumentQueries::Document {
+            attribute redefines title = "Badly Filtered Requirements";
+            part rows : DocumentQueries::Table {
+                attribute redefines caption = "Badly Filtered Requirements";
+                calc rows : 'Badly Filtered Requirements Rows';
+            }
+        }
         view 'Satisfaction Matrix' {
             expose FlowRequirement;
             expose SealRequirement;

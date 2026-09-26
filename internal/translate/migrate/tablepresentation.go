@@ -146,6 +146,10 @@ func (m *migration) textFiltered(rows qx, f *sysmlv1.RowFilter, p *projection, l
 	if f == nil {
 		return rows
 	}
+	if f.Malformed != "" {
+		l.note("the saved row filter " + strconv.Quote(f.Text) + " names its columns in a form the reader does not count, and is dropped: " + f.Malformed)
+		return rows
+	}
 	pattern := filterPattern(f)
 	if _, err := regexp.Compile(pattern); err != nil {
 		l.note("the saved row filter " + strconv.Quote(f.Text) + " is not a regular expression Go compiles, and is dropped: " + err.Error())

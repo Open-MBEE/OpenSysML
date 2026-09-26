@@ -1156,6 +1156,7 @@ func expressionColumns(program *queryplan.Program, expression queryplan.Expressi
 		queryplan.OperationWhereMetadata,
 		queryplan.OperationWhereName,
 		queryplan.OperationWhereText,
+		queryplan.OperationTree,
 		queryplan.OperationWhereFeature,
 		queryplan.OperationOrderBy,
 		queryplan.OperationWhereRelated,

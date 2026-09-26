@@ -111,3 +111,30 @@ func TestCompileUnionOfDifferingColumnsIsLeftToExecution(t *testing.T) {
 	`)
 	fixture.mustCompile(t, "Report")
 }
+
+// TestCompileGroupedTableThroughTree locks that Tree carries its source
+// projection into static column checks, as execution keeps the cells.
+func TestCompileGroupedTableThroughTree(t *testing.T) {
+	fixture := loadPlanningFixture(t, `
+		part telescope;
+		calc def Named :> Query {
+			in root : Element;
+			Project(source = OwnedElements(source = root), properties = ("zone", "name"))
+		}
+		calc def Nested :> Query {
+			in root : Element;
+			Tree(source = Named(root = root))
+		}
+		part def Report :> Document {
+			attribute redefines title = "Report";
+			part nested : Table {
+				attribute redefines groupBy = "zone";
+				calc rows : Nested { in root = telescope; }
+			}
+		}
+	`)
+	plan := fixture.mustCompile(t, "Report")
+	if got := plan.Content()[0].GroupBy(); got != "zone" {
+		t.Fatalf("groupBy = %q", got)
+	}
+}

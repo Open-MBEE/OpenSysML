@@ -2,6 +2,7 @@ package sysmlv1
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -153,14 +154,32 @@ func TestTableSettingsAreRead(t *testing.T) {
 			t.Errorf("column %d: tag definition %v, want resolved=%v", i, def, wantDef)
 		}
 	}
-	malformed := strings.Join(tb.Malformed, "\n")
-	for _, want := range []string{`expandedRows "x,_i2": not in the form <level>,<id>`, `columnWidth "abc": not a width in pixels or -1`} {
-		if !strings.Contains(malformed, want) {
-			t.Errorf("malformed lacks %q:\n%s", want, malformed)
-		}
+	if len(tb.Malformed) != 0 {
+		t.Errorf("malformed %q, want none: an unreadable window or width setting does not refuse the table", tb.Malformed)
 	}
-	if n := strings.Count(malformed, "\n") + 1; n != 2 {
-		t.Errorf("malformed entries: %d, want 2:\n%s", n, malformed)
+	want2 := []string{`expandedRows "x,_i2": not in the form <level>,<id>`, `columnWidth "abc": not a width in pixels or -1`}
+	if !slices.Equal(tb.Ignored, want2) {
+		t.Errorf("ignored %q, want %q", tb.Ignored, want2)
+	}
+}
+
+// A column selection the reader cannot count is not read as every column: the
+// filter carries the fault for the migration to drop it.
+func TestSavedFilterMalformedColumnSelection(t *testing.T) {
+	props := ` diagramProperties="` + hexBytes(fmt.Sprintf(savedFilter, "0^bad^2", "Key")) + `"`
+	m, err := Parse(tableDocument(timingTable, props))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := m.Tables[0].RowFilter
+	if f == nil {
+		t.Fatal("no row filter read")
+	}
+	if f.Columns != nil || f.Malformed != `OPTION_FILTER_COLUMN_INDEXES "0^bad^2": not column indexes joined by ^` {
+		t.Errorf("filter columns %v malformed %q", f.Columns, f.Malformed)
+	}
+	if f.Text != "Key" {
+		t.Errorf("filter text %q", f.Text)
 	}
 }
 

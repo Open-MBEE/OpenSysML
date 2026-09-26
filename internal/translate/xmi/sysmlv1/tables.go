@@ -83,6 +83,9 @@ type Table struct {
 	// Malformed lists what in the serialization could not be read, each a
 	// short phrase naming the tag and the value.
 	Malformed []string
+	// Ignored lists the presentation settings written in a form the reader
+	// does not read, in the same phrasing; the table is read without them.
+	Ignored []string
 }
 
 // ColumnKind classifies a column id.
@@ -144,6 +147,9 @@ type RowFilter struct {
 	// joined by ^; nil when the value is empty and every column is searched.
 	// The property's choices are the indexes on offer, not a selection.
 	Columns []int
+	// Malformed is why the column selection could not be read, Columns then
+	// nil; "" when it could.
+	Malformed string
 	// Wildcard reads Text as a wildcard pattern (* and ?); Regexp as a
 	// regular expression; CaseSensitive matches case; FromStart and FromEnd
 	// anchor the match at a cell's start and end.
@@ -235,11 +241,18 @@ func (m *Model) newTable(kind TableKind, s *Stereotype) *Table {
 }
 
 func (t *Table) malformed(tag, value, why string) {
+	t.Malformed = append(t.Malformed, fault(tag, value, why))
+}
+
+func (t *Table) ignored(tag, value, why string) {
+	t.Ignored = append(t.Ignored, fault(tag, value, why))
+}
+
+func fault(tag, value, why string) string {
 	if value == "" {
-		t.Malformed = append(t.Malformed, fmt.Sprintf("%s: %s", tag, why))
-		return
+		return fmt.Sprintf("%s: %s", tag, why)
 	}
-	t.Malformed = append(t.Malformed, fmt.Sprintf("%s %q: %s", tag, value, why))
+	return fmt.Sprintf("%s %q: %s", tag, value, why)
 }
 
 // flag reads a boolean tag MagicDraw defaults to true when absent.
@@ -308,7 +321,7 @@ func (t *Table) readExpanded(m *Model, v string) {
 		}
 		level, id, ok := strings.Cut(entry, ",")
 		if _, err := strconv.Atoi(level); !ok || err != nil || id == "" {
-			t.malformed("expandedRows", entry, "not in the form <level>,<id>")
+			t.ignored("expandedRows", entry, "not in the form <level>,<id>")
 			continue
 		}
 		t.Expanded = append(t.Expanded, m.elementRef(id))
@@ -330,11 +343,15 @@ func rowFilter(d *Diagram) *RowFilter {
 		FromStart:     d.Flag("OPTION_FILTER_FROM_START"),
 		FromEnd:       d.Flag("OPTION_FILTER_FROM_END"),
 	}
-	if columns, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); ok {
+	if columns, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); ok && columns.Value != "" {
 		for _, index := range strings.Split(columns.Value, "^") {
-			if i, err := strconv.Atoi(index); err == nil && i >= 0 {
-				f.Columns = append(f.Columns, i)
+			i, err := strconv.Atoi(index)
+			if err != nil || i < 0 {
+				f.Malformed = fault("OPTION_FILTER_COLUMN_INDEXES", columns.Value, "not column indexes joined by ^")
+				f.Columns = nil
+				break
 			}
+			f.Columns = append(f.Columns, i)
 		}
 	}
 	return f
@@ -400,7 +417,7 @@ func (t *Table) readColumns(m *Model, s *Stereotype) {
 			w, err := strconv.Atoi(widths[i])
 			switch {
 			case err != nil || w < -1:
-				t.malformed("columnWidth", widths[i], "not a width in pixels or -1")
+				t.ignored("columnWidth", widths[i], "not a width in pixels or -1")
 			case w > 0:
 				c.Width = w
 			}

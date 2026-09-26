@@ -1894,6 +1894,7 @@ func TestExecuteWhereTypeMetaclassNameOutranksNamesake(t *testing.T) {
 part root {
 	part child;
 	view Usage;
+	part def Local;
 }
 part def Definition;
 calc def Usages :> Query {
@@ -1926,8 +1927,8 @@ calc def Definitions :> Query {
 	if err != nil {
 		t.Fatalf("execute definitions beside a part def named Definition: %v", err)
 	}
-	if got := elementNames(rows); len(got) != 0 {
-		t.Fatalf("definition rows under root = %v", got)
+	if got := elementNames(rows); !slices.Equal(got, []string{"Local"}) {
+		t.Fatalf("definition rows under root = %v, want [Local]", got)
 	}
 }
 

@@ -180,6 +180,9 @@ func (m *migration) lowerTable(td *tableDoc) {
 	if len(t.Malformed) > 0 {
 		l.refuse(strings.Join(t.Malformed, "; "))
 	}
+	for _, setting := range t.Ignored {
+		l.note("the tool wrote " + setting + ", which is dropped")
+	}
 	switch t.Kind {
 	case sysmlv1.InstanceTable, sysmlv1.DiagramTable:
 		m.lowerElementTable(t, host, l)

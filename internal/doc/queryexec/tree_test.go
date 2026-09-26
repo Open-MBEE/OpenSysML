@@ -158,3 +158,36 @@ func TestExecuteTreeDepthSurvivesLaterOperations(t *testing.T) {
 		t.Fatalf("Nested North = %q, want %q", got, want)
 	}
 }
+
+// Union keeps each depth with its row when only one input nests: the flat
+// input's rows sit at 0 whichever side they come from.
+func TestExecuteUnionAlignsDepthsOfFlatAndNestedRows(t *testing.T) {
+	fixture := loadExecutionFixture(t, treeBody+treeQueries+`
+calc def FlatThenNested :> Query {
+	in root : Element;
+	Union(
+		source = WhereType(source = Descendants(source = root), type = "Package"),
+		other = Nested(root = root))
+}
+calc def NestedThenFlat :> Query {
+	in root : Element;
+	Union(
+		source = Nested(root = root),
+		other = WhereType(source = Descendants(source = root), type = "Package"))
+}
+`)
+	root := Bindings{"root": {ElementValue(fixture.symbol(t, "Site"))}}
+	nested := "0:Station 0:Pump 0:Outlet 0:Run1 1:Run1Pump 2:Run1Seal 0:Run2Pump 0:Inlet 0:Sump"
+	for name, want := range map[string]string{
+		"FlatThenNested": "0:North 0:Deep " + nested,
+		"NestedThenFlat": nested + " 0:North 0:Deep",
+	} {
+		rows, err := fixture.execute(t, name, root, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := treeOutline(rows); got != want {
+			t.Errorf("%s = %q, want %q", name, got, want)
+		}
+	}
+}

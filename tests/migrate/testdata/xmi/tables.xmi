@@ -172,6 +172,19 @@
             </diagramRepresentation>
           </xmi:Extension>
         </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_bad_filter" name="Badly Filtered Requirements" ownerOfDiagram="_pkg_reqs">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject type="Requirement Table" umlType="Class Diagram" diagramProperties="3c 3f 78 6d 6c 20 76 65 72 73 69 6f 6e 3d 27 31 2e 30 27 20 65 6e 63 6f 64 69 6e 67 3d 27 55 54 46 2d 38 27 3f 3e a 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 44 69 61 67 72 61 6d 50 72 6f 70 65 72 74 69 65 73 27 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 42 6f 6f 6c 65 61 6e 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 53 41 56 45 5f 46 49 4c 54 45 52 5f 56 41 4c 55 45 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 20 78 6d 69 3a 76 61 6c 75 65 3d 27 74 72 75 65 27 2f 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 43 68 6f 69 63 65 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 4f 50 54 49 4f 4e 5f 46 49 4c 54 45 52 5f 43 4f 4c 55 4d 4e 5f 49 4e 44 45 58 45 53 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 3e 30 5e 62 61 64 3c 2f 76 61 6c 75 65 3e a 20 20 20 20 3c 63 68 6f 69 63 65 20 78 6d 69 3a 76 61 6c 75 65 3d 27 30 5e 31 5e 32 27 2f 3e a 20 20 20 20 3c 69 6e 64 65 78 20 78 6d 69 3a 76 61 6c 75 65 3d 27 2d 31 27 2f 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 20 20 3c 6d 64 45 6c 65 6d 65 6e 74 20 65 6c 65 6d 65 6e 74 43 6c 61 73 73 3d 27 53 74 72 69 6e 67 50 72 6f 70 65 72 74 79 27 3e a 20 20 20 20 3c 70 72 6f 70 65 72 74 79 49 44 3e 4f 50 54 49 4f 4e 5f 46 49 4c 54 45 52 5f 53 45 41 52 43 48 49 4e 47 5f 54 45 58 54 3c 2f 70 72 6f 70 65 72 74 79 49 44 3e a 20 20 20 20 3c 76 61 6c 75 65 3e 31 2a 3c 2f 76 61 6c 75 65 3e a 20 20 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e a 3c 2f 6d 64 45 6c 65 6d 65 6e 74 3e">
+                <diagramContents>
+                  <usedElements>_req_flow</usedElements>
+                  <usedElements>_req_seal</usedElements>
+                  <usedElements>_req_mass</usedElements>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
         <ownedDiagram xmi:type="uml:Diagram" xmi:id="_diag_critical" name="Critical Elements" ownerOfDiagram="_pkg_plant">
           <xmi:Extension extender="Example UML Tool 1.0">
             <diagramRepresentation>
@@ -272,6 +285,7 @@
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_reqs" base_Diagram="_diag_reqs" takeWholeModelAsScope="true" includeSubtypesOfRowTypes="true">
     <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
     <expandedRows>NoExpanded</expandedRows>
+    <expandedRows>x,_req_flow</expandedRows>
     <columnIds>_NUMBER_</columnIds>
     <columnIds>QPROP:Element:name</columnIds>
     <columnIds>QPROP:Element:documentation</columnIds>
@@ -279,6 +293,16 @@
   </MagicDraw_Profile:DiagramTable>
 
   <MagicDraw_Profile:auxiliaryResource xmi:id="_aux_plant_profile" base_Element="_plant_profile"/>
+  <MagicDraw_Profile:DiagramTable xmi:id="_tbl_bad_filter" base_Diagram="_diag_bad_filter" scope="_pkg_reqs" includeSubtypesOfRowTypes="true">
+    <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
+    <columnIds>_NUMBER_</columnIds>
+    <columnIds>QPROP:Element:Id</columnIds>
+    <columnIds>QPROP:Element:name</columnIds>
+    <sort>QPROP:Element:Id^Asc</sort>
+    <columnWidth>35</columnWidth>
+    <columnWidth>wide</columnWidth>
+    <columnWidth>-1</columnWidth>
+  </MagicDraw_Profile:DiagramTable>
   <MagicDraw_Profile:DiagramTable xmi:id="_tbl_key_reqs" base_Diagram="_diag_key_reqs" scope="_pkg_reqs" includeSubtypesOfRowTypes="true">
     <rowElementType href="http://www.omg.org/spec/SysML/20181001/SysML.xmi#SysML.Requirement"/>
     <rowElements xmi:idref="_req_flow"/>
