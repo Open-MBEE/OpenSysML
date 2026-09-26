@@ -47,6 +47,21 @@ type Table struct {
 	// Rows are the elements listed as rows regardless of scope: a table's
 	// rowElements and additionalElements.
 	Rows []ElementRef
+	// Excluded are the elements a table's excludedElements removes from the
+	// rows, each with the rows nested under it.
+	Excluded []ElementRef
+	// DisplayMode is a table's displayMode tag: "List", "Compact tree" or
+	// "Complete tree"; "" when the tool wrote none, which displays a list.
+	DisplayMode string
+	// ShowScopeAsRoot is a table's showScopeAsRoot tag: whether a tree
+	// display mode lists the scope element as the root row.
+	ShowScopeAsRoot bool
+	// Expanded are the rows a table's expandedRows records as expanded in
+	// the tool's window, in serialized order.
+	Expanded []ElementRef
+	// RowFilter is the row filter the tool saved with the table's diagram;
+	// nil when none is saved.
+	RowFilter *RowFilter
 	// Columns are the table's columns in serialized order, hidden ones included.
 	Columns []Column
 	// Sorts are the table's sort keys in priority order.
@@ -87,6 +102,9 @@ const (
 	// ColumnPropertyPair is the PROPERTY_COLUMN / VALUE_COLUMN pair of a
 	// generic table's property view.
 	ColumnPropertyPair ColumnKind = "propertyPair"
+	// ColumnStereotypeTag is a QPROP:stereotypeTags:<<Profile::Stereotype>>.tag
+	// column: a tag of a stereotype applied to the row element.
+	ColumnStereotypeTag ColumnKind = "stereotypeTag"
 	// ColumnUnknown is an id in a form the reader does not know.
 	ColumnUnknown ColumnKind = "unknown"
 )
@@ -101,8 +119,33 @@ type Column struct {
 	Property string
 	// Feature is the IColumn feature; its Element is nil when dangling.
 	Feature ElementRef
+	// Profile and Stereotype name a stereotype-tag column's stereotype as the
+	// id qualifies it, Profile "" when the id names the stereotype alone;
+	// Tag is the tag's name and TagDefinition the stereotype's property of
+	// that name, nil when the read documents define no such stereotype.
+	Profile, Stereotype, Tag string
+	TagDefinition            *Element
 	// Hidden is whether hideColumns lists the column.
 	Hidden bool
+	// Width is the column's columnWidth in pixels; 0 when the tool wrote
+	// none or -1, which sizes the column automatically.
+	Width int
+}
+
+// RowFilter is the filter a tool saved with a table: the text its rows are
+// searched for and how it is matched, as MagicDraw's diagram properties
+// SAVE_FILTER_VALUE, OPTION_FILTER_SEARCHING_TEXT, OPTION_FILTER_COLUMN_INDEXES
+// and the OPTION_FILTER_* flags record it.
+type RowFilter struct {
+	// Text is the text searched for.
+	Text string
+	// Columns are the indexes of the columns searched, among the columns
+	// shown in their order; nil when every column is searched.
+	Columns []int
+	// Wildcard reads Text as a wildcard pattern (* and ?); Regexp as a
+	// regular expression; CaseSensitive matches case; FromStart and FromEnd
+	// anchor the match at a cell's start and end.
+	Wildcard, Regexp, CaseSensitive, FromStart, FromEnd bool
 }
 
 // Sort is one sort key: a column id and a direction.
@@ -204,22 +247,90 @@ func flag(s *Stereotype, name string) bool {
 
 func (m *Model) instanceTable(s *Stereotype) *Table {
 	t := m.newTable(InstanceTable, s)
-	t.Scope = m.TagRefs(s, "scope")
 	t.RowTypes = m.TagRefs(s, "classifiers")
-	t.IncludeSubtypes = flag(s, "includeSubtypesOfRowTypes")
-	t.Rows = append(m.TagRefs(s, "rowElements"), m.TagRefs(s, "additionalElements")...)
-	t.readColumns(m, s)
+	t.readRows(m, s)
 	return t
 }
 
 func (m *Model) diagramTable(s *Stereotype) *Table {
 	t := m.newTable(DiagramTable, s)
-	t.Scope = m.TagRefs(s, "scope")
 	t.RowTypes = m.TagRefs(s, "rowElementType")
+	t.readRows(m, s)
+	return t
+}
+
+// The display modes MagicDraw writes to a table's displayMode tag.
+const (
+	DisplayList         = "List"
+	DisplayCompactTree  = "Compact tree"
+	DisplayCompleteTree = "Complete tree"
+)
+
+// readRows reads what an instance and a generic table share: the scope and
+// the rows listed, excluded and expanded, the display mode, the columns and
+// the saved row filter.
+func (t *Table) readRows(m *Model, s *Stereotype) {
+	t.Scope = m.TagRefs(s, "scope")
 	t.IncludeSubtypes = flag(s, "includeSubtypesOfRowTypes")
 	t.Rows = append(m.TagRefs(s, "rowElements"), m.TagRefs(s, "additionalElements")...)
+	t.Excluded = m.TagRefs(s, "excludedElements")
+	t.ShowScopeAsRoot = s.Bool("showScopeAsRoot")
+	switch mode := s.Tag("displayMode"); mode {
+	case "", DisplayList, DisplayCompactTree, DisplayCompleteTree:
+		t.DisplayMode = mode
+	default:
+		t.malformed("displayMode", mode, "not List, Compact tree or Complete tree")
+	}
+	for _, v := range s.Tags["expandedRows"] {
+		t.readExpanded(m, v)
+	}
 	t.readColumns(m, s)
-	return t
+	if t.Diagram != nil {
+		t.RowFilter = rowFilter(t.Diagram)
+	}
+}
+
+// readExpanded reads one expandedRows value: entries of the form
+// <level>,<id> joined by colons, one per expanded row.
+func (t *Table) readExpanded(m *Model, v string) {
+	for _, entry := range strings.Split(v, ":") {
+		if entry == "" {
+			continue
+		}
+		level, id, ok := strings.Cut(entry, ",")
+		if _, err := strconv.Atoi(level); !ok || err != nil || id == "" {
+			t.malformed("expandedRows", entry, "not in the form <level>,<id>")
+			continue
+		}
+		t.Expanded = append(t.Expanded, m.elementRef(id))
+	}
+}
+
+// rowFilter reads the filter saved with a table's diagram; nil when the tool
+// saved none, or saved one with no text.
+func rowFilter(d *Diagram) *RowFilter {
+	text, ok := d.Property("OPTION_FILTER_SEARCHING_TEXT")
+	if !ok || text.Value == "" || !d.Flag("SAVE_FILTER_VALUE") {
+		return nil
+	}
+	f := &RowFilter{
+		Text:          text.Value,
+		Wildcard:      d.Flag("OPTION_FILTER_WILDCARD"),
+		Regexp:        d.Flag("OPTION_FILTER_REGEXP"),
+		CaseSensitive: d.Flag("OPTION_FILTER_CASE_SENSITIVE"),
+		FromStart:     d.Flag("OPTION_FILTER_FROM_START"),
+		FromEnd:       d.Flag("OPTION_FILTER_FROM_END"),
+	}
+	if columns, ok := d.Property("OPTION_FILTER_COLUMN_INDEXES"); ok {
+		for _, choice := range columns.Choices {
+			for _, index := range strings.Split(choice, "^") {
+				if i, err := strconv.Atoi(index); err == nil && i >= 0 {
+					f.Columns = append(f.Columns, i)
+				}
+			}
+		}
+	}
+	return f
 }
 
 func (m *Model) matrix(s, filter *Stereotype) *Table {
@@ -267,15 +378,26 @@ func (m *Model) relationMap(s *Stereotype) *Table {
 	return t
 }
 
-// readColumns reads columnIds, hideColumns and sort.
+// readColumns reads columnIds, hideColumns, columnWidth and sort. The widths
+// are listed in the columns' order.
 func (t *Table) readColumns(m *Model, s *Stereotype) {
 	hidden := map[string]bool{}
 	for _, id := range s.Tags["hideColumns"] {
 		hidden[id] = true
 	}
-	for _, id := range s.Tags["columnIds"] {
+	widths := s.Tags["columnWidth"]
+	for i, id := range s.Tags["columnIds"] {
 		c := m.column(id)
 		c.Hidden = hidden[id]
+		if i < len(widths) {
+			w, err := strconv.Atoi(widths[i])
+			switch {
+			case err != nil || w < -1:
+				t.malformed("columnWidth", widths[i], "not a width in pixels or -1")
+			case w > 0:
+				c.Width = w
+			}
+		}
 		t.Columns = append(t.Columns, c)
 	}
 	for _, v := range s.Tags["sort"] {
@@ -305,8 +427,74 @@ func (m *Model) column(id string) Column {
 		c.Kind, c.Property = ColumnProperty, strings.TrimPrefix(id, "QPROP:Element:")
 	case strings.HasPrefix(id, "IColumn:"):
 		c.Kind, c.Feature = ColumnFeature, m.elementRef(strings.TrimPrefix(id, "IColumn:"))
+	case strings.HasPrefix(id, stereotypeTagPrefix):
+		m.stereotypeTagColumn(&c, strings.TrimPrefix(id, stereotypeTagPrefix))
 	default:
 		c.Kind = ColumnUnknown
 	}
 	return c
+}
+
+const stereotypeTagPrefix = "QPROP:stereotypeTags:"
+
+// stereotypeTagColumn reads the <<Profile::Stereotype>>.tag of a stereotype
+// tag column, the stereotype qualified by its profile path or named alone,
+// and resolves the tag to the stereotype's property when a read document
+// defines the stereotype under a profile of that name.
+func (m *Model) stereotypeTagColumn(c *Column, spec string) {
+	c.Kind = ColumnUnknown
+	if !strings.HasPrefix(spec, "<<") {
+		return
+	}
+	qualified, tag, ok := strings.Cut(spec[2:], ">>.")
+	if !ok || qualified == "" || tag == "" {
+		return
+	}
+	c.Kind, c.Tag = ColumnStereotypeTag, tag
+	c.Stereotype = qualified
+	if i := strings.LastIndex(qualified, "::"); i >= 0 {
+		c.Profile, c.Stereotype = qualified[:i], qualified[i+2:]
+	}
+	c.TagDefinition = m.stereotypeTag(c.Profile, c.Stereotype, tag)
+}
+
+// stereotypeTag finds the property named tag of the stereotype named
+// stereotype under the profile whose qualified name is profile ("" for any),
+// in the first read document that defines one; nil when none does.
+func (m *Model) stereotypeTag(profile, stereotype, tag string) *Element {
+	for _, d := range m.stereotypeDefinitions() {
+		if d.Name != stereotype || !underProfile(d, profile) {
+			continue
+		}
+		for _, p := range d.Owned("ownedAttribute") {
+			if p.Name == tag {
+				return p
+			}
+		}
+	}
+	return nil
+}
+
+// underProfile reports whether e sits under a Profile whose qualified name
+// (the names of the profile and the packages above it, joined by ::) is
+// profile, or under any profile when profile is "".
+func underProfile(e *Element, profile string) bool {
+	for p := e.Parent; p != nil; p = p.Parent {
+		if p.Type != "Profile" {
+			continue
+		}
+		if profile == "" {
+			return true
+		}
+		var names []string
+		for q := p; q != nil; q = q.Parent {
+			names = append([]string{q.Name}, names...)
+		}
+		for i := range names {
+			if strings.Join(names[i:], "::") == profile {
+				return true
+			}
+		}
+	}
+	return false
 }

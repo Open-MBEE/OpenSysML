@@ -51,6 +51,9 @@ type Diagram struct {
 	Symbols []*Symbol
 	// Frame is the diagram frame's rectangle, when the stream draws one.
 	Frame *Bounds
+	// Properties are the properties the tool saved with the diagram, such as
+	// a table's row filter, in serialized order; nil when it saved none.
+	Properties []DiagramProperty
 }
 
 // SymbolByID finds the symbol with the given xmi:id; nil when none has it.
@@ -103,6 +106,7 @@ func (m *Model) diagram(raw *xmi.Element, ext *Extension) {
 		return
 	}
 	d.Kind, d.UMLKind = rep.Attrs["type"], rep.Attrs["umlType"]
+	d.Properties = decodeDiagramProperties(rep.Attrs["diagramProperties"])
 	seen := map[string]bool{}
 	walkDiagram(rep, func(n *xmi.Element) {
 		if n.Tag == "binaryObject" && d.Stream == "" {
