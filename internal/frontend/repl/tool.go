@@ -93,7 +93,8 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 }
 
 // runActionToCompletion runs the action to completion as %action + %continue do,
-// without leaving a debugging session active.
+// without leaving a debugging session active; an object performing the action
+// already runs that performance, refusing arguments, as the run itself would.
 func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvocation, sym *symbols.Symbol) error {
 	var performer []string
 	if inv.object != "" {
@@ -128,13 +129,8 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 	if err != nil {
 		return err
 	}
-	exec, err := ctx.CreateActionExecutorWithInputs(sym, self, inputs)
-	if err != nil {
-		return fmt.Errorf("failed to create executor: %w", err)
-	}
-	defer exec.Release()
-	exec.SetTrace(s.trace)
-	return exec.RunToCompletion()
+	_, err = ctx.ExecuteActionPerformedBy(sym, self, inputs)
+	return err
 }
 
 // toolDryVerdict reports a dry run: the preview the typed error carried, the
