@@ -379,7 +379,8 @@ A row is kept when one of the named columns — every projected column when
 value is compared as plain text — an element by its effective name, a number
 in base 10, a boolean as `true`/`false`, a quantity with its unit — each value
 of a multi-valued cell on its own; an empty cell matches nothing. The rows keep
-their projected columns, widths and nesting depths. A column the source does
+their projected columns and widths, and their nesting as any filter does: a row
+whose ancestors it dropped nests under the row before it. A column the source does
 not project, or a `matches` pattern that is not a valid regular expression, is
 a typed error naming it.
 
