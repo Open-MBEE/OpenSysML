@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -809,21 +810,43 @@ func TestUsedReportsTheCallsInCallOrder(t *testing.T) {
 	}
 }
 
-// keep joins the uses a plan's steps carried — a faulted plan keeps its earlier
-// engines' steps — and the fault's own use is not appended twice.
-func TestKeepKeepsAPlansStepsWhenThePlanFaulted(t *testing.T) {
-	r := &toolRunner{}
-	ran := ToolUse{Tool: "Solver"}
-	failed := &ToolUseError{Use: ToolUse{Tool: "Bogus", Failed: "exit status 2"}, Err: errors.New("exit status 2")}
-	plan := Plan{Steps: []Step{
-		{Result: &Result{Tool: &ran}},
-		{Err: failed},
-	}}
-	r.keep(&runtime.ToolCall{}, 1, plan, failed)
-	if len(r.uses) != 2 {
-		t.Fatalf("uses = %v, want the run call and the failed call, not the fault's twice", r.uses)
+// Under all the plan stops at the first fault in name order, but a tool an engine behind
+// that fault ran is provenance still: its use is kept though its step is dropped.
+func TestAToolRunBehindAFaultJoinsTheProvenance(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	fault := errors.New("the earlier engine faulted")
+	if err := r.Register(fakeEngine{name: "a-faulter", kinds: []Kind{Compute}, run: func(ctx context.Context) (Result, error) {
+		for {
+			if _, err := os.Stat(record); err == nil {
+				return Result{}, fault
+			}
+			select {
+			case <-ctx.Done():
+				return Result{}, ctx.Err()
+			case <-time.After(5 * time.Millisecond):
+			}
+		}
+	}}); err != nil {
+		t.Fatalf("register: %v", err)
 	}
-	if r.uses[0].Tool != "Solver" || r.uses[1].Tool != "Bogus" || r.uses[1].Failed != "exit status 2" {
-		t.Fatalf("uses = %+v", r.uses)
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	req := selected(p.context(), All())
+	req.Budget.Jobs = 2
+	_, plan, err := Perform(context.Background(), r, req, call, answer)
+	if !errors.Is(err, fault) {
+		t.Fatalf("all = %v, want the earlier engine's fault", err)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the ModelCenter call the dropped step ran", texts)
 	}
 }

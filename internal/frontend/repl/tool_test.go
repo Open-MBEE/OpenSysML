@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -517,5 +518,24 @@ func TestToolRestoresTheSessionsToolRunner(t *testing.T) {
 	}
 	if _, dry := s.rtCtx.ToolRunner().(*analysis.DryRunner); dry {
 		t.Error("the preview left the dry runner attached")
+	}
+}
+
+// A preview a condition reached does not vouch for a run that then failed for
+// another reason: the verdict is unresolved, the preview shown, the failure named.
+func TestToolPreviewWithAnotherFailureIsUnresolved(t *testing.T) {
+	dry := &analysis.ToolDryRunError{
+		Action:  "Tools::Solve",
+		Preview: analysis.DryRun{Tool: "Solver", Executable: "/bin/solver"},
+	}
+	v := toolPreviewVerdict("Tools::CheckSolve", dry, errors.New("output x: division by zero"))
+	if v.Status != VerdictUnresolved {
+		t.Fatalf("status = %v, want unresolved:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+	}
+	out := strings.Join(v.Lines, "\n")
+	wants(t, out, "? Tools::CheckSolve: dry run of tool 'Solver'", "/bin/solver", "error: output x: division by zero")
+
+	if v := toolPreviewVerdict("Tools::CheckSolve", dry, nil); v.Status != VerdictHolds {
+		t.Errorf("status without a failure = %v, want holds", v.Status)
 	}
 }

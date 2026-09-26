@@ -30,6 +30,16 @@ func ToolEngineName(tool string) string { return ToolEnginePrefix + tool }
 // annotated ToolExecution, as the runtime hands it to the tool.
 type ComputeAsk struct {
 	Call *runtime.ToolCall
+	// used, when set, is told of every tool call an engine ran for the ask, answered or
+	// failed, so a run the plan drops still reaches the provenance.
+	used func(ToolUse)
+}
+
+// ran reports a tool call's use to the asker, when one listens.
+func (a *ComputeAsk) ran(use ToolUse) {
+	if a.used != nil {
+		a.used(use)
+	}
 }
 
 // toolEngine answers Compute questions for one manifest entry by running its executable
@@ -178,7 +188,8 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	failed := func(err error) (Result, error) {
 		use.Failed = err.Error()
-		return Result{}, &ToolUseError{Use: *use, Err: err}
+		q.Compute.ran(*use)
+		return Result{}, err
 	}
 	timeout := e.timeout()
 	started := time.Now()
@@ -201,6 +212,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		values = append(values, Evaluation{Name: name, Value: value})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Name < values[j].Name })
+	q.Compute.ran(*use)
 	return Result{
 		Question: q,
 		Engine:   e.Name(),
@@ -208,7 +220,6 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Strength: Observed,
 		Values:   values,
 		Reply:    wrote,
-		Tool:     use,
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil

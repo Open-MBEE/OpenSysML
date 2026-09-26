@@ -73,19 +73,6 @@ func (u ToolUse) String() string {
 	return text
 }
 
-// ToolUseError is a tool call's failure carrying what the call ran: the performance
-// fails with Err as before, and the use joins the plan's provenance.
-type ToolUseError struct {
-	Use ToolUse
-	Err error
-}
-
-// Error is the failure's own text.
-func (e *ToolUseError) Error() string { return e.Err.Error() }
-
-// Unwrap exposes the failure to errors.Is and errors.As.
-func (e *ToolUseError) Unwrap() error { return e.Err }
-
 // newToolRunner is the runner of one plan over the held model, putting each computation to
 // the registry under the plan's selection.
 func (r *Registry) newToolRunner(ctx context.Context, model *Model, budget Budget, selection Selection) *toolRunner {
@@ -108,21 +95,18 @@ func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error)
 	t.next++
 	seq := t.next
 	t.mu.Unlock()
-	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
+	ask := &ComputeAsk{Call: call, used: func(use ToolUse) { t.note(call, seq, use) }}
+	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: ask}
 	plan, err := t.registry.answer(t.ctx, t.model, q, t.budget, t.selection)
 	if err != nil {
-		t.keep(call, seq, plan, err)
 		if errors.Is(err, ErrNoEngine) {
 			return runtime.ToolAnswer{}, &runtime.ToolNotRegisteredError{Tool: call.ToolName}
 		}
 		return runtime.ToolAnswer{}, err
 	}
 	if plan.Refused() != nil {
-		err := refusalOf(plan, call.ToolName)
-		t.noteUse(call, seq, err)
-		return runtime.ToolAnswer{}, err
+		return runtime.ToolAnswer{}, refusalOf(plan, call.ToolName)
 	}
-	t.keep(call, seq, plan, nil)
 	outputs := make(map[string]runtime.Value, len(plan.Result.Values))
 	for _, v := range plan.Result.Values {
 		outputs[v.Name] = v.Value
@@ -168,49 +152,14 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 	return earlier != answer, nil
 }
 
-// keep joins the uses the plan's steps carried (each result's Tool, each fault's
-// ToolUseError) to the provenance, then err's own unless a step already carried it.
-func (t *toolRunner) keep(call *runtime.ToolCall, seq uint64, plan Plan, err error) {
+// note keeps a use an engine reported for the call, attributed to the context the call
+// was made from and to its place in call order; a run the plan dropped is kept too.
+func (t *toolRunner) note(call *runtime.ToolCall, seq uint64, use ToolUse) {
+	use.in = call.Context()
+	use.seq = seq
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	seen := map[*ToolUseError]bool{}
-	for i := range plan.Steps {
-		step := &plan.Steps[i]
-		if step.Result != nil && step.Result.Tool != nil {
-			use := *step.Result.Tool
-			use.in = call.Context()
-			use.seq = seq
-			t.uses = append(t.uses, use)
-		}
-		var useErr *ToolUseError
-		if errors.As(step.Err, &useErr) {
-			seen[useErr] = true
-		}
-		t.noteUseLocked(call, seq, step.Err)
-	}
-	var useErr *ToolUseError
-	if errors.As(err, &useErr) && seen[useErr] {
-		return
-	}
-	t.noteUseLocked(call, seq, err)
-}
-
-// noteUse keeps the call's use when a ToolUseError carried one, attributed to the
-// context the call was made from.
-func (t *toolRunner) noteUse(call *runtime.ToolCall, seq uint64, err error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.noteUseLocked(call, seq, err)
-}
-
-func (t *toolRunner) noteUseLocked(call *runtime.ToolCall, seq uint64, err error) {
-	var useErr *ToolUseError
-	if !errors.As(err, &useErr) {
-		return
-	}
-	useErr.Use.in = call.Context()
-	useErr.Use.seq = seq
-	t.uses = append(t.uses, useErr.Use)
+	t.uses = append(t.uses, use)
 }
 
 // used is every tool call the runner's runs made, in call order.

@@ -84,11 +84,10 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	}
 	// A call a condition reached ends the run with no error: read the runner.
 	if dry, ok := runner.Reached(); ok {
-		v := toolPreviewVerdict(label, dry)
-		if err != nil && !errors.Is(err, runtime.ErrToolDryRun) {
-			v.Lines = append(v.Lines, errPrefix+err.Error())
+		if errors.Is(err, runtime.ErrToolDryRun) {
+			err = nil
 		}
-		return v
+		return toolPreviewVerdict(label, dry, err)
 	}
 	return toolDryVerdict(label, err)
 }
@@ -144,7 +143,7 @@ func (s *Session) runActionToCompletion(ctx *runtime.Context, inv analysisInvoca
 func toolDryVerdict(label string, err error) Verdict {
 	var dry *analysis.ToolDryRunError
 	if errors.As(err, &dry) {
-		return toolPreviewVerdict(label, dry)
+		return toolPreviewVerdict(label, dry, nil)
 	}
 	if err != nil {
 		return unresolvedVerdict(label, err.Error())
@@ -153,10 +152,18 @@ func toolDryVerdict(label string, err error) Verdict {
 }
 
 // toolPreviewVerdict reports the preview a tool call reached: the call's spelling
-// under the dry run of the tool it names.
-func toolPreviewVerdict(label string, dry *analysis.ToolDryRunError) Verdict {
+// under the dry run of the tool it names. A failure the run ended with besides the
+// dry run leaves the verdict unresolved, the preview shown and the failure named.
+func toolPreviewVerdict(label string, dry *analysis.ToolDryRunError, failure error) Verdict {
+	status := VerdictHolds
+	if failure != nil {
+		status = VerdictUnresolved
+	}
 	lines := append([]string{fmt.Sprintf("%s %s: dry run of tool '%s' for %s",
-		statusMark(VerdictHolds), label, dry.Preview.Tool, dry.Action)},
+		statusMark(status), label, dry.Preview.Tool, dry.Action)},
 		indent(dry.Preview.Lines())...)
-	return Verdict{Subject: label, Status: VerdictHolds, Lines: lines}
+	if failure != nil {
+		lines = append(lines, errPrefix+failure.Error())
+	}
+	return Verdict{Subject: label, Status: status, Lines: lines}
 }
