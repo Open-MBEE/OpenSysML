@@ -355,18 +355,46 @@ func (w *notationWalker) kermlRelationships(rels []*ast.Relationship) {
 		return
 	}
 	for _, rel := range rels {
-		if rel == nil || rel.Kind != ast.RelFeaturedBy {
+		if rel == nil {
 			continue
 		}
-		w.diags = append(w.diags, diag.Diagnostic{
-			Severity: w.severity,
-			Span:     rel.Span(),
-			Message: "`featured by` is KerML notation: the SysML v2 grammar has no featuring clause, " +
-				"so move the declaration to a .kerml file",
-			Code:   CodeKerMLNotation,
-			Source: "syntax",
-		})
+		if rel.Kind == ast.RelFeaturedBy {
+			w.diags = append(w.diags, diag.Diagnostic{
+				Severity: w.severity,
+				Span:     rel.Span(),
+				Message: "`featured by` is KerML notation: the SysML v2 grammar has no featuring clause, " +
+					"so move the declaration to a .kerml file",
+				Code:   CodeKerMLNotation,
+				Source: "syntax",
+			})
+			continue
+		}
+		if clause, ok := kermlRelationshipClauses[rel.Kind]; ok {
+			w.diags = append(w.diags, diag.Diagnostic{
+				Severity: w.severity,
+				Span:     rel.Span(),
+				Message: fmt.Sprintf("`%s` is KerML notation: the SysML v2 grammar has no %s clause, "+
+					"so move the declaration to a .kerml file", clause.spelling, clause.name),
+				Code:   CodeKerMLNotation,
+				Source: "syntax",
+			})
+		}
 	}
+}
+
+// kermlRelationshipClauses names the FeatureRelationshipPart and
+// TypeRelationshipPart clauses KerML.xtext admits and SysML.xtext does not, so
+// a SysML file carrying one is KerML notation.
+var kermlRelationshipClauses = map[ast.RelationshipKind]struct {
+	spelling string
+	name     string
+}{
+	ast.RelDisjoint:    {"disjoint from", "disjoining"},
+	ast.RelUnions:      {"unions", "unioning"},
+	ast.RelIntersects:  {"intersects", "intersecting"},
+	ast.RelDifferences: {"differences", "differencing"},
+	ast.RelChains:      {"chains", "chaining"},
+	ast.RelInverseOf:   {"inverse of", "inverting"},
 }
 
 // kermlDeclarationKeywords are the definition and usage keywords the pinned

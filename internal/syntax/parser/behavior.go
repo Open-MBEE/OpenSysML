@@ -1183,7 +1183,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 	// The variable is a full UsageDeclaration, so it may state its type before
 	// `in` (`for n : ScalarValues::Integer in (1, 2, 3)`).
-	variableRels := p.parseRelationships(true)
+	variableRels := p.parseRelationships(declFeature)
 
 	// Expect 'in' keyword
 	if !p.acceptKeyword("in") {
@@ -2014,7 +2014,7 @@ func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) a
 	}
 
 	// A subject may redefine the one it inherits: subject subj : View[1] :>> RequirementCheck::subj;
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 
 	// Value part: `= expr`, `:= expr` or `default [=] expr`.
 	valueOp, hasValue := p.acceptValueOperator()
@@ -2195,7 +2195,7 @@ func (p *Parser) parseOwnedConstraintDecl(what string) ownedConstraintDecl {
 	if p.atName() || p.at(lexer.Lt) {
 		d.ident = p.parseIdentification()
 	}
-	d.relationships = p.parseRelationships(true)
+	d.relationships = p.parseRelationships(declFeature)
 	if p.at(lexer.LBracket) {
 		d.multiplicity = p.parseMultiplicity()
 	}
@@ -2237,13 +2237,13 @@ func (p *Parser) tryParseConstraintReference() (constraintReference, bool) {
 		p.restore(cp)
 		return constraintReference{}, false
 	}
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 	// The specialization part carries a multiplicity of its own, which may be
 	// followed by further specializations: `require c [0..*] :> d;`.
 	var mult *ast.Multiplicity
 	if p.at(lexer.LBracket) {
 		mult = p.parseMultiplicity()
-		rels = append(rels, p.parseRelationships(true)...)
+		rels = append(rels, p.parseRelationships(declFeature)...)
 	}
 	if p.at(lexer.LBrace) {
 		p.advance() // consume '{'
@@ -2607,7 +2607,7 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 			param.Ident = p.parseIdentification()
 		}
 		if p.atPayloadOperator() {
-			rels := p.parseRelationships(true)
+			rels := p.parseRelationships(declFeature)
 			param.Relationships = append(param.Relationships, rels...)
 		}
 		if p.atTriggerKeyword() {

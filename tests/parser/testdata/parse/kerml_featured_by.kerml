@@ -1,7 +1,8 @@
 // A feature declaration states the types it is a feature of with `featured by`
 // (KerML.xtext:569 TypeFeaturingPart, :659 OwnedTypeFeaturing), one target or a
 // comma-separated list of them. The clause is written after a name, after a
-// multiplicity, after a type and on a classifier declaration.
+// multiplicity and after a type; a classifier declaration admits none of it —
+// TypeFeaturingPart is a FeatureRelationshipPart, so only a feature states it.
 package FeaturedBy {
 	class Product;
 	class Account;
@@ -14,5 +15,5 @@ package FeaturedBy {
 		feature bare featured by Product;
 	}
 
-	class OnAClassifier featured by Product;
+	feature onAFeature featured by Product;
 }
