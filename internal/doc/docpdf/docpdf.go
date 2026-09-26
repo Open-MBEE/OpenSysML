@@ -64,6 +64,23 @@ type Options struct {
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty.
 	Style view.DrawingStyle
+
+	// TableColumns is the most columns one table is set with on a page: a
+	// table projecting more is split into continuation tables, each repeating
+	// the first column ahead of its share of the rest. 0 is DefaultTableColumns.
+	TableColumns int
+}
+
+// DefaultTableColumns is the widest table one landscape page sets legibly at
+// the print stylesheet's dense-table size before the column set is split.
+const DefaultTableColumns = 12
+
+// tableColumns is the split an Options states, or the default.
+func tableColumns(opts Options) int {
+	if opts.TableColumns > 0 {
+		return opts.TableColumns
+	}
+	return DefaultTableColumns
 }
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
@@ -217,6 +234,7 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 		DiagramImages:       images,
 		Math:                math.html,
 		OutputDir:           base,
+		TableColumns:        tableColumns(opts),
 	}, nil
 }
 

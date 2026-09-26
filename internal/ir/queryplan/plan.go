@@ -52,6 +52,8 @@ const (
 	// OperationExcept and OperationUnion are the ordered set operations over rows.
 	OperationExcept Operation = "except"
 	OperationUnion  Operation = "union"
+	// OperationTree arranges rows as a containment tree, each with its depth.
+	OperationTree Operation = "tree"
 )
 
 // LiteralKind classifies a literal retained in a query plan.

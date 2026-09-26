@@ -274,23 +274,24 @@ func (d *DiagramRef) Origin() symbols.Origin { return d.origin }
 // Content is one planned content node: a section, paragraph, table, list,
 // definitions, formula, diagram, or image.
 type Content struct {
-	kind        ContentKind
-	name        string
-	title       string
-	text        string
-	source      string
-	caption     string
-	alt         string
-	style       ListStyle
-	groupBy     string
-	term        string
-	description string
-	runs        []Run
-	columnRuns  []ColumnRun
-	query       *QueryRef
-	diagram     *DiagramRef
-	children    []Content
-	origin      symbols.Origin
+	kind         ContentKind
+	name         string
+	title        string
+	text         string
+	source       string
+	caption      string
+	alt          string
+	style        ListStyle
+	groupBy      string
+	columnWidths []int
+	term         string
+	description  string
+	runs         []Run
+	columnRuns   []ColumnRun
+	query        *QueryRef
+	diagram      *DiagramRef
+	children     []Content
+	origin       symbols.Origin
 }
 
 // Kind returns the classification of the node.
@@ -325,6 +326,10 @@ func (c Content) Style() ListStyle { return c.style }
 // when ungrouped.
 func (c Content) GroupBy() string { return c.groupBy }
 
+// ColumnWidths returns the stated widths of a table's columns in projection
+// order, one per column stated; 0 sizes a column automatically.
+func (c Content) ColumnWidths() []int { return append([]int(nil), c.columnWidths...) }
+
 // Term returns the projected column naming each entry of a definitions node.
 func (c Content) Term() string { return c.term }
 
@@ -355,23 +360,24 @@ func cloneContent(content []Content) []Content {
 	out := make([]Content, len(content))
 	for i, child := range content {
 		out[i] = Content{
-			kind:        child.kind,
-			name:        child.name,
-			title:       child.title,
-			text:        child.text,
-			source:      child.source,
-			caption:     child.caption,
-			alt:         child.alt,
-			style:       child.style,
-			groupBy:     child.groupBy,
-			term:        child.term,
-			description: child.description,
-			runs:        cloneRuns(child.runs),
-			columnRuns:  append([]ColumnRun(nil), child.columnRuns...),
-			query:       child.query,
-			diagram:     child.diagram,
-			children:    cloneContent(child.children),
-			origin:      child.origin,
+			kind:         child.kind,
+			name:         child.name,
+			title:        child.title,
+			text:         child.text,
+			source:       child.source,
+			caption:      child.caption,
+			alt:          child.alt,
+			style:        child.style,
+			groupBy:      child.groupBy,
+			columnWidths: append([]int(nil), child.columnWidths...),
+			term:         child.term,
+			description:  child.description,
+			runs:         cloneRuns(child.runs),
+			columnRuns:   append([]ColumnRun(nil), child.columnRuns...),
+			query:        child.query,
+			diagram:      child.diagram,
+			children:     cloneContent(child.children),
+			origin:       child.origin,
 		}
 	}
 	return out

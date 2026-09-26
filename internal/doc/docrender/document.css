@@ -23,6 +23,7 @@
     --sysml-caption-font-size: 0.9em;
     --sysml-border-width: 1px;
     --sysml-table-width: 100%;
+    --sysml-row-indent: 1.25em;
     --sysml-title-page-height: 60vh;
     --sysml-group-heading-weight: 600;
     --sysml-term-weight: 600;
@@ -91,6 +92,18 @@
 
   .sysml-document .sysml-table thead th {
     background: var(--sysml-surface);
+  }
+
+  /* A sized table lays its columns out at the shares its <col> widths state. */
+  .sysml-document .sysml-table-sized {
+    table-layout: fixed;
+  }
+
+  /* A nested row's first cell is indented one --sysml-row-indent per level of
+     the --sysml-depth the row states. */
+  .sysml-document .sysml-indent {
+    display: inline-block;
+    width: calc(var(--sysml-depth, 0) * var(--sysml-row-indent));
   }
 
   .sysml-document .sysml-group-heading th {

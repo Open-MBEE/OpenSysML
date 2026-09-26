@@ -465,6 +465,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	type sortable struct {
 		value Value
 		cells []Cell
+		depth int64
 		key   Value
 		set   bool
 	}
@@ -479,6 +480,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		}
 		known = known || present
 		items[i].value = value
+		items[i].depth = source.depthAt(i)
 		if i < len(source.cells) {
 			items[i].cells = cloneCells(source.cells[i])
 		}
@@ -540,9 +542,15 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		return sequence{}, e.invalidOrder(expression, property, sortKeys[0], sortKeys[1])
 	}
 	result := sequence{columns: append([]Column(nil), source.columns...)}
+	if len(source.depths) > 0 {
+		result.depths = make([]int64, 0, len(items))
+	}
 	for _, item := range items {
 		result.values = append(result.values, item.value)
 		result.cells = append(result.cells, item.cells)
+		if result.depths != nil {
+			result.depths = append(result.depths, item.depth)
+		}
 	}
 	return result, nil
 }
@@ -616,6 +624,7 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 		values:  append([]Value(nil), source.values...),
 		columns: make([]Column, total),
 		cells:   make([][]Cell, len(source.values)),
+		depths:  append([]int64(nil), source.depths...),
 	}
 	known := make([]bool, len(properties))
 	for i, property := range properties {
@@ -1068,6 +1077,9 @@ func appendSelected(result *sequence, source sequence, index int) {
 	result.values = append(result.values, source.values[index])
 	if index < len(source.cells) {
 		result.cells = append(result.cells, cloneCells(source.cells[index]))
+	}
+	if len(source.depths) > 0 {
+		result.depths = append(result.depths, source.depthAt(index))
 	}
 }
 

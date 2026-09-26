@@ -423,9 +423,11 @@ func TestPrintStylesheetContract(t *testing.T) {
 }
 
 // TestPrintStylesheetKeepsTablesWithinThePage checks the page handed to the
-// engines sizes a table to the text width and wraps a cell's long unbreakable
-// tokens, so a list of qualified names cannot push columns off the page, and
-// keeps each row, but not a whole table, on one page.
+// engines sizes a table to the text width, wraps a cell at word boundaries and
+// breaks only a token that fits no line, so a list of qualified names cannot
+// push columns off the page while the columns keep their word widths, repeats
+// the header on every page, and keeps each row, but not a whole table, on one
+// page.
 func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
@@ -434,7 +436,8 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	for _, want := range []string{
 		"--sysml-table-width: 100%;",
 		"width: var(--sysml-table-width);",
-		".sysml-document .sysml-table th,\n  .sysml-document .sysml-table td {\n    overflow-wrap: anywhere;",
+		".sysml-document .sysml-table th,\n  .sysml-document .sysml-table td {\n    overflow-wrap: break-word;",
+		".sysml-document .sysml-table thead {\n    display: table-header-group;",
 		".sysml-document .sysml-table tr,",
 	} {
 		if !strings.Contains(page, want) {
@@ -454,7 +457,8 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 
 // TestPrintStylesheetSetsWideTablesLandscape checks the page handed to the
 // engines sets a table of seven or more columns on a landscape page with the
-// heading and lead-in paragraph ahead of it, keeps a header's words whole, and
+// heading and lead-in paragraph ahead of it, at a fixed layout whose first
+// column keeps a readable width, steps the type down once more at eleven, and
 // keeps a heading's and lead-in's keep-with-next apart from any :has() rule.
 func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
@@ -466,11 +470,14 @@ func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 		"@page wide {\n    size: var(--sysml-page-size) landscape;",
 		"page: main;",
 		"--sysml-wide-table-font-size: 9pt;",
-		".sysml-document " + wide + " {\n    page: wide;\n    font-size: var(--sysml-wide-table-font-size);",
+		"--sysml-dense-table-font-size: 8pt;",
+		"--sysml-wide-table-layout: fixed;",
+		".sysml-document " + wide + " {\n    page: wide;\n    font-size: var(--sysml-wide-table-font-size);\n    table-layout: var(--sysml-wide-table-layout);\n    width: var(--sysml-table-width);",
+		".sysml-document " + wide + " thead > tr > th:first-child {\n    width: var(--sysml-first-column-width);",
+		".sysml-document .sysml-table:has(thead > tr > th:nth-child(11)) {\n    font-size: var(--sysml-dense-table-font-size);",
 		".sysml-document p:has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ " + wide + ")) {\n    page: wide;",
-		".sysml-document .sysml-table th {\n    overflow-wrap: normal;",
 		".sysml-document h6 {\n    font-family: var(--sysml-font-heading);\n    line-height: 1.2;\n    break-after: avoid;",
 		".sysml-document p:has(+ .sysml-table) {\n    break-after: avoid;",
 	} {

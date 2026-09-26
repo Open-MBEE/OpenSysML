@@ -42,6 +42,7 @@ var builtins = map[string]builtin{
 	"DocumentQueries::WhereRelated":    {OperationWhereRelated},
 	"DocumentQueries::Except":          {OperationExcept},
 	"DocumentQueries::Union":           {OperationUnion},
+	"DocumentQueries::Tree":            {OperationTree},
 }
 
 // typedExpression pairs a compiled expression with what planning knows of its

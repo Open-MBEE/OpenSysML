@@ -517,6 +517,17 @@ func (e *evaluator) rowTarget(node docplan.Content, template docplan.ColumnRun, 
 	return target, nil
 }
 
+// widenColumns states the table's declared widths on the projected columns by
+// position; columns beyond the stated widths stay automatic.
+func widenColumns(columns []queryexec.Column, widths []int) []queryexec.Column {
+	for i := range columns {
+		if i < len(widths) {
+			columns[i] = columns[i].WithWidth(widths[i])
+		}
+	}
+	return columns
+}
+
 func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 	result, err := e.executeQuery(node)
 	if err != nil {
@@ -527,7 +538,7 @@ func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 		name:        node.Name(),
 		caption:     node.Caption(),
 		groupBy:     node.GroupBy(),
-		columns:     result.Columns(),
+		columns:     widenColumns(result.Columns(), node.ColumnWidths()),
 		rows:        result.Rows(),
 		query:       node.Query().Entry(),
 		queryOrigin: result.Origin(),

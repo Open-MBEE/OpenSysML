@@ -1069,3 +1069,65 @@ func TestRenderNumberedCaptionsWithInstalledEngines(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderTwentyColumnTableWithInstalledEngines renders a sized
+// twenty-column table of thirty rows through each installed converter and
+// reads back the wide-table policy: the column set split into continuation
+// tables of at most DefaultTableColumns, every one on landscape pages that
+// each repeat the header and the row-naming first column, the row names set
+// whole, and no page left to a fragment of a row or two.
+func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
+	const rows = 24
+	document := wideResultsDocument(t, rows)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{NumberFigures: true})
+			orientations := pageOrientations(t, pdf)
+			pages := strings.Split(strings.TrimRight(text, "\f\n"), "\f")
+			if len(pages) != len(orientations) {
+				t.Fatalf("pdftotext reads %d pages, /MediaBox %d", len(pages), len(orientations))
+			}
+			if len(pages) > 5 {
+				t.Fatalf("%d pages for %d rows over two continuation tables:\n%s", len(pages), rows, text)
+			}
+			landscape, continued := 0, 0
+			for i, page := range pages {
+				names := strings.Count(page, "Alignment Scenario")
+				if names == 0 {
+					continue
+				}
+				if orientations[i] != "landscape" {
+					t.Errorf("page %d holds table rows in %s", i+1, orientations[i])
+				}
+				landscape++
+				if names < 3 {
+					t.Errorf("page %d holds a fragment of %d rows", i+1, names)
+				}
+				if head := page[:strings.Index(page, "Alignment Scenario")]; !strings.Contains(head, "name") {
+					t.Errorf("page %d repeats no header ahead of its rows:\n%s", i+1, page)
+				}
+				if strings.Contains(page, "(continued)") {
+					continued++
+				}
+				if strings.Contains(page, "tAcquisition") && !strings.Contains(page, "(continued)") {
+					t.Errorf("page %d sets the last column in the first table:\n%s", i+1, page)
+				}
+				if strings.Contains(page, "postSegXchgTimeLimit") && strings.Contains(page, "(continued)") {
+					t.Errorf("page %d sets the first value column in a continuation table:\n%s", i+1, page)
+				}
+			}
+			if landscape < 2 || continued == 0 {
+				t.Fatalf("%d landscape table pages, %d continued; want the second table on its own pages:\n%s", landscape, continued, text)
+			}
+			if n := strings.Count(text, "Alignment Scenario 24"); n != 2 {
+				t.Errorf("the last row's name is set %d times, want once per table:\n%s", n, text)
+			}
+			if n := strings.Count(text, "Alignment timing results"); n != 2 {
+				t.Errorf("the caption is set %d times, want once per table:\n%s", n, text)
+			}
+			if !strings.Contains(text, "Table 1. Alignment timing results (continued)") {
+				t.Errorf("the continuation keeps no caption number:\n%s", text)
+			}
+		})
+	}
+}

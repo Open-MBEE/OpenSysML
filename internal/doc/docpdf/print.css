@@ -43,6 +43,9 @@
     --sysml-subsubheading-font-size: 13pt;
     --sysml-diagram-font-size: 9pt;
     --sysml-wide-table-font-size: 9pt;
+    --sysml-dense-table-font-size: 8pt;
+    --sysml-wide-table-layout: fixed;
+    --sysml-first-column-width: 22%;
     --sysml-image-width: 100%;
     --sysml-image-height: 85vh;
     --sysml-notice-font-style: italic;
@@ -97,15 +100,17 @@
     page-break-inside: avoid;
   }
 
-  /* A cell holding long unbreakable tokens wraps rather than pushing the
-     rightmost columns past the page edge; a header keeps its words whole. */
+  /* A cell wraps at word boundaries and breaks only a token that fits no line
+     on its own; a wide table's fixed layout keeps its columns at their widths
+     rather than letting a long token widen one past the page edge. */
   .sysml-document .sysml-table th,
   .sysml-document .sysml-table td {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
-  .sysml-document .sysml-table th {
-    overflow-wrap: normal;
+  /* The header repeats on every page a table continues onto. */
+  .sysml-document .sysml-table thead {
+    display: table-header-group;
   }
 
   /* The paragraph leading into a table stays on the table's page, as a
@@ -124,6 +129,20 @@
   .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) {
     page: wide;
     font-size: var(--sysml-wide-table-font-size);
+    table-layout: var(--sysml-wide-table-layout);
+    width: var(--sysml-table-width);
+  }
+
+  /* A wide table's first column, naming each row, keeps a readable width
+     however many columns follow; a sized table's <col> shares take precedence. */
+  .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) thead > tr > th:first-child {
+    width: var(--sysml-first-column-width);
+  }
+
+  /* Eleven or more columns step the type down once more before the backend
+     splits the column set into continuation tables. */
+  .sysml-document .sysml-table:has(thead > tr > th:nth-child(11)) {
+    font-size: var(--sysml-dense-table-font-size);
   }
 
   .sysml-document p:has(+ .sysml-table:has(thead > tr > th:nth-child(7))),

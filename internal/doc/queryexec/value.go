@@ -199,10 +199,22 @@ type Bindings map[string][]Value
 type Column struct {
 	name   string
 	origin symbols.Origin
+	width  int
 }
 
 // Name returns the projected property name.
 func (c Column) Name() string { return c.name }
+
+// Width is the column's stated width in source units relative to the other
+// columns of its table, 0 when the column is sized automatically.
+func (c Column) Width() int { return c.width }
+
+// WithWidth returns the column with a stated width; a width of 0 sizes it
+// automatically.
+func (c Column) WithWidth(width int) Column {
+	c.width = width
+	return c
+}
 
 // Origin returns the query expression that projected the column.
 func (c Column) Origin() symbols.Origin { return c.origin }
@@ -242,12 +254,18 @@ func (v Value) isRow() bool {
 type Row struct {
 	element Value
 	cells   []Cell
+	depth   int64
 }
 
 // Element returns the selected value: a model element, a runtime object when
 // the query ran over a session's objects, a verdict about one, a state one is
 // in, or an event of the session's trace.
 func (r Row) Element() Value { return r.element }
+
+// Depth is the row's nesting under the rows above it: 0 for a top-level row,
+// one more for each row it nests under when the query arranged its rows as a
+// tree (`Tree`); otherwise every row is at depth 0.
+func (r Row) Depth() int64 { return r.depth }
 
 // Cells returns an independent copy of the row's projected cells.
 func (r Row) Cells() []Cell {
@@ -283,7 +301,7 @@ func (r *RowSet) Rows() []Row {
 	}
 	out := make([]Row, len(r.rows))
 	for i, row := range r.rows {
-		out[i] = Row{element: row.element, cells: row.Cells()}
+		out[i] = Row{element: row.element, cells: row.Cells(), depth: row.depth}
 	}
 	return out
 }

@@ -221,12 +221,22 @@ func renderTable(node docir.Content, caption string) []string {
 // pipeTable writes one pipe table: header, delimiter, and one line per row.
 func pipeTable(names []string, rows []queryexec.Row, columns int) string {
 	var b strings.Builder
-	writeTableRow(&b, names)
+	writeTableRow(&b, names, 0)
 	b.WriteString("|" + strings.Repeat(" --- |", len(names)) + "\n")
 	for _, row := range rows {
-		writeTableRow(&b, tableCells(row, columns))
+		writeTableRow(&b, tableCells(row, columns), row.Depth())
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// nestingMarker opens the first cell of a row nested depth levels deep: a
+// pipe table carries no row structure, so the depth is written as an indent
+// of non-breaking spaces ending in an arrow.
+func nestingMarker(depth int64) string {
+	if depth <= 0 {
+		return ""
+	}
+	return strings.Repeat("&nbsp;&nbsp;&nbsp;&nbsp;", int(depth)-1) + "↳ "
 }
 
 // diagramFigure is the blocks of one diagram: its caption, then a table-kind
@@ -334,10 +344,13 @@ func cellText(cell queryexec.Cell) string {
 	return strings.Join(parts, ", ")
 }
 
-func writeTableRow(b *strings.Builder, cells []string) {
+func writeTableRow(b *strings.Builder, cells []string, depth int64) {
 	escaped := make([]string, len(cells))
 	for i, cell := range cells {
 		escaped[i] = tableCell(cell)
+	}
+	if len(escaped) > 0 {
+		escaped[0] = nestingMarker(depth) + escaped[0]
 	}
 	b.WriteString("| " + strings.Join(escaped, " | ") + " |\n")
 }

@@ -65,10 +65,22 @@ const (
 	defaultInvocationBudget = 10_000
 )
 
+// sequence is an intermediate row sequence: the row values, the columns a
+// projection gave them and their cells, and the nesting depth Tree assigned
+// each row (nil when no row nests).
 type sequence struct {
 	values  []Value
 	columns []Column
 	cells   [][]Cell
+	depths  []int64
+}
+
+// depthAt is the nesting depth of row index; 0 when none was assigned.
+func (s sequence) depthAt(index int) int64 {
+	if index < len(s.depths) {
+		return s.depths[index]
+	}
+	return 0
 }
 
 type visitBudget struct {
@@ -154,7 +166,7 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		if i < len(result.cells) {
 			cells = cloneCells(result.cells[i])
 		}
-		rows[i] = Row{element: value, cells: cells}
+		rows[i] = Row{element: value, cells: cells, depth: result.depthAt(i)}
 	}
 	return &RowSet{
 		columns: append([]Column(nil), result.columns...),
@@ -420,6 +432,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateInState(expression)
 	case queryplan.OperationEvents:
 		return e.evaluateEvents(expression)
+	case queryplan.OperationTree:
+		return e.evaluateTree(expression)
 	default:
 		return sequence{}, &Error{
 			Kind:      ErrorUnsupportedOperation,
@@ -764,6 +778,7 @@ func cloneSequence(input sequence) sequence {
 		values:  append([]Value(nil), input.values...),
 		columns: append([]Column(nil), input.columns...),
 		cells:   make([][]Cell, len(input.cells)),
+		depths:  append([]int64(nil), input.depths...),
 	}
 	for i := range input.cells {
 		result.cells[i] = cloneCells(input.cells[i])

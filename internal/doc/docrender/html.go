@@ -218,6 +218,11 @@ type HTMLOptions struct {
 	// OutputDir is the directory the page is written into, when known, so an
 	// image's source-relative location is written relative to it; empty writes it as stated.
 	OutputDir string
+
+	// TableColumns is the most columns one table is written with: a table
+	// projecting more is written as continuation tables, each repeating the
+	// first column ahead of its share of the rest. 0 writes every table whole.
+	TableColumns int
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -534,19 +539,82 @@ func (w *htmlWriter) writeSection(node docir.Content, path []step, id string, le
 // single "element" column, and a grouped table one <tbody> per group.
 func (w *htmlWriter) writeTable(node docir.Content, id string) {
 	columns := node.Columns()
-	names := make([]string, 0, len(columns))
-	for _, column := range columns {
-		names = append(names, column.Name())
+	c := w.captions.caption(node)
+	parts := tableParts(len(columns), w.opts.TableColumns)
+	for i, part := range parts {
+		partID, partCaption := id, c
+		if i > 0 {
+			if id != "" {
+				partID = id + "-" + strconv.Itoa(i+1)
+			}
+			partCaption.text = strings.TrimSpace(c.text + " " + continuedSuffix)
+		}
+		w.writeTablePart(node, partID, partCaption, columns, part, i > 0)
+	}
+}
+
+// continuedSuffix marks the caption of a continuation table.
+const continuedSuffix = "(continued)"
+
+// tableParts splits the indexes of a table's columns into the column sets its
+// parts are written with: one part holding every column when at most limit
+// (or when limit is 0), otherwise parts of the first column followed by
+// consecutive slices of the rest, each part of at most limit columns.
+func tableParts(columns, limit int) [][]int {
+	all := make([]int, columns)
+	for i := range all {
+		all[i] = i
+	}
+	if limit <= 1 || columns <= limit {
+		return [][]int{all}
+	}
+	var parts [][]int
+	for start := 1; start < columns; start += limit - 1 {
+		end := start + limit - 1
+		if end > columns {
+			end = columns
+		}
+		part := append([]int{0}, all[start:end]...)
+		parts = append(parts, part)
+	}
+	return parts
+}
+
+// writeTablePart writes one table over the columns at the given indexes: its
+// caption, the column group when a column states a width, the header, and the
+// rows — grouped when the table groups.
+func (w *htmlWriter) writeTablePart(
+	node docir.Content,
+	id string,
+	c caption,
+	columns []queryexec.Column,
+	indexes []int,
+	continued bool,
+) {
+	names := make([]string, 0, len(indexes))
+	part := make([]queryexec.Column, 0, len(indexes))
+	for _, i := range indexes {
+		names = append(names, columns[i].Name())
+		part = append(part, columns[i])
 	}
 	if len(names) == 0 {
 		names = []string{elementColumn}
 	}
-	w.b.WriteString("<table class=\"sysml-table\"" + attr("id", id) + " data-content=\"table\"" +
+	class := "sysml-table"
+	if continued {
+		class += " sysml-table-continued"
+	}
+	shares := columnShares(part)
+	if shares != nil {
+		class += " sysml-table-sized"
+	}
+	w.b.WriteString("<table" + attr("class", class) + attr("id", id) + " data-content=\"table\"" +
 		attr(attrName, node.Name()) + attr(attrQuery, node.Query()) +
 		attr("data-group-by", node.GroupBy()) + ">\n")
-	if c := w.captions.caption(node); c.String() != "" {
+	if c.String() != "" {
 		w.b.WriteString("<caption class=\"sysml-caption\">" + captionMarkup(c) + "</caption>\n")
 	}
+	w.writeColumnGroup(part, shares)
 	w.writeTableHead(names)
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
@@ -556,15 +624,78 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 				attr("colspan", strconv.Itoa(len(names))) + ">" +
 				"<span class=\"sysml-group-column\">" + htmlText(node.GroupBy()) + "</span>: " +
 				"<span class=\"sysml-group-key\">" + htmlText(group.Key()) + "</span></th></tr>\n")
-			w.writeRows(group.Rows(), names, len(columns))
+			w.writeRows(group.Rows(), names, indexes, len(columns))
 			w.b.WriteString("</tbody>\n")
 		}
 		w.b.WriteString("</table>\n")
 		return
 	}
 	w.b.WriteString("<tbody>\n")
-	w.writeRows(node.Rows(), names, len(columns))
+	w.writeRows(node.Rows(), names, indexes, len(columns))
 	w.b.WriteString("</tbody>\n</table>\n")
+}
+
+// firstColumnMinShare is the least share of a sized table's width its first
+// column takes, so the column naming each row stays readable however narrow
+// its stated width is beside many value columns.
+const firstColumnMinShare = 0.18
+
+// columnShares is the share of the table's width each column takes from the
+// stated widths: proportional to them, an automatic column counting as the
+// mean stated width, the first column at least firstColumnMinShare. Nil when
+// no column states a width.
+func columnShares(columns []queryexec.Column) []float64 {
+	total, stated := 0, 0
+	for _, column := range columns {
+		if column.Width() > 0 {
+			total += column.Width()
+			stated++
+		}
+	}
+	if stated == 0 {
+		return nil
+	}
+	mean := float64(total) / float64(stated)
+	widths := make([]float64, len(columns))
+	sum := 0.0
+	for i, column := range columns {
+		widths[i] = mean
+		if column.Width() > 0 {
+			widths[i] = float64(column.Width())
+		}
+		sum += widths[i]
+	}
+	shares := make([]float64, len(columns))
+	for i, width := range widths {
+		shares[i] = width / sum
+	}
+	if len(shares) > 1 && shares[0] < firstColumnMinShare {
+		scale := (1 - firstColumnMinShare) / (1 - shares[0])
+		for i := 1; i < len(shares); i++ {
+			shares[i] *= scale
+		}
+		shares[0] = firstColumnMinShare
+	}
+	return shares
+}
+
+// writeColumnGroup writes one <col> per column of a sized table, its stated
+// width as data and its share of the table's width as style, so a fixed
+// layout honours the source's proportions.
+func (w *htmlWriter) writeColumnGroup(columns []queryexec.Column, shares []float64) {
+	if shares == nil {
+		return
+	}
+	w.b.WriteString("<colgroup>\n")
+	for i, column := range columns {
+		width := ""
+		if column.Width() > 0 {
+			width = strconv.Itoa(column.Width())
+		}
+		w.b.WriteString("<col" + attr("data-width", width) +
+			attr("style", "width: "+strconv.FormatFloat(shares[i]*100, 'f', 1, 64)+"%") + ">\n")
+	}
+	w.b.WriteString("</colgroup>\n")
 }
 
 func (w *htmlWriter) writeTableHead(names []string) {
@@ -577,32 +708,50 @@ func (w *htmlWriter) writeTableHead(names []string) {
 
 // writeRows writes one row per query row, each carrying the element it selected
 // and its kind. A row of a table without projected columns is its element alone.
-func (w *htmlWriter) writeRows(rows []queryexec.Row, names []string, columns int) {
+func (w *htmlWriter) writeRows(rows []queryexec.Row, names []string, indexes []int, columns int) {
 	for _, row := range rows {
-		w.b.WriteString("<tr class=\"sysml-row\"" + elementAttrs(row.Element()) + ">\n")
+		w.b.WriteString("<tr class=\"sysml-row\"" + elementAttrs(row.Element()) + depthAttrs(row.Depth()) + ">\n")
 		if columns == 0 {
-			w.writeCell([]queryexec.Value{row.Element()}, elementColumn)
+			w.writeCell([]queryexec.Value{row.Element()}, elementColumn, row.Depth())
 			w.b.WriteString(rowEnd)
 			continue
 		}
 		cells := row.Cells()
-		for i := 0; i < columns; i++ {
+		for n, i := range indexes {
 			var values []queryexec.Value
 			if i < len(cells) {
 				values = cells[i].Values()
 			}
-			w.writeCell(values, names[i])
+			depth := int64(0)
+			if n == 0 {
+				depth = row.Depth()
+			}
+			w.writeCell(values, names[n], depth)
 		}
 		w.b.WriteString(rowEnd)
 	}
 }
 
-// writeCell writes one projected cell: every value individually addressable,
+// depthAttrs states a nested row's depth: as data, and as the --sysml-depth
+// property the stylesheet indents the row's first cell by.
+func depthAttrs(depth int64) string {
+	if depth <= 0 {
+		return ""
+	}
+	text := strconv.FormatInt(depth, 10)
+	return attr("data-depth", text) + attr("style", "--sysml-depth: "+text)
+}
+
+// writeCell writes one projected cell, a nested row's first opening with the
+// indent its depth sets: every value individually addressable,
 // with the punctuation joining them an element of its own so a theme can hide
 // or replace it.
-func (w *htmlWriter) writeCell(values []queryexec.Value, column string) {
+func (w *htmlWriter) writeCell(values []queryexec.Value, column string, depth int64) {
 	w.b.WriteString("<td class=\"sysml-cell\"" + attr(attrColumn, column) +
 		attr("data-value-kind", sharedValueKind(values)) + ">")
+	if depth > 0 {
+		w.b.WriteString("<span class=\"sysml-indent\"></span>")
+	}
 	for i, value := range values {
 		if i > 0 {
 			w.b.WriteString("<span class=\"sysml-separator\">, </span>")
