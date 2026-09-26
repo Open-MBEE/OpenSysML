@@ -5,14 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/gobuild"
 )
 
 // expectedValue is the fixture encoding of a pb.Value: the oneof field name
@@ -53,8 +57,15 @@ type conformanceCase struct {
 	ContextSymbolID string `json:"context_symbol_id,omitempty"`
 	SubjectSymbolID string `json:"subject_symbol_id,omitempty"`
 
-	// GetSymbol, Instantiate, ExecuteAction, ExecuteState
+	// EvaluateCalc: positional arguments bound to the calc's parameters.
+	Arguments []expectedValue `json:"arguments,omitempty"`
+
+	// GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc
 	SymbolID string `json:"symbol_id,omitempty"`
+
+	// Tools names stand-ins under internal/exec/analysis/testdata registered
+	// from a manifest written before the service is built.
+	Tools []string `json:"tools,omitempty"`
 
 	// ExecuteAction
 	Inputs map[string]expectedValue `json:"inputs,omitempty"`
@@ -152,6 +163,10 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		t.Fatalf("read model: %v", err)
 	}
 
+	if len(tc.Tools) > 0 {
+		t.Setenv(analysis.ToolsEnv, conformanceToolManifest(t, tc.Tools))
+	}
+
 	srv, err := grpc.NewService(4, "test")
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
@@ -186,6 +201,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runApplyEditsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "RunDocumentQuery":
 		runRunDocumentQueryCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "EvaluateCalc":
+		runEvaluateCalcCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -267,6 +284,105 @@ func runEvaluateCase(t *testing.T, srv *grpc.Service, ctx context.Context, model
 	if tc.ExpectedResult != nil {
 		checkValue(t, "result", *tc.ExpectedResult, resp.Result)
 	}
+}
+
+// runEvaluateCalcCase invokes a calc through the service, as %calc does at the
+// prompt: positional arguments bound, the result and the outputs a usage
+// computes compared against the fixture.
+func runEvaluateCalcCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+
+	args := make([]*pb.Value, 0, len(tc.Arguments))
+	for _, arg := range tc.Arguments {
+		args = append(args, toProtoValue(t, arg))
+	}
+
+	resp, err := srv.EvaluateCalc(ctx, &pb.EvaluateCalcRequest{
+		ModelHash: modelHash,
+		SymbolId:  tc.SymbolID,
+		Arguments: args,
+	})
+	if err != nil {
+		t.Fatalf("EvaluateCalc: %v", err)
+	}
+	if checkExpectedError(t, tc, resp.Error) {
+		return
+	}
+	if tc.ExpectedResult != nil {
+		checkValue(t, "result", *tc.ExpectedResult, resp.Result)
+	}
+	if tc.ExpectedOutputs != nil {
+		got := make(map[string]*pb.Value, len(resp.Outputs))
+		for _, out := range resp.Outputs {
+			got[out.GetName()] = out.GetValue()
+		}
+		for name, want := range tc.ExpectedOutputs {
+			value, ok := got[name]
+			if !ok {
+				t.Errorf("missing output %q", name)
+				continue
+			}
+			checkValue(t, "output "+name, want, value)
+		}
+	}
+}
+
+// conformanceToolManifest builds each stand-in the fixture names and writes a
+// manifest registering it under the tool name the models use.
+func conformanceToolManifest(t *testing.T, tools []string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, tool := range tools {
+		spec, ok := conformanceTools[tool]
+		if !ok {
+			t.Fatalf("unknown tool stand-in %q", tool)
+		}
+		entry := `{"kind":"tool","toolName":` + strconv.Quote(spec.toolName) + `,` +
+			`"executable":` + strconv.Quote(conformanceToolBinary(t, tool)) + `,` +
+			`"variables":[` + strings.Join(spec.variables, `,`) + `]}`
+		if err := os.WriteFile(filepath.Join(dir, spec.toolName+".json"), []byte(entry), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+// conformanceTools names the stand-ins a fixture can register: the toolName
+// their ToolExecution names and the variables the manifest accepts.
+var conformanceTools = map[string]struct {
+	toolName  string
+	variables []string
+}{
+	"toolcalc": {"Thermo", []string{`"mass"`, `"power"`, `"warn"`, `"Tmax"`}},
+}
+
+var conformanceToolBuilds sync.Map // name -> string path or error
+
+// conformanceToolBinary builds a stand-in once per test binary.
+func conformanceToolBinary(t *testing.T, name string) string {
+	t.Helper()
+	if built, ok := conformanceToolBuilds.Load(name); ok {
+		switch v := built.(type) {
+		case string:
+			return v
+		case error:
+			t.Fatalf("building the %s stand-in: %v", name, v)
+		}
+	}
+	dir, err := os.MkdirTemp("", "conformance-tool")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, name)
+	build := exec.Command("go", gobuild.Args(path)...)
+	build.Dir = filepath.Join("..", "..", "internal", "exec", "analysis", "testdata", name)
+	if out, err := build.CombinedOutput(); err != nil {
+		err = fmt.Errorf("go build: %v\n%s", err, out)
+		conformanceToolBuilds.Store(name, err)
+		t.Fatalf("building the %s stand-in: %v", name, err)
+	}
+	conformanceToolBuilds.Store(name, path)
+	return path
 }
 
 // runGetSymbolCase pins the static facts a symbol is reported with, and is how

@@ -25,7 +25,13 @@ type verificationKey struct {
 
 func (d *derivedValues) get(context Context) *runtime.DeclaredReader {
 	if d.reader == nil {
-		d.reader = runtime.NewDeclaredReader(context.Model, context.Resolver)
+		// Over a held runtime, derived features calling a tool-computed calc
+		// answer through the same runner the query's context drives.
+		if context.Runtime != nil {
+			d.reader = runtime.NewDeclaredReaderIn(context.Runtime)
+		} else {
+			d.reader = runtime.NewDeclaredReader(context.Model, context.Resolver)
+		}
 	}
 	return d.reader
 }

@@ -66,7 +66,11 @@ Nothing else in the toolchain reads these variables, and the concrete evaluator 
 
 An action of an analysis case carrying the `AnalysisTooling::ToolExecution` metadata (its
 `toolName` and `uri`), with `ToolVariable` on the parameters the tool knows by other names, is
-performed by that tool rather than by its body. The tools a `sysml` or `sysml-grpc` process may
+performed by that tool rather than by its body. A `calc def` or calc usage carrying the same
+metadata is computed the same way — its `in` parameters go to the tool, its result parameter
+and `out` parameters are bound from the reply, and its body is never evaluated — wherever a
+calc is invoked: `sysml -calc`, `%calc`, `EvaluateCalc`, a derived attribute (`attribute x =
+toolCalc(a, b)`) and the formulas a rendered document evaluates. The tools a `sysml` or `sysml-grpc` process may
 run are the entries of the directory `OPENSYSML_TOOLS` names, read once at startup; each
 becomes an engine `tool:<toolName>` that `-engines`, `%engines` and `ListEngines` list with its
 status, and a manifest that cannot be read is reported at startup, as a bad run bound is.
@@ -274,6 +278,15 @@ performing it; no default value is ever invented, and nothing falls back to the 
 The body is never run when the metadata is present: with `OPENSYSML_TOOLS` unset or the tool
 absent from it, the performance fails with `tool 'ModelCenter' is not registered; set
 OPENSYSML_TOOLS`.
+
+A calc computed by a tool follows the same exchange: `inputs` are the `in` and `inout`
+parameters carrying `ToolVariable`, `outputs` the `out` and `inout` parameters carrying it,
+together with the result parameter — keyed by its `ToolVariable` name when it carries one, else
+its declared name, else `result`. The result a `calc def` invocation returns is the value bound
+under that key; a calc usage invoked without arguments reports every output it names. The same
+typed errors, the same refusal to run the body and the same divergence reporting apply — the
+calculation fails as the tool failed, and no value is invented for an output the tool did not
+answer.
 
 A tool's answer stands as the value of that performance at strength *observed*: nothing in
 OpenSysML knows what the tool should have computed. Two invocations with equal inputs answering

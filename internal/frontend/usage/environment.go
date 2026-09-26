@@ -51,7 +51,7 @@ const BudgetScopeNote = "A budget bounds one run — one evaluation, one " +
 // performs actions annotated ToolExecution reads.
 func ToolEnvironment() []Item {
 	return []Item{
-		{"OPENSYSML_TOOLS", "Directory of the tool manifest: one JSON file per external tool (toolName, version, executable, variables), each registered as the engine tool:<name> that performs actions annotated ToolExecution with that toolName. Unset registers no tool, and such an action is refused."},
-		{"OPENSYSML_TOOL_TIMEOUT", "How long one tool invocation may take, as a Go duration. Default 10s, after which the performance fails."},
+		{"OPENSYSML_TOOLS", "Directory of the tool manifest: one JSON file per external tool (toolName, version, executable, variables), each registered as the engine tool:<name> that runs actions and calcs annotated ToolExecution with that toolName. Unset registers no tool, and such an action or calc is refused."},
+		{"OPENSYSML_TOOL_TIMEOUT", "How long one tool invocation may take, as a Go duration. Default 10s, after which the performance or calculation fails."},
 	}
 }

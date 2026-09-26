@@ -90,6 +90,9 @@ type Context struct {
 	metadataObjects map[metadataAnnotation]int64
 	// tools runs the external tool a ToolExecution names; nil refuses every such action.
 	tools ToolRunner
+	// forwardNotes echoes each note to the context this one was seeded from
+	// (see DeclaredReader); nil keeps notes here alone.
+	forwardNotes func(RunNote)
 
 	// variantObjects holds the object a variant stands for per owner that
 	// selected it, so repeated reads of one selection read the same object.

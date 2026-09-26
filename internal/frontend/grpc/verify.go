@@ -58,7 +58,7 @@ type verifyContext struct {
 
 // newVerifyContext reads the request's engine, looks the model up and builds a
 // runtime over it, the same way every other runtime RPC in this service does.
-func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, error) {
+func (s *Service) newVerifyContext(ctx context.Context, modelHash, engine string) (*verifyContext, error) {
 	selection, err := s.engineSelection(engine)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (s *Service) newVerifyContext(modelHash, engine string) (*verifyContext, er
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, "model not found: %s", modelHash)
 	}
-	rt, release := s.newRuntime(cached)
+	rt, release := s.newRuntime(ctx, cached)
 	return &verifyContext{service: s, cached: cached, runtime: rt, engine: selection, release: release}, nil
 }
 
@@ -262,7 +262,7 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +453,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
