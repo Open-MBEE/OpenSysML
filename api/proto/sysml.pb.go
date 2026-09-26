@@ -2155,8 +2155,11 @@ type EngineInfo struct {
 	// of the manifest entry that registered it: "tool", "engine", "policy" or
 	// "sampler". The fields below are empty for a built-in engine.
 	Kind string `protobuf:"bytes,9,opt,name=kind,proto3" json:"kind,omitempty"`
-	// How the engine is spoken to: "-" for one built in, "object" for a tool's
-	// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+	// How the engine is spoken to: "-" for one built in; for a tool, "object"
+	// for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+	// invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+	// when the reply block reads another format (the format alone when the entry
+	// has no invocation); "<transport>/<protocol>" for an engine entry.
 	Protocol string `protobuf:"bytes,10,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// The manifest entry the engine was registered from, the command it resolved
 	// to and the version the entry declares.

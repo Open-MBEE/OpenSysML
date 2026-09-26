@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -537,6 +538,61 @@ func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 		})
 	}
 	return params
+}
+
+// ActionInputNames is the action's `in` and `inout` parameter names in
+// declaration order — the parameters an invocation's arguments bind.
+func (ctx *Context) ActionInputNames(sym *symbols.Symbol) []string {
+	in, _ := parameterNames(ctx.actionParametersOf(sym))
+	return in
+}
+
+// NamedInput is one named argument of an action invocation: the parameter name
+// as written and its value, given in the order the invocation wrote them.
+type NamedInput struct {
+	Name  string
+	Value Value
+}
+
+// ActionInputs is the inputs an invocation of sym binds, as bindArgumentList
+// binds them: the positional arguments to the first `in` parameters in
+// declaration order, then the named ones in their order — each written name
+// resolved through BoundParameter as an invocation's is. More positional
+// arguments than parameters is ErrActionArity, a name no `in` parameter carries
+// is ErrUnknownParameter, and one already bound is ErrDuplicateArgument.
+func (ctx *Context) ActionInputs(scope *symbols.Scope, sym *symbols.Symbol, positional []Value, named []NamedInput) (map[string]Value, error) {
+	names := ctx.ActionInputNames(sym)
+	if len(positional) > len(names) {
+		return nil, fmt.Errorf("%w: action %s takes %d input parameter(s), got %d argument(s)",
+			ErrActionArity, symbolText(sym), len(names), len(positional))
+	}
+	inputs := make(map[string]Value, len(names))
+	bound := make(map[string]bool, len(names))
+	for i, value := range positional {
+		inputs[names[i]] = value
+		bound[names[i]] = true
+	}
+	for _, arg := range named {
+		name := arg.Name
+		if ctx.model.semantics != nil {
+			qn := &ast.QualifiedName{}
+			qn.SetSingleton(ast.NameSegment{Text: arg.Name})
+			if resolved, ok := ctx.model.semantics.BoundParameter(scope, sym, qn); ok {
+				name = resolved
+			}
+		}
+		if !slices.Contains(names, name) {
+			return nil, fmt.Errorf("%w: action %s has no input parameter %q",
+				ErrUnknownParameter, symbolText(sym), name)
+		}
+		if bound[name] {
+			return nil, fmt.Errorf("%w: input parameter %q of %s is given more than one argument",
+				ErrDuplicateArgument, name, symbolText(sym))
+		}
+		bound[name] = true
+		inputs[name] = arg.Value
+	}
+	return inputs, nil
 }
 
 // parameterNames splits parameters into those the caller writes and reads back.

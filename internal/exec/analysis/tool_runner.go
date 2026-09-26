@@ -3,6 +3,9 @@ package analysis
 import (
 	"context"
 	"errors"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -22,6 +25,52 @@ type toolRunner struct {
 	mu sync.Mutex
 	// answered is the outputs each request, by its bytes, was first answered with.
 	answered map[string]string
+	// uses is every tool call the plan's runs made; seq orders them.
+	uses []ToolUse
+	next uint64
+}
+
+// ToolUse is one tool call a plan made: the entry it went to and what was run.
+type ToolUse struct {
+	Tool, Version, File, Executable string
+	// Args are the argv entries after the executable, nil for an entry without an
+	// invocation block.
+	Args []string
+	// Stdin is the request an entry without an invocation block read.
+	Stdin []byte
+	// Failed is the failure the call ended with, empty when it answered.
+	Failed string
+	// in is the context the call was made from.
+	in *runtime.Context
+	// seq is the call's order among the runner's calls.
+	seq uint64
+}
+
+// String spells the call as one line: `ThermalSolver 2.3 from
+// /etc/opensysml/tools/thermal.json: /usr/bin/python3 solve.py --mass 12.5`.
+func (u ToolUse) String() string {
+	head := u.Tool
+	if u.Version != "" {
+		head += " " + u.Version
+	}
+	if u.File != "" {
+		head += " from " + u.File
+	}
+	text := head + ": " + u.Executable
+	if u.Args == nil {
+		text += " < " + string(u.Stdin)
+	} else {
+		for _, arg := range u.Args {
+			if arg == "" || strings.ContainsAny(arg, " \t\r\n\"'") {
+				arg = strconv.Quote(arg)
+			}
+			text += " " + arg
+		}
+	}
+	if u.Failed != "" {
+		text += " failed: " + u.Failed
+	}
+	return text
 }
 
 // newToolRunner is the runner of one plan over the held model, putting each computation to
@@ -42,7 +91,12 @@ func (r *Registry) ToolRunner(ctx context.Context, held *runtime.Context, budget
 // is runtime.ToolNotRegisteredError; the refusal of the tool's own engine, or the fault of
 // its run, fails the performance as is.
 func (t *toolRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
-	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: &ComputeAsk{Call: call}}
+	t.mu.Lock()
+	t.next++
+	seq := t.next
+	t.mu.Unlock()
+	ask := &ComputeAsk{Call: call, used: func(use ToolUse) { t.note(call, seq, use) }}
+	q := Question{Kind: Compute, Subject: symbols.FQNOf(call.Action), Compute: ask}
 	plan, err := t.registry.answer(t.ctx, t.model, q, t.budget, t.selection)
 	if err != nil {
 		if errors.Is(err, ErrNoEngine) {
@@ -96,4 +150,23 @@ func (t *toolRunner) remember(call *runtime.ToolCall, answer string) (bool, erro
 		return false, nil
 	}
 	return earlier != answer, nil
+}
+
+// note keeps a use an engine reported for the call, attributed to the context the call
+// was made from and to its place in call order; a run the plan dropped is kept too.
+func (t *toolRunner) note(call *runtime.ToolCall, seq uint64, use ToolUse) {
+	use.in = call.Context()
+	use.seq = seq
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.uses = append(t.uses, use)
+}
+
+// used is every tool call the runner's runs made, in call order.
+func (t *toolRunner) used() []ToolUse {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	uses := append([]ToolUse(nil), t.uses...)
+	sort.SliceStable(uses, func(i, j int) bool { return uses[i].seq < uses[j].seq })
+	return uses
 }
