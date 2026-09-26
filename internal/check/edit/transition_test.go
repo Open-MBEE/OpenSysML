@@ -155,3 +155,11 @@ func TestAddTransitionRejectsAnExistingName(t *testing.T) {
 		"P::S", "idle", "idle", "toasting", "", "", "", false,
 	), FailureMemberNameTaken)
 }
+
+func TestAddTransitionRejectsQuotedExistingName(t *testing.T) {
+	model := loadContent(t, "quoted-transition-name.sysml",
+		"state def S { state 'waiting room'; state idle; }\n")
+	addFailure(t, model, AddTransition(
+		"S", "'waiting room'", "idle", "idle", "", "", "", false,
+	), FailureMemberNameTaken)
+}

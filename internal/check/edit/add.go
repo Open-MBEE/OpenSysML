@@ -290,7 +290,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			}
 		}
 	}
-	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
+	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
