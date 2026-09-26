@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -143,13 +144,25 @@ func validateTransitionText(i int, op Operation, text string) error {
 	nameText, nameOK := transitionSpanText(wrapped, transition.NameSpan)
 	sourceText, sourceOK := transitionQualifiedNameText(wrapped, transition.Source)
 	targetText, targetOK := transitionQualifiedNameText(wrapped, transition.Target)
-	if !nameOK || !sourceOK || !targetOK ||
+	triggerText, triggerOK := "", op.Trigger == ""
+	if transition.Trigger != nil {
+		triggerText, triggerOK = transitionTriggerText(wrapped, transition)
+	}
+	guardText, guardOK := "", op.Guard == ""
+	if transition.Guard != nil {
+		guardText, guardOK = transitionNodeText(wrapped, transition.Guard)
+	}
+	effectText, effectOK := "", op.Effect == ""
+	if transition.HasEffect {
+		effectText, effectOK = transitionEffectText(wrapped, transition.Effect)
+	}
+	if !nameOK || !sourceOK || !targetOK || !triggerOK || !guardOK || !effectOK ||
 		nameText != op.TransitionName ||
 		sourceText != op.TransitionSource ||
 		targetText != op.TransitionTarget ||
-		(transition.Trigger != nil) != (op.Trigger != "") ||
-		(transition.Guard != nil) != (op.Guard != "") ||
-		transition.HasEffect != (op.Effect != "") {
+		triggerText != op.Trigger ||
+		guardText != op.Guard ||
+		effectText != op.Effect {
 		return invalidTransitionText(i)
 	}
 	return nil
@@ -168,6 +181,74 @@ func transitionSpanText(text string, span source.Span) (string, bool) {
 		return "", false
 	}
 	return text[span.Offset:end], true
+}
+
+func transitionNodeText(text string, node ast.Node) (string, bool) {
+	if node == nil {
+		return "", false
+	}
+	return transitionTrimmedSpanText(text, node.Span())
+}
+
+func transitionTriggerText(text string, transition *ast.TransitionMember) (string, bool) {
+	if transition.Trigger == nil {
+		return "", false
+	}
+	span := transition.Trigger.Span()
+	if transition.Via != nil {
+		viaText, ok := transitionQualifiedNameText(text, transition.Via)
+		if !ok {
+			return "", false
+		}
+		end := transition.Via.NodeSpan.Offset + len(viaText)
+		if end < span.Offset {
+			return "", false
+		}
+		span.Len = end - span.Offset
+	}
+	return transitionTrimmedSpanText(text, span)
+}
+
+func transitionEffectText(text string, effects []ast.Node) (string, bool) {
+	if len(effects) == 0 {
+		return "", false
+	}
+	start := effects[0].Span().Offset
+	end := effects[0].Span().End()
+	for _, effect := range effects[1:] {
+		span := effect.Span()
+		if span.Offset < start || span.End() < end {
+			return "", false
+		}
+		end = span.End()
+	}
+	if end < start {
+		return "", false
+	}
+	return transitionTrimmedSpanText(text, source.Span{Offset: start, Len: end - start})
+}
+
+func transitionTrimmedSpanText(text string, span source.Span) (string, bool) {
+	raw, ok := transitionSpanText(text, span)
+	if !ok {
+		return "", false
+	}
+	lx := lexer.New(source.New("<transition>", []byte(raw)))
+	end := 0
+	for {
+		token := lx.Next()
+		if token.Kind == lexer.EOF {
+			break
+		}
+		if token.IsTrivia() || token.Kind == lexer.RegularComment {
+			continue
+		}
+		end = token.Span.End()
+	}
+	if end == 0 {
+		return "", false
+	}
+	return raw[:end], true
 }
 
 func transitionQualifiedNameText(text string, name *ast.QualifiedName) (string, bool) {

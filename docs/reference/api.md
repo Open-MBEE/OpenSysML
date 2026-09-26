@@ -109,9 +109,9 @@ and `type` fields:
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
-Regular transitions always write `first <source>` and may add `accept <trigger>`, `if <guard>` and
-`do <effect>` clauses. An entry transition has no name, source or clauses, and is refused when the
-state already has an entry action.
+Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
+`if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
+clauses, and is refused when the state already has an entry action.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})

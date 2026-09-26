@@ -47,6 +47,27 @@ func TestAddTransitionOptionalClauses(t *testing.T) {
 	}
 }
 
+func TestAddTransitionRejectsRepeatedGuardText(t *testing.T) {
+	model := loadContent(t, "transition-repeated-guard.sysml", transitionTestModel)
+	addFailure(t, model, AddTransition(
+		"P::S", "start", "idle", "toasting", "", "true if false", "", false,
+	), FailureInvalidValue)
+}
+
+func TestAddTransitionAcceptsCompoundGuard(t *testing.T) {
+	model := loadContent(t, "transition-compound-guard.sysml",
+		"package P { state def S { attribute x : ScalarValues::Real; attribute y : ScalarValues::Real; state idle; state toasting; } }\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddTransition(
+		"P::S", "start", "idle", "toasting", "", "x > 0 and y < 1", "", false,
+	))
+	if !strings.Contains(string(result.Content),
+		"transition start first idle if x > 0 and y < 1 then toasting;") {
+		t.Fatalf("compound guard missing:\n%s", result.Content)
+	}
+	requireClean(t, loadContent(t, "transition-compound-guard.sysml", string(result.Content)))
+}
+
 func TestAddTransitionPreservesQuotedNames(t *testing.T) {
 	model := loadContent(t, "quoted-transition.sysml",
 		"state def S { state 'waiting room'; state done; }\n")

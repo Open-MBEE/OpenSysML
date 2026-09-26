@@ -45,9 +45,10 @@ which of those spellings OpenSysML runs today.
   definition to parts: a `port def` is an occurrence definition (its base is `Ports::Port`, which
   specializes `Objects::Object`, itself an `Occurrence`), so a port definition may exhibit a state
   machine, and so may an `interface def` (`Interfaces::Interface :> Connection`).
-- **§7.18.3 — transitions.** A transition is `first <source> accept <trigger> [if <guard>]
-  [do <effect>] then <target>`. The trigger is an `AcceptActionUsage`; the guard is a Boolean
-  expression over the performer's features; the effect is optional. Dropping the effect leaves a
+- **§7.18.3 — transitions.** A transition has at most one of each optional clause, in this order:
+  `first <source> [accept <trigger>] [if <guard>] [do <effect>] then <target>`. The trigger is an
+  `AcceptActionUsage`; the guard is a Boolean expression over the performer's features; the effect
+  is optional. Dropping the effect leaves a
   transition that is exactly a "guarded change of state on a reception" — the shape of a protocol
   transition minus its post-condition.
 - **§7.17.8 — accept actions and `via`.** `accept <payload> via <port>` accepts a transfer whose
