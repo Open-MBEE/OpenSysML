@@ -286,6 +286,26 @@ The group column must be one the query statically projects — an unknown name
 is a typed error at planning time, not an empty rendering. Row order within
 each group is the query's order.
 
+### Column widths
+
+A `columnWidths` attribute states the relative widths of the projected columns,
+in order, in whatever units the source used — a migrated Cameo table keeps its
+pixel widths — with `0` for a column sized automatically; an entry for every
+column is not required, the rest are automatic. Renderers honour them
+proportionally: HTML writes one `<col>` per column with its share of the table
+width, PDF sizes the columns by them, and Markdown, which has no column widths,
+ignores them ([Wide tables](outputs.md#wide-tables)).
+
+```sysml
+part masses : Table {
+	attribute redefines caption = "Masses";
+	attribute redefines columnWidths = (200, 0, 80);
+	calc rows : MassTable {
+		in root = telescope;
+	}
+}
+```
+
 ## Lists
 
 A `List` requires a query and renders each result value as one item. `style`

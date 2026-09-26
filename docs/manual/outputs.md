@@ -19,7 +19,9 @@ What the renderer emits:
 - A stable `<a id="..."></a>` anchor before every block that a `Ref` targets;
   the reference renders as a link to it.
 - Tables as GitHub-flavored pipe tables; grouped tables as one subtable per
-  group key.
+  group key; a nested row (one a `Tree` query placed under another) opens its
+  first cell with `↳ ` after a non-breaking indent per level above the first,
+  the cell's own text unchanged (see [hierarchical rows](#hierarchical-rows)).
 - Lists as `-` bullets or `1.` numbered items.
 - Diagrams as fenced ` ```mermaid ` blocks (` ```dot ` blocks of Graphviz DOT
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
@@ -109,6 +111,15 @@ apart), and a diagram's view, kind and flow direction.
 <span class="sysml-value" data-value-kind="real">15</span></td>
 </tr>
 ```
+
+A table whose `columnWidths` the model states carries the class
+`sysml-table-sized` and a `<colgroup>` of one `<col>` per column, the stated
+width as `data-width` and its share of the table as `style="width: 52.7%"` (an
+automatic column takes the mean stated width), so the default stylesheet lays
+the table out fixed in that proportion and a theme can read the source widths.
+A nested row states its depth as `data-depth` and as the `--sysml-depth`
+property its first cell's `span.sysml-indent` is widened by
+([hierarchical rows](#hierarchical-rows)).
 
 A row over an object the session holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds))
 adds `data-object="#<id>"`, the id the instantiation report printed, beside
@@ -334,14 +345,38 @@ All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
 
 ### Wide tables
 
-The PDF stylesheet keeps every table within the text width: cells wrap
-wherever they must, so a long qualified name breaks rather than pushing the
-rightmost columns off the page. A table of seven or more columns — a
-traceability matrix, say — is placed on landscape pages, together with the
-heading and caption that introduce it, while the surrounding pages stay
-portrait. The rules use the CSS `:has()` selector, which WeasyPrint — and so
-`weasyprint` and `pandoc` — supports; an engine without it keeps the whole
-document portrait.
+The PDF stylesheet keeps every table within the text width. A cell wraps at
+word boundaries and breaks a token only when it fits no line on its own, so a
+long qualified name breaks rather than pushing the rightmost columns off the
+page; the header row repeats at the top of every page a table continues onto;
+a row never splits across pages, though a long table does. A table of seven or
+more columns — a traceability matrix, an instance table of many value
+properties — is placed on landscape pages in smaller type (9pt; 8pt from
+eleven columns), together with the heading and caption that introduce it,
+while the surrounding pages stay portrait, and its first column, the one
+naming each row, keeps a readable minimum width however many columns follow.
+A table whose `columnWidths` the model states
+([Column widths](authoring.md#column-widths)) is sized in that proportion
+instead. Wider still, the column set is split rather than squeezed: a table
+of more than twelve columns is written as continuation tables of at most
+twelve, each repeating the first column ahead of its share of the rest, under
+the table's caption with "(continued)" appended and no number of its own. The
+`weasyprint` and `prince` engines split the HTML table; the `pandoc` engine
+gets the same split in the Markdown it converts, so every engine sets the same
+pages. The landscape and first-column rules use the CSS `:has()` selector,
+which WeasyPrint — and so `weasyprint` and `pandoc` — supports; an engine
+without it keeps the whole document portrait.
+
+### Hierarchical rows
+
+A query that arranges its rows as a tree ([Nesting rows](query-cookbook.md#nesting-rows-tree))
+gives each row a depth, and every backend shows the nesting structurally,
+leaving the cell's own text as the model states it: Markdown opens a nested
+row's first cell with `↳ `, indented one step per level beyond the first with
+non-breaking spaces; HTML states the depth on the row as `data-depth` and
+widens an empty `span.sysml-indent` ahead of the first cell's values by
+`--sysml-depth` steps of `--sysml-row-indent`; PDF inherits the HTML rule. A
+flat query has every row at depth 0 and renders as before.
 
 ### PDF rendering of inline runs and anchors
 
