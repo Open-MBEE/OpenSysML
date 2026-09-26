@@ -194,6 +194,18 @@ func shown(node *Node) string {
 	return node.Name
 }
 
+// displayText decodes a quoted name's escapes for a drawn label: a carriage
+// return is a line break and the other control escapes have no glyph, so they
+// are dropped.
+func displayText(raw string) string {
+	text := source.Unescape(raw)
+	if !strings.ContainsAny(text, "\r\b\f") {
+		return text
+	}
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	return strings.NewReplacer("\r", "\n", "\b", "", "\f", "").Replace(text)
+}
+
 // head is the first line of a node's diagram label: its name, followed by
 // " : Type" for a typed usage, each type by the name it ends in. A node with no
 // shown name leads with " : Type" alone when typed, else with its kind.
@@ -202,12 +214,18 @@ func (l labeller) head(node *Node) string {
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
-		return ": " + source.ReferenceEndNames(typ)
+		return ": " + displayText(source.ReferenceEndNames(typ))
 	case typ == "":
-		return l.name(node)
+		return displayText(l.name(node))
 	default:
-		return l.name(node) + " : " + source.ReferenceEndNames(typ)
+		return displayText(l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
+}
+
+// headLines is the head split at the line breaks its escapes decode to, each
+// line headed separately by every form's label writer.
+func (l labeller) headLines(node *Node) []string {
+	return strings.Split(l.head(node), "\n")
 }
 
 // keyworded reports whether a node's label has a keyword line, the kind in
@@ -217,9 +235,10 @@ func keyworded(node *Node) bool {
 }
 
 // lines is a node's diagram label in the graphical notation's order: the
-// head, the keyword line when the node has one, then the notes.
+// head, the keyword line when the node has one, then the notes. Every entry
+// is a single line: a name that escapes a line break heads several entries.
 func (l labeller) lines(node *Node) []string {
-	lines := []string{l.head(node)}
+	lines := l.headLines(node)
 	if keyworded(node) {
 		lines = append(lines, "«"+node.Kind+"»")
 	}

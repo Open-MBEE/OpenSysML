@@ -20,7 +20,7 @@ func (m *coreQueryModel) Value(sym *symbols.Symbol, property string) ([]string, 
 }
 
 func (m *coreQueryModel) Identity(sym *symbols.Symbol) string {
-	return m.eval.sc.Index.GetFQN(sym)
+	return m.eval.identity(sym)
 }
 
 func (m *coreQueryModel) Type(sym *symbols.Symbol) string {

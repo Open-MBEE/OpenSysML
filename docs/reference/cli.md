@@ -89,6 +89,18 @@ Load multiple files before evaluating:
 sysml -e "result" types.sysml instances.sysml
 ```
 
+Every file named on the command line is a document of its own, analysed as the editor and the
+corpus gates analyse it, and the files are indexed together so that one file's reference to a
+package another declares resolves. Two consequences follow:
+
+- A root-level import serves only the file it is written in. `private import ScalarValues::*;`
+  at the top of `types.sysml` does not make `Real` resolvable in `instances.sysml`; each file
+  imports what it uses.
+- Two files that both declare `package A` are two root packages of that name, not a duplicate.
+  A reference to `A` resolves to the declaration in the file whose name sorts first (the
+  order the editor and the workspace give documents, whatever order the files were given
+  in), so `A::x` resolves where `x` is a member of that declaration.
+
 ## Real-World Examples
 
 ### 1. Quick Calculation
@@ -289,7 +301,7 @@ written in, so the verdicts are about that object:
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
-| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once (`-validate`, `-satisfy`, `-check` and every mode that loads files). `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 Other modes, each described in full by `sysml -help` and the manual page:
@@ -1505,6 +1517,12 @@ the rows, their outputs, verdicts, evaluations and errors are those of `-jobs 1`
 
 With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
 `warming`, the milliseconds spent building them; the human-readable report does not print them.
+
+The same count sets how many files of one load are parsed and validated at once. The files named
+on the command line are parsed on `n` workers, indexed together once, and analysed on `n` workers,
+each file as a document of its own; the diagnostics are those of `-jobs 1`, in command-line order,
+whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
+single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
 
 ## Analysis engines
 

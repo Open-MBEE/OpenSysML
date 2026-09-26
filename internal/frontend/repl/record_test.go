@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
@@ -721,5 +723,31 @@ func TestRecordMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
 		if !strings.Contains(s.text(), want) {
 			t.Errorf("recorded model is missing %q:\n%s", want, s.text())
 		}
+	}
+}
+
+// An attribute redefined with no bound of its own keeps its general's
+// multiplicity in the record's view of an existing definition.
+func TestRecordAttributesFollowsAnInheritedBound(t *testing.T) {
+	s := NewSession()
+	if errs := errorDiagnostics(s.Submit(`package Records {
+		private import ScalarValues::*;
+		private import AnalysisRecords::*;
+		part def Base { attribute temps : Real[0..*]; }
+		part def Rec :> Base, AnalysisRecords::AnalysisRun { attribute :>> temps; }
+	}`).Diagnostics); len(errs) > 0 {
+		t.Fatalf("model has errors: %v", errs)
+	}
+	idx := s.symbolIndex()
+	defs := idx.LookupQualified("Records::Rec")
+	if len(defs) != 1 {
+		t.Fatalf("Records::Rec resolves to %d symbols", len(defs))
+	}
+	resolver := resolve.New(idx)
+	sem := semantics.NewModel(resolver)
+	resolver.SetModel(sem)
+	f, ok := recordAttributes(idx, sem, defs[0])["temps"]
+	if !ok || !f.Multi {
+		t.Errorf("temps = %+v (present %v), want a multi-valued feature", f, ok)
 	}
 }

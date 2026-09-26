@@ -293,12 +293,13 @@ func TestMarkdownQuantityReportGolden(t *testing.T) {
 }
 
 // TestMarkdownCollectionCells checks a `[0..*]` column: a row holding two values
-// renders them comma-joined in order and a row holding none renders empty.
+// renders them comma-joined in order, a one-element sequence its single value,
+// and a row holding none renders empty.
 func TestMarkdownCollectionCells(t *testing.T) {
 	got := renderFixtureDocument(t,
 		filepath.Join("testdata", "collection_report.sysml"),
 		"Calibration::TimingReport")
-	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n"
+	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n| single | 36 | single |\n"
 	if !strings.Contains(got, want) {
 		t.Errorf("rendering does not contain %q\n%s", want, got)
 	}

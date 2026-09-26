@@ -104,7 +104,8 @@ func doc() usage.Doc {
 					"run, so machines on sibling parts share it and its connectors.",
 				"-jobs is how many runs of one check may go concurrently — the " +
 					"linearizations of an exploration, the engines -engine all consults " +
-					"— each on a worker of its own over the shared model; the result is " +
+					"— each on a worker of its own over the shared model, and how many " +
+					"files of one load are parsed and validated at once; the result is " +
 					"the same at any count. By default one per CPU, fewer where the memory " +
 					"available leaves less than 512 MiB per worker.",
 			},
@@ -510,7 +511,7 @@ func doc() usage.Doc {
 		}, {
 			Title:      "Environment",
 			ManOnly:    true,
-			Items:      append(append(append(usage.BudgetEnvironment(), usage.JobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
+			Items:      append(append(append(usage.BudgetEnvironment(), usage.LoadJobsEnvironment()...), usage.ToolEnvironment()...), solverEnvironment()...),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {
 			Title:   "Files",
@@ -578,7 +579,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.observe, "observe", "Report this feature of the -runs action, or clock for the time it completed at; default every feature it holds and the clock. With -compare-results, the stored observable to compare, or <observable>=<feature> to read it from another feature of the run (repeatable)")
 	fs.Var(&modelChecks.sweeps, "sweep", "Run the -analysis or -calc once per value of this range, as -sweep \"n=1..8:2\"; several ranges run their cartesian product (repeatable)")
 	fs.Var(&modelChecks.samples, "samples", "Draw this many values uniformly from each -sweep range instead of stepping through it; needs -seed")
-	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own; default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
+	fs.Var(&jobsFlag, "jobs", "Runs of one check that may go concurrently, each on a worker of its own, and files of one load that are parsed and validated at once; the result is the same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker")
 
 	fs.BoolVar(&listEngines, "engines", false, "List the analysis engines this build knows and their status, spawning nothing, and exit")
 	fs.BoolVar(&probeEngines, "probe", false, "With -engines, also start each external engine once and report the outcome as its status")

@@ -42,6 +42,10 @@ const (
 	PropertyMultiplicityLower = "multiplicityLower"
 	// PropertyMultiplicityUpper is the upper multiplicity bound property.
 	PropertyMultiplicityUpper = "multiplicityUpper"
+	// PropertySatisfiedRequirement is the requirement a satisfy usage satisfies.
+	PropertySatisfiedRequirement = "satisfiedRequirement"
+	// PropertySatisfyingFeature is the feature a satisfy usage is by.
+	PropertySatisfyingFeature = "satisfyingFeature"
 )
 
 // propertyNames is the closed set of properties supported by element queries.
@@ -50,6 +54,7 @@ var propertyNames = []string{
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
 	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
+	PropertySatisfiedRequirement, PropertySatisfyingFeature,
 }
 
 // PropertyNames returns the supported property names in stable order.

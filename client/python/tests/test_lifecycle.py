@@ -8,6 +8,7 @@ binary, including the ways the starting process can die.
 Run with: pytest tests/test_lifecycle.py -v
 """
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -379,7 +380,9 @@ def _kill_if_running(holder, service):
         holder.kill()
         holder.wait(timeout=10)
     if not _is_gone(service):
-        service.kill()
+        # It may have exited between the check and the kill.
+        with contextlib.suppress(psutil.NoSuchProcess):
+            service.kill()
         _wait_gone(service)
 
 
@@ -387,7 +390,8 @@ def _is_gone(process):
     """Whether a process has exited, counting one nobody has reaped yet.
 
     A service whose parent was killed is reparented, and stays a zombie until
-    whatever inherited it reaps it; it is not running either way.
+    whatever inherited it reaps it; it is not running either way. Linux shows
+    one being reaped as dead for a moment before its entry goes.
 
     Args:
         process (psutil.Process): The process to look at
@@ -396,9 +400,12 @@ def _is_gone(process):
         bool: True when it is no longer executing
     """
     try:
-        return not process.is_running() or process.status() == psutil.STATUS_ZOMBIE
+        return not process.is_running() or process.status() in _EXITED
     except psutil.NoSuchProcess:
         return True
+
+
+_EXITED = (psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD)
 
 
 def _wait_gone(process, timeout=10):
