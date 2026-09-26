@@ -325,9 +325,11 @@ class Editor:
         return self
 
     def add_allocation(self, owner, from_, to, **kwargs):
+        """Add an ``allocation ... allocate from_ to to`` usage."""
         return self.add_connection(owner, "allocation", from_, to, **kwargs)
 
     def add_flow(self, owner, from_, to, **kwargs):
+        """Add a ``flow ... from from_ to to`` usage."""
         return self.add_connection(owner, "flow", from_, to, **kwargs)
 
     def delete(self, target, cascade=False):

@@ -1,2 +1,0 @@
-# The pinned Protobuf Java generator emits trailing spaces and a blank line at EOF.
-client/java/opensysml-client/src/main/java/org/openmbee/opensysml/proto/*.java whitespace=-blank-at-eol,-blank-at-eof
