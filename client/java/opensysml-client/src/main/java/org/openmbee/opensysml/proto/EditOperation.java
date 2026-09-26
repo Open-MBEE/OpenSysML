@@ -58,6 +58,7 @@ private static final long serialVersionUID = 0L;
     ADD_MEMBER(3),
     DELETE(4),
     MOVE(5),
+    ADD_CONNECTION(6),
     OPERATION_NOT_SET(0);
     private final int value;
     private OperationCase(int value) {
@@ -80,6 +81,7 @@ private static final long serialVersionUID = 0L;
         case 3: return ADD_MEMBER;
         case 4: return DELETE;
         case 5: return MOVE;
+        case 6: return ADD_CONNECTION;
         case 0: return OPERATION_NOT_SET;
         default: return null;
       }
@@ -250,6 +252,37 @@ private static final long serialVersionUID = 0L;
     return org.openmbee.opensysml.proto.MoveEdit.getDefaultInstance();
   }
 
+  public static final int ADD_CONNECTION_FIELD_NUMBER = 6;
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return Whether the addConnection field is set.
+   */
+  @java.lang.Override
+  public boolean hasAddConnection() {
+    return operationCase_ == 6;
+  }
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return The addConnection.
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddConnectionEdit getAddConnection() {
+    if (operationCase_ == 6) {
+       return (org.openmbee.opensysml.proto.AddConnectionEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+  }
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   */
+  @java.lang.Override
+  public org.openmbee.opensysml.proto.AddConnectionEditOrBuilder getAddConnectionOrBuilder() {
+    if (operationCase_ == 6) {
+       return (org.openmbee.opensysml.proto.AddConnectionEdit) operation_;
+    }
+    return org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -279,6 +312,9 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 5) {
       output.writeMessage(5, (org.openmbee.opensysml.proto.MoveEdit) operation_);
     }
+    if (operationCase_ == 6) {
+      output.writeMessage(6, (org.openmbee.opensysml.proto.AddConnectionEdit) operation_);
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -307,6 +343,10 @@ private static final long serialVersionUID = 0L;
     if (operationCase_ == 5) {
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(5, (org.openmbee.opensysml.proto.MoveEdit) operation_);
+    }
+    if (operationCase_ == 6) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(6, (org.openmbee.opensysml.proto.AddConnectionEdit) operation_);
     }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
@@ -345,6 +385,10 @@ private static final long serialVersionUID = 0L;
         if (!getMove()
             .equals(other.getMove())) return false;
         break;
+      case 6:
+        if (!getAddConnection()
+            .equals(other.getAddConnection())) return false;
+        break;
       case 0:
       default:
     }
@@ -379,6 +423,10 @@ private static final long serialVersionUID = 0L;
       case 5:
         hash = (37 * hash) + MOVE_FIELD_NUMBER;
         hash = (53 * hash) + getMove().hashCode();
+        break;
+      case 6:
+        hash = (37 * hash) + ADD_CONNECTION_FIELD_NUMBER;
+        hash = (53 * hash) + getAddConnection().hashCode();
         break;
       case 0:
       default:
@@ -533,6 +581,9 @@ private static final long serialVersionUID = 0L;
       if (moveBuilder_ != null) {
         moveBuilder_.clear();
       }
+      if (addConnectionBuilder_ != null) {
+        addConnectionBuilder_.clear();
+      }
       operationCase_ = 0;
       operation_ = null;
       return this;
@@ -594,6 +645,10 @@ private static final long serialVersionUID = 0L;
           moveBuilder_ != null) {
         result.operation_ = moveBuilder_.build();
       }
+      if (operationCase_ == 6 &&
+          addConnectionBuilder_ != null) {
+        result.operation_ = addConnectionBuilder_.build();
+      }
     }
 
     @java.lang.Override
@@ -627,6 +682,10 @@ private static final long serialVersionUID = 0L;
         }
         case MOVE: {
           mergeMove(other.getMove());
+          break;
+        }
+        case ADD_CONNECTION: {
+          mergeAddConnection(other.getAddConnection());
           break;
         }
         case OPERATION_NOT_SET: {
@@ -694,6 +753,13 @@ private static final long serialVersionUID = 0L;
               operationCase_ = 5;
               break;
             } // case 42
+            case 50: {
+              input.readMessage(
+                  internalGetAddConnectionFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              operationCase_ = 6;
+              break;
+            } // case 50
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1434,6 +1500,148 @@ private static final long serialVersionUID = 0L;
       operationCase_ = 5;
       onChanged();
       return moveBuilder_;
+    }
+
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddConnectionEdit, org.openmbee.opensysml.proto.AddConnectionEdit.Builder, org.openmbee.opensysml.proto.AddConnectionEditOrBuilder> addConnectionBuilder_;
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     * @return Whether the addConnection field is set.
+     */
+    @java.lang.Override
+    public boolean hasAddConnection() {
+      return operationCase_ == 6;
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     * @return The addConnection.
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddConnectionEdit getAddConnection() {
+      if (addConnectionBuilder_ == null) {
+        if (operationCase_ == 6) {
+          return (org.openmbee.opensysml.proto.AddConnectionEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+      } else {
+        if (operationCase_ == 6) {
+          return addConnectionBuilder_.getMessage();
+        }
+        return org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    public Builder setAddConnection(org.openmbee.opensysml.proto.AddConnectionEdit value) {
+      if (addConnectionBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        operation_ = value;
+        onChanged();
+      } else {
+        addConnectionBuilder_.setMessage(value);
+      }
+      operationCase_ = 6;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    public Builder setAddConnection(
+        org.openmbee.opensysml.proto.AddConnectionEdit.Builder builderForValue) {
+      if (addConnectionBuilder_ == null) {
+        operation_ = builderForValue.build();
+        onChanged();
+      } else {
+        addConnectionBuilder_.setMessage(builderForValue.build());
+      }
+      operationCase_ = 6;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    public Builder mergeAddConnection(org.openmbee.opensysml.proto.AddConnectionEdit value) {
+      if (addConnectionBuilder_ == null) {
+        if (operationCase_ == 6 &&
+            operation_ != org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance()) {
+          operation_ = org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder((org.openmbee.opensysml.proto.AddConnectionEdit) operation_)
+              .mergeFrom(value).buildPartial();
+        } else {
+          operation_ = value;
+        }
+        onChanged();
+      } else {
+        if (operationCase_ == 6) {
+          addConnectionBuilder_.mergeFrom(value);
+        } else {
+          addConnectionBuilder_.setMessage(value);
+        }
+      }
+      operationCase_ = 6;
+      return this;
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    public Builder clearAddConnection() {
+      if (addConnectionBuilder_ == null) {
+        if (operationCase_ == 6) {
+          operationCase_ = 0;
+          operation_ = null;
+          onChanged();
+        }
+      } else {
+        if (operationCase_ == 6) {
+          operationCase_ = 0;
+          operation_ = null;
+        }
+        addConnectionBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    public org.openmbee.opensysml.proto.AddConnectionEdit.Builder getAddConnectionBuilder() {
+      return internalGetAddConnectionFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    @java.lang.Override
+    public org.openmbee.opensysml.proto.AddConnectionEditOrBuilder getAddConnectionOrBuilder() {
+      if ((operationCase_ == 6) && (addConnectionBuilder_ != null)) {
+        return addConnectionBuilder_.getMessageOrBuilder();
+      } else {
+        if (operationCase_ == 6) {
+          return (org.openmbee.opensysml.proto.AddConnectionEdit) operation_;
+        }
+        return org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+      }
+    }
+    /**
+     * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        org.openmbee.opensysml.proto.AddConnectionEdit, org.openmbee.opensysml.proto.AddConnectionEdit.Builder, org.openmbee.opensysml.proto.AddConnectionEditOrBuilder> 
+        internalGetAddConnectionFieldBuilder() {
+      if (addConnectionBuilder_ == null) {
+        if (!(operationCase_ == 6)) {
+          operation_ = org.openmbee.opensysml.proto.AddConnectionEdit.getDefaultInstance();
+        }
+        addConnectionBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            org.openmbee.opensysml.proto.AddConnectionEdit, org.openmbee.opensysml.proto.AddConnectionEdit.Builder, org.openmbee.opensysml.proto.AddConnectionEditOrBuilder>(
+                (org.openmbee.opensysml.proto.AddConnectionEdit) operation_,
+                getParentForChildren(),
+                isClean());
+        operation_ = null;
+      }
+      operationCase_ = 6;
+      onChanged();
+      return addConnectionBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:sysml.EditOperation)

@@ -57,7 +57,7 @@ verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s
 documents (`DocumentValue`, `DocumentRow`, `DocumentQueryResult`,
 `RenderedDocument`) and `EngineInfo`. `SourceDocument` names a document a
 `parseSources` call reads; `Edit` is sealed over `SetValue`, `Rename`,
-`AddMember`, `Delete` and `Move`. Every RPC the service offers is a method.
+`AddMember`, `AddConnection`, `Delete` and `Move`. Every RPC the service offers is a method.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,

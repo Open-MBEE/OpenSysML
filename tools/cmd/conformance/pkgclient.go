@@ -1382,6 +1382,15 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Value:        kind.AddMember.GetValue(),
 			Specializes:  kind.AddMember.GetSpecializes(),
 		}, true
+	case *pb.EditOperation_AddConnection:
+		return opensysml.AddConnection{
+			Owner: kind.AddConnection.GetOwner(),
+			Kind:  kind.AddConnection.GetKind(),
+			From:  kind.AddConnection.GetFromEnd(),
+			To:    kind.AddConnection.GetToEnd(),
+			Name:  kind.AddConnection.GetName(),
+			Type:  kind.AddConnection.GetType(),
+		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:

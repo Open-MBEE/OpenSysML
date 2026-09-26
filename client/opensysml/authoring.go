@@ -147,7 +147,7 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 }
 
 // Edit is one source-preserving change to a model's notation: SetValue, Rename,
-// AddMember, Delete or Move. A type switch over them is exhaustive.
+// AddMember, AddConnection, Delete or Move. A type switch over them is exhaustive.
 type Edit interface {
 	isEdit()
 }
@@ -188,6 +188,22 @@ type AddMember struct {
 	Specializes []string
 }
 
+// AddConnection inserts a connection-like usage into a namespace or document root.
+type AddConnection struct {
+	// Owner is the namespace to receive the usage; empty is the document root.
+	Owner string
+	// Kind is the written connection kind, such as "allocation" or "flow".
+	Kind string
+	// From is the first feature reference, written as notation.
+	From string
+	// To is the second feature reference, written as notation.
+	To string
+	// Name is the optional declared identifier.
+	Name string
+	// Type is an optional typing target.
+	Type string
+}
+
 // Delete removes a declaration and the trivia it owns.
 type Delete struct {
 	// Target is the declaration to remove, by qualified name.
@@ -205,11 +221,12 @@ type Move struct {
 	Owner string
 }
 
-func (SetValue) isEdit()  { /* marker: closed Edit set */ }
-func (Rename) isEdit()    { /* marker: closed Edit set */ }
-func (AddMember) isEdit() { /* marker: closed Edit set */ }
-func (Delete) isEdit()    { /* marker: closed Edit set */ }
-func (Move) isEdit()      { /* marker: closed Edit set */ }
+func (SetValue) isEdit()      { /* marker: closed Edit set */ }
+func (Rename) isEdit()        { /* marker: closed Edit set */ }
+func (AddMember) isEdit()     { /* marker: closed Edit set */ }
+func (AddConnection) isEdit() { /* marker: closed Edit set */ }
+func (Delete) isEdit()        { /* marker: closed Edit set */ }
+func (Move) isEdit()          { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -407,6 +424,13 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			Value:        operation.Value,
 			Specializes:  append([]string(nil), operation.Specializes...),
 		}}}, nil
+	case AddConnection:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
+			AddConnection: &pb.AddConnectionEdit{
+				Owner: operation.Owner, Kind: operation.Kind, FromEnd: operation.From,
+				ToEnd: operation.To, Name: operation.Name, Type: operation.Type,
+			},
+		}}, nil
 	case Delete:
 		return &pb.EditOperation{Operation: &pb.EditOperation_Delete{Delete: &pb.DeleteEdit{
 			Target:  operation.Target,

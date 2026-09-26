@@ -79,7 +79,7 @@ const CapabilityUnsetValue = "unset_value"
 // a parsed model's own source, preserving everything the edit did not touch.
 const CapabilityApplyEdits = "apply_edits"
 
-// CapabilityAuthoring names add-member and delete source authoring operations.
+// CapabilityAuthoring names source-authoring operations, including AddMember and AddConnection.
 const CapabilityAuthoring = "authoring"
 
 // CapabilityEditDocuments names the capability of editing a model of several

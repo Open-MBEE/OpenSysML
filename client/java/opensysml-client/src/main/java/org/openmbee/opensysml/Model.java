@@ -843,8 +843,8 @@ public final class Model {
    *     says why and its {@link EditException#referrers()} name what references the target
    * @throws ServiceException if the request itself was rejected
    * @throws CapabilityException if the service does not advertise {@code apply_edits}, or an edit
-   *     is an {@link Edit.AddMember}, {@link Edit.Delete} or {@link Edit.Move} and it does not
-   *     advertise {@code authoring}
+   *     is an {@link Edit.AddMember}, {@link Edit.AddConnection}, {@link Edit.Delete} or
+   *     {@link Edit.Move} and it does not advertise {@code authoring}
    */
   public EditResult applyEdits(List<Edit> edits) {
     return applyEdits(edits, EditOptions.defaults());
@@ -870,7 +870,10 @@ public final class Model {
     Objects.requireNonNull(options, NAME_OPTIONS);
     connection.capabilities().require(Capabilities.APPLY_EDITS);
     for (Edit edit : edits) {
-      if (edit instanceof Edit.AddMember || edit instanceof Edit.Delete || edit instanceof Edit.Move) {
+      if (edit instanceof Edit.AddMember
+          || edit instanceof Edit.AddConnection
+          || edit instanceof Edit.Delete
+          || edit instanceof Edit.Move) {
         connection.capabilities().require(Capabilities.AUTHORING);
         break;
       }

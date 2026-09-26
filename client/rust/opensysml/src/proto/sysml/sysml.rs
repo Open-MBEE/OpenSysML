@@ -985,7 +985,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1002,6 +1002,8 @@ pub mod edit_operation {
         Delete(super::DeleteEdit),
         #[prost(message, tag="5")]
         Move(super::MoveEdit),
+        #[prost(message, tag="6")]
+        AddConnection(super::AddConnectionEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1028,6 +1030,29 @@ pub struct AddMemberEdit {
     /// Optional specialization targets for a definition.
     #[prost(string, repeated, tag="7")]
     pub specializes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// AddConnectionEdit inserts a usage whose ends connect two features.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddConnectionEdit {
+    /// Namespace FQN receiving the usage; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Usage kind: SysML connection, interface, allocation, binding, flow,
+    /// succession or transition; KerML connector, binding, flow or succession.
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// First feature reference resolved from the owner.
+    #[prost(string, tag="3")]
+    pub from_end: ::prost::alloc::string::String,
+    /// Second feature reference resolved from the owner.
+    #[prost(string, tag="4")]
+    pub to_end: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="5")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional typing target, legal only for typed connection kinds.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
 }
 /// DeleteEdit removes a declaration and its owned trivia.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

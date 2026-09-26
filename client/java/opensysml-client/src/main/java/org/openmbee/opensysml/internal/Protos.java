@@ -1025,6 +1025,16 @@ public final class Protos {
       addMember.value().ifPresent(add::setValue);
       add.addAllSpecializes(addMember.specializes());
       builder.setAddMember(add);
+    } else if (edit instanceof Edit.AddConnection addConnection) {
+      org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
+          org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()
+              .setOwner(addConnection.owner())
+              .setKind(addConnection.kind())
+              .setFromEnd(addConnection.from())
+              .setToEnd(addConnection.to());
+      addConnection.name().ifPresent(add::setName);
+      addConnection.type().ifPresent(add::setType);
+      builder.setAddConnection(add);
     } else if (edit instanceof Edit.Delete delete) {
       builder.setDelete(
           org.openmbee.opensysml.proto.DeleteEdit.newBuilder()
