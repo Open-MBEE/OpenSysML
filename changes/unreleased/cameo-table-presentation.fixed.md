@@ -3,8 +3,8 @@
   `Complete tree`), `showScopeAsRoot`, `expandedRows`, `columnWidth`, stereotype-tag columns
   (`QPROP:stereotypeTags:<<Profile::Stereotype>>.tag`) and the row filter saved with it, and the
   migration lowers each: excluded rows are subtracted with `Except`, a tree mode nests the rows
-  with `Tree` so a nested instance prints its own short name at its depth rather than its dotted
-  owner path, `showScopeAsRoot` adds the scope as the root, `QPROP:Element:Id` and `Text` on
+  with `Tree` so a nested instance is listed at its depth under the row containing it, its name
+  as written, `showScopeAsRoot` adds the scope as the root, `QPROP:Element:Id` and `Text` on
   requirements read the short name and documentation the migration wrote the «Requirement» tags
   to, `QPROP:Element:classifier` reads the new `general` property, a user stereotype's tag reads
   the metadata def feature it became (every value of a multi-valued tag), widths become
