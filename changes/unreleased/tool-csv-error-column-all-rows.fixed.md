@@ -1,0 +1,1 @@
+- **CSV `errorColumn` refuses on any data row, not only the last.** A `csv` reply's `errorColumn` now fails the performance when any data record's cell in that column is non-empty, so a refusal on an earlier row is no longer missed when `row:` selects a different record.

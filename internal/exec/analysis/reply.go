@@ -1006,8 +1006,10 @@ func (r *Reply) readCSV(entry ToolEntry, source []byte) (map[string]runtime.Tool
 		if err != nil {
 			return nil, nil, toolFault(tool, runtime.ToolMalformed, "%v", err)
 		}
-		if message := strings.TrimSpace(data[len(data)-1][col]); message != "" {
-			return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", message)
+		for _, record := range data {
+			if message := strings.TrimSpace(record[col]); message != "" {
+				return nil, nil, toolFault(tool, runtime.ToolRefused, "%s", message)
+			}
 		}
 	}
 	outputs := make(map[string]runtime.ToolValue, len(r.Outputs))
