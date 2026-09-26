@@ -230,6 +230,10 @@ jobs:
           name: Check changelog fragments
           command: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
 
+      - run:
+          name: Check the release provenance writer
+          command: python3 scripts/release-provenance-test.py
+
       # The compliance census is counted when the site is built, never committed.
       - run:
           name: Check the compliance census hook
@@ -1650,6 +1654,46 @@ jobs:
               | base64 -d | openssl x509 -inform DER -noout -text \
               | grep -A1 -E '1\.3\.6\.1\.4\.1\.57264\.1\.8:|URI:' || true
 
+      # SLSA provenance over every artifact the manifest lists, signed under the
+      # same CircleCI identity as the manifest; the bundle carries the statement.
+      - run:
+          name: Attest the release's SLSA provenance with cosign keyless
+          command: |
+            export PATH="$(go env GOPATH)/bin:$PATH"
+            python3 scripts/release-provenance.py \
+              --manifest dist/SHA256SUMS.txt --out dist/provenance.intoto.json
+            SIGSTORE_ID_TOKEN="$(circleci run oidc get --claims '{"aud": "sigstore"}')"
+            export SIGSTORE_ID_TOKEN
+
+            cd dist
+            cosign attest-blob SHA256SUMS.txt \
+              --statement provenance.intoto.json \
+              --type slsaprovenance1 \
+              --oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+              --bundle provenance.intoto.json.bundle \
+              --use-signing-config=false \
+              --yes
+
+      # Verifies the attestation against a published artifact, so a statement
+      # whose subjects do not name the release's bytes fails the release here.
+      - run:
+          name: Verify the provenance names the artifacts under the identity clients pin
+          command: |
+            export PATH="$(go env GOPATH)/bin:$PATH"
+            cd dist
+            for artifact in opensysml-linux-amd64.tar.gz grpc/sysml-grpc-linux-amd64 opensysml-*-py3-none-any.whl; do
+              cosign verify-blob-attestation "$artifact" \
+                --bundle provenance.intoto.json.bundle \
+                --type slsaprovenance1 \
+                --certificate-oidc-issuer "https://oidc.circleci.com/org/${CIRCLE_ORGANIZATION_ID}" \
+                --certificate-identity-regexp "^https://circleci\\.com/api/v2/projects/${CIRCLE_PROJECT_ID}/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+              echo "ok: provenance names $artifact"
+            done
+            # Every manifest line must be a subject, and nothing else may be.
+            diff <(sed 's/^\([0-9a-f]*\)  \(.*\)$/\2 \1/' SHA256SUMS.txt | sort) \
+                 <(jq -r '.dsseEnvelope.payload' provenance.intoto.json.bundle | base64 -d \
+                   | jq -r '.subject[] | "\(.name) \(.digest.sha256)"' | sort)
+
       
       # An artifact whose version disagrees with its tag looks identical on the
       # release page. The host-platform builds are asked what they report; the
@@ -1865,6 +1909,8 @@ jobs:
             # The signature over that manifest, which the Python client verifies
             # before it trusts a digest from it.
             mv dist/SHA256SUMS.txt.bundle dist/release/
+            # The SLSA provenance statement over those assets and its signature.
+            mv dist/provenance.intoto.json dist/provenance.intoto.json.bundle dist/release/
             echo "Release artifacts:"
             ls -la dist/release/
             
