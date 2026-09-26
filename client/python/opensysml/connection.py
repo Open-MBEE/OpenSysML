@@ -1021,7 +1021,7 @@ class Connection:
                     add.redefines.extend(redefines)
                     add.is_default = default
                     add.direction = direction
-                    requests_member_modifiers = (
+                    requests_member_modifiers = requests_member_modifiers or (
                         abstract or bool(redefines) or default or bool(direction)
                         or member_kind in ("ref", "return")
                     )

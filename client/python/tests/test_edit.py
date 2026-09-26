@@ -292,6 +292,20 @@ def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     assert assume.add_requirement_constraint.name == ""
 
 
+def test_member_modifier_capability_accumulates_across_operations(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_member("Demo::SC", "attribute", "input", abstract=True)
+        edit.add_member("Demo::SC", "attribute", "output", direction="")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_MEMBER_MODIFIERS
+    assert service.requests == []
+
+
 @pytest.mark.parametrize(
     "name,expected",
     [
@@ -887,7 +901,7 @@ class TestEditRoundTripAgainstRealService:
             edited = str(result)
             assert edited == (
                 "calc def C { in x : ScalarValues::Real; "
-                "in power : ScalarValues::Real; x * 2 }\n"
+                "in ref power : ScalarValues::Real; x * 2 }\n"
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
@@ -899,7 +913,7 @@ class TestEditRoundTripAgainstRealService:
                 "A", "out", "response", type="ScalarValues::Real"
             ).apply()
             edited = str(result)
-            assert "out response : ScalarValues::Real;" in edited
+            assert "out ref response : ScalarValues::Real;" in edited
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
 

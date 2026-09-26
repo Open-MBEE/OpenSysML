@@ -360,9 +360,7 @@ func writeMember(op Operation, kind memberKind) string {
 	case "return":
 		prefix = append(prefix, "return")
 	case "ref":
-		if op.Direction == "" {
-			prefix = append(prefix, "ref")
-		}
+		prefix = append(prefix, "ref")
 	default:
 		prefix = append(prefix, op.MemberKind)
 	}
@@ -425,7 +423,7 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 		if parser.BodyIsCalculation(owner) {
 			members := ast.DeclMembers(owner)
 			if len(members) > 0 && isCalculationResultMember(members[len(members)-1]) {
-				return m.memberInsertionBeforeResult(members[len(members)-1], text, indent)
+				return m.memberInsertionBeforeResult(members[len(members)-1], text)
 			}
 		}
 		rbrace := lastToken(m.Source, body, lexer.RBrace)
@@ -466,7 +464,7 @@ func isCalculationResultMember(member ast.Node) bool {
 	return ok && condition.Keyword == "" && condition.Expression != nil
 }
 
-func (m Model) memberInsertionBeforeResult(result ast.Node, text, indent string) insertion {
+func (m Model) memberInsertionBeforeResult(result ast.Node, text string) insertion {
 	content := m.Source.Bytes()
 	offset := result.Span().Offset
 	lineStart := offset
@@ -475,10 +473,11 @@ func (m Model) memberInsertionBeforeResult(result ast.Node, text, indent string)
 	}
 	leading := content[lineStart:offset]
 	if onlyWhitespace(leading) {
+		anchor := precedingFullLineTriviaStart(content, lineStart)
 		return insertion{
-			span: source.Span{Offset: lineStart, Len: len(leading)},
-			text: indent + text + "\n" + string(leading),
-			at:   len(indent),
+			span: source.Span{Offset: anchor},
+			text: string(leading) + text + "\n",
+			at:   len(leading),
 		}
 	}
 	prefix := ""
@@ -490,6 +489,69 @@ func (m Model) memberInsertionBeforeResult(result ast.Node, text, indent string)
 		text: prefix + text + " ",
 		at:   len(prefix),
 	}
+}
+
+func precedingFullLineTriviaStart(content []byte, lineStart int) int {
+	anchor := lineStart
+	inBlockComment := false
+	blockEndAnchor := lineStart
+	for anchor > 0 {
+		lineEnd := anchor - 1
+		previousLine := lineEnd
+		for previousLine > 0 && content[previousLine-1] != '\n' {
+			previousLine--
+		}
+		line := strings.TrimSpace(string(content[previousLine:lineEnd]))
+		if inBlockComment {
+			if opening := strings.LastIndex(line, "/*"); opening >= 0 {
+				if strings.TrimSpace(line[:opening]) != "" {
+					anchor = blockEndAnchor
+					break
+				}
+				inBlockComment = false
+			} else if closing := strings.LastIndex(line, "*/"); closing >= 0 {
+				after := strings.TrimSpace(line[closing+2:])
+				if after != "" && !strings.HasPrefix(after, "//") {
+					anchor = blockEndAnchor
+					break
+				}
+			}
+			anchor = previousLine
+			continue
+		}
+		if line == "" || strings.HasPrefix(line, "//") {
+			anchor = previousLine
+			continue
+		}
+		opening := strings.Index(line, "/*")
+		if opening >= 0 {
+			if strings.TrimSpace(line[:opening]) != "" {
+				break
+			}
+			closing := strings.Index(line[opening+2:], "*/")
+			if closing < 0 {
+				inBlockComment = true
+				blockEndAnchor = anchor
+				anchor = previousLine
+				continue
+			}
+			after := strings.TrimSpace(line[opening+closing+4:])
+			if after == "" || strings.HasPrefix(after, "//") {
+				anchor = previousLine
+				continue
+			}
+			break
+		}
+		if closing := strings.LastIndex(line, "*/"); closing >= 0 &&
+			strings.TrimSpace(line[closing+2:]) == "" {
+			inBlockComment = true
+			blockEndAnchor = anchor
+			anchor = previousLine
+			continue
+		}
+		break
+	}
+	return anchor
 }
 
 func bodyInfo(node ast.Node) (source.Span, bool) {
