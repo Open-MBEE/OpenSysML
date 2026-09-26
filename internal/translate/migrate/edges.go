@@ -29,6 +29,8 @@ type edgePlace struct {
 	// owner's body, when it is not a direct member.
 	nest []string
 	name string
+	// keyword is the usage kind this member is declared as; see edgeMember.keyword.
+	keyword string
 	// standIn marks a member ending at a node the migrator made up, such as the
 	// join gathering several edges: no diagram symbol stands at that end.
 	standIn bool
@@ -43,13 +45,17 @@ func (em edgeMember) places() []edgePlace {
 	return append([]edgePlace{em.edgePlace}, em.also...)
 }
 
-// routed lists the members a diagram's route of the edge follows: those whose
-// both ends a symbol stands at, or every member when none has such ends.
-func (em edgeMember) routed() []edgePlace {
+// routed lists the members a diagram's route of the edge follows: those the form
+// draws as an edge, and among them those whose both ends a symbol stands at;
+// every member when none qualifies.
+func (em edgeMember) routed(f viewForm) []edgePlace {
 	places := em.places()
-	drawn := slices.DeleteFunc(slices.Clone(places), func(p edgePlace) bool { return p.standIn })
+	drawn := slices.DeleteFunc(slices.Clone(places), func(p edgePlace) bool { return !f.drawsEdge(p.keyword) })
 	if len(drawn) == 0 {
 		return places
+	}
+	if symbolic := slices.DeleteFunc(slices.Clone(drawn), func(p edgePlace) bool { return p.standIn }); len(symbolic) > 0 {
+		return symbolic
 	}
 	return drawn
 }
@@ -145,7 +151,9 @@ func (m *migration) wroteNestedEdge(e, owner *sysmlv1.Element, keyword string, n
 	if _, ok := m.edgeMembers[e]; ok {
 		return
 	}
-	m.edgeMembers[e] = edgeMember{edgePlace: m.edgePlaceIn(owner, nest, name), keyword: keyword}
+	p := m.edgePlaceIn(owner, nest, name)
+	p.keyword = keyword
+	m.edgeMembers[e] = edgeMember{edgePlace: p, keyword: keyword}
 }
 
 // wroteEdgeEnding records the member edge e was written as, like wroteEdge,
@@ -155,7 +163,7 @@ func (m *migration) wroteEdgeEnding(e, owner *sysmlv1.Element, keyword, name str
 		return
 	}
 	p := m.edgePlaceIn(owner, nil, name)
-	p.standIn = standIn
+	p.keyword, p.standIn = keyword, standIn
 	m.edgeMembers[e] = edgeMember{edgePlace: p, keyword: keyword}
 }
 
@@ -183,6 +191,7 @@ func (m *migration) wroteEdgeAlso(e, owner *sysmlv1.Element, keyword string, nes
 		return
 	}
 	p := m.edgePlaceIn(owner, nest, name)
+	p.keyword = keyword
 	if em.none || em.name == "" || name == "" || slices.ContainsFunc(em.places(), p.equal) {
 		return
 	}
@@ -250,10 +259,10 @@ func (m *migration) edgeRefs(e, scope *sysmlv1.Element) []string {
 	return m.refPlaces(e, scope, edgeMember.places)
 }
 
-// routeRefs writes a reference to each member a diagram's route of edge e is
-// pinned to, from inside scope's body; see edgeMember.routed.
-func (m *migration) routeRefs(e, scope *sysmlv1.Element) []string {
-	return m.refPlaces(e, scope, edgeMember.routed)
+// routeRefs writes a reference to each member a route of edge e on a view of
+// form f is pinned to, from inside scope's body; see edgeMember.routed.
+func (m *migration) routeRefs(e, scope *sysmlv1.Element, f viewForm) []string {
+	return m.refPlaces(e, scope, func(em edgeMember) []edgePlace { return em.routed(f) })
 }
 
 // refPlaces writes a reference to each of the members of e that of selects and
@@ -368,7 +377,7 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		case !m.reaches(em.owner):
 			return nil, routeNotExposed
 		}
-		return m.routeRefs(el, scope), ""
+		return m.routeRefs(el, scope, f), ""
 	}
 	if m.exposure(el, scope) != "" {
 		return nil, routeNotDrawn

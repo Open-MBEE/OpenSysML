@@ -141,10 +141,10 @@ type viewKey struct {
 // checkPlaced warns when the rendering a Layout, Route, Style or Note applies
 // to draws no node, or no edge, for the element: the rendering of the view an
 // `about` annotation is stated in, any kind for an annotation applying in every
-// view. A Layout or Note wants a node, a Route an edge, a Style either.
+// view. A Layout wants a node, a Route an edge, a Style or a Note either.
 func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Symbol) {
 	wantNode := site.TypeFQN != semantics.RouteFQN
-	wantEdge := site.TypeFQN == semantics.RouteFQN || site.TypeFQN == semantics.StyleFQN
+	wantEdge := site.TypeFQN != semantics.LayoutFQN
 	verb := map[string]string{
 		semantics.LayoutFQN: "Layout positions", semantics.RouteFQN: "Route steers",
 		semantics.StyleFQN: "Style colours", semantics.NoteFQN: "Note annotates",
