@@ -739,7 +739,7 @@ jobs:
           OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
           OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
           OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
-        run: go test -count=1 -v -run Installed ./internal/doc/docpdf
+        run: go test -count=1 -v -run Installed ./internal/doc/docpdf ./tests/migrate
 
   vscode-extension:
     name: VS Code extension
