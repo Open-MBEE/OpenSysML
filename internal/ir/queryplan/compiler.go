@@ -36,6 +36,7 @@ var builtins = map[string]builtin{
 	"DocumentQueries::WhereType":       {OperationWhereType},
 	"DocumentQueries::WhereMetadata":   {OperationWhereMetadata},
 	"DocumentQueries::WhereName":       {OperationWhereName},
+	"DocumentQueries::WhereText":       {OperationWhereText},
 	"DocumentQueries::WhereFeature":    {OperationWhereFeature},
 	"DocumentQueries::OrderBy":         {OperationOrderBy},
 	"DocumentQueries::Project":         {OperationProject},

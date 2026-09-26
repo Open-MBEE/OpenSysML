@@ -404,6 +404,8 @@ func (e *executor) evaluate(expression queryplan.Expression) (sequence, error) {
 		return e.evaluateWhereMetadata(expression)
 	case queryplan.OperationWhereName:
 		return e.evaluateWhereName(expression)
+	case queryplan.OperationWhereText:
+		return e.evaluateWhereText(expression)
 	case queryplan.OperationWhereFeature:
 		return e.evaluateWhereFeature(expression)
 	case queryplan.OperationOrderBy:

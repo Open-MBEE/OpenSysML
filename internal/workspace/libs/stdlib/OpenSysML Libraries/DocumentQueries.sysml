@@ -166,6 +166,15 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
+	/* WhereText keeps the projected rows whose text in any of the named columns — every column when none is named — satisfies the comparison. */
+	calc def WhereText {
+		in source : Element[0..*] ordered;
+		in columns : String[0..*] ordered = null;
+		in operator : String[1];
+		in value : String[1];
+		return result : Element[0..*] ordered;
+	}
+
 	calc def WhereFeature {
 		in source : Element[0..*] ordered;
 		in 'feature' : String[1];

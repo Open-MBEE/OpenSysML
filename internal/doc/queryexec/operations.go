@@ -696,11 +696,14 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
-			result = append(result, typedPropertyValue(property, value, sym))
+			result = append(result, e.typedPropertyValue(property, value, sym))
 		}
 		return result, true, nil
 	}
 	if values, present, err := e.declaredFeatureValues(sym, property); present || err != nil {
+		return values, present, err
+	}
+	if values, present, err := e.metadataPathValues(sym, property); present || err != nil {
 		return values, present, err
 	}
 	if segments, ok := parseMemberPath(property); ok && len(segments) > 1 {
@@ -746,6 +749,7 @@ func isQueryableProperty(property string) bool {
 		query.PropertyQualifiedName,
 		query.PropertyOwner,
 		query.PropertyElementType,
+		query.PropertyGeneral,
 		query.PropertyIsAbstract,
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
@@ -756,9 +760,15 @@ func isQueryableProperty(property string) bool {
 	}
 }
 
-func typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
+func (e *executor) typedPropertyValue(property, value string, sym *symbols.Symbol) Value {
 	var result Value
 	switch property {
+	case query.PropertyGeneral:
+		// A general is the element itself, so it prints and links by name.
+		if targets := e.context.Index.LookupQualified(value); len(targets) == 1 {
+			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin())
+		}
+		result = StringValue(value)
 	case query.PropertyIsAbstract, query.PropertyIsIndividual:
 		boolean, _ := strconv.ParseBool(value)
 		result = BooleanValue(boolean)
@@ -1080,6 +1090,21 @@ func appendSelected(result *sequence, source sequence, index int) {
 	}
 	if len(source.depths) > 0 {
 		result.depths = append(result.depths, source.depthAt(index))
+		relevel(result.depths)
+	}
+}
+
+// relevel lowers the last depth so a row whose ancestors a filter dropped
+// nests under the row before it: a depth never exceeds the previous one by
+// more than a level.
+func relevel(depths []int64) {
+	last := len(depths) - 1
+	var limit int64
+	if last > 0 {
+		limit = depths[last-1] + 1
+	}
+	if depths[last] > limit {
+		depths[last] = limit
 	}
 }
 

@@ -227,6 +227,15 @@ func (e *executor) rowPropertyValues(
 		}
 		return e.reflectiveFeatureValues(expression, property, sym)
 	}
+	if e.metadataType(declaring) != nil {
+		// A feature of a metadata def reads what the row's annotations of
+		// that def bind it to; a row not annotated reads it as absent.
+		values, _, err := e.annotationFeatureValues(sym, declaring, property)
+		if err != nil {
+			return nil, e.unevaluable(expression, property, ElementValue(sym), err)
+		}
+		return values, nil
+	}
 	if !e.rowConformsTo(sym, declaring) {
 		// The row is unrelated to the declaring type: read as absent so a
 		// ?? operator can default it. The feature resolved at planning.

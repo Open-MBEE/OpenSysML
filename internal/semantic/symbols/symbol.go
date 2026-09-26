@@ -378,8 +378,11 @@ type AnnotationFacts struct {
 // AnnotationValueFacts is one feature binding inside an annotation body
 // (`@Safety{isMandatory = true;}`), holding the value already evaluated, so that
 // a filter condition reading it decides the same way where the declaration it
-// came from is gone.
+// came from is gone. Values lists every value a sequence expression binds
+// (`tags = ("a", "b");`); Value is the one constant when there is exactly one,
+// and unknown otherwise.
 type AnnotationValueFacts struct {
 	Feature string
 	Value   FilterValue
+	Values  []FilterValue
 }

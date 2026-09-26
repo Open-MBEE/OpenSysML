@@ -36,6 +36,7 @@ const (
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"
 	OperationWhereName       Operation = "where-name"
+	OperationWhereText       Operation = "where-text"
 	OperationWhereFeature    Operation = "where-feature"
 	OperationOrderBy         Operation = "order-by"
 	OperationProject         Operation = "project"

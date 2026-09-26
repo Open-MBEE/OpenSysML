@@ -145,7 +145,8 @@ func TestExecuteTreeDepthSurvivesLaterOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Subtracted: %v", err)
 	}
-	if got, want := treeOutline(subtracted), "0:Pump 0:Outlet 0:Run1 2:Run1Seal 0:Run2Pump 0:Inlet 0:Sump"; got != want {
+	// Run1Seal loses its parent Run1Pump and nests directly under Run1.
+	if got, want := treeOutline(subtracted), "0:Pump 0:Outlet 0:Run1 1:Run1Seal 0:Run2Pump 0:Inlet 0:Sump"; got != want {
 		t.Fatalf("Subtracted = %q, want %q", got, want)
 	}
 
