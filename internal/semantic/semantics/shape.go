@@ -127,7 +127,7 @@ func (m *Model) computeConstructorSlots(typ *symbols.Symbol) constructorSlots {
 	tier := m.libraryTier(typ)
 	var declared []*symbols.Symbol
 	for _, f := range m.shapeFeatures(typ, func(member *symbols.Symbol) bool { return m.libraryTier(member) == tier }) {
-		if _, isUsage := f.Declared.Decl.(*ast.Usage); isUsage {
+		if f.Declared.DeclaresUsage() {
 			declared = append(declared, f.Declared)
 		}
 	}
@@ -386,6 +386,10 @@ func (m *Model) libraryTier(sym *symbols.Symbol) symbols.LibraryTier {
 func IsParameter(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if sym.Recorded() {
+		return sym.DeclaresUsage() &&
+			(sym.Facts.Direction != ast.DirNone || sym.Facts.Modifiers.Has(symbols.ModResult))
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)

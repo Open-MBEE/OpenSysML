@@ -507,6 +507,32 @@ The interactive limit is therefore no longer set by the size of the workspace
 a small file sits beside; it is set by the size of the document being edited,
 and by the documents that import it when that document is a library.
 
+### Holding the closed planes as interface records
+
+A plane file nobody is editing does not need its tree: it can be held as its
+interface record, the scopes and symbols the other files reach with their
+facts attached and its diagnostics stored (`docs/internals/interface-records.md`).
+`BenchmarkPlaneResidency` holds the split constellation with every file loaded
+and with the plane files installed from records, the library and
+`constellation.sysml` loaded and analyzed against them (Intel Xeon Platinum
+8559C, 8 cores, 31 GiB, go1.25.0 linux/amd64; three runs, unchanged between
+runs):
+
+| satellites | planes | all loaded | planes recorded | the records alone | record on disk / plane |
+| ---------- | ------ | ---------- | --------------- | ----------------- | ---------------------- |
+| 128 | 4 | 64.6 MiB | 48.6 MiB | 18.4 MiB | 1 389 KiB |
+| 512 | 4 | 215 MiB | 150 MiB | 42.4 MiB | 5 554 KiB |
+| 1 600 | 32 | 697 MiB | 497 MiB | 172 MiB | 2 172 KiB |
+
+A satellite held in a record costs about **110 KiB** at 1 600 satellites
+against about 446 KiB loaded; the rest of the recorded workspace is
+`constellation.sysml`, which states every satellite's ground link and is
+loaded. In a process of its own, reading the records from the cache rather
+than parsing the planes (`TestPlaneResidencyProcess`), the 1 600-satellite
+workspace's peak RSS goes from 2 604 MiB to 1 287 MiB and its live heap from
+732 MiB to 534 MiB. `docs/internals/performance.md` has the full table and
+what the record still holds per satellite.
+
 ## Where the time goes
 
 A CPU profile of `sysml -validate` at 1 600 satellites (299 137 elements,

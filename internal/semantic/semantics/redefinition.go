@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -34,26 +35,49 @@ func behaviorLike(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeDefinition:
+			return behaviorDefinitionKind(sym.Facts.DefKind)
+		case symbols.NodeUsage:
+			return behaviorUsageKind(sym.Facts.UsageKind)
+		case symbols.NodeAssume, symbols.NodeRequire:
+			return true
+		}
+		return false
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
-		switch d.Kind {
-		case ast.DefAction, ast.DefState, ast.DefCalc, ast.DefConstraint,
-			ast.DefRequirement, ast.DefCase, ast.DefAnalysisCase,
-			ast.DefVerificationCase, ast.DefUseCase, ast.DefBehavior,
-			ast.DefPredicate, ast.DefBool:
-			return true
-		}
+		return behaviorDefinitionKind(d.Kind)
 	case *ast.Usage:
-		switch d.Kind {
-		case ast.UsageAction, ast.UsageState, ast.UsageCalc, ast.UsageExpr,
-			ast.UsageConstraint, ast.UsageRequirement, ast.UsageCase,
-			ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
-			ast.UsageStep, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool,
-			ast.UsageInteraction, ast.UsageObjective:
-			return true
-		}
+		return behaviorUsageKind(d.Kind)
 	case *ast.AssumeMember, *ast.RequireMember:
-		return true // owns a constraint usage
+		return true
+	}
+	return false
+}
+
+// behaviorDefinitionKind reports whether definitions of kind own parameters.
+func behaviorDefinitionKind(kind ast.DefinitionKind) bool {
+	switch kind {
+	case ast.DefAction, ast.DefState, ast.DefCalc, ast.DefConstraint,
+		ast.DefRequirement, ast.DefCase, ast.DefAnalysisCase,
+		ast.DefVerificationCase, ast.DefUseCase, ast.DefBehavior,
+		ast.DefPredicate, ast.DefBool:
+		return true
+	}
+	return false
+}
+
+// behaviorUsageKind reports whether usages of kind own parameters.
+func behaviorUsageKind(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsageAction, ast.UsageState, ast.UsageCalc, ast.UsageExpr,
+		ast.UsageConstraint, ast.UsageRequirement, ast.UsageCase,
+		ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
+		ast.UsageStep, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool,
+		ast.UsageInteraction, ast.UsageObjective:
+		return true
 	}
 	return false
 }
@@ -188,7 +212,7 @@ func (m *Model) ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol {
 func claimedParameters(owned, general behaviorParameters) map[*symbols.Symbol]bool {
 	claimed := make(map[*symbols.Symbol]bool)
 	for i, p := range owned.positional {
-		if explicit := namedParameters(p.usage, general); len(explicit) > 0 {
+		if explicit := namedParameters(p, general); len(explicit) > 0 {
 			for _, target := range explicit {
 				claimed[target.sym] = true
 			}
@@ -201,7 +225,7 @@ func claimedParameters(owned, general behaviorParameters) map[*symbols.Symbol]bo
 		}
 	}
 	if owned.result.sym != nil {
-		for _, target := range namedParameters(owned.result.usage, general) {
+		for _, target := range namedParameters(owned.result, general) {
 			claimed[target.sym] = true
 		}
 		claimed[general.result.sym] = true
@@ -212,23 +236,32 @@ func claimedParameters(owned, general behaviorParameters) map[*symbols.Symbol]bo
 
 // namedParameters returns the parameters of general that a declaration's `:>>`
 // clauses name, matching on the last segment of each qualified name.
-func namedParameters(u *ast.Usage, general behaviorParameters) []parameter {
-	if u == nil {
-		return nil // a cache-restored parameter's redefinitions resolved at record time
+func namedParameters(p parameter, general behaviorParameters) []parameter {
+	var names []string
+	switch {
+	case p.usage != nil:
+		for _, rel := range p.usage.Relationships {
+			if rel == nil || rel.Kind != ast.RelRedefines {
+				continue
+			}
+			qn, ok := rel.Target.(*ast.QualifiedName)
+			if !ok || len(qn.Parts) == 0 {
+				continue
+			}
+			names = append(names, qn.Parts[len(qn.Parts)-1].Text)
+		}
+	case p.sym.Recorded():
+		for _, ref := range p.sym.Facts.Redefines {
+			if name := lastSegment(ref.FQN); name != "" {
+				names = append(names, name)
+			}
+		}
 	}
 	var out []parameter
-	for _, rel := range u.Relationships {
-		if rel == nil || rel.Kind != ast.RelRedefines {
-			continue
-		}
-		qn, ok := rel.Target.(*ast.QualifiedName)
-		if !ok || len(qn.Parts) == 0 {
-			continue
-		}
-		name := qn.Parts[len(qn.Parts)-1].Text
-		for _, p := range general.positional {
-			if p.sym != nil && p.sym.Name == name {
-				out = append(out, p)
+	for _, name := range names {
+		for _, gp := range general.positional {
+			if gp.sym != nil && gp.sym.Name == name {
+				out = append(out, gp)
 			}
 		}
 		if general.result.sym != nil && general.result.sym.Name == name {
@@ -236,6 +269,14 @@ func namedParameters(u *ast.Usage, general behaviorParameters) []parameter {
 		}
 	}
 	return out
+}
+
+// lastSegment returns the simple name a fully-qualified name ends in.
+func lastSegment(fqn string) string {
+	if i := strings.LastIndex(fqn, "::"); i >= 0 {
+		return fqn[i+2:]
+	}
+	return fqn
 }
 
 // ownedParameters returns the parameters owned by sym in declaration order.
@@ -246,6 +287,18 @@ func ownedParameters(sym *symbols.Symbol) []parameter {
 		return nil
 	}
 	var out []parameter
+	if sym.Recorded() {
+		seen := make(map[*symbols.Symbol]bool)
+		sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if seen[member] || member.Facts == nil || member.Facts.Direction == ast.DirNone {
+				return true
+			}
+			seen[member] = true
+			out = append(out, parameter{sym: member, direction: member.Facts.Direction, isResult: member.Facts.Modifiers.Has(symbols.ModResult)})
+			return true
+		})
+		return out
+	}
 	for _, member := range declMembers(sym) {
 		usage, ok := unwrapUsage(member)
 		if !ok || usage.Direction == ast.DirNone {

@@ -885,7 +885,9 @@ func librarySupers(idx *symbols.Index, fqn string) []string {
 	var out []string
 	for _, sym := range idx.LookupQualified(fqn) {
 		if sym.Facts != nil {
-			out = append(out, sym.Facts.Supers...)
+			for _, super := range sym.Facts.Supers {
+				out = append(out, super.FQN)
+			}
 		}
 	}
 	return out

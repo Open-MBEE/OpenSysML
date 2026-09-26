@@ -37,6 +37,11 @@ func NewCache() (*Cache, error) {
 		}
 		base = d
 	}
+	return NewCacheIn(base)
+}
+
+// NewCacheIn is NewCache under the given base directory instead of the user's.
+func NewCacheIn(base string) (*Cache, error) {
 	dir := filepath.Join(base, "sysml-ls", "libs")
 	// #nosec G703 -- the base directory is the user's own XDG_CACHE_HOME or OS
 	// cache directory, and the joined suffix is a constant.
@@ -71,20 +76,29 @@ func (c *Cache) path(key string) string {
 // Load returns the cached record for key, or (nil, false) on any miss
 // (absent file, read error, or decode error — all treated as a benign miss).
 func (c *Cache) Load(key string) (*IndexRecord, bool) {
+	var rec IndexRecord
+	if !c.load(key, &rec) {
+		return nil, false
+	}
+	return &rec, true
+}
+
+// load gob-decodes the record stored under key into rec, reporting false on
+// any miss.
+func (c *Cache) load(key string, rec any) bool {
 	// #nosec G304 G703 -- the path is <cache dir>/<content hash>.idx; the key is
 	// hex-encoded SHA-256 computed by keyFor, never caller-supplied text.
 	data, err := os.ReadFile(c.path(key))
 	if err != nil {
-		return nil, false
+		return false
 	}
-	var rec IndexRecord
-	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&rec); err != nil {
-		return nil, false
+	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(rec); err != nil {
+		return false
 	}
 	// Date the hit, so Prune reads the file's age as the age of its last use.
 	now := time.Now()
 	_ = os.Chtimes(c.path(key), now, now)
-	return &rec, true
+	return true
 }
 
 // Prune removes records that no load has hit for maxIdleAge, and the temp files
@@ -117,6 +131,11 @@ func (c *Cache) Prune() {
 // cannot truncate or publish each other's temp. A failed encode/write removes
 // the temp and leaves any existing final file untouched.
 func (c *Cache) Store(key string, rec *IndexRecord) error {
+	return c.store(key, rec)
+}
+
+// store is Store for any gob-encodable record.
+func (c *Cache) store(key string, rec any) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(rec); err != nil {
 		return err

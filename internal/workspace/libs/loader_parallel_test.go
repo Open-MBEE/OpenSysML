@@ -95,7 +95,7 @@ func factsString(f *symbols.LibraryFacts) string {
 	if f.Dimension != nil {
 		dim = fmt.Sprintf("%+v", *f.Dimension)
 	}
-	return fmt.Sprintf("{supers=%q unit=%s dim=%s abstract=%v}", f.Supers, unit, dim, f.Abstract)
+	return fmt.Sprintf("{supers=%+v unit=%s dim=%s abstract=%v}", f.Supers, unit, dim, f.Abstract)
 }
 
 func filterString(f symbols.ElementFilter) string {

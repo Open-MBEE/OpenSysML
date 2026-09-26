@@ -45,8 +45,12 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 	if err := validateNewName(params.NewName); err != nil {
 		return nil, err
 	}
-	if c := s.ws.RenameConflict(target.sym, target.name, params.NewName); c != nil {
-		return nil, c
+	conflict, err := s.ws.RenameConflict(target.sym, target.name, params.NewName)
+	if err != nil {
+		return nil, err
+	}
+	if conflict != nil {
+		return nil, conflict
 	}
 
 	changes := map[protocol.DocumentURI][]protocol.TextEdit{}
@@ -81,7 +85,11 @@ func (s *Server) Rename(ctx context.Context, params *protocol.RenameParams) (*pr
 
 	// Every segment, in every document, that writes this name of target: an alias
 	// use is rewritten by renaming the alias and not by renaming its target.
-	for _, ref := range s.ws.NameReferencesTo(target.sym, target.name) {
+	refs, err := s.ws.NameReferencesTo(target.sym, target.name)
+	if err != nil {
+		return nil, err
+	}
+	for _, ref := range refs {
 		addEdit(ref.Doc, ref.Content, ref.Span)
 	}
 	return &protocol.WorkspaceEdit{Changes: changes}, nil
@@ -138,6 +146,9 @@ func (s *Server) renameable(sym *symbols.Symbol, name string, span source.Span) 
 		// Standard-library and other out-of-workspace declarations: renaming
 		// the references alone would break the model.
 		return renameTarget{}, source.Span{}, fmt.Errorf("cannot rename %q: declared outside the workspace", sym.Name)
+	}
+	if sym.Recorded() {
+		return renameTarget{}, source.Span{}, symbols.NeedsTree(sym, "renaming "+sym.Name)
 	}
 	target := renameTarget{sym: sym, name: name, declSpan: sym.NameSpan}
 	if name != sym.Name {

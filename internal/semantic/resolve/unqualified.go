@@ -129,6 +129,9 @@ func (r *Resolver) BindsName(sym *symbols.Symbol) bool {
 	if r == nil || sym == nil || sym.Naming == symbols.NamedByDeclaration {
 		return true
 	}
+	if sym.Recorded() {
+		return !sym.Facts.Modifiers.Has(symbols.ModNamesNothing)
+	}
 	r.EnterDoc(sym.DocName)
 	defer r.LeaveDoc()
 	if named, done := r.effNames[sym]; done {
@@ -297,6 +300,9 @@ func impliesNamingFeature(sym *symbols.Symbol) bool {
 // isParameter reports whether sym is declared as a directed feature or a
 // result, the features an implicit redefinition matches (SysML 7.6.5).
 func isParameter(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModParameter)
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && (usage.Direction != ast.DirNone || usage.IsResult)
 }
@@ -313,8 +319,7 @@ func simpleName(sym *symbols.Symbol) string {
 // lookupImports checks every import declared directly in scope for a member
 // matching name.
 func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	node := scope.Node()
-	for _, imp := range r.importsOf(node) {
+	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] {
 			continue
 		}
@@ -331,7 +336,7 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
 func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	for _, imp := range r.importsOf(targetScope.Node()) {
+	for _, imp := range r.scopeImports(targetScope) {
 		if r.importStack[imp] {
 			continue
 		}
@@ -370,6 +375,18 @@ func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope
 	targetFQN := r.registeredFQN(target)
 	fromFQN := r.ReferringNamespaceFQN(from)
 	return targetFQN != "" && (fromFQN == targetFQN || strings.HasPrefix(fromFQN, targetFQN+"::"))
+}
+
+// scopeImports returns the imports the namespace owning scope declares: a
+// recorded scope holds them itself, a parsed one reads its node.
+func (r *Resolver) scopeImports(scope *symbols.Scope) []*ast.Import {
+	if scope == nil {
+		return nil
+	}
+	if scope.Recorded() {
+		return scope.Imports()
+	}
+	return r.importsOf(scope.Node())
 }
 
 // importsOf is importsOf memoized: the tree is immutable once parsed, and every

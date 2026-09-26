@@ -74,6 +74,9 @@ func w10bIsIndividualDef(sym *symbols.Symbol) bool {
 	if sym.Kind == symbols.SymbolIndividualDef {
 		return true
 	}
+	if sym.Recorded() {
+		return sym.DeclaresDefinition() && sym.Facts.Modifiers.Has(symbols.ModIndividual)
+	}
 	def, ok := sym.Decl.(*ast.Definition)
 	return ok && def.IsIndividual
 }

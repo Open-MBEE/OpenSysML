@@ -164,6 +164,9 @@ func (r *Resolver) inheritsFrom(sub, sup *symbols.Symbol, model supertypeProvide
 // target we could not resolve: the name it reuses is then not evidence of a
 // duplicate. See docs/project/spec-compliance.md for the resolution gaps.
 func (r *Resolver) hasUnresolvedRedefinition(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModUnresolvedRedefinition)
+	}
 	for _, rel := range redefinesRelationships(sym.Decl) {
 		if _, ok := r.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, rel.Target); !ok {
 			return true
@@ -238,7 +241,7 @@ func (r *Resolver) inheritableMembers(owner, sup *symbols.Symbol, model supertyp
 // (KerML 8.4.3.2). Library elements are left out, as library supertypes are.
 func (r *Resolver) importedMembers(owner, sup *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, imp := range r.importsOf(sup.Scope.Node()) {
+	for _, imp := range r.scopeImports(sup.Scope) {
 		if imp.Visibility == ast.VisibilityPrivate {
 			continue
 		}
@@ -471,6 +474,9 @@ func (r *Resolver) DistinguishableMembers(scope *symbols.Scope) (owned, aliases 
 // as Membership::memberName does in the reference: a member naming an existing
 // feature rather than declaring one contributes none.
 func contributesName(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModContributesName)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
 		if decl.Ident.Name == "" && decl.Ident.ShortName == "" {
@@ -505,6 +511,9 @@ func hasTypingRelationship(decl *ast.Usage) bool {
 // subject, actors, stakeholders and objective of a requirement or case
 // (KerML 7.3.4.5, SysML 7.18.4).
 func ImplicitlyRedefined(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModImplicitlyRedefined)
+	}
 	if isParameter(sym) || inMetadataUsageBody(sym) {
 		return true
 	}

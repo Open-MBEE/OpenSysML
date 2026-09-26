@@ -14,10 +14,11 @@ func (s *Session) ConformanceMode() diag.ConformanceMode {
 
 // SetConformanceMode switches what the session asks of its model: whether
 // notation no SysML v2 production admits is a warning or an error. It takes
-// effect at once — the buffer is re-analyzed on the next request.
-func (s *Session) SetConformanceMode(mode diag.ConformanceMode) {
+// effect at once — the buffer is re-analyzed on the next request. A workspace
+// holding a document as its interface record keeps its mode and says so.
+func (s *Session) SetConformanceMode(mode diag.ConformanceMode) error {
 	defer s.enter()()
-	s.ws.SetConformanceMode(mode)
+	return s.ws.SetConformanceMode(mode)
 }
 
 // doStrict shows or sets the conformance mode, reporting what the buffer looks
@@ -35,7 +36,9 @@ func (s *Session) doStrict(args []string) []string {
 	default:
 		return []string{fmt.Sprintf("error: unknown strict setting %q (want on or off)", args[0])}
 	}
-	s.ws.SetConformanceMode(mode)
+	if err := s.ws.SetConformanceMode(mode); err != nil {
+		return []string{fmt.Sprintf("error: %v", err)}
+	}
 	out := []string{fmt.Sprintf("strict: %s", onOff(mode.IsStrict()))}
 	return append(out, s.diagnosticLines()...)
 }

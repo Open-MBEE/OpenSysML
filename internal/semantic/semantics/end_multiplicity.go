@@ -114,7 +114,7 @@ func (w *multiplicityWalk) generals(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	if declaresEnd(sym) {
 		if owner := ownerSymbol(sym); owner != nil {
-			if i := endIndex(owner, sym); i >= 0 {
+			if i := w.m.endIndex(owner, sym); i >= 0 {
 				out = append(out, w.m.positionalEnds(owner, i)...)
 			}
 		}
@@ -159,8 +159,8 @@ func (m *Model) allGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // endIndex is the position of end among the ends owner declares, or -1.
-func endIndex(owner, end *symbols.Symbol) int {
-	for i, owned := range ownedEnds(owner) {
+func (m *Model) endIndex(owner, end *symbols.Symbol) int {
+	for i, owned := range m.ownedEnds(owner) {
 		if owned == end {
 			return i
 		}

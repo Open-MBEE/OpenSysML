@@ -57,12 +57,84 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 	m.annotations[sym] = nil
 
 	var out []annotation
-	if sym.Decl != nil {
+	if sym.Recorded() {
+		out = append(out, m.recordedAnnotations(sym)...)
+		out = append(out, m.aboutAnnotations(sym)...)
+	} else if sym.Decl != nil {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
 	m.annotations[sym] = out
 	return out
+}
+
+// recordedAnnotations restores the annotations a recorded symbol's own
+// declaration stated, from the facts its record carries.
+func (m *Model) recordedAnnotations(sym *symbols.Symbol) []annotation {
+	var out []annotation
+	for _, facts := range sym.Facts.Annotations {
+		a, ok := m.annotationFromFacts(facts, sym.OwnerScope)
+		if ok {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// annotationFromFacts is the annotation a fact states; the values it carries
+// are the ones the declaration bound or its type defaulted, already evaluated.
+func (m *Model) annotationFromFacts(facts symbols.AnnotationFacts, scope *symbols.Scope) (annotation, bool) {
+	typ := m.recordedElement(symbols.ElementRef{FQN: facts.TypeFQN})
+	if typ == nil {
+		return annotation{}, false
+	}
+	bound := make(map[string]symbols.FilterValue, len(facts.Values))
+	for _, v := range facts.Values {
+		bound[v.Feature] = v.Value
+	}
+	return annotation{typ: typ, bound: bound, scope: scope}, true
+}
+
+// DeclaredAnnotationFactsOf is AnnotationFactsOf over the annotations sym's own
+// declaration states — what its interface record carries; an `about` annotation
+// stated elsewhere travels with the document stating it.
+func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	if sym == nil || sym.Decl == nil {
+		return nil
+	}
+	return annotationFacts(m, m.declaredAnnotations(sym))
+}
+
+// AboutAnnotationFactsOf is the annotation a metadata usage with an `about`
+// clause states on the elements it names — its type and bound values — as an
+// interface record keeps it; nil for any other symbol.
+func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || !annotatesOthers(usage) {
+		return nil
+	}
+	a, ok := m.usageAnnotation(sym.OwnerScope, usage)
+	if !ok {
+		return nil
+	}
+	facts := annotationFacts(m, []annotation{a})
+	if len(facts) == 0 {
+		return nil
+	}
+	return &facts[0]
+}
+
+// AnnotatedElementsOf returns the elements a metadata usage annotates through
+// its `about` clause, resolved; nil for any other symbol.
+func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(usage) {
+		return nil
+	}
+	return m.annotatedElements(sym.OwnerScope, usage)
 }
 
 // AnnotationFactsOf states the metadata annotating sym as names and constants,
@@ -71,8 +143,13 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 // constant is reported with an unknown value, which a condition reading it
 // reports as unevaluable rather than silently treating as absent.
 func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	return annotationFacts(m, m.annotationsOf(sym))
+}
+
+// annotationFacts states annotations as names and constants.
+func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 	var out []symbols.AnnotationFacts
-	for _, a := range m.annotationsOf(sym) {
+	for _, a := range annots {
 		var typFQN string
 		if a.typ != nil {
 			typFQN = m.fqnOf(a.typ)
@@ -108,7 +185,8 @@ type AnnotationSite struct {
 
 // AnnotationSitesOf returns the metadata annotating sym with the nodes stating
 // it, inline annotations first and `about`-form ones after, each in
-// declaration order.
+// declaration order. An annotation a recorded symbol's own declaration stated
+// has no node: its record carries the type and values, not the tree.
 func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	var out []AnnotationSite
 	for _, a := range m.annotationsOf(sym) {
@@ -116,7 +194,7 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		if a.typ != nil {
 			typFQN = m.fqnOf(a.typ)
 		}
-		if typFQN == "" || a.node == nil {
+		if typFQN == "" || (a.node == nil && !sym.Recorded()) {
 			continue
 		}
 		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Scope: a.scope, About: a.about}
@@ -387,8 +465,8 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 	m.metadataDefaults[typ] = nil
 	var values map[string]symbols.FilterValue
 	for _, member := range m.MembersOf(typ) {
-		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || usage.Value == nil {
+		value, ok := m.declaredDefault(member)
+		if !ok {
 			continue
 		}
 		name := simpleSymbolName(member)
@@ -401,10 +479,48 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 		if values == nil {
 			values = make(map[string]symbols.FilterValue)
 		}
-		values[name] = m.annotationValue(member.OwnerScope, usage.Value)
+		values[name] = value
 	}
 	m.metadataDefaults[typ] = values
 	return values
+}
+
+// declaredDefault returns the value member's declaration binds it to, read
+// from its record when its document is recorded.
+func (m *Model) declaredDefault(member *symbols.Symbol) (symbols.FilterValue, bool) {
+	if member.Recorded() {
+		if member.Facts.Default == nil {
+			return symbols.FilterValue{}, false
+		}
+		return *member.Facts.Default, true
+	}
+	usage, ok := member.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return symbols.FilterValue{}, false
+	}
+	return m.annotationValue(member.OwnerScope, usage.Value), true
+}
+
+// MetadataDefaultOf returns the default a feature of a metadata definition or
+// usage declares, as an annotation of that type reads it when it leaves the
+// feature unbound; false for any other symbol.
+func (m *Model) MetadataDefaultOf(sym *symbols.Symbol) (symbols.FilterValue, bool) {
+	if m == nil || sym == nil || sym.OwnerScope == nil || !metadataTyped(sym.OwnerScope.Owner()) {
+		return symbols.FilterValue{}, false
+	}
+	return m.declaredDefault(sym)
+}
+
+// metadataTyped reports whether sym is a metadata definition or usage.
+func metadataTyped(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if kind, ok := sym.DefinitionKind(); ok {
+		return kind == ast.DefMetadata
+	}
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageMetadata
 }
 
 // bodyScope is the scope a metadata usage's body resolves names against. The
@@ -498,6 +614,10 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
+	if sym.Recorded() {
+		m.indexRecordedAboutUsage(sym)
+		return
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || !annotatesOthers(usage) {
 		return
@@ -507,7 +627,26 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 		return
 	}
 	a.about = true
-	for _, target := range m.annotatedElements(sym.OwnerScope, usage) {
+	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, usage))
+}
+
+// indexRecordedAboutUsage indexes an `about` metadata usage a record carries:
+// its one annotation, on the elements the record names.
+func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
+	if sym.Facts.Annotation == nil || len(sym.Facts.About) == 0 {
+		return
+	}
+	a, ok := m.annotationFromFacts(*sym.Facts.Annotation, sym.OwnerScope)
+	if !ok {
+		return
+	}
+	a.about = true
+	m.indexAbout(a, m.recordedElements(nil, sym.Facts.About))
+}
+
+// indexAbout files a as an annotation of each target.
+func (m *Model) indexAbout(a annotation, targets []*symbols.Symbol) {
+	for _, target := range targets {
 		if _, known := m.aboutAnnots[target]; !known {
 			m.aboutOrder = append(m.aboutOrder, target)
 		}

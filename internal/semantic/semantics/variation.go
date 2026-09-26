@@ -12,6 +12,9 @@ func DeclaresVariation(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers&symbols.ModVariation != 0
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
 		return d.IsVariation
@@ -32,6 +35,9 @@ func IsVariation(sym *symbols.Symbol) bool {
 func DeclaresVariant(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModVariant)
 	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && usage.IsVariant

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"sync"
@@ -225,6 +226,18 @@ func (e *snapshotEncoder) symbols(syms []*Symbol) {
 	}
 }
 
+func (e *snapshotEncoder) refs(rs []ElementRef) {
+	e.w.Len(len(rs))
+	for _, r := range rs {
+		e.w.String(r.FQN)
+		e.w.Len(len(r.Path))
+		for _, at := range r.Path {
+			e.w.Int(int64(at))
+		}
+		e.w.String(r.Doc)
+	}
+}
+
 func (e *snapshotEncoder) strings(ss []string) {
 	e.w.Len(len(ss))
 	for _, s := range ss {
@@ -284,7 +297,7 @@ func (e *snapshotEncoder) writeSymbols() {
 // (see LibraryFacts), so the two are told apart.
 func (e *snapshotEncoder) writeFacts(f *LibraryFacts) {
 	e.w.Bool(f.Supers != nil)
-	e.strings(f.Supers)
+	e.refs(f.Supers)
 	e.w.Bool(f.Unit != nil)
 	if f.Unit != nil {
 		e.w.Float(f.Unit.ScaleNum)
@@ -654,6 +667,30 @@ func (d *sectionReader) symbols() []*Symbol {
 	return out
 }
 
+func (d *sectionReader) refs() []ElementRef {
+	n := d.r.Len()
+	if n == 0 {
+		return nil
+	}
+	out := make([]ElementRef, n)
+	for i := range out {
+		out[i].FQN = d.r.String()
+		if steps := d.r.Len(); steps > 0 {
+			out[i].Path = make([]int32, steps)
+			for j := range out[i].Path {
+				at := d.r.Int()
+				if at < 0 || at > math.MaxInt32 {
+					d.r.Fail("member ordinal")
+					return nil
+				}
+				out[i].Path[j] = int32(at)
+			}
+		}
+		out[i].Doc = d.r.String()
+	}
+	return out
+}
+
 func (d *sectionReader) strings() []string {
 	out := d.stringSlices.Take(d.r.Len())
 	for i := range out {
@@ -747,9 +784,9 @@ func (d *sectionReader) readSymbols() {
 
 func (d *sectionReader) readFacts(f *LibraryFacts) {
 	hasSupers := d.r.Bool()
-	f.Supers = d.strings()
+	f.Supers = d.refs()
 	if hasSupers && f.Supers == nil {
-		f.Supers = []string{}
+		f.Supers = []ElementRef{}
 	}
 	if d.r.Bool() {
 		u := &UnitFacts{ScaleNum: d.r.Float(), ScaleDen: d.r.Float()}

@@ -77,17 +77,25 @@ func (x *refIndex) add(doc *Document, ref resolve.Reference, part int, element, 
 
 // referencesLocked returns the reverse-index entries for key across every
 // document, in document then position order, building the table of each
-// document a change has dropped. Caller holds the write lock.
-func (w *Workspace) referencesLocked(key symbols.ElementKey) []refEntry {
-	w.settleGathersLocked()
-	if w.refs == nil {
-		w.refs = newRefIndex()
-	}
+// document a change has dropped. The references a document held as its
+// interface record writes are in its body, which the record does not carry:
+// the answer is a symbols.NeedsHydration for the first such document. Caller
+// holds the write lock.
+func (w *Workspace) referencesLocked(key symbols.ElementKey) ([]refEntry, error) {
 	names := make([]string, 0, len(w.docs))
 	for name := range w.docs {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	for _, name := range names {
+		if w.docs[name].Recorded() {
+			return nil, &symbols.NeedsHydration{Doc: name, Question: "the references written in " + name}
+		}
+	}
+	w.settleGathersLocked()
+	if w.refs == nil {
+		w.refs = newRefIndex()
+	}
 	var out []refEntry
 	for _, name := range names {
 		if w.refs.docs[name] == nil {
@@ -95,7 +103,7 @@ func (w *Workspace) referencesLocked(key symbols.ElementKey) []refEntry {
 		}
 		out = append(out, w.refs.docs[name][key]...)
 	}
-	return out
+	return out, nil
 }
 
 // indexReferencesLocked builds doc's reverse-index table, as a query owned by
@@ -123,48 +131,60 @@ func (w *Workspace) indexReferencesLocked(doc *Document) {
 }
 
 // ReferencesTo returns every segment in the workspace's documents that reaches
-// target or writes its name (an alias use counts for both), in document then position order.
-func (w *Workspace) ReferencesTo(target *symbols.Symbol) []ReferenceLocation {
+// target or writes its name (an alias use counts for both), in document then
+// position order. A workspace holding a document as its interface record
+// answers with a symbols.NeedsHydration, since the references that document
+// writes are not in its record.
+func (w *Workspace) ReferencesTo(target *symbols.Symbol) ([]ReferenceLocation, error) {
 	return w.referenceLocations(target, func(refEntry) bool { return true })
 }
 
 // NameReferencesTo returns every segment in the workspace's documents that writes
 // name as target's own name — what renaming that name edits. A segment spelling
 // target's other name (short for long, or the reverse) still resolves after the
-// rename and is left alone; an alias use is edited via the alias.
-func (w *Workspace) NameReferencesTo(target *symbols.Symbol, name string) []ReferenceLocation {
+// rename and is left alone; an alias use is edited via the alias. A recorded
+// document makes the answer a symbols.NeedsHydration, as for ReferencesTo.
+func (w *Workspace) NameReferencesTo(target *symbols.Symbol, name string) ([]ReferenceLocation, error) {
 	return w.referenceLocations(target, func(e refEntry) bool { return e.named && e.text == name })
 }
 
 // referenceLocations answers a reverse-index query for target, building the index
 // first when it is stale; the answer is a copy the caller owns.
-func (w *Workspace) referenceLocations(target *symbols.Symbol, keep func(refEntry) bool) []ReferenceLocation {
+func (w *Workspace) referenceLocations(target *symbols.Symbol, keep func(refEntry) bool) ([]ReferenceLocation, error) {
 	if target == nil {
-		return nil
+		return nil, nil
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	entries := w.referencesLocked(symbols.KeyOf(target))
+	entries, err := w.referencesLocked(symbols.KeyOf(target))
+	if err != nil {
+		return nil, err
+	}
 	out := make([]ReferenceLocation, 0, len(entries))
 	for _, e := range entries {
 		if keep(e) {
 			out = append(out, e.ReferenceLocation)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // RenameConflict reports why renaming target's name (long or short, as written)
 // to newName is refused: the name already taken where target is declared, or a
 // reference in any workspace document that would read another element afterwards.
-func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string) *edit.RenameConflict {
+// A recorded document makes the answer a symbols.NeedsHydration, as for ReferencesTo.
+func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string) (*edit.RenameConflict, error) {
 	if target == nil {
-		return nil
+		return nil, nil
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	entries, err := w.referencesLocked(symbols.KeyOf(target))
+	if err != nil {
+		return nil, err
+	}
 	var occurrences []edit.RenameOccurrence
-	for _, e := range w.referencesLocked(symbols.KeyOf(target)) {
+	for _, e := range entries {
 		if e.named && e.text == name {
 			occurrences = append(occurrences, edit.RenameOccurrence{Ref: e.ref, Part: e.part})
 		}
@@ -173,7 +193,7 @@ func (w *Workspace) RenameConflict(target *symbols.Symbol, name, newName string)
 	w.queryLocked(target.DocName, func(r *resolve.Resolver, sem *semantics.Model) {
 		conflict = edit.CheckRename(r, sem, target, name, newName, occurrences)
 	})
-	return conflict
+	return conflict, nil
 }
 
 // segmentElements is the element each segment of a resolved ref reaches (nil where

@@ -14,20 +14,21 @@ import (
 
 // connectorLike reports whether sym declares a connector — the only owning
 // types whose end features are matched by position, and the only general types
-// whose ends are implicitly redefined.
+// whose ends are implicitly redefined. A recorded symbol answers from its kind
+// facts.
 func connectorLike(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	switch d := sym.Decl.(type) {
-	case *ast.Definition:
-		switch d.Kind {
+	if kind, ok := sym.DefinitionKind(); ok {
+		switch kind {
 		case ast.DefConnection, ast.DefInterface, ast.DefAllocation, ast.DefFlow,
 			ast.DefAssoc, ast.DefBinding:
 			return true
 		}
-	case *ast.Usage:
-		switch d.Kind {
+	}
+	if kind, ok := sym.UsageKind(); ok {
+		switch kind {
 		case ast.UsageConnection, ast.UsageInterface, ast.UsageAllocation,
 			ast.UsageConnector, ast.UsageFlow, ast.UsageSuccession,
 			ast.UsageAssoc, ast.UsageInteraction, ast.UsageBinding:
@@ -45,10 +46,20 @@ func (m *Model) isConnectorLike(sym *symbols.Symbol) bool {
 // declaration order: first the ends of its `connect` clause, then the `end`
 // features of its body. An end that declares no name of its own — `connect a
 // to b` — still occupies its position, as does one whose symbol is not
-// registered; both are reported as a nil entry.
-func ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
+// registered; both are reported as a nil entry. A recorded connector reads
+// its ends from its record.
+func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil || sym.Scope == nil {
 		return nil
+	}
+	if sym.Recorded() {
+		out := make([]*symbols.Symbol, len(sym.Facts.Ends))
+		for i, ref := range sym.Facts.Ends {
+			if !ref.IsZero() {
+				out[i] = m.recordedElement(ref)
+			}
+		}
+		return out
 	}
 	var out []*symbols.Symbol
 	if u, ok := sym.Decl.(*ast.Usage); ok {
@@ -72,6 +83,15 @@ func ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 		out = append(out, memberSymbol(sym.Scope, usage))
 	}
 	return out
+}
+
+// OwnedConnectorEnds is ownedEnds for a connector, and false for any other
+// symbol: the end signature an interface record keeps of it.
+func (m *Model) OwnedConnectorEnds(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	if !connectorLike(sym) {
+		return nil, false
+	}
+	return m.ownedEnds(sym), true
 }
 
 // connectorEnd is one effective end of a connector: the end feature, or, for
@@ -135,7 +155,7 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 		return out
 	}
 
-	owned := ownedEnds(sym)
+	owned := m.ownedEnds(sym)
 	out := make([]connectorEnd, 0, len(owned))
 	for i, end := range owned {
 		out = append(out, connectorEnd{feature: end, owner: sym, index: i})
@@ -272,7 +292,7 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 		return nil
 	}
 	position := -1
-	for i, end := range ownedEnds(owner) {
+	for i, end := range m.ownedEnds(owner) {
 		if end == sym {
 			position = i
 			break
@@ -301,7 +321,7 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 // declaredEndCount counts sym's owned ends plus the unclaimed ends of its declared
 // generals; it consults no implicit base, so implicit base selection may use it.
 func (m *Model) declaredEndCount(sym *symbols.Symbol) int {
-	owned := ownedEnds(sym)
+	owned := m.ownedEnds(sym)
 	var inherited []connectorEnd
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || !GeneralizationKind(rel.Kind) {
@@ -345,6 +365,9 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModEnd)
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
 		_, declares := d.DeclaredName()
@@ -363,7 +386,7 @@ func (m *Model) UnmatchedConnectorEnds(sym *symbols.Symbol) (*symbols.Symbol, []
 	if !m.isConnectorLike(sym) {
 		return nil, nil
 	}
-	owned := ownedEnds(sym)
+	owned := m.ownedEnds(sym)
 	if len(owned) == 0 {
 		return nil, nil
 	}
@@ -417,7 +440,7 @@ func (m *Model) BinaryConnectorExcessEnds(sym *symbols.Symbol) ([]ast.Node, int)
 	}
 	usage, _ := sym.Decl.(*ast.Usage)
 	var excess []ast.Node
-	for i, end := range ownedEnds(sym) {
+	for i, end := range m.ownedEnds(sym) {
 		if i < 2 {
 			continue
 		}
@@ -457,7 +480,7 @@ func (m *Model) RelatedFeatureCount(sym *symbols.Symbol) int {
 			count++
 		}
 	}
-	if len(ownedEnds(sym)) == 0 {
+	if len(m.ownedEnds(sym)) == 0 {
 		count += m.clauseRelatedFeatureCount(sym, make(map[*symbols.Symbol]bool))
 	}
 	return count
@@ -470,7 +493,7 @@ func (m *Model) clauseRelatedFeatureCount(sym *symbols.Symbol, visited map[*symb
 	count := 0
 	for _, sup := range m.DirectSupertypes(sym) {
 		usage, ok := sup.Decl.(*ast.Usage)
-		if !ok || visited[sup] || !connectorLike(sup) || len(ownedEnds(sup)) > 0 {
+		if !ok || visited[sup] || !connectorLike(sup) || len(m.ownedEnds(sup)) > 0 {
 			continue
 		}
 		count += ownedRelatedFeatureCount(usage) + m.clauseRelatedFeatureCount(sup, visited)
@@ -506,6 +529,11 @@ func ownedRelatedFeatureCount(usage *ast.Usage) int {
 // its own reference clause or its owner's `connect`/binding clause when it has no symbol.
 func endReferencesFeature(end connectorEnd) bool {
 	if end.feature != nil {
+		if end.feature.Recorded() {
+			// A named clause end always names the feature it references.
+			return end.feature.Kind == symbols.SymbolConnectorEnd ||
+				len(end.feature.RecordedRelationships(ast.RelReferences)) > 0
+		}
 		switch d := end.feature.Decl.(type) {
 		case *ast.Usage:
 			return referencesFeature(d.Relationships)
@@ -513,6 +541,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			return d.AttachedTarget() != nil
 		}
 		return false
+	}
+	if end.owner.Recorded() {
+		// A clause end without a symbol of its own is attached to a feature.
+		return end.index < len(end.owner.Facts.Ends)
 	}
 	usage, ok := end.owner.Decl.(*ast.Usage)
 	return ok && clauseEndTarget(usage, end.index) != nil
@@ -682,7 +714,7 @@ type connectorEndInput struct {
 }
 
 func (m *Model) connectorEndAttachments(sym *symbols.Symbol, ends []connectorEndInput) []ConnectorEndAttachment {
-	owned := ownedEnds(sym)
+	owned := m.ownedEnds(sym)
 	out := make([]ConnectorEndAttachment, 0, len(ends))
 	for i, end := range ends {
 		att := ConnectorEndAttachment{Attachment: end.attachment, End: end.end}

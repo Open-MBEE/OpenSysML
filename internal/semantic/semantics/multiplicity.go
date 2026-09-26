@@ -95,11 +95,38 @@ func (m *Model) RangeIn(scope *symbols.Scope, mult *ast.Multiplicity) (Range, bo
 // subject or a requirement constraint included, or ok=false when the symbol is
 // not a usage or declares none.
 func (m *Model) MultiplicityOf(sym *symbols.Symbol) (Range, bool) {
+	if sym.Recorded() {
+		return recordedRange(sym.Facts.Multiplicity)
+	}
 	mult := UsageMultiplicityOf(sym)
 	if mult == nil {
 		return Range{}, false
 	}
 	return m.multiplicityRange(mult)
+}
+
+// recordedRange is the range a multiplicity fact states, ok=false for none.
+func recordedRange(facts *symbols.MultiplicityFacts) (Range, bool) {
+	if facts == nil {
+		return Range{}, false
+	}
+	bound := func(b symbols.BoundFacts) Bound {
+		return Bound{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	}
+	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
+}
+
+// MultiplicityFactsOf states the multiplicity sym declares as a record fact,
+// nil when it declares none.
+func (m *Model) MultiplicityFactsOf(sym *symbols.Symbol) *symbols.MultiplicityFacts {
+	r, ok := m.MultiplicityOf(sym)
+	if !ok {
+		return nil
+	}
+	bound := func(b Bound) symbols.BoundFacts {
+		return symbols.BoundFacts{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	}
+	return &symbols.MultiplicityFacts{Lower: bound(r.Lower), Upper: bound(r.Upper)}
 }
 
 // UsageMultiplicityOf returns the multiplicity a usage, subject, cross feature or
