@@ -121,6 +121,78 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 }
 `),
 		},
+		// A connector specializing a recorded nonbinary connector inherits its
+		// ends by position: their count, order and types.
+		"connector ends": {
+			"conns.sysml": []byte(`package Conns {
+	part def A; part def B; part def C;
+	connection def Triple { end a : A; end b : B; end c : C; }
+	part def Host {
+		part pa : A; part pb : B; part pc : C;
+		connection base : Triple connect (pa, pb, pc);
+		connection named : Triple connect (a references pa, b references pb, c references pc);
+	}
+}
+`),
+			"use.sysml": []byte(`package Use {
+	private import Conns::*;
+	connection def Derived :> Triple;
+	connection def Retyped :> Triple { end :>> a : A; end d : B; }
+	part def Host2 :> Host { connection more :> base; connection alike :> named; }
+	part h : Host {
+		connection t : Triple connect (pa, pb, pc);
+		connection u : Triple connect (pa, pb);
+		connection v : Derived connect (pa, pb, pc);
+		connection w : Triple connect (pc, pb, pa);
+	}
+}
+`),
+		},
+		// A union naming itself among its operands is the union of the rest;
+		// what conforms to a recorded union is what conforms to those.
+		"composed operands": {
+			"k.kerml": []byte(`package K {
+	class Base;
+	class A specializes Base;
+	class U unions U, A, A;
+	class I intersects A, I, A;
+}
+`),
+			"q.kerml": []byte(`package Q {
+	class H { feature b : K::Base; feature c : K::Base; feature d : K::Base; }
+	class G specializes H { feature :>> b : K::U; feature :>> c : K::I; feature :>> d : K::A; }
+}
+`),
+		},
+		// An about annotation stated in a recorded document annotates elements
+		// of another, which a third document's filters read with its values;
+		// the value a recorded metadata feature fixes with ` = ` stays fixed.
+		"about annotation": {
+			"meta.sysml": []byte(`package Meta {
+	metadata def Flag { attribute on : ScalarValues::Boolean = true; }
+}
+`),
+			"goods.sysml": []byte(`package Goods { part def Plain; part def Marked; part def Off; }
+`),
+			"tags.sysml": []byte(`package Tags {
+	private import Meta::*;
+	private import Goods::*;
+	metadata f : Flag about Marked;
+	metadata g : Flag about Off { on = false; }
+}
+`),
+			"use.sysml": []byte(`package Use {
+	private import Meta::*;
+	package Picked { public import Goods::*[@Flag]; }
+	package On { public import Goods::*[@Flag and Flag::on]; }
+	part m : Picked::Marked;
+	part p : Picked::Plain;
+	part o : Picked::Off;
+	part m2 : On::Marked;
+	part o2 : On::Off;
+}
+`),
+		},
 	}
 	for name, docs := range cases {
 		t.Run(name, func(t *testing.T) {

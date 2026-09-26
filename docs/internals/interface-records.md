@@ -67,7 +67,8 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
 | `Multiplicity` — the declared bounds | multiplicity conformance of a redefinition, end multiplicities |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
-| `Annotations`, `About` — the metadata declared on the element with its literal values, and the elements an annotating usage is about | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
+| `Annotations`, `About`, `Annotation` — the metadata declared on the element with its literal values; the elements an `about` usage annotates, and the annotation it states on them | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
+| `Ends` — a connector's owned end features by position, a `connect a to b` end without a symbol of its own holding its place | the ends a specializing connector inherits and redefines by position, its end count against a binary link, its related features |
 | `Default` — the value a feature of a metadata definition declares | the value an annotation of that type carries for a feature it leaves unbound, which a filter reads |
 | `BaseType`, `ModBindsBaseType` — the base type a metadata definition binds unconditionally | metadata typing |
 | `Relationships` — the relationship members (dependency, satisfy, allocate, …) with their resolved targets | relationship queries, the OOSEM and MOSA audits |
@@ -97,10 +98,12 @@ document is never analyzed again; `Workspace.Diagnostics` and
   reaches into an action body's control flow or a feature's value expression
   through the language; what a value *evaluates to* is the runtime's business,
   and the runtime never runs against a record (below).
-- **Connections and flows as trees.** The connector's ends are body facts;
-  what other documents see — the connector symbol, its kind, its type — is a
-  registration with facts like any other. Where a body-local scope owned them
-  (`Scope.bodyLocal`, annotated bodies), the scope is not recorded.
+- **Connections and flows as trees.** What a connector attaches its ends to
+  is a body fact; what other documents see — the connector symbol, its kind,
+  its type, and the position, name and type of each of its ends, which a
+  specializing connector inherits — is a registration with facts like any
+  other. Where a body-local scope owned them (`Scope.bodyLocal`, annotated
+  bodies), the scope is not recorded.
 - **Constraint and requirement text.** The constraint's result expression is
   an expression.
 - **Comments and documentation.** Documentation is read from the tree by
@@ -188,9 +191,10 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    declarations of the document it is analyzing, and a recorded document is
    never analyzed; a reader of a *foreign* symbol in a pass goes through the
    semantic model (class 1).
-3. **Body facts that are not externally observable.** Connector ends, control
-   nodes, a state's transitions: a reader asked about a recorded symbol
-   answers "none", which is what the foreign document could observe anyway.
+3. **Body facts that are not externally observable.** A connector's end
+   attachments, control nodes, a state's transitions: a reader asked about a
+   recorded symbol answers "none", which is what the foreign document could
+   observe anyway.
 4. **Questions the tree alone answers.** Editing, renaming, printing an
    element's notation, and building a runtime over the workspace return
    `symbols.ErrNeedsHydration` (`symbols.NeedsTree`, `symbols.NeedsHydration`

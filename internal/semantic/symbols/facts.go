@@ -58,8 +58,15 @@ type LibraryFacts struct {
 	Annotations []AnnotationFacts
 
 	// About are the fully-qualified names of the elements a metadata usage
-	// annotates through its `about` clause.
-	About []ElementRef
+	// annotates through its `about` clause, and Annotation the annotation it
+	// states on them: its type and the values it binds.
+	About      []ElementRef
+	Annotation *AnnotationFacts
+
+	// Ends are the end features a connector owns, by position: the ends of
+	// its `connect` clause, then its body's `end` features. A zero entry is
+	// an end with no symbol of its own (`connect a to b`).
+	Ends []ElementRef
 
 	// Node is the class of declaration the symbol was made from.
 	Node NodeKind

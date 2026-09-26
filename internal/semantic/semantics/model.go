@@ -976,13 +976,19 @@ func (m *Model) composedOperands(
 	journal(m, m.composed, key, sym.Decl)
 	m.composed[key] = nil
 
+	var out []*symbols.Symbol
+	seen := make(map[*symbols.Symbol]bool)
 	if sym.Recorded() {
-		out := m.RecordedRelationshipTargets(sym, kind)
+		for _, target := range m.RecordedRelationshipTargets(sym, kind) {
+			if target == sym || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, target)
+		}
 		m.composed[key] = out
 		return out
 	}
-	var out []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool)
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue

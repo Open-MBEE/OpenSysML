@@ -317,7 +317,7 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 			fqn, ok := implicitKerMLBases[d.Keyword]
 			return fqn, ok
 		}
-		if len(ownedEnds(sym)) == 2 {
+		if len(m.ownedEnds(sym)) == 2 {
 			switch d.Kind {
 			case ast.DefConnection:
 				return "Connections::BinaryConnection", true
@@ -364,7 +364,7 @@ func (m *Model) usageBaseFeatureFQN(sym *symbols.Symbol) (string, bool) {
 	}
 	switch d := sym.Decl.(type) {
 	case *ast.Usage:
-		if len(ownedEnds(sym)) == 2 {
+		if len(m.ownedEnds(sym)) == 2 {
 			switch d.Kind {
 			case ast.UsageConnection:
 				return "Connections::binaryConnections", true

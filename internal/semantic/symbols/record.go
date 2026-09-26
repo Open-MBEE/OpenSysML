@@ -347,6 +347,7 @@ func (in interner) facts(f *LibraryFacts) {
 	in.refs(f.Supers)
 	in.refs(f.Redefines)
 	in.refs(f.About)
+	in.refs(f.Ends)
 	in.ref(&f.Alias)
 	in.ref(&f.References)
 	in.ref(&f.BaseType)
@@ -355,6 +356,9 @@ func (in interner) facts(f *LibraryFacts) {
 	}
 	for i := range f.Annotations {
 		f.Annotations[i].TypeFQN = in.str(f.Annotations[i].TypeFQN)
+	}
+	if f.Annotation != nil {
+		f.Annotation.TypeFQN = in.str(f.Annotation.TypeFQN)
 	}
 	f.Keyword = in.str(f.Keyword)
 }

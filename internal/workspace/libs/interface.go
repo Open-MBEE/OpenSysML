@@ -18,7 +18,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 3
+const interfaceFormatVersion = 4
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -113,6 +113,16 @@ func (w *interfaceWriter) fail(sym *symbols.Symbol, what string) {
 	}
 }
 
+// checkAnnotationValues fails the record for an annotation value a record
+// cannot carry: a quantity, which only the runtime evaluates.
+func (w *interfaceWriter) checkAnnotationValues(sym *symbols.Symbol, a symbols.AnnotationFacts) {
+	for _, v := range a.Values {
+		if v.Value.Quantity != nil {
+			w.fail(sym, "quantity-valued annotation")
+		}
+	}
+}
+
 // ref is the reference a fact restores sym by, failing when none reaches it.
 func (w *interfaceWriter) ref(of *symbols.Symbol, sym *symbols.Symbol, what string) symbols.ElementRef {
 	ref, ok := w.idx.RefTo(sym)
@@ -161,10 +171,18 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	facts.Multiplicity = m.MultiplicityFactsOf(sym)
 	facts.Annotations = m.DeclaredAnnotationFactsOf(sym)
+	facts.Annotation = m.AboutAnnotationFactsOf(sym)
 	for _, a := range facts.Annotations {
-		for _, v := range a.Values {
-			if v.Value.Quantity != nil {
-				w.fail(sym, "quantity-valued annotation")
+		w.checkAnnotationValues(sym, a)
+	}
+	if facts.Annotation != nil {
+		w.checkAnnotationValues(sym, *facts.Annotation)
+	}
+	if ends, ok := m.OwnedConnectorEnds(sym); ok {
+		facts.Ends = make([]symbols.ElementRef, len(ends))
+		for i, end := range ends {
+			if end != nil {
+				facts.Ends[i] = w.ref(sym, end, "connector end")
 			}
 		}
 	}
@@ -249,6 +267,17 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 	case *ast.CrossFeatureMember:
 		set(true, symbols.ModEnd)
 		return ast.DirNone, mods
+	case *ast.ConnectorEnd:
+		set(true, symbols.ModEnd)
+		return ast.DirNone, mods
+	case *ast.SubjectMember:
+		set(d.BindingExpr != nil, symbols.ModValued)
+		set(d.ValueIsDefault, symbols.ModDefault)
+		return ast.DirNone, mods
+	}
+	if oc, ok := ast.OwnedConstraintOf(decl); ok {
+		set(oc.Value != nil, symbols.ModValued)
+		set(oc.ValueIsDefault, symbols.ModDefault)
 	}
 	return ast.DirNone, mods
 }

@@ -105,6 +105,28 @@ func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.Annotat
 	return annotationFacts(m, m.declaredAnnotations(sym))
 }
 
+// AboutAnnotationFactsOf is the annotation a metadata usage with an `about`
+// clause states on the elements it names — its type and bound values — as an
+// interface record keeps it; nil for any other symbol.
+func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || !annotatesOthers(usage) {
+		return nil
+	}
+	a, ok := m.usageAnnotation(sym.OwnerScope, usage)
+	if !ok {
+		return nil
+	}
+	facts := annotationFacts(m, []annotation{a})
+	if len(facts) == 0 {
+		return nil
+	}
+	return &facts[0]
+}
+
 // AnnotatedElementsOf returns the elements a metadata usage annotates through
 // its `about` clause, resolved; nil for any other symbol.
 func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
@@ -611,10 +633,10 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 // indexRecordedAboutUsage indexes an `about` metadata usage a record carries:
 // its one annotation, on the elements the record names.
 func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
-	if len(sym.Facts.Annotations) == 0 || len(sym.Facts.About) == 0 {
+	if sym.Facts.Annotation == nil || len(sym.Facts.About) == 0 {
 		return
 	}
-	a, ok := m.annotationFromFacts(sym.Facts.Annotations[0], sym.OwnerScope)
+	a, ok := m.annotationFromFacts(*sym.Facts.Annotation, sym.OwnerScope)
 	if !ok {
 		return
 	}
