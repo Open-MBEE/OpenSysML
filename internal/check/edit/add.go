@@ -279,10 +279,13 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	if op.MemberKind == "return" {
 		for _, member := range ast.DeclMembers(owner) {
+			if membership, ok := member.(*ast.Membership); ok && membership != nil {
+				member = membership.Member
+			}
 			if usage, ok := member.(*ast.Usage); ok && usage.IsResult {
 				return splice{}, &Error{
 					Failure: FailureIllegalKind, OperationIndex: i,
-					Message: "a calculation or case body already has a return parameter",
+					Message: "a calculation, constraint or case body already has a return parameter",
 				}
 			}
 		}

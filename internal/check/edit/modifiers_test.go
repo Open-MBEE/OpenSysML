@@ -361,20 +361,41 @@ func TestAddMemberModifierRefusals(t *testing.T) {
 			}(),
 			want: FailureIllegalKind,
 		},
-		{
-			name: "second return",
-			m:    loadContent(t, "result.sysml", "calc def C { return previous : Real; }\n"),
-			op: func() Operation {
-				op := AddMember("C", "return", "next")
-				op.Type = "Real"
-				return op
-			}(),
-			want: FailureIllegalKind,
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			addFailure(t, tc.m, tc.op, tc.want)
+		})
+	}
+}
+
+func TestAddMemberRejectsDuplicateReturn(t *testing.T) {
+	for _, tc := range []struct {
+		name, owner, memberName, memberType, content string
+	}{
+		{
+			name:       "calculation definition",
+			owner:      "C",
+			memberName: "next",
+			memberType: "ScalarValues::Real",
+			content:    "calc def C { return previous : ScalarValues::Real; }\n",
+		},
+		{
+			name:       "constraint definition",
+			owner:      "K",
+			memberName: "second",
+			memberType: "ScalarValues::Boolean",
+			content:    "constraint def K { return original : ScalarValues::Boolean; }\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadContent(t, "duplicate-return.sysml", tc.content)
+			op := AddMember(tc.owner, "return", tc.memberName)
+			op.Type = tc.memberType
+			editErr := addFailure(t, m, op, FailureIllegalKind)
+			if editErr.Message != "a calculation, constraint or case body already has a return parameter" {
+				t.Fatalf("error = %q, want duplicate return refusal", editErr.Message)
+			}
 		})
 	}
 }
