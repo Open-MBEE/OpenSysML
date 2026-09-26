@@ -60,6 +60,7 @@ class ApiIntegrationTest {
     assertFalse(capabilities.serviceVersion().isBlank());
     assertTrue(capabilities.has(Capabilities.EVALUATE_SUBJECT));
     assertTrue(capabilities.has(Capabilities.TYPE_FACTS));
+    assertTrue(capabilities.has(Capabilities.CONNECTION_AUTHORING));
   }
 
   @Test

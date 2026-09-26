@@ -14,7 +14,9 @@ from opensysml.model import Model
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
-    CAPABILITY_AUTHORING, CAPABILITY_INLINE_LANGUAGE,
+    CAPABILITY_AUTHORING,
+    CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
     CAPABILITY_CONVERT,
@@ -968,6 +970,7 @@ class Connection:
         # This client reads ``documents``, so a model of several may be edited.
         request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash, accept_documents=True)
         requests_authoring = False
+        requests_connection_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -998,7 +1001,13 @@ class Connection:
                     )
                 _, owner, connection_kind, from_end, to_end, name, type_name = operation_data
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_CONNECTION_AUTHORING,
+                    upgrade_remedy(CAPABILITY_CONNECTION_AUTHORING),
+                )
                 requests_authoring = True
+                requests_connection_authoring = True
                 add = operation.add_connection
                 add.owner, add.kind = owner, connection_kind
                 add.from_end, add.to_end = from_end, to_end
@@ -1030,6 +1039,8 @@ class Connection:
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
         if requests_authoring:
             requested_capabilities.append(CAPABILITY_AUTHORING)
+        if requests_connection_authoring:
+            requested_capabilities.append(CAPABILITY_CONNECTION_AUTHORING)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):

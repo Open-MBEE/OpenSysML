@@ -60,7 +60,8 @@
       "rpc": "ApplyEdits",
       "requires_capabilities": [
         "apply_edits",
-        "authoring"
+        "authoring",
+        "connection_authoring"
       ],
       "model": {
         "fixture": "apply_edits_connection.sysml"

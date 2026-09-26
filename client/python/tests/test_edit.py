@@ -18,6 +18,7 @@ import pytest
 from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
+    CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -242,7 +243,11 @@ def test_add_member_and_delete_requests_are_exact(fake_service):
 
 def test_add_connection_and_typed_helpers_are_exact(fake_service):
     port, service = fake_service(
-        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_CONNECTION_AUTHORING,
+        )
     )
 
     class Owner:
@@ -359,6 +364,22 @@ def test_authoring_capability_gates_add_delete_and_move(fake_service):
     assert delete_error.value.capability == CAPABILITY_AUTHORING
     assert move_error.value.capability == CAPABILITY_AUTHORING
     assert connection_error.value.capability == CAPABILITY_AUTHORING
+    assert service.requests == []
+
+
+def test_connection_authoring_capability_gates_add_connection(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        connection = (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_connection("Demo::SC", "flow", "a", "b")
+        )
+        with pytest.raises(MissingCapabilityError) as error:
+            connection.apply()
+    assert error.value.capability == CAPABILITY_CONNECTION_AUTHORING
     assert service.requests == []
 
 

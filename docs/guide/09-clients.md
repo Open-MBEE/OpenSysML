@@ -1226,7 +1226,8 @@ These limitations are intentional:
 
 Editing is capability-negotiated the same way as conversion: a service that does not report the
 `apply_edits` capability raises `MissingCapabilityError` naming the required upgrade before any
-call is made.
+call is made. An `add_connection` edit also requires both `authoring` and
+`connection_authoring`.
 
 ### Querying a model using the standard query model
 

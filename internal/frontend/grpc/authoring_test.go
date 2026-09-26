@@ -215,6 +215,32 @@ func TestApplyEditsAddConnectionRequiresAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilityConnectionAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "package Demo {\n    part def System {\n        part a;\n        part b;\n    }\n}\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addConnectionOp("Demo::System", "allocation", "a", "b", "alloc1", ""),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented || !strings.Contains(err.Error(), CapabilityConnectionAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilityConnectionAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addMemberOp("Demo::System", "part", "c")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "part c") {
+		t.Fatalf("add_member response = %+v, want the new part", added)
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -241,7 +267,7 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetServerInfo: %v", err)
 	}
-	for _, capability := range []string{CapabilityAuthoring, CapabilityInlineLanguage} {
+	for _, capability := range []string{CapabilityAuthoring, CapabilityConnectionAuthoring, CapabilityInlineLanguage} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)
 		}

@@ -343,6 +343,22 @@ func (c *client) requireEditDocuments(ctx context.Context, document string) erro
 	return nil
 }
 
+func (c *client) requireCapabilities(ctx context.Context, capabilities ...string) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	for _, capability := range capabilities {
+		if !info.Has(capability) {
+			return &StatusError{
+				Code:    CodeUnimplemented,
+				Message: fmt.Sprintf("capability %q is unavailable", capability),
+			}
+		}
+	}
+	return nil
+}
+
 func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -350,6 +366,14 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	}
 	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
+	}
+	for _, operation := range edits {
+		if _, ok := operation.(AddConnection); ok {
+			if err := c.requireCapabilities(ctx, CapabilityAuthoring, CapabilityConnectionAuthoring); err != nil {
+				return nil, err
+			}
+			break
+		}
 	}
 	// This client reads Documents, so a model of several documents may be edited.
 	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
