@@ -112,6 +112,7 @@ func TestMigratedTablesExecute(t *testing.T) {
 	// Instance table: individuals of Pump (and its subtypes) under the scope
 	// plus two explicit rows, less the excluded one, sorted by mass descending
 	// with the empty cell last; the classifier column is the individual's general.
+	// A slot typed by an individual (st1's pumps, holding p1) is not a row.
 	pumps := rows(t, s, "Plant::Inventory::'Pump Table Rows'")
 	wantInOrder(t, "Pump Table rows", pumps,
 		"returned 4 rows",
@@ -119,7 +120,7 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"Plant::Inventory::p1", `general = Plant::Structure::Pump`, `mass = 12.5`, `flow = 3`,
 		"Plant::Spares::s1", `mass = 7`,
 		"Plant::Spares::s2", `mass = ""`)
-	for _, absent := range []string{"Plant::Inventory::v1", "Plant::Inventory::p2"} {
+	for _, absent := range []string{"Plant::Inventory::v1", "Plant::Inventory::p2", "st1"} {
 		if strings.Contains(pumps, absent) {
 			t.Fatalf("Pump Table lists %s:\n%s", absent, pumps)
 		}
@@ -295,10 +296,10 @@ func TestMigratedTablesRender(t *testing.T) {
 	wantInOrder(t, "Pump Table Markdown", md,
 		"# Pump Table",
 		"| name | general | mass | flow |",
-		"| r1 | Plant::Structure::ReservePump | 14 |  |",
-		"| p1 | Plant::Structure::Pump | 12.5 | 3 |",
-		"| s1 | Plant::Structure::Pump | 7 |  |",
-		"| s2 | Plant::Structure::Pump |  |  |")
+		"| r1 | ReservePump | 14 |  |",
+		"| p1 | Pump | 12.5 | 3 |",
+		"| s1 | Pump | 7 |  |",
+		"| s2 | Pump |  |  |")
 
 	page := html(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table HTML", page,
@@ -312,8 +313,8 @@ func TestMigratedTablesRender(t *testing.T) {
 	matrix := markdown(t, s, "Plant::Requirements::'Satisfaction Matrix Document'")
 	wantInOrder(t, "Satisfaction Matrix Markdown", matrix,
 		"| name | Trace | Trace 2 |",
-		"| FlowRequirement | Plant::Structure::Pump |  |",
-		"| SealRequirement | Plant::Structure::Valve |  |",
+		"| FlowRequirement | Pump |  |",
+		"| SealRequirement | Valve |  |",
 		"| MassRequirement |  |  |")
 }
 

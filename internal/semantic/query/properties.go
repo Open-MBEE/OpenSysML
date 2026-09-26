@@ -201,12 +201,9 @@ func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
 	if r.resolver == nil {
 		return nil, false
 	}
-	if _, ok := sym.Decl.(*ast.Definition); !ok {
-		return nil, false
-	}
 	var values []string
 	for _, relationship := range semantics.RelationshipsOf(sym) {
-		if relationship.Kind != ast.RelSpecializes {
+		if !generalizes(sym, relationship.Kind) {
 			continue
 		}
 		qn, ok := relationship.Target.(*ast.QualifiedName)
@@ -225,6 +222,18 @@ func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
 		}
 	}
 	return values, len(values) > 0
+}
+
+// generalizes reports whether a relationship at sym's declaration names a
+// type it specializes: a definition's `:>`, or a usage's typing.
+func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
+	switch sym.Decl.(type) {
+	case *ast.Definition:
+		return kind == ast.RelSpecializes
+	case *ast.Usage:
+		return kind == ast.RelTyping
+	}
+	return false
 }
 
 func presentValues(value string) ([]string, bool) {

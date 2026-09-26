@@ -72,7 +72,7 @@ func (e *executor) derivedFeatureValues(sym *symbols.Symbol, property string) ([
 func (e *executor) cellValues(value runtime.Value, property string, row Value) ([]Value, error) {
 	origin := row.Origin()
 	if lit := value.EnumerationLiteral(); lit != nil {
-		return []Value{valueAt(StringValue(symbols.FQNOf(lit)), origin)}, nil
+		return []Value{valueAt(ElementValue(lit), origin)}, nil
 	}
 	var elements []runtime.Value
 	switch value.Kind {

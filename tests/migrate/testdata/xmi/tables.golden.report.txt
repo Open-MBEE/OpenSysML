@@ -1,6 +1,6 @@
 # SysML v1 to v2 migration report: tables.xmi
 # exported by Example UML Tool
-# migrated 61 element(s): 56 mapped, 4 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 63 element(s): 58 mapped, 4 approximated, 1 unmapped (2 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## unmapped (1)
 «DependencyMatrix» Diagram	Plant::Requirements::Trace Matrix	_mx_trace	(the criterion Owner chain is a metaChainExpressionSpecification, which no relationship walk expresses)
@@ -11,7 +11,7 @@
 «DiagramTable» Diagram	Plant::Requirements::Key Requirements	_tbl_key_reqs	-> part def Plant::Requirements::'Key Requirements Document'	(the «DiagramTable» is written as a Document holding a Table over the query 'Key Requirements Rows'; the saved row filter "1*" keeps the rows whose column level 2 matches; the column QPROP:stereotypeTags:<<Plant Profile::Missing>>.level is omitted: the tag «Plant Profile::Missing».level belongs to no stereotype the document defines; the column level is written as level 2: column names are unique; the saved row filter also names the column 0, which the query does not read)
 «DependencyMatrix» Diagram	Plant::Requirements::Satisfaction Matrix	_mx_satisfy	-> part def Plant::Requirements::'Satisfaction Matrix Document'	(the «DependencyMatrix» is written as a Document holding a Table over the query 'Satisfaction Matrix Rows'; the column Trace is written as Trace 2: column names are unique)
 
-## mapped (56)
+## mapped (58)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Plant	_pkg_plant	-> Plant
 «auxiliaryResource» Profile	Plant Profile	_plant_profile	-> 'Plant Profile'	(«auxiliaryResource» from http://www.omg.org/spec/UML/20131001/MagicDrawProfile is applied from a profile the document does not define; the application is kept as a comment)
@@ -34,6 +34,8 @@ InstanceSpecification	Plant::Inventory::p2	_inst_p2	-> Plant::Inventory::p2
 Slot	Plant::Inventory::p2::<Slot>	_slot_p2_mass	-> Plant::Inventory::p2::mass
 InstanceSpecification	Plant::Inventory::r1	_inst_r1	-> Plant::Inventory::r1
 Slot	Plant::Inventory::r1::<Slot>	_slot_r1_mass	-> Plant::Inventory::r1::mass
+InstanceSpecification	Plant::Inventory::st1	_inst_st1	-> Plant::Inventory::st1
+Slot	Plant::Inventory::st1::<Slot>	_slot_st1_pumps	-> Plant::Inventory::st1::pumps
 InstanceSpecification	Plant::Inventory::v1	_inst_v1	-> Plant::Inventory::v1
 Slot	Plant::Inventory::v1::<Slot>	_slot_v1_mass	-> Plant::Inventory::v1::mass
 Package	Plant::Requirements	_pkg_reqs	-> Plant::Requirements

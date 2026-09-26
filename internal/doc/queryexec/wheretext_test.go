@@ -28,6 +28,12 @@ calc def Generals :> Query {
 		source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
 		properties = ("name", "general"))
 }
+calc def UsageGenerals :> Query {
+	in root : Element;
+	Project(
+		source = WhereType(source = Descendants(source = root), type = "PartUsage"),
+		properties = ("name", "general"))
+}
 `
 
 // WhereText searches the text of projected cells: the named columns, or every
@@ -65,22 +71,26 @@ func TestExecuteWhereTextSearchesProjectedCells(t *testing.T) {
 	}
 }
 
-// The `general` property lists the definitions a definition specializes, as
-// elements.
+// The `general` property lists the definitions a definition specializes and
+// the types a usage is typed by, as elements.
 func TestExecuteProjectsGenerals(t *testing.T) {
 	fixture := loadExecutionFixture(t, treeBody+whereTextQueries+metadataColumnsQueries)
 	root := Bindings{"root": {ElementValue(fixture.symbol(t, "Site"))}}
-	result, err := fixture.execute(t, "Generals", root, Options{})
-	if err != nil {
-		t.Fatalf("Generals: %v", err)
-	}
-	var got []string
-	for _, row := range result.Rows() {
-		cells := row.Cells()
-		got = append(got, cellText(cells[0])+"="+cellText(cells[1]))
-	}
-	want := "Station=,Pump=,Outlet=,Run1=Station,Run1Pump=Pump,Run1Seal=,Run2Pump=Pump,Inlet=,Sump="
-	if strings.Join(got, ",") != want {
-		t.Fatalf("generals = %v", got)
+	for name, want := range map[string]string{
+		"Generals":      "Station=,Pump=,Outlet=,Run1=Station,Run1Pump=Pump,Run1Seal=,Run2Pump=Pump,Inlet=,Sump=",
+		"UsageGenerals": "pumps=Pump,pumps=Run1Pump,seal=Run1Seal",
+	} {
+		result, err := fixture.execute(t, name, root, Options{})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		var got []string
+		for _, row := range result.Rows() {
+			cells := row.Cells()
+			got = append(got, cellText(cells[0])+"="+cellText(cells[1]))
+		}
+		if strings.Join(got, ",") != want {
+			t.Fatalf("%s = %v", name, got)
+		}
 	}
 }

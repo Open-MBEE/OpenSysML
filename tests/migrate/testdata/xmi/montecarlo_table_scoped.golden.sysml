@@ -29,9 +29,11 @@ package ResultsB {
         DocumentQueries::Project(
             source = DocumentQueries::WhereFeature(
                 source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
-                    type = ("Scoped Analysis")),
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("ResultsB"))),
+                        type = ("Scoped Analysis")),
+                    type = ("Definition")),
                 'feature' = "isIndividual",
                 operator = "=",
                 value = "true"),

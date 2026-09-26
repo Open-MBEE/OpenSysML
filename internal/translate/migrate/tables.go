@@ -403,7 +403,7 @@ func (m *migration) typedRows(src qx, types []sysmlv1.ElementRef, subtypes, indi
 		l.note("rows of subtypes of the row types are listed too: a type filter admits conforming elements")
 	}
 	if individuals {
-		rows = qcall("WhereFeature", qarg1("source", rows), qarg1("'feature'", qstr("isIndividual")),
+		rows = qcall("WhereFeature", qarg1("source", whereType(rows, "Definition")), qarg1("'feature'", qstr("isIndividual")),
 			qarg1("operator", qstr("=")), qarg1("value", qstr("true")))
 	}
 	return rows

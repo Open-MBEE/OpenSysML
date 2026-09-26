@@ -228,7 +228,7 @@ func TestManualTraceabilityExample(t *testing.T) {
 		t.Errorf("rendered example differs from docs/manual/examples/traceability.md:\n%s", written)
 	}
 	for _, want := range []string{
-		"| SC-2 | downlinkGain | Traceability::spacecraft::antenna | Traceability::gainTest, Traceability::gainAnalysis | 2 |",
+		"| SC-2 | downlinkGain | antenna | gainTest, gainAnalysis | 2 |",
 		"| SC-4 | passivation |  |  | 0 |",
 		"| satisfaction |  | Traceability::spacecraft.radiator | violated | radiator.area >= 2.0 |",
 	} {
@@ -269,7 +269,7 @@ func TestManualTraceabilityLadder(t *testing.T) {
 			name:     "trace-1-basic",
 			document: "RoverBasic::BasicReport",
 			markdown: []string{
-				"| RV-1 | The rover shall travel at least 20 km on one charge. | RoverBasic::rover::battery | true |",
+				"| RV-1 | The rover shall travel at least 20 km on one charge. | battery | true |",
 				"| RV-3 | The rover shall accept commands from the lander at 2 kbps. |  | false |",
 				"Requirements no part satisfies:\n\n- RV-3\n",
 			},
@@ -283,9 +283,9 @@ func TestManualTraceabilityLadder(t *testing.T) {
 			name:     "trace-2-hierarchy",
 			document: "LanderHierarchy::HierarchyReport",
 			markdown: []string{
-				"| L-1 | mass | LanderHierarchy::lander | LanderHierarchy::weighLander |",
-				"| L-2.1 | thrust | LanderHierarchy::lander::propulsion::engine | LanderHierarchy::hotFire |",
-				"| L-4 | beacon | LanderHierarchy::lander::avionics::transponder |  |",
+				"| L-1 | mass | lander | weighLander |",
+				"| L-2.1 | thrust | engine | hotFire |",
+				"| L-4 | beacon | transponder |  |",
 				"| verification | hotFire | LanderHierarchy::lander.propulsion.engine | violated |",
 				"| satisfaction |  | LanderHierarchy::lander.avionics.transponder | undecided |",
 			},
@@ -299,9 +299,9 @@ func TestManualTraceabilityLadder(t *testing.T) {
 			name:     "trace-3-derivation",
 			document: "RangeDerivation::DerivationReport",
 			markdown: []string{
-				"| M-1 | range |  | RangeDerivation::specification::system::dailyRange, RangeDerivation::specification::system::energyBudget | 4 |  |  |",
-				"| S-2 | energyBudget | RangeDerivation::specification::mission::range | RangeDerivation::specification::subsystem::batteryCapacity, RangeDerivation::specification::subsystem::driveEfficiency | 2 | RangeDerivation::EnergyBudgetAnalysis |  |",
-				"| B-1 | batteryCapacity | RangeDerivation::specification::system::energyBudget |  | 0 |  | RangeDerivation::rover::battery |",
+				"| M-1 | range |  | dailyRange, energyBudget | 4 |  |  |",
+				"| S-2 | energyBudget | range | batteryCapacity, driveEfficiency | 2 | EnergyBudgetAnalysis |  |",
+				"| B-1 | batteryCapacity | energyBudget |  | 0 |  | battery |",
 			},
 			html: []string{
 				`data-element="RangeDerivation::EnergyBudgetAnalysis"`,
@@ -315,9 +315,9 @@ func TestManualTraceabilityLadder(t *testing.T) {
 			markdown: []string{
 				"**team: Comms**",
 				"**team: Thermal**",
-				"| Power | PWR-3 | cellDegradation | high | ProgramRequirements::specification::subsystem::arrayOutput | 0 | PowerDesign::ArrayDegradationAnalysis | PowerDesign::powerSubsystem::array | 0 | true |",
+				"| Power | PWR-3 | cellDegradation | high | arrayOutput | 0 | ArrayDegradationAnalysis | array | 0 | true |",
 				"| Program | ST-1 | science | critical |  | 7 |  |  | 0 | false |",
-				"| Thermal | THM-1 | heaterPower | critical | ProgramRequirements::specification::system::survival | 0 | OrbiterVocabulary::HeaterBank |  | 0 | false |",
+				"| Thermal | THM-1 | heaterPower | critical | survival | 0 | HeaterBank |  | 0 | false |",
 				"| verification | linkBudgetAnalysis | CommsDesign::commsSubsystem.transmitter | violated |",
 			},
 			html: []string{

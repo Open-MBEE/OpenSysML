@@ -24,9 +24,11 @@ package Results {
         DocumentQueries::Project(
             source = DocumentQueries::WhereFeature(
                 source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Descendants(
-                        source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                    type = ("Blank Analysis")),
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                        type = ("Blank Analysis")),
+                    type = ("Definition")),
                 'feature' = "isIndividual",
                 operator = "=",
                 value = "true"),

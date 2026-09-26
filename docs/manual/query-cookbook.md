@@ -283,8 +283,10 @@ The SysML v1 migration roots every table scope this way.
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. Several names keep the elements of
-any of them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
+`type = "Usage"` keeps every kind of usage. A metamodel type name means the
+metaclass even when an element of the model bears the same name; qualify the
+element's name to mean the element. Several names keep the elements of any of
+them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
 known metamodel type nor resolvable in the model is a typed
 `unknown-classification` error rather than a silently-empty result.
 
@@ -390,7 +392,7 @@ a typed error naming it.
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
 operators above, and an element-valued feature — a verdict's `assertion`, a
-`RelatedColumn` list — as the qualified name it prints by, with the text
+`RelatedColumn` list — as the name it prints by, with the text
 operators. An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
@@ -523,7 +525,7 @@ are always projectable:
 | `owner` | The owner's qualified name |
 | `@type` | The metamodel type (`PartUsage`, ...) |
 | `type` | The declared type's qualified name |
-| `general` | The types a definition or usage specializes, in declaration order, each the element itself — printed by qualified name and, in HTML, linked; absent when it specializes none |
+| `general` | The types a definition specializes or a usage is typed by, in declaration order, each the element itself — printed by name and, in HTML, linked and carrying its qualified name in `data-element`; absent when it specializes none |
 | `isAbstract` | Boolean |
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |

@@ -84,6 +84,11 @@
             <value xmi:type="uml:LiteralReal" xmi:id="_slot_r1_mass_v" value="14.0"/>
           </slot>
         </packagedElement>
+        <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_st1" name="st1" classifier="_blk_station">
+          <slot xmi:type="uml:Slot" xmi:id="_slot_st1_pumps" definingFeature="_prop_pumps">
+            <value xmi:type="uml:InstanceValue" xmi:id="_slot_st1_pumps_v" instance="_inst_p1"/>
+          </slot>
+        </packagedElement>
         <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_inst_v1" name="v1" classifier="_blk_valve">
           <slot xmi:type="uml:Slot" xmi:id="_slot_v1_mass" definingFeature="_prop_valve_mass">
             <value xmi:type="uml:LiteralReal" xmi:id="_slot_v1_mass_v" value="2.0"/>

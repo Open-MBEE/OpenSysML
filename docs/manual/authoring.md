@@ -242,7 +242,8 @@ name. An empty result still renders the header and delimiter rows, so the
 document shows *that* the table is empty rather than omitting it. Cell values
 render faithfully: strings unquoted, integers in base 10, reals in shortest
 notation, booleans as `true`/`false`, unbounded multiplicity as `*`, elements
-by qualified name, and quantities as the magnitude followed by the unit the
+— a `general`, an enumeration literal — by name (HTML links each and carries
+its qualified name in `data-element`), and quantities as the magnitude followed by the unit the
 model spelt in brackets — `2290000 [kg]`, escaped in Markdown as
 `2290000 \[kg\]` so the brackets read as text. An attribute whose value is
 not a constant (`mass = dryMass + propellantMass`) is a typed error naming

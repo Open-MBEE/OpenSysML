@@ -34,7 +34,8 @@ const (
 	PropertyOwner = "owner"
 	// PropertyElementType is the resolved declared element type property.
 	PropertyElementType = "type"
-	// PropertyGeneral is the general types a definition specializes, in declaration order.
+	// PropertyGeneral is the types a definition specializes or a usage is typed by,
+	// in declaration order.
 	PropertyGeneral = "general"
 	// PropertyIsAbstract is the abstractness property.
 	PropertyIsAbstract = "isAbstract"

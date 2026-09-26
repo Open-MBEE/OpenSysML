@@ -68,6 +68,9 @@ package Plant {
         individual part def r1 :> Plant::Structure::ReservePump {
             attribute :>> mass = 14.0;
         }
+        individual part def st1 :> Plant::Structure::Station {
+            individual part :>> pumps : p1[1];
+        }
         individual part def v1 :> Plant::Structure::Valve {
             attribute :>> mass = 2.0;
         }
@@ -85,11 +88,13 @@ package Plant {
                         source = DocumentQueries::Except(
                             source = DocumentQueries::WhereFeature(
                                 source = DocumentQueries::WhereType(
-                                    source = DocumentQueries::Union(
-                                        source = DocumentQueries::Descendants(
-                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                                        other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
-                                    type = ("Plant::Structure::Pump")),
+                                    source = DocumentQueries::WhereType(
+                                        source = DocumentQueries::Union(
+                                            source = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                                            other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                                        type = ("Plant::Structure::Pump")),
+                                    type = ("Definition")),
                                 'feature' = "isIndividual",
                                 operator = "=",
                                 value = "true"),
@@ -122,9 +127,11 @@ package Plant {
                 source = DocumentQueries::OrderBy(
                     source = DocumentQueries::WhereFeature(
                         source = DocumentQueries::WhereType(
-                            source = DocumentQueries::Descendants(
-                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                            type = ("Plant::Structure::Pump")),
+                            source = DocumentQueries::WhereType(
+                                source = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                                type = ("Plant::Structure::Pump")),
+                            type = ("Definition")),
                         'feature' = "isIndividual",
                         operator = "=",
                         value = "true"),

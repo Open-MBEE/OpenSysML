@@ -26,14 +26,14 @@ The lander specification as a tree, what satisfies and verifies each requirement
 
 | shortName | name | satisfiedBy | verifiedBy |
 | --- | --- | --- | --- |
-| L-1 | mass | LanderHierarchy::lander | LanderHierarchy::weighLander |
+| L-1 | mass | lander | weighLander |
 | L-2 | descent |  |  |
-| L-2.1 | thrust | LanderHierarchy::lander::propulsion::engine | LanderHierarchy::hotFire |
-| L-2.2 | altimetry | LanderHierarchy::lander::avionics::radar | LanderHierarchy::radarRangeTest |
+| L-2.1 | thrust | engine | hotFire |
+| L-2.2 | altimetry | radar | radarRangeTest |
 | L-3 | touchdown |  |  |
-| L-3.1 | legStroke | LanderHierarchy::lander::gear::leg | LanderHierarchy::dropTest |
+| L-3.1 | legStroke | leg | dropTest |
 | L-3.2 | tipOver |  |  |
-| L-4 | beacon | LanderHierarchy::lander::avionics::transponder |  |
+| L-4 | beacon | transponder |  |
 
 ## Coverage gaps
 

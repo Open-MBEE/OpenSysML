@@ -244,7 +244,7 @@ func TestMarkdownGoldenStructure(t *testing.T) {
 		"| name | mass |\n| --- | --- |\n",
 		"| baffle\\|shroud \\*tricky\\* | 1.5 |",
 		"kg \\| not \\#grams, \\*not\\* \\_lbs\\_, \\`raw\\`, \\<b>\\&plain\\</b>",
-		"| element |\n| --- |\n| Observatory::Assembly \\*frame\\* |",
+		"| element |\n| --- |\n| Assembly \\*frame\\* |",
 		"1. mount\n2. segmentControl",
 	} {
 		if !strings.Contains(got, want) {

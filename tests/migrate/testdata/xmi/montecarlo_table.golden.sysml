@@ -35,9 +35,11 @@ package Results {
             source = DocumentQueries::OrderBy(
                 source = DocumentQueries::WhereFeature(
                     source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                        type = ("Sweep Analysis")),
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                            type = ("Sweep Analysis")),
+                        type = ("Definition")),
                     'feature' = "isIndividual",
                     operator = "=",
                     value = "true"),
