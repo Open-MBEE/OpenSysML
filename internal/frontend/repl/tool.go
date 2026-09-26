@@ -45,8 +45,7 @@ func (s *Session) toolDryRunInv(inv analysisInvocation) Verdict {
 	if inv.argText != "" {
 		label += "(" + strings.TrimSpace(inv.argText) + ")"
 	}
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return unresolvedVerdict(label, "no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
