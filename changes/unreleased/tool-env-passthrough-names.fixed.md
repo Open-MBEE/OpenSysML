@@ -1,0 +1,1 @@
+- **`OPENSYSML_TOOL_ENV_PASSTHROUGH` refuses malformed entries.** An entry containing `=` or a NUL byte is not an environment variable name; the tool's invocation now fails with an error naming the variable and the entry instead of forwarding it.
