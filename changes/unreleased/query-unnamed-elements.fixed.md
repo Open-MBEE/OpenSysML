@@ -1,1 +1,0 @@
-- **Queries identify unnamed declarations by their export-compatible position in the gRPC service, the REPL's `%query` and `sysml -query`.** Their IDs match RDF and API-JSON export and can be used as a query scope; declarations without an unambiguous export identity remain omitted.
