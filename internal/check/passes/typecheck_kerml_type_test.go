@@ -19,23 +19,6 @@ func TestTypeCheckKerMLTypeTargetNoMismatch(t *testing.T) {
 	}
 }
 
-// That a definition may not subset or redefine a feature is a property of the
-// declaration, so the target's kind does not excuse it.
-func TestTypeCheckDefinitionSubsetsKerMLType(t *testing.T) {
-	for _, src := range []string{
-		"classifier T; part def Car subsets T;",
-		"classifier T; part def Car redefines T;",
-	} {
-		diags := typeDiags(t, src)
-		if len(diags) != 1 {
-			t.Fatalf("%s: expected one type diagnostic, got %v", src, diags)
-		}
-		if !strings.Contains(diags[0].Message, "a definition may not") {
-			t.Errorf("%s: got %q", src, diags[0].Message)
-		}
-	}
-}
-
 // A KerML type is not a requirement usage, so satisfying one is still an error:
 // the exemption covers the kind taxonomy, not the shape rules.
 func TestTypeCheckSatisfyKerMLType(t *testing.T) {

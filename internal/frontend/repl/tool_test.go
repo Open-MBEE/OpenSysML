@@ -369,7 +369,7 @@ package Tools {
 		in x : Real { @ToolVariable { name = "mass"; } }
 		out tMax : Real { @ToolVariable { name = "tMax"; } }
 	}
-	action def Sub : Base { in attribute load :>> x; }
+	action def Sub :> Base { in attribute load :>> x; }
 }`)
 	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
 	toolManifest(t, s, entry)
@@ -388,7 +388,7 @@ package Tools {
 		in x : Real { @ToolVariable { name = "mass"; } }
 		out tMax : Real { @ToolVariable { name = "tMax"; } }
 	}
-	action def Sub : Base { in attribute load :>> x; }
+	action def Sub :> Base { in attribute load :>> x; }
 }`)
 	entry := `{"kind":"tool","toolName":"Solver","executable":"` + toolStandin(t) + `","variables":["mass","tMax"]}`
 	toolManifest(t, s, entry)

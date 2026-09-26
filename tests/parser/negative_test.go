@@ -30,6 +30,8 @@ func TestNegative(t *testing.T) {
 		{"incomplete_connection", "connector c connect a"},
 		{"unterminated_string", `part p { doc /* comment `},
 		{"double_colon_only", "attribute ::x;"},
+		// A classifier declaration admits one specialization list.
+		{"def_two_specialization_lists", "part def X :> A :> B;"},
 
 		// Behavioral negatives (Phase B1.2)
 		{"state_entry_no_keyword", "state s { entry }"},
