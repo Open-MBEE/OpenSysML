@@ -20,7 +20,6 @@ told apart from another, so the script refuses rather than write a vaguer one.
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
 import os
 import pathlib
@@ -58,7 +57,7 @@ class Build:
     """What the provenance says about the build that produced the artifacts."""
 
     def __init__(self, tag, commit, build_url, project_id, organization_id, workflow_id,
-                 job, owner, repository, finished_on):
+                 job, owner, repository):
         self.tag = tag
         self.commit = commit
         self.build_url = build_url
@@ -68,10 +67,9 @@ class Build:
         self.job = job
         self.owner = owner
         self.repository = repository
-        self.finished_on = finished_on
 
     @classmethod
-    def from_env(cls, env, now):
+    def from_env(cls, env):
         missing = [name for name in REQUIRED_ENV if not env.get(name)]
         if missing:
             raise ProvenanceError(
@@ -93,7 +91,6 @@ class Build:
             job=env["CIRCLE_JOB"],
             owner=env["CIRCLE_PROJECT_USERNAME"],
             repository=env["CIRCLE_PROJECT_REPONAME"],
-            finished_on=now,
         )
 
     @property
@@ -158,7 +155,6 @@ def statement(manifest_text, build):
                 },
                 "metadata": {
                     "invocationId": build.build_url,
-                    "finishedOn": build.finished_on.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 },
             },
         },
@@ -177,7 +173,7 @@ def main(argv=None):
                         help="where to write the statement")
     args = parser.parse_args(argv)
     try:
-        build = Build.from_env(os.environ, datetime.datetime.now(datetime.timezone.utc))
+        build = Build.from_env(os.environ)
         text = render(args.manifest.read_text(encoding="utf-8"), build)
     except (ProvenanceError, OSError) as err:
         print(f"release-provenance: {err}", file=sys.stderr)

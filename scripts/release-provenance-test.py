@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import datetime
 import importlib.util
 import json
 import pathlib
@@ -37,13 +36,11 @@ ENV = {
     "CIRCLE_PROJECT_REPONAME": "OpenSysML",
 }
 
-NOW = datetime.datetime(2026, 9, 26, 1, 2, 3, tzinfo=datetime.timezone.utc)
-
 
 def build(**overrides):
     env = dict(ENV)
     env.update(overrides)
-    return provenance.Build.from_env(env, NOW)
+    return provenance.Build.from_env(env)
 
 
 class SubjectsTest(unittest.TestCase):
@@ -135,7 +132,7 @@ class StatementTest(unittest.TestCase):
         )
         self.assertEqual(
             run["metadata"],
-            {"invocationId": ENV["CIRCLE_BUILD_URL"], "finishedOn": "2026-09-26T01:02:03Z"},
+            {"invocationId": ENV["CIRCLE_BUILD_URL"]},
         )
 
     def test_render_is_json_ending_in_a_newline(self):
