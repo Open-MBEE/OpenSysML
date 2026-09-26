@@ -748,20 +748,29 @@ func (r *Renderer) assignmentText(doc string, body []lower.Statement) string {
 }
 
 // valueSpecification is the value a node standing for one binds its one output
-// to: a literal as written, a reference by the bare name it ends in, and "" for
-// a node with any other pins.
+// to: a literal as written, a reference by the bare name it ends in, else the
+// output's type as a call shows its target (`: StarCoordinates`) when it binds
+// none, and "" for a node with any other pins.
 func (r *Renderer) valueSpecification(doc string, features []lower.Feature) string {
-	var value ast.Node
-	for _, feature := range features {
+	var output *lower.Feature
+	for i := range features {
+		feature := &features[i]
 		if feature.Direction == ast.DirNone && !feature.IsResult {
 			continue
 		}
-		if !feature.Output() || feature.Value == nil || value != nil {
+		if !feature.Output() || output != nil {
 			return ""
 		}
-		value = feature.Value
+		output = feature
 	}
+	if output == nil {
+		return ""
+	}
+	value := output.Value
 	if value == nil {
+		if typ := nodeType(output.Node); typ != "" {
+			return ": " + source.ReferenceEndNames(typ)
+		}
 		return ""
 	}
 	if qn := ast.AsQualifiedName(value); qn != nil && len(qn.Parts) > 0 {

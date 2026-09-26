@@ -100,6 +100,43 @@ func TestLayoutOfFirstViewLocalAnnotationWins(t *testing.T) {
 	}
 }
 
+// The `start` every action body inherits is one library element, so a Layout
+// about `A::start` positions A's start alone, and one about clause naming
+// two owners' starts keeps each owner's namespace apart.
+func TestMemberLayoutOfKeepsInheritedMembersApartByOwner(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def A { action a; first start then a; }
+		action def B { action b; first start then b; }
+		action def C { action c; first start then c; }
+		view v {
+			expose A; expose B; expose C;
+			metadata Layout about A::start { x = 10; y = 10; width = 15; height = 15; }
+			metadata Layout about B::start, C::start { x = 20; y = 20; width = 15; height = 15; }
+		}
+	`)
+	view := sym(t, p, "v")
+	for _, tc := range []struct {
+		owner string
+		x     float64
+	}{{"A", 10}, {"B", 20}, {"C", 20}} {
+		site, ok := m.MemberLayoutOf(view, sym(t, p, tc.owner), "start")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Fatalf("MemberLayoutOf(v, %s, start) = %+v, %v", tc.owner, site, ok)
+		}
+		if !sameElement(site.Via, sym(t, p, tc.owner)) {
+			t.Errorf("MemberLayoutOf(v, %s, start) reached start via %v", tc.owner, site.Via)
+		}
+	}
+	start, ok := m.LookupMember(sym(t, p, "A"), "start")
+	if !ok {
+		t.Fatal("A has no start")
+	}
+	if sites := m.LayoutSitesOf(start); len(sites) != 3 {
+		t.Fatalf("LayoutSitesOf(start) has %d sites, want 3", len(sites))
+	}
+}
+
 func TestRouteOfReadsWaypointPairs(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

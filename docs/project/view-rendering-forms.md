@@ -69,6 +69,24 @@ only joins them:
 2. the kind in guillemets, `«part»`, `«state def»` — left out when line 1 is already the kind;
 3. the detail, when there is one.
 
+An action node whose name is not shown heads with what it does instead of with `action`
+(`Node.Text`, composed by `actionText` in `behavior.go` from the lowered `ActionGraph`, so no
+writer reads the declaration back): an accept's trigger by the name it ends in (`Go Now`), a
+send's message type or expression, the one assignment its body makes (`i := i + 1`), and for a
+node with a single output and nothing else — a UML value specification action migrated as
+`action value3 { out result : Boolean = true; }` — the literal its result is bound to (`true`,
+`"SH-0"`, `0`), or `: Type` when the result has a type and no value. A node whose type names what
+it calls heads `: Type` as any typed anonymous usage does, so a migrated `call5 : 'Setup APS'`
+reads `: 'Setup APS'`. The `own flow` detail marks a node whose nested flow is drawn inside it;
+it is set only when that flow lowers to nodes of its own, so an action whose body is a single
+statement or a bound value carries no `own flow` and no nested cluster.
+
+A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behaviorText` in
+`behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
+else by the activity its type performs (`do action : Initialize` reads `Initialize`), else by
+what its anonymous body does — the message it sends or the one assignment it makes — and the
+keyword alone when none of that names it. A state deferring events adds `defers`.
+
 The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
 as the walk spells them — a root's name qualified, a nested member's simple, a type as the
 declaration references it — and the text form prints them so. The graphical forms head a node
@@ -113,7 +131,10 @@ An edge is labelled by its own text when it has any, and by its name only when i
 (`edgeLabel` in `behavior.go`): a transition's label is its trigger, guard and effect, `accept Sig
 [g] / act`; a succession's its guard and probability, `[g] p = 0.5`; a flow's the pins or the
 payload it carries, `out to in`, `of Water`; and a connection's the name, else the declared type,
-else the keyword. A named edge with none of that — a completion transition, a plain succession, a
+else the keyword. A flow between named pins also records the pins as its ends (`Edge.FromPort`,
+`Edge.ToPort`, the IDs of the nodes' `Ports`), so a writer that draws the pins on the action's
+border attaches the flow to them and leaves the `out to in` text off; a writer that does not
+keeps the text. A named edge with none of that — a completion transition, a plain succession, a
 binding — is labelled by its name, `'off then on'`. The rule holds for every kind and every name,
 whether the model's author gave it or the [v1 migration](../reference/sysml-v1-migration.md#edges-a-diagram-shows)
 spelled it from the ends: a triggered transition named `idle_to_moving` reads `accept Signal
@@ -212,7 +233,30 @@ digraph "VehicleViews::vehicleView" {
 - **State kind.** A state is a rounded box, a region a dashed cluster, the start pseudo-state a
   `point`, an initial state a `circle`, a final state a `doublecircle` — an unnamed initial or
   final one the filled black UML dot, a named one a labelled ring; a transition's label is the
-  trigger/guard/effect text the state writer composes, unchanged.
+  trigger/guard/effect text the state writer composes, unchanged. Every pseudo-state the lowered
+  `StateGraph` knows is a node of its kind — `initial`, `final`, `choice`, `junction`, `fork`,
+  `join`, `shallow history`, `deep history`, and a terminate action — and is drawn as its UML
+  symbol whenever a Layout sizes it, and always under the [cameo style](#the-cameo-style)
+  (`isSymbolKind`, `dotSymbolAttributes`): a filled dot for `initial` and `junction`, a bull's-eye
+  for `final` and terminate, a diamond for `choice`, `decision` and `merge`, a filled bar for
+  `fork` and `join` lying the way its box is longer, a white ring lettered `H` or `H*` for a
+  history. No text is set inside a symbol; a name the model gave is set beside it as `xlabel`,
+  a synthesized one not at all. SysML v2 has no entry- or exit-point pseudo-states: a state's
+  `entry` and `exit` are its behaviours, drawn in its compartment.
+- **Action pins.** An action node's directed parameters and its bound result are its `Ports`
+  (`actionPorts`, `inheritedPorts` in `behavior.go`: what it declares, then what its type gives
+  it, and a pin a flow names that neither declared). A boxed node's pins are nodes of their own,
+  `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
+  fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
+  beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
+  waypoint leaves or reaches the box, outside the border and touching it; the rest are spread
+  along the top edge (inputs) and the bottom edge (outputs). A flow between pins is written
+  between the pin nodes, `"n1.0" -> "n5.0"`, and carries no `out to in` text. An unplaced
+  plain node draws its pins as cells of an HTML-like table label instead, a row of squares above
+  the head for the inputs and below it for the outputs, and a flow ends at the cell
+  (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
+  as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
+  of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
 
   | `EdgeKind` | Mermaid | DOT |
@@ -310,13 +354,14 @@ horizontal gradient, sampled at the left and right of a box. The constants live 
 | --- | --- |
 | Diagram frame: a thin grey rectangle round the drawing with a header tab reading `stm [State Machine] Owner [ Diagram Name ]`, the kind abbreviation bold, the rest plain | `subgraph cluster_frame` with `label=<<b>stm</b> [State Machine] Owner [ Name ]>`, `labeljust=l`, `labelloc=t`, `color="#5B5B59"`, `penwidth=1`, `margin=8`; `bb` is the canvas when one is stated. The kind is `bdd` for a tree, `ibd` for an interconnection, `stm` for a state machine, `act` for an activity; the bracketed type is the context element's definition keyword, title-cased (`State Machine`, `Activity`, `Block`) |
 | Text: Arial, 11 px for names and body text, ~9 px for the `«stereotype»` line and edge labels, in `#424242` | `graph`, `node` and `edge` default `fontname="Arial"`, `fontcolor="#424242"`; `fontsize=11` on nodes and the frame, `fontsize=9` on edges and the keyword line |
-| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned. No `«state»` line: Cameo prints none |
+| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned, the `defers` marker left off as Cameo's box shows no deferrable triggers. No `«state»` or `«action»` line: Cameo prints a keyword only for a stereotyped state or action; every name in a head or a detail is bare, its quotes off (`Setup APS`, not `'Setup APS'`) |
 | State fill: pale yellow `#FFFFCC` at the left fading to `#FFFFF2` at the right; border `#5B5B59`, rounded corners | `style="rounded,filled"`, `fillcolor="#FFFFCC:#FFFFF2"`, `gradientangle=0`, `color="#5B5B59"`, `penwidth=1` on every `state` kind; a composite state or region is a cluster with the same fill and rounding, a region `style="rounded,dashed"` |
 | Action fill: pale green-grey `#E1E1C3` to `#F7F7EF`; border `#424242`, rounded corners | `fillcolor="#E1E1C3:#F7F7EF"`, `color="#424242"` on the `action` and `flow` families and the control nodes |
 | Block fill: orange `#FFCC99` to cream `#FFFAD4`; border `#99795C`, square corners | node default `fillcolor="#FFCC99:#FFFAD4"`, `color="#99795C"` — every kind not a state or action, `part def` and `part` alike |
-| Lines: `#424242`, 1 px, open arrowheads on transitions and flows | edge default `color="#424242"`, `penwidth=1`, `arrowhead=open`; a routed edge's spline is written with its `e,x,y` endpoint so the head is drawn at the stated end |
-| Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision a diamond, fork and join a 60×5 px filled bar, junction a dot | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`; a bar `shape=box, fillcolor=black, width=0.83, height=0.07, fixedsize=true` — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box |
-| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it | the `EdgeKind` label rules, placed with `lp` on the normal of the route's longest segment, clear of the line by half the label's extent plus 4 px, so a label never sits on a box a route hugs |
+| Lines: `#424242`, 1 px, open arrowheads on transitions and flows | edge default `color="#424242"`, `penwidth=1`, `arrowhead=open`; a routed edge's spline keeps both stated ends — `e,x,y` before the curve for an arrowhead, `s,x,y` for a tail arrow — the curve stopping an arrow's length short so Graphviz draws the arrow between, and the box a routed node is drawn in is never grown beyond its stated one, so the drawn end is the stated end (`dotSpline`, `TestDOTRoutedEdgesEndAtTheirRoutes`, which runs Graphviz when `OPENSYSML_DOT` names it and asserts every drawn endpoint within 3 px of its route's) |
+| Pins: 12 px squares on an action's border, the pin name in ~8 px type beside it, object flows pin to pin | each `Port` a node `shape=box, label="", xlabel="<name>", fontsize=8, fixedsize=true`, `fillcolor="#FFFFFF"`, at the route's end on the border, or spread along the top (inputs) and bottom (outputs); the flow edge runs between the pin nodes ([Action pins](#what-the-dot-writer-emits)) |
+| Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision, merge and choice a diamond, fork and join a thin filled bar (10×60 px or 60×10 px), junction a dot, history a ring lettered H or H* | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`, 24×12 px when none is stated; a bar `shape=box, fillcolor=black, fixedsize=true` at the stated box's width and height, so a 10×60 box stands and a 60×10 box lies, 60×5 px when none is stated; `shape=circle, fillcolor=white, label="H"` (`"H*"`) for a history — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box; a name the model gave is set beside the symbol as `xlabel`, a synthesized one not at all |
+| Transition and edge labels: `trigger [guard] / effect` beside the line, not on it, the `accept` keyword and quotes off | one `label` per edge, never an `xlabel` beside it: the `EdgeKind` label text with `accept ` removed and every name bare (`Finished / diffTime`), placed with `lp` beside one of the route's segments — the candidates are the normals of every segment, scored for the state boxes and notes the label box would cover and for leaving the canvas, the least covered wins — so a label never sits on a box a route hugs ([Geometry](#geometry)) |
 | Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text, pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
 | Drop shadow: a 2 px light grey shadow under every box | dropped; Graphviz draws no shadow |
 | Corner radius: ~20 px on states and actions | Graphviz's fixed radius, as in the Pilot style |
@@ -496,6 +541,16 @@ digraph "PlantViews::placedView" {
   laid out by the tool that draws them, and say so. So the three forms draw one node set and one
   edge set of a positioned view, and a view exposing a package its layout does not place does not
   become a chart of the package's whole contents in Mermaid.
+- **Stand-in control nodes.** A fork, join or merge with a synthesized name that nothing
+  positions and no children — a node a migration made up to thread several edges through, at
+  which no diagram symbol stands — is elided from a positioned rendering before the placement is
+  read (`elideStandIns` in `standin.go`, for every form): each edge into it meets each edge out
+  of it, and the pair is redrawn as one edge between the nodes it was written between, along
+  whichever route the two had; a pair with no route is left undrawn, as the migration's wiring
+  rather than the diagram's. The notice counts the nodes elided and the routeless pairs dropped
+  (`2 control node(s) a migration made up, which no diagram positions, elided, and 1 edge(s)
+  through them without a route`). A positioned stand-in, or one the model named, is drawn as
+  any control node is.
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
   given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is

@@ -556,7 +556,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		`"n3" [shape=point, fillcolor=black, label="", pos="37.5,21.8!", pin=true];`,
 		`bb="-8,-148,88,31.6";`,
 		`"n3" -> "n1";`,
-		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="77.5,-50"];`,
+		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="22.5,-70"];`,
 		`"n2" -> "n1" [pos="e,30,-10 30,-90 30,-90 30,-20 30,-20"];`,
 	} {
 		if !strings.Contains(machine, want) {

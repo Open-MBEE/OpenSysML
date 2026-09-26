@@ -1065,8 +1065,20 @@ func isSymbolKind(kind string) bool {
 	case startKind, "initial", "final", terminateKind, "merge", "decision", "choice", "junction":
 		return true
 	}
-	return isBarKind(kind) || isPortKind(kind)
+	return isBarKind(kind) || isHistoryKind(kind) || isPortKind(kind)
 }
+
+// isHistoryKind reports whether a kind is a history pseudo-state, drawn as a
+// ring lettered H (shallow) or H* (deep).
+func isHistoryKind(kind string) bool {
+	return kind == shallowHistoryKind || kind == deepHistoryKind
+}
+
+// The history pseudo-state kinds, as the lowered state graph names them.
+const (
+	shallowHistoryKind = "shallow history"
+	deepHistoryKind    = "deep history"
+)
 
 // isBarKind reports whether a kind is drawn as a fork or join bar.
 func isBarKind(kind string) bool {
@@ -1099,7 +1111,7 @@ func (w *dotWriter) round(node *Node) bool {
 	switch node.Kind {
 	case startKind, "initial", "final":
 		return true
-	case "junction", terminateKind:
+	case "junction", terminateKind, shallowHistoryKind, deepHistoryKind:
 		return w.symbol(node)
 	}
 	return false
@@ -1128,6 +1140,10 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		attrs = []string{"shape=circle", dotFillBlack}
 	case "final", terminateKind:
 		attrs = []string{"shape=doublecircle", dotFillBlack}
+	case shallowHistoryKind:
+		attrs = []string{"shape=circle", "fillcolor=white", `label="H"`, "margin=0"}
+	case deepHistoryKind:
+		attrs = []string{"shape=circle", "fillcolor=white", `label="H*"`, "margin=0"}
 	default:
 		attrs = append(attrs, w.fillAttributes(node)...)
 	}
@@ -1135,7 +1151,9 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		width, height := cameoSymbolSize(node.Kind)
 		attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height), "fixedsize=true")
 	}
-	attrs = append(attrs, `label=""`)
+	if !isHistoryKind(node.Kind) {
+		attrs = append(attrs, `label=""`)
+	}
 	if keyworded(node) {
 		attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 	}
@@ -1599,7 +1617,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
-		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route, dotArrowheaded(attrs))))
+		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route, dotArrowtailed(attrs), dotArrowheaded(attrs))))
 		if label != "" {
 			attrs = append(attrs, "lp="+dotQuote(w.dotPoint(w.dotLabelPoint(edge))))
 		}
@@ -1608,9 +1626,21 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 }
 
 // dotArrowheaded reports whether an edge with these attributes draws a head at
-// its end: every edge but one that takes the head off.
+// its end: one drawn forward or both ways whose head is not taken off.
 func dotArrowheaded(attrs []string) bool {
+	if slices.Contains(attrs, "dir=back") || slices.Contains(attrs, "dir=none") {
+		return false
+	}
 	return !slices.Contains(attrs, "arrowhead=none")
+}
+
+// dotArrowtailed reports whether an edge with these attributes draws a tail
+// arrow at its start: one drawn backward or both ways whose tail is not taken off.
+func dotArrowtailed(attrs []string) bool {
+	if !slices.Contains(attrs, "dir=back") && !slices.Contains(attrs, "dir=both") {
+		return false
+	}
+	return !slices.Contains(attrs, "arrowtail=none")
 }
 
 // dotArrowLength is the length, in points, of Graphviz's default arrowhead.
@@ -1618,10 +1648,16 @@ const dotArrowLength = 10
 
 // dotSpline is a polyline of waypoints as Graphviz's cubic B-spline: each
 // segment's ends are its own control points, so the curve is the polyline. An
-// arrowheaded edge ends `e,x,y` at its last waypoint, the curve stopping an
-// arrow's length short of it, which is what Graphviz draws the head between.
-func (w *dotWriter) dotSpline(route []Point, arrowheaded bool) string {
+// arrow at either end keeps the waypoint it points at, `s,x,y` for a tail and
+// `e,x,y` for a head, the curve stopping an arrow's length short of it, which
+// is what Graphviz draws the arrow between.
+func (w *dotWriter) dotSpline(route []Point, arrowtailed, arrowheaded bool) string {
 	var points []string
+	if arrowtailed {
+		tip := route[0]
+		route = append([]Point{dotArrowBase(reversed(route))}, route[1:]...)
+		points = append(points, "s,"+w.dotPoint(tip))
+	}
 	if arrowheaded {
 		tip := route[len(route)-1]
 		route = append(slices.Clone(route[:len(route)-1]), dotArrowBase(route))
@@ -1635,9 +1671,16 @@ func (w *dotWriter) dotSpline(route []Point, arrowheaded bool) string {
 	return strings.Join(points, " ")
 }
 
-// dotArrowBase is where a route's curve stops for its arrowhead: an arrow's
-// length back from the last waypoint along the last segment, at the segment's
-// midpoint at most so a short segment keeps its direction.
+// reversed is route from its last waypoint to its first.
+func reversed(route []Point) []Point {
+	out := slices.Clone(route)
+	slices.Reverse(out)
+	return out
+}
+
+// dotArrowBase is where a route's curve stops for the arrow at its end: an
+// arrow's length back from the last waypoint along the last segment, at the
+// segment's midpoint at most so a short segment keeps its direction.
 func dotArrowBase(route []Point) Point {
 	n := len(route)
 	from, tip := route[n-2], route[n-1]
@@ -1654,18 +1697,60 @@ const dotLabelGap = 4
 
 // dotLabelPoint is where a routed edge's label is centred: beside the midpoint
 // of the route's longest segment, clear of it by the label's half-extent and a
-// gap — right of a segment going down, above one going right — not on a box.
+// gap — right of a segment going down, above one going right — unless the
+// other side, or a quarter point of the segment, keeps more of the label off
+// the drawn boxes and notes and on the canvas.
 func (w *dotWriter) dotLabelPoint(edge Edge) Point {
 	from, to := longestSegment(edge.Route)
-	mid := Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
 	length := math.Hypot(to.X-from.X, to.Y-from.Y)
 	if length == 0 {
-		return mid
+		return from
 	}
 	nx, ny := (to.Y-from.Y)/length, -(to.X-from.X)/length
 	width, height := dotTextExtent([]string{w.edgeText(edge)}, w.skin.edgePts)
 	off := math.Abs(nx)*width/2 + math.Abs(ny)*height/2 + dotLabelGap
-	return Point{X: halfPixel(mid.X + nx*off), Y: halfPixel(mid.Y + ny*off)}
+	var best Point
+	cover := math.Inf(1)
+	for _, along := range []float64{0.5, 0.25, 0.75} {
+		at := Point{X: from.X + (to.X-from.X)*along, Y: from.Y + (to.Y-from.Y)*along}
+		for _, side := range []float64{1, -1} {
+			p := Point{X: halfPixel(at.X + side*nx*off), Y: halfPixel(at.Y + side*ny*off)}
+			if c := w.labelCover(p, width, height); c < cover {
+				best, cover = p, c
+			}
+		}
+	}
+	return best
+}
+
+// labelCover is how much of a label centred at p, of the given extent, lies on
+// a node's box, a note or off the canvas, as an area in whole square pixels.
+func (w *dotWriter) labelCover(p Point, width, height float64) float64 {
+	label := nodeBox{low: Point{X: p.X - width/2, Y: p.Y - height/2}, high: Point{X: p.X + width/2, Y: p.Y + height/2}}
+	cover := 0.0
+	for id, box := range w.boxes {
+		if !w.clusters[id] {
+			cover += label.overlap(box)
+		}
+	}
+	for _, box := range w.noteBoxes {
+		cover += label.overlap(box)
+	}
+	if w.canvas != nil && w.canvas.Width > 0 && w.canvas.Height > 0 {
+		canvas := nodeBox{high: Point{X: w.canvas.Width, Y: w.canvas.Height}}
+		cover += width*height - label.overlap(canvas)
+	}
+	return math.Round(cover)
+}
+
+// overlap is the area the two boxes share.
+func (b nodeBox) overlap(o nodeBox) float64 {
+	w := math.Min(b.high.X, o.high.X) - math.Max(b.low.X, o.low.X)
+	h := math.Min(b.high.Y, o.high.Y) - math.Max(b.low.Y, o.low.Y)
+	if w <= 0 || h <= 0 {
+		return 0
+	}
+	return w * h
 }
 
 // edgeText is the label an edge is drawn with: none for a pin-to-pin flow, whose

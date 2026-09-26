@@ -1,0 +1,105 @@
+// view: NotationViews::alignmentView
+// kind: state
+// stated: view def StateTransitionView
+// canvas: w=1000 h=400
+// layout: neato -n2
+digraph "NotationViews::alignmentView" {
+  graph [fontname="Arial", fontcolor="#424242", compound=true, layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,400!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="1000,0!", pin=true];
+  subgraph "cluster_frame" {
+    label=<<b>stm</b> [State Machine] Alignment [ alignmentView ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    bb="0,0,1000,400";
+    subgraph "cluster_n0" {
+      label="";
+      style="rounded,filled";
+      fillcolor="#FFFFCC:#FFFFF2";
+      gradientangle=0;
+      color="#5B5B59";
+      penwidth=1;
+      bb="0,0,1000,400";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="500,200!", pin=true];
+      "n18" [shape=circle, fillcolor=black, label="", pos="47.5,362.5!", pin=true, width=0.20833333333333334, height=0.20833333333333334, fixedsize=true];
+      "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Initializing</b></td></tr><hr/><tr><td align="left">do / Initialize</td></tr></table>>, margin=0, pos="90,265!", pin=true, width=1.9444444444444444, height=0.9722222222222222, fixedsize=true];
+      "n2" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Aligning</b></td></tr><hr/><tr><td align="left">entry / prime<br/>do / align<br/>exit / Settle</td></tr></table>>, margin=0, pos="360,245!", pin=true, width=2.7777777777777777, height=1.5277777777777777, fixedsize=true];
+      subgraph "cluster_n3" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Phasing</b></td></tr><hr/><tr><td align="left">entry / Initialize</td></tr></table>>;
+        style="rounded,filled";
+        fillcolor="#FFFFCC:#FFFFF2";
+        gradientangle=0;
+        color="#5B5B59";
+        penwidth=1;
+        bb="520,20,980,380";
+        "n3" [shape=point, style=invis, width=0, height=0, label="", pos="750,200!", pin=true];
+        "n19" [shape=circle, fillcolor=black, label="", pos="567.5,332.5!", pin=true, width=0.20833333333333334, height=0.20833333333333334, fixedsize=true];
+        "n4" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Coarse</b></td></tr><hr/><tr><td align="left">do / Align</td></tr></table>>, margin=0, pos="600,250!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+        "n5" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Fine</b></td></tr><hr/><tr><td align="left">do / Align</td></tr></table>>, margin=0, pos="760,170!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
+        subgraph "cluster_n6" {
+          label=<<b>Tracking</b>>;
+          style="rounded,filled";
+          fillcolor="#FFFFCC:#FFFFF2";
+          gradientangle=0;
+          color="#5B5B59";
+          penwidth=1;
+          bb="790,30,910,130";
+          "n6" [shape=point, style=invis, width=0, height=0, label="", pos="850,80!", pin=true];
+          subgraph "cluster_n7" {
+            label=<<font point-size="9">«region»</font><br/><b>Guiding</b>>;
+            style="rounded,dashed";
+            color="#5B5B59";
+            penwidth=1;
+            bb="802,67,898,113";
+            "n7" [shape=point, style=invis, width=0, height=0, label="", pos="850,90!", pin=true];
+            "n9" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>guide</b>>, margin=0, pos="850,90!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];
+          }
+          subgraph "cluster_n8" {
+            label=<<font point-size="9">«region»</font><br/><b>Focusing</b>>;
+            style="rounded,dashed";
+            color="#5B5B59";
+            penwidth=1;
+            bb="802,27,898,73";
+            "n8" [shape=point, style=invis, width=0, height=0, label="", pos="850,50!", pin=true];
+            "n10" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>focus</b>>, margin=0, pos="850,50!", pin=true, width=1.1111111111111112, height=0.4166666666666667, fixedsize=true];
+          }
+        }
+        "n12" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="which", pos="600,170!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n13" [shape=circle, fillcolor=black, label="", xlabel="settle", pos="600,102!", pin=true, width=0.2222222222222222, height=0.2222222222222222, fixedsize=true];
+        "n14" [fillcolor=black, label="", xlabel="spread", pos="730,102!", pin=true, width=0.8333333333333334, height=0.1388888888888889, fixedsize=true];
+        "n15" [fillcolor=black, label="", xlabel="collect", pos="935,90!", pin=true, width=0.1388888888888889, height=1.6666666666666667, fixedsize=true];
+        "n16" [shape=circle, fillcolor=white, label="H", margin=0, xlabel="resume", pos="870,310!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n17" [shape=circle, fillcolor=white, label="H*", margin=0, xlabel="recall", pos="930,310!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      }
+      "n11" [shape=doublecircle, fillcolor=black, label="", pos="360,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+    }
+    "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>guide on the current<br/>star>, pos="375,130!", pin=true, width=2.0833333333333335, height=0.5555555555555556, fixedsize=true];
+  }
+  "n18" -> "n1" [pos="e,47,300 47,355 47,355 47,310 47,310"];
+  "n19" -> "n4" [pos="e,567,280 567,325 567,325 567,290 567,290"];
+  "n1" -> "n2" [label="Done", pos="e,260,270 160,270 160,270 250,270 250,270", lp="210,279.5"];
+  "n1" -> "n17" [label="Recall", pos="e,930,320 160,290 160,290 200,290 200,290 200,290 200,395 200,395 200,395 930,395 930,395 930,395 930,330 930,330", lp="565,385.5"];
+  "n2" -> "n11" [label="Done [timer > 0]", pos="e,360,80 360,190 360,190 360,90 360,90", lp="407,162.5"];
+  "n2" -> "n1" [label="Abort / retry", pos="e,90,230 260,220 260,220 90,220 90,220 90,220 90,225 90,225", lp="175,210.5"];
+  "n2" -> "n3" [label="Phase", pos="e,520,270 460,270 460,270 510,270 510,270", lp="490,279.5", lhead="cluster_n3"];
+  "n2" -> "n16" [label="Resume", pos="e,870,320 460,290 460,290 490,290 490,290 490,290 490,390 490,390 490,390 870,390 870,390 870,390 870,330 870,330", lp="680,380.5"];
+  "n3" -> "n2" [label="Abort", pos="e,460,220 520,220 520,220 470,220 470,220", lp="490,210.5", ltail="cluster_n3"];
+  "n4" -> "n12" [label="Done", pos="e,600,180 600,220 600,220 600,190 600,190", lp="615,200"];
+  "n9" -> "n15" [pos="e,930,90 890,90 890,90 920,90 920,90"];
+  "n10" -> "n15" [pos="e,930,50 890,50 890,50 920,50 920,50"];
+  "n12" -> "n5" [label="[timer > 0]", pos="e,700,170 610,170 610,170 690,170 690,170", lp="655,179.5"];
+  "n12" -> "n13" [pos="e,600,110 600,160 600,160 600,120 600,120"];
+  "n13" -> "n14" [pos="e,700,102 608,102 608,102 690,102 690,102"];
+  "n14" -> "n9" [pos="e,810,90 760,102 760,102 785,102 785,102 785,102 785,90 785,90 785,90 800,90 800,90"];
+  "n14" -> "n10" [pos="e,810,50 760,102 760,102 780,102 780,102 780,102 780,50 780,50 780,50 800,50 800,50"];
+  "n15" -> "n5" [pos="e,820,170 935,150 935,150 935,170 935,170 935,170 830,170 830,170"];
+  "n16" -> "n4" [pos="e,660,280 860,310 860,310 660,310 660,310 660,310 660,290 660,290"];
+  "n17" -> "n5" [pos="e,780,200 930,300 930,300 930,260 930,260 930,260 780,260 780,260 780,260 780,210 780,210"];
+  "note:0" -> "n2" [style=dashed, arrowhead=none];
+}
