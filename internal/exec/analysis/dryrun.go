@@ -19,7 +19,9 @@ type DryRun struct {
 	// them; nil for an entry without one.
 	Args []string
 	// Env is the environment in NAME=value pairs, sorted; nil when the entry has no
-	// invocation block, in which case the whole environment is inherited.
+	// invocation block, in which case the whole environment is inherited. A variable
+	// taken from this process is spelt "NAME=<from this process>"; only the block's
+	// own entries show their rendered values.
 	Env []string
 	// Cwd is the working directory; empty inherits this process's.
 	Cwd string
@@ -226,7 +228,10 @@ func (e ToolEntry) Preview(call *runtime.ToolCall, executable string) (DryRun, e
 	if err := inv.render(c, sc, call, e, request); err != nil {
 		return DryRun{}, err
 	}
-	preview.Args, preview.Env = c.args, c.env
+	preview.Args = c.args
+	if preview.Env, err = inv.previewEnv(sc); err != nil {
+		return DryRun{}, err
+	}
 	preview.Cwd = inv.Cwd
 	preview.Stdin, preview.StdinData = inv.Stdin.Format, c.stdin
 	if r := e.Reply; r != nil && r.compiled != nil && r.compiled.source != nil {

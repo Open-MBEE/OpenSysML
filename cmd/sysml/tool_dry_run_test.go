@@ -77,6 +77,8 @@ func TestToolDryRunPreviewsTheComposedInvocation(t *testing.T) {
 	binary := buildCLI(t)
 	record := filepath.Join(t.TempDir(), "requests.jsonl")
 	t.Setenv("TOOL_STANDIN_RECORD", record)
+	t.Setenv("OPENSYSML_TEST_SECRET", "hunter2")
+	t.Setenv(analysis.ToolEnvPassthroughEnv, "OPENSYSML_TEST_SECRET")
 	entry := `{"kind":"tool","toolName":"Solver","version":"2.3",` +
 		`"executable":"` + dryRunStandin(t) + `","variables":["mass","tMax"],` +
 		`"invocation":{"args":["solve.py","--mass","{mass}"],"env":{"SOLVER_HOME":"/opt/solver"},"stdin":"csv"},` +
@@ -87,9 +89,13 @@ func TestToolDryRunPreviewsTheComposedInvocation(t *testing.T) {
 	wantReport(t, got, 0,
 		"✓ Tools::CheckHeating: dry run of tool 'Solver' for Tools::Heating",
 		"tool: Solver 2.3", "protocol: argv+csv/csv", "executable: "+dryRunStandin(t),
-		`"solve.py"`, `"--mass"`, `"12.5"`, "SOLVER_HOME=/opt/solver", "stdin: csv",
+		`"solve.py"`, `"--mass"`, `"12.5"`, "SOLVER_HOME=/opt/solver",
+		"OPENSYSML_TEST_SECRET=<from this process>", "stdin: csv",
 		"  mass", "  12.5", `tMax: column "tmax", row last, type number, unit K`,
 		"the process was not started")
+	if strings.Contains(got.output(), "hunter2") {
+		t.Fatalf("the preview printed a passed-through value:\n%s", got.output())
+	}
 	if _, err := os.Stat(record); !os.IsNotExist(err) {
 		t.Fatalf("the tool recorded a request; a dry run must not start it")
 	}

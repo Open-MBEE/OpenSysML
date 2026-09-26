@@ -87,6 +87,8 @@ func TestToolPreviewsTheComposedInvocation(t *testing.T) {
 	s := loadSource(t, toolCaseSource)
 	record := filepath.Join(t.TempDir(), "requests.jsonl")
 	t.Setenv("TOOL_STANDIN_RECORD", record)
+	t.Setenv("OPENSYSML_TEST_SECRET", "hunter2")
+	t.Setenv(analysis.ToolEnvPassthroughEnv, "OPENSYSML_TEST_SECRET")
 	entry := `{"kind":"tool","toolName":"Solver","version":"2.3",` +
 		`"executable":"` + toolStandin(t) + `","variables":["mass","tMax"],` +
 		`"invocation":{"args":["solve.py","--mass","{mass}","{outputDir}/out.txt"],` +
@@ -104,7 +106,7 @@ func TestToolPreviewsTheComposedInvocation(t *testing.T) {
 		"executable: "+toolStandin(t),
 		"argv:",
 		`  "solve.py"`, `  "--mass"`, `  "12.5"`, `  "<outputDir>/out.txt"`,
-		"env:", "  SOLVER_HOME=/opt/solver",
+		"env:", "  OPENSYSML_TEST_SECRET=<from this process>", "  PATH=<from this process>", "  SOLVER_HOME=/opt/solver",
 		"cwd: inherited",
 		"stdin: csv", "  mass", "  12.5",
 		"input file: <inputFile> (csv, named inputs.csv)", "  mass", "  12.5",
@@ -538,4 +540,43 @@ func TestToolPreviewWithAnotherFailureIsUnresolved(t *testing.T) {
 	if v := toolPreviewVerdict("Tools::CheckSolve", dry, nil); v.Status != VerdictHolds {
 		t.Errorf("status without a failure = %v, want holds", v.Status)
 	}
+}
+
+// %tool on an object performing the action runs that performance, as running the
+// action on the object does: an already-completed one reaches no call, and
+// arguments of its own are refused, the declaration binding them.
+func TestToolPreviewsAnObjectsOwnPerformance(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("the tool is a shell script")
+	}
+	s := loadSource(t, `
+package Tools {
+	private import ScalarValues::Real;
+	private import AnalysisTooling::*;
+	action def Heating {
+		metadata ToolExecution { toolName = "Solver"; uri = "solver://eq"; }
+		in mass : Real default = 12.5 { @ToolVariable { name = "mass"; } }
+		out tMax : Real              { @ToolVariable { name = "tMax"; } }
+	}
+	part def Rig {
+		perform action heat : Heating { in mass = 7.0; }
+	}
+}`)
+	dir := t.TempDir()
+	script := "#!/bin/sh\ncat >/dev/null\n" +
+		`printf '{"outputs":{"tMax":{"value":87.2}}}\n'` + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "solver.sh"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	toolManifest(t, s, `{"kind":"tool","toolName":"Solver","executable":"`+filepath.Join(dir, "solver.sh")+`","variables":["mass","tMax"]}`)
+	wants(t, run(t, s, "%instantiate Tools::Rig"), "Created instance of Tools::Rig")
+
+	// Instantiation performed heat to completion; the preview joins it and finds no call to make.
+	wants(t, run(t, s, "%tool Tools::Heating Rig"), "no ToolExecution-annotated action was reached")
+	out := run(t, s, "%tool Tools::Heating(30) Rig")
+	wants(t, out, "the object performs Heating already, with the arguments its declaration binds")
+	if strings.Contains(out, "the process was not started") {
+		t.Errorf("%%tool with arguments on the performer previewed a call:\n%s", out)
+	}
+	wants(t, run(t, s, "%eval in Rig : heat.tMax"), "87.2")
 }

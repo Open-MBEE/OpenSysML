@@ -539,10 +539,10 @@ func (inv *Invocation) renderArgs(sc scope) ([]string, error) {
 	return args, nil
 }
 
-// renderEnv is the process environment: the base variables and those ToolEnvPassthroughEnv
-// lists, as this process holds them, then the block's, which override; in name order.
-func (inv *Invocation) renderEnv(sc scope) ([]string, error) {
-	env := make(map[string]string)
+// passthroughNames are the names of this process's variables the tool's environment may
+// carry: the base ones and each ToolEnvPassthroughEnv lists. An entry holding `=` or a
+// NUL byte is not an environment variable name and is refused.
+func (inv *Invocation) passthroughNames(sc scope) ([]string, error) {
 	names := append([]string(nil), baseToolEnv...)
 	for _, name := range strings.Split(os.Getenv(ToolEnvPassthroughEnv), ",") {
 		if name = strings.TrimSpace(name); name != "" {
@@ -553,11 +553,44 @@ func (inv *Invocation) renderEnv(sc scope) ([]string, error) {
 			names = append(names, name)
 		}
 	}
+	return names, nil
+}
+
+// renderEnv is the process environment: the base variables and those ToolEnvPassthroughEnv
+// lists, as this process holds them, then the block's, which override; in name order.
+func (inv *Invocation) renderEnv(sc scope) ([]string, error) {
+	names, err := inv.passthroughNames(sc)
+	if err != nil {
+		return nil, err
+	}
+	env := make(map[string]string)
 	for _, name := range names {
 		if value, set := os.LookupEnv(name); set {
 			env[name] = value
 		}
 	}
+	return inv.composeEnv(sc, env)
+}
+
+// previewEnv is renderEnv spelt for the dry-run preview: a passed-through variable's
+// value reads "<from this process>", so the preview names it without printing it;
+// the block's rendered values alone stay literal.
+func (inv *Invocation) previewEnv(sc scope) ([]string, error) {
+	names, err := inv.passthroughNames(sc)
+	if err != nil {
+		return nil, err
+	}
+	env := make(map[string]string)
+	for _, name := range names {
+		if _, set := os.LookupEnv(name); set {
+			env[name] = "<from this process>"
+		}
+	}
+	return inv.composeEnv(sc, env)
+}
+
+// composeEnv renders the block's entries over env and spells the pairs in name order.
+func (inv *Invocation) composeEnv(sc scope, env map[string]string) ([]string, error) {
 	for name, t := range inv.compiled.env {
 		value, err := t.render(sc)
 		if err != nil {
