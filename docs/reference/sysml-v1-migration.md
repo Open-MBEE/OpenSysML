@@ -578,14 +578,17 @@ DocGen prints it, with the view's own documentation as a `Paragraph` — the sam
 `view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
 comment is shown by one of the view's collaborator paragraphs, in which case it is written once, in
 that paragraph's place; a collaborator paragraph that cannot be shown (a malformed application) is
-refused as usual and does not hide the documentation. A view conforming to no viewpoint gets
+refused as usual and does not hide the documentation. A view with no «Conform» gets
 DocGen's default behavior, that of MDK's
 [`DocumentGenerator.parseView`](https://github.com/Open-MBEE/mdk/blob/develop/src/main/java/org/openmbee/mdk/generator/DocumentGenerator.java)
 when the view has no viewpoint or method: a view that is itself a diagram shows its own figure, and any other shows,
 after its documentation, each diagram it exposes or imports in that order — an `Image` of a
 plain diagram, the `Table` of a table diagram — and nothing for an exposed element that is not
-a diagram; the view's report row says the default applied and what it showed. A view whose
-«Conform» names a viewpoint keeps its method's refusal when that method is malformed. The tree
+a diagram; the view's report row says the default applied and what it showed. Only the
+«Conform» generalization decides, as it does in `parseView`: the «View» stereotype's `viewpoint`
+tag, which the «View» row above writes as a `satisfy`, names no method for the section. A view whose «Conform» names no element of the export is refused with that reason rather
+than given the default, and a view whose «Conform» names a viewpoint keeps its method's refusal
+when that method is malformed. The tree
 is the one DocGen walks: every property of a view typed by a view is a section, and a view is entered
 for its own sections only through a composite or shared property — a plain reference places
 the view as a section without its children, and the «Expose» dependencies of a property feed

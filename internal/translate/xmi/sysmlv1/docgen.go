@@ -24,6 +24,9 @@ type DocGenView struct {
 	Class *Element
 	// Viewpoint is the viewpoint the view conforms to; nil when none.
 	Viewpoint *Element
+	// ConformMalformed is why the view's Conform names no viewpoint, "" when
+	// it does or the view has no Conform.
+	ConformMalformed string
 	// Method is the viewpoint's method activity, the behavior of its
 	// operation named View or its method tag; nil when the viewpoint has none.
 	Method *Element
@@ -295,6 +298,7 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	v := &DocGenView{Class: class, Paragraphs: r.paragraphs(class)}
 	path[class] = true
 	defer delete(path, class)
+	var broken []string
 	for _, g := range class.Owned("generalization") {
 		if !isSysMLStereotyped(g, "Conform") {
 			continue
@@ -302,11 +306,15 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 		if general := m.Ref(g, "general"); general != nil {
 			v.Viewpoint = general
 		} else {
-			v.Malformed = append(v.Malformed, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
+			broken = append(broken, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
 		}
 	}
-	if v.Viewpoint != nil {
+	switch {
+	case v.Viewpoint != nil:
+		v.Malformed = append(v.Malformed, broken...)
 		v.Method, v.MethodMalformed = m.viewpointMethod(v.Viewpoint)
+	case len(broken) > 0:
+		v.ConformMalformed = strings.Join(broken, "; ")
 	}
 	v.Exposed = m.exposed(class)
 	if p != nil && composite(p) {

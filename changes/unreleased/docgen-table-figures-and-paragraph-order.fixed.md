@@ -11,7 +11,9 @@
   is itself a diagram shows its own figure; any other shows, after its documentation, each
   diagram it exposes in order — a plain diagram as a figure, a table diagram as its table —
   and nothing for an exposed element that is not a diagram, the report row naming what it drew
-  and what it left out.
+  and what it left out. As in MDK, only a missing «Conform» means that: a view whose «Conform»
+  names no element is refused with the reason, and the «View» stereotype's `viewpoint` tag
+  chooses no method.
 - **Collaborator paragraphs stand where their anchors put them.** Every collaborator paragraph
   followed the section's generated content. A paragraph with no `siblingId`/`parentId` now
   precedes it, as Cameo prints it; one anchored to a generated figure

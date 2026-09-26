@@ -84,6 +84,58 @@ func TestDocGenViewTreeFollowsAggregation(t *testing.T) {
 	}
 }
 
+// A view's Conform naming no element is told apart from a view with no
+// Conform: the former is ConformMalformed, the latter simply has no viewpoint.
+// A broken Conform beside one that resolves is only a note.
+func TestDocGenViewConformMalformed(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML"
+         xmlns:Document_Profile_="http://www.magicdraw.com/schemas/manual/Document_Profile.xmi">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_vp" name="VP"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_doc" name="Doc">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_broken" name="broken" type="_broken" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_none" name="none" type="_none" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_both" name="both" type="_both" aggregation="composite"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_broken" name="Broken">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g_broken" general="_missing"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_none" name="None"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_both" name="Both">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g_both_broken" general="_missing"/>
+      <generalization xmi:type="uml:Generalization" xmi:id="_g_both_ok" general="_vp"/>
+    </packagedElement>
+  </uml:Model>
+  <Document_Profile_:Document xmi:id="_st_doc" base_Class="_doc"/>
+  <Document_Profile_:view xmi:id="_st_broken" base_Class="_broken"/>
+  <Document_Profile_:view xmi:id="_st_none" base_Class="_none"/>
+  <Document_Profile_:view xmi:id="_st_both" base_Class="_both"/>
+  <sysml:Viewpoint xmi:id="_st_vp" base_Class="_vp"/>
+  <sysml:Conform xmi:id="_st_c1" base_Generalization="_g_broken"/>
+  <sysml:Conform xmi:id="_st_c2" base_Generalization="_g_both_broken"/>
+  <sysml:Conform xmi:id="_st_c3" base_Generalization="_g_both_ok"/>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Documents) != 1 || len(m.Documents[0].Root.Children) != 3 {
+		t.Fatalf("documents = %+v, want one with 3 views", m.Documents)
+	}
+	const why = `Conform general "_missing" names no element`
+	broken, none, both := m.Documents[0].Root.Children[0], m.Documents[0].Root.Children[1], m.Documents[0].Root.Children[2]
+	if broken.Viewpoint != nil || broken.ConformMalformed != why || len(broken.Malformed) != 0 {
+		t.Errorf("Broken: viewpoint %v, ConformMalformed %q, Malformed %v; want nil, %q, none", broken.Viewpoint, broken.ConformMalformed, broken.Malformed, why)
+	}
+	if none.Viewpoint != nil || none.ConformMalformed != "" || len(none.Malformed) != 0 {
+		t.Errorf("None: viewpoint %v, ConformMalformed %q, Malformed %v; want nil, \"\", none", none.Viewpoint, none.ConformMalformed, none.Malformed)
+	}
+	if both.Viewpoint == nil || both.Viewpoint.ID != "_vp" || both.ConformMalformed != "" || len(both.Malformed) != 1 || both.Malformed[0] != why {
+		t.Errorf("Both: viewpoint %v, ConformMalformed %q, Malformed %v; want VP, \"\", [%q]", both.Viewpoint, both.ConformMalformed, both.Malformed, why)
+	}
+}
+
 // A control flow whose source or target names no node makes the whole chain
 // unreadable: the walk refuses it instead of ending cleanly where the edge is lost.
 func TestDocGenChainRefusesDanglingFlows(t *testing.T) {

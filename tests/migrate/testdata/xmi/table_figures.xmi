@@ -66,6 +66,7 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_spares" name="spares" type="_view_spares" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_overview" name="overview" type="_view_overview" aggregation="composite"/>
         <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_pumping" name="pumping" type="_view_pumping" aggregation="composite"/>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_doc_unlinked" name="unlinked" type="_view_unlinked" aggregation="composite"/>
       </packagedElement>
 
       <packagedElement xmi:type="uml:Class" xmi:id="_view_inventory" name="Inventory">
@@ -104,6 +105,12 @@
         <ownedComment xmi:type="uml:Comment" xmi:id="_pump_head" body="The following figure shows the pump."/>
       </packagedElement>
       <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_pumping" client="_view_pumping" supplier="_diag_structure"/>
+
+      <packagedElement xmi:type="uml:Class" xmi:id="_view_unlinked" name="Unlinked">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_unlinked" general="_vp_missing"/>
+        <ownedComment xmi:type="uml:Comment" xmi:id="_unlinked_doc" body="Its viewpoint is gone." annotatedElement="_view_unlinked"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_expose_unlinked" client="_view_unlinked" supplier="_diag_structure"/>
     </packagedElement>
 
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -157,16 +164,19 @@
   <sysml:View xmi:id="_st_view_overview" base_Class="_view_overview"/>
   <sysml:View xmi:id="_st_view_details" base_Class="_view_details"/>
   <sysml:View xmi:id="_st_view_pumping" base_Class="_view_pumping"/>
+  <sysml:View xmi:id="_st_view_unlinked" base_Class="_view_unlinked"/>
   <sysml:Conform xmi:id="_st_conform_inventory" base_Generalization="_gen_inventory"/>
   <sysml:Conform xmi:id="_st_conform_spares" base_Generalization="_gen_spares"/>
   <sysml:Conform xmi:id="_st_conform_details" base_Generalization="_gen_details"/>
   <sysml:Conform xmi:id="_st_conform_pumping" base_Generalization="_gen_pumping"/>
+  <sysml:Conform xmi:id="_st_conform_unlinked" base_Generalization="_gen_unlinked"/>
   <sysml:Expose xmi:id="_st_expose_inventory" base_Dependency="_expose_inventory"/>
   <sysml:Expose xmi:id="_st_expose_spares" base_Dependency="_expose_spares"/>
   <sysml:Expose xmi:id="_st_expose_overview_table" base_Dependency="_expose_overview_table"/>
   <sysml:Expose xmi:id="_st_expose_overview_bdd" base_Dependency="_expose_overview_bdd"/>
   <sysml:Expose xmi:id="_st_expose_overview_pump" base_Dependency="_expose_overview_pump"/>
   <sysml:Expose xmi:id="_st_expose_pumping" base_Dependency="_expose_pumping"/>
+  <sysml:Expose xmi:id="_st_expose_unlinked" base_Dependency="_expose_unlinked"/>
 
   <Document_Profile_:Document xmi:id="_st_doc_report" base_Class="_doc_report"/>
   <Document_Profile_:Image xmi:id="_st_titled_image" base_CallBehaviorAction="_titled_image" showCaptions="true">

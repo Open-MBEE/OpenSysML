@@ -104,6 +104,29 @@ func TestViewpointLessViewShowsExposedDiagrams(t *testing.T) {
 	wantOneNote(t, r, "_st_view_overview", migrate.Mapped, "the SysML Instance Table 'Pump Table' is written as a Table over the query 'Pump Table Rows' of its «InstanceTable»")
 }
 
+func TestViewWithBrokenConformIsRefused(t *testing.T) {
+	r := plantReportResult(t)
+	notation := string(r.Notation)
+	sec := notationSection(notation, "Unlinked")
+	if sec == "" {
+		t.Fatalf("no Unlinked section written:\n%s", notation)
+	}
+	wantInOrder(t, "Unlinked section", sec,
+		`/* not migrated: the view Plant Documents::Unlinked's conformance is not migrated: Conform general "_vp_missing" names no element */`,
+		`attribute redefines text = "Its viewpoint is gone.";`)
+	for _, kind := range []string{"DocumentQueries::Diagram", "DocumentQueries::Table"} {
+		if strings.Contains(sec, kind) {
+			t.Errorf("the view whose Conform names no viewpoint draws a %s as if it had none:\n%s", kind, sec)
+		}
+	}
+	wantOneNote(t, r, "_st_view_unlinked", migrate.Unmapped, `the view Plant Documents::Unlinked's conformance is not migrated: Conform general "_vp_missing" names no element`)
+	for _, e := range entriesFor(r, "_view_unlinked") {
+		if strings.Contains(e.Note, "default behavior") {
+			t.Errorf("_view_unlinked: %+v, want no default-behavior note", e)
+		}
+	}
+}
+
 func TestCollaboratorParagraphsFollowTheirAnchors(t *testing.T) {
 	r := plantReportResult(t)
 	notation := string(r.Notation)

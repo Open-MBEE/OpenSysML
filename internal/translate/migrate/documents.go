@@ -379,9 +379,9 @@ func (m *migration) findFigure(sec *sectionPlan, id string) (*sectionPlan, *figu
 }
 
 // planMethod walks the activity chain of the view's viewpoint method into
-// content blocks. A view conforming to no viewpoint gets DocGen's default
-// behavior instead; one whose viewpoint's method tag names something that is
-// not a method is refused.
+// content blocks. A view with no Conform gets DocGen's default behavior
+// instead; one whose Conform names no viewpoint, or whose viewpoint's method
+// tag names something that is not a method, is refused.
 func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	v := sec.v
 	if v.Method == nil {
@@ -389,6 +389,9 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 		case v.MethodMalformed != "":
 			sec.refused = "the viewpoint " + qualifiedName(v.Viewpoint) + "'s method is not migrated: " + v.MethodMalformed
 			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Viewpoint, v.Viewpoint.Stereotype("Viewpoint"), Unmapped, sec.refused))
+		case v.ConformMalformed != "":
+			sec.refused = "the view " + qualifiedName(v.Class) + "'s conformance is not migrated: " + v.ConformMalformed
+			m.report.Entries = append(m.report.Entries, *m.nodeEntry(v.Class, viewApplication(v.Class), Unmapped, sec.refused))
 		case v.Viewpoint == nil:
 			m.defaultView(dp, sec)
 		}
@@ -405,8 +408,9 @@ func (m *migration) planMethod(dp *docPlan, sec *sectionPlan) {
 	c.run(steps)
 }
 
-// defaultView applies what DocGen does for a view conforming to no viewpoint
-// (MDK's DocumentGenerator.parseView): a view that is itself a diagram shows
+// defaultView applies what DocGen does for a view with no Conform (MDK's
+// DocumentGenerator.parseView reads that relationship alone, not the «View»
+// stereotype's viewpoint tag): a view that is itself a diagram shows
 // its own figure; any other shows, after its documentation, the figure of
 // each diagram it exposes in order — a table for a table diagram — and
 // nothing for an exposed element that is not a diagram.

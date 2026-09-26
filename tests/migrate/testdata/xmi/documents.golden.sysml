@@ -507,6 +507,7 @@ package 'Fleet Documents' {
         }
         part Notes : DocumentQueries::Section {
             attribute redefines title = "Notes";
+            /* not migrated: the view Fleet Documents::Notes's conformance is not migrated: Conform general "_vp_gone" names no element */
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "First note.";
             }
