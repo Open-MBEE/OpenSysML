@@ -114,7 +114,8 @@ func (d *DryRunner) Reached() (*ToolDryRunError, bool) {
 
 // RunTool walks the selection's candidates in the order the real runner consults
 // them, probing only tool entries: a non-tool candidate ahead of the tool's own is
-// undecided under auto/all, refusing or not a tool entry under a named selection.
+// undecided under auto, passed under all (every covering engine runs there), and
+// refusing or not a tool entry under a named selection.
 func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) {
 	fqn := symbols.FQNOf(call.Action)
 	q := Question{Kind: Compute, Subject: fqn, Compute: &ComputeAsk{Call: call}}
@@ -138,6 +139,9 @@ func (d *DryRunner) RunTool(call *runtime.ToolCall) (runtime.ToolAnswer, error) 
 					}
 				}
 				return runtime.ToolAnswer{}, &NotAToolEntryError{Engine: c.Name()}
+			}
+			if d.selection.Mode == SelectAll {
+				continue
 			}
 			return runtime.ToolAnswer{}, &PreviewUndecidedError{Engine: c.Name(), Tool: call.ToolName}
 		}

@@ -52,6 +52,23 @@ func TestADryRunStopsAtAnEngineAheadOfTheTool(t *testing.T) {
 	}
 }
 
+// Under all every covering engine runs, the tool among them: an engine ahead of it
+// in name order does not leave the preview undecided.
+func TestADryRunUnderAllPassesAnEngineAheadOfTheTool(t *testing.T) {
+	entry := ToolEntry{ToolName: "Solver", Executable: standin(t), Variables: []string{"mass", "tMax"}}
+	r := registered(t,
+		fakeEngine{name: "aaa", kinds: []Kind{Compute}, authority: Proved},
+		NewTool(entry))
+	_, err := r.DryRunner(All()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
+	var dry *ToolDryRunError
+	if !errors.As(err, &dry) {
+		t.Fatalf("RunTool under all = %v, want ToolDryRunError", err)
+	}
+	if dry.Preview.Tool != "Solver" {
+		t.Errorf("the preview names %q, want Solver", dry.Preview.Tool)
+	}
+}
+
 // A real external engine ahead of the tool is undecided without probing it: its
 // Covers needs a model and a process, neither of which a dry run has — the entry's
 // program does not exist, so any probe would surface as something else.
