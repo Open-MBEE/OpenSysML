@@ -116,11 +116,14 @@ document is never analyzed again; `Workspace.Diagnostics` and
 A fact that names another element cannot always do so by qualified name: an
 anonymous supertype, an implicit end, a redefinition of an unnamed member.
 `ElementRef` is the fully-qualified name of the nearest enclosing element that
-name alone declares, then one member ordinal per step down to the element the
-name does not reach, plus the declaring document when several documents
-declare the same name. `Index.RefTo` writes one; `Index.Element` restores it
-against the live index, so the reference joins whatever residency its target
-has. The ordinals count members of scopes a record keeps, so `RefTo` writes no
+name alone declares in its document, that document, and one member ordinal per
+step down to the element the name does not reach. The document is always
+named, not only while the name is ambiguous: a record is read after other
+documents have come and gone, and a reference written while `P::T` had one
+declaration must still restore that one when a later document declares
+another. `Index.RefTo` writes one; `Index.Element` restores it against the
+live index, so the reference joins whatever residency its target has. The
+ordinals count members of scopes a record keeps, so `RefTo` writes no
 reference to a member of a scope the record drops — a metadata body, a
 control-flow or constraint body — since nothing could restore it. When an
 element has no such reference — one declared twice in its own document, or one

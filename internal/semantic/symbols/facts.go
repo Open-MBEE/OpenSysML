@@ -1,6 +1,10 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+import (
+	"slices"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
 
 // LibraryFacts is the derived analysis of one library symbol: the semantic work
 // whose derivation dominates a cold library load, held so that a later load can
@@ -137,6 +141,43 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodeImport
 	}
 	return NodeOther
+}
+
+// Clone returns a copy of f sharing no slice or pointer with it.
+func (f LibraryFacts) Clone() LibraryFacts {
+	f.Supers = slices.Clone(f.Supers)
+	f.Redefines = slices.Clone(f.Redefines)
+	f.About = slices.Clone(f.About)
+	f.Ends = slices.Clone(f.Ends)
+	f.Relationships = slices.Clone(f.Relationships)
+	f.Annotations = slices.Clone(f.Annotations)
+	for i := range f.Annotations {
+		f.Annotations[i].Values = slices.Clone(f.Annotations[i].Values)
+	}
+	if f.Annotation != nil {
+		a := *f.Annotation
+		a.Values = slices.Clone(a.Values)
+		f.Annotation = &a
+	}
+	if f.Unit != nil {
+		u := *f.Unit
+		u.Factors = slices.Clone(u.Factors)
+		f.Unit = &u
+	}
+	if f.Dimension != nil {
+		d := *f.Dimension
+		d.Factors = slices.Clone(d.Factors)
+		f.Dimension = &d
+	}
+	if f.Multiplicity != nil {
+		m := *f.Multiplicity
+		f.Multiplicity = &m
+	}
+	if f.Default != nil {
+		v := *f.Default
+		f.Default = &v
+	}
+	return f
 }
 
 // RelationshipFacts is one written relationship of a declaration.

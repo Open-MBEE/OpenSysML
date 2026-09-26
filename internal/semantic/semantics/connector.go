@@ -141,7 +141,7 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	journal(m, m.ends, sym, sym.Decl)
 	m.ends[sym] = nil
 
-	if sym.Decl == nil && m.IsBinaryConnector(sym) {
+	if sym.Decl == nil && !sym.Recorded() && m.IsBinaryConnector(sym) {
 		var out []connectorEnd
 		for i, name := range binaryConnectorEndNames {
 			end, ok := m.LookupMember(sym, name)

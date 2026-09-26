@@ -75,7 +75,7 @@ func TestRecordFromIndexPersistsDerivedFactsOnly(t *testing.T) {
 		t.Fatalf("Name = %q", rec.Name)
 	}
 	supers := supersByFQN(rec)
-	if want := []string{"ScalarValues::Boolean"}; !slices.Equal(supers["ScalarValues::Real"], want) {
+	if want := []string{"ScalarValues::Boolean@" + name}; !slices.Equal(supers["ScalarValues::Real"], want) {
 		t.Errorf("Supers of ScalarValues::Real = %v, want %v", supers["ScalarValues::Real"], want)
 	}
 	if _, recorded := supers["ScalarValues::Boolean"]; recorded {
@@ -113,7 +113,7 @@ func TestRecordSupersFromSpecializationEdges(t *testing.T) {
 		t.Fatalf("expected a record")
 	}
 	got := supersByFQN(rec)["Car"]
-	if want := []string{"Vehicle", "Machine"}; !slices.Equal(got, want) {
+	if want := []string{"Vehicle@lib", "Machine@lib"}; !slices.Equal(got, want) {
 		t.Fatalf("Supers = %v, want %v", got, want)
 	}
 }
@@ -124,7 +124,7 @@ func TestRecordSupersCoversGeneralizationEdges(t *testing.T) {
 	idx := indexOf(t, "lib", "part def Engine; part e : Engine subsets Engine; part def Chassis; part c ::> Chassis;")
 	got := supersByFQN(recordOf("lib", idx))
 	// Typing and subsetting name the same target here, recorded once.
-	if want := []string{"Engine"}; !slices.Equal(got["e"], want) {
+	if want := []string{"Engine@lib"}; !slices.Equal(got["e"], want) {
 		t.Fatalf("Supers of e = %v, want %v", got["e"], want)
 	}
 	// `::>` is reference subsetting: it contributes members, not conformance.
@@ -144,11 +144,11 @@ func TestRecordSupersReachNamelessTarget(t *testing.T) {
 		function Plain specializes Check { return result = true; }
 	}`)
 	got := supersByFQN(recordOf("lib.kerml", idx))
-	if want := []string{"P::Check"}; !slices.Equal(got["P::Named"], want) {
+	if want := []string{"P::Check@lib.kerml"}; !slices.Equal(got["P::Named"], want) {
 		t.Fatalf("Supers of P::Named = %v, want %v", got["P::Named"], want)
 	}
 	for _, fqn := range []string{"P::Named::result", "P::Plain::result"} {
-		want := []string{"P::Boolean", "P::Check#0"}
+		want := []string{"P::Boolean@lib.kerml", "P::Check#0@lib.kerml"}
 		if fqn == "P::Plain::result" {
 			want = want[1:]
 		}

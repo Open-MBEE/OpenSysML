@@ -1,10 +1,12 @@
 package symbols
 
 // ElementRef names an element for a record fact: the fully-qualified name of
-// the nearest enclosing element that name alone declares (the element itself
-// when it does), one member ordinal per step down from it to an element the
-// name does not reach, and the declaring document when other documents declare
-// the same name. A zero ElementRef names nothing.
+// the nearest enclosing element that name alone declares in its document (the
+// element itself when it does), that document, and one member ordinal per step
+// down from it to an element the name does not reach. Naming the document
+// keeps the reference on its target when another document later declares the
+// same name. A zero ElementRef names nothing; one without a document names
+// whichever declaration the index lists first.
 type ElementRef struct {
 	FQN  string
 	Path []int32
@@ -67,19 +69,15 @@ func (idx *Index) RefTo(sym *Symbol) (ref ElementRef, ok bool) {
 	return ElementRef{}, false
 }
 
-// namedRef names sym by its fully-qualified name when that name declares it
-// alone, in the index or in its document.
+// namedRef names sym by its fully-qualified name and document when that name
+// declares it alone in its document.
 func (idx *Index) namedRef(sym *Symbol) (ElementRef, bool) {
 	fqn := FQNOf(sym)
 	if fqn == "" {
 		return ElementRef{}, false
 	}
-	decls := idx.declaringAll(fqn)
-	if len(decls) == 1 && decls[0] == sym {
-		return ElementRef{FQN: fqn}, true
-	}
 	var inDoc []*Symbol
-	for _, d := range decls {
+	for _, d := range idx.declaringAll(fqn) {
 		if d.DocName == sym.DocName {
 			inDoc = append(inDoc, d)
 		}

@@ -127,10 +127,12 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 			"conns.sysml": []byte(`package Conns {
 	part def A; part def B; part def C;
 	connection def Triple { end a : A; end b : B; end c : C; }
+	connection def Link { end left : A; end right : B; }
 	part def Host {
 		part pa : A; part pb : B; part pc : C;
 		connection base : Triple connect (pa, pb, pc);
 		connection named : Triple connect (a references pa, b references pb, c references pc);
+		connection link : Link connect (pa, pb);
 	}
 }
 `),
@@ -138,12 +140,17 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 	private import Conns::*;
 	connection def Derived :> Triple;
 	connection def Retyped :> Triple { end :>> a : A; end d : B; }
-	part def Host2 :> Host { connection more :> base; connection alike :> named; }
+	connection def SubLink :> Link { end :>> left : A; }
+	connection def Relinked :> Link { end :>> right : B; end :>> left : A; }
+	part def Host2 :> Host { connection more :> base; connection alike :> named; connection relink :> link; }
 	part h : Host {
 		connection t : Triple connect (pa, pb, pc);
 		connection u : Triple connect (pa, pb);
 		connection v : Derived connect (pa, pb, pc);
 		connection w : Triple connect (pc, pb, pa);
+		connection x : Link connect (pa, pb);
+		connection y : SubLink connect (left references pa, right references pb);
+		connection z : Link connect (pb, pa);
 	}
 }
 `),
@@ -313,7 +320,7 @@ func TestInterfaceRecordKeepsContentAndRefusesBodyQuestions(t *testing.T) {
 // passed may be reused, and what the document holds and locates is unchanged.
 func TestInterfaceRecordOwnsItsContent(t *testing.T) {
 	t.Parallel()
-	a := []byte("package A { part def P; part def Q :> Missing; }")
+	a := []byte("package A { part def P; part def Q :> Missing; part def R :> P; }")
 	loaded := model.NewWorkspace()
 	loaded.OpenAll([]model.Input{{Name: "a.sysml", Content: a, Version: 1}})
 	loaded.DiagnosticsAll([]string{"a.sysml"})
@@ -346,6 +353,23 @@ func TestInterfaceRecordOwnsItsContent(t *testing.T) {
 	}
 	if p := ws.LookupQualified("A::P"); len(p) != 1 || p[0].DocName != "a.sysml" {
 		t.Fatalf("A::P: %v", p)
+	}
+
+	// The record itself is the caller's to change: nothing installed reads it.
+	message := diags[0].Message
+	for i := range rec.Diagnostics {
+		rec.Diagnostics[i].Message = "changed"
+	}
+	for i := range rec.Scope.Symbols {
+		for j := range rec.Scope.Symbols[i].Facts.Supers {
+			rec.Scope.Symbols[i].Facts.Supers[j] = symbols.ElementRef{}
+		}
+	}
+	if _, diags, _ := ws.AnalyzedContent("a.sysml"); diags[0].Message != message {
+		t.Fatalf("the stored diagnostic reads %q after the caller's record changed", diags[0].Message)
+	}
+	if r := ws.LookupQualified("A::R"); len(r) != 1 || len(r[0].Facts.Supers) != 1 || r[0].Facts.Supers[0].FQN != "A::P" {
+		t.Fatalf("A::R's recorded supertypes after the caller's record changed: %+v", r)
 	}
 }
 

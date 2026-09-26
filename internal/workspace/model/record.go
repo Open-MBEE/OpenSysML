@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
@@ -86,13 +87,13 @@ func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) erro
 		Scope:    scope,
 		sf:       source.New(rec.Name, content),
 		digest:   digest,
-		recorded: &recordedDiagnostics{diagnostics: rec.Diagnostics},
+		recorded: &recordedDiagnostics{diagnostics: diag.Clone(rec.Diagnostics)},
 	}
 	w.docs[rec.Name] = doc
 	w.changes[rec.Name]++
 	w.displaceLocked(rec.Name)
 	w.releaseStandInLocked(rec.Name)
-	w.index.AddRecordedDocument(rec.Name, rec.Kind, scope, rec.Scope.Gathered)
+	w.index.AddRecordedDocument(rec.Name, rec.Kind, scope, rec.Scope.Gathered.Clone())
 	w.index.ExpandWildcardImports()
 	w.invalidateLocked(rec.Name)
 	return nil

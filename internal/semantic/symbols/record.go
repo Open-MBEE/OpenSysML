@@ -250,7 +250,7 @@ func BuildRecorded(rec *DocumentRecord, name string) (*Scope, error) {
 	syms := make([]*Symbol, len(rec.Symbols))
 	in := interner{}
 	for i, sr := range rec.Symbols {
-		facts := sr.Facts
+		facts := sr.Facts.Clone()
 		facts.Recorded = true
 		in.facts(&facts)
 		sym := &Symbol{

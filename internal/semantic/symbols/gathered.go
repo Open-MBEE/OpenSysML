@@ -1,5 +1,7 @@
 package symbols
 
+import "slices"
+
 // GatheredRelationships are the relationships a document's body states that
 // the workspace-wide audits read across documents — what it derives,
 // allocates, satisfies and conforms — held by reference. A recorded document
@@ -29,6 +31,32 @@ type GatheredEnds struct {
 type GatheredSatisfaction struct {
 	Requirements []ElementRef
 	Satisfiers   []ElementRef
+}
+
+// Clone returns a copy sharing no slice with g; nil for nil.
+func (g *GatheredRelationships) Clone() *GatheredRelationships {
+	if g == nil {
+		return nil
+	}
+	ends := func(in []GatheredEnds) []GatheredEnds {
+		out := slices.Clone(in)
+		for i := range out {
+			out[i].Sources = slices.Clone(out[i].Sources)
+			out[i].Targets = slices.Clone(out[i].Targets)
+		}
+		return out
+	}
+	out := &GatheredRelationships{
+		Derivations:   ends(g.Derivations),
+		Allocations:   ends(g.Allocations),
+		Conformances:  ends(g.Conformances),
+		Satisfactions: slices.Clone(g.Satisfactions),
+	}
+	for i := range out.Satisfactions {
+		out.Satisfactions[i].Requirements = slices.Clone(out.Satisfactions[i].Requirements)
+		out.Satisfactions[i].Satisfiers = slices.Clone(out.Satisfactions[i].Satisfiers)
+	}
+	return out
 }
 
 // Empty reports whether g states no relationship.

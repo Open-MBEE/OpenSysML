@@ -60,3 +60,30 @@ func TestRefToRefusesMembersOfUnrecordedScopes(t *testing.T) {
 		t.Fatalf("%d refused, %d kept: the fixture exercises neither side", refused, kept)
 	}
 }
+
+// A reference is written while its target's name may be unique and read into
+// an index other documents reached first; it names the declaring document so
+// that another declaring the same name does not take it over.
+func TestElementRefKeepsItsDocumentUnderADuplicate(t *testing.T) {
+	const z = "package P { part def T; part def U :> T; }"
+	written := buildIndex(t, map[string]string{"z.sysml": z})
+	target := written.LookupQualified("P::T")
+	if len(target) != 1 {
+		t.Fatalf("P::T: %v", target)
+	}
+	ref, ok := written.RefTo(target[0])
+	if !ok {
+		t.Fatal("RefTo(P::T) names nothing")
+	}
+	read := buildIndex(t, map[string]string{
+		"a.sysml": "package P { part def T; }",
+		"z.sysml": z,
+	})
+	if decls := read.LookupQualified("P::T"); len(decls) != 2 {
+		t.Fatalf("P::T is declared %d times, want 2", len(decls))
+	}
+	got := read.Element(ref)
+	if got == nil || got.DocName != "z.sysml" || FQNOf(got) != "P::T" {
+		t.Fatalf("Element(%+v) = %v, want z.sysml's P::T", ref, got)
+	}
+}
