@@ -153,9 +153,9 @@ and its typed `add_*` helpers create declarations while preserving untouched
 source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint`, `add_assume_constraint`, `add_transition` and
 `add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
-and `return_expression`; the expression is bound to a result parameter, not
-written as a `return <expr>;` statement. Action helpers accept `inputs` and
-`outputs`, each a list of `(name, type)` string pairs.
+and `return_expression`; a return expression requires a return type and is
+bound to the result parameter, not written as a `return <expr>;` statement.
+Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.
 `Editor.delete(target, cascade=False)` removes declarations transactionally;
 `Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the

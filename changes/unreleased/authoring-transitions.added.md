@@ -1,1 +1,1 @@
-- **Source-preserving authoring now supports state transitions and behavior parameters.** Add regular or entry transitions with validated trigger, guard and effect clauses, and create calculations or actions with their parameters in one edit batch.
+- **Source-preserving authoring now supports state transitions and behavior parameters.** Add regular or entry transitions with validated trigger, guard and effect clauses, and create calculations or actions with their parameters in one edit batch. A calculation return expression requires a return type.

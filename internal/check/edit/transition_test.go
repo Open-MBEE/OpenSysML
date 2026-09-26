@@ -47,6 +47,20 @@ func TestAddTransitionOptionalClauses(t *testing.T) {
 	}
 }
 
+func TestAddTransitionPreservesQuotedNames(t *testing.T) {
+	model := loadContent(t, "quoted-transition.sysml",
+		"state def S { state 'waiting room'; state done; }\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddTransition(
+		"S", "'to done'", "'waiting room'", "done", "", "", "", false,
+	))
+	if !strings.Contains(string(result.Content),
+		"transition 'to done' first 'waiting room' then done;") {
+		t.Fatalf("quoted transition missing:\n%s", result.Content)
+	}
+	requireClean(t, loadContent(t, "quoted-transition.sysml", string(result.Content)))
+}
+
 func TestAddEntryTransition(t *testing.T) {
 	model := loadContent(t, "entry-transition.sysml",
 		"state def S { state idle; }\n")

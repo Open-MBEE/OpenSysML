@@ -570,12 +570,14 @@ class Editor:
     ):
         """Add a ``calc def`` with input parameters and an optional result.
 
-        ``return_expression`` is bound to the result parameter; it does not
-        write a ``return <expr>;`` statement.
+        ``return_expression`` requires ``return_type`` and is bound to that
+        result parameter; it does not write a ``return <expr>;`` statement.
         """
         inputs = _parameter_pairs(inputs, "inputs")
         _optional_text(return_type, "return_type")
         _optional_text(return_expression, "return_expression")
+        if return_expression is not None and not return_type:
+            raise ValueError("return_expression requires return_type")
         owner = _owner_id(owner)
         self.add_member(owner, "calc def", name, **kwargs)
         qualified_name = name if owner == "" else owner + "::" + name
@@ -594,12 +596,14 @@ class Editor:
     ):
         """Add a ``calc`` with input parameters and an optional result.
 
-        ``return_expression`` is bound to the result parameter; it does not
-        write a ``return <expr>;`` statement.
+        ``return_expression`` requires ``return_type`` and is bound to that
+        result parameter; it does not write a ``return <expr>;`` statement.
         """
         inputs = _parameter_pairs(inputs, "inputs")
         _optional_text(return_type, "return_type")
         _optional_text(return_expression, "return_expression")
+        if return_expression is not None and not return_type:
+            raise ValueError("return_expression requires return_type")
         owner = _owner_id(owner)
         self.add_member(owner, "calc", name, **kwargs)
         qualified_name = name if owner == "" else owner + "::" + name

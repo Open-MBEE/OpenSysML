@@ -137,9 +137,16 @@ func validateTransitionText(i int, op Operation, text string) error {
 		return invalidTransitionText(i)
 	}
 	transition, ok := unwrapMembership(members[0]).(*ast.TransitionMember)
-	if !ok || transition.Name != op.TransitionName ||
-		qualifiedNameText(transition.Source) != op.TransitionSource ||
-		qualifiedNameText(transition.Target) != op.TransitionTarget ||
+	if !ok || transition.Source == nil || transition.Target == nil {
+		return invalidTransitionText(i)
+	}
+	nameText, nameOK := transitionSpanText(wrapped, transition.NameSpan)
+	sourceText, sourceOK := transitionQualifiedNameText(wrapped, transition.Source)
+	targetText, targetOK := transitionQualifiedNameText(wrapped, transition.Target)
+	if !nameOK || !sourceOK || !targetOK ||
+		nameText != op.TransitionName ||
+		sourceText != op.TransitionSource ||
+		targetText != op.TransitionTarget ||
 		(transition.Trigger != nil) != (op.Trigger != "") ||
 		(transition.Guard != nil) != (op.Guard != "") ||
 		transition.HasEffect != (op.Effect != "") {
@@ -155,25 +162,27 @@ func invalidTransitionText(i int) error {
 	}
 }
 
-func qualifiedNameText(name *ast.QualifiedName) string {
-	if name == nil {
-		return ""
+func transitionSpanText(text string, span source.Span) (string, bool) {
+	end := span.Offset + span.Len
+	if span.Offset < 0 || span.Len < 0 || end < span.Offset || end > len(text) {
+		return "", false
 	}
-	var text strings.Builder
-	if name.Global {
-		text.WriteString("$::")
+	return text[span.Offset:end], true
+}
+
+func transitionQualifiedNameText(text string, name *ast.QualifiedName) (string, bool) {
+	if name == nil || len(name.Parts) == 0 {
+		return "", false
 	}
-	for i, part := range name.Parts {
-		if i > 0 {
-			if part.Chained {
-				text.WriteByte('.')
-			} else {
-				text.WriteString("::")
-			}
-		}
-		text.WriteString(part.Text)
+	last := name.Parts[len(name.Parts)-1].Span
+	end := last.Offset + last.Len
+	if end < last.Offset || end < name.NodeSpan.Offset {
+		return "", false
 	}
-	return text.String()
+	return transitionSpanText(text, source.Span{
+		Offset: name.NodeSpan.Offset,
+		Len:    end - name.NodeSpan.Offset,
+	})
 }
 
 func unwrapMembership(member ast.Node) ast.Node {

@@ -318,6 +318,23 @@ def test_calc_and_action_helpers_reject_invalid_parameter_shapes(
     assert len(editor) == 0
 
 
+@pytest.mark.parametrize("method", ["add_calc_def", "add_calc"])
+@pytest.mark.parametrize("return_type", [None, ""])
+def test_calc_helpers_require_return_type_for_return_expression(method, return_type):
+    editor = Editor("hash", None)
+    editor.add_member("Demo", "part", "existing")
+    pending = editor.operations
+
+    with pytest.raises(
+        ValueError, match="^return_expression requires return_type$"
+    ):
+        getattr(editor, method)(
+            "Demo", "C", return_type=return_type, return_expression="x * 2"
+        )
+
+    assert editor.operations == pending
+
+
 def test_new_authoring_operations_and_member_modifiers_are_exact(fake_service):
     port, service = fake_service(
         capabilities=(

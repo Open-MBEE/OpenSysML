@@ -1144,9 +1144,9 @@ declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, inclu
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
-the expression is bound to the result parameter and is not written as
-`return <expr>;`. `add_action_def` and `add_action` accept `inputs` and `outputs`
-as lists of `(name, type)` string pairs.
+a return expression requires a return type and is bound to the result parameter,
+not written as `return <expr>;`. `add_action_def` and `add_action` accept
+`inputs` and `outputs` as lists of `(name, type)` string pairs.
 `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
 `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
 `connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's
