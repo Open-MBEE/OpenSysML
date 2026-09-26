@@ -26,6 +26,10 @@ type Result struct {
 	Origins     []Origin          // the files of THIS submission, in buffer order
 	Notices     []string          // side effects of the submission, e.g. a debugging session it ended
 
+	// Refused is the *ReservedNameError a submission was refused for, nil when
+	// it was accepted; a refused submission changed nothing.
+	Refused error
+
 	// Blocked names the unresolved error that stopped the deeper checks from
 	// running over this submission, nil when they ran or when the session already
 	// reported that error.
@@ -343,6 +347,9 @@ func renderResult(r Result, v Verbosity) []string {
 // analysis found apart from what the submission declared, so a caller outside
 // the prompt can send the two to different streams.
 func renderSplit(r Result, v Verbosity) (found, declared []string) {
+	if r.Refused != nil {
+		return []string{"error: " + r.Refused.Error()}, nil
+	}
 	if v >= VerbosityDebug {
 		// Everything the analysis produced over the whole buffer, at
 		// buffer-absolute positions, plus where this submission landed in it.
@@ -369,6 +376,9 @@ func renderSplit(r Result, v Verbosity) (found, declared []string) {
 // text just read rather than about the analysis of the model as a whole: a load
 // that defers the analysis still says why a file could not be read.
 func renderSyntax(r Result, v Verbosity) []string {
+	if r.Refused != nil {
+		return []string{"error: " + r.Refused.Error()}
+	}
 	// A finding about the notation is no reason a file could not be read, and the
 	// analysis this load defers reports it, so reporting it here would report it twice.
 	var diags []diag.Diagnostic

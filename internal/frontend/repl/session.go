@@ -849,11 +849,31 @@ func (s *Session) submitAll(srcs []string) Result {
 // before the buffer is reindexed and analyzed, so a declaration in one resolves
 // against the others no matter which order they arrive in. This is what makes
 // loading a multi-file project order-independent. A file's Name is its
-// workspace document, so it must not be the transcript's; the path loaders
-// refuse such a file before it gets here.
+// workspace document, so a file named as the transcript is refused: nothing is
+// accepted and the result carries the *ReservedNameError as Refused.
 func (s *Session) SubmitFiles(files []SourceFile) Result {
 	defer s.enter()()
+	for _, f := range files {
+		if err := reservedName(f.Name); err != nil {
+			return s.refuse(err)
+		}
+	}
 	return s.submitFiles(files)
+}
+
+// refuse is the result of a submission no part of which was accepted: the
+// session as it stands, with nothing of its own but the refusal.
+func (s *Session) refuse(err error) Result {
+	text := s.text()
+	return Result{
+		Members:     s.sessionMembers(),
+		Diagnostics: s.diagnostics(),
+		Source:      text,
+		Offset:      len(text),
+		Refused:     err,
+		masked:      s.maskedSpans(),
+		foreign:     s.foreignSpans(),
+	}
 }
 
 func (s *Session) submitFiles(files []SourceFile) Result {

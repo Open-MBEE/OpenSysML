@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -310,10 +311,24 @@ func TestLoadRefusesAFileNamedAsTheTranscript(t *testing.T) {
 		t.Errorf("LoadFile(%q) error = %v, want a *ReservedNameError", docName, err)
 	}
 
+	// A direct submission has no error to return, so the whole of it is refused
+	// in the result: nothing accepted, the refusal all it renders.
+	res := s.SubmitFiles([]SourceFile{
+		{Name: "ok.sysml", Text: "package Direct { part def D; }\n"},
+		{Name: docName, Text: "package FromFile { part x : Missing; }\n"},
+	})
+	if !errors.As(res.Refused, &reserved) || len(res.Declared) != 0 || len(res.Origins) != 0 {
+		t.Errorf("a refused SubmitFiles = {Refused: %v, Declared: %v, Origins: %v}, want a *ReservedNameError and nothing else",
+			res.Refused, res.Declared, res.Origins)
+	}
+	want := []string{"error: cannot load <repl>: the name is reserved for the text typed at the prompt"}
+	if got := renderResult(res, VerbosityNormal); !slices.Equal(got, want) {
+		t.Errorf("a refused SubmitFiles rendered %q, want %q", got, want)
+	}
 	if got := s.Text(); got != before {
 		t.Errorf("the refused load changed the transcript:\n%s\nwas:\n%s", got, before)
 	}
-	if got := strings.Join(s.List(), "\n"); strings.Contains(got, "FromFile") || !strings.Contains(got, "Typed") {
+	if got := strings.Join(s.List(), "\n"); strings.Contains(got, "FromFile") || strings.Contains(got, "Direct") || !strings.Contains(got, "Typed") {
 		t.Errorf("the refused file's declarations must not enter the session; got %v", s.List())
 	}
 }
