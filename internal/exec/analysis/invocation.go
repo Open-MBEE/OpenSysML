@@ -129,16 +129,28 @@ type InputFile struct {
 }
 
 // Protocol names how the tool is spoken to, as an engine listing reports it: `object` for
-// one JSON object each way, `argv+<stdin>` for a process composed from an invocation block.
+// one JSON object each way, `argv+<stdin>` for a process composed from an invocation block,
+// and for a reply of another format the format alone or `argv+<stdin>/<format>`.
 func (e ToolEntry) Protocol() string {
+	format := ""
+	if e.Reply != nil && e.Reply.Format != "" && e.Reply.Format != ReplyObject {
+		format = string(e.Reply.Format)
+	}
 	if e.Invocation == nil {
+		if format != "" {
+			return format
+		}
 		return "object"
 	}
-	format := e.Invocation.Stdin.Format
-	if format == "" {
-		format = StdinJSON
+	stdin := e.Invocation.Stdin.Format
+	if stdin == "" {
+		stdin = StdinJSON
 	}
-	return "argv+" + string(format)
+	base := "argv+" + string(stdin)
+	if format != "" {
+		return base + "/" + format
+	}
+	return base
 }
 
 // reserved placeholders of a template, which no variable may be named like.

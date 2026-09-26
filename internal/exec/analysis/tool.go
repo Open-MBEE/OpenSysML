@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -41,18 +43,25 @@ type toolEngine struct {
 }
 
 // NewTool returns the `tool:<name>` engine of a manifest entry. It registers whether or not
-// the executable is found and refuses through Covers while it is not. An invocation block
-// not yet checked by a manifest load is checked here; a faulty one refuses every question.
+// the executable is found and refuses through Covers while it is not. An invocation or reply
+// block not yet checked by a manifest load is checked here; a faulty one refuses every question.
 func NewTool(entry ToolEntry) External {
 	e := toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	dir, at := "", e.Name()
+	if entry.File != "" {
+		dir, at = filepath.Dir(entry.File), entry.File
+	}
 	if inv := entry.Invocation; inv != nil && inv.compiled == nil {
 		checked := *inv
 		e.entry.Invocation = &checked
-		dir, at := "", e.Name()
-		if entry.File != "" {
-			dir, at = filepath.Dir(entry.File), entry.File
-		}
 		if err := checkInvocation(&e.entry, dir); err != nil {
+			e.fault = &ManifestError{Path: at, Detail: err.Error()}
+		}
+	}
+	if r := entry.Reply; r != nil && r.compiled == nil && e.fault == nil {
+		checked := *r
+		e.entry.Reply = &checked
+		if err := checkReply(&e.entry); err != nil {
 			e.fault = &ManifestError{Path: at, Detail: err.Error()}
 		}
 	}
@@ -164,7 +173,12 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	timeout := e.timeout()
 	started := time.Now()
-	reply, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
+	ex, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
+	if err != nil {
+		process.remove()
+		return Result{}, err
+	}
+	reply, wrote, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
 		return Result{}, err
@@ -184,14 +198,14 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		Claim:    ClaimValue,
 		Strength: Observed,
 		Values:   values,
-		Reply:    renderReply(reply),
+		Reply:    wrote,
 		Bounds:   Bounds{{Name: "tool", Limit: timeout.Milliseconds()}},
 		Elapsed:  time.Since(started),
 	}, nil
 }
 
-// renderReply spells the tool's reply canonically, by variable name, as it was written and
-// before binding: two invocations of equal inputs compare by it.
+// renderReply spells a reply's outputs canonically, by variable name, as it was written
+// and before binding: two invocations of equal inputs compare by it.
 func renderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
@@ -218,10 +232,18 @@ func (e toolEngine) outputLimit() int {
 	return e.limit()
 }
 
-// invoke runs the executable once as composed, under the timeout, and reads its reply. Each
-// argument is one argv entry as rendered; no shell is involved. A nil env inherits this
-// process's, as an entry without an invocation block does.
-func (e toolEngine) invoke(ctx context.Context, path string, process *composed, timeout time.Duration, limit int) (map[string]runtime.ToolValue, error) {
+// execution is what one run of the executable produced: its captured standard streams and
+// its exit status.
+type execution struct {
+	stdout, stderr []byte
+	exit           int
+}
+
+// invoke runs the executable once as composed, under the timeout, and captures what it
+// produced. Each argument is one argv entry as rendered; no shell is involved. A nil env
+// inherits this process's, as an entry without an invocation block does. Under an `exitcode`
+// reply a real exit status is data, not a process failure; anything else failed is.
+func (e toolEngine) invoke(ctx context.Context, path string, process *composed, timeout time.Duration, limit int) (*execution, error) {
 	tool := e.entry.ToolName
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -246,9 +268,132 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolTimeout,
 			Detail: fmt.Sprintf("%s did not answer within %s (%s)", path, timeout, ToolTimeoutEnv)}
 	case err != nil:
+		var exitErr *exec.ExitError
+		if e.entry.Reply != nil && e.entry.Reply.Format == ReplyExitCode && errors.As(err, &exitErr) && exitErr.ExitCode() >= 0 {
+			return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes(), exit: exitErr.ExitCode()}, nil
+		}
 		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolProcessFailed, Detail: processDetail(path, err, stderr.Bytes())}
 	}
-	return ToolReplyOf(tool, stdout.Bytes())
+	return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes()}, nil
+}
+
+// read parses the execution's reply as the entry's reply block says, reading the file a
+// `file:` source names before the invocation's directory is removed. Only the outputs the
+// call requests are bound, the first requested variable's fault failing; the divergence
+// text is the canonical rendering of every mapped output the reply yielded.
+func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *composed) (map[string]runtime.ToolValue, string, error) {
+	tool := e.entry.ToolName
+	r := e.entry.Reply
+	if r == nil || r.Format == "" || r.Format == ReplyObject {
+		source, err := e.replySource(ex, process)
+		if err != nil {
+			return nil, "", err
+		}
+		parsed, err := ToolReplyOf(tool, source)
+		if err != nil {
+			return nil, "", err
+		}
+		return parsed, renderReply(parsed), nil
+	}
+	var outputs map[string]runtime.ToolValue
+	var faults map[string]error
+	if r.Format == ReplyExitCode {
+		outputs = r.readExitCode(ex)
+	} else {
+		source, err := e.replySource(ex, process)
+		if err != nil {
+			return nil, "", err
+		}
+		if r.Format == ReplyJSON {
+			outputs, faults, err = r.readJSON(e.entry, source)
+		} else if r.Format == ReplyCSV {
+			outputs, faults, err = r.readCSV(e.entry, source)
+		} else {
+			outputs, faults, err = r.readLines(e.entry, source)
+		}
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	requested := make([]string, 0, len(call.Outputs))
+	for _, out := range call.Outputs {
+		requested = append(requested, out.Variable)
+	}
+	sort.Strings(requested)
+	bound := make(map[string]runtime.ToolValue, len(requested))
+	for _, variable := range requested {
+		if fault, ok := faults[variable]; ok {
+			return nil, "", fault
+		}
+		if value, ok := outputs[variable]; ok {
+			bound[variable] = value
+		}
+	}
+	return bound, renderReply(outputs), nil
+}
+
+// replySource is the reply's bytes: standard output, or the file a `file:` source names —
+// confined to {outputDir}, a regular file the tool wrote, within the output bound.
+func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error) {
+	tool := e.entry.ToolName
+	r := e.entry.Reply
+	if r == nil || r.compiled == nil || r.compiled.source == nil {
+		return ex.stdout, nil
+	}
+	outputDir := filepath.Clean(process.tempDir)
+	path, err := r.compiled.source.render(scope{tool: tool, outputDir: outputDir})
+	if err != nil {
+		return nil, err
+	}
+	path = filepath.Clean(path)
+	if !within(outputDir, path) {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
+	}
+	rel, err := filepath.Rel(outputDir, path)
+	if err != nil {
+		rel = path
+	}
+	info, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
+	case err != nil:
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	case !info.Mode().IsRegular():
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: rel + " is not a regular file"}
+	}
+	// Symlinks among the path's ancestors may not lead out of {outputDir} either.
+	real, err := filepath.EvalSymlinks(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "wrote no file " + rel}
+	case err != nil:
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	realDir, err := filepath.EvalSymlinks(outputDir)
+	if err != nil {
+		realDir = outputDir
+	}
+	if !within(realDir, real) {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("reply source %s escapes {outputDir}", path)}
+	}
+	f, err := os.Open(path) // #nosec G304 -- a file under the invocation's own directory
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	defer f.Close() // the read below is the only use; a close error cannot lose data
+	limit := e.outputLimit()
+	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
+	if err != nil {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed, Detail: "cannot read " + rel + ": " + err.Error()}
+	}
+	if len(data) > limit {
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolMalformed,
+			Detail: fmt.Sprintf("wrote more than %d bytes to %s (%s)", limit, rel, OutputLimitEnv)}
+	}
+	return data, nil
 }
 
 // processDetail spells a failed process: how it exited and what it wrote to standard error.
@@ -422,6 +567,56 @@ func repeatedKey(document []byte) (string, bool) {
 			open[top].seen[key], open[top].inKey = true, true
 			path = append(path, key)
 			continue
+		}
+		valueDone()
+	}
+}
+
+// nullMember is the dotted path of the first member an object anywhere in a JSON document
+// sets to null, which a struct decode would hide as a zero value; malformed JSON is not walked.
+func nullMember(document []byte) (string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(document))
+	// One frame per open object or array; only an object's frame has a key in hand.
+	type frame struct {
+		isObject bool
+		inKey    bool
+	}
+	var path []string
+	var open []*frame
+	valueDone := func() {
+		if top := len(open) - 1; top >= 0 && open[top].inKey {
+			open[top].inKey = false
+			path = path[:len(path)-1]
+		}
+	}
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return "", false
+		}
+		switch tok {
+		case json.Delim('{'):
+			open = append(open, &frame{isObject: true})
+			continue
+		case json.Delim('['):
+			open = append(open, &frame{})
+			continue
+		case json.Delim('}'), json.Delim(']'):
+			open = open[:len(open)-1]
+			valueDone()
+			continue
+		}
+		top := len(open) - 1
+		if top >= 0 && open[top].isObject {
+			if !open[top].inKey {
+				key, _ := tok.(string)
+				open[top].inKey = true
+				path = append(path, key)
+				continue
+			}
+			if tok == nil {
+				return strings.Join(path, "."), true
+			}
 		}
 		valueDone()
 	}

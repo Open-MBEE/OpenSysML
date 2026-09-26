@@ -92,6 +92,7 @@ keeps the engine registered and listed as `unavailable: tool 'ModelCenter': exec
 found`, and a performance naming the tool is refused with that reason. `variables` are the
 `ToolVariable` names the tool accepts, non-empty and distinct; a parameter whose variable is
 not among them refuses the performance before the process is started. Unknown keys are refused,
+a key spelled twice or a member set to `null` anywhere in an entry likewise,
 and so is a `kind` other than `tool`, `engine`, `policy` or `sampler` (`tool` when absent); the
 last three are [engine entries](#external-engines), which a tool directory may hold too.
 
@@ -142,9 +143,67 @@ too, so `{mass.unit}` always means the unit of `mass` and a CSV header never rep
 did not send fails it before the process starts (`tool 'Dynamics': input not carried: the
 invocation names {mass} but the call sent no value for mass`).
 The invocation's directory is removed once the reply is read unless `OPENSYSML_TOOL_KEEP=1`.
-The reply is read from standard output as below whatever the block says, and the timeout, size
-bounds and divergence report apply unchanged; `-engines` shows the protocol as `argv+json`,
-`argv+none`, `argv+csv` or `argv+template` rather than `object`.
+The reply is read as the `reply` block below says — from standard output by default — and
+the timeout, size bounds and divergence report apply unchanged; `-engines` shows the protocol
+as `argv+json`, `argv+none`, `argv+csv` or `argv+template` rather than `object`, with the
+reply's format appended when it is not `object` (`argv+none/csv`, or the format alone for an
+entry with no `invocation`).
+
+**Reply.** Without more, the reply is the protocol's one JSON object on standard output. An
+optional `reply` block reads a different reply for a program that answers as a JSON document,
+CSV, `key = value` lines or its exit status:
+
+```json
+{
+  "toolName": "ThermalSolver",
+  "executable": "bin/thermal",
+  "variables": ["mass", "power", "T_max"],
+  "invocation": {
+    "args": ["--mass", "{mass}", "--power", "{power.value}", "--out", "{outputDir}/result.csv"]
+  },
+  "reply": {
+    "format": "csv",
+    "source": "file:{outputDir}/result.csv",
+    "outputs": {"T_max": {"column": "T_max", "row": "last", "unitColumn": "unit"}}
+  }
+}
+```
+
+| Member | Meaning |
+|---|---|
+| `format` | `"object"` (the default), `"json"`, `"csv"`, `"lines"` or `"exitcode"`: how the reply is read. `object` admits no other member but `source`; the others require `outputs` |
+| `source` | `"stdout"` (the default) or `"file:<template>"`, whose template may name `{outputDir}` alone — the path must then be under that directory, a regular file the tool wrote, and an `invocation` must hand `{outputDir}` to the tool. It may not be the invocation's `inputFile`, which the tool did not write, and symbolic links under `{outputDir}` are not followed out of it |
+| `outputs` | An object mapping each output's tool variable to the selector finding its value |
+| `header` | `csv`: whether the first record names the columns (default `true`) |
+| `delimiter` | `csv`: the field separator, one character (default `,`) |
+| `regex` | `lines`: an RE2 expression whose named groups are the outputs, each named exactly once; exclusive with `key` and `errorKey` |
+| `success` | `exitcode`: the exit statuses that render `true` (default `[0]`) |
+| `errorPath`, `errorColumn`, `errorKey` | `json`, `csv`, `lines`: where the tool's own refusal message is; a non-empty value there fails the performance with the tool's message, checked before any output; may not be an output's own selector |
+
+Each member of `outputs` is a selector:
+
+| Member | Formats | Meaning |
+|---|---|---|
+| `path` | `json`, required | An [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) JSON Pointer to the value (`/results/0/T_max`); `~0` spells `~`, `~1` spells `/`, and the empty pointer `""` names the whole document |
+| `column` | `csv`, required | The column: a header name, or a zero-based index as an integer |
+| `row` | `csv` | Which data record (the header is not one): `"first"`, `"last"` (the default) or a zero-based index |
+| `key` | `lines` | The key on the left of the first `=` or `:` (default the variable's name); a line with neither is ignored |
+| `type` | all but `object` | What the text is read as: `"number"` (the default), `"integer"`, `"real"`, `"boolean"` or `"string"`. Under `exitcode` only `boolean` (the default) and `integer` are admitted |
+| `unit` | all but `object`, `exitcode` | The value's unit as a fixed expression (`K`, `km/h`) |
+| `unitPath`, `unitColumn` | `json`, `csv` | Where a string holding the unit is read from; exclusive with `unit` |
+
+Only the outputs the performance declares are read; other mapped outputs may be absent
+from the reply without fault.
+
+A unit found either way goes through the same conversion as the JSON protocol's `unit`: it
+is read as a SysML unit expression and converted to the coherent unit of the parameter's
+declared quantity kind. Every failure is one of the typed errors the protocol reports: a
+selector finding nothing names the variable and where it was looked
+(`tool 'ThermalSolver': missing output: T_max at /results/0/T_max: nothing there`), a value
+the type cannot read is `malformed output` naming the variable and place (`T_max in column
+T_max, row 3: "n/a" is not a number`), a tool refusal is `tool error`, and a file the tool
+did not write, a non-zero exit (except under `exitcode`), oversize output or a timeout fail
+as they do today. Sequence-valued outputs (`row: "all"`, a JSON array) are refused for now.
 
 ```bash
 $ OPENSYSML_TOOLS=~/tools sysml -engines

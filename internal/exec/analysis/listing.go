@@ -55,7 +55,8 @@ func (o Origin) KindText() string {
 }
 
 // ProtocolText names how the engine is spoken to: `-` for one built in, `object` for a tool's
-// one JSON object each way or `argv+<stdin>` for one composed from its invocation block,
+// one JSON object each way, `argv+<stdin>` for one composed from its invocation block — the
+// reply's format alone or `argv+<stdin>/<format>` when it is not `object` — and
 // `<transport>/<protocol>` for an engine entry.
 func (o Origin) ProtocolText() string {
 	switch {

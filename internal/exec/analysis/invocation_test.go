@@ -95,7 +95,7 @@ func TestManifestInvocationRefusedShapes(t *testing.T) {
 		text   string
 		detail string
 	}{
-		"reply block":         {`{"toolName": "A", "executable": "a", "variables": [], "reply": {"format": "csv"}}`, `unknown field "reply"`},
+		"reply no outputs":    {`{"toolName": "A", "executable": "a", "variables": [], "reply": {"format": "csv"}}`, `reply.outputs is required under format csv`},
 		"unknown key":         {entryText(`{"shell": true}`), `unknown field "shell"`},
 		"unknown nested key":  {entryText(`{"inputFile": {"format": "csv", "name": "x", "mode": "0600"}}`), `unknown field "mode"`},
 		"stdin unknown name":  {entryText(`{"stdin": "yaml"}`), `stdin "yaml" is not one of json, none and csv`},

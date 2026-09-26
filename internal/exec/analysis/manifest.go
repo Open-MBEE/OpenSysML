@@ -69,6 +69,9 @@ type ToolEntry struct {
 	// Invocation composes the process from the call; nil runs the executable bare with the
 	// JSON request on standard input.
 	Invocation *Invocation `json:"invocation,omitempty"`
+	// Reply says how the process's reply is read; nil reads the protocol's one JSON object
+	// from standard output.
+	Reply *Reply `json:"reply,omitempty"`
 }
 
 // Accepts reports whether the tool accepts the tool variable named.
@@ -279,7 +282,13 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 	}
 	var entry ToolEntry
 	if err := decodeOne(data, &entry); err != nil {
-		return fault("not one JSON object of kind, toolName, version, executable, variables and invocation", err)
+		return fault("not one JSON object of kind, toolName, version, executable, variables, invocation and reply", err)
+	}
+	if path, twice := repeatedKey(data); twice {
+		return fault("the entry names "+path+" twice", nil)
+	}
+	if path, isNull := nullMember(data); isNull {
+		return fault("the entry sets "+path+" to null", nil)
 	}
 	entry.File = path
 	entry.Kind = KindTool
@@ -317,6 +326,9 @@ func readToolEntry(path, env string, data []byte) (ToolEntry, error) {
 		if err := checkInvocation(&entry, filepath.Dir(path)); err != nil {
 			return fault(err.Error(), nil)
 		}
+	}
+	if err := checkReply(&entry); err != nil {
+		return fault(err.Error(), nil)
 	}
 	return entry, nil
 }
