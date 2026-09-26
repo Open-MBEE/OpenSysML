@@ -1,0 +1,1 @@
+- **Parser and structural validation now follow the grammar for enumeration prefixes and result parameters.** Enumeration definitions reject definition prefixes, requirement-like bodies reject return parameters, and duplicate returns are reported across function and expression kinds.

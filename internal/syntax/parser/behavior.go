@@ -1519,6 +1519,9 @@ func (p *Parser) atReturnedUsage() bool {
 // without `return`, so an expression after `return` is refused here.
 func (p *Parser) parseResultMember() ast.Node {
 	start := p.peek().Span.Offset
+	if p.isResultKeyword() && p.bodyContext() == bodyRequirement {
+		p.error(p.peek().Span, "'return' is not a member of a requirement body: only a calculation, constraint or case body declares a return parameter")
+	}
 
 	// Expect 'return' keyword
 	if !p.acceptKeyword("return") {
