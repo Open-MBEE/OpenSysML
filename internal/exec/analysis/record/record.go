@@ -535,6 +535,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 	return feats, nil
 }
 
+// hasRepeatedLiteral reports whether two elements of a sequence spell the same literal.
 func hasRepeatedLiteral(literals []string) bool {
 	seen := make(map[string]bool, len(literals))
 	for _, literal := range literals {
