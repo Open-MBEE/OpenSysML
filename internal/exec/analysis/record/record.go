@@ -83,6 +83,9 @@ type Run struct {
 	// decided, for a case that is one.
 	Verifications []runtime.VerificationVerdict
 
+	// Tools is what every external tool call this run made ran, in call order.
+	Tools []string
+
 	// Spell renders the run's values for the text it cannot supply itself, in
 	// the context it was made in — a sweep's rows each carry their own.
 	Spell Spelling
@@ -807,6 +810,16 @@ func writeRecord(src *strings.Builder, depth int, name, defName string, feats []
 		src.WriteString(" = ")
 		src.WriteString(m.value)
 		src.WriteString(";\n")
+	}
+	if len(r.Tools) > 0 {
+		tools := make([]string, 0, len(r.Tools))
+		for _, tool := range r.Tools {
+			tools = append(tools, source.StringText(tool))
+		}
+		writeIndent(src, depth+2)
+		src.WriteString("tools = (")
+		src.WriteString(strings.Join(tools, ", "))
+		src.WriteString(");\n")
 	}
 	writeIndent(src, depth+1)
 	src.WriteString("}\n")

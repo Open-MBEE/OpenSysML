@@ -229,8 +229,11 @@ public interface EngineInfoOrBuilder extends
 
   /**
    * <pre>
-   * How the engine is spoken to: "-" for one built in, "object" for a tool's
-   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * How the engine is spoken to: "-" for one built in; for a tool, "object"
+   * for the one-JSON-object exchange or "argv+&lt;stdin&gt;" when the entry has an
+   * invocation block, with a "/&lt;reply format&gt;" suffix such as "argv+none/csv"
+   * when the reply block reads another format (the format alone when the entry
+   * has no invocation); "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
    * </pre>
    *
    * <code>string protocol = 10 [json_name = "protocol"];</code>
@@ -239,8 +242,11 @@ public interface EngineInfoOrBuilder extends
   java.lang.String getProtocol();
   /**
    * <pre>
-   * How the engine is spoken to: "-" for one built in, "object" for a tool's
-   * one JSON object each way, "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
+   * How the engine is spoken to: "-" for one built in; for a tool, "object"
+   * for the one-JSON-object exchange or "argv+&lt;stdin&gt;" when the entry has an
+   * invocation block, with a "/&lt;reply format&gt;" suffix such as "argv+none/csv"
+   * when the reply block reads another format (the format alone when the entry
+   * has no invocation); "&lt;transport&gt;/&lt;protocol&gt;" for an engine entry.
    * </pre>
    *
    * <code>string protocol = 10 [json_name = "protocol"];</code>

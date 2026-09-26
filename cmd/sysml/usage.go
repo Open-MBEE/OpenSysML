@@ -562,6 +562,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.satisfy, "satisfy", "Evaluate every satisfaction assertion, or with -satisfy=<name> those the named element states, and exit (repeatable)")
 	fs.Var(&modelChecks.calcs, "calc", "Invoke this calculation and report its result, as -calc \"Fall(3, 4)\" (repeatable)")
 	fs.Var(&modelChecks.analyses, "analysis", "Run this analysis or verification case and report its outputs and verdict, as -analysis \"Pkg::Case(3.0) Pkg::part\" (repeatable)")
+	fs.Var(&modelChecks.toolDryRuns, "tool-dry-run", "Show what the external tool the case's or action's ToolExecution names would be given — manifest, executable, argv, environment, standard input and reply mapping — without starting it, and discards what the run did; repeatable")
 	fs.Var(&modelChecks.records, "record-run", "Run this analysis case as -analysis does and record the run into the model as AnalysisRecords elements, one record per -sweep value or -runs run (repeatable)")
 	fs.StringVar(&modelChecks.recordInto, "record-into", "", "Record -record-run runs into this package instead of a Records package beside the case's")
 	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
@@ -683,6 +684,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("satisfy", "[=<name>]"),
 			usage.Opt("calc", callArg),
 			usage.Opt("analysis", callArg),
+			usage.Opt("tool-dry-run", callArg),
 			usage.Opt("record-run", callArg),
 			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),

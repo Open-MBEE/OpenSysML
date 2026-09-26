@@ -30,6 +30,16 @@ func ToolEngineName(tool string) string { return ToolEnginePrefix + tool }
 // annotated ToolExecution, as the runtime hands it to the tool.
 type ComputeAsk struct {
 	Call *runtime.ToolCall
+	// used, when set, is told of every tool call an engine ran for the ask, answered or
+	// failed, so a run the plan drops still reaches the provenance.
+	used func(ToolUse)
+}
+
+// ran reports a tool call's use to the asker, when one listens.
+func (a *ComputeAsk) ran(use ToolUse) {
+	if a.used != nil {
+		a.used(use)
+	}
 }
 
 // toolEngine answers Compute questions for one manifest entry by running its executable
@@ -171,27 +181,38 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 			return Result{}, err
 		}
 	}
+	use := &ToolUse{Tool: e.entry.ToolName, Version: e.entry.Version, File: e.entry.File,
+		Executable: path, Args: process.args}
+	if e.entry.Invocation == nil {
+		use.Stdin = request
+	}
+	failed := func(err error) (Result, error) {
+		use.Failed = err.Error()
+		q.Compute.ran(*use)
+		return Result{}, err
+	}
 	timeout := e.timeout()
 	started := time.Now()
 	ex, err := e.invoke(ctx, path, process, timeout, e.outputLimit())
 	if err != nil {
 		process.remove()
-		return Result{}, err
+		return failed(err)
 	}
 	reply, wrote, err := e.read(call, ex, process)
 	process.remove()
 	if err != nil {
-		return Result{}, err
+		return failed(err)
 	}
 	bound, err := call.Bind(reply)
 	if err != nil {
-		return Result{}, err
+		return failed(err)
 	}
 	values := make([]Evaluation, 0, len(bound))
 	for name, value := range bound {
 		values = append(values, Evaluation{Name: name, Value: value})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Name < values[j].Name })
+	q.Compute.ran(*use)
 	return Result{
 		Question: q,
 		Engine:   e.Name(),
