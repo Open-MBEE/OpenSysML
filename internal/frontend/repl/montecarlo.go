@@ -180,8 +180,7 @@ func (m *monteCarloRuns) conclusion() (runtime.AnalysisResult, error) {
 // monteCarloSample makes count runs of the invocation, each in its own context on objects
 // made from their declarations; the plan is returned beside a refusal made after an engine ran.
 func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *uint64) (*monteCarloRuns, *analysis.Plan, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, nil, errors.New("no declarations loaded")
 	}
 	if _, replaying := s.drivenSchedule().Replay(); replaying {
@@ -228,7 +227,7 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 			return nil, nil, err
 		}
 	}
-	runScope := declaringScope(sym, doc.Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	if seed == nil && s.modelSeed.set {
 		session := s.modelSeed.value

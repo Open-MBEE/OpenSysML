@@ -113,11 +113,49 @@ func TestCheckGlobExitStatus(t *testing.T) {
 	wantReport(t, checkPaths(t, binary, "-validate", filepath.Join(dir, "*.kerml")), 2, "no model files match")
 }
 
+// TestLoadRefusesTheTranscriptsName checks that a file named as the session's
+// transcript is a read failure like any other: refused before anything loads,
+// named in the error, and exiting as a run that decided nothing.
+func TestLoadRefusesTheTranscriptsName(t *testing.T) {
+	const reserved = "<repl>"
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, reserved), "package FromFile { part def X; }\n")
+	write(t, filepath.Join(dir, "ok.sysml"), "package OK { part def Y; }\n")
+	t.Chdir(dir)
+
+	sess := repl.NewSession()
+	status, err := loadFiles(sess, []string{"ok.sysml", reserved})
+	var named *repl.ReservedNameError
+	if !errors.As(err, &named) || named.Name != reserved {
+		t.Fatalf("loadFiles error = %v, want a *repl.ReservedNameError naming %s", err, reserved)
+	}
+	if status != exitUnevaluable {
+		t.Errorf("status = %d, want %d", status, exitUnevaluable)
+	}
+	if got := sess.List(); len(got) != 0 {
+		t.Errorf("a refused load must load nothing, got %v", got)
+	}
+
+	binary := buildCLI(t)
+	wantReport(t, checkPathsIn(t, dir, binary, "-validate", reserved), exitUnevaluable,
+		"sysml: cannot load <repl>: the name is reserved")
+	wantReport(t, checkPathsIn(t, dir, binary, "-constraint", "OK::Held", "ok.sysml", reserved), exitUnevaluable,
+		"cannot load <repl>: the name is reserved")
+	wantReport(t, checkPathsIn(t, dir, binary, "-validate", "./"+reserved), exitHolds)
+}
+
 // checkPaths runs the binary on paths the caller names, rather than on a model
 // written to a file for it as check does.
 func checkPaths(t *testing.T, binary string, args ...string) runOutcome {
 	t.Helper()
+	return checkPathsIn(t, "", binary, args...)
+}
+
+// checkPathsIn is checkPaths run from dir, so a relative path is read there.
+func checkPathsIn(t *testing.T, dir, binary string, args ...string) runOutcome {
+	t.Helper()
 	cmd := exec.Command(binary, args...)
+	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
