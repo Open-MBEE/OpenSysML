@@ -501,6 +501,14 @@ are always projectable:
 | `isAbstract` | Boolean |
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
+| `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
+| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at |
+
+For example, the model's `satisfy massRequirement by telescope;` reports
+`satisfyingFeature = Cookbook::telescope` and
+`satisfiedRequirement = Cookbook::massRequirement`. Selecting these properties
+on `SatisfyRequirementUsage` elements shows which parts satisfy which
+requirements. A satisfy with no `by` clause has no `satisfyingFeature`.
 
 ```sysml
 calc def MassTable :> Query {
@@ -739,10 +747,63 @@ for the two connections in its results. Computed names join the projection:
 Every built-in property is reachable the same way — `Element::shortName`,
 `Element::declaredShortName` and `Element::documentation` included — so
 `(Element::shortName ?? "—") + ": " + Element::name` labels a row by its
-identifier. A column is one value per row: an element carrying two `doc`
-bodies fails a column over `Element::documentation` with a typed
-`column-cardinality` error, where the plain `"documentation"` projection
-above carries both.
+identifier. A column holds as many values as the feature it reads declares:
+`Element::documentation` is `[0..*]`, so an element carrying two `doc` bodies
+fills the cell with both in order (comma-joined in a document table) and one
+carrying none leaves it empty, while a feature declared without a multiplicity
+is one value per row — a row binding two fails the column with a typed
+`column-cardinality` error naming the declared bound, and a row binding none
+with `column-absent` unless `??` supplies a default — a value, or `null` to
+leave that row's cell empty (`Stage::mass ?? null`). Operators always take one
+value per operand, so `Element::documentation + "."` over two bodies fails.
+
+A column expression may also be a **feature chain** — `'Monte Carlo'.runs`,
+`stat.runs`, `outer.inner.value` — reading a feature of a member nested in
+the row element. Each segment names a member of the element the previous one
+reached: the row's own members answer first, then inherited ones, and the
+last segment reads that member's feature. A segment that is not a basic name
+is quoted, as in the notation. In a `properties`/`property` string a feature
+whose own name contains a period is read by that name first, the path only
+the fallback. A row lacking a segment entirely makes the
+path absent on that row — an empty cell, or a `??` default — and the path is
+an unknown-property error only when no row reaches it; a member the path
+finds that declares no value is an empty cell, and a multi-valued member
+fills the cell with all of its values — more than its multiplicity admits
+fails the column as a direct feature column does. The same path works as a `properties`
+or `property` string (`"stat.runs"`), and `OrderBy` sorts by it. This is how
+an individual's nested usage — an analysis the migrator writes, for instance —
+contributes a column:
+
+```sysml
+analysis def 'Template Group 1 Monte Carlo' {
+	out runs : ScalarValues::Natural;
+	out mean : ScalarValues::Real;
+}
+individual part def 'template Group 11' :> 'Template Group 1' {
+	analysis 'Monte Carlo' : 'Template Group 1 Monte Carlo' {
+		out :>> runs = 5;
+		out :>> mean = 18.0;
+	}
+}
+calc def RunCounts :> Query {
+	in root : Element;
+	Project(
+		source = Descendants(source = root, maxDepth = 1),
+		properties = ("name"),
+		columns = (Column(name = "runs", expression = 'Monte Carlo'.runs ?? 0))
+	)
+}
+```
+
+```console
+$ sysml cookbook.sysml -run-query "Cookbook::RunCounts root=Cookbook::Results"
+✓ Query Cookbook::RunCounts returned 3 rows
+  Columns: name, runs
+  Row 1: Cookbook::Results::'template Group 11'
+    name = "template Group 11"
+    runs = 5
+  ...
+```
 
 Quantities take part in column arithmetic with the runtime's rules, so a
 column keeps its unit: `Stage::mass * 2` is `4580000 [kg]`, `Stage::mass /

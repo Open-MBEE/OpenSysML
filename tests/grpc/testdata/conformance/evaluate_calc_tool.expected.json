@@ -1,0 +1,13 @@
+{
+	"rpc": "EvaluateCalc",
+	"tools": ["toolcalc"],
+	"symbol_id": "thermoCase::Thermal",
+	"arguments": [
+		{"kind": "real_value", "value": 2},
+		{"kind": "real_value", "value": 10}
+	],
+	"expected_result": {
+		"kind": "quantity",
+		"value": "20 [SI::K] = SI::kelvin"
+	}
+}

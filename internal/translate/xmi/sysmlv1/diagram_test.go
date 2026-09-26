@@ -90,11 +90,11 @@ func TestDiagramIsRead(t *testing.T) {
 	// Each id once, in the order the tool listed them, resolved when defined;
 	// hrefs and text spell the same element. An href into another document
 	// resolves to the proxy the model already holds for it, or dangles.
-	const real = "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"
-	if got := ids(d.Shown); got != "_a _a_b _missing? _b "+real+" http://www.example.com/Unread.xmi#_elsewhere?" {
+	const realURI = "http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"
+	if got := ids(d.Shown); got != "_a _a_b _missing? _b "+realURI+" http://www.example.com/Unread.xmi#_elsewhere?" {
 		t.Errorf("shown = %q", got)
 	}
-	if d.Shown[0].Element != m.Lookup("_a") || d.Shown[1].Element != m.Lookup("_a_b") || d.Shown[4].Element != m.Lookup(real) || !d.Shown[4].Element.IsProxy() {
+	if d.Shown[0].Element != m.Lookup("_a") || d.Shown[1].Element != m.Lookup("_a_b") || d.Shown[4].Element != m.Lookup(realURI) || !d.Shown[4].Element.IsProxy() {
 		t.Errorf("shown elements = %+v", d.Shown)
 	}
 	// The diagram is no element of the model, and no skipped extension

@@ -9,7 +9,7 @@
 # This is a per-file ratchet, not a claim that any verdict is right;
 # see docs/project/rdf-corpus-roundtrip.md. Regenerate with:
 #   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip
-# files: committed 44
+# files: committed 45
 # files: sysml-v2-training 100
 # files: pilot-corpora/kerml-examples 58
 # files: pilot-corpora/sysml-examples 99
@@ -21,6 +21,7 @@ stable	combined-behavioral-demo.sysml
 stable	disposal-robot-demo/robot.sysml
 stable	disposal-team-demo/team.sysml
 stable	expressions-demo.sysml
+stable	external-tool-demo/thermal.sysml
 stable	mosa-demo/mosa-demo.sysml
 stable	oosem-demo/oosem-demo.sysml
 stable	orthogonal-regions-demo.sysml

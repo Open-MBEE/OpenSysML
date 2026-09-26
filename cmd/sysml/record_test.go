@@ -356,3 +356,63 @@ func TestRecordRunConvertRefusesIrrelevantFlags(t *testing.T) {
 		})
 	}
 }
+
+// A MonteCarlo sample records into a model with a trigger parameter named after
+// its type (`accept s3 : s3`), and a document over the saved file lists the runs.
+func TestRecordRunMonteCarloWithTriggerParameterNamedAfterItsType(t *testing.T) {
+	binary := buildCLI(t)
+	source := filepath.Join("..", "..", "internal", "frontend", "repl", "testdata", "record_montecarlo_trigger_parameter.sysml")
+	out := filepath.Join(t.TempDir(), "runs.sysml")
+	cmd := exec.Command(binary, source, "-instantiate", "MC::probe", "-record-run", "MC::Mc MC::probe", "-runs", "3", "-seed", "7", "-convert", "sysml", "-o", out)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("record + runs + convert: %v\n%s", err, output)
+	}
+	if !strings.Contains(string(output), "recorded 4 runs as Records::Mc_run1") {
+		t.Errorf("the runs and their sample were not reported recorded:\n%s", output)
+	}
+	written, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"package Records", "part def McRun :> AnalysisRecords::AnalysisRun",
+		"part Mc_run1 :", "part Mc_run3 :", `attribute :>> kind = "runs"`, "attribute :>> iteration = 3",
+		`attribute :>> kind = "sample"`, "attribute :>> runs = 3"} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("converted MonteCarlo records are missing %q:\n%s", want, written)
+		}
+	}
+
+	log := filepath.Join(t.TempDir(), "log.sysml")
+	if err := os.WriteFile(log, []byte(`package Log {
+	private import DocumentQueries::*;
+	calc def RecordedRuns :> DocumentQueries::Query {
+		Project(
+			source = WhereMetadata(
+				source = Descendants(source = Named(qualifiedName = "Records")),
+				'metadata' = "AnalysisRecords::RecordedRun"),
+			properties = ("name", "kind", "iteration"))
+	}
+	part def Runs :> DocumentQueries::Document {
+		attribute redefines title = "Runs";
+		part rows : Table { calc rows : RecordedRuns; }
+	}
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := filepath.Join(t.TempDir(), "report.md")
+	cmd = exec.Command(binary, out, log, "-render-document", "Log::Runs", "-o", report)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("render-document over the saved records: %v\n%s", err, output)
+	}
+	rendered, err := os.ReadFile(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Mc\\_run1 | runs | 1", "Mc\\_run3 | runs | 3", "Mc\\_run4 | sample"} {
+		if !strings.Contains(string(rendered), want) {
+			t.Errorf("rendered document is missing %q:\n%s", want, rendered)
+		}
+	}
+}

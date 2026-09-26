@@ -103,6 +103,87 @@ func TestW10BStructuralClean(t *testing.T) {
 	}
 }
 
+func TestW10BReturnParametersAcrossFunctionKinds(t *testing.T) {
+	tests := []struct {
+		name      string
+		file      string
+		duplicate string
+		single    string
+	}{
+		{
+			name:      "constraint_definition",
+			file:      "constraint.sysml",
+			duplicate: "package P { constraint def K { return r1; return r2; } }",
+			single:    "package P { constraint def K { return r1; } }",
+		},
+		{
+			name:      "constraint_usage",
+			file:      "constraint.sysml",
+			duplicate: "package P { constraint c { return r1; return r2; } }",
+			single:    "package P { constraint c { return r1; } }",
+		},
+		{
+			name:      "predicate",
+			file:      "predicate.kerml",
+			duplicate: "package P { predicate Pred { return r1; return r2; } }",
+			single:    "package P { predicate Pred { return r1; } }",
+		},
+		{
+			name:      "function",
+			file:      "function.kerml",
+			duplicate: "package P { function F { return r1; return r2; } }",
+			single:    "package P { function F { return r1; } }",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diags := typeDiagsForFile(t, tt.file, tt.duplicate)
+			var got []diag.Diagnostic
+			for _, d := range diags {
+				if d.Code == "only-one-return-parameter" {
+					got = append(got, d)
+				}
+			}
+			if len(got) != 1 {
+				t.Fatalf("got %d duplicate-return diagnostics, want one: %v", len(got), diags)
+			}
+			if got[0].Message != msgOnlyOneReturn {
+				t.Errorf("message = %q, want %q", got[0].Message, msgOnlyOneReturn)
+			}
+			if got[0].Severity != diag.SeverityError {
+				t.Errorf("severity = %v, want an error", got[0].Severity)
+			}
+			if want := strings.Index(tt.duplicate, "return r2"); got[0].Span.Offset != want {
+				t.Errorf("diagnostic offset = %d, want second return at %d", got[0].Span.Offset, want)
+			}
+
+			for _, d := range typeDiagsForFile(t, tt.file, tt.single) {
+				if d.Code == "only-one-return-parameter" {
+					t.Errorf("single return produced a duplicate-return diagnostic at offset %d", d.Span.Offset)
+				}
+			}
+		})
+	}
+}
+
+func typeDiagsForFile(t *testing.T, file, src string) []diag.Diagnostic {
+	t.Helper()
+	p := parser.New(source.New(file, []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("unexpected parser diagnostics for %s: %v", file, p.Diagnostics)
+	}
+	idx := symbols.NewIndex()
+	idx.AddDocument(file, root)
+	var out []diag.Diagnostic
+	for _, d := range Analyze(file, root, nil, idx) {
+		if d.Source == "type" {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 func TestW10BPortEventOccurrenceIsReferential(t *testing.T) {
 	const src = `package P {
 		part holder {

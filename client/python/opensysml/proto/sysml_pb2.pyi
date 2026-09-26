@@ -728,21 +728,29 @@ class ApplyEditsRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., operations: _Optional[_Iterable[_Union[EditOperation, _Mapping]]] = ..., document: _Optional[str] = ..., accept_documents: _Optional[bool] = ...) -> None: ...
 
 class EditOperation(_message.Message):
-    __slots__ = ("set_value", "rename", "add_member", "delete", "move")
+    __slots__ = ("set_value", "rename", "add_member", "delete", "move", "add_connection", "add_satisfy", "add_requirement_constraint", "add_transition")
     SET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RENAME_FIELD_NUMBER: _ClassVar[int]
     ADD_MEMBER_FIELD_NUMBER: _ClassVar[int]
     DELETE_FIELD_NUMBER: _ClassVar[int]
     MOVE_FIELD_NUMBER: _ClassVar[int]
+    ADD_CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    ADD_SATISFY_FIELD_NUMBER: _ClassVar[int]
+    ADD_REQUIREMENT_CONSTRAINT_FIELD_NUMBER: _ClassVar[int]
+    ADD_TRANSITION_FIELD_NUMBER: _ClassVar[int]
     set_value: SetValueEdit
     rename: RenameEdit
     add_member: AddMemberEdit
     delete: DeleteEdit
     move: MoveEdit
-    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ...) -> None: ...
+    add_connection: AddConnectionEdit
+    add_satisfy: AddSatisfyEdit
+    add_requirement_constraint: AddRequirementConstraintEdit
+    add_transition: AddTransitionEdit
+    def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
-    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes")
+    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -750,6 +758,10 @@ class AddMemberEdit(_message.Message):
     MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     SPECIALIZES_FIELD_NUMBER: _ClassVar[int]
+    IS_ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    REDEFINES_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
     owner: str
     kind: str
     name: str
@@ -757,7 +769,73 @@ class AddMemberEdit(_message.Message):
     multiplicity: str
     value: str
     specializes: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ...) -> None: ...
+    is_abstract: bool
+    redefines: _containers.RepeatedScalarFieldContainer[str]
+    is_default: bool
+    direction: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ...) -> None: ...
+
+class AddSatisfyEdit(_message.Message):
+    __slots__ = ("owner", "requirement", "satisfying_feature", "is_asserted", "is_negated")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENT_FIELD_NUMBER: _ClassVar[int]
+    SATISFYING_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    IS_ASSERTED_FIELD_NUMBER: _ClassVar[int]
+    IS_NEGATED_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    requirement: str
+    satisfying_feature: str
+    is_asserted: bool
+    is_negated: bool
+    def __init__(self, owner: _Optional[str] = ..., requirement: _Optional[str] = ..., satisfying_feature: _Optional[str] = ..., is_asserted: _Optional[bool] = ..., is_negated: _Optional[bool] = ...) -> None: ...
+
+class AddRequirementConstraintEdit(_message.Message):
+    __slots__ = ("owner", "kind", "expression", "name")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    EXPRESSION_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    kind: str
+    expression: str
+    name: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., expression: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class AddTransitionEdit(_message.Message):
+    __slots__ = ("owner", "name", "source", "target", "trigger", "guard", "effect", "initial")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
+    GUARD_FIELD_NUMBER: _ClassVar[int]
+    EFFECT_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    name: str
+    source: str
+    target: str
+    trigger: str
+    guard: str
+    effect: str
+    initial: bool
+    def __init__(self, owner: _Optional[str] = ..., name: _Optional[str] = ..., source: _Optional[str] = ..., target: _Optional[str] = ..., trigger: _Optional[str] = ..., guard: _Optional[str] = ..., effect: _Optional[str] = ..., initial: _Optional[bool] = ...) -> None: ...
+
+class AddConnectionEdit(_message.Message):
+    __slots__ = ("owner", "kind", "from_end", "to_end", "name", "type")
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    FROM_END_FIELD_NUMBER: _ClassVar[int]
+    TO_END_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    owner: str
+    kind: str
+    from_end: str
+    to_end: str
+    name: str
+    type: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., from_end: _Optional[str] = ..., to_end: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ...) -> None: ...
 
 class DeleteEdit(_message.Message):
     __slots__ = ("target", "cascade")

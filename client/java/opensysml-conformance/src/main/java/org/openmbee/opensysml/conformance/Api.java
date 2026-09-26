@@ -728,7 +728,75 @@ final class Api {
         if (add.getSpecializesCount() > 0) {
           member = member.withSpecializes(add.getSpecializesList());
         }
+        if (add.getIsAbstract()) {
+          member = member.withAbstract(true);
+        }
+        if (add.getRedefinesCount() > 0) {
+          member = member.withRedefines(add.getRedefinesList());
+        }
+        if (add.getIsDefault()) {
+          member = member.withDefault(true);
+        }
+        if (!add.getDirection().isEmpty()) {
+          member = member.withDirection(add.getDirection());
+        }
         yield member;
+      }
+      case ADD_CONNECTION -> {
+        org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();
+        Edit.AddConnection connection =
+            Edit.AddConnection.of(
+                add.getOwner(), add.getKind(), add.getFromEnd(), add.getToEnd());
+        if (!add.getName().isEmpty()) {
+          connection = connection.withName(add.getName());
+        }
+        if (!add.getType().isEmpty()) {
+          connection = connection.withType(add.getType());
+        }
+        yield connection;
+      }
+      case ADD_SATISFY -> {
+        org.openmbee.opensysml.proto.AddSatisfyEdit add = operation.getAddSatisfy();
+        Edit.AddSatisfy satisfy = Edit.AddSatisfy.of(add.getOwner(), add.getRequirement());
+        if (!add.getSatisfyingFeature().isEmpty()) {
+          satisfy = satisfy.withSatisfyingFeature(add.getSatisfyingFeature());
+        }
+        if (add.getIsAsserted()) {
+          satisfy = satisfy.withAsserted(true);
+        }
+        if (add.getIsNegated()) {
+          satisfy = satisfy.withNegated(true);
+        }
+        yield satisfy;
+      }
+      case ADD_REQUIREMENT_CONSTRAINT -> {
+        org.openmbee.opensysml.proto.AddRequirementConstraintEdit add =
+            operation.getAddRequirementConstraint();
+        Edit.AddRequirementConstraint constraint =
+            Edit.AddRequirementConstraint.of(add.getOwner(), add.getKind(), add.getExpression());
+        if (!add.getName().isEmpty()) {
+          constraint = constraint.withName(add.getName());
+        }
+        yield constraint;
+      }
+      case ADD_TRANSITION -> {
+        org.openmbee.opensysml.proto.AddTransitionEdit add = operation.getAddTransition();
+        Edit.AddTransition transition = add.getInitial()
+            ? Edit.AddTransition.entry(add.getOwner(), add.getTarget())
+            : Edit.AddTransition.of(add.getOwner(), add.getSource(), add.getTarget());
+        if (!add.getName().isEmpty()) {
+          transition = transition.withName(add.getName());
+        }
+        if (!add.getTrigger().isEmpty()) {
+          transition = transition.withTrigger(add.getTrigger());
+        }
+        if (!add.getGuard().isEmpty()) {
+          transition = transition.withGuard(add.getGuard());
+        }
+        if (!add.getEffect().isEmpty()) {
+          transition = transition.withEffect(add.getEffect());
+        }
+        yield transition;
       }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());

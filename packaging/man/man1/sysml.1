@@ -60,6 +60,12 @@ Invoke this calculation and report its result, as \-calc "Fall(3, 4)"
 Run this analysis or verification case and report its outputs and verdict, as
 \-analysis "Pkg::Case(3.0) Pkg::part" (repeatable)
 .TP
+.BR \-tool\-dry\-run " \fIcall\fP"
+Show what the external tool the case's or action's ToolExecution names would
+be given \(em manifest, executable, argv, environment, standard input and
+reply mapping \(em without starting it, and discards what the run did;
+repeatable
+.TP
 .BR \-record\-run " \fIcall\fP"
 Run this analysis case as \-analysis does and record the run into the model as
 AnalysisRecords elements, one record per \-sweep value or \-runs run
@@ -132,8 +138,10 @@ Draw this many values uniformly from each \-sweep range instead of stepping
 through it; needs \-seed
 .TP
 .BR \-jobs " \fIn\fP"
-Runs of one check that may go concurrently, each on a worker of its own;
-default OPENSYSML_JOBS, else the number of CPUs
+Runs of one check that may go concurrently, each on a worker of its own, and
+files of one load that are parsed and validated at once; the result is the
+same at any count. Default OPENSYSML_JOBS, else one per CPU, fewer where the
+memory available leaves less than 512 MiB per worker
 .SS Analysis engines
 .TP
 .B \-engines
@@ -219,6 +227,10 @@ to read against the migrated model
 With \-convert from xmi, read this MTIP export (HUDS XML) and write the
 diagram geometry it records as DiagramLayout annotations in the migrated views
 .TP
+.BR \-image\-base\-url " \fIurl\fP"
+With \-convert from xmi, the http(s) URL a comment's relative <img src> is
+resolved against, such as the View Editor server
+.TP
 .BR \-compare\-results " \fIfile\fP"
 Run every configuration this \-migration\-results file indexes \(em or those
 \-action names \(em with its recorded runs and duration mode, or the \-runs
@@ -255,9 +267,15 @@ okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
 viridis or cividis; default black and white
 .TP
 .BR \-render\-unplaced " \fIplacement\fP"
-Where the dot form of a view some Layout positions puts the nodes none does:
-omit (default) leaves them undrawn, strip draws them in rows below the
-drawing; applies to \-render, \-render\-all and document diagrams
+Where a graph form of a view some Layout positions puts the nodes none does:
+omit (default) leaves them undrawn in every form, strip draws them, in rows
+below the dot drawing; applies to \-render, \-render\-all and document
+diagrams
+.TP
+.BR \-render\-style " \fIstyle\fP"
+Drawing style of the dot form: pilot (default), the Pilot visualizer's black
+and white, or cameo, the look of Cameo Systems Modeler; applies to \-render,
+\-render\-all and document diagrams
 .SS Rendering documents
 .TP
 .BR \-render\-document " \fIname\fP"
@@ -265,15 +283,17 @@ Compile this document definition, run its queries and write the rendered
 document
 .TP
 .BR \-render\-documents " \fIdir\fP"
-Render every document definition, linked to one another, into this directory
+Render every document definition, linked to one another, into this directory;
+a document that cannot be rendered gets a page stating why and the run exits 3
 .TP
 .BR \-doc\-form " \fIform\fP"
 Form the documents are written in: markdown (default), html or pdf, which
 drives an external converter
 .TP
 .BR \-diagram\-form " \fIform\fP"
-Form the documents' graph\-shaped diagrams are written in: mermaid (default),
-dot or plantuml; a table\-kind view is a table either way
+Form the documents' graph\-shaped diagrams are written in: mermaid, dot or
+plantuml; unset, a positioned view is dot and any other mermaid; a table\-kind
+view is a table either way
 .TP
 .B \-doc\-title\-page
 Put the document title on a page of its own (html or pdf)
@@ -283,6 +303,10 @@ Write a table of contents ahead of the content (html or pdf)
 .TP
 .B \-doc\-number\-sections
 Number the section headings hierarchically (html or pdf)
+.TP
+.B \-doc\-number\-figures
+Number the figures and tables in their captions, Figure 1. and Table 1. in
+document order (markdown, html or pdf)
 .TP
 .BR \-pdf\-engine " \fIconverter\fP"
 Converter \-doc\-form pdf drives: weasyprint (default), pandoc or prince
@@ -462,8 +486,10 @@ its connectors.
 .PP
 \-jobs is how many runs of one check may go concurrently \(em the
 linearizations of an exploration, the engines \-engine all consults \(em each
-on a worker of its own over the shared model; the result is the same at any
-count.
+on a worker of its own over the shared model, and how many files of one load
+are parsed and validated at once; the result is the same at any count. By
+default one per CPU, fewer where the memory available leaves less than 512 MiB
+per worker.
 .SH ANALYSIS ENGINES
 .RS 2
 .nf
@@ -759,6 +785,9 @@ sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
 # unpositioned nodes in a strip below
 sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
     \-render\-unplaced strip
+# drawn as Cameo draws it
+sysml model.sysml \-render Views::vehicleView \-render\-form dot \e
+    \-render\-style cameo
 sysml model.sysml \-render Views::vehicleView \-render\-form plantuml \-o \e
     view.puml
 # several files, loaded as one model
@@ -784,12 +813,19 @@ neither Graphviz nor PlantUML is needed to write them. Both are drawn in the
 black\-and\-white style of the SysML v2 Pilot visualizer; \-render\-palette
 fills their nodes by keyword family from a colourblind\-safe palette
 (okabe\-ito, tol\-bright, tol\-muted, tol\-light, brewer\-set2, brewer\-dark2,
-viridis or cividis), keeping black text legible on every fill. A DOT drawing
-of a view whose members carry DiagramLayout positions pins each at its stated
-place and leaves a member with no position undrawn, so nothing lands on a
-positioned box; \-render\-unplaced strip draws those members instead, in rows
-in a strip below the drawing. The same setting shapes the DOT diagrams of
-\-render\-document and \-render\-documents.
+viridis or cividis), keeping black text legible on every fill. \-render\-style
+names the look the DOT form draws in: pilot (default), the Pilot visualizer's,
+or cameo, the look of Cameo Systems Modeler \(em a diagram frame with a header
+tab, Arial text, gradient fills, compartments and the UML pseudo\-state
+symbols \(em for a diagram migrated from Cameo to keep its look. A
+DiagramLayout Style on a member colours it over either look, and a Note is
+drawn beside the member it is about. A view whose members carry DiagramLayout
+positions draws the placed members and the edges between them in every graph
+form, and leaves a member with no position undrawn: the DOT form pins each at
+its stated place, so nothing lands on a positioned box, while Mermaid and
+PlantUML lay the same members out themselves. \-render\-unplaced strip draws
+the unplaced members too, in rows in a strip below a DOT drawing. The same
+setting shapes the diagrams of \-render\-document and \-render\-documents.
 .SH RENDERING A DOCUMENT
 .RS 2
 .nf
@@ -831,10 +867,14 @@ sysml \-html\-default\-css \-html\-theme modern \-o modern.css
 .PP
 A document is a part def specializing DocumentQueries::Document. Its queries
 are bound in the model and run against it, and the result is written as
-CommonMark\-compatible Markdown. Its diagram blocks are Mermaid source;
-\-diagram\-form dot or plantuml writes every graph\-shaped one as Graphviz DOT
-or PlantUML instead, in Markdown and HTML alike, while a table\-kind view
-stays a table. Neither Graphviz nor PlantUML is needed to write it.
+CommonMark\-compatible Markdown. Its diagram blocks are chosen per diagram: a
+view some DiagramLayout::Layout or Route positions is drawn by Graphviz where
+it states, as inline SVG when dot is installed and as a dot fence otherwise,
+and every other graph\-shaped view is Mermaid source; with Graphviz absent a
+positioned view falls back to Mermaid under a notice saying so.
+\-diagram\-form mermaid, dot or plantuml writes every graph\-shaped one in
+that form instead, in Markdown and HTML alike, while a table\-kind view stays
+a table. Neither Graphviz nor PlantUML is needed to write a fence.
 .PP
 \-doc\-form html writes semantic HTML instead, carrying each element's
 identity and kind, styled by a stylesheet in a cascade layer your own CSS
@@ -901,6 +941,12 @@ The model answered false for a check.
 .B 2
 What was asked could not be carried out at all \(em an unreadable file, a
 model that did not analyse cleanly, an unresolved name, a failed conversion.
+.TP
+.B 3
+Part of what was asked was carried out: a \-render\-documents set in which
+some document could not be rendered. The others were written, a page stating
+the error stands in for each that was not, and each failure is reported with
+the document's qualified name.
 .SH OUTPUT STREAMS
 What was asked for is reported on stdout and what went wrong on stderr,
 prefixed "sysml: " unless it locates a finding in the source.
@@ -938,18 +984,19 @@ of its own with its own budgets. Default 1000.
 .B OPENSYSML_JOBS
 Runs of one check that may go concurrently \(em the linearizations of an
 exploration, the engines \-engine all consults \(em each on a worker of its
-own over the shared model; \-jobs and %jobs override it. Default the number of
-CPUs.
+own over the shared model, and files of one load that are parsed and validated
+at once; \-jobs and %jobs override it. Default one per CPU, fewer where the
+memory available leaves less than 512 MiB per worker.
 .TP
 .B OPENSYSML_TOOLS
 Directory of the tool manifest: one JSON file per external tool (toolName,
 version, executable, variables), each registered as the engine tool:<name>
-that performs actions annotated ToolExecution with that toolName. Unset
-registers no tool, and such an action is refused.
+that runs actions and calcs annotated ToolExecution with that toolName. Unset
+registers no tool, and such an action or calc is refused.
 .TP
 .B OPENSYSML_TOOL_TIMEOUT
 How long one tool invocation may take, as a Go duration. Default 10s, after
-which the performance fails.
+which the performance or calculation fails.
 .TP
 .B OPENSYSML_SMT
 Executable the %check, %explain, %solve, %configure and %optimize commands

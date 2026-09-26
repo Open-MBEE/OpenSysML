@@ -8,11 +8,13 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, deleting a declaration, and moving one into another namespace.
+member, connection or transition, deleting a declaration, and moving one into
+another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import List
 
@@ -290,23 +292,125 @@ class Editor:
         return self
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
-                   value=None, specializes=None):
+                   value=None, specializes=None, abstract=False, redefines=None,
+                   default=False, direction=None):
         """Add one declaration, using strings for all SysML/KerML notation."""
-        for label, text in (("kind", kind), ("name", name), ("type", type),
+        if not isinstance(kind, str):
+            raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
+        for label, text in (("kind", kind), ("type", type),
                             ("multiplicity", multiplicity), ("value", value)):
             if text is not None and not isinstance(text, str):
                 raise TypeError(
                     f"{label} must be notation text, not "
                     f"{text.__class__.__name__}"
                 )
+        if not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {name.__class__.__name__}")
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        if specializes is None:
-            specializes = []
-        if isinstance(specializes, str) or not all(isinstance(x, str) for x in specializes):
-            raise TypeError("specializes must be a sequence of notation strings")
-        self._add(("add_member", owner, kind, name, type or "", multiplicity or "",
-                   value or "", list(specializes)))
+        specializes = _notation_references("specializes", specializes)
+        redefines = _notation_references("redefines", redefines)
+        if not isinstance(abstract, bool):
+            raise TypeError("abstract must be bool")
+        if not isinstance(default, bool):
+            raise TypeError("default must be bool")
+        if direction is not None and not isinstance(direction, str):
+            raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
+        base = ("add_member", owner, kind, name, type or "", multiplicity or "",
+                value or "", list(specializes))
+        if (abstract or redefines or default or direction is not None
+                or kind in ("ref", "return")):
+            base += (abstract, list(redefines), default, direction or "")
+        self._add(base)
         return self
+
+    def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
+        """Add a ``satisfy`` usage to a body that admits behavior usages."""
+        if not isinstance(requirement, str):
+            raise TypeError(
+                f"requirement must be notation text, not {type(requirement).__name__}"
+            )
+        if by is not None and not isinstance(by, str):
+            raise TypeError(f"by must be notation text, not {type(by).__name__}")
+        if not isinstance(asserted, bool) or not isinstance(negated, bool):
+            raise TypeError("asserted and negated must be bool")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_satisfy", owner, requirement, by or "", asserted, negated))
+        return self
+
+    def add_requirement_constraint(self, owner, kind, expression, name=None):
+        """Add a ``require`` or ``assume`` constraint to a requirement-like body."""
+        for label, text in (("kind", kind), ("expression", expression)):
+            if not isinstance(text, str):
+                raise TypeError(f"{label} must be notation text, not {type(text).__name__}")
+        if name is not None and not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {type(name).__name__}")
+        if name is None:
+            name = ""
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_requirement_constraint", owner, kind, expression, name))
+        return self
+
+    def add_transition(self, owner, source, target, name=None, trigger=None,
+                       guard=None, effect=None):
+        """Add a transition with optional trigger, guard and effect clauses."""
+        if not isinstance(source, str):
+            raise TypeError(f"source must be notation text, not {source.__class__.__name__}")
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        for label, text in (("name", name), ("trigger", trigger),
+                            ("guard", guard), ("effect", effect)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add((
+            "add_transition", owner, name or "", source, target,
+            trigger or "", guard or "", effect or "", False,
+        ))
+        return self
+
+    def add_entry_transition(self, owner, target):
+        """Add an entry transition to target in a state body."""
+        if not isinstance(target, str):
+            raise TypeError(f"target must be notation text, not {target.__class__.__name__}")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_transition", owner, "", "", target, "", "", "", True))
+        return self
+
+    def add_require_constraint(self, owner, expression, name=None):
+        """Add a ``require constraint`` to a requirement-like body."""
+        return self.add_requirement_constraint(owner, "require", expression, name)
+
+    def add_assume_constraint(self, owner, expression, name=None):
+        """Add an ``assume constraint`` to a requirement-like body."""
+        return self.add_requirement_constraint(owner, "assume", expression, name)
+
+    def add_connection(self, owner, kind, from_, to, name=None, type=None):
+        """Add a connection-like usage between two feature references."""
+        for label, text in (("kind", kind), ("from_", from_), ("to", to)):
+            if not isinstance(text, str):
+                raise TypeError(
+                    f"{label} must be notation text, not {text.__class__.__name__}"
+                )
+        for label, text in (("name", name), ("type", type)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(
+                    f"{label} must be notation text, not {text.__class__.__name__}"
+                )
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_connection", owner, kind, from_, to, name or "", type or ""))
+        return self
+
+    def add_allocation(self, owner, from_, to, **kwargs):
+        """Add an ``allocation ... allocate from_ to to`` usage."""
+        return self.add_connection(owner, "allocation", from_, to, **kwargs)
+
+    def add_flow(self, owner, from_, to, **kwargs):
+        """Add a ``flow ... from from_ to to`` usage."""
+        return self.add_connection(owner, "flow", from_, to, **kwargs)
+
+    def add_succession(self, owner, from_, to, **kwargs):
+        """Add a ``succession ... first from_ then to`` usage."""
+        return self.add_connection(owner, "succession", from_, to, **kwargs)
 
     def delete(self, target, cascade=False):
         """Delete a declaration, optionally removing declarations that refer to it."""
@@ -461,13 +565,121 @@ class Editor:
         """Add a ``metaclass`` declaration."""
         return self.add_member(owner, "metaclass", name, **kwargs)
 
-    def add_calc_def(self, owner, name, **kwargs):
-        """Add a ``calc def`` declaration."""
-        return self.add_member(owner, "calc def", name, **kwargs)
+    def add_calc_def(
+        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+    ):
+        """Add a ``calc def`` with input parameters and an optional result.
 
-    def add_calc(self, owner, name, **kwargs):
-        """Add a ``calc`` declaration."""
-        return self.add_member(owner, "calc", name, **kwargs)
+        ``return_expression`` is bound to the result parameter; it does not
+        write a ``return <expr>;`` statement.
+        """
+        inputs = _parameter_pairs(inputs, "inputs")
+        _optional_text(return_type, "return_type")
+        _optional_text(return_expression, "return_expression")
+        owner = _owner_id(owner)
+        self.add_member(owner, "calc def", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        if return_type is not None or return_expression is not None:
+            self.add_return(
+                qualified_name, type=return_type, value=return_expression
+            )
+        return self
+
+    def add_calc(
+        self, owner, name, inputs=None, return_type=None, return_expression=None, **kwargs
+    ):
+        """Add a ``calc`` with input parameters and an optional result.
+
+        ``return_expression`` is bound to the result parameter; it does not
+        write a ``return <expr>;`` statement.
+        """
+        inputs = _parameter_pairs(inputs, "inputs")
+        _optional_text(return_type, "return_type")
+        _optional_text(return_expression, "return_expression")
+        owner = _owner_id(owner)
+        self.add_member(owner, "calc", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        if return_type is not None or return_expression is not None:
+            self.add_return(
+                qualified_name, type=return_type, value=return_expression
+            )
+        return self
+
+    def add_parameter(self, owner, direction, name, type=None, kind="ref", **kwargs):
+        """Add a directional parameter usage."""
+        return self.add_member(
+            owner, kind, name, type=type, direction=direction, **kwargs
+        )
+
+    def add_return(self, owner, name="", **kwargs):
+        """Add a return parameter member."""
+        return self.add_member(owner, "return", name, **kwargs)
+
+    def add_action_def(self, owner, name, inputs=None, outputs=None, **kwargs):
+        """Add an ``action def`` with input and output parameters."""
+        inputs = _parameter_pairs(inputs, "inputs")
+        outputs = _parameter_pairs(outputs, "outputs")
+        owner = _owner_id(owner)
+        self.add_member(owner, "action def", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        for parameter_name, parameter_type in outputs:
+            self.add_parameter(
+                qualified_name, "out", parameter_name, type=parameter_type
+            )
+        return self
+
+    def add_action(self, owner, name, inputs=None, outputs=None, **kwargs):
+        """Add an ``action`` with input and output parameters."""
+        inputs = _parameter_pairs(inputs, "inputs")
+        outputs = _parameter_pairs(outputs, "outputs")
+        owner = _owner_id(owner)
+        self.add_member(owner, "action", name, **kwargs)
+        qualified_name = name if owner == "" else owner + "::" + name
+        for parameter_name, parameter_type in inputs:
+            self.add_parameter(
+                qualified_name, "in", parameter_name, type=parameter_type
+            )
+        for parameter_name, parameter_type in outputs:
+            self.add_parameter(
+                qualified_name, "out", parameter_name, type=parameter_type
+            )
+        return self
+
+    def add_state_def(self, owner, name, **kwargs):
+        """Add a ``state def`` declaration."""
+        return self.add_member(owner, "state def", name, **kwargs)
+
+    def add_state(self, owner, name, **kwargs):
+        """Add a ``state`` declaration."""
+        return self.add_member(owner, "state", name, **kwargs)
+
+    def add_constraint_def(self, owner, name, **kwargs):
+        """Add a ``constraint def`` declaration."""
+        return self.add_member(owner, "constraint def", name, **kwargs)
+
+    def add_constraint(self, owner, name, **kwargs):
+        """Add a ``constraint`` declaration."""
+        return self.add_member(owner, "constraint", name, **kwargs)
+
+    def add_requirement_def(self, owner, name, **kwargs):
+        """Add a ``requirement def`` declaration."""
+        return self.add_member(owner, "requirement def", name, **kwargs)
+
+    def add_requirement(self, owner, name, **kwargs):
+        """Add a ``requirement`` declaration."""
+        return self.add_member(owner, "requirement", name, **kwargs)
 
 
 def _target_id(target):
@@ -481,6 +693,50 @@ def _target_id(target):
         f"target must be a symbol id (FQN) or a Symbol, not "
         f"{type(target).__name__}"
     )
+
+
+def _owner_id(owner):
+    return owner if isinstance(owner, str) else _target_id(owner)
+
+
+def _parameter_pairs(parameters, argument):
+    if parameters is None:
+        return []
+    if not isinstance(parameters, list):
+        raise TypeError(
+            f"{argument} must be a list of 2-tuples of strings, "
+            f"not {parameters.__class__.__name__}"
+        )
+    pairs = []
+    for index, pair in enumerate(parameters):
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            raise TypeError(f"{argument}[{index}] must be a 2-tuple of strings")
+        if not all(isinstance(value, str) for value in pair):
+            raise TypeError(f"{argument}[{index}] name and type must be strings")
+        pairs.append(pair)
+    return pairs
+
+
+def _optional_text(value, argument):
+    if value is not None and not isinstance(value, str):
+        raise TypeError(
+            f"{argument} must be notation text or None, "
+            f"not {value.__class__.__name__}"
+        )
+
+
+def _notation_references(label, values):
+    """Normalize one feature-reference string or a sequence of them."""
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    elif not isinstance(values, Sequence):
+        raise TypeError(f"{label} must be a notation string or sequence of strings")
+    references = list(values)
+    if not all(isinstance(reference, str) for reference in references):
+        raise TypeError(f"{label} must contain only notation strings")
+    return references
 
 
 def result_of(response, applied_source=FORMAT_SYSML):

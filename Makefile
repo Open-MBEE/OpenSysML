@@ -1,4 +1,4 @@
-.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
+.PHONY: all build build-sysml build-lsp build-grpc static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-rust conformance-julia conformance-matlab test coverage lint clean install help fuml-expected python-test python-coverage scripts-coverage node-coverage python-install proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-counts docs-check changelog-check changelog-render self-model
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -53,6 +53,8 @@ VSCODE_DIR := editors/vscode
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
+JULIA ?= julia
+OCTAVE ?= octave
 SITE_DIR := site
 # Where make self-model writes the architecture self-model's rendered views.
 SELF_MODEL_DIR := examples/self-model
@@ -147,6 +149,28 @@ conformance-rust: ## Run the conformance suite with the blocking Rust client
 	$(MAKE) build
 	@mkdir -p $(BIN_DIR)
 	OPENSYSML_GRPC_BINARY="$(CURDIR)/$(BIN_DIR)/sysml-grpc" cargo run --manifest-path client/rust/Cargo.toml -p opensysml-conformance -- -binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" -report "$(CURDIR)/$(BIN_DIR)/conformance-report-rust.json"
+
+conformance-julia: ## Run the conformance suite with the Julia client (JULIA=path overrides the binary)
+	$(MAKE) build-grpc
+	@mkdir -p $(BIN_DIR)
+	$(JULIA) --project=client/julia/OpenSysML client/julia/OpenSysML/conformance/run.jl \
+		--binary "$(CURDIR)/$(BIN_DIR)/sysml-grpc" \
+		--report "$(CURDIR)/$(BIN_DIR)/conformance-report-julia.json"
+
+conformance-matlab: ## Run the conformance suite with the MATLAB/Octave client (OCTAVE=path overrides the binary)
+	$(MAKE) build-grpc
+	@mkdir -p $(BIN_DIR)
+	@addr_file="$(CURDIR)/$(BIN_DIR)/.conformance-matlab-addr"; rm -f "$$addr_file"; \
+	"$(CURDIR)/$(BIN_DIR)/sysml-grpc" -port 0 -health-port 0 -report-address > "$$addr_file" & \
+	svc_pid=$$!; \
+	rc=0; \
+	for i in $$(seq 1 100); do [ -s "$$addr_file" ] && break; sleep 0.1; done; \
+	addr=$$(cat "$$addr_file" 2>/dev/null); \
+	if [ -z "$$addr" ]; then rc=1; echo "sysml-grpc did not report an address"; \
+	else \
+		$(OCTAVE) --no-gui --eval "addpath('client/matlab'); addpath('client/matlab/conformance'); addpath('client/matlab/conformance/private'); run_conformance('--address','$$addr','--report','$(CURDIR)/$(BIN_DIR)/conformance-report-matlab.json')" || rc=$$?; \
+	fi; \
+	kill $$svc_pid 2>/dev/null; wait $$svc_pid 2>/dev/null; rm -f "$$addr_file"; exit $$rc
 
 conformance-pkg: ## Run the conformance suite through the public Go API (client/opensysml)
 	@echo "Running the conformance suite through client/opensysml..."

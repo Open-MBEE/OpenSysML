@@ -27,9 +27,12 @@ func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
 		return Value{}, fmt.Errorf("%w: 'all' requires a type, %s is a %s",
 			ErrTypeMismatch, qualifiedNameToString(qn), target.Notation())
 	}
-	switch {
-	case target.Kind == symbols.SymbolEnumerationDef:
+	if target.Kind == symbols.SymbolEnumerationDef {
 		return ec.literalValues(sem.LiteralsOf(target))
+	}
+	// The extent is the run's, not the shape's: nothing derived over it is shared.
+	ec.ctx.unshareTraces()
+	switch {
 	case sem.IsVariationFeature(target):
 		return ec.variantValues(target, sem.VariantsOf(target))
 	case sem.IsDataType(target):

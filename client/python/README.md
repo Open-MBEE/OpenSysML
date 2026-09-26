@@ -41,7 +41,23 @@ untouched source:
 ```python
 model.edit().add_part_def("", "Vehicle").apply()
 model.edit().add_part("Vehicle", "engine", type="Engine").apply()
+model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 ```
+
+`Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
+connection-like usages; `add_allocation` and `add_flow` are typed helpers.
+`Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
+options, and supports the SysML `ref` and `return` kinds where they are admitted.
+Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
+`add_assume_constraint`, `add_transition` or `add_entry_transition` to author
+requirement statements and state transitions. These operations preflight their
+dedicated `member_modifiers`, `satisfy_authoring`,
+`requirement_constraint_authoring` or `transition_authoring` capability as
+applicable.
+`add_calc_def` and `add_calc` accept input pairs, `return_type` and
+`return_expression`; that expression is bound to the result parameter rather than
+written as `return <expr>;`. `add_action_def` and `add_action` accept input and
+output pairs.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 

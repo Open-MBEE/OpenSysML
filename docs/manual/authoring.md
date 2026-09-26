@@ -142,11 +142,13 @@ with the block's stable anchor — a destination like
 a root target links to the file alone. The file name is deterministic: the
 target document's fully qualified name with `::` replaced by `-` and any
 byte outside ASCII letters, digits and `_` escaped as `.XX` (uppercase hex),
-plus `.md`. Render the whole set with `-render-documents <dir>` so the links
-resolve on disk. Rendering a single document that references another still
-succeeds — the link points at the expected file name of the unrendered
-target, and it dangles until that document is rendered into the same
-directory. An unknown target is a typed planning error, and a target usage
+plus `.md`; where two names would meet in one file (see
+[Multi-document sets](outputs.md#multi-document-sets)) the link carries the
+tagged name the set writes. Render the whole set with `-render-documents
+<dir>` so the links resolve on disk. Rendering a single document that
+references another still succeeds — the link points at the file name the set
+gives the unrendered target, and it dangles until that document is rendered
+into the same directory. An unknown target is a typed planning error, and a target usage
 typed by more than one document definition is an ambiguous-target error;
 both carry the reference's source location.
 
@@ -573,6 +575,38 @@ The `table` kind is the exception — it renders as a pipe table of the
 element's structure (Element / Kind / Type / Declared in) rather than a
 Mermaid, DOT or PlantUML block, whichever diagram form the document is rendered
 with.
+
+## Images
+
+An `Image` shows an image file under an optional caption:
+
+```sysml
+part plate : Image {
+	attribute redefines location = "images/mark.png";
+	attribute redefines caption = "Plate 1: the survey mark";
+	attribute redefines alt = "a brass survey mark";
+}
+```
+
+`location` is required and cannot be blank: it is a path relative to the
+document's source file — resolved the same way a relative link or stylesheet
+is, against the output file's directory — or an `http(s)` or `file` URL. The
+block above renders as:
+
+```markdown
+*Plate 1: the survey mark*
+
+![a brass survey mark](images/mark.png)
+```
+
+Markdown writes the CommonMark image of the location under its caption; HTML a
+`<figure class="sysml-image">` whose `<img>` carries the location verbatim,
+with `alt` the declared text alternative (the caption when none is declared)
+and the caption its `<figcaption>`; a PDF draws the file — a missing local
+location is a typed `missing-image` error naming the block, while an
+`http(s)` location is left for the engine to fetch. An `Image` is a content
+block like a `Table` or `Formula`: it takes no query, nests nothing, and a
+named one is a `Ref` target.
 
 ## Binding queries to blocks
 

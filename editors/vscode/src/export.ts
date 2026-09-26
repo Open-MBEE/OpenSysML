@@ -1,7 +1,7 @@
 // Exporting a rendering to a file: which forms the server writes, how each is
 // offered and saved, and the pick → request → save sequence, kept apart from
 // VS Code so the sequence is testable with a fake host.
-import { RENDER_FORMS_CAPABILITY, RenderParams, RenderResult } from "./protocol";
+import { RENDER_FORMS_CAPABILITY, RENDER_STYLES_CAPABILITY, RenderParams, RenderResult } from "./protocol";
 
 /** The forms `opensysml/render` writes, as the wire contract documents them, for a server that lists none itself. */
 export const DOCUMENTED_FORMS: readonly string[] = ["text", "mermaid", "markdown", "dot", "plantuml"];
@@ -38,6 +38,15 @@ export function serverForms(experimental: Record<string, unknown> | undefined): 
     return [...new Set(advertised as string[])];
   }
   return [...DOCUMENTED_FORMS];
+}
+
+/** serverStyles lists the drawing styles the server advertises, the first its default; empty for a server predating them. */
+export function serverStyles(experimental: Record<string, unknown> | undefined): string[] {
+  const advertised = experimental?.[RENDER_STYLES_CAPABILITY];
+  if (Array.isArray(advertised) && advertised.every((style) => typeof style === "string" && style !== "")) {
+    return [...new Set(advertised as string[])];
+  }
+  return [];
 }
 
 /** exportFile is how a form the server wrote is saved. */
@@ -97,6 +106,8 @@ export interface ExportRequest {
   view: string;
   /** The forms offered, in the order the server lists them. */
   forms: readonly string[];
+  /** The drawing style asked of the DOT form, when the panel's style names one the server draws. */
+  style?: string;
 }
 
 /**
@@ -111,7 +122,11 @@ export async function exportRendering(host: ExportHost, request: ExportRequest):
   }
   let result: RenderResult;
   try {
-    result = await host.render({ textDocument: { uri: request.uri }, view: request.view, form });
+    const params: RenderParams = { textDocument: { uri: request.uri }, view: request.view, form };
+    if (request.style !== undefined) {
+      params.style = request.style;
+    }
+    result = await host.render(params);
   } catch (err) {
     return { kind: "failed", step: "render", message: errorMessage(err) };
   }

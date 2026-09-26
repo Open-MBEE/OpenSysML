@@ -42,7 +42,8 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 }
 
 // RenderDocumentMarkdown compiles the named document definition, evaluates its
-// queries against the workspace model, and renders the result as Markdown.
+// queries against the workspace model, and renders the result as Markdown,
+// linking the other documents by the files a Markdown set writes them to.
 func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOptions) (string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -63,6 +64,9 @@ func (w *Workspace) RenderDocumentMarkdown(fqn string, opts docrender.MarkdownOp
 		}
 		var plan *docplan.Plan
 		if plan, err = docplan.Compile(w.index, sem, resolver, sym); err != nil {
+			return
+		}
+		if opts.Files, err = DocumentFiles(DocumentNames(w.index, sem), ".md"); err != nil {
 			return
 		}
 		var document *docir.Document

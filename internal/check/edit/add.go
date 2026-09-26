@@ -23,6 +23,8 @@ type memberKind struct {
 // A kind only some bodies offer (`subject`, `actor`) is refused for any other owner.
 var memberKinds = map[string]memberKind{
 	"package":          {languages: bothLangs},
+	"ref":              {languages: sysmlOnly, typed: true},
+	"return":           {languages: sysmlOnly, typed: true},
 	"part def":         {languages: sysmlOnly, definition: true},
 	"part":             {languages: sysmlOnly, typed: true},
 	"attribute def":    {languages: sysmlOnly, definition: true},
@@ -141,17 +143,54 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				op.MemberKind, m.Source.Kind(), m.Source.Name()),
 		}
 	}
-	if err := checkName(i, op.MemberName); err != nil {
+	if op.MemberName == "" {
+		switch {
+		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
+			return splice{}, &Error{
+				Failure: FailureIllegalKind, OperationIndex: i,
+				Message: "an unnamed return parameter needs a type or multiplicity",
+			}
+		case op.MemberKind != "return" && len(op.Redefines) == 0:
+			return splice{}, &Error{
+				Failure: FailureInvalidName, OperationIndex: i,
+				Message: "an empty member name requires redefines targets or kind return",
+			}
+		}
+	} else if err := checkName(i, op.MemberName); err != nil {
 		e := err.(*Error)
 		e.Failure = FailureInvalidName
 		e.Message = fmt.Sprintf("member name %q is not an identifier", op.MemberName)
 		return splice{}, e
+	}
+	if op.MemberKind == "metadata" && op.Value != "" {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "kind \"metadata\" cannot carry a value",
+		}
 	}
 	if op.Value != "" {
 		valueOp := op
 		valueOp.Target = op.MemberName
 		if err := m.checkValue(i, valueOp); err != nil {
 			return splice{}, err
+		}
+	}
+	if op.IsDefault && (kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot carry a default value", op.MemberKind),
+		}
+	}
+	if op.IsDefault && op.Value == "" {
+		return splice{}, &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: "default requires a nonempty value expression",
+		}
+	}
+	if op.Direction != "" && op.Direction != "in" && op.Direction != "out" && op.Direction != "inout" {
+		return splice{}, &Error{
+			Failure: FailureInvalidValue, OperationIndex: i,
+			Message: fmt.Sprintf("direction %q is not in, out or inout", op.Direction),
 		}
 	}
 	if !kind.typed && op.Type != "" {
@@ -168,11 +207,54 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("kind %q takes a name alone", op.MemberKind),
 		}
 	}
+	if kind.definition && op.Value != "" {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("definition kind %q cannot carry a value", op.MemberKind),
+		}
+	}
 	if !kind.definition && len(op.Specializes) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureIllegalKind,
 			OperationIndex: i,
 			Message:        fmt.Sprintf("kind %q is a usage and cannot carry specializes targets", op.MemberKind),
+		}
+	}
+	if op.IsAbstract && (op.MemberKind == "enum def" ||
+		(!kind.definition && (!kind.typed || memberPrefixExcluded(op.MemberKind)))) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot be abstract", op.MemberKind),
+		}
+	}
+	if op.Direction != "" &&
+		(kind.definition || !kind.typed || memberPrefixExcluded(op.MemberKind)) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot carry a direction", op.MemberKind),
+		}
+	}
+	if len(op.Redefines) > 0 && kind.definition {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
+		}
+	}
+	if len(op.Redefines) > 0 && op.MemberKind == "metadata" {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
+		}
+	}
+	if op.MemberKind == "return" && (op.IsAbstract || op.Direction != "" || len(op.Redefines) > 0) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "return parameters cannot be abstract, directional or redefining",
+		}
+	}
+	for _, target := range op.Redefines {
+		if err := checkEnd(i, "redefines", target); err != nil {
+			return splice{}, err
 		}
 	}
 	owner, ownerScope, err := m.addOwner(op.Owner)
@@ -189,7 +271,26 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				op.MemberKind, parser.MemberOwner(op.MemberKind), ownerName(op.Owner)),
 		}
 	}
-	if ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
+	if op.MemberKind == "return" && !parser.BodyIsCalculation(owner) {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "return parameters are only admitted in calculation, constraint and case bodies",
+		}
+	}
+	if op.MemberKind == "return" {
+		for _, member := range ast.DeclMembers(owner) {
+			if membership, ok := member.(*ast.Membership); ok && membership != nil {
+				member = membership.Member
+			}
+			if usage, ok := member.(*ast.Usage); ok && usage.IsResult {
+				return splice{}, &Error{
+					Failure: FailureIllegalKind, OperationIndex: i,
+					Message: "a calculation, constraint or case body already has a return parameter",
+				}
+			}
+		}
+	}
+	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(op.MemberName)) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
@@ -198,6 +299,16 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	ins := m.memberInsertion(owner, writeMember(op, kind))
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
+}
+
+func memberPrefixExcluded(kind string) bool {
+	switch kind {
+	case "package", "subject", "actor", "stakeholder", "objective",
+		"fork", "join", "merge", "decide", "metadata", "return":
+		return true
+	default:
+		return false
+	}
 }
 
 func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
@@ -224,7 +335,7 @@ func (m Model) addOwner(fqn string) (ast.Node, *symbols.Scope, error) {
 			Message: fmt.Sprintf("%q cannot contain members", fqn)}
 	}
 	switch local.Decl.(type) {
-	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage:
+	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage, *ast.SubstateMember:
 		return local.Decl, local.Scope, nil
 	default:
 		return nil, nil, &Error{Failure: FailureOwnerNotNamespace,
@@ -241,17 +352,42 @@ func ownerName(fqn string) string {
 }
 
 func writeMember(op Operation, kind memberKind) string {
-	header := op.MemberKind + " " + op.MemberName
+	prefix := make([]string, 0, 3)
+	if op.Direction != "" {
+		prefix = append(prefix, op.Direction)
+	}
+	if op.IsAbstract {
+		prefix = append(prefix, "abstract")
+	}
+	switch op.MemberKind {
+	case "return":
+		prefix = append(prefix, "return")
+	case "ref":
+		prefix = append(prefix, "ref")
+	default:
+		prefix = append(prefix, op.MemberKind)
+	}
+	header := strings.Join(prefix, " ")
+	if op.MemberName != "" {
+		header += " " + op.MemberName
+	}
 	if kind.definition && len(op.Specializes) > 0 {
 		header += " specializes " + strings.Join(op.Specializes, ", ")
 	} else if !kind.definition && op.Type != "" {
 		header += " : " + op.Type
 	}
+	if len(op.Redefines) > 0 {
+		header += " :>> " + strings.Join(op.Redefines, ", ")
+	}
 	if op.Multiplicity != "" {
 		header += " " + op.Multiplicity
 	}
 	if op.Value != "" {
-		header += " = " + op.Value
+		if op.IsDefault {
+			header += " default = " + op.Value
+		} else {
+			header += " = " + op.Value
+		}
 	}
 	return header + ";"
 }
@@ -287,6 +423,12 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 	ownerIndent := lineIndent(m.Source.Bytes(), owner.Span().Offset)
 	indent := m.ownerMemberIndent(owner)
 	if hasBody {
+		if parser.BodyIsCalculation(owner) {
+			members := ast.DeclMembers(owner)
+			if len(members) > 0 && isCalculationResultMember(members[len(members)-1]) {
+				return m.memberInsertionBeforeResult(members[len(members)-1], text)
+			}
+		}
 		rbrace := lastToken(m.Source, body, lexer.RBrace)
 		closeOffset := rbrace.Span.Offset
 		lineStart := closeOffset
@@ -317,6 +459,104 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 	}
 }
 
+func isCalculationResultMember(member ast.Node) bool {
+	if ast.IsExpression(member) {
+		return true
+	}
+	condition, ok := member.(*ast.ConstraintMember)
+	return ok && condition.Keyword == "" && condition.Expression != nil
+}
+
+func (m Model) memberInsertionBeforeResult(result ast.Node, text string) insertion {
+	content := m.Source.Bytes()
+	offset := result.Span().Offset
+	lineStart := offset
+	for lineStart > 0 && content[lineStart-1] != '\n' {
+		lineStart--
+	}
+	leading := content[lineStart:offset]
+	if onlyWhitespace(leading) {
+		anchor := precedingFullLineTriviaStart(content, lineStart)
+		return insertion{
+			span: source.Span{Offset: anchor},
+			text: string(leading) + text + "\n",
+			at:   len(leading),
+		}
+	}
+	prefix := ""
+	if offset == 0 || (content[offset-1] != ' ' && content[offset-1] != '\t' && content[offset-1] != '\n') {
+		prefix = " "
+	}
+	return insertion{
+		span: source.Span{Offset: offset},
+		text: prefix + text + " ",
+		at:   len(prefix),
+	}
+}
+
+func precedingFullLineTriviaStart(content []byte, lineStart int) int {
+	anchor := lineStart
+	inBlockComment := false
+	blockEndAnchor := lineStart
+	for anchor > 0 {
+		lineEnd := anchor - 1
+		previousLine := lineEnd
+		for previousLine > 0 && content[previousLine-1] != '\n' {
+			previousLine--
+		}
+		line := strings.TrimSpace(string(content[previousLine:lineEnd]))
+		if inBlockComment {
+			if opening := strings.LastIndex(line, "/*"); opening >= 0 {
+				if strings.TrimSpace(line[:opening]) != "" {
+					anchor = blockEndAnchor
+					break
+				}
+				inBlockComment = false
+			} else if closing := strings.LastIndex(line, "*/"); closing >= 0 {
+				after := strings.TrimSpace(line[closing+2:])
+				if after != "" && !strings.HasPrefix(after, "//") {
+					anchor = blockEndAnchor
+					break
+				}
+			}
+			anchor = previousLine
+			continue
+		}
+		if line == "" || strings.HasPrefix(line, "//") {
+			anchor = previousLine
+			continue
+		}
+		opening := strings.Index(line, "/*")
+		if opening >= 0 {
+			if strings.TrimSpace(line[:opening]) != "" {
+				break
+			}
+			closing := strings.Index(line[opening+2:], "*/")
+			if closing < 0 {
+				inBlockComment = true
+				blockEndAnchor = anchor
+				anchor = previousLine
+				continue
+			}
+			after := strings.TrimSpace(line[opening+closing+4:])
+			if after == "" || strings.HasPrefix(after, "//") {
+				anchor = previousLine
+				continue
+			}
+			break
+		}
+		if closing := strings.LastIndex(line, "*/"); closing >= 0 &&
+			strings.TrimSpace(line[closing+2:]) == "" {
+			inBlockComment = true
+			blockEndAnchor = anchor
+			anchor = previousLine
+			continue
+		}
+		break
+	}
+	return anchor
+}
+
 func bodyInfo(node ast.Node) (source.Span, bool) {
 	switch d := node.(type) {
 	case *ast.Package:
@@ -327,6 +567,8 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 		return d.Span(), d.HasBody
 	case *ast.Usage:
 		return d.Span(), d.HasBody
+	case *ast.SubstateMember:
+		return d.Span(), false
 	case *ast.TransitionMember:
 		return d.Span(), d.HasBody
 	case *ast.SuccessionEdge:

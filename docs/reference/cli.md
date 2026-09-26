@@ -89,6 +89,18 @@ Load multiple files before evaluating:
 sysml -e "result" types.sysml instances.sysml
 ```
 
+Every file named on the command line is a document of its own, analysed as the editor and the
+corpus gates analyse it, and the files are indexed together so that one file's reference to a
+package another declares resolves. Two consequences follow:
+
+- A root-level import serves only the file it is written in. `private import ScalarValues::*;`
+  at the top of `types.sysml` does not make `Real` resolvable in `instances.sysml`; each file
+  imports what it uses.
+- Two files that both declare `package A` are two root packages of that name, not a duplicate.
+  A reference to `A` resolves to the declaration in the file whose name sorts first (the
+  order the editor and the workspace give documents, whatever order the files were given
+  in), so `A::x` resolves where `x` is a member of that declaration.
+
 ## Real-World Examples
 
 ### 1. Quick Calculation
@@ -217,18 +229,21 @@ reported, so a script that reads it takes the output from the first `{`.
 | `--from <format>` | | Input format for `--convert`: the `--convert` formats, or `xmi`/`uml`/`mdzip` for a SysML v1 model to migrate (experimental; default: from the input's extension; `.xmi`, `.uml` and `.mdzip` are recognized) — see [SysML v1 migration](sysml-v1-migration.md) |
 | `--migration-report <file>` | | With `--convert` from `xmi`: write the element-by-element migration report to this file, JSON when it ends in `.json`, text otherwise. Without it the one-line summary goes to stderr |
 | `--migration-results <file>` | | With `--convert` from `xmi`: write the simulation tool's run configurations (`SimulationProfile:SimulationConfig`) and the result snapshots it stored for each of them to this JSON file — the sidecar `-compare-results` reads against the migrated model. See [Comparing a migrated configuration with the tool's results](#comparing-a-migrated-configuration-with-the-tools-results) |
+| `--image-base-url <url>` | | With `--convert` from `xmi`: the absolute http(s) URL a comment's relative `<img src>` — a path the View Editor serves, such as `/projects/.../png` — is resolved against, so the migrated document's `Image` block points at the server instead of losing the image (see [SysML v1 migration](sysml-v1-migration.md)) |
 | `--render <view>` | | Render this view of the model (every file named, loaded as one) instead of running it, in the form its `render` member states (see [Rendering a view](#rendering-a-view)) |
 | `--render-all <dir>` | | Render every declared view into the directory, one artifact per view |
 | `--render-form <form>` | | Form `--render` or `--render-all` writes: `text`, `mermaid`, `markdown`, `dot` or `plantuml` (default: destination-dependent for `--render`, each kind's machine-readable form for `--render-all`) |
 | `--render-palette <name>` | | Palette the `dot` or `plantuml` form of `--render` or `--render-all` fills nodes with, by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis`; black and white when absent. Mermaid notes it as not represented; text and Markdown ignore it. An unknown name is refused with the names there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-unplaced <placement>` | | Where the `dot` form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn; `strip` draws them in rows below the drawing, clear of the canvas and every positioned box. Applies to `--render`, `--render-all` and the `dot` diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
-| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, as a fenced ` ```mermaid ` block (a fenced ` ```dot ` block of Graphviz DOT under `-diagram-form dot`, a ` ```plantuml ` block under `-diagram-form plantuml`; a table-kind view as a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
+| `--render-style <style>` | | Drawing style the `dot` form of `--render`, `--render-all`, `--render-document` and `--render-documents` draws in: `pilot` (the default), the Pilot visualizer's Standard B&W, or `cameo`, the look of Cameo Systems Modeler — a diagram frame with a header tab, 11 pt Arial, gradient fills in Cameo's colours, a state's `do / Activity` compartment and the UML pseudo-state symbols. Mermaid and PlantUML note it as not represented; text and Markdown ignore it. An unknown name is refused with the two there are; without something to render it is refused likewise (see [Rendering a view](#rendering-a-view)) |
+| `--render-unplaced <placement>` | | Where a graph form of a view some `DiagramLayout::Layout` positions puts the nodes none does: `omit` (the default) leaves them, and the edges at them, undrawn in every form, so the `mermaid`, `dot` and `plantuml` forms draw one node set; `strip` draws them too, in rows below the `dot` drawing, clear of the canvas and every positioned box, and among the placed nodes in the forms that lay nodes out themselves. Applies to `--render`, `--render-all` and the diagrams of `--render-document` and `--render-documents`; a view with no positioned node is laid out as before whichever is named. An unknown placement is refused with the placements there are (see [Rendering a view](#rendering-a-view)) |
+| `--render-document <name>` | | Compile a document definition (a `part def` specializing `DocumentQueries::Document`), run its queries against the model, render its diagram blocks through the view engine and write the result as CommonMark Markdown, as `%render-document` does. Paragraphs may hold inline runs (`Span` with a `plain`/`emphasis`/`strong`/`code` style, `Link` to a URL, `Ref` linking to another content block's anchor); a query-backed paragraph or list styles its projected values through nested `SpanColumn`/`LinkColumn` column runs; a table with a `groupBy` column writes one subtable per group value, with the query's projected properties and computed `Column` names as its columns. A `Diagram` block embeds a declared view, or an element with a stated rendering kind, in a form chosen per diagram: a view some `DiagramLayout::Layout` or `Route` positions is drawn by Graphviz where it states — inline SVG when `dot` is installed, a fenced ` ```dot ` block otherwise — and every other graph-shaped view is a fenced ` ```mermaid ` block; when Graphviz is absent a positioned view is written as Mermaid under a visible notice saying so (`-diagram-form mermaid|dot|plantuml` writes every graph-shaped block in that one form; a table-kind view is a pipe table whichever form), with an optional caption and `TB`/`LR`/`RL`/`BT` flow direction. An `Image` block (`location` a path relative to the document's file or an http(s)/file URL, optional `caption` and `alt`) renders as a CommonMark image under its caption, a relative `location` resolved beside the document's source file and written relative to the `-o` output's directory; `-doc-form pdf` draws the file — a missing local `location` is a `missing-image` error — and an `http(s)` location is fetched by the engine. Markdown is the default form; `-doc-form html` renders the same document tree as semantic HTML (see [Rendering a document as HTML](#rendering-a-document-as-html)) and `-doc-form pdf` converts the Markdown (see [Rendering a document as PDF](#rendering-a-document-as-pdf)). Combined with `--instantiate`, the document's queries run over the objects created (see [Rendering a document over objects](#rendering-a-document-over-objects)). `-json` does not apply. See the [document generation manual](../manual/README.md) |
 | `--doc-form <form>` | | Form `--render-document` writes: `markdown` (default), `html`, rendered from the document tree itself (see [Rendering a document as HTML](#rendering-a-document-as-html)), or `pdf`, which drives an external converter |
-| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid` (default), `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
-| `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
+| `--diagram-form <form>` | | Form the graph-shaped diagram blocks of `--render-document` and `--render-documents` are written in: `mermaid`, `dot`, Graphviz DOT for a toolchain that lays diagrams out with Graphviz, produced without Graphviz installed, or `plantuml`, PlantUML in the Pilot visualizer's B&W style, produced without a PlantUML jar. Unset, the form is chosen per diagram: `dot` for a view some `DiagramLayout::Layout` or `Route` positions, drawn by Graphviz where it states (inline SVG in Markdown and HTML when `dot`, or `OPENSYSML_DOT`, is installed; Mermaid under a visible notice naming the missing tool when it is not), `mermaid` for every other graph-shaped view. Stated, it applies to every diagram of the document in every `--doc-form`; a table-kind view is a table whichever form, and a `sequence` diagram, which has no DOT form, is refused under `dot` |
+| `--render-documents <dir>` | | Render every document definition the model declares as a linked set into the directory, one file per document, so cross-document references resolve on disk; a document that cannot be rendered gets a page stating why and the run exits 3. `--doc-form html` writes the set as HTML pages linking shared stylesheet files written beside them |
 | `--doc-title-page` | | Put the document title on a page of its own (`--doc-form html` or `pdf`) |
 | `--doc-toc` | | Write a table of contents ahead of the content (`--doc-form html` or `pdf`) |
 | `--doc-number-sections` | | Number the section headings hierarchically (`--doc-form html` or `pdf`) |
+| `--doc-number-figures` | | Caption the figures and tables with their number in document order — `Figure 1. <caption>` for a drawn diagram or an `Image` block, `Table 1. <caption>` for a query table or a table-kind diagram — in every `--doc-form`; a block without a caption is captioned by its number alone, and formulas are not numbered. Off, captions are written as stated |
 | `--html-theme <name>` | | Style the HTML page or PDF with a bundled theme layered over the default stylesheet: `default`, `acm`, `ieee`, `modern`, `nasa`, `print` or `report` (default: the default stylesheet alone) |
 | `--html-css <file\|url>` | | Style the HTML or PDF with this stylesheet: a file is inlined in a single page and written beside a set's pages, a URL is linked. Repeatable, applied in order after the default sheet (`--doc-form html` or `pdf`) |
 | `--html-no-default-css` | | Leave the default stylesheet out, so only `--html-css` sheets style the HTML or PDF |
@@ -259,9 +274,10 @@ written in, so the verdicts are about that object:
 | `-instantiate <name>` | Creates an object first, so the verdicts are about it; with `-run-query` or `-render-document`, so the query reads it ([Objects the session holds](../manual/query-cookbook.md#objects-the-session-holds)). Under `-schedule explore`, `-engine check`, `smt` or `all` each run creates an object of the declaration of its own before its behaviors start, one per `-instantiate` as the session holds one per `-instantiate`, which a `-state` or `-action` named alone attaches to and a path such as `Mission::mission.vehicle` walks into ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-calc "<name>(<args>)"` | Invokes a calculation and reports what it computed |
 | `-analysis "<name>[(<args>)] [object]"` | Runs an analysis or [verification](#verification-case-verdicts) case — a [trade study](#trade-studies) included — and reports its `out` and `return` values with their units, then the verdict of its `objective` — `satisfied`, `not satisfied` with the violated condition, or `undecided` with the reason — as `%analysis` does. An objective typed by a requirement def binds the def's subject as a requirement usage does (`subject = ship;`, `subject s = ship;` or `subject :>> s = ship;`); one binding none checks the case's result, the library's default for it, and is `undecided` naming the type when that result is not of the subject's type. Arguments bind the case's `in` parameters, positionally (`Pkg::Case(3.0)`) or by name (`Pkg::Case(limit = 3.0)`); the object, one `-instantiate` created and named as `-state` names its performer, is the case's `subject`. A usage that binds its subject (`subject s = ship;`) needs no object; a definition, or a usage that binds none, is refused by name without one. A verification case runs the same way and reports beside those verdicts the `VerdictKind` its body produced. Repeatable |
+| `-tool-dry-run "<case|action>[(<args>)] [object]"` | Shows what the external tool the case's or action's `ToolExecution` names would be given — manifest, executable, argv, environment, working directory, standard input, input file and reply mapping — with the model's current values and the invocation's arguments bound, without starting the process, then discards everything the run did — the session is as the preview found it — as `%tool` does. A run reaching no `ToolExecution`-annotated action reports that; a manifest fault, an unregistered tool or an input the call does not send reports the typed error the real run would fail with; refused under an exploring schedule, which runs many linearizations while a preview shows one run's first call. Repeatable. See [External tools](external-engines.md) |
 | `-record-run "<name>[(<args>)] [object]"` | Runs an analysis case as `-analysis` does and records the run into the model as `AnalysisRecords` elements: a record definition named for the case in a `Records` package beside the case's, and one part under it per run carrying the inputs bound and the outputs produced, annotated `@AnalysisRecords::RecordedRun` with when the run was made, the tool and command, and its kind. With `-sweep` the case sweeps as `-sweep` makes it and one record per row is written (`kind = "sweep"`); with `-runs <n>` and `-seed` a `Simulation::MonteCarlo` case is sampled as `-runs` makes it and each run recorded (`kind = "runs"`). Composes with `-convert sysml -o`, which writes the session text the records joined, and with `-render-document`, whose queries then see the records; a run that fails records nothing and leaves the model untouched. Repeatable. See [Recording analysis runs](#recording-analysis-runs) |
 | `-record-into <package>` | Records the `-record-run` runs into the package named instead of a `Records` package beside the case's; refused without `-record-run` |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` and relationship-derived `RelatedColumn(...)` projections evaluated per row. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column(name = "<column>", expression = <expr>)` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
@@ -286,7 +302,7 @@ written in, so the verdicts are about that object:
 | `-engines` | Lists the analysis engines this build knows — name, kind, protocol, authority, the question kinds each answers and its status — and exits, without a model and without starting a process: the external engines of `OPENSYSML_ENGINES` and the tools of `OPENSYSML_TOOLS` are listed from their manifests alone, each followed by a line naming its file and command. See [Analysis engines](#analysis-engines) |
 | `-probe` | With `-engines`, also start each external engine once, check its `describe` against its manifest entry field by field and report the outcome as its status (`ready (…; describe agrees)`, or the first field that disagrees). See [External engines](external-engines.md) |
 | `-engine <name>\|auto\|all` | The analysis engine every check of the invocation is put to. `auto` (the default) picks the engine of highest authority covering the question and advances past one that refuses or answers *not covered*, reaching an external engine only after every built-in one has; a name (`run`, `explore`, `check`, `smt`, `sweep`, `solve`, or an external engine's) puts the question to that engine alone, and its refusal is the answer; `all` puts it to every engine covering it, one after another in name order, and composes their answers. A name no engine is registered under is refused before anything runs. `-engine explore` explores as `-schedule explore` does; `-engine check` searches every schedule of each `-action` for a violation, a deadlock, a failure or a divergence ([Checking every schedule of an action](#checking-every-schedule-of-an-action-or-a-state-machine)); `-engine smt` decides a `-check-property` over every schedule and every value of the free inputs with an SMT solver ([Deciding a property over the inputs](#deciding-a-property-over-the-inputs)). See [Analysis engines](#analysis-engines) |
-| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model. `n` is a positive integer; the default is `OPENSYSML_JOBS`, else the number of CPUs. The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
+| `-jobs <n>` | Runs of one check that may go concurrently — the linearizations of an exploration, the rows of a `-sweep`/`-samples`, the engines `-engine all` consults — each on a worker of its own over the shared model, and how many files of one load are parsed and validated at once (`-validate`, `-satisfy`, `-check` and every mode that loads files). `n` is a positive integer; the default is `OPENSYSML_JOBS`, else one per CPU, fewer where the memory available leaves less than 512 MiB per worker (Linux: `MemAvailable` and the cgroup's `memory.max`; one at least). The result of a check is the same at any count: the outcome table, the witness, the run count and the cut a violation makes are those of the runs taken one at a time in plan order. See [Running in parallel](#running-in-parallel) |
 | `-json` | Reports the checks as one JSON document rather than as lines. Each check carries its `plan` and `results[]` beside the fields it always carried ([Analysis engines](#analysis-engines)) |
 
 Other modes, each described in full by `sysml -help` and the manual page:
@@ -608,7 +624,10 @@ line is the only one printed. `TB`/`LR` become `top to bottom direction`/`left t
 PlantUML has no reversed direction, so `BT`/`RL` take the nearest forward one under a
 `' not represented:` notice. PlantUML pins no position either, so DiagramLayout geometry is kept as
 `' canvas:`, `' layout:` and `' route:` comments and noticed — `-render-form dot` is the form that
-honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)). Producing PlantUML
+honours it ([the PlantUML section](../project/view-rendering-forms.md#plantuml)) — but the diagram
+draws the nodes the DOT form draws: in a view that positions some nodes, the placed ones and the
+edges between them, with the unplaced accounted for in a `' not represented:` notice, and every
+node under `-render-unplaced strip`. Producing PlantUML
 needs no Java and no PlantUML jar; drawing the file does (`java -jar plantuml.jar -tsvg view.puml`).
 
 `-render-palette <name>` fills the DOT and PlantUML nodes with a colourblind-safe palette by **keyword
@@ -628,6 +647,28 @@ applies to the `dot` and `plantuml` forms alone, which fill each node with the s
 forms ignore it. A name that is no palette is refused with
 status 2 and the names there are; `-render-palette` without `-render` or `-render-all` is refused
 likewise.
+
+`-render-style <style>` names the look the DOT form draws in. `pilot`, the default, is the Pilot
+visualizer's Standard B&W above; `cameo` is the look of Cameo Systems Modeler, for a diagram
+migrated from a `.mdzip` to keep the look its authors saw: a diagram frame with the
+`stm [State Machine] Owner [ Name ]` header tab, 11 pt Arial, Cameo's gradient fills — pale
+yellow states, green actions, orange blocks — with thin dark borders, a state's `do / Activity`
+compartment under a rule, the initial dot, final bull's-eye, decision diamond and fork bars, and
+notes with a folded corner and dashed anchor, each colour measured from Cameo's own output
+([the measurements](../project/view-rendering-forms.md#the-cameo-style)). A palette may be named
+with it and recolours the plain nodes. The style applies to `-render`, `-render-all` and the
+`dot` diagrams of `-render-document` and `-render-documents` in every `-doc-form`; the Mermaid
+and PlantUML forms write a `not represented: style cameo` notice, the text and Markdown forms
+ignore it. A member's own `DiagramLayout::Style` — fill, line and text colour, font, size,
+weight, slant — is drawn over either look, and a `DiagramLayout::Note` beside the member it is
+about ([the annotations](../project/diagram-layout-annotations.md)). A name that is neither
+style is refused with status 2 and the two there are; `-render-style` without something to
+render is refused likewise.
+
+```bash
+sysml Project.sysml -render-document Project::DesignDescription \
+    -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
+```
 
 A rendering is laid out by whatever draws it, unless the model says where things go. The
 `DiagramLayout` library (bundled, imported like any other) states that in notation: a
@@ -657,7 +698,12 @@ the edges at it — a migrated diagram shows what its source showed, and nothing
 placed box — and a `// not represented:` notice counts what was left out;
 `-render-unplaced strip` draws those nodes instead, in rows below the canvas or the positioned
 boxes, wrapped at the drawing's width and clear of it and of one another. Either way every node
-drawn is pinned, so `neato` is never left to place one.
+drawn is pinned, so `neato` is never left to place one. The Mermaid and PlantUML forms draw the
+same node set and edge set: the placed nodes alone by default, under a `%% not represented:` or
+`' not represented:` notice counting the unplaced, and every node under `-render-unplaced strip`,
+laid out by the tool that draws them since neither pins a position. So a positioned view's figure
+in a document shows the picture its layout describes in whichever `-diagram-form`, and an
+exposed package the layout does not place does not expand into a chart of its whole contents.
 A model with no layout annotations renders exactly as before. `-validate` reports a `Layout` or
 `Route` on an element the rendering does not draw as a node or an edge, a `Route` with an odd
 number of values, a `Canvas` outside a view, and two positions for one element in one view (the
@@ -672,22 +718,44 @@ sysml model.sysml -render Views::vehicleView -render-form text
 `-render-documents <dir>` renders every document definition the loaded model declares into the
 directory, one Markdown file per document, in fully-qualified-name order. Each file name is the
 document's fully qualified name with `::` replaced by `-`, any byte outside ASCII letters,
-digits and `_` escaped as `.XX` (uppercase hex), plus `.md`. The names are deterministic, so
-cross-document references (see [the authoring chapter](../manual/authoring.md)) resolve as relative
-links between the written files, and repeated runs write identical bytes.
+digits and `_` escaped as `.XX` (uppercase hex), plus `.md`; so two documents that share a short
+name in different packages (`Reports::Alpha::Summary` and `Reports::Beta::Summary`) get two
+files. A stem that would name a Windows device (`CON`, `AUX`) is escaped, and a name too long for
+a file system is cut to a fixed prefix plus `~` and a hash of the whole name. Two documents
+whose files would meet on a case-insensitive file system (`Reports::Summary` and
+`Reports::SUMMARY`) are both written under that tagged `~hash` form, as `-render-all` does, so
+the set never puts two documents in one file. The names are deterministic, so cross-document
+references (see [the authoring chapter](../manual/authoring.md)) resolve as relative links between
+the written files — to the tagged name where one was needed — and repeated runs write identical
+bytes.
 
 ```bash
 sysml model.sysml -render-documents rendered
 ```
 
-The directory is created if needed; written paths go to stderr and stdout stays empty. A
-model that declares no documents, declares two documents with the same name, or does not analyse
-cleanly stops the run with status 2. `-render-documents` cannot be combined with
+The directory is created if needed; written paths go to stderr and stdout stays empty. A model
+that declares no documents or does not analyse cleanly stops the run with status 2 before anything
+is written. Once the set is being rendered, each document is compiled and evaluated on its own:
+one that fails — a query whose column has no value for a row, a diagram past a form's limit — does
+not stop the others. The run writes every document that rendered, writes in place of each one
+that did not a page carrying its title, **This document could not be rendered.** and the error, so
+links to it from other pages resolve to that explanation rather than dangling (a link into one of
+its blocks lands on a line naming that block, under the anchor the link expects), and then reports
+each failure on stderr as `document <qualified name> could not be rendered: <reason>` and exits
+with status 3 (see [Exit status](#exit-status)). `-render-documents` cannot be combined with
 `-render-document`, `-render`, `-render-all`, `-o`, `-convert`, a query flag, or a check flag
 other than `-instantiate` (see [Rendering a document over objects](#rendering-a-document-over-objects)).
 Rendering a single document with `-render-document` still succeeds when it has cross-document
-references: the links point at the targets' expected file names and dangle until those documents
-are rendered into the same directory.
+references: the links point at the file names the set would give the targets and dangle until
+those documents are rendered into the same directory.
+
+A document named by its short name alone when the model declares more than one of that name is
+ambiguous, and the error names every candidate so one can be copied:
+
+```bash
+$ sysml model.sysml -render-document Summary
+sysml: symbol "Summary" is ambiguous: Reports::Alpha::Summary, Reports::Beta::Summary (use a qualified name)
+```
 
 `-render-document` takes as many model files as the document needs, loaded as one model, so a
 document can query elements declared in sibling files:
@@ -1194,7 +1262,11 @@ model. `-convert sysml` writes the session text the records joined, so
 `-record-run ... -convert sysml -o saved.sysml` is how a recorded model is
 saved; `-render-document` composes the same way, the records made before the
 document's queries run. A run that fails, or a record submission that produces
-diagnostics, records nothing and leaves the model untouched. See
+diagnostics, records nothing and leaves the model untouched; the submission
+re-checks the whole model, but only errors the records introduce refuse them —
+errors the model had before the run are not counted against the records, and
+a migrated SysML v1 model whose transitions declare `accept s3 : s3` parameters
+re-checks as clean as it loaded. See
 [Recording analysis runs](../manual/recording-analysis-runs.md).
 
 ## Comparing a migrated configuration with the tool's results
@@ -1275,6 +1347,17 @@ one check of the report, `compare <name>`, whose `lines` are the table and the n
 are what the two executions produced — nothing is scaled, filtered or tuned — so a behavior whose
 bodies or guards are not migrated compares honestly short, and the configuration's `-runs`
 override lets a tool's single stored run be set beside a hundred of OpenSysML's.
+
+The configurations are compared one after another, each printed as soon as it is decided, and
+their runs go `-jobs` at a time ([Running in parallel](#running-in-parallel)) over the one loaded
+model: the parsed and resolved documents, their symbol index and the index of the model's `about`
+metadata are shared read-only by every worker, each worker holding memo tables of its own, and a
+run's objects and messages are released once its observables are read — its trace alone is kept
+for `-trace`. What a comparison of a large migrated model holds at once is therefore the model,
+the workers and the runs in flight, not every run made, so its memory grows with `-jobs` rather
+than with `-runs` or the number of configurations. The default job count is bounded by the memory
+available (see `-jobs`); set `-jobs` or `OPENSYSML_JOBS` lower on a machine the default still
+strains, or run one configuration at a time with `-action`.
 
 ## Exploring every linearization
 
@@ -1414,9 +1497,11 @@ subject of a service request ([wire contract](wire-contract.md)), and `-engine c
 
 ### Running in parallel
 
-`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU) lets `n` runs of one exploration go at
-once, each on a worker of its own — a resolver and semantic model per worker over the one loaded
-model, so no run sees another's memo or object. The prefixes explore discovers form a work queue
+`-jobs <n>` (default `OPENSYSML_JOBS`, else one per CPU — fewer where the memory available at
+startup leaves less than 512 MiB per worker, read on Linux from `MemAvailable` and the cgroup's
+`memory.max`, and never fewer than one) lets `n` runs of one exploration go at once, each on a
+worker of its own — a resolver and semantic model per worker over the one loaded model, so no run
+sees another's memo or object. The prefixes explore discovers form a work queue
 ordered as the sequential exploration would take them, and the report is assembled in that order:
 the outcome table, each outcome's witness (the least prefix reaching it), the run count and the
 budget hit are the ones `-jobs 1` reports, byte for byte, whatever `n` is. A `runs` budget is a
@@ -1433,6 +1518,12 @@ the rows, their outputs, verdicts, evaluations and errors are those of `-jobs 1`
 
 With `-json` the check's `plan` carries `workers`, how many workers the plan built, and
 `warming`, the milliseconds spent building them; the human-readable report does not print them.
+
+The same count sets how many files of one load are parsed and validated at once. The files named
+on the command line are parsed on `n` workers, indexed together once, and analysed on `n` workers,
+each file as a document of its own; the diagnostics are those of `-jobs 1`, in command-line order,
+whatever `n` is. A model split over several files therefore validates faster on more CPUs where a
+single file does not; `docs/project/satellite-network-stress-test.md` records the measurements.
 
 ## Analysis engines
 
@@ -1480,8 +1571,9 @@ sweep    built-in  -         observed   sweep            ready
 Every tool the manifest directory `OPENSYSML_TOOLS` names adds a `tool:<name>` engine, listed
 the same way with its executable's status (`tool:ModelCenter  tool  object  observed  compute
 ready (ModelCenter 14.1 at /opt/modelcenter/bin/mc-batch)`); it answers the `compute` a
-performance of an action annotated `ToolExecution` asks, and nothing else does, so a tool that
-is unregistered or fails stops that performance rather than falling back to the action's body
+performance of an action — or an invocation of a `calc def` or calc usage — annotated
+`ToolExecution` asks, and nothing else does, so a tool that
+is unregistered or fails stops that performance or calculation rather than falling back to the body
 ([External tools](environment.md#external-tools)). Every engine the manifest directory
 `OPENSYSML_ENGINES` names is listed under its own name, with the manifest's authority and
 answers and the status its file can tell; a `policy`, `sampler` or `module` entry is listed as
@@ -2014,6 +2106,7 @@ the one place it is written down; [the guide](../guide/) links here.
 | `0` | What was asked for was done: every file loaded and analysed cleanly, every `-e` expression produced a value (`<undetermined>`, the model-level value of an expression over a feature the model leaves open, is one), every check held, a conversion was written. Warnings leave the status `0`. |
 | `1` | The model answered false: a constraint, requirement or satisfaction assertion the model decided did not hold. Only a verdict reports this status. |
 | `2` | What was asked for could not be done, so the model answered nothing: a file that could not be read, a model that did not analyse cleanly, an object whose feature values did not materialize, an unresolved name, a check that could not be made (including a condition that is `<undetermined>`: it is reported as `no value`, naming the feature the model leaves open, never as a verdict), an exploration that hit its budget before every linearization was tried, a conversion that could not be written because the RDF graph cannot rebuild a source construct, a misused flag or an invalid `OPENSYSML_MAX_*` value. |
+| `3` | Part of what was asked for was done: a `-render-documents` set in which at least one document could not be rendered. Every document that rendered was written, a page stating the error was written in place of each one that did not, and each failure was reported on stderr with the document's qualified name. Only a set of independent outputs reports this status. |
 
 ```bash
 $ printf '%s\n' 'constraint MassBudget { 1 > 2 }' > model.sysml

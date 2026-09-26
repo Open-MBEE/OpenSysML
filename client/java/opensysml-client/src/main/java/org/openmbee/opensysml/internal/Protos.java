@@ -1024,7 +1024,50 @@ public final class Protos {
       addMember.multiplicity().ifPresent(add::setMultiplicity);
       addMember.value().ifPresent(add::setValue);
       add.addAllSpecializes(addMember.specializes());
+      add.setIsAbstract(addMember.isAbstract());
+      add.addAllRedefines(addMember.redefines());
+      add.setIsDefault(addMember.isDefault());
+      add.setDirection(addMember.direction());
       builder.setAddMember(add);
+    } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
+      org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
+          org.openmbee.opensysml.proto.AddSatisfyEdit.newBuilder()
+              .setOwner(addSatisfy.owner())
+              .setRequirement(addSatisfy.requirement())
+              .setIsAsserted(addSatisfy.asserted())
+              .setIsNegated(addSatisfy.negated());
+      addSatisfy.satisfyingFeature().ifPresent(add::setSatisfyingFeature);
+      builder.setAddSatisfy(add);
+    } else if (edit instanceof Edit.AddRequirementConstraint addConstraint) {
+      org.openmbee.opensysml.proto.AddRequirementConstraintEdit.Builder add =
+          org.openmbee.opensysml.proto.AddRequirementConstraintEdit.newBuilder()
+              .setOwner(addConstraint.owner())
+              .setKind(addConstraint.kind())
+              .setExpression(addConstraint.expression());
+      addConstraint.name().ifPresent(add::setName);
+      builder.setAddRequirementConstraint(add);
+    } else if (edit instanceof Edit.AddTransition addTransition) {
+      org.openmbee.opensysml.proto.AddTransitionEdit.Builder add =
+          org.openmbee.opensysml.proto.AddTransitionEdit.newBuilder()
+              .setOwner(addTransition.owner())
+              .setTarget(addTransition.target())
+              .setInitial(addTransition.initial());
+      addTransition.name().ifPresent(add::setName);
+      addTransition.source().ifPresent(add::setSource);
+      addTransition.trigger().ifPresent(add::setTrigger);
+      addTransition.guard().ifPresent(add::setGuard);
+      addTransition.effect().ifPresent(add::setEffect);
+      builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddConnection addConnection) {
+      org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
+          org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()
+              .setOwner(addConnection.owner())
+              .setKind(addConnection.kind())
+              .setFromEnd(addConnection.from())
+              .setToEnd(addConnection.to());
+      addConnection.name().ifPresent(add::setName);
+      addConnection.type().ifPresent(add::setType);
+      builder.setAddConnection(add);
     } else if (edit instanceof Edit.Delete delete) {
       builder.setDelete(
           org.openmbee.opensysml.proto.DeleteEdit.newBuilder()

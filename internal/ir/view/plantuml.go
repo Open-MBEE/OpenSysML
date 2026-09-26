@@ -19,8 +19,10 @@ func (r *Rendering) PlantUML() (string, error) {
 // direction (PlantUML draws top to bottom or left to right, so a reversed
 // direction takes its nearest and is noted as not represented; the empty
 // direction leaves PlantUML's default) and filled from the stated palette by
-// keyword family, as the DOT form is. Placement is written as comments,
-// PlantUML having no absolute positions; for pinned positions use the DOT form.
+// keyword family, as the DOT form is. A rendering some Layout positions draws
+// the nodes the DOT form draws: the placed ones, and the unplaced ones too under
+// UnplacedStrip. Placement itself is written as comments, PlantUML having no
+// absolute positions; for pinned positions use the DOT form.
 func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if !r.Kind.SupportsForm(FormPlantUML) {
 		return "", &WrongFormError{Form: FormPlantUML, Kind: r.Kind, View: r.View}
@@ -28,8 +30,12 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if err := options.Palette.check(); err != nil {
 		return "", err
 	}
+	if err := options.Unplaced.check(); err != nil {
+		return "", err
+	}
+	r = r.settleUnplaced(options.Unplaced, FormPlantUML)
 	w := &plantumlWriter{borders: r.Kind.paletteBorders(), fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree},
-		labels: labelsOf(r.Roots)}
+		labels: labelsOf(r.Roots, false, nil)}
 	for _, root := range r.Roots {
 		w.fills.collect(root)
 	}
@@ -44,6 +50,10 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 	if placed, routed := r.countGeometry(); placed+routed > 0 || r.Canvas != nil {
 		notices = append(notices, fmt.Sprintf("%d positioned node(s) and %d route(s) kept as comments; PlantUML pins no position, the dot form does", placed, routed))
 	}
+	if options.Style != "" && options.Style != StylePilot {
+		notices = append(notices, styleNotice(options.Style))
+	}
+	notices = append(notices, r.visualNotices(noFontOrEdgeStyle, true)...)
 	b := &w.b
 	b.WriteString("@startuml\n")
 	if r.View == "" {
@@ -181,8 +191,8 @@ const (
 func (w *plantumlWriter) writeClassDiagram(r *Rendering) {
 	b := &w.b
 	b.WriteString("hide circle\nhide empty members\n")
-	if r.Empty() {
-		fmt.Fprintf(b, "class %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "class %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -207,8 +217,8 @@ func (w *plantumlWriter) writeClassNode(node *Node) {
 // with children is a rectangle block holding them, a connection an undirected
 // heavy line, a flow a dashed arrow.
 func (w *plantumlWriter) writeRectangleDiagram(r *Rendering) {
-	if r.Empty() {
-		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(&w.b, "rectangle %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -242,8 +252,8 @@ func (w *plantumlWriter) writeRectangleNode(node *Node, depth int) {
 func (w *plantumlWriter) writeStateDiagram(r *Rendering) {
 	b := &w.b
 	b.WriteString("hide empty description\n")
-	if r.Empty() {
-		fmt.Fprintf(b, "state %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "state %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	starts := map[string][]Edge{}
@@ -294,8 +304,8 @@ func (w *plantumlWriter) writeStateNode(node *Node, depth int, starts map[string
 // rendering settled on. A participant is filled under a palette like any usage.
 func (w *plantumlWriter) writeSequenceDiagram(r *Rendering) {
 	b := &w.b
-	if r.Empty() {
-		fmt.Fprintf(b, "participant %s as empty\n", plantumlQuote(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "participant %s as empty\n", plantumlQuote(r.blankReason(FormPlantUML)))
 		return
 	}
 	for _, node := range r.Roots {
@@ -318,6 +328,19 @@ func (w *plantumlWriter) writeArrow(indent, from, to, arrow, label string) {
 		return
 	}
 	fmt.Fprintf(&w.b, "%s%s %s %s : %s\n", indent, from, arrow, to, plantumlText(label))
+}
+
+// plantumlStyleColor is a Style's colours as PlantUML's inline colour,
+// `#fill;line:RRGGBB;text:RRGGBB`; with no fill it opens `#;`.
+func plantumlStyleColor(style *Style) string {
+	color := "#" + strings.TrimPrefix(style.Fill, "#")
+	if style.Line != "" {
+		color += ";line:" + strings.TrimPrefix(style.Line, "#")
+	}
+	if style.Text != "" {
+		color += ";text:" + strings.TrimPrefix(style.Text, "#")
+	}
+	return color
 }
 
 // plantumlArrow is how an edge of each kind is drawn: a connection as the
@@ -351,11 +374,17 @@ func (w *plantumlWriter) decoration(node *Node) string {
 	if shape := plantumlShapeStereotype(node); shape != "" && shape != node.Kind {
 		fmt.Fprintf(&out, " <<%s>>", shape)
 	}
-	if w.fills.filled(node) {
+	switch {
+	case w.fills.filled(node):
 		out.WriteString(" " + w.fills.fill(node))
 		if w.borders {
 			out.WriteString(";line:" + strings.TrimPrefix(w.fills.color(node), "#"))
 		}
+		if node.Style != nil && node.Style.Text != "" {
+			out.WriteString(";text:" + strings.TrimPrefix(node.Style.Text, "#"))
+		}
+	case node.Style != nil && (node.Style.Fill != "" || node.Style.Line != "" || node.Style.Text != ""):
+		out.WriteString(" " + plantumlStyleColor(node.Style))
 	}
 	return out.String()
 }
@@ -386,9 +415,9 @@ func plantumlShapeStereotype(node *Node) string {
 // plantumlLabel is a node's label ready to quote: the name line bold, the
 // keyword line italic at the skin's stereotype size, every line escaped.
 func (w *plantumlWriter) plantumlLabel(node *Node) string {
-	lines := w.labels.lines(node)
-	parts := []string{"**" + plantumlText(lines[0]) + "**"}
-	for _, line := range lines[1:] {
+	head, lines := w.labels.head(node), w.labels.lines(node)
+	parts := []string{"**" + plantumlText(head) + "**"}
+	for _, line := range lines[len(w.labels.headLines(node)):] {
 		parts = append(parts, plantumlText(line))
 	}
 	if keyworded(node) {

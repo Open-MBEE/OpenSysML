@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -699,4 +700,153 @@ func TestToolEngineDispatchKeepsTheSelection(t *testing.T) {
 		t.Fatalf("run alone refused %v; want the run to answer with the refusal as its fault", got)
 	}
 	wantFaulted(t, plan, err)
+}
+
+// Each sweep row's tool call is attributed to the context its run made it in:
+// ToolTextsIn reports the row's own calls, ToolTexts all of the plan's.
+func TestToolCallsAreAttributedToTheContextThatMadeThem(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	swept := p.action(t, "Swept")
+	plan, err := p.context().ResolveSweepPlan(swept, runtime.SweepPlan{Ranges: []runtime.SweepRange{{Param: "drag", From: intOf(1), To: intOf(2)}}}, 0, nil)
+	if err != nil {
+		t.Fatalf("resolve the plan: %v", err)
+	}
+	row := func(rctx *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
+		inputs := make(map[string]runtime.Value, len(bindings))
+		for _, b := range bindings {
+			inputs[b.Param] = b.Value
+		}
+		result, err := rctx.RunAnalysis(swept, runtime.AnalysisArgs{Named: inputs}, p.pkg, nil)
+		return runtime.SweepRunResult{Outputs: result.Outputs}, err
+	}
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	answered, err := r.Sweep(context.Background(), Request{Model: p.building(), Subject: "Drive::Swept", Schedule: runtime.DefaultSchedulePolicy, Budget: Budget{Jobs: 2}, Selection: Auto()}, plan, row)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	table := answered.Result.Table()
+	if len(table.Rows) != 2 {
+		t.Fatalf("result %+v, want a table of 2 rows", answered.Result)
+	}
+	for i, row := range table.Rows {
+		if row.Err != nil {
+			t.Fatalf("row %d: %v", i, row.Err)
+		}
+		texts := answered.ToolTextsIn(row.Context)
+		if len(texts) != 1 {
+			t.Fatalf("row %d is attributed %d calls, want its own one", i, len(texts))
+		}
+		if want := fmt.Sprintf(`"C_D":{"value":%d`, i+1); !strings.Contains(texts[0], want) {
+			t.Errorf("row %d's call %q does not carry its own drag value %q", i, texts[0], want)
+		}
+	}
+	if got := answered.ToolTexts(); len(got) != 2 {
+		t.Errorf("ToolTexts = %v, want both rows' calls", got)
+	}
+	if texts := answered.ToolTextsIn(nil); texts != nil {
+		t.Errorf("a nil context selects %v, want none", texts)
+	}
+}
+
+// A tool call that fails is provenance too: the plan's uses name what ran, marked
+// with the failure, and the typed error still reaches the caller.
+func TestAFailedToolCallJoinsTheProvenance(t *testing.T) {
+	p := parsePilot(t)
+	t.Setenv(standinMode, "malformed")
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	ctx := p.context()
+	_, plan, err := p.perform(t, r, ctx, "Once")
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed {
+		t.Fatalf("perform = %v, want a malformed-output ToolError", err)
+	}
+	if len(plan.Tools) != 1 {
+		t.Fatalf("plan.Tools = %v, want the failed call recorded", plan.Tools)
+	}
+	use := plan.Tools[0]
+	if use.Failed == "" || !strings.Contains(use.Failed, fault.Error()) {
+		t.Errorf("use.Failed = %q, want the failure %q", use.Failed, fault)
+	}
+	if use.in != ctx {
+		t.Error("the failed call is not attributed to the context that made it")
+	}
+	if got := use.String(); !strings.Contains(got, " failed: "+use.Failed) {
+		t.Errorf("String() = %q, want the failure spelled", got)
+	}
+}
+
+// Under all the composed answer carries no Tool of its own: the use the answering
+// engine's result carried joins the provenance from the plan's steps.
+func TestTheAllSelectionKeepsTheToolsProvenance(t *testing.T) {
+	p := parsePilot(t)
+	t.Setenv(standinRecord, filepath.Join(t.TempDir(), "requests.jsonl"))
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	_, plan, err := Perform(context.Background(), r, selected(p.context(), All()), call, answer)
+	if err != nil {
+		t.Fatalf("all: %v, plan %+v", err, plan.Steps)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the one ModelCenter call", texts)
+	}
+}
+
+// used reports the calls made, in the order they were made rather than the order
+// their results arrived.
+func TestUsedReportsTheCallsInCallOrder(t *testing.T) {
+	r := &toolRunner{uses: []ToolUse{{Tool: "second", seq: 2}, {Tool: "first", seq: 1}}}
+	uses := r.used()
+	if len(uses) != 2 || uses[0].Tool != "first" || uses[1].Tool != "second" {
+		t.Fatalf("used %v, want first before second", uses)
+	}
+}
+
+// Under all the plan stops at the first fault in name order, but a tool an engine behind
+// that fault ran is provenance still: its use is kept though its step is dropped.
+func TestAToolRunBehindAFaultJoinsTheProvenance(t *testing.T) {
+	p := parsePilot(t)
+	record := filepath.Join(t.TempDir(), "requests.jsonl")
+	t.Setenv(standinRecord, record)
+	r := toolRegistry(t, manifestDir(t, pilotEntry(standin(t))))
+	fault := errors.New("the earlier engine faulted")
+	if err := r.Register(fakeEngine{name: "a-faulter", kinds: []Kind{Compute}, run: func(ctx context.Context) (Result, error) {
+		for {
+			if _, err := os.Stat(record); err == nil {
+				return Result{}, fault
+			}
+			select {
+			case <-ctx.Done():
+				return Result{}, ctx.Err()
+			case <-time.After(5 * time.Millisecond):
+			}
+		}
+	}}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	once := p.action(t, "Once")
+	call := func(rctx *runtime.Context) (map[string]runtime.Value, error) { return rctx.ExecuteAction(once) }
+	answer := func(out map[string]runtime.Value, err error) Answer {
+		if err != nil {
+			return Answer{Err: err}
+		}
+		return Answer{Claim: ClaimValue, Values: ValuesOf(out)}
+	}
+	req := selected(p.context(), All())
+	req.Budget.Jobs = 2
+	_, plan, err := Perform(context.Background(), r, req, call, answer)
+	if !errors.Is(err, fault) {
+		t.Fatalf("all = %v, want the earlier engine's fault", err)
+	}
+	if texts := plan.ToolTexts(); len(texts) != 1 || !strings.Contains(texts[0], "ModelCenter") {
+		t.Fatalf("plan tools %v, want the ModelCenter call the dropped step ran", texts)
+	}
 }

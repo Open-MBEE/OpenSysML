@@ -15,14 +15,25 @@ import (
 // same connector-end information an object of a connector is materialized from —
 // never re-derived from the source text. Nodes and edges are placed by the
 // Layout and Route annotations positioning their elements in view, nil for a
-// rendering outside any view.
+// rendering outside any view. An exposed feature another exposed feature draws
+// nested in it is not a second root.
 func (r *Renderer) renderInterconnection(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	w := &featureWalk{r: r, view: view, ids: &nodeIDs{}, nodes: map[*symbols.Symbol]*Node{}, out: out}
+	var roots []*symbols.Symbol
+	for _, elem := range exposed {
+		if !r.drawsConnector(elem) && featureLike(elem) {
+			roots = append(roots, elem)
+		}
+	}
+	descendants := r.exposedDescendants(roots, r.interconnectionMembers)
 	for _, elem := range exposed {
 		switch {
 		case r.drawsConnector(elem):
 			w.connectors = append(w.connectors, elem)
 		case featureLike(elem):
+			if descendants[symbols.KeyOf(elem)] {
+				continue
+			}
 			out.Roots = append(out.Roots, w.featureNode(elem, map[*symbols.Symbol]bool{}, 0, true))
 		default:
 			out.Notices = append(out.Notices, fmt.Sprintf(
@@ -61,13 +72,15 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		name = localName(sym)
 	}
 	node := &Node{ID: w.ids.take(), Kind: declKind(sym), Name: name, NameSynthesized: r.model.NameSynthesized(sym),
-		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out)}
+		Type: declType(sym), Typings: r.declTypings(sym), Origin: symbolOrigin(sym), Geometry: r.geometryOf(w.view, sym, w.out),
+		Style: r.styleOf(w.view, sym, w.out)}
 	if existing, ok := w.nodes[sym]; ok {
 		node.Detail = detailWith(node.Detail, "already shown as "+existing.ID)
 		return node
 	}
 	w.nodes[sym] = node
-	if seen[sym] || depth >= maxTreeDepth {
+	r.notesOf(w.view, sym, node.ID, w.out)
+	if seen[sym] || depth >= r.treeDepth() {
 		return node
 	}
 	seen[sym] = true
@@ -80,6 +93,18 @@ func (w *featureWalk) featureNode(sym *symbols.Symbol, seen map[*symbols.Symbol]
 		}
 	}
 	return node
+}
+
+// interconnectionMembers is the members featureNode draws as nested nodes:
+// the feature-like of what an element declares, connectors being edges.
+func (r *Renderer) interconnectionMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range r.containedMembers(sym) {
+		if featureLike(member) {
+			out = append(out, member)
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
@@ -104,12 +129,12 @@ func (r *Renderer) connectionEdges(view, connector *symbols.Symbol, nodes map[*s
 		}
 		resolved = append(resolved, node)
 	}
-	route := r.routeOf(view, connector, out)
+	route, style := r.routeOf(view, connector, out), r.edgeDress(view, connector, resolved[0].ID, resolved[1].ID, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
 				From: resolved[i].ID, To: resolved[j].ID, Label: label, Kind: kind,
-				Origin: symbolOrigin(connector), Route: slices.Clone(route),
+				Origin: symbolOrigin(connector), Route: slices.Clone(route), Style: style,
 			})
 		}
 	}

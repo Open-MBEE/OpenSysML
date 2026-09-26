@@ -238,6 +238,7 @@ type featureMods struct {
 	isNonunique   bool
 	isTerminate   bool                    // `terminate` closing an action usage head: a terminate action usage
 	cross         *ast.CrossFeatureMember // the cross feature declared right after `end`
+	defPrefix     lexer.Token             // first abstract/variation/individual definition prefix
 	usageOnly     lexer.Token             // first prefix keyword only a usage prefix admits (`ref`, a direction, …)
 }
 
@@ -284,6 +285,12 @@ func (p *Parser) repeatedPrefix(t lexer.Token) {
 func (m *featureMods) noteUsageOnly(t lexer.Token) {
 	if m.usageOnly.Span.Len == 0 {
 		m.usageOnly = t
+	}
+}
+
+func (m *featureMods) noteDefinitionPrefix(t lexer.Token) {
+	if m.defPrefix.Span.Len == 0 {
+		m.defPrefix = t
 	}
 }
 
@@ -1121,12 +1128,14 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			if m.isAbstract || m.isVariation {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
+			m.noteDefinitionPrefix(t)
 			m.isAbstract = true
 		case "variation":
 			p.checkVariationNotation(t)
 			if m.isAbstract || m.isVariation {
 				p.prefixConflict(t, m.abstractOrVariation(), abstractOrVariationPair)
 			}
+			m.noteDefinitionPrefix(t)
 			m.isVariation = true
 		case "ref":
 			if m.isReference {
@@ -1181,6 +1190,7 @@ func (p *Parser) parseMoreFeatureModifiers(m *featureMods) {
 			if m.isIndividual {
 				p.repeatedPrefix(t)
 			}
+			m.noteDefinitionPrefix(t)
 			m.isIndividual = true
 		case "snapshot":
 			// The portion loop in parseDefUsage reads a portion prefix the same way
@@ -1803,6 +1813,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 // KerML classifier declarations, which share DefinitionKind values.
 func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword string, mods featureMods, isAll bool, defKeywordConsumed bool) *ast.Definition {
 	p.checkDefinitionPrefix(mods)
+	if kind == ast.DefEnumeration && defKeywordConsumed && mods.defPrefix.Span.Len > 0 {
+		p.error(mods.defPrefix.Span, fmt.Sprintf("'%s' cannot prefix an enumeration definition: an enum def admits no definition prefix and is always a variation",
+			p.src.Text(mods.defPrefix.Span)))
+	}
 	def := &ast.Definition{
 		Kind:          kind,
 		Keyword:       keyword,
@@ -2024,14 +2038,47 @@ func BodyAdmitsMember(owner ast.Node, kw string) bool {
 	if !ok {
 		return true
 	}
+	return slices.Contains(m.bodies, declarationBodyContext(owner))
+}
+
+// BodyIsCalculation reports whether owner opens a calculation or case body,
+// including constraint bodies, which use CalculationBody.
+func BodyIsCalculation(owner ast.Node) bool {
+	return declarationBodyContext(owner) == bodyCalc ||
+		declarationBodyContext(owner) == bodyCase
+}
+
+// BodyAdmitsBehaviorUsage reports whether owner’s body production admits a
+// BehaviorUsageElement such as `satisfy`.
+func BodyAdmitsBehaviorUsage(owner ast.Node) bool {
+	switch d := owner.(type) {
+	case *ast.Definition:
+		return d.Kind != ast.DefEnumeration
+	case *ast.Usage:
+		return d.Kind != ast.UsageMetadata
+	case *ast.SubstateMember:
+		return true
+	default:
+		return true
+	}
+}
+
+// BodyIsRequirement reports whether owner opens a requirement body.
+func BodyIsRequirement(owner ast.Node) bool {
+	return declarationBodyContext(owner) == bodyRequirement
+}
+
+func declarationBodyContext(owner ast.Node) bodyContext {
 	body := bodyOther
 	switch d := owner.(type) {
 	case *ast.Definition:
 		body = defBodyContext(d.Kind)
 	case *ast.Usage:
 		body = usageBodyContext(d.Kind)
+	case *ast.SubstateMember:
+		body = usageBodyContext(ast.UsageState)
 	}
-	return slices.Contains(m.bodies, body)
+	return body
 }
 
 // parseMisplacedStateSubaction reads an entry/do/exit member outside a state body
@@ -2890,8 +2937,8 @@ func (p *Parser) parseBodyMember() ast.Node {
 		return p.parseInitialNode(firstTok)
 	}
 
-	// Check for return statement (result member)
-	// Can appear in calc body, constraint body, or requirement body
+	// Return parameters are admitted by calculation, constraint and case bodies, not requirement bodies.
+	// parseResultMember reports a requirement-body return before parsing it for recovery.
 	if p.isResultKeyword() {
 		return p.parseResultMember()
 	}

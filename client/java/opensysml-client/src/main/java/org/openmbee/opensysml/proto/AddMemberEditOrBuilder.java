@@ -170,4 +170,85 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getSpecializesBytes(int index);
+
+  /**
+   * <pre>
+   * Whether the declaration is abstract.
+   * </pre>
+   *
+   * <code>bool is_abstract = 8 [json_name = "isAbstract"];</code>
+   * @return The isAbstract.
+   */
+  boolean getIsAbstract();
+
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return A list containing the redefines.
+   */
+  java.util.List<java.lang.String>
+      getRedefinesList();
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @return The count of redefines.
+   */
+  int getRedefinesCount();
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the element to return.
+   * @return The redefines at the given index.
+   */
+  java.lang.String getRedefines(int index);
+  /**
+   * <pre>
+   * Optional redefinition targets for a usage.
+   * </pre>
+   *
+   * <code>repeated string redefines = 9 [json_name = "redefines"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the redefines at the given index.
+   */
+  com.google.protobuf.ByteString
+      getRedefinesBytes(int index);
+
+  /**
+   * <pre>
+   * Whether the value uses the default assignment keyword.
+   * </pre>
+   *
+   * <code>bool is_default = 10 [json_name = "isDefault"];</code>
+   * @return The isDefault.
+   */
+  boolean getIsDefault();
+
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The direction.
+   */
+  java.lang.String getDirection();
+  /**
+   * <pre>
+   * Optional usage direction: "in", "out" or "inout".
+   * </pre>
+   *
+   * <code>string direction = 11 [json_name = "direction"];</code>
+   * @return The bytes for direction.
+   */
+  com.google.protobuf.ByteString
+      getDirectionBytes();
 }

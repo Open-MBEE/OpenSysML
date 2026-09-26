@@ -690,6 +690,81 @@ class PublicTypesTest {
   }
 
   @Test
+  void addingAConnectionNeedsConnectionAuthoringBesideAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities("dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () ->
+                  model.applyEdits(
+                      List.of(
+                          new Edit.AddConnection(
+                              "Demo::System",
+                              "allocation",
+                              "a",
+                              "b",
+                              Optional.empty(),
+                              Optional.empty()))));
+      assertEquals(Capabilities.CONNECTION_AUTHORING, refused.capability());
+    }
+  }
+
+  @Test
+  void newAuthoringOperationsRequireTheirCapabilitiesBeforeRpc() {
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "part def", "Abstract").withAbstract(true),
+        Capabilities.MEMBER_MODIFIERS);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "ref", "x"),
+        Capabilities.MEMBER_MODIFIERS);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "return", "result"),
+        Capabilities.MEMBER_MODIFIERS);
+    assertEditCapability(Edit.AddSatisfy.of("Demo::r", "Demo::r"), Capabilities.SATISFY_AUTHORING);
+    assertEditCapability(
+        Edit.AddRequirementConstraint.of("Demo::r", "require", "true"),
+        Capabilities.REQUIREMENT_CONSTRAINT_AUTHORING);
+    assertEditCapability(
+        Edit.AddTransition.of("Demo::S", "idle", "toasting"),
+        Capabilities.TRANSITION_AUTHORING);
+  }
+
+  @Test
+  void addingATransitionAlsoRequiresAuthoring() {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.TRANSITION_AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(
+              CapabilityException.class,
+              () ->
+                  model.applyEdits(
+                      List.of(Edit.AddTransition.of("Demo::S", "idle", "toasting"))));
+      assertEquals(Capabilities.AUTHORING, refused.capability());
+    }
+  }
+
+  private static void assertEditCapability(Edit edit, String capability) {
+    try (Connection limited =
+        new Connection(
+            new ConnectTransport("127.0.0.1:1", Encoding.PROTOBUF, Duration.ofSeconds(1)),
+            new Capabilities(
+                "dev", java.util.Set.of(Capabilities.APPLY_EDITS, Capabilities.AUTHORING)))) {
+      Model model = new Model(limited, "hash", List.of(), List.of());
+      CapabilityException refused =
+          assertThrows(CapabilityException.class, () -> model.applyEdits(List.of(edit)));
+      assertEquals(capability, refused.capability());
+    }
+  }
+
+  @Test
   void capabilitiesNegotiateOnNames() {
     Capabilities capabilities =
         new Capabilities("dev", java.util.Set.of(Capabilities.QUERY, Capabilities.TYPE_FACTS));

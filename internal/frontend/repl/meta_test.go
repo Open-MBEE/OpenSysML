@@ -4,10 +4,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 func TestMetaHelpAndList(t *testing.T) {
@@ -218,4 +221,153 @@ func TestLookupInScopeTreeSkipsBodyLocalNames(t *testing.T) {
 	if syms := s.nameTable().lookup("samples"); len(syms) == 0 {
 		t.Error("samples is a member of Sample and must still be found")
 	}
+}
+
+func TestQueryIdentifiesUnnamedSatisfyAndItsEnds(t *testing.T) {
+	s := NewSession()
+	result := s.Submit(`package Demo {
+		part def Toaster;
+		requirement def EnergyReq { subject t : Toaster; }
+		requirement r : EnergyReq { subject t : Toaster; }
+		part t : Toaster;
+		assert satisfy r by t;
+	}`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	query := `oslc.where=rdf:type="SatisfyRequirementUsage"&oslc.select=sysml:satisfiedRequirement,sysml:satisfyingFeature`
+	want := "Demo::@4  SatisfyRequirementUsage  sysml:satisfiedRequirement=Demo::r  sysml:satisfyingFeature=Demo::t"
+	lines, err := s.Query(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 || lines[0] != want {
+		t.Fatalf("Session.Query = %v, want [%s]", lines, want)
+	}
+	lines, _, err = s.runMeta("%query " + query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 || lines[0] != want {
+		t.Fatalf("%%query = %v, want [%s]", lines, want)
+	}
+}
+
+func TestReplQueryPositionalScopeAndDeclarationOrder(t *testing.T) {
+	s := NewSession()
+	result := s.Submit(`package Demo { part def Toaster; requirement def EnergyReq { subject t : Toaster; } requirement r : EnergyReq { subject t : Toaster; } part t : Toaster; assert satisfy r by t; }`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	model := &replQueryModel{session: s, index: s.browseIndex()}
+	candidates, err := model.Candidates([]string{"Demo::@4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 1 || candidates[0].Kind != symbols.SymbolSatisfyRequirementUsage ||
+		model.Identity(candidates[0]) != "Demo::@4" {
+		t.Fatalf("positional scope candidates = %v, want the Demo::@4 satisfy", candidates)
+	}
+	if _, err := model.Candidates([]string{"Demo::@99"}); err == nil ||
+		!strings.Contains(err.Error(), `query scope names an element the model does not have: "Demo::@99"`) {
+		t.Fatalf("unknown positional scope error = %v", err)
+	}
+
+	ordered := NewSession()
+	result = ordered.Submit(`package Demo { connect a to b; part a; part b; }`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit interleaved model diagnostics = %v", result.Diagnostics)
+	}
+	model = &replQueryModel{session: ordered, index: ordered.browseIndex()}
+	candidates, err = model.Candidates(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, len(candidates))
+	for i, sym := range candidates {
+		ids[i] = model.Identity(sym)
+	}
+	want := []string{"Demo", "Demo::@0", "Demo::a", "Demo::b"}
+	if !slices.Equal(ids, want) {
+		t.Fatalf("unscoped query identities = %v, want %v", ids, want)
+	}
+
+	scoped := NewSession()
+	result = scoped.Submit(`package Demo { part outer { connect a to b; part a; part b; } }`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit scoped interleaved model diagnostics = %v", result.Diagnostics)
+	}
+	model = &replQueryModel{session: scoped, index: scoped.browseIndex()}
+	candidates, err = model.Candidates([]string{"Demo::outer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids = make([]string, len(candidates))
+	for i, sym := range candidates {
+		ids[i] = model.Identity(sym)
+	}
+	want = []string{"Demo::outer", "Demo::outer::@0", "Demo::outer::a", "Demo::outer::b"}
+	if !slices.Equal(ids, want) {
+		t.Fatalf("scoped query identities = %v, want %v", ids, want)
+	}
+}
+
+func TestReplQueryIdentifiesNamedChildrenOfUnnamedOwners(t *testing.T) {
+	s := NewSession()
+	result := s.Submit(`package Demo { part { part wheel; } }`)
+	if len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	model := &replQueryModel{session: s, index: s.browseIndex()}
+	lines, err := s.Query(`oslc.where=sysml:name="wheel"&oslc.select=sysml:owner`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Demo::@0::wheel  PartUsage  sysml:owner=Demo::@0"
+	if len(lines) != 1 || lines[0] != want {
+		t.Fatalf("Session.Query = %v, want [%s]", lines, want)
+	}
+	candidates, err := model.Candidates([]string{"Demo::@0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, len(candidates))
+	for i, sym := range candidates {
+		ids[i] = model.Identity(sym)
+	}
+	if want := []string{"Demo::@0", "Demo::@0::wheel"}; !slices.Equal(ids, want) {
+		t.Fatalf("unnamed-owner scope identities = %v, want %v", ids, want)
+	}
+	candidates, err = model.Candidates([]string{"Demo::@0::wheel"})
+	if err != nil || len(candidates) != 1 || model.Identity(candidates[0]) != "Demo::@0::wheel" {
+		t.Fatalf("named-child scope candidates = %v, err %v", candidates, err)
+	}
+}
+
+func TestReplQueryAssignsPositionalIdentityToKerMLDeclarations(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "model.kerml")
+	content := []byte("type C specializes Base::Anything; feature : C;")
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := NewSession()
+	report, err := s.LoadPathsReport([]string{path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Errors {
+		t.Fatalf("KerML load reported errors: %v", report.Found)
+	}
+	model := &replQueryModel{session: s, index: s.browseIndex()}
+	candidates, err := model.Candidates(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sym := range candidates {
+		if sym.Name == "" && export.IsPositionalIdentity(model.Identity(sym)) {
+			return
+		}
+	}
+	t.Fatalf("KerML query candidates have no positional identity for the unnamed feature: %v", candidates)
 }

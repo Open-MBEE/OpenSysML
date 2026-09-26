@@ -36,12 +36,19 @@ func renderFixtureDocument(t *testing.T, path, name string) string {
 // semantics, docplan, then document IR evaluation.
 func fixtureDocument(t *testing.T, path, name string) *docir.Document {
 	t.Helper()
+	return fixtureDocumentAt(t, path, filepath.Base(path), name)
+}
+
+// fixtureDocumentAt is fixtureDocument with the source read as if it were the
+// file sourceName, so a document's origin has that file's directory.
+func fixtureDocumentAt(t *testing.T, path, sourceName, name string) *docir.Document {
+	t.Helper()
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
 	index := libs.NewModelIndex()
-	sf := source.New(filepath.Base(path), []byte(content))
+	sf := source.New(sourceName, []byte(content))
 	p := parser.New(sf)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
@@ -285,6 +292,19 @@ func TestMarkdownQuantityReportGolden(t *testing.T) {
 	}
 }
 
+// TestMarkdownCollectionCells checks a `[0..*]` column: a row holding two values
+// renders them comma-joined in order, a one-element sequence its single value,
+// and a row holding none renders empty.
+func TestMarkdownCollectionCells(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "collection_report.sysml"),
+		"Calibration::TimingReport")
+	want := "| name | durations | label |\n| --- | --- | --- |\n| nominal | 69, 98 | nominal |\n| idle |  | idle |\n| single | 36 | single |\n"
+	if !strings.Contains(got, want) {
+		t.Errorf("rendering does not contain %q\n%s", want, got)
+	}
+}
+
 // TestMarkdownDerivedReportGolden locks a document whose table, list and
 // definitions read attributes derived from other features: sums of sibling
 // masses through type- and usage-level redefinitions, chains into owned parts,
@@ -435,5 +455,27 @@ func TestMarkdownRollupReport(t *testing.T) {
 		"**tower** — 311 \\[kg\\]\n"
 	if got != want {
 		t.Errorf("rendered Markdown = \n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestMarkdownImageReportGolden locks the image block's Markdown: the file
+// reference under its caption, alt text falling back to the caption.
+func TestMarkdownImageReportGolden(t *testing.T) {
+	got := renderFixtureDocument(t,
+		filepath.Join("testdata", "image_report.sysml"),
+		"Pictures::ImageReport")
+	golden := filepath.Join("testdata", "image_report.golden.md")
+	if *update {
+		if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+			t.Fatalf("update golden: %v", err)
+		}
+		return
+	}
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("read golden (run with -update to create): %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("rendered Markdown differs from %s (run with -update after intentional changes)\ngot:\n%s", golden, got)
 	}
 }

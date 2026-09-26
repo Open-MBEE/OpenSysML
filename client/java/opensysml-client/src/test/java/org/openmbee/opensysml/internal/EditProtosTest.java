@@ -68,11 +68,88 @@ class EditProtosTest {
                 .withType("Real")
                 .withMultiplicity("0..1")
                 .withValue("1.0")
-                .withSpecializes(List.of("Demo::A::y")));
+                .withSpecializes(List.of("Demo::A::y"))
+                .withAbstract(true)
+                .withRedefines(List.of("Demo::A::old"))
+                .withDefault(true)
+                .withDirection("in"));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
     assertEquals(List.of("Demo::A::y"), full.getAddMember().getSpecializesList());
+    assertTrue(full.getAddMember().getIsAbstract());
+    assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
+    assertTrue(full.getAddMember().getIsDefault());
+    assertEquals("in", full.getAddMember().getDirection());
+  }
+
+  @Test
+  void anAddSatisfyEditCarriesItsRequirementAndFlags() {
+    var operation =
+        Protos.proto(
+            Edit.AddSatisfy.of("Demo::r", "Demo::r")
+                .withSatisfyingFeature("Demo::t")
+                .withAsserted(true)
+                .withNegated(true));
+    assertEquals("Demo::r", operation.getAddSatisfy().getOwner());
+    assertEquals("Demo::r", operation.getAddSatisfy().getRequirement());
+    assertEquals("Demo::t", operation.getAddSatisfy().getSatisfyingFeature());
+    assertTrue(operation.getAddSatisfy().getIsAsserted());
+    assertTrue(operation.getAddSatisfy().getIsNegated());
+  }
+
+  @Test
+  void anAddRequirementConstraintEditCarriesItsExpressionAndName() {
+    var operation =
+        Protos.proto(
+            Edit.AddRequirementConstraint.of("Demo::r", "require", "true")
+                .withName("valid"));
+    assertEquals("Demo::r", operation.getAddRequirementConstraint().getOwner());
+    assertEquals("require", operation.getAddRequirementConstraint().getKind());
+    assertEquals("true", operation.getAddRequirementConstraint().getExpression());
+    assertEquals("valid", operation.getAddRequirementConstraint().getName());
+  }
+
+  @Test
+  void anAddTransitionEditCarriesClausesAndEntryFlag() {
+    var operation =
+        Protos.proto(
+            Edit.AddTransition.of("Demo::S", "idle", "toasting")
+                .withName("go")
+                .withTrigger("CycleStart")
+                .withGuard("ready")
+                .withEffect("action cool"));
+    assertEquals("Demo::S", operation.getAddTransition().getOwner());
+    assertEquals("go", operation.getAddTransition().getName());
+    assertEquals("idle", operation.getAddTransition().getSource());
+    assertEquals("toasting", operation.getAddTransition().getTarget());
+    assertEquals("CycleStart", operation.getAddTransition().getTrigger());
+    assertEquals("ready", operation.getAddTransition().getGuard());
+    assertEquals("action cool", operation.getAddTransition().getEffect());
+    assertFalse(operation.getAddTransition().getInitial());
+
+    var entry = Protos.proto(Edit.AddTransition.entry("Demo::S", "idle"));
+    assertEquals("idle", entry.getAddTransition().getTarget());
+    assertTrue(entry.getAddTransition().getInitial());
+  }
+
+  @Test
+  void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
+    var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
+    assertEquals("Demo::System", minimal.getAddConnection().getOwner());
+    assertEquals("flow", minimal.getAddConnection().getKind());
+    assertEquals("a.out", minimal.getAddConnection().getFromEnd());
+    assertEquals("b.in", minimal.getAddConnection().getToEnd());
+    assertEquals("", minimal.getAddConnection().getName());
+    assertEquals("", minimal.getAddConnection().getType());
+
+    var full =
+        Protos.proto(
+            Edit.AddConnection.of("Demo::System", "allocation", "a", "b")
+                .withName("alloc1")
+                .withType("AllocationType"));
+    assertEquals("alloc1", full.getAddConnection().getName());
+    assertEquals("AllocationType", full.getAddConnection().getType());
   }
 
   @Test

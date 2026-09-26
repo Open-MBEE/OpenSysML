@@ -82,6 +82,22 @@ const CapabilityApplyEdits = "apply_edits"
 // CapabilityAuthoring names add-member and delete source authoring operations.
 const CapabilityAuthoring = "authoring"
 
+// CapabilityConnectionAuthoring names the ApplyEdits add_connection operation.
+const CapabilityConnectionAuthoring = "connection_authoring"
+
+// CapabilitySatisfyAuthoring names the ApplyEdits add_satisfy operation.
+const CapabilitySatisfyAuthoring = "satisfy_authoring"
+
+// CapabilityRequirementConstraintAuthoring names the ApplyEdits
+// add_requirement_constraint operation.
+const CapabilityRequirementConstraintAuthoring = "requirement_constraint_authoring"
+
+// CapabilityMemberModifiers names the additional AddMember modifiers and kinds.
+const CapabilityMemberModifiers = "member_modifiers"
+
+// CapabilityTransitionAuthoring names the ApplyEdits add_transition operation.
+const CapabilityTransitionAuthoring = "transition_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -195,6 +211,11 @@ var capabilities = []string{
 	CapabilityEditDocuments,
 	CapabilityPerformer,
 	CapabilityRenderDocumentHTML,
+	CapabilityConnectionAuthoring,
+	CapabilitySatisfyAuthoring,
+	CapabilityRequirementConstraintAuthoring,
+	CapabilityMemberModifiers,
+	CapabilityTransitionAuthoring,
 }
 
 type capabilityAvailability struct {
@@ -438,25 +459,33 @@ func (s *Service) requireValueCapabilities(pv *pb.Value) error {
 
 // newRuntime returns a runtime context under the service's budgets on a worker the request holds
 // alone, so concurrent requests share nothing mutable; the deferred release hands the worker on warm.
-func (s *Service) newRuntime(cached *CachedModel) (*runtime.Context, func()) {
+func (s *Service) newRuntime(ctx context.Context, cached *CachedModel) (*runtime.Context, func()) {
 	w, release := cached.worker()
-	return s.newRuntimeOver(w), release
+	return s.newRuntimeOver(ctx, w), release
 }
 
 // newRuntimeOver builds a runtime context under the service's budgets on a worker;
 // every explored run gets one of its own.
-func (s *Service) newRuntimeOver(w *analysis.Worker) *runtime.Context {
-	return s.newRuntimeContext(w.Model)
+func (s *Service) newRuntimeOver(ctx context.Context, w *analysis.Worker) *runtime.Context {
+	return s.newRuntimeContext(ctx, w.Model)
 }
 
-// newRuntimeContext builds a runtime context over model under the service's budgets.
-func (s *Service) newRuntimeContext(model *runtime.Model) *runtime.Context {
-	ctx := runtime.NewContext(model, s.budgets.MaxSteps)
-	if err := ctx.SetBudgets(s.budgets); err != nil {
+// newRuntimeContext builds a runtime context over model under the service's budgets,
+// binding the tool runner to ctx so a request's end ends a tool it started.
+func (s *Service) newRuntimeContext(ctx context.Context, model *runtime.Model) *runtime.Context {
+	rt := runtime.NewContext(model, s.budgets.MaxSteps)
+	if err := rt.SetBudgets(s.budgets); err != nil {
 		// Unreachable: NewService validated these budgets.
 		panic(fmt.Sprintf("grpc: invalid service budgets: %v", err))
 	}
-	return ctx
+	// The runner puts tool-computed actions and calcs of contexts held outside a plan —
+	// feature values, documents, calc usages — to the engines as Compute questions.
+	schedule := rt.Schedule()
+	if schedule == (runtime.SchedulePolicy{}) {
+		schedule = runtime.DefaultSchedulePolicy
+	}
+	rt.SetToolRunner(s.engines.ToolRunner(ctx, rt, analysis.BudgetOf(s.budgets, schedule, analysis.Compute, s.jobs), analysis.Auto()))
+	return rt
 }
 
 // model is the cached model as the engines reach it: a worker per plan over the shared
@@ -464,7 +493,11 @@ func (s *Service) newRuntimeContext(model *runtime.Model) *runtime.Context {
 func (s *Service) model(cached *CachedModel) *analysis.Model {
 	return &analysis.Model{
 		Semantics: cached.Semantics,
-		Fresh:     func(w *analysis.Worker) (*runtime.Context, error) { return s.newRuntimeOver(w), nil },
+		// Plans rebind the runner on the worker themselves, so the fresh context
+		// binds to the background.
+		Fresh: func(w *analysis.Worker) (*runtime.Context, error) {
+			return s.newRuntimeOver(context.Background(), w), nil
+		},
 	}
 }
 
@@ -816,7 +849,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 		scope = cached.PrimaryRoot()
 	}
 
-	runtimeCtx, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
 
 	var self *runtime.Instance
@@ -883,7 +916,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	// The object outlives the request: a later RunDocumentQuery on the model
 	// binds it by id or by the name it was created under.
 	held := s.objects(cached)
-	defer held.lock()()
+	defer held.lock(ctx)()
 	runtimeCtx := held.rt
 
 	// Serializing the graph materializes the objects under the root, so it is
@@ -941,7 +974,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	action := syms[0]
 
-	runtimeCtx, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
 
 	// Converted against the model's index, so a quantity input keeps the base
@@ -1091,7 +1124,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 		return &pb.ExecuteStateResponse{Outcomes: x.outcomes, Exploration: x.status}, nil
 	}
 
-	runtimeCtx, release := s.newRuntime(cached)
+	runtimeCtx, release := s.newRuntime(ctx, cached)
 	defer release()
 	if err := runtimeCtx.SetSchedule(schedule); err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())

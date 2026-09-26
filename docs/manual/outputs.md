@@ -25,6 +25,8 @@ What the renderer emits:
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
+- Images as a CommonMark image of the location under the caption, the
+  location verbatim.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
@@ -48,12 +50,26 @@ $ sysml reports.sysml -render-documents rendered
 
 File names are deterministic: the document's fully qualified name with `::`
 replaced by `-`, any byte outside ASCII letters, digits and `_` escaped as
-`.XX` (uppercase hex), plus `.md`. Cross-document references (see
-[the authoring chapter](authoring.md)) therefore resolve as relative links
-between the written files, and repeated runs write identical bytes. Rendering
-a cross-referencing document on its own still succeeds; its external links
-point at the targets' expected file names and dangle until those documents
-are rendered into the same directory.
+`.XX` (uppercase hex), plus `.md`, so documents sharing a short name in
+different packages get distinct files. Two names whose files would meet on a
+case-insensitive file system, a stem that would name a Windows device, and a
+name too long for a file system are written under a tagged name carrying a
+`~` and a hash of the whole name, as `-render-all` writes its views.
+Cross-document references (see [the authoring chapter](authoring.md))
+therefore resolve as relative links between the written files, tagged names
+included, and repeated runs write identical bytes. Rendering a
+cross-referencing document on its own still succeeds; its external links
+point at the file names the set gives the targets and dangle until those
+documents are rendered into the same directory.
+
+Each document in the set is compiled and evaluated on its own. One that
+cannot be rendered — a query column with no value for a row, a diagram past
+its form's limit — does not stop the others: they are written, a page carrying
+the document's title, **This document could not be rendered.** and the error
+is written in its place so links to it resolve — a link into one of its blocks
+lands on a line naming that block, under the anchor the link expects — each
+failure is reported on stderr as `document <qualified name> could not be
+rendered: <reason>`, and the run exits with status 3 rather than 0.
 
 ## HTML
 
@@ -77,7 +93,7 @@ The model rides alongside the structure. A small `sysml-` class vocabulary
 names each part of the document (`sysml-document`, `sysml-section`,
 `sysml-table`, `sysml-row`, `sysml-cell`, `sysml-value`, `sysml-list`,
 `sysml-item`, `sysml-definitions`, `sysml-entry`, `sysml-term`,
-`sysml-description`, `sysml-diagram`, `sysml-caption`, `sysml-link`,
+`sysml-description`, `sysml-diagram`, `sysml-image`, `sysml-caption`, `sysml-link`,
 `sysml-ref` and their kin), and `data-` attributes carry the facts behind
 it: the content kind and name, the query behind a table, list or
 definitions block, the group-by column, each row's, item's or entry's
@@ -139,6 +155,11 @@ script, so a page embedding one loads Mermaid itself. Rendered with
 embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
+
+An `Image` block is a `<figure class="sysml-image">` whose `<img>` carries its
+`location` verbatim — a relative path stays relative, so a page reads an
+image beside it, as a relative link does — and its `alt` the text
+alternative, the caption its `<figcaption>`.
 
 Formulas work the same way. A math span becomes `<span class="sysml-math">`
 and a `Formula` block a `<figure class="sysml-formula">` with its caption,

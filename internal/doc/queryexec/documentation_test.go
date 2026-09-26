@@ -1,9 +1,7 @@
 package queryexec
 
 import (
-	"errors"
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -278,10 +276,10 @@ calc def Q :> Query {
 	}
 }
 
-// A computed column is one value per row, so an element with two doc bodies
-// fails the column the way every multi-valued feature does.
-func TestExecuteComputedDocumentationReportsSeveralBodies(t *testing.T) {
-	fixture := loadExecutionFixture(t, documentedBody+`
+// Documentation is a `[0..*]` feature, so an element with two doc bodies fills
+// the column with both, in declaration order, and `??` still defaults absence.
+func TestExecuteComputedDocumentationHoldsSeveralBodies(t *testing.T) {
+	result := documentedRows(t, `
 calc def Q :> Query {
 	in root : Element;
 	Project(
@@ -290,14 +288,13 @@ calc def Q :> Query {
 		columns = (Column(name = "text", expression = Element::documentation ?? "undocumented"))
 	)
 }`)
-	_, err := fixture.execute(t, "Q", Bindings{
-		"root": {ElementValue(fixture.symbol(t, "spec"))},
-	}, Options{})
-	var executionError *Error
-	if !errors.As(err, &executionError) || executionError.Kind != ErrorColumnCardinality {
-		t.Fatalf("error = %v, want %v", err, ErrorColumnCardinality)
+	want := [][]string{
+		{"The mission shall safely return\nall three crew members to Earth."},
+		{"The mission shall achieve a soft landing on the lunar surface."},
+		{"undocumented"},
+		{"Short form.", "Long form."},
 	}
-	if executionError.Property != "text" || !strings.HasSuffix(executionError.Target, "TwoBodies") {
-		t.Fatalf("error = %+v, want the text column of TwoBodies", executionError)
+	if got := cellStrings(t, result, "text"); !slices.EqualFunc(got, want, slices.Equal) {
+		t.Fatalf("text cells = %q, want %q", got, want)
 	}
 }

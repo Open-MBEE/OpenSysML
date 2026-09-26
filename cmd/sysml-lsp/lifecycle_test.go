@@ -163,7 +163,7 @@ func (s *session) readBy(deadline time.Time) map[string]any {
 		line, err := s.stdout.ReadString('\n')
 		if err != nil {
 			if s.killed.Load() {
-				s.fail("read header: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.stderr.String())
+				s.fail("read header: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.killedStderr())
 			} else {
 				s.fail("read header: %v\nstderr: %s", err, s.stderr.String())
 			}
@@ -193,7 +193,7 @@ func (s *session) readBy(deadline time.Time) map[string]any {
 	body := make([]byte, length)
 	if _, err := io.ReadFull(s.stdout, body); err != nil {
 		if s.killed.Load() {
-			s.fail("read body: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.stderr.String())
+			s.fail("read body: %v (server killed after %s of silence)\nstderr: %s", err, time.Since(start).Round(time.Millisecond), s.killedStderr())
 		} else {
 			s.fail("read body: %v", err)
 		}
@@ -222,6 +222,14 @@ func (s *session) dumpAndKill() {
 	}
 	_ = s.cmd.Process.Signal(quitSignal)
 	time.AfterFunc(5*time.Second, func() { _ = s.cmd.Process.Kill() })
+}
+
+// killedStderr returns everything a killed server wrote to stderr, goroutine dump
+// included: os/exec finishes copying the pipe into cmd.Stderr only in Wait.
+func (s *session) killedStderr() string {
+	s.t.Helper()
+	s.waitStatus(10 * time.Second)
+	return s.stderr.String()
 }
 
 // waitStatus waits for the process to end and returns its exit status. A server

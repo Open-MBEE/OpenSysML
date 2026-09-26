@@ -476,6 +476,433 @@ engine author writes the message handling once and links it into a module or a p
 The host is the last stage, because it adds a dependency and a runtime to audit, and because
 nothing in the protocol depends on it: every engine and strategy above runs as a process first.
 
+## Tools: composed invocations and structured replies
+
+The `tool:<name>` engine runs a program the framework note designed for: the executable is
+started with no arguments, one JSON object goes to its standard input, one comes back on its
+standard output. That is the right protocol for a program written for OpenSysML and the wrong
+one for every program that was not. A solver that takes its inputs as `--mass 12.5`, a script
+that reads a CSV and writes a CSV, a legacy binary whose only report is a `T_max = 341.2` line
+and an exit code — each today needs a wrapper written per tool, per site, that does the
+conversion the manifest could describe. This section adds two optional blocks to the tool entry
+so that the manifest describes them: `invocation`, which composes the command line, the
+environment, the working directory, the standard input and an input file from the values the
+model binds; and `reply`, which reads the outputs back from JSON, CSV, key–value lines, or the
+exit status, on standard output or in a file the tool wrote. With both absent the entry means
+exactly what it means today, byte for byte.
+
+### What exists, and what stays
+
+The types this section extends are these, and each keeps its meaning:
+
+- `analysis.ToolEntry` (`manifest.go`) is the entry as read: `Kind`, `ToolName`, `Version`,
+  `Executable`, `Variables`, and `File`, the path it came from. `ReadManifest` refuses a
+  directory under a workspace, a file or directory writable by group or others, an unknown key
+  (`json.Decoder.DisallowUnknownFields`), a trailing JSON value, and a relative `executable`
+  with a directory part that `confinedPath` cannot keep inside the manifest directory. Every one
+  of those rules holds for the two new blocks; a v1 entry parses as before, and a v2 entry is a
+  v1 entry plus two optional members.
+- `analysis.ToolRequestOf(call)` renders a `runtime.ToolCall` as the request object —
+  `toolName`, `uri`, and `inputs` keyed by tool variable, each `{"value": …, "unit": …}` with an
+  Integer as a JSON integer, a finite Real as a JSON number, a Boolean as `true`/`false`, a
+  String as a JSON string and a quantity's unit by its short name, unconverted. It stays the
+  body of `stdin: "json"` and of a JSON `inputFile`, and it stays the **identity of an
+  invocation** for divergence: two performances whose `ToolRequestOf` bytes are equal must
+  answer equal outputs whatever the invocation wrote on the command line, since the command line
+  is a function of those same bytes.
+- `analysis.ToolReplyOf(tool, stdout)` parses the reply of today's protocol — `outputs` or
+  `error`, a key repeated at any depth malformed, a `null` malformed, a member the shape does not
+  name malformed — into a `map[string]runtime.ToolValue` keyed by tool variable. It becomes the
+  reader of `format: "object"`, the default, and is not otherwise touched: the pilot's
+  `AnalysisAnnotation` fixture and `toolstandin` continue to pass against it unchanged.
+- `runtime.ToolValue` is a scalar as the tool wrote it: `Value semantics.Value`, `Text string`
+  for a String, `Unit string`. It gains `Items []ToolValue` for a sequence (below) and nothing
+  else.
+- `runtime.ToolCall.Bind(outputs)` is the one place a reply becomes model values: it refuses an
+  output no `out`/`inout` parameter receives (`ToolUnknownOutput`), one the action declares that
+  the reply lacks (`ToolMissingOutput`), converts a unit to the coherent unit of the parameter's
+  declared kind, refuses a unit on a parameter that admits none and a value the declared type
+  cannot hold (`ToolMalformed`), and hands the frame values keyed by parameter name. Every
+  format below ends in `Bind`; no format has a binding rule of its own.
+- `runtime.performByTool` reads `AnalysisTooling::ToolExecution`, builds the `ToolCall`, needs a
+  registered `ToolRunner`, binds what comes back into the action's frame, records divergence,
+  and completes the action **without running its body**. A tool failure is the failure of the
+  performance. Nothing here adds a fallback to the body or a default value.
+- `process.go` bounds the process: `OPENSYSML_TOOL_TIMEOUT` (default 10 s) through the context,
+  `WaitDelay` one second so a process that ignores the deadline is killed, `OPENSYSML_TOOL_MAX_OUTPUT`
+  (default 64 MiB) on standard output and on the captured standard error. The same three bound
+  every invocation below, and the file a `reply` reads.
+
+The model's side does not change at all: `ToolExecution` names a `toolName` and a `uri`,
+`ToolVariable` renames parameters, and neither says anything about how the program is called or
+how its answer is read. **Composition and parsing are manifest-only.** A model that could set an
+argument template would be a model that chooses what runs, which the framework note forbids and
+the security section repeats; a model that could set a parser would be a model that chooses
+what a number means. Both belong to the site that installed the tool.
+
+### The entry, version 2
+
+```json
+{
+  "toolName": "ThermalSolver",
+  "version": "2.3",
+  "executable": "python3",
+  "variables": ["mass", "power", "Tmax", "Tprofile"],
+  "invocation": {
+    "args": ["/opt/thermal/solve.py", "--mass", "{mass}", "--power", "{power.value}",
+             "--unit", "{power.unit}", "--out", "{outputDir}/result.csv"],
+    "env": {"OMP_NUM_THREADS": "4"},
+    "cwd": "/opt/thermal",
+    "stdin": "none"
+  },
+  "reply": {
+    "format": "csv",
+    "source": "file:{outputDir}/result.csv",
+    "header": true,
+    "outputs": {
+      "Tmax": {"column": "T_max", "row": "last", "unit": "K"},
+      "Tprofile": {"column": "T", "row": "all", "unit": "K"}
+    }
+  }
+}
+```
+
+There is no `schemaVersion` member: an entry is v2 when it has an `invocation` or a `reply`, and
+the fields below are the whole difference. Every rule that follows is checked when the manifest
+is read, so a fault registers nothing and `-engines` names it; the only checks left to run time
+are those that need the values of one performance (a placeholder for an input the action did not
+send, a reply that does not parse).
+
+### `invocation`
+
+| Field | Type | Default | Meaning |
+|-------|------|---------|---------|
+| `args` | array of template strings | `[]` | The arguments after the executable, one template per argument |
+| `env` | object of string → template string | `{}` | Variables set in the child's environment over the base environment |
+| `cwd` | string | inherited | Working directory: absolute, or relative to the manifest's directory and confined to it |
+| `stdin` | `"json"` \| `"none"` \| `"csv"` \| `{"template": "…"}` | `"json"` | What the child reads on standard input |
+| `inputFile` | `"json"` \| `"csv"` \| `{"template": "…"}` | absent | What `{inputFile}` names; the file is written before the process starts |
+
+- **`args`.** After substitution each element is **one** `argv` entry, passed as
+  `exec.CommandContext(ctx, path, args...)` passes it. An element is never split on whitespace,
+  never quoted, never joined; `"--mass {mass}"` is one argument containing a space, and the
+  example writes `"--mass", "{mass}"` for two. There is no shell at any point: no `sh -c`, no
+  `cmd /c`, no glob, no `$VAR`, no `~`. A value containing a space, a quote, a `;` or a
+  newline reaches the tool as those bytes in one argument, which is why a String input is safe to
+  pass. The executable itself is `executable`, resolved exactly as today, and is never a
+  template.
+- **`env`.** With `invocation` present the child's environment is the **minimal base** plus the
+  passthrough allow-list plus `env`, in that order, later entries winning. The base is `PATH`,
+  `HOME`, `TMPDIR`, `LANG`, `LC_ALL` and `TZ` copied from the parent when set; on Windows also
+  `SystemRoot`, `SystemDrive`, `USERPROFILE`, `TEMP`, `TMP`, `PATHEXT` and `COMSPEC`, since a
+  process there does not start without them. `OPENSYSML_TOOL_ENV_PASSTHROUGH`, a comma-separated
+  list of names, copies those from the parent when set — the operator's escape for a site whose
+  tool needs a license server variable — and a name in it that is unset in the parent is not
+  set in the child. `env` values are templates with the same placeholders as `args`. Nothing
+  else is inherited: not `OPENSYSML_*`, not the user's shell environment. An entry **without**
+  `invocation` inherits the whole parent environment, as today, so a v1 entry sees no change.
+- **`cwd`.** An absolute path is used as written; a relative one is joined to the manifest's
+  directory, followed through its links with `confinedPath` and refused unless it stays inside,
+  exactly as a relative `executable` is. It is not a template. Absent, the child inherits the
+  parent's working directory, as today. The directory must exist when the manifest is read;
+  it is not created.
+- **`stdin`.** `"json"` writes the request object `ToolRequestOf` renders, as today; `"none"`
+  closes standard input (the child reads end-of-file at once); `"csv"` writes two RFC 4180
+  records — a header of the sent tool variables in `variables` order, then their values as
+  `{var}` renders them — with the `,` delimiter, unconverted units not carried (a tool that
+  needs them takes `{var.unit}` on the command line); `{"template": "…"}` writes the
+  template rendered with the placeholders below, and nothing appended.
+- **`inputFile`.** The same three shapes, written to a file in the invocation's temporary
+  directory before the process starts, mode `0600`; `{inputFile}` renders its absolute path.
+  An entry that names `{inputFile}` without `inputFile` is refused when read, and one that
+  declares `inputFile` and never names `{inputFile}` is refused too: a file nothing reads is a
+  mistake.
+
+**Placeholders.** A template is a string in which `{…}` is substituted:
+
+| Placeholder | Renders |
+|-------------|---------|
+| `{var}` | the value of the input the tool variable `var` names, as text, without its unit |
+| `{var.value}` | the same as `{var}`; provided so a template reads as a pair beside `{var.unit}` |
+| `{var.unit}` | the input's unit by its short name, unconverted, as the JSON protocol sends it (`kg`, `km/h`); the empty string for an input with no unit |
+| `{toolName}` | the `ToolExecution`'s `toolName`, as `ToolRequestOf` sends it |
+| `{uri}` | the `ToolExecution`'s `uri`, uninterpreted |
+| `{inputFile}` | the absolute path of the input file, when `inputFile` is declared |
+| `{outputDir}` | the absolute path of the invocation's fresh, empty output directory |
+
+The grammar: `{` name [`.value` | `.unit`] `}`, where name is one of `variables` or one of the
+four reserved words `toolName`, `uri`, `inputFile`, `outputDir`. A literal brace is doubled:
+`{{` renders `{` and `}}` renders `}`, so `"{{\"n\": {mass}}}"` renders `{"n": 12.5}`. A `{`
+that does not open a well-formed placeholder, a `}` that closes none, a name that is neither a
+declared variable nor a reserved word, `.value`/`.unit` on a reserved word, and a variable whose
+name contains `{`, `}`, `.` or whitespace (such a variable is still sent under `stdin: "json"`,
+it just cannot be named in a template) are each a manifest error naming the template and the
+offset. A `variables` entry that spells a reserved word is refused, so a template is never
+ambiguous. Substitution is a single left-to-right pass over the template: a rendered value is
+never re-scanned, so a String input holding `{outputDir}` renders those fourteen characters.
+
+How a value renders as text, for `{var}`, `{var.value}`, the `csv` standard input and the
+`csv` input file:
+
+- an **Integer** as its decimal digits, `-` for negative (`strconv.FormatInt(v, 10)`);
+- a **Real** as the shortest decimal that round-trips (`strconv.FormatFloat(v, 'g', -1, 64)`):
+  `12.5`, `1e-07`, `3`; the same rendering `ToolRequestOf` uses, so a tool reads the same digits
+  from the command line as from JSON;
+- a **Boolean** as `true` or `false`;
+- a **String** as its characters, unquoted and unescaped, spaces and all — one argument;
+- a **quantity** as its magnitude, rendered by its kind above; the unit is `{var.unit}`.
+
+A performance that reaches a template naming an input the action did not send — a `variables`
+entry that no `in`/`inout` parameter of this action carries — fails with `ToolUnsentInput`
+naming the variable and the template before the process starts; the kind today names an input
+holding a value the protocol cannot carry (a sequence, an instance), and a value the template
+cannot render is the same fault seen from the other side. A `{inputFile}` or `{outputDir}` template never fails at run time:
+both exist before substitution.
+
+**The temporary directory.** Every invocation of a v2 entry gets one fresh directory from
+`os.MkdirTemp` under the parent's `TMPDIR`, mode `0700`, named `opensysml-tool-<toolName>-*`;
+`{outputDir}` is its `out` subdirectory, created empty, and the input file is beside it. The
+directory is removed once the reply is read, whether or not the performance succeeded, so a
+failed run leaves nothing behind. `OPENSYSML_TOOL_KEEP=1` keeps it and names it in the run
+report and in the detail of every tool error, so an operator can inspect what the tool was
+given and what it wrote. A v1 entry creates no directory.
+
+### `reply`
+
+| Field | Type | Default | Meaning |
+|-------|------|---------|---------|
+| `format` | `"object"` \| `"json"` \| `"csv"` \| `"lines"` \| `"exitcode"` | `"object"` | How the reply is read |
+| `source` | `"stdout"` \| `"file:<template>"` | `"stdout"` | Where it is read from; the template may name `{outputDir}` and nothing else |
+| `outputs` | object of tool variable → selector | required unless `format` is `object` | Where each output is found |
+| `header` | Boolean | `true` | `csv`: whether the first record names the columns |
+| `delimiter` | one-character string | `","` | `csv`: the field separator; `"\t"` for tab-separated |
+| `regex` | string | absent | `lines`: an RE2 expression whose named groups are outputs |
+| `success` | array of integers | `[0]` | `exitcode`: the exit statuses that render `true` |
+| `errorPath` | JSON Pointer | absent | `json`: where the tool's own refusal message is |
+| `errorColumn` | column name or index | absent | `csv`: the same, in a column |
+| `errorKey` | string | absent | `lines`: the same, under a key |
+
+Each member of `outputs` is a selector whose fields depend on the format:
+
+| Field | Formats | Default | Meaning |
+|-------|---------|---------|---------|
+| `path` | `json` | required | RFC 6901 JSON Pointer to the value (`/results/0/Tmax`) |
+| `column` | `csv` | required | column name (with `header`) or zero-based index (an integer) |
+| `row` | `csv` | `"last"` | `"first"`, `"last"`, a zero-based integer, or `"all"` |
+| `key` | `lines` | the tool variable's name | the key on the left of `=` or `:` |
+| `type` | all but `object` | `"number"` | `"number"`, `"integer"`, `"real"`, `"boolean"` or `"string"`: what the text is read as |
+| `unit` | all but `object`, `exitcode` | absent | the unit of the value, fixed by the manifest, by its short name (`K`, `m/s`) |
+| `unitPath` | `json` | absent | a pointer to a string holding the unit |
+| `unitColumn` | `csv` | absent | a column holding the unit, read from the same row(s) |
+
+`unit` and `unitPath`/`unitColumn` are exclusive; a unit read from the reply that is not a
+unit the library knows is `ToolMalformed`. The unit found either way is placed in
+`ToolValue.Unit`, and `Bind` converts it exactly as it converts the JSON protocol's `unit`
+today: to the coherent unit of the parameter's declared kind, refused on a parameter that admits
+none. A `reply.outputs` key that is not in `variables` is a manifest error. `format: "object"`
+admits no other member of `reply` and no `outputs`: the protocol is the whole description.
+
+**Where it comes from.** `"stdout"` is the standard output, bounded as today. `"file:…"` is a
+path rendered from the template with `{outputDir}` — the only placeholder `source` admits, since
+a file the tool wrote is by construction in the directory made for it — then `filepath.Clean`ed
+and refused unless it is under `{outputDir}` and `Lstat` says it is a regular file (not a link,
+not a directory). A file the tool did not write is `ToolMalformed` (*tool 'ThermalSolver' wrote
+no file result.csv*); one over `OPENSYSML_TOOL_MAX_OUTPUT` is malformed as an oversize standard
+output is. With a file source the standard output is still captured and bounded, and quoted in
+the detail of a failure, but not parsed. The exit status is checked **before** the source is
+read for every format but `exitcode`: a non-zero exit is `ToolProcessFailed` with the captured
+standard error quoted, as today, and whatever the tool wrote is not read.
+
+**`object`.** `ToolReplyOf`, unchanged, on the standard output; `source: "file:…"` is admitted
+so a tool may write the same object to a file.
+
+**`json`.** The source is one JSON value (a trailing value is malformed, as today). Each `path`
+is evaluated by RFC 6901 — `~1` is `/`, `~0` is `~`, a digit token indexes an array — and must
+resolve: a member or index that does not exist is `ToolMissingOutput` naming the variable and
+the pointer. A pointer resolving to a number, a string or a Boolean is a scalar `ToolValue`,
+typed as the JSON protocol types it and then checked against `type`; a pointer resolving to an
+array whose every element is such a scalar is a sequence (below); `null`, an object, and an
+array holding an object, an array or `null` are `ToolMalformed`. A duplicate key anywhere in the
+document is malformed, as today. `errorPath`, when it resolves to a non-empty string, makes the
+performance `ToolRefused` with that message, checked before any output is read; a pointer that
+does not resolve, or resolves to the empty string, means the tool did not refuse.
+
+**`csv`.** The source is read by `encoding/csv` with `delimiter`, every record of one width
+(a ragged record is `ToolMalformed` naming its number), quoted fields per RFC 4180, a leading
+byte-order mark dropped. With `header` the first record names the columns and `column` may be a
+name; a name the header lacks is `ToolMalformed`, a name it holds twice is malformed too. Without
+`header`, or with an integer `column`, the column is a zero-based index into every record. Rows
+are the **data records** — the header is not a row — and `row` selects among them: `"first"`
+is data record 0, `"last"` the final one, an integer *n* is the zero-based *n*th (a negative
+integer is a manifest error, and *n* past the end is `ToolMalformed` naming the column and *n*),
+and `"all"` is every data record in order, as a sequence. A source with no data record makes
+`"first"`, `"last"` and any *n* `ToolMissingOutput` and `"all"` the empty sequence. A cell is
+trimmed of leading and trailing white space before it is typed, unless `type` is `string`, in
+which case it is taken as unquoted. An empty cell after trimming is `ToolMissingOutput` for
+that variable and row — no default is invented — unless `type` is `string`. `unitColumn` reads
+the unit from the same row as the value, and with `row: "all"` every row's unit must be the
+same one. `errorColumn`, when the last data record's cell in that column is non-empty, is
+`ToolRefused` with that text.
+
+**`lines`.** The source is text split on `\n` (a trailing `\r` dropped). Without `regex`, each
+non-blank line is `key` `=` *value* or `key` `:` *value*, split at the **first** `=` or `:`, both
+sides trimmed; a line with neither separator is ignored, so a tool's chatter around its answers
+costs nothing. Each output's `key` (default: the tool variable's name) must appear exactly once:
+absent is `ToolMissingOutput`, twice is `ToolMalformed` naming the key and both line numbers.
+With `regex`, an RE2 expression compiled when the manifest is read, the expression is matched
+against each line, and every **named group** `(?P<Tmax>…)` is an output whose name must be a
+tool variable in `outputs` (a group naming no output, or an output no group names, is a
+manifest error; `key` is not admitted beside `regex`); a group that matches on two lines is
+malformed as a repeated key is, one that matches on none is missing. `errorKey` is a key whose
+presence with a non-empty value is `ToolRefused` with that value. There is no sequence form of
+`lines`.
+
+**`exitcode`.** `outputs` names exactly one tool variable, `type` `boolean` (default) or
+`integer`, and the process's exit status is the reply: `true` when the status is in `success`,
+`false` otherwise, or the status itself as an Integer. The status is data, so a non-zero exit
+is **not** `ToolProcessFailed` under this format; a process that could not be started, was
+killed by a signal or by the deadline is still a process failure or a timeout. No `source`,
+`unit`, `errorPath` or sequence.
+
+**`type`.** Text formats need it because every cell is text; `json` admits it as a check. The
+default `"number"` reads as the JSON protocol reads a number today: an Integer when the text is
+a decimal integer that fits, else a finite Real (`1e3` is Real `1000`; `inf` and `nan` are
+malformed). `"integer"` refuses `12.0`; `"real"` reads an integer literal as a Real; `"boolean"`
+accepts `true`/`false` case-insensitively and nothing else (`1`/`0` are Integers, and a
+`Boolean` parameter refuses them in `Bind`, as today); `"string"` takes the text. Under `json`,
+`type` must agree with the JSON kind found (`"string"` refuses a number, `"number"` refuses a
+string) — the pointer tells where, `type` tells what, and a disagreement is `ToolMalformed`. What
+`Bind` then does with a Real for an `Integer` parameter is unchanged: refused.
+
+**Errors, and how they are named.** Every failure is one of the framework's `ToolError` kinds
+and fails the performance; none is *not covered*, none reaches the body. What changes is the
+detail:
+
+| Kind | Cause added by this section | Detail names |
+|------|------------------------------|--------------|
+| `ToolProcessFailed` | unchanged: non-zero exit (every format but `exitcode`), a process that could not start | the exit status and the captured standard error, as today |
+| `ToolTimeout` | unchanged | as today |
+| `ToolMalformed` | a source that does not parse; a pointer to `null`/object; a ragged or headerless-named CSV; a missing file; oversize output or file; a `type` disagreement; a repeated key, header name or group match; a unit the library lacks; a scalar for a sequence parameter or the reverse; mixed kinds in a sequence | the tool variable, then for `json` the pointer (`Tmax at /results/0/Tmax: string where number expected`), for `csv` the column and the data row (`Tmax in column T_max, row 3: "n/a" is not a number`), for `lines` the key or group and the line number, for a file its path relative to `{outputDir}` |
+| `ToolMissingOutput` | a pointer, column/row, key or group with nothing there; an empty CSV cell | the tool variable and where it was looked for |
+| `ToolUnknownOutput` | unchanged: an output no parameter of this action receives — the `object` protocol's extra key, or a `reply.outputs` entry the action has no `out` for | the tool variable |
+| `ToolRefused` | `error` in the `object` protocol, as today; `errorPath`, `errorColumn` or `errorKey` yielding a non-empty string | the tool's message, verbatim |
+| `ToolUnsentInput` | a template naming a variable this action does not send | the variable and the template |
+
+Divergence is unchanged in rule and changes in what it compares: two invocations with equal
+`ToolRequestOf` bytes whose parsed replies — the `ToolValue`s **after** the format read them and
+before `Bind` converted them, rendered by `renderReply` — differ set the `ToolDivergence` run
+note, so a CSV tool that writes `341.20` once and `341.2` next diverges only if the numbers do.
+
+### Sequences
+
+A `row: "all"` and a pointer to an array give a **sequence-valued** output: `ToolValue.Items`
+holds the elements in reply order, each a scalar `ToolValue` of one kind — all numbers, all
+Booleans or all Strings, mixed kinds malformed — and the outer value carries the `Unit` they
+share and no `Value` of its own. `Bind` binds a sequence only to a parameter whose multiplicity
+admits more than one (`[0..*]`, `[1..*]`, `[0..n]` with *n* > 1) and a scalar only to one whose
+upper bound is 1: a sequence for `attribute Tmax : Real` and a scalar for `Tprofile : Real[0..*]`
+are each `ToolMalformed` naming the variable and the multiplicity, since a silent wrap or a
+silent first-element would be an invented value. The bound value is the runtime's `ValSequence`
+of the converted elements, each converted to the coherent unit as a scalar is, so the model
+reads `Tprofile` as it reads any `Real[0..*]`; the multiplicity's bounds are checked as the
+runtime checks any write (an empty sequence to `[1..*]` is refused there, not here). Recording
+spells a sequence as a list literal: `attribute Tprofile : Real[0..*] ordered nonunique` declared on the run
+definition and `attribute :>> Tprofile = (300.0, 310.5, 341.2);` on each record, with the
+element type the scalars share and the items in reply order, so a record reads as a model
+value and not as a quotation, and a document table cell holds it as it holds any
+sequence-valued attribute. `renderReply`
+renders `Items` in the same form for divergence. `stdin: "csv"` and `{var}` render inputs only,
+and a sequence-valued **input** is out of scope for this note: a `ToolCall.Inputs` element is a
+scalar, and an action whose `in` parameter has an upper bound above 1 and a `ToolVariable` is
+refused before the process starts, as it is today.
+
+### Tools on calc definitions
+
+`ToolExecution` on a `calc def` or a calc usage makes the tool the calculation: its `in`
+parameters are the inputs, its `return` and `out` parameters the outputs, and the body — if the
+author wrote one — never evaluates, exactly as an action's body never performs. This is what
+lets `attribute Tmax = thermal(mass, power)` reach a program, and with it `calc`, `%calc`,
+`EvaluateCalc` and a document formula, since each evaluates the same calc usage. The
+implementation puts the `ToolRunner` on the `EvalContext` every evaluation carries rather than
+on the analysis plan alone, and `calcUsageRun` consults the annotation where it would otherwise
+enter the body. A calc under a tool is *observed* like an action under one, its performance
+fails like one, and it diverges like one; a calc evaluated under `smt` is a free output in its
+declared domain, which the framework note already says of a tool-computed value. Nothing about
+the manifest changes for a calc: the same entry serves an action and a calc that name the same
+tool, since the entry describes the program, not the caller.
+
+### Dry run
+
+`sysml -tool-dry-run <case|action|calc>` and `%tool <case|action|calc>` show what a tool would
+be given, without giving it. The case is performed with a `ToolRunner` that, at each tool call
+reached, prints the resolved manifest file, the resolved executable, each `argv` element on its
+own line as Go's `%q` spells it (so a space or a quote inside one is unambiguous), the
+environment the child would receive as `NAME=value` lines, the working directory, the standard
+input mode and its rendered bytes, the input file's rendered bytes, and the `reply` mapping —
+and then fails the performance with a typed `ToolDryRun` the surface swallows, so nothing after
+the call runs and no process starts. `{outputDir}` and `{inputFile}` render as
+`<outputDir>` and `<inputFile>` since neither directory is made. A case with two tool actions in
+sequence shows the first; the second depends on outputs the dry run does not have, and the
+report says so.
+
+### Listing and provenance
+
+The `protocol` column of `-engines`, `%engines` and `ListEngines` says what a tool entry
+speaks: `object` for today's protocol (unchanged, so goldens hold), `argv` for an `invocation`
+with an `object` reply, and `argv+csv`, `argv+json`, `argv+lines`, `argv+exitcode` — or the
+format alone when there is no `invocation` — for the rest. `ListEngines` carries the same string
+in the `protocol` field it already has; no RPC is added, and the Python client's engine listing
+exposes the field it already parses.
+
+A recorded run (`record.Provenance`) today says which `sysml` made it and with what command.
+A run that reached a tool gains, per tool call, the tool's `toolName`, its `version` and the
+manifest file it came from, and the rendered `argv` (or `stdin` for a v1 entry, as
+`ToolRequestOf` rendered it), so a record reads *ThermalSolver 2.3 from
+/etc/opensysml/tools/thermal.json: python3 /opt/thermal/solve.py --mass 12.5 …*. This is
+recorded in `AnalysisRecords` as a `tools : String[0..*]` attribute of `RecordedRun`, one
+element per call in call order, so a record whose model names no tool has an empty sequence and
+existing records are unchanged; the library edit and the renderer land together in the calc
+and surfaces stage, since the calc path is where a recorded value first comes from a tool.
+
+### What is decided here that the plan left open
+
+For an implementer, and for a reviewer who wants to change one:
+
+- `{var}` renders an Integer as decimal, a Real by `strconv.FormatFloat(v, 'g', -1, 64)`, a
+  Boolean as `true`/`false`, a String verbatim with no quoting, and a quantity as its magnitude;
+  `{var.value}` is a synonym of `{var}`; `{var.unit}` is the empty string for a unitless input.
+- Templates are checked when the manifest is read: an unknown name, a stray brace and a
+  reserved-word misuse refuse the entry; only an input the action did not send is a run-time
+  `ToolUnsentInput`. Substitution never re-scans a rendered value.
+- `cwd` and the executable are not templates; `source` admits `{outputDir}` alone.
+- With `invocation` present the environment is the minimal base (`PATH`, `HOME`, `TMPDIR`,
+  `LANG`, `LC_ALL`, `TZ`; on Windows also `SystemRoot`, `SystemDrive`, `USERPROFILE`, `TEMP`,
+  `TMP`, `PATHEXT`, `COMSPEC`) plus `OPENSYSML_TOOL_ENV_PASSTHROUGH` plus `env`; without it, the
+  whole parent environment as today.
+- `stdin` defaults to `"json"` even under `invocation`; `"csv"` standard input is a header of
+  the sent variables in `variables` order and one record of values, units not carried.
+- `row` is a zero-based index over data records, the header excluded; `row` defaults to
+  `"last"`.
+- `type` defaults to `"number"` (Integer if the text is an integer, else Real), and is applied
+  to `json` as a check against the JSON kind.
+- A CSV cell is trimmed before typing except under `type: "string"`; an empty cell is
+  `ToolMissingOutput`, not a default.
+- `lines` splits at the first `=` or `:` and ignores lines with neither; a key or group found
+  twice is malformed; `key` and `regex` are exclusive.
+- `exitcode` makes a non-zero exit data rather than `ToolProcessFailed`; `success` defaults to
+  `[0]`.
+- `errorPath`, `errorColumn` and `errorKey` refuse only on a non-empty string, and are checked
+  before outputs.
+- A sequence binds only to a multiplicity above 1 and a scalar only to one of 1; neither
+  direction wraps or picks; elements share one kind and one unit.
+- A `reply.outputs` entry for a variable this action has no `out` for is `ToolUnknownOutput`,
+  as an extra `outputs` key is today; a manifest describes one interface.
+- A recorded sequence output is a typed `[0..*] ordered nonunique` attribute with a list literal, not a String of
+  its text.
+- The temporary directory is removed on every exit path unless `OPENSYSML_TOOL_KEEP=1`.
+- Divergence compares parsed `ToolValue`s, not reply bytes.
+- Provenance is a `tools : String[0..*]` attribute on `RecordedRun`, one element per call.
+
 ## User surface
 
 Existing flags, commands, RPCs and their outputs keep their meaning. Added:
@@ -485,7 +912,8 @@ Existing flags, commands, RPCs and their outputs keep their meaning. Added:
 | CLI | `-engines` lists external engines and strategies with kind, source, resolved command, version, admitted strength and referee status, spawning nothing; `-engines -probe` also runs each entry's `describe` and reports it; `-engine <name>` selects an external engine as it selects a built-in one; `-schedule policy:<name>`; `-sampler <name>`; `-referee <engine> <dir>` |
 | REPL | `%engines` shows the same; `%schedule policy:<name>`; `%sampler <name>` |
 | gRPC/Connect | `ListEngines` includes external engines with a `source` field and whether the service serves them; `schedule: "policy:<name>"` and a `sampler` field on the sweep request; the `engines_external` service capability, advertised only when the service was started with `-serve-external-engines` |
-| Environment | `OPENSYSML_ENGINES` beside `OPENSYSML_TOOLS`; `OPENSYSML_TOOL_TIMEOUT` bounds one message round trip for every kind; `OPENSYSML_TOOL_MAX_OUTPUT` bounds one message and the captured standard error |
+| Environment | `OPENSYSML_ENGINES` beside `OPENSYSML_TOOLS`; `OPENSYSML_TOOL_TIMEOUT` bounds one message round trip for every kind; `OPENSYSML_TOOL_MAX_OUTPUT` bounds one message, the captured standard error and a reply file; `OPENSYSML_TOOL_ENV_PASSTHROUGH` names the parent variables a composed invocation inherits; `OPENSYSML_TOOL_KEEP=1` keeps an invocation's temporary directory |
+| Tools | `-tool-dry-run <case\|action\|calc>` and `%tool` print the composed invocation and the reply mapping without starting the process; the `protocol` column of `-engines`, `%engines` and `ListEngines` reads `object`, `argv`, `argv+csv`, `argv+json`, `argv+lines`, `argv+exitcode` or the format alone; `ToolExecution` on a `calc def` or usage; a `RecordedRun` carries `tools`, one element per tool call |
 | Report | the standing line names the engine's origin and what its answer rests on: `holds? not covered: engine 'spin-bridge' reports holds, bounded at depth 40; not admitted`, `(observed on 200 executions chosen by engine 'sim-bridge', each replayed)`, `(bounded at depth 40 by engine 'spin-bridge'; refereed on 412 cases)`, `policy:priority (external; deterministic on 40 of 40 runs)` |
 | Reference | `docs/reference/` gains the manifest format, the message set with its JSON Schema, the lowered-graph export format, and the referee record |
 
@@ -527,6 +955,20 @@ contains can cause it:
   engine reached at an `address` receives the model's sources, so an entry with an `address` is
   a decision to send the model there, made in the manifest and nowhere else.
 - A WebAssembly module runs with no capabilities beyond the messages it is passed.
+- **A composed invocation never runs a shell**, and the model influences only values, never
+  what runs. The executable, `cwd`, the argument templates, the environment policy and the
+  reply parser are the manifest's; after substitution every `argv` element and every `env`
+  value is an opaque string handed to `exec.Command`, never re-split, never expanded, never
+  re-scanned for placeholders. A String input holding `; rm -rf /` or `$(…)` is those bytes in
+  one argument. A placeholder names a declared variable or one of four reserved runtime values;
+  `cwd` and `executable` are confined as a relative `command` is; `source` may name only a file
+  under the invocation's own `{outputDir}`, checked after cleaning and refused if it is a link.
+  With `invocation` present the child sees the minimal base environment, the operator's
+  passthrough list and the manifest's `env`, and nothing else of the parent's. Each invocation
+  has a fresh `0700` temporary directory removed on every exit path (kept only under
+  `OPENSYSML_TOOL_KEEP=1`), so two performances share no file and none leaves one. Nothing a
+  tool writes is interpreted beyond the format the manifest chose: a CSV cell is a number, a
+  Boolean or a String by `type`, never a path or a command.
 - What an engine writes is bounded: one message and the captured standard error by
   `OPENSYSML_TOOL_MAX_OUTPUT`, `progress` by coalescing, time by the deadline and
   `OPENSYSML_TOOL_TIMEOUT`; and nothing an engine writes is interpreted beyond the JSON it is
@@ -589,6 +1031,60 @@ contains can cause it:
 - **Wire, CLI and REPL compatibility:** `make proto-breaking` against `develop`, `make
   man-check` and the goldens pass; the JSON Schema for the message set validates every message
   the stand-ins exchange in the tests.
+- **Tool invocation:** the pilot's `AnalysisAnnotation` fixture against `toolstandin` with a v1
+  entry passes unchanged, with the request bytes, the reply bytes and the environment the
+  stand-in saw asserted byte for byte (the regression anchor); a Python script under
+  `analysis/testdata` that takes `--mass`/`--power`/`--unit`/`--out`, reads no standard input
+  and writes `result.csv` into `{outputDir}` is the worked example and runs the manifest of this
+  note end to end; an `args` element holding a space, a quote, a `;`, a newline and `{{`/`}}`
+  arrives as one argument with those bytes (the stand-in echoes its `argv` as JSON); every
+  template fault names its template and offset in `-engines` and registers nothing (unknown
+  name, stray brace, `.unit` on `{uri}`, a `variables` entry spelling `outputDir`,
+  `{inputFile}` without `inputFile`, `inputFile` without `{inputFile}`); a template naming an
+  unsent input is `ToolUnsentInput` before any process starts (asserted by a stand-in that
+  records its start); the child's environment under `invocation` is exactly the base plus
+  `OPENSYSML_TOOL_ENV_PASSTHROUGH` plus `env`, a parent `OPENSYSML_TOOLS` and `SECRET` not
+  among them, and without `invocation` is the parent's; `cwd` outside the manifest directory
+  through `..` or a link is refused; `stdin: "none"` gives the child end-of-file; `stdin:
+  "csv"` and a `csv` input file render the header and one record in `variables` order; each
+  rendering rule (Integer, Real `1e-07`, Boolean, String with spaces, quantity and its
+  `{var.unit}`, unitless `{var.unit}` empty) is asserted on the echoed `argv`; the temporary
+  directory is gone after success, after each failure kind and after a timeout, and present
+  with `OPENSYSML_TOOL_KEEP=1` and named in the report.
+- **Tool replies:** for each of `json`, `csv`, `lines`, `exitcode` and `object` from a file: the
+  happy path binds and converts units as the JSON protocol does; a missing member, column, row,
+  key or group is `ToolMissingOutput` naming the place; a `null`, an object at a pointer, a
+  ragged record, a header name absent or repeated, `row` past the end, a non-number under
+  `type: "number"`, `12.0` under `"integer"`, `yes` under `"boolean"`, a string at a
+  `"number"` pointer, a repeated key, a group matched twice, an unknown unit, a differing unit
+  across `row: "all"`, a mixed-kind array, a scalar for a `[0..*]` parameter and an array for a
+  scalar one are each `ToolMalformed` with the variable and the pointer, column and row, or key
+  and line in the detail; `errorPath`, `errorColumn` and `errorKey` with a message are
+  `ToolRefused` with that message and with an empty string are not; a non-zero exit is
+  `ToolProcessFailed` quoting standard error under every format but `exitcode`, where `0` and
+  `3` under `success: [0, 3]` bind `true` and `1` binds `false` and, under `type:
+  "integer"`, `3` binds `3`; a file the tool did not write, a link at its path, a path
+  escaping `{outputDir}`, and a file over `OPENSYSML_TOOL_MAX_OUTPUT` are refused naming the
+  path; a reply a v1 entry would have accepted is accepted identically under `format:
+  "object"` with a `source: "file:…"`; two invocations with equal inputs whose CSV spells
+  `341.20` and `341.2` do not diverge and whose values differ do; every reply-side manifest
+  fault (`outputs` naming a non-variable, `unit` beside `unitColumn`, `key` beside `regex`, a
+  group naming no output, `exitcode` with two outputs, a negative `row`, a two-character
+  `delimiter`, `format: "object"` with `outputs`) registers nothing and names the field.
+- **Sequences:** `row: "all"` and a JSON array bind to `Real[0..*]`, convert each element's
+  unit, record as `(…)` with the element type, render in a document table, replay under
+  `check`, and are a free output under `smt`; an empty CSV under `"all"` binds the empty
+  sequence to `[0..*]` and is refused for `[1..*]` by the runtime's multiplicity check.
+- **Calc:** `ToolExecution` on a `calc def` reached from an attribute binding, `calc`, `%calc`,
+  `EvaluateCalc` and a document formula runs the tool once per evaluation and never the body
+  (the body asserts by failing); a failure fails the evaluation with the same `ToolError`; the
+  result is *observed* and a divergence is reported.
+- **Surfaces:** `-tool-dry-run` and `%tool` over the worked example print the composed
+  invocation with `<outputDir>` and start no process (the stand-in records its start); the
+  `protocol` column reads each value the note lists; a golden for `-engines` with a v1 entry is
+  unchanged; a record of a run through the worked example carries `tools` with the tool, its
+  version, the manifest path and the argument list; `make man-check` and `make proto-breaking`
+  pass.
 
 ## Stages
 
@@ -656,6 +1152,33 @@ first stage delivers, since it is the gate every external witness passes through
 The `grpc` transport is defined in stage 1 and implemented when the first remote engine needs
 it; the messages do not change.
 
+The tool stages are independent of the engine stages above and of each other's later members,
+since they touch the tool entry, `tool.go` and `runtime/tool.go` and no session or strategy
+code. The first three are ordered; the last two each depend only on the third:
+
+1. **Composed invocation.** `ToolEntry.Invocation`, the template grammar and its load-time
+   checks, the rendering rules, the minimal base environment and `OPENSYSML_TOOL_ENV_PASSTHROUGH`,
+   `cwd` confinement, the four `stdin` shapes, `inputFile`, the temporary directory and
+   `OPENSYSML_TOOL_KEEP`, `ToolUnsentInput` for an unsent template variable; the reply is still
+   `ToolReplyOf` on standard output. The `protocol` column reads `argv`. The v1 regression
+   anchor is asserted byte for byte in this stage, before anything else moves.
+2. **Structured replies.** `ToolEntry.Reply`, `source`, the `json`, `csv`, `lines` and
+   `exitcode` readers each producing a `map[string]runtime.ToolValue` for `Bind`, `type`,
+   `unit`/`unitPath`/`unitColumn`, `errorPath`/`errorColumn`/`errorKey`, the error details
+   naming pointer, column and row, key and line; `renderReply` over parsed values for
+   divergence; the worked Python example, scalar outputs only (`row: "all"` and an array are
+   refused with a typed error naming this stage).
+3. **Sequences.** `ToolValue.Items`, `row: "all"` and array pointers, the multiplicity rule in
+   `Bind`, `ValSequence` construction and unit conversion per element, the record's sequence
+   shape and `renderReply` over `Items`.
+4. **Tools on calc definitions.** `ToolRunner` on the `EvalContext`, the annotation consulted
+   in `calcUsageRun`, the body never entered, standing and divergence as for an action; the
+   `tools` attribute of `RecordedRun` and its renderer, since a recorded value now first comes
+   from a tool by way of a calc.
+5. **Surfaces.** `-tool-dry-run`, `%tool`, the `ToolDryRun` runner and its report, the
+   `protocol` values in every listing, the reference page for the v2 entry and the guide's
+   worked example.
+
 ## What this does not change
 
 - The built-in engines, their strengths and their referee role. `explore` remains the referee;
@@ -666,8 +1189,14 @@ it; the messages do not change.
   contradiction is a disagreement for the interpreter, *observed* names executions the
   interpreter ran. The one addition is `admit`, and it never raises a claim above what the
   engine itself claimed, nor above *not covered* without a record.
-- The tool manifest. `OPENSYSML_TOOLS` and the `tool:<name>` engine are as the framework note
-  designs them; a tool entry gains nothing and loses nothing by the second directory.
+- The tool manifest's v1 meaning. `OPENSYSML_TOOLS` and the `tool:<name>` engine are as the
+  framework note designs them; a tool entry gains nothing and loses nothing by the second
+  directory, and an entry without `invocation` and `reply` runs, reads and is listed exactly as
+  before: no arguments, the whole parent environment, the parent's working directory, the JSON
+  object on standard input and `ToolReplyOf` on standard output, `protocol` `object`.
+- The model's vocabulary for tools. `ToolExecution` and `ToolVariable` are the whole of what a
+  model says; no annotation names an argument, a parser, a file or an environment, and none
+  will.
 - No accepted model is refused, no result changes, no flag, command, RPC or field is removed or
   renamed. A model that names no tool and a session that sets no manifest see nothing new but
   an empty section in `-engines`.

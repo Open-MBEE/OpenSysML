@@ -155,6 +155,10 @@ type HTMLOptions struct {
 	// NumberSections numbers the section headings hierarchically.
 	NumberSections bool
 
+	// NumberFigures numbers figures and tables as MarkdownOptions.NumberFigures,
+	// the label in a sysml-caption-number span.
+	NumberFigures bool
+
 	// Lang is the page language, "en" when empty.
 	Lang string
 
@@ -167,13 +171,28 @@ type HTMLOptions struct {
 	// source in \(…\) or \[…\] delimiters.
 	MathScript string
 
-	// DiagramForm is the source every graph-shaped diagram is written as,
-	// Mermaid when empty; a table-kind view is a table whichever it is.
+	// DiagramForm is the source every graph-shaped diagram is written as; a
+	// table-kind view is a table whichever it is. Empty picks per diagram:
+	// DOT for a rendering a Layout or Route positions, Mermaid otherwise.
 	DiagramForm view.Form
 
-	// Unplaced is where a DOT diagram some Layout positions puts the nodes
-	// none does: left undrawn when empty, or in a strip below the drawing.
+	// WithoutGraphviz records that no Graphviz draws DOT for this render, so
+	// the automatic choice writes Mermaid for positioned diagrams too, with a
+	// notice stating so. An explicit DiagramForm is written regardless.
+	WithoutGraphviz bool
+
+	// Unplaced is where a diagram some Layout positions puts the nodes none
+	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty; the other forms draw one look.
+	Style view.DrawingStyle
+
+	// Files is the file each document of the set this one is rendered in is
+	// written to, by qualified name; a cross-document reference links to the
+	// target's file here, or to DocumentHTMLFileName of its name when absent.
+	Files map[string]string
 
 	// DiagramImages are images drawn ahead of the render, one per graph-shaped
 	// diagram in the order Diagrams lists them, each written as <img> in place
@@ -181,9 +200,24 @@ type HTMLOptions struct {
 	// than diagrams is an error.
 	DiagramImages []string
 
+	// DiagramSVG is SVG markup drawn ahead of the render, one per graph-shaped
+	// diagram in the order Diagrams lists them, each written inline in place
+	// of its source; an empty entry, or none, defers to DiagramImages, then
+	// the source. More entries than diagrams is an error.
+	DiagramSVG []string
+
+	// Drawer draws the DOT diagrams the automatic choice picks, filling
+	// DiagramSVG when that is empty; one that is not available settles the
+	// choice on the Mermaid fallback. Nil leaves the choice to WithoutGraphviz.
+	Drawer DiagramDrawer
+
 	// Math is typeset HTML for formulas, keyed as Formulas lists them, written
 	// in place of the delimited LaTeX; a formula with none keeps its LaTeX.
 	Math map[Formula]string
+
+	// OutputDir is the directory the page is written into, when known, so an
+	// image's source-relative location is written relative to it; empty writes it as stated.
+	OutputDir string
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -220,23 +254,27 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 			return "", err
 		}
 	}
-	form, err := diagramForm(opts.DiagramForm)
-	if err != nil {
+	diagrams := opts.diagramOptions()
+	if err := diagrams.check(); err != nil {
+		return "", err
+	}
+	if err := drawAutomatic(document, &diagrams, opts.Drawer, &opts.DiagramSVG); err != nil {
 		return "", err
 	}
 	var base string
 	if !opts.NoDefaultStylesheet {
+		var err error
 		if base, err = ThemeStylesheet(opts.Theme); err != nil {
 			return "", err
 		}
 	}
-	w := &htmlWriter{opts: opts, base: base, form: form, ids: contentIDs(document)}
+	w := &htmlWriter{opts: opts, base: base, forms: diagrams, ids: contentIDs(document), captions: captionNumbering{on: opts.NumberFigures}}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
 	if err := w.writeDocument(document); err != nil {
 		return "", err
 	}
-	if w.diagrams < len(opts.DiagramImages) {
-		return "", &Error{Kind: ErrorSurplusDiagramImages, Actual: strconv.Itoa(len(opts.DiagramImages)), Count: w.diagrams}
+	if w.diagrams < max(len(opts.DiagramImages), len(opts.DiagramSVG)) {
+		return "", &Error{Kind: ErrorSurplusDiagramImages, Actual: strconv.Itoa(max(len(opts.DiagramImages), len(opts.DiagramSVG))), Count: w.diagrams}
 	}
 	return w.b.String(), nil
 }
@@ -255,19 +293,37 @@ func (s Stylesheet) Check() error {
 	return nil
 }
 
-// htmlWriter accumulates one rendered document in its resolved diagram form;
-// ids maps each content node's named path to the identifier addressing it,
-// diagrams counts the graph-shaped diagrams written so far, and mermaid holds
-// the Mermaid sources left for a loaded script to draw.
+// diagramOptions is the part of the options the diagrams are written by.
+func (o HTMLOptions) diagramOptions() DiagramOptions {
+	return DiagramOptions{Form: o.DiagramForm, WithoutGraphviz: o.WithoutGraphviz, Unplaced: o.Unplaced, Style: o.Style}
+}
+
+// htmlWriter accumulates one rendered document, its diagrams in the forms
+// forms picks; ids maps each content node's named path to the identifier
+// addressing it, diagrams counts the graph-shaped diagrams written so far,
+// and mermaid holds the Mermaid sources left for a loaded script to draw.
 type htmlWriter struct {
 	b        strings.Builder
 	opts     HTMLOptions
 	base     string
-	form     view.Form
+	forms    DiagramOptions
 	ids      map[string]string
 	numbers  map[string]string
+	captions captionNumbering
 	diagrams int
 	mermaid  []string
+}
+
+// captionMarkup is a caption's inner HTML: its number, when it has one, in a
+// span ahead of its text.
+func captionMarkup(c caption) string {
+	switch {
+	case c.label == "":
+		return htmlText(c.text)
+	case c.text == "":
+		return "<span class=\"sysml-caption-number\">" + htmlText(c.label) + "</span>"
+	}
+	return "<span class=\"sysml-caption-number\">" + htmlText(c.label+".") + "</span> " + htmlText(c.text)
 }
 
 func (w *htmlWriter) writeDocument(document *docir.Document) error {
@@ -443,6 +499,9 @@ func (w *htmlWriter) writeContent(node docir.Content, path []step, index, level 
 	case docir.ContentFormula:
 		w.writeFormula(node, id)
 		return nil
+	case docir.ContentImage:
+		w.writeImage(node, id)
+		return nil
 	case docir.ContentDiagram:
 		return w.writeDiagram(node, id)
 	default:
@@ -485,8 +544,8 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 	w.b.WriteString("<table class=\"sysml-table\"" + attr("id", id) + " data-content=\"table\"" +
 		attr(attrName, node.Name()) + attr(attrQuery, node.Query()) +
 		attr("data-group-by", node.GroupBy()) + ">\n")
-	if node.Caption() != "" {
-		w.b.WriteString("<caption class=\"sysml-caption\">" + htmlText(node.Caption()) + "</caption>\n")
+	if c := w.captions.caption(node); c.String() != "" {
+		w.b.WriteString("<caption class=\"sysml-caption\">" + captionMarkup(c) + "</caption>\n")
 	}
 	w.writeTableHead(names)
 	if node.GroupBy() != "" {
@@ -632,6 +691,22 @@ func (w *htmlWriter) writeFormula(node docir.Content, id string) {
 	w.b.WriteString("</figure>\n")
 }
 
+// writeImage writes one image as a figure: its location as the page refers
+// to it (see HTMLOptions.OutputDir), and its caption.
+func (w *htmlWriter) writeImage(node docir.Content, id string) {
+	alt := node.Alt()
+	if alt == "" {
+		alt = node.Caption()
+	}
+	w.b.WriteString("<figure class=\"sysml-image\"" + attr("id", id) + " data-content=\"image\"" +
+		attr(attrName, node.Name()) + ">\n")
+	w.b.WriteString("<img" + attr("src", imageOf(node).Source(w.opts.OutputDir)) + attr("alt", alt) + ">\n")
+	if c := w.captions.caption(node); c.String() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(c) + "</figcaption>\n")
+	}
+	w.b.WriteString("</figure>\n")
+}
+
 // Delimiters a math script recognizes inline and display LaTeX by.
 const (
 	inlineMathOpen   = `\(`
@@ -657,46 +732,55 @@ func displayMathHTML(source string) string {
 // or else as its source in the render's diagram form — Mermaid, which a loaded
 // Mermaid script draws, or DOT or PlantUML — shown as text.
 func (w *htmlWriter) writeDiagram(node docir.Content, id string) error {
-	return w.writeFigure(id, node.Name(), node.Caption(), node.Rendering(), figureOptions(node, w.opts.Unplaced))
+	return w.writeFigure(id, node.Name(), w.captions.caption(node), node.Rendering(), figureOptions(node, w.forms))
 }
 
-func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rendering, options view.Options) error {
+func (w *htmlWriter) writeFigure(id, name string, caption caption, rendering *view.Rendering, options view.Options) error {
 	if rendering == nil {
 		return &Error{Kind: ErrorMissingRendering, Content: name}
 	}
 	if rendering.Kind != view.KindTable && !rendering.Kind.Supported() {
 		return &Error{Kind: ErrorUnrenderableDiagram, Content: name, Actual: string(rendering.Kind), Form: "HTML"}
 	}
-	var source string
+	var source, fallback string
+	var form view.Form
 	if rendering.Kind != view.KindTable {
 		var err error
-		if source, err = diagramSource(name, rendering, options, w.form); err != nil {
+		form, fallback = w.forms.formFor(rendering)
+		if source, err = diagramSource(name, rendering, options, form); err != nil {
 			return err
 		}
 	}
 	w.b.WriteString("<figure class=\"sysml-diagram\"" + attr("id", id) + " data-content=\"diagram\"" +
 		attr(attrName, name) + attr("data-view", rendering.View) +
 		attr("data-diagram-kind", string(rendering.Kind)) +
-		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) + ">\n")
+		attr("data-direction", string(options.Direction)) + attr("data-palette", string(options.Palette)) +
+		attr("data-style", string(options.Style)) + ">\n")
+	if fallback != "" {
+		w.b.WriteString("<p class=\"sysml-diagram-notice\"><em>" + html.EscapeString(fallback) + "</em></p>\n")
+	}
 	switch {
 	case rendering.Kind == view.KindTable:
 		w.writeRenderingTable(rendering)
+	case w.diagramSVG() != "":
+		w.b.WriteString(svgBlock(w.diagramSVG()) + "\n")
+		w.diagrams++
 	case w.diagramImage() != "":
-		alt := caption
+		alt := caption.text
 		if alt == "" {
 			alt = name
 		}
 		w.b.WriteString("<img" + attr("src", w.diagramImage()) + attr("alt", alt) + ">\n")
 		w.diagrams++
 	default:
-		w.b.WriteString("<pre" + attr("class", string(w.form)) + ">" + html.EscapeString(source) + "</pre>\n")
+		w.b.WriteString("<pre" + attr("class", string(form)) + ">" + html.EscapeString(source) + "</pre>\n")
 		w.diagrams++
-		if w.form == view.FormMermaid {
+		if form == view.FormMermaid {
 			w.mermaid = append(w.mermaid, source)
 		}
 	}
-	if caption != "" {
-		w.b.WriteString("<figcaption class=\"sysml-caption\">" + htmlText(caption) + "</figcaption>\n")
+	if caption.String() != "" {
+		w.b.WriteString("<figcaption class=\"sysml-caption\">" + captionMarkup(caption) + "</figcaption>\n")
 	}
 	w.b.WriteString("</figure>\n")
 	return nil
@@ -707,6 +791,15 @@ func (w *htmlWriter) writeFigure(id, name, caption string, rendering *view.Rende
 func (w *htmlWriter) diagramImage() string {
 	if w.diagrams < len(w.opts.DiagramImages) {
 		return w.opts.DiagramImages[w.diagrams]
+	}
+	return ""
+}
+
+// diagramSVG is the SVG drawn for the graph-shaped diagram about to be
+// written, empty when an image or its source is to be shown instead.
+func (w *htmlWriter) diagramSVG() string {
+	if w.diagrams < len(w.opts.DiagramSVG) {
+		return w.opts.DiagramSVG[w.diagrams]
 	}
 	return ""
 }
@@ -774,31 +867,17 @@ func (w *htmlWriter) runHTML(run docir.TextRun) string {
 		// A scheme a document must not navigate to is kept as data, not as a link.
 		return "<a class=\"sysml-link\"" + attr("data-href", run.Target()) + ">" + htmlText(run.Text()) + "</a>"
 	case docir.RunRef:
-		return "<a class=\"sysml-ref\"" + attr("href", htmlRefDestination(run)) +
+		return "<a class=\"sysml-ref\"" + attr("href", refDestination(run, w.opts.Files, DocumentHTMLFileName)) +
 			attr("data-document", run.TargetDocument()) + ">" + htmlText(run.Text()) + "</a>"
 	default:
 		return htmlText(run.Text())
 	}
 }
 
-// htmlRefDestination maps a reference run to its destination: an in-document
-// anchor, or a relative link into another document's HTML file.
-func htmlRefDestination(run docir.TextRun) string {
-	if run.TargetDocument() == "" {
-		return "#" + run.Target()
-	}
-	destination := DocumentHTMLFileName(run.TargetDocument())
-	if run.Target() != "" {
-		destination += "#" + run.Target()
-	}
-	return destination
-}
-
-// DocumentHTMLFileName derives the deterministic HTML file name of a rendered
-// document from its fully-qualified name, escaped as anchors are so distinct
-// documents never collide.
+// DocumentHTMLFileName is the HTML file a document is written to on its own,
+// DocumentFileStem of its qualified name plus `.html`.
 func DocumentHTMLFileName(fqn string) string {
-	return documentFileName(fqn, ".html")
+	return DocumentFileStem(fqn) + ".html"
 }
 
 // contentIDs maps every content node's occurrence path to the identifier the

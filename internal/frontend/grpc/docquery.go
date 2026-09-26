@@ -37,7 +37,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
-	defer held.lock()()
+	defer held.lock(ctx)()
 	qctx := held.queryContext()
 	sym, err := documentSymbol(qctx.Index, req.QueryId)
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	// A document reads the objects the model holds, as -render-document reads
 	// the ones -instantiate created beside it.
 	held := s.objects(cached)
-	defer held.lock()()
+	defer held.lock(ctx)()
 	qctx := held.queryContext()
 	sym, err := documentSymbol(qctx.Index, req.DocumentId)
 	if err != nil {
@@ -117,14 +117,22 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, held.documentStatus(err)
 	}
+	extension := ".md"
 	if form == renderFormHTML {
-		page, err := docrender.HTML(document, docrender.HTMLOptions{})
+		extension = ".html"
+	}
+	files, err := model.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
+	if err != nil {
+		return nil, documentStatus(err)
+	}
+	if form == renderFormHTML {
+		page, err := docrender.HTML(document, docrender.HTMLOptions{Files: files})
 		if err != nil {
 			return nil, documentStatus(err)
 		}
 		return &pb.RenderDocumentResponse{Html: page}, nil
 	}
-	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{})
+	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
 	if err != nil {
 		return nil, documentStatus(err)
 	}

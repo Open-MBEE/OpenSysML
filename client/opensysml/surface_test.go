@@ -954,6 +954,47 @@ func TestApplyEditsAddsAMember(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddsAConnection(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, "package Demo { part def System { part a; part b; } }")
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.AddConnection{
+			Owner: "Demo::System", Kind: "allocation", From: "a", To: "b", Name: "alloc1",
+		})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "allocation alloc1 allocate a to b;") {
+		t.Errorf("the connection was not added:\n%s", result.Content)
+	}
+}
+
+func TestApplyEditsAddsATypedConnection(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, `package Demo {
+	port def Plug;
+	connection def Cable {
+		end a : Plug;
+		end b : Plug;
+	}
+	part def Rig {
+		part left { port p : Plug; }
+		part right { port p : Plug; }
+	}
+}`)
+	result, err := client.ApplyEdits(context.Background(), model,
+		opensysml.AddConnection{
+			Owner: "Demo::Rig", Kind: "connection", From: "left.p", To: "right.p",
+			Name: "cable", Type: "Cable",
+		})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if !strings.Contains(result.Content, "connection cable : Cable connect left.p to right.p;") {
+		t.Errorf("the typed connection was not added:\n%s", result.Content)
+	}
+}
+
 func TestEveryOperationIsRefusedAfterClose(t *testing.T) {
 	client, err := opensysml.New()
 	if err != nil {

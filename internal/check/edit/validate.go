@@ -16,7 +16,11 @@ import (
 // checkValue refuses a new value that is not one expression. Whether it names
 // anything is answered by analyzing the edited model, where it has a scope.
 func (m Model) checkValue(i int, op Operation) error {
-	text := strings.TrimSpace(op.Value)
+	return m.checkExpression(i, "value", op.Target, op.Value)
+}
+
+func (m Model) checkExpression(i int, label, target, value string) error {
+	text := strings.TrimSpace(value)
 	sf := source.New("<value>", []byte(text))
 	refuse := func(reason string, diags []diag.Diagnostic) error {
 		return &Error{
@@ -24,7 +28,7 @@ func (m Model) checkValue(i int, op Operation) error {
 			OperationIndex: i,
 			Diagnostics:    diags,
 			Diagnosed:      sf,
-			Message:        fmt.Sprintf("value %q for %s %s", op.Value, op.Target, reason),
+			Message:        fmt.Sprintf("%s %q for %s %s", label, value, target, reason),
 		}
 	}
 	if text == "" {

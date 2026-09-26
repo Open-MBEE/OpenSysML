@@ -146,8 +146,8 @@ func (c *client) convert(ctx context.Context, req *pb.ConvertRequest) (*Conversi
 	}, nil
 }
 
-// Edit is one source-preserving change to a model's notation: SetValue, Rename,
-// AddMember, Delete or Move. A type switch over them is exhaustive.
+// Edit is one source-preserving change to a model's notation. A type switch
+// over the supported edit operations is exhaustive.
 type Edit interface {
 	isEdit()
 }
@@ -186,6 +186,81 @@ type AddMember struct {
 	Value string
 	// Specializes are optional specialization targets for a definition.
 	Specializes []string
+	// IsAbstract declares the definition or usage abstract.
+	IsAbstract bool
+	// Redefines are optional redefinition targets for a usage.
+	Redefines []string
+	// IsDefault writes the value with the default assignment keyword.
+	IsDefault bool
+	// Direction is an optional usage direction: "in", "out" or "inout".
+	Direction string
+}
+
+// AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
+type AddSatisfy struct {
+	// Owner is the package or body receiving the usage.
+	Owner string
+	// Requirement is the requirement feature reference.
+	Requirement string
+	// By is the optional satisfying feature reference.
+	By string
+	// Asserted marks the usage asserted.
+	Asserted bool
+	// Negated marks the usage negated.
+	Negated bool
+}
+
+// AddRequirementConstraint inserts a require or assume constraint.
+type AddRequirementConstraint struct {
+	// Owner is the requirement-like namespace receiving the constraint.
+	Owner string
+	// Kind is "require" or "assume".
+	Kind string
+	// Expression is the required constraint expression.
+	Expression string
+	// Name is the optional constraint name.
+	Name string
+}
+
+// AddTransition inserts a state transition or entry transition into a state body.
+type AddTransition struct {
+	// Owner is the state definition or usage receiving the transition.
+	Owner string
+	// Name is the optional transition name.
+	Name string
+	// Source is the source feature reference; empty only for an entry transition.
+	Source string
+	// Target is the target feature reference.
+	Target string
+	// Trigger is optional text after `accept`.
+	Trigger string
+	// Guard is an optional boolean expression after `if`.
+	Guard string
+	// Effect is optional effect text after `do`.
+	Effect string
+	// Initial writes an entry transition instead of a regular transition.
+	Initial bool
+}
+
+// AddEntryTransition constructs an entry transition to target in owner.
+func AddEntryTransition(owner, target string) AddTransition {
+	return AddTransition{Owner: owner, Target: target, Initial: true}
+}
+
+// AddConnection inserts a connection-like usage into a namespace or document root.
+type AddConnection struct {
+	// Owner is the namespace to receive the usage; empty is the document root.
+	Owner string
+	// Kind is the written connection kind, such as "allocation" or "flow".
+	Kind string
+	// From is the first feature reference, written as notation.
+	From string
+	// To is the second feature reference, written as notation.
+	To string
+	// Name is the optional declared identifier.
+	Name string
+	// Type is an optional typing target.
+	Type string
 }
 
 // Delete removes a declaration and the trivia it owns.
@@ -205,11 +280,17 @@ type Move struct {
 	Owner string
 }
 
-func (SetValue) isEdit()  { /* marker: closed Edit set */ }
-func (Rename) isEdit()    { /* marker: closed Edit set */ }
-func (AddMember) isEdit() { /* marker: closed Edit set */ }
-func (Delete) isEdit()    { /* marker: closed Edit set */ }
-func (Move) isEdit()      { /* marker: closed Edit set */ }
+func (SetValue) isEdit()   { /* marker: closed Edit set */ }
+func (Rename) isEdit()     { /* marker: closed Edit set */ }
+func (AddMember) isEdit()  { /* marker: closed Edit set */ }
+func (AddSatisfy) isEdit() { /* marker: closed Edit set */ }
+func (AddRequirementConstraint) isEdit() {
+	/* marker: closed Edit set */
+}
+func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddConnection) isEdit() { /* marker: closed Edit set */ }
+func (Delete) isEdit()        { /* marker: closed Edit set */ }
+func (Move) isEdit()          { /* marker: closed Edit set */ }
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -326,6 +407,22 @@ func (c *client) requireEditDocuments(ctx context.Context, document string) erro
 	return nil
 }
 
+func (c *client) requireCapabilities(ctx context.Context, capabilities ...string) error {
+	info, err := c.serverInfo(ctx)
+	if err != nil {
+		return err
+	}
+	for _, capability := range capabilities {
+		if !info.Has(capability) {
+			return &StatusError{
+				Code:    CodeUnimplemented,
+				Message: fmt.Sprintf("capability %q is unavailable", capability),
+			}
+		}
+	}
+	return nil
+}
+
 func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document string, edits ...Edit) (*EditResult, error) {
 	hash, err := c.call(model)
 	if err != nil {
@@ -333,6 +430,47 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	}
 	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
+	}
+	required := map[string]bool{}
+	for _, operation := range edits {
+		switch operation := operation.(type) {
+		case AddMember:
+			required[CapabilityAuthoring] = true
+			if operation.IsAbstract || len(operation.Redefines) > 0 ||
+				operation.IsDefault || operation.Direction != "" ||
+				operation.Kind == "ref" || operation.Kind == "return" {
+				required[CapabilityMemberModifiers] = true
+			}
+		case AddConnection:
+			required[CapabilityAuthoring] = true
+			required[CapabilityConnectionAuthoring] = true
+		case AddSatisfy:
+			required[CapabilityAuthoring] = true
+			required[CapabilitySatisfyAuthoring] = true
+		case AddRequirementConstraint:
+			required[CapabilityAuthoring] = true
+			required[CapabilityRequirementConstraintAuthoring] = true
+		case AddTransition:
+			required[CapabilityAuthoring] = true
+			required[CapabilityTransitionAuthoring] = true
+		case Delete, Move:
+			required[CapabilityAuthoring] = true
+		}
+	}
+	if len(required) > 0 {
+		names := make([]string, 0, len(required))
+		for _, capability := range []string{
+			CapabilityAuthoring, CapabilityConnectionAuthoring,
+			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
+			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+		} {
+			if required[capability] {
+				names = append(names, capability)
+			}
+		}
+		if err := c.requireCapabilities(ctx, names...); err != nil {
+			return nil, err
+		}
 	}
 	// This client reads Documents, so a model of several documents may be edited.
 	req := &pb.ApplyEditsRequest{ModelHash: hash, Document: document, AcceptDocuments: true}
@@ -406,7 +544,41 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			Multiplicity: operation.Multiplicity,
 			Value:        operation.Value,
 			Specializes:  append([]string(nil), operation.Specializes...),
+			IsAbstract:   operation.IsAbstract,
+			Redefines:    append([]string(nil), operation.Redefines...),
+			IsDefault:    operation.IsDefault,
+			Direction:    operation.Direction,
 		}}}, nil
+	case AddSatisfy:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
+			AddSatisfy: &pb.AddSatisfyEdit{
+				Owner: operation.Owner, Requirement: operation.Requirement,
+				SatisfyingFeature: operation.By, IsAsserted: operation.Asserted,
+				IsNegated: operation.Negated,
+			},
+		}}, nil
+	case AddRequirementConstraint:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddRequirementConstraint{
+			AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
+				Owner: operation.Owner, Kind: operation.Kind,
+				Expression: operation.Expression, Name: operation.Name,
+			},
+		}}, nil
+	case AddTransition:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddTransition{
+			AddTransition: &pb.AddTransitionEdit{
+				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
+				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
+				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddConnection:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
+			AddConnection: &pb.AddConnectionEdit{
+				Owner: operation.Owner, Kind: operation.Kind, FromEnd: operation.From,
+				ToEnd: operation.To, Name: operation.Name, Type: operation.Type,
+			},
+		}}, nil
 	case Delete:
 		return &pb.EditOperation{Operation: &pb.EditOperation_Delete{Delete: &pb.DeleteEdit{
 			Target:  operation.Target,

@@ -46,6 +46,7 @@ type Model struct {
 	invocations   map[invocationKey]*InvocationSelection
 	arguments     ArgumentTyper // the checker's argument typing, nil when no checker runs
 	sourceText    source.Lookup // notation of the loaded documents, nil when unavailable
+	sourceFile    source.Locate // the files the documents were read from, nil for source.FileNamed
 	// typingArgs holds the calls whose arguments are being typed, so an argument
 	// whose type leads back to its own call is not typed again.
 	typingArgs map[*ast.InvocationExpr]bool
@@ -81,12 +82,16 @@ type Model struct {
 	filterVerdicts map[filterKey]filterVerdict
 	filterTypes    map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
-	aboutAnnots    map[*symbols.Symbol][]annotation
+	// metadataDefaults memoizes the values each metadata type declares for its features.
+	metadataDefaults map[*symbols.Symbol]map[string]symbols.FilterValue
+	aboutAnnots      map[*symbols.Symbol][]annotation
 	// aboutByDecl keys the same annotations by the declaration of the element
 	// annotated, reaching them from a re-indexed twin of that symbol.
 	aboutByDecl map[ast.Node][]annotation
 	// aboutOrder lists aboutAnnots' targets in first-annotation order.
 	aboutOrder []*symbols.Symbol
+	// aboutShared is the about index shared with other models, nil when m builds its own.
+	aboutShared *AboutIndex
 	// docGathers holds what the workspace-wide indexes are built from, per
 	// document (gather.go); nil until first needed.
 	docGathers map[string]*docGather
@@ -163,12 +168,13 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		dimensioning: make(map[*symbols.Symbol]bool),
 		libSymbols:   make(map[string]*symbols.Symbol),
 
-		filterPreds:    make(map[ast.Node]*symbols.FilterPredicate),
-		filterVerdicts: make(map[filterKey]filterVerdict),
-		filterTypes:    make(map[string]*symbols.Symbol),
-		annotations:    make(map[*symbols.Symbol][]annotation),
-		layoutSites:    make(map[*symbols.Symbol][]*LayoutSite),
-		declSymbols:    make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
+		filterPreds:      make(map[ast.Node]*symbols.FilterPredicate),
+		filterVerdicts:   make(map[filterKey]filterVerdict),
+		filterTypes:      make(map[string]*symbols.Symbol),
+		annotations:      make(map[*symbols.Symbol][]annotation),
+		metadataDefaults: make(map[*symbols.Symbol]map[string]symbols.FilterValue),
+		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),
+		declSymbols:      make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 
 		redefined:             make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingRedefined:    make(map[*symbols.Symbol]int),

@@ -136,8 +136,8 @@ func (e *WrongFormError) Unwrap() error { return ErrWrongForm }
 
 // Options are what a rendering is written with beside its form. Each form
 // takes the ones that apply to it: the text form its Width, the Mermaid form
-// its Direction, the DOT and PlantUML forms their Direction and Palette, the
-// DOT form its Unplaced. A form ignores the rest, the Mermaid form saying so
+// its Direction and Unplaced, the DOT and PlantUML forms their Direction,
+// Palette and Unplaced. A form ignores the rest, the Mermaid form saying so
 // of a Palette in a comment.
 type Options struct {
 	// Direction is the flow direction a graph-shaped form is drawn in; empty
@@ -146,8 +146,10 @@ type Options struct {
 	// Palette is the palette the DOT and PlantUML forms fill nodes from, by
 	// keyword family; empty draws in black and white.
 	Palette Palette
-	// Unplaced is what the DOT form does with the nodes a positioned drawing
-	// leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
+	// Style is the look the DOT form draws in; empty is the Pilot's, StylePilot.
+	Style DrawingStyle
+	// Unplaced is what a graph-shaped form does with the nodes a positioned
+	// drawing leaves unplaced; empty leaves them undrawn, as UnplacedOmit does.
 	Unplaced Unplaced
 	// Width is the width the text form is written to fit; WidthUnbounded
 	// writes every column as wide as its widest cell.

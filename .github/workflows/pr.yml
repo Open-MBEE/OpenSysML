@@ -44,6 +44,8 @@ jobs:
       python: ${{ steps.areas.outputs.python }}
       java: ${{ steps.areas.outputs.java }}
       rust: ${{ steps.areas.outputs.rust }}
+      julia: ${{ steps.areas.outputs.julia }}
+      matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
       cameo: ${{ steps.areas.outputs.cameo }}
       syson: ${{ steps.areas.outputs.syson }}
@@ -540,6 +542,8 @@ jobs:
       needs.changes.outputs.python == 'true' ||
       needs.changes.outputs.java == 'true' ||
       needs.changes.outputs.rust == 'true' ||
+      needs.changes.outputs.julia == 'true' ||
+      needs.changes.outputs.matlab == 'true' ||
       needs.changes.outputs.cameo == 'true' ||
       needs.changes.outputs.syson == 'true'
     runs-on: ubuntu-latest
@@ -593,6 +597,8 @@ jobs:
       - conformance-pkg
       - docs
       - java-test
+      - julia-client
+      - matlab-client
       - syson-plugin
       - node-test
       - pdf-toolchain
@@ -614,6 +620,8 @@ jobs:
           CONFORMANCE_PKG_RESULT: ${{ needs.conformance-pkg.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           JAVA_TEST_RESULT: ${{ needs.java-test.result }}
+          JULIA_CLIENT_RESULT: ${{ needs.julia-client.result }}
+          MATLAB_CLIENT_RESULT: ${{ needs.matlab-client.result }}
           SYSON_PLUGIN_RESULT: ${{ needs.syson-plugin.result }}
           NODE_TEST_RESULT: ${{ needs.node-test.result }}
           PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
@@ -630,6 +638,8 @@ jobs:
              ! ok "$CONFORMANCE_PKG_RESULT" ||
              ! ok "$DOCS_RESULT" ||
              ! ok "$JAVA_TEST_RESULT" ||
+             ! ok "$JULIA_CLIENT_RESULT" ||
+             ! ok "$MATLAB_CLIENT_RESULT" ||
              ! ok "$SYSON_PLUGIN_RESULT" ||
              ! ok "$NODE_TEST_RESULT" ||
              ! ok "$PDF_TOOLCHAIN_RESULT" ||
@@ -644,6 +654,8 @@ jobs:
             echo "conformance-pkg=$CONFORMANCE_PKG_RESULT"
             echo "docs=$DOCS_RESULT"
             echo "java-test=$JAVA_TEST_RESULT"
+            echo "julia-client=$JULIA_CLIENT_RESULT"
+            echo "matlab-client=$MATLAB_CLIENT_RESULT"
             echo "syson-plugin=$SYSON_PLUGIN_RESULT"
             echo "node-test=$NODE_TEST_RESULT"
             echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
@@ -727,7 +739,7 @@ jobs:
           OPENSYSML_KATEX: ${{ github.workspace }}/build/doc-pdf/katex/node_modules/.bin/katex
           OPENSYSML_DOT: ${{ github.workspace }}/build/doc-pdf/graphviz/bin/dot
           OPENSYSML_PLANTUML_JAR: ${{ github.workspace }}/build/doc-pdf/plantuml/plantuml-1.2026.8.jar
-        run: go test -count=1 -v -run Installed ./internal/doc/docpdf
+        run: go test -count=1 -v -run Installed ./internal/doc/docpdf ./tests/migrate
 
   vscode-extension:
     name: VS Code extension
@@ -1135,6 +1147,111 @@ jobs:
         with:
           name: conformance-report-rust
           path: bin/conformance-report-rust.json
+
+  # Mirrors the CircleCI julia-client job: Pkg.test on the two supported Julia
+  # versions plus the conformance suite, against the binary the build job made.
+  julia-client:
+    name: Julia client tests
+    needs: [changes, build]
+    if: needs.changes.outputs.julia == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        julia-version: ['1.10', 'lts']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      # The artifact is a zip, which does not carry the executable bit.
+      - name: Install the sysml-grpc binary
+        run: chmod +x bin/sysml-grpc
+
+      - name: Set up Julia ${{ matrix.julia-version }}
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.julia-version }}
+
+      - name: Run Julia tests
+        working-directory: client/julia/OpenSysML
+        env:
+          OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+
+      - name: Run Julia conformance
+        env:
+          OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
+        run: |
+          julia --project=client/julia/OpenSysML client/julia/OpenSysML/conformance/run.jl \
+            --binary "$GITHUB_WORKSPACE/bin/sysml-grpc" \
+            --report bin/conformance-report-julia.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report-julia-${{ matrix.julia-version }}
+          path: bin/conformance-report-julia.json
+
+  # Mirrors the CircleCI matlab-client job: the tests and the conformance suite
+  # under GNU Octave — MATLAB itself is not available in CI, and its
+  # matlab.net.http path is exercised by no gate. The CI build of Octave is
+  # built without Java, so the private-child path cannot run there: the job
+  # starts a service itself and hands the runner its address.
+  matlab-client:
+    name: MATLAB/Octave client tests
+    needs: [changes, build]
+    if: needs.changes.outputs.matlab == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin
+
+      # The artifact is a zip, which does not carry the executable bit.
+      - name: Install the sysml-grpc binary
+        run: chmod +x bin/sysml-grpc
+
+      - name: Install GNU Octave
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y octave
+
+      - name: Start sysml-grpc
+        run: |
+          bin/sysml-grpc -port 0 -health-port 0 -report-address > bin/octave-svc-addr &
+          svc_pid=$!
+          echo "svc_pid=$svc_pid" >> "$GITHUB_ENV"
+          for i in $(seq 1 100); do [ -s bin/octave-svc-addr ] && break; sleep 0.1; done
+          test -s bin/octave-svc-addr
+
+      - name: Run MATLAB client tests
+        working-directory: client/matlab/tests
+        run: |
+          addr=$(cat "$GITHUB_WORKSPACE/bin/octave-svc-addr")
+          OPENSYSML_SERVICE="$addr" octave --no-gui --eval "run_tests"
+
+      - name: Run MATLAB conformance
+        run: |
+          addr=$(cat "$GITHUB_WORKSPACE/bin/octave-svc-addr")
+          octave --no-gui --eval "addpath('client/matlab'); addpath('client/matlab/conformance'); addpath('client/matlab/conformance/private'); run_conformance('--address','$addr','--report','bin/conformance-report-matlab.json')"
+
+      - name: Stop sysml-grpc
+        if: always()
+        run: kill "$svc_pid" 2>/dev/null || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-report-matlab
+          path: bin/conformance-report-matlab.json
 
   # Mirrors the CircleCI java-test job: unit tests plus the conformance suite over
   # both Connect encodings, on the client's Java 17 baseline.

@@ -140,6 +140,10 @@ type monteCarloRuns struct {
 	concluded     runtime.AnalysisResult
 	concludeErr   error
 	concludedOnce bool
+	// answered is the plan the runs answered under; toolMark is the count of its
+	// tool calls when the conclusion began — every call made, when none runs.
+	answered *analysis.Plan
+	toolMark int
 }
 
 // last is the completed run the conclusion is read through.
@@ -155,7 +159,16 @@ func (m *monteCarloRuns) conclude() (runtime.AnalysisResult, error) {
 		return m.concluded, m.concludeErr
 	}
 	m.concludedOnce = true
-	concluded, err := runtime.ConcludeMonteCarlo(m.completed, m.stats)
+	stats := m.stats
+	sample, err := runtime.SettleMonteCarloRuns(m.completed, &stats)
+	// The mark bounds each row's own tool calls before the conclusion's join its ctx.
+	if m.answered != nil {
+		m.toolMark = m.answered.ToolMark()
+	}
+	var concluded runtime.AnalysisResult
+	if err == nil {
+		concluded, err = m.last().Conclude(stats, sample)
+	}
 	byNumber := make(map[int64]*runtime.MonteCarloRun, len(m.completed))
 	for _, run := range m.completed {
 		byNumber[run.Number] = run
@@ -180,8 +193,7 @@ func (m *monteCarloRuns) conclusion() (runtime.AnalysisResult, error) {
 // monteCarloSample makes count runs of the invocation, each in its own context on objects
 // made from their declarations; the plan is returned beside a refusal made after an engine ran.
 func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *uint64) (*monteCarloRuns, *analysis.Plan, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, nil, errors.New("no declarations loaded")
 	}
 	if _, replaying := s.drivenSchedule().Replay(); replaying {
@@ -228,7 +240,7 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 			return nil, nil, err
 		}
 	}
-	runScope := declaringScope(sym, doc.Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	if seed == nil && s.modelSeed.set {
 		session := s.modelSeed.value
@@ -301,13 +313,13 @@ func (s *Session) monteCarloSample(inv analysisInvocation, count int64, seed *ui
 		}
 	}
 	if len(completed) == 0 {
-		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded")}, &answered, nil
+		return &monteCarloRuns{table: table, unconcluded: errors.New("no run completed, so the case is not concluded"), answered: &answered, toolMark: answered.ToolMark()}, &answered, nil
 	}
 	stats, err := runtime.MonteCarloSample(completed)
 	if err != nil {
-		return &monteCarloRuns{table: table, completed: completed, unconcluded: err}, &answered, nil
+		return &monteCarloRuns{table: table, completed: completed, unconcluded: err, answered: &answered, toolMark: answered.ToolMark()}, &answered, nil
 	}
-	return &monteCarloRuns{table: table, stats: stats, completed: completed}, &answered, nil
+	return &monteCarloRuns{table: table, stats: stats, completed: completed, answered: &answered}, &answered, nil
 }
 
 // declaredFresh makes the reference one each run makes from its declaration, as its

@@ -302,6 +302,56 @@ its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 
+## Publishing a migrated document with Cameo-style diagrams
+
+A `.mdzip` carries, beside the model, Cameo's own drawing of every diagram: where each symbol
+sits, how large it is, the bends of every line, the colours and font a symbol was given by hand,
+and the notes anchored on the diagram. The migration reads that drawing from each diagram's
+symbol stream and writes it beside the view it produces as
+[DiagramLayout](../project/diagram-layout-annotations.md) metadata — `Layout` boxes, `Route`
+waypoints, a `Canvas` the size of the diagram frame, a `Style` for a symbol drawn in its own
+colours or font, and a `Note` for every comment and text box — so nothing has to be laid out again.
+No export from another tool is needed; an [MTIP](https://github.com/Open-MBEE/mtip-cameo) export
+given with `-layout` is still honoured and takes precedence for every element its record places
+or routes, the stream supplying the elements the record leaves out
+([the precedence](../reference/sysml-v1-migration.md#layout-from-an-mtip-export)).
+
+The published document then draws those views with Graphviz, in Cameo's look, at the stated
+geometry:
+
+```bash
+export OPENSYSML_DOT=/usr/bin/dot                 # Graphviz; `dot` on PATH when unset
+export OPENSYSML_WEASYPRINT=/usr/local/bin/weasyprint   # the PDF engine; on PATH when unset
+
+sysml Project.mdzip -convert sysml -o Project.sysml -migration-report Project.report.txt
+sysml Project.sysml -render-document 'Project::DesignDescription' \
+    -doc-form pdf -diagram-form dot -render-style cameo -o DesignDescription.pdf
+```
+
+- `-diagram-form dot` writes every graph-shaped figure as Graphviz DOT rather than Mermaid, and the
+  PDF backend runs Graphviz on it and embeds the SVG. It may be left out: unstated, a view the
+  migrator positioned is drawn through Graphviz anyway, and only a view nothing positions is
+  Mermaid — with no Graphviz installed the positioned views fall back to Mermaid under a notice
+  in the document saying so. A view whose every node is positioned is drawn by `neato -n2`, which
+  keeps the stated positions and routes exactly; a view the model places only in part is laid out
+  around what it places.
+- `-render-style cameo` draws in the look of Cameo Systems Modeler — the diagram frame with its
+  `stm [State Machine] Owner [ Name ]` header tab, 11 pt Arial, the pale-yellow gradient states,
+  green actions and orange blocks, a state's `do / Activity` compartment, the initial dot, final
+  bull's-eye, decision diamond and fork bars, and notes with a folded corner and dashed anchor.
+  Without it the same geometry is drawn in the Pilot visualizer's black-and-white `pilot` style,
+  the default ([the two styles, measured](../project/view-rendering-forms.md#style)).
+- `-doc-form html` and the default Markdown take the same two options: the HTML figure is the
+  DOT source for the reader's own Graphviz, or the SVG when the renderer is given images.
+
+The migration report's `layout` section says, per diagram, what was carried and what was not:
+how many shown elements were positioned and how many routes written, how many symbols kept their
+own colours or font, how many notes were anchored and how many left free, and — by symbol class —
+what was dropped. Free content standing for no element and saying nothing — a pasted raster image
+(`ImageShape`) above all — is dropped and counted by class; a symbol drawn without a fill is counted
+under `USE_FILL_COLOR`, the one presentation property `Style` has no attribute for. Cameo's drop
+shadow and its exact corner radius are not drawn: Graphviz has neither.
+
 ## Over gRPC and from a program
 
 The same migration is the service's `Convert` with `from_format` of `xmi`, `uml` or `mdzip` —

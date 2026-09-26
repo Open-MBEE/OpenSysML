@@ -84,6 +84,35 @@ A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDoc
 `Documents`: it edits a model of one document and answers `Content` alone, so a caller checks the
 capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
 
+`add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
+`is_abstract`, `redefines`, `is_default` and `direction`. Abstract and directional notation is
+limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
+references, while `is_default` requires a value. The `ref` and `return` kinds are also available
+for SysML members. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
+refuses inadmissible placements even when analysis would only warn.
+
+The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
+and `type` fields:
+
+| Operation | Fields | Writes |
+| --- | --- | --- |
+| `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
+| `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
+| `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
+| `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+
+`type` is accepted only for connection kinds that permit a typing target.
+`add_connection` requires both the `authoring` and `connection_authoring` capabilities.
+`add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
+`authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
+`transition_authoring`. An `add_member` edit with any new modifier or
+the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
+before sending the operation.
+
+Regular transitions always write `first <source>` and may add `accept <trigger>`, `if <guard>` and
+`do <effect>` clauses. An entry transition has no name, source or clauses, and is refused when the
+state already has an entry action.
+
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
 for _, doc := range result.Documents {
@@ -119,9 +148,16 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 ## Python authoring
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
-specializes=None)` and its typed `add_*` helpers create declarations while
-preserving untouched source bytes. `Editor.delete(target, cascade=False)`
-removes declarations transactionally; `Editor.move(target, owner)` carries one
+specializes=None, abstract=False, redefines=None, default=False, direction=None)`
+and its typed `add_*` helpers create declarations while preserving untouched
+source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
+`add_require_constraint`, `add_assume_constraint`, `add_transition` and
+`add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
+and `return_expression`; the expression is bound to a result parameter, not
+written as a `return <expr>;` statement. Action helpers accept `inputs` and
+`outputs`, each a list of `(name, type)` string pairs.
+`Editor.delete(target, cascade=False)` removes declarations transactionally;
+`Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the
 move would break. `opensysml.loads(content, language=None,
 strict=False)` loads inline SysML or KerML for this workflow.
@@ -872,20 +908,22 @@ model.query({"@type": "Query", "where": {
     "operator": "=", "property": "@type", "value": ["PartUsage"]}})
 ```
 
-Each answered element is `@id` (its qualified name), `@type` and the selected
-properties it has. A property an element does not have is **absent**, not empty.
-
-An element with no qualified identity — an unnamed `doc`, an anonymous usage, an
-anonymous `connect` — is **not** answered: its qualified name has an empty
-segment (`Demo::`), so it is neither unique nor a name a `scope` could use. The
-standard identifies an element by `@id`, and such an element has none
-(`TestQueryOmitsElementsWithNoQualifiedIdentity`).
+Each answered element is `@id`, `@type` and the selected properties it has. A
+property an element does not have is **absent**, not empty. Named elements use
+their qualified name as `@id`; an unnamed declaration uses the same positional
+qualified name as the RDF and API-JSON export, such as `Demo::@4`. That ID can
+also be used as a `scope`. A positionally identified element has no
+`qualifiedName`. A named child of a positional element also uses the export's
+positional path, such as `Demo::@0::wheel` for `wheel` inside an unnamed part;
+its ID can also be used as a `scope`. A declaration requiring a positional
+identity is omitted when its document cannot be parsed or exported, when its
+positional name collides with a qualified name in the model, when more than one
+declaration claims that name, or when its unnamed owner was omitted.
 
 Neither is one declared inside an action body — a branch of an `if`, a loop body —
 since the body is owned by no element and so names its declarations only locally
 (`step`, not `Demo::Drive::step`): that name identifies no element and could not
-be used as a `scope` (`TestQueryOmitsBodyLocalDeclarations`). An answered `@id` is
-always a qualified name that the model resolves back to that element.
+be used as a `scope` (`TestQueryOmitsBodyLocalDeclarations`).
 
 ### Queryable properties
 
@@ -896,18 +934,20 @@ answer.
 
 | Property | Reports | Ordered |
 |---|---|---|
-| `@id` | The element's qualified name, which is also how `scope` names it | |
-| `qualifiedName` | Same as `@id` | |
+| `@id` | The element's qualified name or export-compatible positional name, which is also how `scope` names it | |
+| `qualifiedName` | The element's qualified name; absent for an element with a positional `@id` | |
 | `@type` | The element's metamodel type (table below) | |
 | `name` | The element's own name, the last segment of its qualified name | |
 | `declaredName` | `name`, absent when the name is an effective name borrowed from a referenced feature | |
 | `shortName` | The element's effective short name (`<'HLR-R001'>` declares `HLR-R001`); absent when it has none | |
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
-| `owner` | Qualified name of the owning element; absent for a top-level element, whose owner is the document root | |
+| `owner` | Identity of the owning element; absent for a top-level element, whose owner is the document root | |
 | `isAbstract` | `true`/`false` for a definition or usage; absent for anything else. A standard-library element carries its declaration on every load path (parsed, restored from the on-disk cache or decoded from the bundled snapshot), so it answers too | |
 | `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else, and present for a standard-library element as `isAbstract` is | |
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
+| `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
+| `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |
 | `multiplicityLower` | Declared lower bound | ✅ |
 | `multiplicityUpper` | Declared upper bound, `*` when unbounded | ✅ |
 

@@ -298,6 +298,9 @@ func (s *Session) checkSatisfy(name string) []Verdict {
 		// Nothing was checked, so nothing is claimed about the model.
 		return []Verdict{unresolvedVerdict(name, fmt.Sprintf("no satisfaction assertion in %s", where))}
 	}
+	// The assertions are checked as one report, so those about objects of one
+	// shape reading only its declared values are decided once.
+	defer ctx.ShareVerdicts()()
 	verdicts := make([]Verdict, 0, len(assertions))
 	for _, a := range assertions {
 		verdicts = append(verdicts, s.satisfyVerdict(ctx, a))

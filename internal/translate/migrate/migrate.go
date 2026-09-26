@@ -5,6 +5,7 @@ package migrate
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -26,10 +27,14 @@ const (
 	classifierSubject = "the instance's classifier "
 	individualSubject = "the individual "
 	slotValueSubject  = "the slot's value "
+	columnSubject     = "the column "
+	sortBySubject     = "the sort by "
 )
 
 // scalarValuesPrefix qualifies a name from the standard ScalarValues package.
 const scalarValuesPrefix = "ScalarValues::"
+
+const fromKeyword = " from "
 
 // Result is a migration's output: the v2 notation, the report over it, and
 // the result snapshots of its run configurations.
@@ -37,6 +42,10 @@ type Result struct {
 	Notation []byte
 	Report   *Report
 	Results  *simresults.Results
+	// Files are the attached image files the documents' Image blocks show, by
+	// the relative path they are written under (images/<name>); a caller
+	// writes them beside the notation, empty when none was attached.
+	Files map[string][]byte
 }
 
 // Options carries the optional inputs of a migration: an MTIP export whose
@@ -47,6 +56,9 @@ type Options struct {
 	// LayoutSource names the file Layout was read from, for the report and
 	// diagnostics.
 	LayoutSource string
+	// ImageBaseURL resolves a comment's relative <img src> to the server
+	// serving it; "" leaves such images out.
+	ImageBaseURL string
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -60,6 +72,9 @@ func Migrate(name string, data []byte) (*Result, error) {
 // whose diagram records match no diagram of the model is an error: the file
 // was exported from a different project.
 func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
+	if _, err := imageBaseURL(opts.ImageBaseURL); err != nil {
+		return nil, err
+	}
 	model, err := sysmlv1.Parse(data)
 	if err != nil {
 		return nil, err
@@ -69,6 +84,19 @@ func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
 			opts.LayoutSource, len(opts.Layout.Diagrams), name)
 	}
 	return FromModelOptions(name, model, opts), nil
+}
+
+// imageBaseURL parses the server a relative <img src> resolves against; it
+// must be an absolute http(s) URL.
+func imageBaseURL(raw string) (*url.URL, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, fmt.Errorf("image base URL %q is not an absolute http(s) URL", raw)
+	}
+	return u, nil
 }
 
 // layoutJoins counts the export's diagram records whose id is a diagram of the
@@ -138,6 +166,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		indexed:      map[string]int{},
 		userProfiles: map[*sysmlv1.Element]bool{},
 		defsWritten:  map[*sysmlv1.Element]bool{},
+		files:        map[string][]byte{},
+		fileContents: map[string]string{},
 		pending:      map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
@@ -154,6 +184,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
 		tableOf:      map[*sysmlv1.Table]*tableDoc{},
+		pictureOf:    map[*sysmlv1.Diagram]*pictures{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
@@ -168,6 +199,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		routeKinds:   routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
+	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
 			Source:       opts.LayoutSource,
@@ -187,6 +219,12 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		for i := range opts.Layout.Diagrams {
 			m.layoutSummary.Malformed += len(opts.Layout.Diagrams[i].Malformed)
 		}
+	} else if drawsAny(model) {
+		m.layoutSource = streamsSource
+		m.layoutSummary = &LayoutSummary{Source: streamsSource, Unsupported: map[string]int{}}
+	}
+	if m.layoutSummary != nil {
+		m.layoutSummary.Dropped = map[string]int{}
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -203,7 +241,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.diagrams()
 	m.layoutReport()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
+	m.report.Images = m.imagesWritten
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results, Files: m.files}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -281,6 +320,8 @@ type migration struct {
 	diagramsOf map[*sysmlv1.Element][]*sysmlv1.Diagram
 	// tableOf plans each table definition's Document beside its diagram's view.
 	tableOf map[*sysmlv1.Table]*tableDoc
+	// pictureOf memoizes pastedPictures: the pasted images each diagram's stream carries.
+	pictureOf map[*sysmlv1.Diagram]*pictures
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
@@ -368,6 +409,11 @@ type migration struct {
 	indexed map[string]int
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
+	// files are the images written beside the notation by relative path;
+	// fileContents deduplicates them by content, imagesWritten counts them.
+	files         map[string][]byte
+	fileContents  map[string]string
+	imagesWritten int
 	// userProfiles memoizes which profiles are a user's own; see userProfile.
 	userProfiles map[*sysmlv1.Element]bool
 	// namespacesOf lists the XML namespaces each profile's stereotypes are applied under.
@@ -387,12 +433,17 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
+	// mcRecorded lazily lists the written individuals that record an analysis;
+	// mcRecordedDone marks the list computed.
+	mcRecorded     []*sysmlv1.Element
+	mcRecordedDone bool
 	// layout is the MTIP export augmenting the migration, nil without one;
 	// layoutByID indexes its diagram records by id, diagramIDs the model's
 	// diagrams, layoutJoined the records a written view laid out, and
-	// layoutSummary the report's layout account.
+	// layoutSummary the report's layout account, nil when no diagram is drawn either.
 	layout        *mtip.Export
 	layoutSource  string
+	imageBase     *url.URL
 	layoutByID    map[string]*mtip.Diagram
 	diagramIDs    map[string]bool
 	layoutJoined  map[string]bool
@@ -2645,7 +2696,7 @@ func (m *migration) itemFlow(f *sysmlv1.Element, ends []*sysmlv1.Element, paths 
 			} else {
 				notes = append(notes, "no flow property typed by "+item.Name+" on both ends of the realizing connector")
 			}
-			m.w.lines(commentLines("item flow of " + item.Name + " from " + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
+			m.w.lines(commentLines("item flow of " + item.Name + fromKeyword + from + " to " + to + " not migrated: " + notes[len(notes)-1]))
 			continue
 		}
 		m.w.line("flow " + from + "." + writeName(m.nameOf(sp)) + " to " + to + "." + writeName(m.nameOf(dp)) + ";")
@@ -3020,7 +3071,7 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 	}
 	decl := "dependency "
 	if name != "" {
-		decl += writeName(name) + " from "
+		decl += writeName(name) + fromKeyword
 		m.madeUp(d, writeName(name))
 	}
 	decl += from + " to " + to
@@ -3418,7 +3469,7 @@ func (m *migration) stereotypeComments(e *sysmlv1.Element) {
 	}
 	var parts []string
 	for _, ns := range outside {
-		parts = append(parts, strings.Join(byNamespace[ns], " ")+" from "+ns)
+		parts = append(parts, strings.Join(byNamespace[ns], " ")+fromKeyword+ns)
 	}
 	verdict := " is applied from a profile the document does not define; the application is kept as a comment"
 	if len(outside) > 1 || len(byNamespace[outside[0]]) > 1 {

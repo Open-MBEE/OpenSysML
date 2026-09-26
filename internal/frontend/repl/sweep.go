@@ -131,7 +131,10 @@ func (s *Session) sweepReport(inv analysisInvocation, table runtime.SweepTable, 
 func sweepTraces(table runtime.SweepTable) []string {
 	var lines []string
 	for _, row := range table.Rows {
-		for _, e := range recordedTrace(row.Context) {
+		if row.Trace == nil {
+			continue
+		}
+		for _, e := range row.Trace.Entries() {
 			lines = append(lines, tracePrefix+e)
 		}
 	}
@@ -154,8 +157,7 @@ func sweepLabel(inv analysisInvocation, draws sweepDraws) string {
 // row per value in a context of its own, held objects made there from their declarations or
 // from one image of the held graph; the session's state is released while the rows run.
 func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws sweepDraws) (runtime.SweepTable, *analysis.Plan, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return runtime.SweepTable{}, nil, errors.New("no declarations loaded")
 	}
 	sym, fqn, err := s.lookupSymbolOfKinds(inv.name,
@@ -210,7 +212,7 @@ func (s *Session) runSweep(inv analysisInvocation, specs []sweepSpec, draws swee
 	if err != nil {
 		return runtime.SweepTable{}, nil, err
 	}
-	runScope := declaringScope(sym, doc.Scope)
+	runScope := declaringScope(sym, s.rootScopeOf(sym))
 
 	run := func(rt *runtime.Context, bindings []runtime.SweepBinding) (runtime.SweepRunResult, error) {
 		row, err := s.rowObjects(rt, args.objects, image)

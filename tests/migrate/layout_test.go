@@ -194,8 +194,8 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 		`"n8" [shape=doublecircle, fillcolor=black, label="", pos="50,10!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];`,
 		`"n9" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
 		`"n10" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
-		`"n9" -> "n1" [pos="100,250 100,250 100,220 100,220"];`,
-		`"n7" -> "n10" [label="[false]", pos="110,70 110,70 150,70 150,70 150,70 150,20 150,20"];`,
+		`"n9" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
+		`"n7" -> "n10" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="181.5,45"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
@@ -211,21 +211,21 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 	s := session(t, r)
 	for view, wants := range map[string][]string{
 		"Structure::Vehicle::Drive::Driving": {
-			`"n5" -> "n1" [pos="60,180 60,180 60,210 60,210"];`,
-			`"n3" -> "n4" [label="finish", pos="60,20 60,20 60,60 60,60"];`,
-			`[label="result to value", style=dashed, pos="110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 110,160 110,160"];`,
+			`"n5" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
+			`"n3" -> "n4" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
+			`[label="result to value", style=dashed, pos="e,110,160 110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 120,160 120,160", lp="77.5,120"];`,
 		},
 		"Behavior::Modes::Modes": {
-			`"n1" -> "n2" [label="accept Go", pos="200,110 200,110 110,110 110,110"];`,
-			`"n2" -> "n3" [label="accept Stop", pos="250,40 250,40 250,90 250,90"];`,
-			`"n3" -> "n2" [label="accept Go", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
-			`"n3" -> "n2" [label="accept Resume", pos="280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 280,40 280,40"];`,
+			`"n1" -> "n2" [label="accept Go", pos="e,110,110 200,110 200,110 120,110 120,110", lp="155,98"];`,
+			`"n2" -> "n3" [label="accept Stop", pos="e,250,90 250,40 250,40 250,80 250,80", lp="203,65"];`,
+			`"n3" -> "n2" [label="accept Go", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="359,65"];`,
+			`"n3" -> "n2" [label="accept Resume", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="374.5,65"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
-			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100"];`,
-			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80"];`,
-			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90"];`,
-			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100", lp="160,88"];`,
+			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80", lp="192.5,44.5"];`,
+			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90", lp="160,78"];`,
+			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10", lp="160,-2"];`,
 		},
 	} {
 		rendering, err := s.ViewRendering(view)

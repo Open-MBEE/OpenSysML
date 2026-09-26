@@ -281,6 +281,38 @@ func TestEditingTheTargetOfAFileLevelImportDropsItsReexport(t *testing.T) {
 	}
 }
 
+// Replacing documents that are already indexed expands nothing until the caller
+// asks, and that one expansion leaves what a fresh build over the new set gives:
+// a reload pays for one expansion, as a first load does.
+func TestReplacingDocumentsExpandsOnceEqualToFreshBuild(t *testing.T) {
+	before := map[string]string{
+		"a.sysml": "package Mid { public import Lib::*; part def OldOnly; }",
+		"b.sysml": "package Top { public import Mid::*; } package Far { public import Top::*; }",
+		"c.sysml": "package Src { part def Exported; } package User { public import Src::*; }",
+	}
+	after := map[string]string{
+		"a.sysml": "package Mid { public import Lib::*; part def NewOnly; }",
+		"b.sysml": "package Top { public import Mid::*; }",
+		"c.sysml": "package Src { part def Renamed; } package User { public import Src::*; }",
+	}
+	reused := buildIndex(t, before)
+	addDoc(t, reused, "a.sysml", after["a.sysml"])
+	// Top's re-export of OldOnly goes at the expansion, not at the replacement.
+	if len(reused.LookupQualified("Top::OldOnly")) == 0 {
+		t.Fatal("replacing a.sysml expanded on its own")
+	}
+	addDoc(t, reused, "b.sysml", after["b.sysml"])
+	addDoc(t, reused, "c.sysml", after["c.sysml"])
+	reused.ExpandWildcardImports()
+	if got := len(reused.LookupQualified("Top::OldOnly")); got != 0 {
+		t.Errorf("Top::OldOnly = %d symbols after its declaration was replaced, want 0", got)
+	}
+	if got, want := indexState(reused), indexState(buildIndex(t, after)); got != want {
+		t.Errorf("replacing every document left an index a fresh build would not produce:\n%s",
+			diffLines(want, got))
+	}
+}
+
 // Deriving every importer from an empty re-export state — what expansion falls
 // back to when its incremental rounds do not settle — has to rebuild exactly what
 // was there, including a target that only resolves once another importer has been

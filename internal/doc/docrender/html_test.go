@@ -746,3 +746,28 @@ func TestHTMLAnonymousSectionLeavesReservedAnchor(t *testing.T) {
 		t.Errorf("the reference does not resolve to the named section:\n%s", got)
 	}
 }
+
+// TestHTMLCollectionCells checks a `[0..*]` column: a row holding two values
+// renders each as its own value in order, separated, and a row holding none
+// renders an empty cell.
+func TestHTMLCollectionCells(t *testing.T) {
+	got := renderFixtureHTML(t, filepath.Join("testdata", "collection_report.sysml"),
+		"Calibration::TimingReport", HTMLOptions{})
+	for _, want := range []string{
+		`<td class="sysml-cell" data-column="durations" data-value-kind="real"><span class="sysml-value" data-value-kind="real">69</span><span class="sysml-separator">, </span><span class="sysml-value" data-value-kind="real">98</span></td>`,
+		`<td class="sysml-cell" data-column="durations"></td>`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("rendering does not contain %q\n%s", want, got)
+		}
+	}
+}
+
+// TestHTMLImageReportFragmentGolden locks the image block's markup: a figure
+// element whose img carries the location verbatim and the alt text, under its
+// caption.
+func TestHTMLImageReportFragmentGolden(t *testing.T) {
+	got := renderFixtureHTML(t, filepath.Join("testdata", "image_report.sysml"),
+		"Pictures::ImageReport", HTMLOptions{Fragment: true})
+	checkGolden(t, got, filepath.Join("testdata", "image_report.fragment.golden.html"))
+}

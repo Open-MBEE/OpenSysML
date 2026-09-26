@@ -107,7 +107,11 @@ class EngineInfo:
         ready: Whether it can run here
         unavailable: Why it cannot, when it cannot
         kind: ``built-in``, ``tool`` or ``engine`` (one registered from a manifest)
-        protocol: How it is spoken to: ``-`` for a built-in engine, ``object`` for a tool,
+        protocol: How it is spoken to: ``-`` for a built-in engine; for a tool,
+            ``object`` for the one-JSON-object exchange or ``argv+<stdin>`` when the
+            entry has an ``invocation`` block, with a ``/<reply format>`` suffix
+            such as ``argv+none/csv`` when the ``reply`` block reads another format
+            (the format alone when the entry has no ``invocation``);
             ``<transport>/<protocol>`` such as ``stdio/1`` for an engine entry
         source: The manifest file an external engine was read from, empty for a built-in one
         command: The resolved command of an external engine, empty for a built-in one
@@ -156,7 +160,7 @@ class EngineInfo:
         status = "ready" if self.ready else f"unavailable: {self.unavailable}"
         if self.kind == "engine" and not self.served:
             status += "; not served by this service"
-        kind = f" ({self.kind}, {self.protocol})" if self.kind == "engine" else ""
+        kind = f" ({self.kind}, {self.protocol})" if self.kind in ("engine", "tool") else ""
         return f"{self.name}{kind}: {self.authority}, answers {', '.join(self.answers)}; {status}"
 
     def __str__(self):

@@ -79,8 +79,23 @@ public sealed interface Edit {
       Optional<String> type,
       Optional<String> multiplicity,
       Optional<String> value,
-      List<String> specializes)
+      List<String> specializes,
+      boolean isAbstract,
+      List<String> redefines,
+      boolean isDefault,
+      String direction)
       implements Edit {
+
+    public AddMember(
+        String owner,
+        String kind,
+        String name,
+        Optional<String> type,
+        Optional<String> multiplicity,
+        Optional<String> value,
+        List<String> specializes) {
+      this(owner, kind, name, type, multiplicity, value, specializes, false, List.of(), false, "");
+    }
 
     /**
      * Creates the edit, copying the specializations.
@@ -101,6 +116,8 @@ public sealed interface Edit {
       Objects.requireNonNull(multiplicity, "multiplicity");
       Objects.requireNonNull(value, "value");
       specializes = List.copyOf(specializes);
+      redefines = List.copyOf(redefines);
+      Objects.requireNonNull(direction, "direction");
     }
 
     /**
@@ -113,7 +130,8 @@ public sealed interface Edit {
      */
     public static AddMember of(String owner, String kind, String name) {
       return new AddMember(
-          owner, kind, name, Optional.empty(), Optional.empty(), Optional.empty(), List.of());
+          owner, kind, name, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
+          false, List.of(), false, "");
     }
 
     /**
@@ -124,7 +142,8 @@ public sealed interface Edit {
      */
     public AddMember withType(String type) {
       return new AddMember(
-          owner, kind, name, Optional.of(type), multiplicity, value, specializes);
+          owner, kind, name, Optional.of(type), multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
     }
 
     /**
@@ -135,7 +154,8 @@ public sealed interface Edit {
      */
     public AddMember withMultiplicity(String multiplicity) {
       return new AddMember(
-          owner, kind, name, type, Optional.of(multiplicity), value, specializes);
+          owner, kind, name, type, Optional.of(multiplicity), value, specializes,
+          isAbstract, redefines, isDefault, direction);
     }
 
     /**
@@ -145,7 +165,9 @@ public sealed interface Edit {
      * @return the edit carrying it
      */
     public AddMember withValue(String value) {
-      return new AddMember(owner, kind, name, type, multiplicity, Optional.of(value), specializes);
+      return new AddMember(
+          owner, kind, name, type, multiplicity, Optional.of(value), specializes,
+          isAbstract, redefines, isDefault, direction);
     }
 
     /**
@@ -155,7 +177,214 @@ public sealed interface Edit {
      * @return the edit carrying them
      */
     public AddMember withSpecializes(List<String> specializes) {
-      return new AddMember(owner, kind, name, type, multiplicity, value, specializes);
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
+    }
+
+    /** The same member declared abstract. */
+    public AddMember withAbstract(boolean isAbstract) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
+    }
+
+    /** The same member declared with redefinition targets. */
+    public AddMember withRedefines(List<String> redefines) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
+    }
+
+    /** The same member's value declared with the {@code default} keyword. */
+    public AddMember withDefault(boolean isDefault) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
+    }
+
+    /** The same member declared with a usage direction. */
+    public AddMember withDirection(String direction) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction);
+    }
+  }
+
+  /** Inserts a satisfy usage into a body that admits behavior usages. */
+  record AddSatisfy(
+      String owner,
+      String requirement,
+      Optional<String> satisfyingFeature,
+      boolean asserted,
+      boolean negated)
+      implements Edit {
+
+    public AddSatisfy {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(requirement, "requirement");
+      Objects.requireNonNull(satisfyingFeature, "satisfyingFeature");
+    }
+
+    public static AddSatisfy of(String owner, String requirement) {
+      return new AddSatisfy(owner, requirement, Optional.empty(), false, false);
+    }
+
+    public AddSatisfy withSatisfyingFeature(String feature) {
+      return new AddSatisfy(owner, requirement, Optional.of(feature), asserted, negated);
+    }
+
+    public AddSatisfy withAsserted(boolean asserted) {
+      return new AddSatisfy(owner, requirement, satisfyingFeature, asserted, negated);
+    }
+
+    public AddSatisfy withNegated(boolean negated) {
+      return new AddSatisfy(owner, requirement, satisfyingFeature, asserted, negated);
+    }
+  }
+
+  /** Inserts a require or assume constraint into a requirement-like body. */
+  record AddRequirementConstraint(
+      String owner, String kind, String expression, Optional<String> name)
+      implements Edit {
+
+    public AddRequirementConstraint {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(kind, "kind");
+      Objects.requireNonNull(expression, "expression");
+      Objects.requireNonNull(name, "name");
+    }
+
+    public static AddRequirementConstraint of(String owner, String kind, String expression) {
+      return new AddRequirementConstraint(owner, kind, expression, Optional.empty());
+    }
+
+    public AddRequirementConstraint withName(String name) {
+      return new AddRequirementConstraint(owner, kind, expression, Optional.of(name));
+    }
+  }
+
+  /** Inserts a transition or entry transition into a state body. */
+  record AddTransition(
+      String owner,
+      Optional<String> name,
+      Optional<String> source,
+      String target,
+      Optional<String> trigger,
+      Optional<String> guard,
+      Optional<String> effect,
+      boolean initial)
+      implements Edit {
+
+    public AddTransition {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(source, "source");
+      Objects.requireNonNull(target, "target");
+      Objects.requireNonNull(trigger, "trigger");
+      Objects.requireNonNull(guard, "guard");
+      Objects.requireNonNull(effect, "effect");
+    }
+
+    public static AddTransition of(String owner, String source, String target) {
+      return new AddTransition(
+          owner, Optional.empty(), Optional.of(source), target,
+          Optional.empty(), Optional.empty(), Optional.empty(), false);
+    }
+
+    public static AddTransition entry(String owner, String target) {
+      return new AddTransition(
+          owner, Optional.empty(), Optional.empty(), target,
+          Optional.empty(), Optional.empty(), Optional.empty(), true);
+    }
+
+    public AddTransition withName(String name) {
+      return new AddTransition(owner, Optional.of(name), source, target, trigger, guard, effect, initial);
+    }
+
+    public AddTransition withTrigger(String trigger) {
+      return new AddTransition(owner, name, source, target, Optional.of(trigger), guard, effect, initial);
+    }
+
+    public AddTransition withGuard(String guard) {
+      return new AddTransition(owner, name, source, target, trigger, Optional.of(guard), effect, initial);
+    }
+
+    public AddTransition withEffect(String effect) {
+      return new AddTransition(owner, name, source, target, trigger, guard, Optional.of(effect), initial);
+    }
+  }
+
+  /**
+   * Inserts a connection-like usage between two feature references.
+   *
+   * @param owner FQN of the namespace to receive the usage; empty for the document root
+   * @param kind the written connection kind, such as {@code "allocation"} or {@code "flow"}
+   * @param from the first feature reference, written as notation
+   * @param to the second feature reference, written as notation
+   * @param name the declared identifier, when named
+   * @param type a typing target, when written
+   */
+  record AddConnection(
+      String owner,
+      String kind,
+      String from,
+      String to,
+      Optional<String> name,
+      Optional<String> type)
+      implements Edit {
+
+    /**
+     * Creates the edit.
+     *
+     * @param owner receiving namespace, never {@code null}
+     * @param kind connection kind, never {@code null}
+     * @param from first feature reference, never {@code null}
+     * @param to second feature reference, never {@code null}
+     * @param name optional declared identifier
+     * @param type optional typing target
+     */
+    public AddConnection {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(kind, "kind");
+      Objects.requireNonNull(from, "from");
+      Objects.requireNonNull(to, "to");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(type, "type");
+    }
+
+    /**
+     * Creates an unnamed, untyped connection.
+     *
+     * @param owner receiving namespace, empty for the document root
+     * @param kind connection kind
+     * @param from first feature reference
+     * @param to second feature reference
+     * @return the edit
+     */
+    public static AddConnection of(String owner, String kind, String from, String to) {
+      return new AddConnection(
+          owner, kind, from, to, Optional.empty(), Optional.empty());
+    }
+
+    /**
+     * The same connection with a declared name.
+     *
+     * @param name the identifier
+     * @return the edit carrying it
+     */
+    public AddConnection withName(String name) {
+      return new AddConnection(owner, kind, from, to, Optional.of(name), type);
+    }
+
+    /**
+     * The same connection with a typing target.
+     *
+     * @param type the type target, as notation
+     * @return the edit carrying it
+     */
+    public AddConnection withType(String type) {
+      return new AddConnection(owner, kind, from, to, name, Optional.of(type));
     }
   }
 

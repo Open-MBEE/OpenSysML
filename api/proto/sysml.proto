@@ -523,8 +523,11 @@ message EngineInfo {
   // of the manifest entry that registered it: "tool", "engine", "policy" or
   // "sampler". The fields below are empty for a built-in engine.
   string kind = 9;
-  // How the engine is spoken to: "-" for one built in, "object" for a tool's
-  // one JSON object each way, "<transport>/<protocol>" for an engine entry.
+  // How the engine is spoken to: "-" for one built in; for a tool, "object"
+  // for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+  // invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+  // when the reply block reads another format (the format alone when the entry
+  // has no invocation); "<transport>/<protocol>" for an engine entry.
   string protocol = 10;
   // The manifest entry the engine was registered from, the command it resolved
   // to and the version the entry declares.
@@ -838,6 +841,10 @@ message EditOperation {
     AddMemberEdit add_member = 3;
     DeleteEdit delete = 4;
     MoveEdit move = 5;
+    AddConnectionEdit add_connection = 6;
+    AddSatisfyEdit add_satisfy = 7;
+    AddRequirementConstraintEdit add_requirement_constraint = 8;
+    AddTransitionEdit add_transition = 9;
   }
 }
 
@@ -857,6 +864,77 @@ message AddMemberEdit {
   string value = 6;
   // Optional specialization targets for a definition.
   repeated string specializes = 7;
+  // Whether the declaration is abstract.
+  bool is_abstract = 8;
+  // Optional redefinition targets for a usage.
+  repeated string redefines = 9;
+  // Whether the value uses the default assignment keyword.
+  bool is_default = 10;
+  // Optional usage direction: "in", "out" or "inout".
+  string direction = 11;
+}
+
+// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
+message AddSatisfyEdit {
+  // Body receiving the usage.
+  string owner = 1;
+  // Requirement feature reference.
+  string requirement = 2;
+  // Optional satisfying feature reference.
+  string satisfying_feature = 3;
+  // Whether the usage is asserted.
+  bool is_asserted = 4;
+  // Whether the usage is negated.
+  bool is_negated = 5;
+}
+
+// AddRequirementConstraintEdit inserts a require or assume constraint.
+message AddRequirementConstraintEdit {
+  // Requirement-like namespace receiving the constraint.
+  string owner = 1;
+  // Constraint kind: "require" or "assume".
+  string kind = 2;
+  // Constraint expression, written as notation.
+  string expression = 3;
+  // Optional declared name.
+  string name = 4;
+}
+
+// AddTransitionEdit inserts a transition usage, or an entry transition, into a state body.
+message AddTransitionEdit {
+  // State body receiving the transition.
+  string owner = 1;
+  // Optional transition name.
+  string name = 2;
+  // Source feature reference; empty only for an entry transition.
+  string source = 3;
+  // Target feature reference.
+  string target = 4;
+  // Optional text after `accept`.
+  string trigger = 5;
+  // Optional boolean expression after `if`.
+  string guard = 6;
+  // Optional effect text after `do`.
+  string effect = 7;
+  // Write `entry; then <target>;` instead of a regular transition.
+  bool initial = 8;
+}
+
+// AddConnectionEdit inserts a usage whose ends connect two features.
+message AddConnectionEdit {
+  // Namespace FQN receiving the usage; empty means the document root.
+  string owner = 1;
+  // Usage kind: SysML connection, interface, allocation, binding, flow,
+  // succession or transition; KerML connector, binding, flow or succession.
+  string kind = 2;
+  // First feature reference resolved from the owner.
+  string from_end = 3;
+  // Second feature reference resolved from the owner.
+  string to_end = 4;
+  // Optional declared name.
+  string name = 5;
+  // Optional typing target, legal only for typed connection kinds.
+  string type = 6;
 }
 
 // DeleteEdit removes a declaration and its owned trivia.

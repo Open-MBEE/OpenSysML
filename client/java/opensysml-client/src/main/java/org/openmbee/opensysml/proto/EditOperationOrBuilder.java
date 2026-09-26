@@ -85,5 +85,65 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.MoveEditOrBuilder getMoveOrBuilder();
 
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return Whether the addConnection field is set.
+   */
+  boolean hasAddConnection();
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   * @return The addConnection.
+   */
+  org.openmbee.opensysml.proto.AddConnectionEdit getAddConnection();
+  /**
+   * <code>.sysml.AddConnectionEdit add_connection = 6 [json_name = "addConnection"];</code>
+   */
+  org.openmbee.opensysml.proto.AddConnectionEditOrBuilder getAddConnectionOrBuilder();
+
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   * @return Whether the addSatisfy field is set.
+   */
+  boolean hasAddSatisfy();
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   * @return The addSatisfy.
+   */
+  org.openmbee.opensysml.proto.AddSatisfyEdit getAddSatisfy();
+  /**
+   * <code>.sysml.AddSatisfyEdit add_satisfy = 7 [json_name = "addSatisfy"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSatisfyEditOrBuilder getAddSatisfyOrBuilder();
+
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   * @return Whether the addRequirementConstraint field is set.
+   */
+  boolean hasAddRequirementConstraint();
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   * @return The addRequirementConstraint.
+   */
+  org.openmbee.opensysml.proto.AddRequirementConstraintEdit getAddRequirementConstraint();
+  /**
+   * <code>.sysml.AddRequirementConstraintEdit add_requirement_constraint = 8 [json_name = "addRequirementConstraint"];</code>
+   */
+  org.openmbee.opensysml.proto.AddRequirementConstraintEditOrBuilder getAddRequirementConstraintOrBuilder();
+
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return Whether the addTransition field is set.
+   */
+  boolean hasAddTransition();
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   * @return The addTransition.
+   */
+  org.openmbee.opensysml.proto.AddTransitionEdit getAddTransition();
+  /**
+   * <code>.sysml.AddTransitionEdit add_transition = 9 [json_name = "addTransition"];</code>
+   */
+  org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

@@ -76,7 +76,7 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	}
 }
 
-// The fitting estimates with the writer's glyph metrics: dotFitHead wraps a
+// The fitting estimates with the writer's glyph metrics: dotFitText wraps a
 // head at the runes a bold line of the size holds and picks the largest size
 // whose wrapped lines stack within the height, with every word whole where a
 // size down to the floor allows it.
@@ -98,9 +98,9 @@ func TestDOTFitHead(t *testing.T) {
 		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmn", "opqrst…"}, false},
 	}
 	for _, tc := range cases {
-		size, lines, fits := dotFitHead(tc.head, tc.width, tc.height)
+		size, lines, fits := dotFitText([]string{tc.head}, dotBoldGlyphEm, tc.width, tc.height, dotFontSize)
 		if size != tc.size || fits != tc.fits || strings.Join(lines, "|") != strings.Join(tc.lines, "|") {
-			t.Errorf("dotFitHead(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
+			t.Errorf("dotFitText(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
 		}
 	}
 	for _, tc := range []struct {
@@ -361,6 +361,65 @@ func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 		checkDOTSyntax(t, dot)
 		if !strings.Contains(dot, tc.want) {
 			t.Errorf("%s: DOT lacks %q:\n%s", tc.name, tc.want, dot)
+		}
+	}
+}
+
+// dotFitText fits each entry wrapped separately, so a line boundary is kept:
+// two one-rune lines stay two lines where one wrap would join them, and a word
+// one entry must break fails the whole-word pass for all.
+func TestDOTFitTextWrapsEachLine(t *testing.T) {
+	size, lines, fits := dotFitText([]string{"a", "b"}, dotGlyphEm, 100, 100, dotFontSize)
+	if size != dotFontSize || !fits || strings.Join(lines, "|") != "a|b" {
+		t.Errorf("dotFitText(a, b) = %v, %q, %v; want 14, a|b, true", size, lines, fits)
+	}
+	// "wordier" is seven runes: under 30pt of width it breaks even at the floor's
+	// six-rune line, so the broken pass applies to both entries.
+	size, lines, fits = dotFitText([]string{"wordier", "line"}, dotGlyphEm, 30, 100, dotFontSize)
+	if size != 14 || !fits || strings.Join(lines, "|") != "wor|die|r|lin|e" {
+		t.Errorf("dotFitText(wordier, line) = %v, %q, %v; want 14, wor|die|r|lin|e, true", size, lines, fits)
+	}
+}
+
+// A note's label is its text; in a stated box it is composed to fit as a node's
+// is, in plain glyphs at the label size or shrunk — `margin=0` so the whole box
+// is the label's — and a box holding no line even at the floor sets the text
+// outside as `xlabel`. The Cameo «comment» head rides above the fitted text.
+func TestDOTNoteLabelFitsAStatedBox(t *testing.T) {
+	box := func(width, height float64) *nodeBox {
+		return &nodeBox{high: Point{X: width, Y: height}, stated: true}
+	}
+	pilot := &dotWriter{labels: labeller{}, skin: skinOf(StylePilot)}
+	for _, tc := range []struct {
+		name string
+		note Note
+		box  *nodeBox
+		want string
+	}{
+		{"unstated", Note{Text: "call"}, nil, `label="call"`},
+		{"unstated box", Note{Text: "call"}, &nodeBox{high: Point{X: 200, Y: 40}}, `label="call"`},
+		{"stated holds 14pt", Note{Text: "call"}, box(200, 40), `margin=0, label=<call>`},
+		{"stated shrinks", Note{Text: "ok"}, box(66, 14), `margin=0, label=<<font point-size="11">ok</font>>`},
+		{"stated holds no line", Note{Text: "call"}, box(200, 4), `label="", xlabel="call"`},
+	} {
+		got := strings.Join(pilot.dotNoteLabel(tc.note, tc.box), ", ")
+		if got != tc.want {
+			t.Errorf("%s: dotNoteLabel = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+	cameo := &dotWriter{labels: labeller{skin: skinOf(StyleCameo)}, skin: skinOf(StyleCameo)}
+	for _, tc := range []struct {
+		name string
+		note Note
+		box  *nodeBox
+		want string
+	}{
+		{"unstated", Note{Text: "ok"}, nil, `label=<<font point-size="9">«comment»</font><br/>ok>`},
+		{"header and a body line fit", Note{Text: "ok"}, box(100, 40), `margin=0, label=<<font point-size="9">«comment»</font><br/>ok>`},
+		{"header dropped when only one line fits", Note{Text: "doAcquisition"}, box(66, 14), `margin=0, label=<<font point-size="8">doAcquisition</font>>`},
+	} {
+		if got := strings.Join(cameo.dotNoteLabel(tc.note, tc.box), ", "); got != tc.want {
+			t.Errorf("cameo %s: dotNoteLabel = %q, want %q", tc.name, got, tc.want)
 		}
 	}
 }

@@ -2,6 +2,8 @@ package view
 
 import (
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -63,8 +65,50 @@ func (r *Rendering) TextWidth(width int) string {
 			b.WriteString(line + "\n")
 		}
 	}
-	writeNotices(&b, r.Notices)
+	if len(r.Notes) > 0 {
+		b.WriteString("\nnotes:\n")
+		for _, note := range r.Notes {
+			b.WriteString(noteText(note, labels) + "\n")
+		}
+	}
+	if len(r.Pictures) > 0 {
+		b.WriteString("\npictures:\n")
+		for _, picture := range r.Pictures {
+			b.WriteString(pictureText(picture) + "\n")
+		}
+	}
+	writeNotices(&b, slices.Concat(r.Notices, r.visualNotices(noStyleInText, false)))
 	return b.String()
+}
+
+// pictureText is a picture as one line: its file, its corner and size, its
+// alternative text, and whether it is drawn over the nodes.
+func pictureText(p Picture) string {
+	line := fmt.Sprintf("  %s at (%s, %s) size %s×%s", strconv.Quote(p.Location), formatCoord(p.X), formatCoord(p.Y), formatCoord(p.Width), formatCoord(p.Height))
+	if p.Alt != "" {
+		line += " alt " + strconv.Quote(p.Alt)
+	}
+	if p.Above {
+		line += " above"
+	}
+	return line
+}
+
+// noteText is a note as one line: its text, the node it is anchored on, and its
+// corner and size when positioned.
+func noteText(note Note, labels map[string]string) string {
+	line := "  " + strconv.Quote(note.Text)
+	if note.Anchor != "" {
+		line += " on " + labelOr(labels, note.Anchor)
+	} else if note.EdgeFrom != "" {
+		line += " on " + labelOr(labels, note.EdgeFrom) + " -> " + labelOr(labels, note.EdgeTo)
+	}
+	if note.HasSize {
+		line += fmt.Sprintf(" at (%s, %s) size %s×%s", formatCoord(note.X), formatCoord(note.Y), formatCoord(note.Width), formatCoord(note.Height))
+	} else if note.X != 0 || note.Y != 0 {
+		line += fmt.Sprintf(" at (%s, %s)", formatCoord(note.X), formatCoord(note.Y))
+	}
+	return line
 }
 
 // EmptyReason says why a rendering shows nothing: a view exposing nothing, or a
@@ -76,6 +120,21 @@ func (r *Rendering) EmptyReason() string {
 			r.Kind.article(), r.Kind)
 	}
 	return "the view exposes nothing; the rendering is empty"
+}
+
+// blank reports whether a form that draws no picture shows nothing of the
+// rendering: it has no node, edge or row, whether or not it has pictures.
+func (r *Rendering) blank() bool {
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
+}
+
+// blankReason is EmptyReason or, for a rendering of pictures alone, that
+// form does not draw them.
+func (r *Rendering) blankReason(form Form) string {
+	if r.Empty() {
+		return r.EmptyReason()
+	}
+	return fmt.Sprintf("the view shows %d picture(s), which the %s form does not draw", len(r.Pictures), form)
 }
 
 // writeNodeText writes one node and its children, and records the label an edge
@@ -261,6 +320,14 @@ func canvasText(c *Canvas) string {
 		line += " in " + c.Unit
 	}
 	return line
+}
+
+// labelOr is the label of the node with the given ID, else the ID itself.
+func labelOr(labels map[string]string, id string) string {
+	if label := labels[id]; label != "" {
+		return label
+	}
+	return id
 }
 
 // nodeLabel names a node where an edge refers to it: its name, else its kind

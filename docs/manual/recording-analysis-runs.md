@@ -118,7 +118,13 @@ as the runtime's checks and conclusion do: its recorded value is one such
 evaluation, made without moving the draws the sample's runs and conclusion see.
 A run that fails records nothing and leaves the
 model untouched — the record submission is atomic: the diagnostics it produced
-are reported and the model is as it was.
+are reported and the model is as it was. Joining the records re-checks the
+whole model, but only the errors the records introduce count against them: an
+error the model already had before the run is not the records' and does not
+refuse them. The re-check reads every name afresh, a transition's `accept s3 :
+s3` parameter included, whose typing names the enclosing scope's `s3` and
+never the parameter itself — so a migrated SysML v1 model whose state machines
+carry that shape records as cleanly as it loaded.
 
 ## Reading the records
 
@@ -168,7 +174,9 @@ vocabulary the records are written in:
 
 - `RecordedRun` — the metadata annotation a record carries: `runAt` (the UTC
   timestamp), `tool`, `command`, `kind` (`"run"`, `"trade"`, `"sweep"`,
-  `"runs"` or `"sample"`).
+  `"runs"` or `"sample"`), and `tools` (each external tool call the run made,
+  in call order, as `tool version from manifest: executable argv` — see
+  [Running external programs from a model](running-external-programs.md)).
 - `AnalysisRun` — the record definition's supertype: `caseName`, `kind`,
   `'objective'` (the run's objective verdict, `"undecided"` when the case
   declares none), `iteration` (its position in a sweep or sample), `'subject'`

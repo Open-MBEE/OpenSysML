@@ -16,6 +16,7 @@ const (
 	monteCarloRun         = "run"
 	monteCarloObserved    = "observed"
 	monteCarloRecorded    = "Monte Carlo"
+	connectorSubject      = "the connector binds the simulation tool's "
 )
 
 // monteCarloStatistic maps a MonteCarloAnalysis statistic to the Simulation::MonteCarlo
@@ -71,16 +72,83 @@ type monteCarloBinding struct {
 	note   string
 }
 
-// monteCarloColumnNote says why a column reading a MonteCarloAnalysis statistic is
-// omitted: the value sits in the row's nested analysis, which no Column reaches.
-func monteCarloColumnNote(stat string) string {
-	subject := "the column's " + monteCarloAnalysisBlock + "::" + stat
+// monteCarloColumn is the column over a MonteCarloAnalysis statistic: a
+// member-path Column reading the statistic off the row's nested 'Monte Carlo'
+// analysis, captioned by the v1 statistic's name. A statistic no listed
+// instance records would read nothing, so the column stays a note.
+func (m *migration) monteCarloColumn(stat string, rows rowSet) columnSource {
 	member, ok := monteCarloMembers[stat]
 	if !ok {
-		return subject + " is no statistic the analysis records"
+		return columnSource{why: "the column's " + monteCarloAnalysisBlock + "::" + stat +
+			" is no statistic the analysis records"}
 	}
-	return subject + " is recorded as " + writeName(monteCarloRecorded) + "." + member.member +
-		" of the row's analysis, a nested feature no Column expression reads"
+	if !m.monteCarloRowsRecord(rows) {
+		return columnSource{why: "the column's " + monteCarloAnalysisBlock + "::" + stat +
+			" is recorded by no instance the table lists, so the column would read nothing"}
+	}
+	return columnSource{
+		key:     writeName(monteCarloRecorded) + "." + member.member,
+		caption: stat,
+		path:    true,
+	}
+}
+
+// monteCarloRowsRecord reports whether an instance the table's rows admit
+// records an analysis, as the row query would reach it.
+func (m *migration) monteCarloRowsRecord(rows rowSet) bool {
+	for _, e := range m.monteCarloRecording() {
+		if !rows.admits(e) {
+			continue
+		}
+		if len(rows.classifiers) == 0 {
+			return true
+		}
+		_, classifiers, _ := m.individualClassifiers(e)
+		for _, c := range classifiers {
+			for _, k := range rows.classifiers {
+				if c == k || m.inherits(c, k) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// monteCarloRecording lists, lazily, the written individuals that record an
+// analysis: a recorded case and at least one statistic slot.
+func (m *migration) monteCarloRecording() []*sysmlv1.Element {
+	if m.mcRecordedDone {
+		return m.mcRecorded
+	}
+	m.mcRecordedDone = true
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		for _, c := range e.Children {
+			walk(c)
+		}
+		if e.Type != "InstanceSpecification" {
+			return
+		}
+		if cat, _ := m.classify(e); cat != catIndividualDef && cat != catValue {
+			return
+		}
+		if m.recordedCase(e) == nil {
+			return
+		}
+		for _, slot := range e.Owned("slot") {
+			if monteCarloFeature(m.model.Ref(slot, "definingFeature")) != "" {
+				m.mcRecorded = append(m.mcRecorded, e)
+				return
+			}
+		}
+	}
+	for _, r := range m.model.Roots {
+		if !m.isLibrary(r) {
+			walk(r)
+		}
+	}
+	return m.mcRecorded
 }
 
 // monteCarloEnd is the statistic a connector's end names on the tool's
@@ -108,7 +176,7 @@ func (m *migration) monteCarloBound(owner, c *sysmlv1.Element) (stat string, f *
 	if stat == "" {
 		return "", nil, ""
 	}
-	subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
+	subject := connectorSubject + monteCarloAnalysisBlock + "::" + stat
 	switch {
 	case len(c.Owned("end")) != 2:
 		note = "a connector with " + strconv.Itoa(len(c.Owned("end"))) + " ends is not migrated"
@@ -209,7 +277,7 @@ func (m *migration) settleMonteCarloBinding(cs *monteCarloCase, bound map[string
 		return monteCarloBinding{}, false
 	}
 	b := monteCarloBinding{stat: stat}
-	subject := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat
+	subject := connectorSubject + monteCarloAnalysisBlock + "::" + stat
 	member, known := monteCarloMembers[stat]
 	switch {
 	case !known && len(c.Owned("end")) == 2:
@@ -375,7 +443,7 @@ func (m *migration) monteCarloConnector(c *sysmlv1.Element) bool {
 	}
 	cs := m.monteCarloCaseOf(c.Parent)
 	if cs == nil {
-		note := "the connector binds the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
+		note := connectorSubject + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
 		if f != nil && !f.IsProxy() {
 			note = "the connector binds " + f.Name + " to the simulation tool's " + monteCarloAnalysisBlock + "::" + stat + ", a statistic of an analysis its owner does not inherit"
 		}
@@ -423,7 +491,9 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 		count[stat]++
 	}
 	if len(stats) == 0 {
-		return others, func() {}
+		return others, func() {
+			// No held statistics means there is no recorded analysis to write.
+		}
 	}
 	cs := m.recordedCase(e)
 	var lines []string
@@ -455,7 +525,9 @@ func (m *migration) monteCarloSlots(e *sysmlv1.Element, slots []*sysmlv1.Element
 		m.add(h.slot, verdictFor(note), m.v2Name(e)+"::"+writeName(monteCarloRecorded)+"::"+member.member, note)
 	}
 	if cs == nil {
-		return others, func() {}
+		return others, func() {
+			// Without a recorded case there is no analysis block to write.
+		}
 	}
 	return others, func() {
 		m.w.block("analysis "+writeName(monteCarloRecorded)+" : "+m.refMember(cs.block.Parent, cs.name, namespaces(cs.segments), e, true), func() {

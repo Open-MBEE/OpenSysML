@@ -125,6 +125,8 @@ type Renderer struct {
 	model    *semantics.Model
 	resolver *resolve.Resolver
 	text     SourceText
+	// treeDepthBound overrides the containment depth bound when set; tests only.
+	treeDepthBound int
 }
 
 // NewRenderer returns a renderer over the model and resolver of a loaded
@@ -202,6 +204,9 @@ type Node struct {
 	// Geometry is where the element is drawn, from the Layout annotation that
 	// positions it in this view; nil leaves the placement to the writer.
 	Geometry *Geometry
+	// Style is how the element is drawn, from the Style annotation colouring it
+	// in this view; nil leaves the look to the drawing style.
+	Style *Style
 }
 
 // Edge joins two nodes of a rendering.
@@ -219,6 +224,9 @@ type Edge struct {
 	// Route is the waypoints the edge follows, from the Route annotation of the
 	// element it was declared as; empty leaves the routing to the writer.
 	Route []Point
+	// Style is how the edge is drawn, from the Style annotation colouring it;
+	// nil leaves the look to the drawing style.
+	Style *Style
 }
 
 // Rendering is what a view renders to: the nodes and edges of one artifact,
@@ -248,6 +256,12 @@ type Rendering struct {
 	// Canvas is the drawing surface the view states, nil for a view stating
 	// none.
 	Canvas *Canvas
+	// Notes are the note boxes drawn on the canvas, anchored to a node or free,
+	// in the order the nodes they annotate are drawn, free ones last.
+	Notes []Note
+	// Pictures are the pictures drawn on the canvas, in the order the view
+	// states them; a later one is drawn over an earlier one it overlaps.
+	Pictures []Picture
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -258,9 +272,17 @@ type Rendering struct {
 	drawn *Drawn
 }
 
-// Empty reports whether the rendering has nothing to show.
+// Empty reports whether the rendering has nothing to show: no node, edge,
+// row or picture.
 func (r *Rendering) Empty() bool {
-	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0
+	return len(r.Roots) == 0 && len(r.Edges) == 0 && len(r.Rows) == 0 && len(r.Pictures) == 0
+}
+
+// Positioned reports whether a Layout or Route places some node of a
+// graph-shaped rendering, or a Picture is drawn on it at stated bounds, so
+// the DOT form draws it where the diagram states.
+func (r *Rendering) Positioned() bool {
+	return r != nil && r.Kind.SupportsForm(FormDot) && (placeRendering(r).positioned())
 }
 
 // Render renders view in the kind it states, defaulting to a tree when it
@@ -303,6 +325,10 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		r.notesOf(view, view, "", out)
+		r.picturesOf(view, out)
+	case KindTable, KindSequence:
+		r.undrawnPicturesOf(view, out)
 	}
 	return out, nil
 }

@@ -62,7 +62,8 @@ returned over the service yet.
   symbols to): each symbol's `elementID` is a shown element, and a symbol naming none — a
   pasted image, a text box, a note — is counted as free content, so a blank diagram is told
   from one drawing elements the list omits, and a list that names elements is completed with
-  the symbols the stream adds. The list also names what a symbol displays without one of its
+  the symbols the stream adds; a pasted image's bytes are written to a file the view draws
+  (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)). The list also names what a symbol displays without one of its
   own — a property in a compartment, a trigger on a transition — so a listed element is kept
   when a symbol stands for it or for an element it is owned under, and dropped when none
   does, since nothing drawn shows it. Layout and the rest of the extension —
@@ -286,7 +287,7 @@ returned over the service yet.
 | Activity diagram of a behavior written as an `action def`; state machine diagram of one written as a `state def` | `view 'Name' : StandardViewDefinitions::ActionFlowView` / `StateTransitionView` exposing the definition, whose graph the rendering draws — its nodes and edges are drawn, not exposed one by one — and the shown elements from elsewhere; rendered `asInterconnectionDiagram` | mapped |
 | ControlFlow, ObjectFlow, Transition, Connector, Dependency, Extend, «Satisfy», «Verify» shown by a diagram and unnamed in v1 | the member is written with a name spelled from its written ends — `succession 'start to call' first start then call;`, `flow 'a.out to b.in' from a.out to b.in;`, `transition 'Wait accept Sig then Run' first Wait accept Sig then Run;`, `connection 'a.p to b.q' connect a.p to b.q;`, `binding 'a.p = b.q' bind a.p = b.q;`, `dependency 'A to B' from A to B;`, `satisfy requirement 'satisfy R' : R;`, `verify requirement 'verify R' : R;` inside a named `objective` — so the view can `expose` it; a name already taken in the body is numbered (`'a to b 2'`); an edge no diagram shows is written as before, anonymous (see [Edges a diagram shows](#edges-a-diagram-shows)) | mapped |
 | Diagram whose owner has no v2 body (a region, a property, an enumeration, an action node, an activity that is inlined), names no owner, or names an id the document does not define | the view is written in the body of the nearest ancestor that has one — the state def a region belongs to, the part def a property is of, the action def (or the operation whose method it is) an action node belongs to, the package, or the document's top level — and the note says where | approximated |
-| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells | approximated |
+| Diagram some of whose shown elements are not written (results, tool content, elements nothing refers to, states and action nodes, ids the document does not define), or that shows nothing | the written ones are exposed and the rest dropped, the note counting them; a view exposing nothing is still written, `view 'Name' { render …; }`, which validates, and the note says what the diagram draws — nothing at all, free symbols only, or elements the tool's list omits — when the archive's stream tells; a diagram of pasted pictures alone is a view drawing them (see [Pictures pasted onto a diagram](#pictures-pasted-onto-a-diagram)) | approximated |
 | Diagram named like a member of the body it is written in — a «View» class's `view` usage of the same name in the same package, a state, an action | renamed `Name 2`, `Name 3`… past the taken names | approximated |
 | Diagram with no representation serialized, or one naming no diagram type | a view of unknown kind, rendered `asTextualNotation`, exposing what the representation lists — nothing when there is none | approximated |
 | Diagram no written element can hold: every ancestor is library content or otherwise unwritten | comment | **unmapped** |
@@ -428,10 +429,58 @@ and what became of each — `written`, `no v2 member`, `not written`, `unnamed`,
 the results sidecar's `routesByKind`; an export record matching no diagram of the model,
 or one the migration does not write as a view, and each malformed record is an `unmapped` report row; a presentation property `DiagramLayout` has
 no attribute for (a color, a font, an image) is counted by tag and dropped rather than invented.
-Views the export does not cover are a normal case of export scope and are reported as a count. A
+Views the export does not cover are a normal case of export scope and are reported as a count;
+they are laid out from their diagram's own symbol stream instead, as is every element a joined
+record neither places nor routes (the export wins per element, the stream fills in the rest, and
+the diagram's layout note and the summary's `streamSupplemented` count say when it did). A
 `-layout` file exported from a different project — no record joins — or one that is not a HUDS
-`<packet>` at all refuses with the mismatch stated; without `-layout` the migration's output is
-byte-identical.
+`<packet>` at all refuses with the mismatch stated; without `-layout` every diagram is laid out
+from its own stream alone. A symbol the stream keeps but does not draw (`visible` false), with
+every symbol nested in it and every part, region or compartment row it lists, shows nothing: the
+view does not expose its element for it, it takes no position or style, and a hidden frame does
+not bound the diagram. A symbol's position and style go to the element it names itself, not to
+the last part or region listed under it.
+
+#### Pictures pasted onto a diagram
+
+A picture pasted onto a Cameo diagram is an `ImageShape` symbol of the diagram's stream that
+stands for no model element. MagicDraw serializes the picture's own bytes into the symbol's
+`<image>` tag as space-separated hexadecimal octets without zero padding (`89 50 4e 47 d a 1a a`
+opens a PNG), and keeps in the symbol's `IMAGE` file property only the name of the file the
+picture was pasted from — that file is not in the archive. The migration decodes the octets,
+recognizes the content type from the bytes (PNG, JPEG, GIF, BMP, WebP, or SVG when the text is
+one well-formed SVG document — a single `svg` root in the SVG namespace; markup that is not is
+no image, and the report says why: `no SVG document: a <doc> document`), and writes them
+beside the notation under `images/` as the pasted file's base name with the type's suffix
+(`Screen Shot.png` holding PNG bytes is `images/Screen_Shot.png`; a symbol with no file name is
+named by its symbol id), the same bytes pasted onto several diagrams written once, through the
+same `-o` requirement and dedup as a document's attached images. The view then draws the
+picture where Cameo drew it: `@DiagramLayout::Picture { location = "images/<name>.png"; x; y;
+width; height; alt = "<file name>"; }` in the view's body, in stream order under the element
+symbols, or `above = true` when an element symbol drawn before it in the stream lies under it —
+Cameo draws later symbols on top — or when it overlaps an earlier picture drawn over them and no
+element symbol drawn after it, so that it stays over that picture. A `Picture` lies either under or
+over every element symbol it overlaps, so a picture pasted over one symbol and under another
+drawn after it is written under both: the element symbols stay visible, the diagram is
+approximated, and its note says so (`1 pasted image drawn under the 1 element symbol it lay
+over, since symbols drawn after it lie over it`) — likewise when a picture drawn over the element
+symbols covers a later one they in turn cover (`drawn under the 1 pasted image it lay over`). A
+symbol without area (a zero or negative width or height) is not written: `has no area to fill
+(0 by -40)`. A diagram of pictures alone becomes a view exposing nothing
+that draws them, so a document figure of it shows the pictures under the diagram's name as
+caption, through the same `Diagram` block as a figure of any other view; there is no separate
+`Image` block for it, so a hand-written view carrying a `Picture` and a migrated one render the
+same way. A symbol carrying a file name and no bytes is a picture the archive does not hold —
+the report names the file and the view draws nothing for it, as before; bytes that do not read
+as octets are an `unmapped` row for the symbol saying which octet is not hexadecimal, and the
+symbol is read without them. A picture pasted onto a table or matrix is written and annotated
+the same way, but a view rendered `asElementTable` draws no picture: the diagram is
+approximated, its note says so (`1 pasted image written as images/Plant.png, which a view
+rendered asElementTable does not draw`), and the rendering's notices state where the picture
+would have been. Each diagram's note says what was written (`1 pasted image written as
+images/Plant.png`) or why not, and the report's summary counts the pictures written and drawn
+(`# pasted images: 3 of 6 written as files and drawn by the view, 1 written on a view whose table
+rendering does not draw them`) with the image files.
 
 ### Tables, matrices and relation maps
 
@@ -511,7 +560,10 @@ whole number, an instance table naming no classifier, a matrix with no filter, a
 whose XML does not parse — with every fault stated at once. A refused table is an `unmapped`
 report row and a `not migrated` comment beside its view, which is still written; the rest of the
 model is unaffected. Presentation settings (`displayMode`, `showScopeAsRoot`, colors, widths,
-legend, `rowsOrder`…) draw the table and are dropped without a report row.
+legend, `rowsOrder`…) draw the table and are dropped without a report row. A [DocGen
+document](#docgen-documents) whose step draws the table's diagram embeds the same `Table` over
+the same `… Rows` query — the query is written once, beside the view — so the section and the
+standalone document render the same columns and cells.
 
 ### DocGen documents
 
@@ -521,8 +573,23 @@ collaborator profile beside it holds the paragraphs) — is a tree of «view» c
 conforming to a viewpoint whose method activity says what the view shows. It is written, beside
 the class, as a `part def '<Name> Document' :> DocumentQueries::Document` whose sections are
 the view tree in declaration order, and each view's method is lowered into the section's
-content, so `-render-document` produces the document DocGen would have. The tree is the one
-DocGen walks: every property of a view typed by a view is a section, and a view is entered
+content, so `-render-document` produces the document DocGen would have. A section opens, as
+DocGen prints it, with the view's own documentation as a `Paragraph` — the same comment its
+`view` carries as `doc`, tool HTML reduced to text — before its method's content, unless that
+comment is shown by one of the view's collaborator paragraphs, in which case it is written once, in
+that paragraph's place; a collaborator paragraph that cannot be shown (a malformed application) is
+refused as usual and does not hide the documentation. A view with no «Conform» gets
+DocGen's default behavior, that of MDK's
+[`DocumentGenerator.parseView`](https://github.com/Open-MBEE/mdk/blob/develop/src/main/java/org/openmbee/mdk/generator/DocumentGenerator.java)
+when the view has no viewpoint or method: a view that is itself a diagram shows its own figure, and any other shows,
+after its documentation, each diagram it exposes or imports in that order — an `Image` of a
+plain diagram, the `Table` of a table diagram — and nothing for an exposed element that is not
+a diagram; the view's report row says the default applied and what it showed. Only the
+«Conform» generalization decides, as it does in `parseView`: the «View» stereotype's `viewpoint`
+tag, which the «View» row above writes as a `satisfy`, names no method for the section. A view whose «Conform» names no element of the export is refused with that reason rather
+than given the default, and a view whose «Conform» names a viewpoint keeps its method's refusal
+when that method is malformed. The tree
+is the one DocGen walks: every property of a view typed by a view is a section, and a view is entered
 for its own sections only through a composite or shared property — a plain reference places
 the view as a section without its children, and the «Expose» dependencies of a property feed
 its view only when the property is composite.
@@ -574,10 +641,12 @@ section, in the activity's order:
 | `SortByName`, `SortByAttribute(Name / Documentation)` | `OrderBy(property = "name" / "documentation", …)`, `reverse` descending |
 | a fork whose branches rejoin at `Union` | `Union` of the branches' queries; the doubt a step before the fork leaves (a diagram type or content the archive does not record) is carried on by the branches that keep its result and ended by those that name their own targets, so the rejoined step knows what it draws when every branch does; a rejoin by `Intersection` or `XOR` is refused, and `RemoveDuplicates` is implicit in every operation and dropped |
 | `CollectionAndFilterGroup`, `StructuredQuery` | the group's chain, inlined |
-| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a column beyond these — a `MonteCarloAnalysis` statistic, which is recorded as a nested feature of the row's analysis that no `Column` reads, a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
+| `TableStructure` with `TableAttributeColumn` (`Name`, `Documentation`), `TablePropertyColumn` (a value property of the rows' definition, or a requirement's `Id`/`Text`), `TableExpressionColumn` naming a bare query property | `part table : Table { attribute redefines caption = …; calc rows : …; }` over `Project(properties, columns = (Column(…)))`, the built-in properties first (a built-in column behind a value property is moved ahead of it with the note) and a value property captioned like a built-in property as `<caption> 2`; a requirement's `Id` is its `shortName` and its `Text` its `documentation`, where the migration writes them; `includeDoc` adds `documentation`; a `MonteCarloAnalysis` statistic column (`N`, `Mean`, `Deviation`, `OutOfSpec`) reads the statistic the row's nested analysis records, as `Column(name = "N", expression = 'Monte Carlo'.runs)` and a sort on it as `OrderBy(property = "'Monte Carlo'.runs")`, when an instance the table lists records it — otherwise the column is omitted with the note saying so; a column beyond these — a property of a used project — is omitted with the note saying which, and a table with no writable column is refused. The caption is the table's title (`titles`, between `titlePrefix` and `titleSuffix`), and its `captions` text follows the table as a `Paragraph` unless `showCaptions` is false |
 | `BulletedList(orderedList, includeDoc)` | `part list : List { attribute redefines style = "number" / "bullet"; calc items : …; }`; `includeDoc` follows each item's name with its documentation |
-| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))` |
-| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead. A «CollaboratorImageParagraph»'s attached bitmap is not a view, so its caption stands as a paragraph and the report says the image is not written |
+| `Paragraph(body)`; a «CollaboratorParagraph» reading the comment body | `part paragraph : Paragraph { attribute redefines text = "…"; }`, tool HTML reduced to text; a paragraph over the targets' documentation is `calc values : …` over `Project(properties = ("documentation"))`. A collaborator paragraph stands where its `siblingId` (else `parentId`) tag puts it: one naming another paragraph of the view follows that paragraph; one with no tag comes, as Cameo prints it, before the content the method generates; one naming the generated figure of a diagram, `Containment_DiagramMainImage__<id>`, follows the figure or table the section drew for that diagram, or the refusal standing where it would have been. An anchor of that form naming no diagram of the model (Collaborator writes publish-time ids) is placed after the section's only figure when it draws exactly one and no other anchor is as unresolved, the row saying so; otherwise, and for an anchor of another kind (`Containment_<Kind>__…`) or a tag naming nothing, the paragraph follows the generated content and its row names the anchor and why |
+| a «CollaboratorImageParagraph» — a comment stereotyped MagicDraw «AttachedFile», or one carrying an `<img>` | `part 'image N' : Image { attribute redefines location = "images/<file>"; attribute redefines caption = "<comment text>"; attribute redefines alt = "<file>"; }`, and the attached bytes are written beside the notation under `images/`, as the base of the file name with the suffix the bytes' content type calls for — `figure.txt` holding PNG bytes is `images/figure.png` (an `http(s)` source names the URL instead and writes no file; the comment body is the caption and an empty one is allowed). The attachment is found in the archive by the `ATTACHED_FILE` extension's stream id, then the `file` tag name or an entry with that base name; an image no archive entry holds keeps its caption as a paragraph, noted, and a captionless one is **unmapped** — the note names the file. A server-relative `src` (a path the View Editor serves) resolves against `-image-base-url`; without it the paragraph keeps its text with the same note saying so. Writing the files requires `-o`; `images/` beside the model is the migration's, so a re-run replaces the files it wrote before as it replaces the model, and a file of another name there is left alone — a run never writes over the model it is writing, the input, or its `-migration-report`/`-migration-results` files |
+| an `Image` step over a diagram that draws nothing, whose note (the diagram's own comment) holds an `<img>` | `part image : Image { attribute redefines location = <resolved src>; attribute redefines caption = <the figure's title>; attribute redefines alt = <img alt>; }` instead of leaving the figure out — approximated, since layout and free symbols drop; a note that says more than the title follows as the caption paragraph; the note's image not in the archive and not resolved against `-image-base-url` leaves the figure out with the same hint |
+| `Image` | one `part diagram : Diagram { attribute redefines caption = "<title>"; ref redefines source = <its view>; }` per diagram the chain collected (see below), captioned by its `titles` entry (else the diagram's name) between `titlePrefix` and `titleSuffix`, its `captions` entry following as a `Paragraph` unless `showCaptions` is false. A diagram that is a Cameo [table, matrix or relation map](#tables-matrices-and-relation-maps) is shown as DocGen shows it, as the table: `part table : Table { attribute redefines caption = "<title>"; calc rows : <its '… Rows' query>; }` over the query its definition already lowered, written once beside the view, never as a `Diagram` of the view rendered `asElementTable` (which a document would draw as a listing of the view's members); the step's row says the diagram is written as a Table over that query, and `-doc-number-figures` counts it among the tables. A table whose definition is refused (no query form) is refused in its place, the reason given, rather than drawn as that listing. A diagram written as a graph view — an activity diagram as an `ActionFlowView`, a state machine diagram as a `StateTransitionView` — is drawn like any other; one whose view renders as textual notation (a sequence diagram, whose Interaction is written as a scenario and not as the occurrence parts a `SequenceView` draws; an activity or state machine diagram whose behavior is not written as a definition) is refused with the reason, since a document draws no text view. A diagram that shows nothing — its tool lists no element and its stream draws nothing, or free symbols only (a diagram of pasted pictures draws them, so its figure is written) — would be an empty figure, so no `Diagram` is written for it: the step is reported mapped (approximated when the archive cannot tell what it shows) with the reason, and its caption stays as a paragraph, as DocGen shows it. An `Image` whose chain holds no diagram is mapped as drawing nothing, the note saying what the chain held instead |
 | `Dynamic View` | a nested `Section` with the called activity's title, lowered the same way; an activity that calls itself is refused, since a recursive section has no static spelling |
 
 The diagrams among the collected elements are no query's rows — a migrated diagram is a view —
@@ -642,11 +711,25 @@ and refuses the three, so `-doc-form markdown` writes the title as its first hea
 section tree as nested headings, unnumbered. The rendered figures are the migrated views: a
 block or internal block diagram drawn from its exposures, an activity or state machine diagram
 drawn from its graph, each positioned where the MTIP layout put it when `-layout` was given
-(see [Layout from an MTIP export](#layout-from-an-mtip-export)); a diagram the
+(see [Layout from an MTIP export](#layout-from-an-mtip-export)) — and showing, in every
+`-diagram-form`, the elements the layout placed: an exposed package the source diagram did not
+draw stays out of the figure rather than expanding into its whole contents, and
+`-render-unplaced strip` adds the unplaced elements; a diagram the
 migration left out of the document (empty, or rendered as textual notation) is absent from the
-render and the report says why, so a rendered document holds no empty figure. Styling beyond
-what the model carries — a cover image, a tool's fonts, its header and footer — is not
-invented; `-html-theme` and `-html-css` take a stylesheet of your own.
+render and the report says why, so a rendered document holds no empty figure. A table cell over
+a multi-valued slot (`attribute :>> tCalibNB = (69.0, 98.0);` under a column declared `[0..*]`)
+lists its values in order, `69, 98`, as DocGen's did, and one over a slot with no value is empty.
+Styling beyond what the model carries — a cover image, a tool's fonts, its header and footer —
+is not invented; `-html-theme` and `-html-css` take a stylesheet of your own.
+
+The whole set of a model's documents is rendered with `-render-documents <dir>` (see
+[the CLI reference](cli.md#rendering-a-view)): every document in one directory, linked to one
+another. A model whose documents repeat a short name across packages — DocGen templates
+instantiated in several places — renders each to its own file, since the file is named by the
+qualified name; naming one of them to `-render-document` by the short name alone is refused
+with the qualified name of every candidate. A document that cannot be rendered does not stop the
+set: the others are written, a page stating the error stands in for it, and the run lists each
+such document and exits `3`.
 
 The mapping has been run over the XMI of the [OpenMBEE TMT SysML model](https://github.com/Open-MBEE/TMT-SysML-Model)
 (27 MB; 44,600 elements once the nodes and edges of its behaviors are counted): it writes 7 MB

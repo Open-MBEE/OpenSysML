@@ -25,11 +25,14 @@ func (r *Rendering) Mermaid() string {
 // stated direction: a flowchart flows that way, and a state diagram states it
 // as a `direction` statement. The empty direction keeps each kind's default,
 // and a kind no direction applies to ignores it. A palette is not drawn,
-// Mermaid having no fill per node kind, and is noted as not represented.
+// Mermaid having no fill per node kind, and is noted as not represented. A
+// rendering some Layout positions draws the nodes the DOT form draws: the placed
+// ones, and the unplaced ones too under UnplacedStrip.
 func (r *Rendering) MermaidWith(options Options) string {
+	r = r.settleUnplaced(options.Unplaced, FormMermaid)
 	direction := options.Direction
 	var b strings.Builder
-	labels := labelsOf(r.Roots)
+	labels := labelsOf(r.Roots, false, nil)
 	r.writeFlowchartFrontmatter(&b, labels)
 	if r.View == "" {
 		fmt.Fprintf(&b, "%%%% %s rendering", r.Kind)
@@ -45,6 +48,12 @@ func (r *Rendering) MermaidWith(options Options) string {
 	}
 	if options.Palette != "" {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", paletteNotice(options.Palette))
+	}
+	if options.Style != "" && options.Style != StylePilot {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", styleNotice(options.Style))
+	}
+	for _, notice := range r.visualNotices(noFontOrEdgeStyle, true) {
+		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
 	r.writeGeometryComments(&b, "%%")
 	switch r.Kind {
@@ -152,8 +161,8 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		flow = string(direction)
 	}
 	fmt.Fprintf(b, "flowchart %s\n", flow)
-	if r.Empty() {
-		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.EmptyReason()))
+	if r.blank() {
+		fmt.Fprintf(b, "  empty[\"%s\"]\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	for _, root := range r.Roots {
@@ -166,6 +175,44 @@ func (r *Rendering) writeFlowchart(b *strings.Builder, direction Direction, labe
 		}
 		fmt.Fprintf(b, "  %s %s|\"%s\"| %s\n", edge.From, mermaidArrow(edge.Kind), mermaidText(edge.Label), edge.To)
 	}
+	for _, root := range r.Roots {
+		writeMermaidStyles(b, root, false)
+	}
+}
+
+// writeMermaidStyles writes the colours a Style gives node and the nodes under
+// it: a flowchart's `style` statement, a state diagram's `classDef` and
+// `class` pair. A Style's font, and an edge's Style, Mermaid has no statement for.
+func writeMermaidStyles(b *strings.Builder, node *Node, state bool) {
+	if css := mermaidStyleCSS(node.Style); css != "" {
+		if state {
+			fmt.Fprintf(b, "  classDef style_%s %s\n  class %s style_%s\n", node.ID, css, node.ID, node.ID)
+		} else {
+			fmt.Fprintf(b, "  style %s %s\n", node.ID, css)
+		}
+	}
+	for _, child := range node.Children {
+		writeMermaidStyles(b, child, state)
+	}
+}
+
+// mermaidStyleCSS is a Style's colours as Mermaid's comma-separated CSS:
+// the fill, the stroke and the text colour; empty when the Style sets none.
+func mermaidStyleCSS(style *Style) string {
+	if style == nil {
+		return ""
+	}
+	var props []string
+	if style.Fill != "" {
+		props = append(props, "fill:"+style.Fill)
+	}
+	if style.Line != "" {
+		props = append(props, "stroke:"+style.Line)
+	}
+	if style.Text != "" {
+		props = append(props, "color:"+style.Text)
+	}
+	return strings.Join(props, ",")
 }
 
 // writeFlowchartNode writes one node: a subgraph when it holds others, a plain
@@ -201,10 +248,10 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 	if direction != "" {
 		fmt.Fprintf(b, "  direction %s\n", direction)
 	}
-	if r.Empty() {
+	if r.blank() {
 		// A state diagram takes a note only attached to a state, so the reason
 		// is a state of its own.
-		fmt.Fprintf(b, "  state \"%s\" as empty\n", mermaidText(r.EmptyReason()))
+		fmt.Fprintf(b, "  state \"%s\" as empty\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	starts := map[string][]Edge{}
@@ -224,6 +271,9 @@ func (r *Rendering) writeStateDiagram(b *strings.Builder, direction Direction, l
 			continue
 		}
 		writeStateEdge(b, edge.From, edge.To, edge.Label, 1)
+	}
+	for _, root := range r.Roots {
+		writeMermaidStyles(b, root, true)
 	}
 }
 
@@ -253,10 +303,10 @@ func writeStateEdge(b *strings.Builder, from, to, label string, depth int) {
 // messages in the order the rendering settled on.
 func (r *Rendering) writeSequenceDiagram(b *strings.Builder, labels labeller) {
 	b.WriteString("sequenceDiagram\n")
-	if r.Empty() {
+	if r.blank() {
 		// A sequence diagram carries no free text, so the reason is a
 		// participant of its own.
-		fmt.Fprintf(b, "  participant empty as %s\n", mermaidText(r.EmptyReason()))
+		fmt.Fprintf(b, "  participant empty as %s\n", mermaidText(r.blankReason(FormMermaid)))
 		return
 	}
 	for _, node := range r.Roots {

@@ -19,6 +19,7 @@ const (
 	ContentDefinitions ContentKind = "definitions"
 	ContentFormula     ContentKind = "formula"
 	ContentDiagram     ContentKind = "diagram"
+	ContentImage       ContentKind = "image"
 )
 
 // ListStyle is the rendering style of an evaluated list.
@@ -137,13 +138,15 @@ func (d Definition) Element() queryexec.Value { return d.element }
 func (d Definition) Origin() symbols.Origin { return d.origin }
 
 // Content is one evaluated content node: a section, paragraph, table, list,
-// definitions block, formula, or diagram.
+// definitions block, formula, diagram, or image.
 type Content struct {
 	kind        ContentKind
 	name        string
 	title       string
 	source      string
 	caption     string
+	alt         string
+	file        string
 	style       ListStyle
 	anchor      string
 	groupBy     string
@@ -172,10 +175,21 @@ func (c Content) Name() string { return c.name }
 func (c Content) Title() string { return c.title }
 
 // Source returns the LaTeX source of a formula, typeset as display
-// mathematics.
+// mathematics, or the location an image block shows: a path relative to the
+// document's source file, or a URL.
 func (c Content) Source() string { return c.source }
 
-// Caption returns the caption of a table, formula or diagram.
+// Location returns the path or URL an image shows.
+func (c Content) Location() string { return c.source }
+
+// Alt returns the text alternative an image states, empty for none.
+func (c Content) Alt() string { return c.alt }
+
+// File returns the file on disk an image block was declared in, which its
+// relative location is stated against; "" when it was declared in none.
+func (c Content) File() string { return c.file }
+
+// Caption returns the caption of a table, formula, diagram or image.
 func (c Content) Caption() string { return c.caption }
 
 // Style returns the style of a list.
@@ -264,6 +278,8 @@ func cloneContent(content []Content) []Content {
 			title:       child.title,
 			source:      child.source,
 			caption:     child.caption,
+			alt:         child.alt,
+			file:        child.file,
 			style:       child.style,
 			anchor:      child.anchor,
 			groupBy:     child.groupBy,

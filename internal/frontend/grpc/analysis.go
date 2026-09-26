@@ -26,7 +26,7 @@ func (s *Service) RunAnalysis(ctx context.Context, req *pb.RunAnalysisRequest) (
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
-	v, err := s.newVerifyContext(req.ModelHash, req.Engine)
+	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
 	}
