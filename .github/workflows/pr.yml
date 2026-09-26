@@ -863,6 +863,9 @@ jobs:
       - name: Check changelog fragments
         run: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
 
+      - name: Check the release provenance writer
+        run: python3 scripts/release-provenance-test.py
+
       # The compliance census is counted when the site is built, never committed.
       - name: Check the compliance census hook
         run: python3 scripts/mkdocs_census-test.py

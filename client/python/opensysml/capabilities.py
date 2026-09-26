@@ -86,6 +86,8 @@ CAPABILITY_CONNECTION_AUTHORING = "connection_authoring"
 CAPABILITY_SATISFY_AUTHORING = "satisfy_authoring"
 #: The ``ApplyEdits`` ``add_requirement_constraint`` operation.
 CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
+#: The ``ApplyEdits`` ``add_transition`` operation.
+CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers

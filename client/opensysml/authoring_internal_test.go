@@ -108,6 +108,18 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
 			missing:      CapabilityRequirementConstraintAuthoring,
 		},
+		{
+			name:         "transition operation",
+			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityTransitionAuthoring,
+		},
+		{
+			name:         "transition requires authoring",
+			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
+			missing:      CapabilityAuthoring,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -161,5 +173,28 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetOwner() != "Demo::r" || got.GetKind() != "assume" ||
 		got.GetExpression() != "true" || got.GetName() != "valid" {
 		t.Fatalf("AddRequirementConstraint mapping = %+v", got)
+	}
+
+	transitionOperation, err := editToProto(AddTransition{
+		Owner: "Demo::S", Name: "go", Source: "idle", Target: "toasting",
+		Trigger: "CycleStart", Guard: "ready", Effect: "action cool",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := transitionOperation.GetAddTransition(); got == nil ||
+		got.GetOwner() != "Demo::S" || got.GetName() != "go" ||
+		got.GetSource() != "idle" || got.GetTarget() != "toasting" ||
+		got.GetTrigger() != "CycleStart" || got.GetGuard() != "ready" ||
+		got.GetEffect() != "action cool" || got.GetInitial() {
+		t.Fatalf("AddTransition mapping = %+v", got)
+	}
+	entryOperation, err := editToProto(AddEntryTransition("Demo::S", "idle"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := entryOperation.GetAddTransition(); got == nil ||
+		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
+		t.Fatalf("AddEntryTransition mapping = %+v", got)
 	}
 }

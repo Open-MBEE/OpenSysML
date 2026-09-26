@@ -769,8 +769,21 @@ func TestRenderPaletteOwnersCoverDrawnNotations(t *testing.T) {
 		ids[n.FQN] = n.ID
 	}
 	got := out.Palette.Owners["entry action"]
-	if len(got) != 1 || got[0] != ids["Ops::Run"] {
-		t.Fatalf("owners of entry action = %v, want [%s] (Ops::Run)", got, ids["Ops::Run"])
+	want := []string{ids["Ops::Run"], ids["Ops::Run::idle"]}
+	if want[0] == "" || want[1] == "" {
+		t.Fatalf("rendered nodes omit an entry-action owner: %v", ids)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("owners of entry action = %v, want %v (Ops::Run and Ops::Run::idle)", got, want)
+	}
+	for _, id := range want {
+		found := false
+		for _, owner := range got {
+			found = found || owner == id
+		}
+		if !found {
+			t.Errorf("owners of entry action = %v, missing %s", got, id)
+		}
 	}
 	if _, ok := out.Palette.Owners["state"]; ok {
 		t.Error("state is owner-bound")
