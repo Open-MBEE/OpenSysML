@@ -528,7 +528,8 @@ func (inv *Invocation) renderEnv(sc scope) ([]string, error) {
 	for _, name := range strings.Split(os.Getenv(ToolEnvPassthroughEnv), ",") {
 		if name = strings.TrimSpace(name); name != "" {
 			if strings.ContainsAny(name, "=\x00") {
-				return nil, fmt.Errorf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, name)
+				return nil, &runtime.ToolError{Tool: sc.tool, Kind: runtime.ToolProcessFailed,
+					Detail: fmt.Sprintf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, name)}
 			}
 			names = append(names, name)
 		}

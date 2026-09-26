@@ -388,8 +388,9 @@ func TestInvocationEnvPassthroughRefusesMalformedNames(t *testing.T) {
 		t.Setenv(ToolEnvPassthroughEnv, " OPENSYSML_TEST_SHOWN , "+bad+" ,")
 		_, err := inv.renderEnv(sc)
 		want := fmt.Sprintf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, strings.TrimSpace(bad))
-		if err == nil || err.Error() != want {
-			t.Errorf("renderEnv: %v, want %q", err, want)
+		var fault *runtime.ToolError
+		if !errors.As(err, &fault) || fault.Tool != "Solver" || fault.Kind != runtime.ToolProcessFailed || fault.Detail != want {
+			t.Errorf("renderEnv: %v, want a ToolError{Tool: Solver, Kind: ToolProcessFailed, Detail: %q}", err, want)
 		}
 	}
 }
