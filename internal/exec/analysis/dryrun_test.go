@@ -52,10 +52,10 @@ func TestADryRunStopsAtAnEngineAheadOfTheTool(t *testing.T) {
 	}
 }
 
-// Under all every covering engine runs, the tool among them: a built-in ahead of it
-// in name order, covering the call or refusing it, does not leave the preview
-// undecided; an external engine ahead of it, which cannot be probed, does.
-func TestADryRunUnderAllPassesBuiltInsAheadOfTheTool(t *testing.T) {
+// Under all every covering engine runs, the tool among them: an engine ahead of it
+// in name order — a built-in covering the call or refusing it, or an external one —
+// does not leave the preview undecided.
+func TestADryRunUnderAllPassesEnginesAheadOfTheTool(t *testing.T) {
 	entry := ToolEntry{ToolName: "Solver", Executable: standin(t), Variables: []string{"mass", "tMax"}}
 	r := registered(t,
 		fakeEngine{name: "aaa", kinds: []Kind{Compute}, authority: Proved},
@@ -75,20 +75,28 @@ func TestADryRunUnderAllPassesBuiltInsAheadOfTheTool(t *testing.T) {
 		Answers: []Kind{Compute}, Model: []ModelForm{FormSources}, Authority: Proved}
 	r = registered(t, NewEngine(external), NewTool(entry))
 	_, err = r.DryRunner(All()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
-	var undecided *PreviewUndecidedError
-	if !errors.As(err, &undecided) || undecided.Engine != "aab" {
-		t.Fatalf("RunTool under all with an external engine ahead = %v, want PreviewUndecidedError for aab", err)
+	if !errors.As(err, &dry) || dry.Preview.Tool != "Solver" {
+		t.Fatalf("RunTool under all with an external engine ahead = %v, want the Solver preview", err)
 	}
 }
 
-// Under all a built-in covering the call answers it when no entry of the tool's
-// name is registered: the preview is undecided, not "not registered".
-func TestADryRunUnderAllIsUndecidedWhenABuiltInCoversAnUnregisteredTool(t *testing.T) {
+// Under all a built-in covering the call, or an external engine that may, answers
+// it when no entry of the tool's name is registered: the preview is undecided, not
+// "not registered".
+func TestADryRunUnderAllIsUndecidedWhenAnEngineCoversAnUnregisteredTool(t *testing.T) {
 	r := registered(t, fakeEngine{name: "aaa", kinds: []Kind{Compute}, authority: Proved})
 	_, err := r.DryRunner(All()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
 	var undecided *PreviewUndecidedError
 	if !errors.As(err, &undecided) || undecided.Engine != "aaa" {
 		t.Fatalf("RunTool under all = %v, want PreviewUndecidedError for aaa", err)
+	}
+	external := EngineEntry{Kind: KindEngine, Name: "ext", Command: []string{filepath.Join(t.TempDir(), "absent")},
+		Executable: filepath.Join(t.TempDir(), "absent"), Transport: TransportStdio, Protocol: 1,
+		Answers: []Kind{Compute}, Model: []ModelForm{FormSources}, Authority: Proved}
+	r = registered(t, NewEngine(external))
+	_, err = r.DryRunner(All()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
+	if !errors.As(err, &undecided) || undecided.Engine != "ext" {
+		t.Fatalf("RunTool under all with only an external engine = %v, want PreviewUndecidedError for ext", err)
 	}
 	r = registered(t, fakeEngine{name: "aaa", kinds: []Kind{Compute}, refusal: errors.New("not mine")})
 	_, err = r.DryRunner(All()).RunTool(&runtime.ToolCall{ToolName: "Solver"})
