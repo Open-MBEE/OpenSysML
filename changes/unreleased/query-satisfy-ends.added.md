@@ -1,0 +1,1 @@
+- **Queries expose the requirement and satisfying feature of a satisfy usage.** Select `satisfiedRequirement` and `satisfyingFeature` to follow each end of the satisfy relationship.
