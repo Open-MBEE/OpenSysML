@@ -979,6 +979,18 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	return ""
 }
 
+// Metaclass is the library element declaring the SysML or KerML metaclass of
+// the simple name, or nil where the loaded libraries declare none.
+func (m *Model) Metaclass(name string) *symbols.Symbol {
+	if m == nil || name == "" {
+		return nil
+	}
+	if meta := m.symbolByFQN(sysmlMetaclassPrefix + name); meta != nil {
+		return meta
+	}
+	return m.kermlMetaclass(name)
+}
+
 // MetaclassOf is the reflective metaclass classifying sym's declaration — the
 // library element `x meta T` yields an instance of — or nil where none is known.
 func (m *Model) MetaclassOf(sym *symbols.Symbol) *symbols.Symbol {

@@ -238,7 +238,7 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 	tests := make([]typeTest, len(typeNames))
 	matched := make([]bool, len(typeNames))
 	for i, typeName := range typeNames {
-		tests[i] = typeTest{name: typeName, target: e.resolveClassification(typeName), classification: typeName}
+		tests[i] = typeTest{name: typeName, target: e.resolveType(typeName), classification: typeName}
 		if tests[i].target != nil {
 			tests[i].classification = symbols.FQNOf(tests[i].target)
 		}
@@ -1055,6 +1055,19 @@ func (e *executor) orderedKeysCompatible(left, right Value) bool {
 
 func numericKind(kind ValueKind) bool {
 	return kind == ValueInteger || kind == ValueReal || kind == ValueInfinity
+}
+
+// resolveType resolves a type a filter names: a qualified name as written, a
+// metaclass name as the library's metaclass, and a simple name otherwise as the
+// one element of the model bearing it.
+func (e *executor) resolveType(name string) *symbols.Symbol {
+	if matches := e.context.Index.LookupQualified(name); len(matches) == 1 {
+		return matches[0]
+	}
+	if meta := e.context.Model.Metaclass(name); meta != nil {
+		return meta
+	}
+	return e.resolveClassification(name)
 }
 
 func (e *executor) resolveClassification(name string) *symbols.Symbol {
