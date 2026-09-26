@@ -13,6 +13,7 @@ Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import List
 
@@ -290,23 +291,71 @@ class Editor:
         return self
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
-                   value=None, specializes=None):
+                   value=None, specializes=None, abstract=False, redefines=None,
+                   default=False, direction=None):
         """Add one declaration, using strings for all SysML/KerML notation."""
-        for label, text in (("kind", kind), ("name", name), ("type", type),
+        if not isinstance(kind, str):
+            raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
+        for label, text in (("kind", kind), ("type", type),
                             ("multiplicity", multiplicity), ("value", value)):
             if text is not None and not isinstance(text, str):
                 raise TypeError(
                     f"{label} must be notation text, not "
                     f"{text.__class__.__name__}"
                 )
+        if not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {name.__class__.__name__}")
         owner = owner if isinstance(owner, str) else _target_id(owner)
-        if specializes is None:
-            specializes = []
-        if isinstance(specializes, str) or not all(isinstance(x, str) for x in specializes):
-            raise TypeError("specializes must be a sequence of notation strings")
-        self._add(("add_member", owner, kind, name, type or "", multiplicity or "",
-                   value or "", list(specializes)))
+        specializes = _notation_references("specializes", specializes)
+        redefines = _notation_references("redefines", redefines)
+        if not isinstance(abstract, bool):
+            raise TypeError("abstract must be bool")
+        if not isinstance(default, bool):
+            raise TypeError("default must be bool")
+        if direction is not None and not isinstance(direction, str):
+            raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
+        base = ("add_member", owner, kind, name, type or "", multiplicity or "",
+                value or "", list(specializes))
+        if (abstract or redefines or default or direction is not None
+                or kind in ("ref", "return")):
+            base += (abstract, list(redefines), default, direction or "")
+        self._add(base)
         return self
+
+    def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
+        """Add a ``satisfy`` usage to a body that admits behavior usages."""
+        if not isinstance(requirement, str):
+            raise TypeError(
+                f"requirement must be notation text, not {type(requirement).__name__}"
+            )
+        if by is not None and not isinstance(by, str):
+            raise TypeError(f"by must be notation text, not {type(by).__name__}")
+        if not isinstance(asserted, bool) or not isinstance(negated, bool):
+            raise TypeError("asserted and negated must be bool")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_satisfy", owner, requirement, by or "", asserted, negated))
+        return self
+
+    def add_requirement_constraint(self, owner, kind, expression, name=None):
+        """Add a ``require`` or ``assume`` constraint to a requirement-like body."""
+        for label, text in (("kind", kind), ("expression", expression)):
+            if not isinstance(text, str):
+                raise TypeError(f"{label} must be notation text, not {type(text).__name__}")
+        if name is not None and not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {type(name).__name__}")
+        if name is None:
+            name = ""
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_requirement_constraint", owner, kind, expression, name))
+        return self
+
+    def add_require_constraint(self, owner, expression, name=None):
+        """Add a ``require constraint`` to a requirement-like body."""
+        return self.add_requirement_constraint(owner, "require", expression, name)
+
+    def add_assume_constraint(self, owner, expression, name=None):
+        """Add an ``assume constraint`` to a requirement-like body."""
+        return self.add_requirement_constraint(owner, "assume", expression, name)
 
     def add_connection(self, owner, kind, from_, to, name=None, type=None):
         """Add a connection-like usage between two feature references."""
@@ -331,6 +380,10 @@ class Editor:
     def add_flow(self, owner, from_, to, **kwargs):
         """Add a ``flow ... from from_ to to`` usage."""
         return self.add_connection(owner, "flow", from_, to, **kwargs)
+
+    def add_succession(self, owner, from_, to, **kwargs):
+        """Add a ``succession ... first from_ then to`` usage."""
+        return self.add_connection(owner, "succession", from_, to, **kwargs)
 
     def delete(self, target, cascade=False):
         """Delete a declaration, optionally removing declarations that refer to it."""
@@ -493,6 +546,48 @@ class Editor:
         """Add a ``calc`` declaration."""
         return self.add_member(owner, "calc", name, **kwargs)
 
+    def add_parameter(self, owner, direction, name, type=None, kind="ref", **kwargs):
+        """Add a directional parameter usage."""
+        return self.add_member(
+            owner, kind, name, type=type, direction=direction, **kwargs
+        )
+
+    def add_return(self, owner, name="", **kwargs):
+        """Add a return parameter member."""
+        return self.add_member(owner, "return", name, **kwargs)
+
+    def add_action_def(self, owner, name, **kwargs):
+        """Add an ``action def`` declaration."""
+        return self.add_member(owner, "action def", name, **kwargs)
+
+    def add_action(self, owner, name, **kwargs):
+        """Add an ``action`` declaration."""
+        return self.add_member(owner, "action", name, **kwargs)
+
+    def add_state_def(self, owner, name, **kwargs):
+        """Add a ``state def`` declaration."""
+        return self.add_member(owner, "state def", name, **kwargs)
+
+    def add_state(self, owner, name, **kwargs):
+        """Add a ``state`` declaration."""
+        return self.add_member(owner, "state", name, **kwargs)
+
+    def add_constraint_def(self, owner, name, **kwargs):
+        """Add a ``constraint def`` declaration."""
+        return self.add_member(owner, "constraint def", name, **kwargs)
+
+    def add_constraint(self, owner, name, **kwargs):
+        """Add a ``constraint`` declaration."""
+        return self.add_member(owner, "constraint", name, **kwargs)
+
+    def add_requirement_def(self, owner, name, **kwargs):
+        """Add a ``requirement def`` declaration."""
+        return self.add_member(owner, "requirement def", name, **kwargs)
+
+    def add_requirement(self, owner, name, **kwargs):
+        """Add a ``requirement`` declaration."""
+        return self.add_member(owner, "requirement", name, **kwargs)
+
 
 def _target_id(target):
     """The id an operation names its element by, from an id or a Symbol."""
@@ -505,6 +600,20 @@ def _target_id(target):
         f"target must be a symbol id (FQN) or a Symbol, not "
         f"{type(target).__name__}"
     )
+
+
+def _notation_references(label, values):
+    """Normalize one feature-reference string or a sequence of them."""
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    elif not isinstance(values, Sequence):
+        raise TypeError(f"{label} must be a notation string or sequence of strings")
+    references = list(values)
+    if not all(isinstance(reference, str) for reference in references):
+        raise TypeError(f"{label} must contain only notation strings")
+    return references
 
 
 def result_of(response, applied_source=FORMAT_SYSML):

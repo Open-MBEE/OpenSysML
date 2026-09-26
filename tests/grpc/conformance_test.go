@@ -101,20 +101,29 @@ type conformanceCase struct {
 }
 
 type conformanceEditOperation struct {
-	Kind         string   `json:"kind"`
-	Target       string   `json:"target,omitempty"`
-	Value        string   `json:"value,omitempty"`
-	NewName      string   `json:"new_name,omitempty"`
-	Owner        string   `json:"owner,omitempty"`
-	MemberKind   string   `json:"member_kind,omitempty"`
-	MemberName   string   `json:"member_name,omitempty"`
-	Name         string   `json:"name,omitempty"`
-	FromEnd      string   `json:"from_end,omitempty"`
-	ToEnd        string   `json:"to_end,omitempty"`
-	Type         string   `json:"type,omitempty"`
-	Multiplicity string   `json:"multiplicity,omitempty"`
-	Specializes  []string `json:"specializes,omitempty"`
-	Cascade      bool     `json:"cascade,omitempty"`
+	Kind              string   `json:"kind"`
+	Target            string   `json:"target,omitempty"`
+	Value             string   `json:"value,omitempty"`
+	NewName           string   `json:"new_name,omitempty"`
+	Owner             string   `json:"owner,omitempty"`
+	MemberKind        string   `json:"member_kind,omitempty"`
+	MemberName        string   `json:"member_name,omitempty"`
+	Name              string   `json:"name,omitempty"`
+	FromEnd           string   `json:"from_end,omitempty"`
+	ToEnd             string   `json:"to_end,omitempty"`
+	Type              string   `json:"type,omitempty"`
+	Multiplicity      string   `json:"multiplicity,omitempty"`
+	Specializes       []string `json:"specializes,omitempty"`
+	IsAbstract        bool     `json:"is_abstract,omitempty"`
+	Redefines         []string `json:"redefines,omitempty"`
+	IsDefault         bool     `json:"is_default,omitempty"`
+	Direction         string   `json:"direction,omitempty"`
+	Requirement       string   `json:"requirement,omitempty"`
+	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
+	Asserted          bool     `json:"is_asserted,omitempty"`
+	Negated           bool     `json:"is_negated,omitempty"`
+	Expression        string   `json:"expression,omitempty"`
+	Cascade           bool     `json:"cascade,omitempty"`
 }
 
 // TestGRPCConformance is the AGENTS.md §5.2 Layer 2 contract for the gRPC
@@ -220,6 +229,8 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Kind: op.MemberKind, Name: op.MemberName,
 					Type: op.Type, Multiplicity: op.Multiplicity,
 					Value: op.Value, Specializes: op.Specializes,
+					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
+					IsDefault: op.IsDefault, Direction: op.Direction,
 				}},
 			})
 		case "add_connection":
@@ -228,6 +239,23 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Kind: op.MemberKind, FromEnd: op.FromEnd,
 					ToEnd: op.ToEnd, Name: op.Name, Type: op.Type,
 				}},
+			})
+		case "add_satisfy":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddSatisfy{AddSatisfy: &pb.AddSatisfyEdit{
+					Owner: op.Owner, Requirement: op.Requirement,
+					SatisfyingFeature: op.SatisfyingFeature,
+					IsAsserted:        op.Asserted, IsNegated: op.Negated,
+				}},
+			})
+		case "add_requirement_constraint":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddRequirementConstraint{
+					AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
+						Owner: op.Owner, Kind: op.MemberKind, Expression: op.Expression,
+						Name: op.Name,
+					},
+				},
 			})
 		case "delete":
 			operations = append(operations, &pb.EditOperation{

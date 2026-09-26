@@ -3,6 +3,7 @@ package sysmlv1
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // DocGenDocument is one MDK DocGen document: a class carrying the Document
@@ -23,6 +24,9 @@ type DocGenView struct {
 	Class *Element
 	// Viewpoint is the viewpoint the view conforms to; nil when none.
 	Viewpoint *Element
+	// ConformMalformed is why the view's Conform names no viewpoint, "" when
+	// it does or the view has no Conform.
+	ConformMalformed string
 	// Method is the viewpoint's method activity, the behavior of its
 	// operation named View or its method tag; nil when the viewpoint has none.
 	Method *Element
@@ -52,9 +56,44 @@ type DocGenParagraph struct {
 	Comment *Element
 	// Malformed is why the paragraph cannot be shown, "" when it can.
 	Malformed string
+	// Predecessor is the siblingId or parentId tag as written, "" when the
+	// paragraph names nothing it follows.
+	Predecessor string
+	// Anchor is the generated item Predecessor names, nil when it names a
+	// paragraph (see Placed) or nothing readable.
+	Anchor *DocGenAnchor
 	// Placed reports whether the predecessor tag named a paragraph of the
 	// same view, which this one then follows.
 	Placed bool
+}
+
+// DocGenAnchor is an item of the published document a collaborator paragraph
+// follows that is no paragraph; the publisher writes it `<view>_<Kind>__<Target>`,
+// as `Containment_DiagramMainImage__<id>` for the main image of a diagram.
+type DocGenAnchor struct {
+	// Kind is the item's kind, DiagramMainImage for the figure of a diagram.
+	Kind string
+	// Target is the id the publisher gave the item.
+	Target string
+}
+
+// DiagramMainImage is the anchor kind naming the figure a section draws of a diagram.
+const DiagramMainImage = "DiagramMainImage"
+
+// parseAnchor reads a predecessor tag of the generated-item form; nil when the
+// tag has no `<Kind>__<Target>` shape and so can only name a paragraph.
+func parseAnchor(predecessor string) *DocGenAnchor {
+	head, target, ok := strings.Cut(predecessor, "__")
+	if !ok || head == "" || target == "" || head[0] == '_' {
+		return nil
+	}
+	if i := strings.LastIndexByte(head, '_'); i >= 0 {
+		head = head[i+1:]
+	}
+	if head == "" {
+		return nil
+	}
+	return &DocGenAnchor{Kind: head, Target: target}
 }
 
 // DocGenStep is one node of a DocGen activity chain: a collect, filter or
@@ -259,6 +298,7 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 	v := &DocGenView{Class: class, Paragraphs: r.paragraphs(class)}
 	path[class] = true
 	defer delete(path, class)
+	var broken []string
 	for _, g := range class.Owned("generalization") {
 		if !isSysMLStereotyped(g, "Conform") {
 			continue
@@ -266,11 +306,15 @@ func (r *docGenReader) view(class, p *Element, path map[*Element]bool, recurse b
 		if general := m.Ref(g, "general"); general != nil {
 			v.Viewpoint = general
 		} else {
-			v.Malformed = append(v.Malformed, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
+			broken = append(broken, fmt.Sprintf("Conform general %q names no element", g.Attrs["general"]))
 		}
 	}
-	if v.Viewpoint != nil {
+	switch {
+	case v.Viewpoint != nil:
+		v.Malformed = append(v.Malformed, broken...)
 		v.Method, v.MethodMalformed = m.viewpointMethod(v.Viewpoint)
+	case len(broken) > 0:
+		v.ConformMalformed = strings.Join(broken, "; ")
 	}
 	v.Exposed = m.exposed(class)
 	if p != nil && composite(p) {
@@ -323,8 +367,10 @@ func (r *docGenReader) paragraphs(class *Element) []*DocGenParagraph {
 	followers := map[*DocGenParagraph][]*DocGenParagraph{}
 	var heads []*DocGenParagraph
 	for _, p := range out {
-		after := byComment[predecessor(p.Application)]
+		p.Predecessor = predecessor(p.Application)
+		after := byComment[p.Predecessor]
 		if after == nil || after == p {
+			p.Anchor = parseAnchor(p.Predecessor)
 			heads = append(heads, p)
 			continue
 		}

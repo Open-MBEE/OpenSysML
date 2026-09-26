@@ -186,6 +186,40 @@ type AddMember struct {
 	Value string
 	// Specializes are optional specialization targets for a definition.
 	Specializes []string
+	// IsAbstract declares the definition or usage abstract.
+	IsAbstract bool
+	// Redefines are optional redefinition targets for a usage.
+	Redefines []string
+	// IsDefault writes the value with the default assignment keyword.
+	IsDefault bool
+	// Direction is an optional usage direction: "in", "out" or "inout".
+	Direction string
+}
+
+// AddSatisfy inserts a satisfy usage into a body that admits behavior usages.
+type AddSatisfy struct {
+	// Owner is the namespace receiving the usage.
+	Owner string
+	// Requirement is the requirement feature reference.
+	Requirement string
+	// By is the optional satisfying feature reference.
+	By string
+	// Asserted marks the usage asserted.
+	Asserted bool
+	// Negated marks the usage negated.
+	Negated bool
+}
+
+// AddRequirementConstraint inserts a require or assume constraint.
+type AddRequirementConstraint struct {
+	// Owner is the requirement-like namespace receiving the constraint.
+	Owner string
+	// Kind is "require" or "assume".
+	Kind string
+	// Expression is the required constraint expression.
+	Expression string
+	// Name is the optional constraint name.
+	Name string
 }
 
 // AddConnection inserts a connection-like usage into a namespace or document root.
@@ -221,9 +255,13 @@ type Move struct {
 	Owner string
 }
 
-func (SetValue) isEdit()      { /* marker: closed Edit set */ }
-func (Rename) isEdit()        { /* marker: closed Edit set */ }
-func (AddMember) isEdit()     { /* marker: closed Edit set */ }
+func (SetValue) isEdit()   { /* marker: closed Edit set */ }
+func (Rename) isEdit()     { /* marker: closed Edit set */ }
+func (AddMember) isEdit()  { /* marker: closed Edit set */ }
+func (AddSatisfy) isEdit() { /* marker: closed Edit set */ }
+func (AddRequirementConstraint) isEdit() {
+	/* marker: closed Edit set */
+}
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
@@ -367,12 +405,42 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 	if err := c.requireEditDocuments(ctx, document); err != nil {
 		return nil, err
 	}
+	required := map[string]bool{}
 	for _, operation := range edits {
-		if _, ok := operation.(AddConnection); ok {
-			if err := c.requireCapabilities(ctx, CapabilityAuthoring, CapabilityConnectionAuthoring); err != nil {
-				return nil, err
+		switch operation := operation.(type) {
+		case AddMember:
+			required[CapabilityAuthoring] = true
+			if operation.IsAbstract || len(operation.Redefines) > 0 ||
+				operation.IsDefault || operation.Direction != "" ||
+				operation.Kind == "ref" || operation.Kind == "return" {
+				required[CapabilityMemberModifiers] = true
 			}
-			break
+		case AddConnection:
+			required[CapabilityAuthoring] = true
+			required[CapabilityConnectionAuthoring] = true
+		case AddSatisfy:
+			required[CapabilityAuthoring] = true
+			required[CapabilitySatisfyAuthoring] = true
+		case AddRequirementConstraint:
+			required[CapabilityAuthoring] = true
+			required[CapabilityRequirementConstraintAuthoring] = true
+		case Delete, Move:
+			required[CapabilityAuthoring] = true
+		}
+	}
+	if len(required) > 0 {
+		names := make([]string, 0, len(required))
+		for _, capability := range []string{
+			CapabilityAuthoring, CapabilityConnectionAuthoring,
+			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
+			CapabilityMemberModifiers,
+		} {
+			if required[capability] {
+				names = append(names, capability)
+			}
+		}
+		if err := c.requireCapabilities(ctx, names...); err != nil {
+			return nil, err
 		}
 	}
 	// This client reads Documents, so a model of several documents may be edited.
@@ -447,7 +515,26 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			Multiplicity: operation.Multiplicity,
 			Value:        operation.Value,
 			Specializes:  append([]string(nil), operation.Specializes...),
+			IsAbstract:   operation.IsAbstract,
+			Redefines:    append([]string(nil), operation.Redefines...),
+			IsDefault:    operation.IsDefault,
+			Direction:    operation.Direction,
 		}}}, nil
+	case AddSatisfy:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
+			AddSatisfy: &pb.AddSatisfyEdit{
+				Owner: operation.Owner, Requirement: operation.Requirement,
+				SatisfyingFeature: operation.By, IsAsserted: operation.Asserted,
+				IsNegated: operation.Negated,
+			},
+		}}, nil
+	case AddRequirementConstraint:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddRequirementConstraint{
+			AddRequirementConstraint: &pb.AddRequirementConstraintEdit{
+				Owner: operation.Owner, Kind: operation.Kind,
+				Expression: operation.Expression, Name: operation.Name,
+			},
+		}}, nil
 	case AddConnection:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddConnection{
 			AddConnection: &pb.AddConnectionEdit{

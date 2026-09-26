@@ -46,6 +46,13 @@ model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 
 `Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
 connection-like usages; `add_allocation` and `add_flow` are typed helpers.
+`Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
+options, and supports the SysML `ref` and `return` kinds where they are admitted.
+Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint` or
+`add_assume_constraint`
+to author requirement statements. These operations preflight their dedicated
+`member_modifiers`, `satisfy_authoring` or `requirement_constraint_authoring`
+capability as applicable.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 

@@ -38,6 +38,10 @@ const (
 	OpMove
 	// OpSetLayout writes, updates or clears a DiagramLayout annotation.
 	OpSetLayout
+	// OpAddSatisfy inserts a satisfy requirement usage.
+	OpAddSatisfy
+	// OpAddRequirementConstraint inserts a requirement constraint.
+	OpAddRequirementConstraint
 )
 
 // Operation is one change to make to a model's source.
@@ -56,21 +60,35 @@ type Operation struct {
 	Value string
 	// NewName is the new declared name, for OpRename.
 	NewName string
-	// Owner is the namespace receiving an OpAddMember or OpAddConnection; empty
-	// means the root.
+	// Owner is the namespace receiving an authoring operation; empty means the
+	// root.
 	Owner string
-	// Declaration details for OpAddMember and OpAddConnection. MemberName is
-	// optional for a connection, which the notation lets be anonymous.
+	// Declaration details for OpAddMember and OpAddConnection.
 	MemberKind   string
 	MemberName   string
 	Type         string
 	Multiplicity string
 	Specializes  []string
+	IsAbstract   bool
+	Redefines    []string
+	IsDefault    bool
+	Direction    string
 	// From and To are the ends of an OpAddConnection, written as the notation
 	// references features (`a.p`, `A::b`).
 	From    string
 	To      string
 	Cascade bool
+	// Requirement and SatisfyingFeature are the feature references of an
+	// OpAddSatisfy. The latter is optional.
+	Requirement       string
+	SatisfyingFeature string
+	Asserted          bool
+	Negated           bool
+	// ConstraintKind, Expression and ConstraintName describe an
+	// OpAddRequirementConstraint.
+	ConstraintKind string
+	Expression     string
+	ConstraintName string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -112,6 +130,22 @@ func Delete(target string, cascade bool) Operation {
 // name may be empty for an anonymous connection.
 func AddConnection(owner, kind, from, to, name string) Operation {
 	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
+}
+
+// AddSatisfy creates an operation inserting a satisfy usage.
+func AddSatisfy(owner, requirement, by string, asserted, negated bool) Operation {
+	return Operation{
+		Kind: OpAddSatisfy, Owner: owner, Requirement: requirement,
+		SatisfyingFeature: by, Asserted: asserted, Negated: negated,
+	}
+}
+
+// AddRequirementConstraint creates an operation inserting a requirement constraint.
+func AddRequirementConstraint(owner, kind, expression, name string) Operation {
+	return Operation{
+		Kind: OpAddRequirementConstraint, Owner: owner, ConstraintKind: kind,
+		Expression: expression, ConstraintName: name,
+	}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -527,6 +561,20 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddConnection {
 		sp, err := m.addConnectionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddSatisfy {
+		sp, err := m.addSatisfySplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddRequirementConstraint {
+		sp, err := m.addRequirementConstraintSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

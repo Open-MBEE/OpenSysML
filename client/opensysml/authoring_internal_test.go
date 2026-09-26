@@ -64,3 +64,102 @@ func TestAddConnectionIsNotSentWithoutItsCapabilities(t *testing.T) {
 		})
 	}
 }
+
+func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) {
+	ctx := context.Background()
+	model := &Model{Hash: "h"}
+	tests := []struct {
+		name         string
+		operation    Edit
+		capabilities []string
+		missing      string
+	}{
+		{
+			name: "abstract member",
+			operation: AddMember{
+				Owner: "Demo", Kind: "part def", Name: "X", IsAbstract: true,
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMemberModifiers,
+		},
+		{
+			name:         "ref member kind",
+			operation:    AddMember{Owner: "Demo", Kind: "ref", Name: "x"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMemberModifiers,
+		},
+		{
+			name:         "return member kind",
+			operation:    AddMember{Owner: "Demo", Kind: "return", Name: "result"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMemberModifiers,
+		},
+		{
+			name:         "satisfy operation",
+			operation:    AddSatisfy{Owner: "Demo::r", Requirement: "r"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilitySatisfyAuthoring,
+		},
+		{
+			name: "requirement constraint operation",
+			operation: AddRequirementConstraint{
+				Owner: "Demo::r", Kind: "require", Expression: "true",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityRequirementConstraintAuthoring,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			old := &oldCaller{t: t, capabilities: test.capabilities}
+			c := &client{caller: old}
+			_, err := c.ApplyEdits(ctx, model, test.operation)
+			wantUnimplemented(t, "ApplyEdits", err)
+			var status *StatusError
+			if !errors.As(err, &status) || !strings.Contains(status.Message, test.missing) {
+				t.Fatalf("ApplyEdits error = %v, want missing capability %q", err, test.missing)
+			}
+		})
+	}
+}
+
+func TestNewAuthoringOperationsMapToProto(t *testing.T) {
+	memberOperation, err := editToProto(AddMember{
+		Owner: "Demo", Kind: "attribute", Name: "x", IsAbstract: true,
+		Redefines: []string{"Demo::old"}, IsDefault: true, Direction: "in",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := memberOperation.GetAddMember()
+	if member == nil || !member.GetIsAbstract() || !member.GetIsDefault() ||
+		member.GetDirection() != "in" || len(member.GetRedefines()) != 1 ||
+		member.GetRedefines()[0] != "Demo::old" {
+		t.Fatalf("AddMember mapping = %+v", member)
+	}
+
+	satisfyOperation, err := editToProto(AddSatisfy{
+		Owner: "Demo::r", Requirement: "Demo::r", By: "Demo::t",
+		Asserted: true, Negated: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := satisfyOperation.GetAddSatisfy(); got == nil ||
+		got.GetOwner() != "Demo::r" || got.GetRequirement() != "Demo::r" ||
+		got.GetSatisfyingFeature() != "Demo::t" || !got.GetIsAsserted() || !got.GetIsNegated() {
+		t.Fatalf("AddSatisfy mapping = %+v", got)
+	}
+
+	constraintOperation, err := editToProto(AddRequirementConstraint{
+		Owner: "Demo::r", Kind: "assume", Expression: "true", Name: "valid",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := constraintOperation.GetAddRequirementConstraint(); got == nil ||
+		got.GetOwner() != "Demo::r" || got.GetKind() != "assume" ||
+		got.GetExpression() != "true" || got.GetName() != "valid" {
+		t.Fatalf("AddRequirementConstraint mapping = %+v", got)
+	}
+}

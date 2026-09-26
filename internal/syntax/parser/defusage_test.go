@@ -398,3 +398,48 @@ func TestBodyAdmitsMember(t *testing.T) {
 		}
 	}
 }
+
+func TestBodyKindsForAuthoring(t *testing.T) {
+	for _, tc := range []struct {
+		src             string
+		calculation     bool
+		requirementBody bool
+	}{
+		{"calc def C;", true, false},
+		{"calc c;", true, false},
+		{"case def C;", true, false},
+		{"verification def V;", true, false},
+		{"constraint c;", true, false},
+		{"constraint def K;", true, false},
+		{"requirement def R;", false, true},
+		{"requirement r;", false, true},
+		{"concern def C;", false, true},
+		{"part def P;", false, false},
+		{"action def A;", false, false},
+	} {
+		owner := parseOneMember(t, tc.src)
+		if got := BodyIsCalculation(owner); got != tc.calculation {
+			t.Errorf("BodyIsCalculation(%q) = %t, want %t", tc.src, got, tc.calculation)
+		}
+		if got := BodyIsRequirement(owner); got != tc.requirementBody {
+			t.Errorf("BodyIsRequirement(%q) = %t, want %t", tc.src, got, tc.requirementBody)
+		}
+	}
+}
+
+func TestBodyAdmitsBehaviorUsage(t *testing.T) {
+	for _, tc := range []struct {
+		src  string
+		want bool
+	}{
+		{"package P;", true},
+		{"part def P;", true},
+		{"enum def E;", false},
+		{"metadata M;", false},
+	} {
+		owner := parseOneMember(t, tc.src)
+		if got := BodyAdmitsBehaviorUsage(owner); got != tc.want {
+			t.Errorf("BodyAdmitsBehaviorUsage(%q) = %t, want %t", tc.src, got, tc.want)
+		}
+	}
+}

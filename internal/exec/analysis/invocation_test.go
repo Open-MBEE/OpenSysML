@@ -372,6 +372,29 @@ func TestInvocationEnvIsMinimal(t *testing.T) {
 	}
 }
 
+// A name OPENSYSML_TOOL_ENV_PASSTHROUGH lists that carries `=` or a NUL byte is not an
+// environment variable name: the refusal names the variable and the entry. Whitespace and
+// empty entries around the names are still tolerated.
+func TestInvocationEnvPassthroughRefusesMalformedNames(t *testing.T) {
+	t.Setenv("OPENSYSML_TEST_SHOWN", "shown")
+	inv := checked(t, &Invocation{}, "label")
+	sc := scope{tool: "Solver", inputs: map[string]runtime.ToolValue{"label": {Text: "r1"}}}
+
+	t.Setenv(ToolEnvPassthroughEnv, " OPENSYSML_TEST_SHOWN ,")
+	if _, err := inv.renderEnv(sc); err != nil {
+		t.Fatalf("a valid name: %v", err)
+	}
+	for _, bad := range []string{"BAD=VALUE", "BAD = VALUE"} {
+		t.Setenv(ToolEnvPassthroughEnv, " OPENSYSML_TEST_SHOWN , "+bad+" ,")
+		_, err := inv.renderEnv(sc)
+		want := fmt.Sprintf("%s lists %q, which is not an environment variable name", ToolEnvPassthroughEnv, strings.TrimSpace(bad))
+		var fault *runtime.ToolError
+		if !errors.As(err, &fault) || fault.Tool != "Solver" || fault.Kind != runtime.ToolProcessFailed || fault.Detail != want {
+			t.Errorf("renderEnv: %v, want a ToolError{Tool: Solver, Kind: ToolProcessFailed, Detail: %q}", err, want)
+		}
+	}
+}
+
 func sortedPairs(env []string) bool {
 	for i := 1; i < len(env); i++ {
 		if env[i-1] > env[i] {

@@ -16,6 +16,9 @@ from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+    CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -971,6 +974,9 @@ class Connection:
         request = sysml_pb2.ApplyEditsRequest(model_hash=model_hash, accept_documents=True)
         requests_authoring = False
         requests_connection_authoring = False
+        requests_member_modifiers = False
+        requests_satisfy_authoring = False
+        requests_requirement_constraint_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -983,17 +989,42 @@ class Connection:
                 operation.rename.target = target
                 operation.rename.new_name = text
             elif kind == 'add_member':
-                if len(operation_data) != 8:
+                if len(operation_data) not in (8, 12):
                     raise ValueError(
-                        "malformed add_member operation: expected 8 fields"
+                        "malformed add_member operation: expected 8 or 12 fields"
                     )
-                _, owner, member_kind, name, type_name, multiplicity, value, specializes = operation_data
+                (
+                    _, owner, member_kind, name, type_name, multiplicity, value,
+                    specializes, *modifiers
+                ) = operation_data
                 require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
                 requests_authoring = True
                 add = operation.add_member
                 add.owner, add.kind, add.name = owner, member_kind, name
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
                 add.specializes.extend(specializes)
+                if modifiers:
+                    abstract, redefines, default, direction = modifiers
+                    if not isinstance(abstract, bool) or not isinstance(default, bool):
+                        raise ValueError(
+                            "malformed add_member modifiers: abstract and default must be bool"
+                        )
+                    if isinstance(redefines, str) or not all(isinstance(x, str) for x in redefines):
+                        raise ValueError(
+                            "malformed add_member modifiers: redefines must be a sequence"
+                        )
+                    if not isinstance(direction, str):
+                        raise ValueError(
+                            "malformed add_member modifiers: direction must be notation text"
+                        )
+                    add.is_abstract = abstract
+                    add.redefines.extend(redefines)
+                    add.is_default = default
+                    add.direction = direction
+                    requests_member_modifiers = requests_member_modifiers or (
+                        abstract or bool(redefines) or default or bool(direction)
+                        or member_kind in ("ref", "return")
+                    )
             elif kind == 'add_connection':
                 if len(operation_data) != 7:
                     raise ValueError(
@@ -1012,6 +1043,41 @@ class Connection:
                 add.owner, add.kind = owner, connection_kind
                 add.from_end, add.to_end = from_end, to_end
                 add.name, add.type = name, type_name
+            elif kind == 'add_satisfy':
+                if len(operation_data) != 6:
+                    raise ValueError("malformed add_satisfy operation: expected 6 fields")
+                _, owner, requirement, satisfying_feature, asserted, negated = operation_data
+                if not isinstance(asserted, bool) or not isinstance(negated, bool):
+                    raise ValueError("malformed add_satisfy operation: asserted and negated must be bool")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_SATISFY_AUTHORING,
+                    upgrade_remedy(CAPABILITY_SATISFY_AUTHORING),
+                )
+                requests_authoring = True
+                requests_satisfy_authoring = True
+                add = operation.add_satisfy
+                add.owner, add.requirement = owner, requirement
+                add.satisfying_feature = satisfying_feature
+                add.is_asserted, add.is_negated = asserted, negated
+            elif kind == 'add_requirement_constraint':
+                if len(operation_data) != 5:
+                    raise ValueError(
+                        "malformed add_requirement_constraint operation: expected 5 fields"
+                    )
+                _, owner, constraint_kind, expression, name = operation_data
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
+                    upgrade_remedy(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
+                )
+                requests_authoring = True
+                requests_requirement_constraint_authoring = True
+                add = operation.add_requirement_constraint
+                add.owner, add.kind = owner, constraint_kind
+                add.expression, add.name = expression, name
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1033,7 +1099,8 @@ class Connection:
             else:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
-                    f"add_member, add_connection, delete or move"
+                    f"add_member, add_connection, add_satisfy, "
+                    f"add_requirement_constraint, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1041,6 +1108,16 @@ class Connection:
             requested_capabilities.append(CAPABILITY_AUTHORING)
         if requests_connection_authoring:
             requested_capabilities.append(CAPABILITY_CONNECTION_AUTHORING)
+        if requests_satisfy_authoring:
+            requested_capabilities.append(CAPABILITY_SATISFY_AUTHORING)
+        if requests_requirement_constraint_authoring:
+            requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
+        if requests_member_modifiers:
+            require(
+                info, CAPABILITY_MEMBER_MODIFIERS,
+                upgrade_remedy(CAPABILITY_MEMBER_MODIFIERS),
+            )
+            requested_capabilities.append(CAPABILITY_MEMBER_MODIFIERS)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):

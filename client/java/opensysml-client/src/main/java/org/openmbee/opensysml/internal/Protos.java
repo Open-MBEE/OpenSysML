@@ -1024,7 +1024,28 @@ public final class Protos {
       addMember.multiplicity().ifPresent(add::setMultiplicity);
       addMember.value().ifPresent(add::setValue);
       add.addAllSpecializes(addMember.specializes());
+      add.setIsAbstract(addMember.isAbstract());
+      add.addAllRedefines(addMember.redefines());
+      add.setIsDefault(addMember.isDefault());
+      add.setDirection(addMember.direction());
       builder.setAddMember(add);
+    } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
+      org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
+          org.openmbee.opensysml.proto.AddSatisfyEdit.newBuilder()
+              .setOwner(addSatisfy.owner())
+              .setRequirement(addSatisfy.requirement())
+              .setIsAsserted(addSatisfy.asserted())
+              .setIsNegated(addSatisfy.negated());
+      addSatisfy.satisfyingFeature().ifPresent(add::setSatisfyingFeature);
+      builder.setAddSatisfy(add);
+    } else if (edit instanceof Edit.AddRequirementConstraint addConstraint) {
+      org.openmbee.opensysml.proto.AddRequirementConstraintEdit.Builder add =
+          org.openmbee.opensysml.proto.AddRequirementConstraintEdit.newBuilder()
+              .setOwner(addConstraint.owner())
+              .setKind(addConstraint.kind())
+              .setExpression(addConstraint.expression());
+      addConstraint.name().ifPresent(add::setName);
+      builder.setAddRequirementConstraint(add);
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()

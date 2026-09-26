@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1007,6 +1007,10 @@ pub mod edit_operation {
         Move(super::MoveEdit),
         #[prost(message, tag="6")]
         AddConnection(super::AddConnectionEdit),
+        #[prost(message, tag="7")]
+        AddSatisfy(super::AddSatisfyEdit),
+        #[prost(message, tag="8")]
+        AddRequirementConstraint(super::AddRequirementConstraintEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1033,6 +1037,53 @@ pub struct AddMemberEdit {
     /// Optional specialization targets for a definition.
     #[prost(string, repeated, tag="7")]
     pub specializes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the declaration is abstract.
+    #[prost(bool, tag="8")]
+    pub is_abstract: bool,
+    /// Optional redefinition targets for a usage.
+    #[prost(string, repeated, tag="9")]
+    pub redefines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the value uses the default assignment keyword.
+    #[prost(bool, tag="10")]
+    pub is_default: bool,
+    /// Optional usage direction: "in", "out" or "inout".
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+}
+/// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddSatisfyEdit {
+    /// Namespace FQN receiving the usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+    /// Optional satisfying feature reference.
+    #[prost(string, tag="3")]
+    pub satisfying_feature: ::prost::alloc::string::String,
+    /// Whether the usage is asserted.
+    #[prost(bool, tag="4")]
+    pub is_asserted: bool,
+    /// Whether the usage is negated.
+    #[prost(bool, tag="5")]
+    pub is_negated: bool,
+}
+/// AddRequirementConstraintEdit inserts a require or assume constraint.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddRequirementConstraintEdit {
+    /// Requirement-like namespace receiving the constraint.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Constraint kind: "require" or "assume".
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// Constraint expression, written as notation.
+    #[prost(string, tag="3")]
+    pub expression: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="4")]
+    pub name: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
