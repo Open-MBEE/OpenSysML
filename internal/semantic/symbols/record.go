@@ -343,6 +343,11 @@ func (in interner) refs(rs []ElementRef) {
 	}
 }
 
+func (in interner) annotation(a *AnnotationFacts) {
+	a.TypeFQN = in.str(a.TypeFQN)
+	in.ref(&a.Type)
+}
+
 func (in interner) facts(f *LibraryFacts) {
 	in.refs(f.Supers)
 	in.refs(f.Redefines)
@@ -355,10 +360,11 @@ func (in interner) facts(f *LibraryFacts) {
 		in.ref(&f.Relationships[i].Target)
 	}
 	for i := range f.Annotations {
-		f.Annotations[i].TypeFQN = in.str(f.Annotations[i].TypeFQN)
+		in.annotation(&f.Annotations[i])
 	}
 	if f.Annotation != nil {
-		f.Annotation.TypeFQN = in.str(f.Annotation.TypeFQN)
+		in.annotation(f.Annotation)
 	}
 	f.Keyword = in.str(f.Keyword)
+	f.Notation = in.str(f.Notation)
 }

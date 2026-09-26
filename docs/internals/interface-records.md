@@ -65,14 +65,14 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `Alias` — an alias's target | qualified-name resolution through the alias |
 | `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
-| `Multiplicity` — the declared bounds | multiplicity conformance of a redefinition, end multiplicities |
+| `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
-| `Annotations`, `About`, `Annotation` — the metadata declared on the element with its literal values; the elements an `about` usage annotates, and the annotation it states on them | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
+| `Annotations`, `About`, `Annotation` — the metadata declared on the element, its type by name and by reference, with its literal values; the elements an `about` usage annotates, and the annotation it states on them | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
 | `Ends` — a connector's owned end features by position, a `connect a to b` end without a symbol of its own holding its place | the ends a specializing connector inherits and redefines by position, its end count against a binary link, its related features |
 | `Default` — the value a feature of a metadata definition declares | the value an annotation of that type carries for a feature it leaves unbound, which a filter reads |
 | `BaseType`, `ModBindsBaseType` — the base type a metadata definition binds unconditionally | metadata typing |
 | `Relationships` — the relationship members (dependency, satisfy, allocate, …) with their resolved targets | relationship queries, the OOSEM and MOSA audits |
-| `Node`, `Keyword`, `UsageKind`, `DefKind` — what kind of declaration it was | every reader that used to switch on the declaration's type |
+| `Node`, `Keyword`, `Notation`, `UsageKind`, `DefKind` — what kind of declaration it was, and the notation that names it in a diagnostic | every reader that used to switch on the declaration's type |
 | `Abstract`, `ModAcceptPayload` | abstract-type checks, accept-action typing |
 | `Recorded` — true for every recorded symbol | `Symbol.Recorded()`, which tells a reader it holds a record |
 
@@ -122,7 +122,10 @@ named, not only while the name is ambiguous: a record is read after other
 documents have come and gone, and a reference written while `P::T` had one
 declaration must still restore that one when a later document declares
 another. `Index.RefTo` writes one; `Index.Element` restores it against the
-live index, so the reference joins whatever residency its target has. The
+live index, so the reference joins whatever residency its target has. When
+the named document no longer declares the name, the reference falls back to
+the name alone: a copy of a library file standing in for the bundled one
+answers the references the other library files hold into it. The
 ordinals count members of scopes a record keeps, so `RefTo` writes no
 reference to a member of a scope the record drops — a metadata body, a
 control-flow or constraint body — since nothing could restore it. When an
@@ -134,8 +137,8 @@ rather than writing an approximate one, and the document stays loaded.
 
 `WriteInterface` returns `ErrUnrecordable` for a document whose interface it
 cannot state without the tree, and the document is held loaded. Today that is:
-a supertype, redefinition, alias, annotation, relationship or base-type target
-no `ElementRef` reaches; supertypes the semantic model marked provisional; a
+a supertype, redefinition, alias, annotation, annotation type, relationship, subsetted
+multiplicity or base-type target no `ElementRef` reaches; supertypes the semantic model marked provisional; a
 quantity-valued annotation or metadata default; and a metadata definition
 whose `baseType` is bound conditionally. In the four OMG corpora one document of 313 is refused
 (`kerml-examples/Simple Tests/MetadataTest.kerml`, a conditional `baseType`

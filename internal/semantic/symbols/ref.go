@@ -1,12 +1,16 @@
 package symbols
 
+import "slices"
+
 // ElementRef names an element for a record fact: the fully-qualified name of
 // the nearest enclosing element that name alone declares in its document (the
 // element itself when it does), that document, and one member ordinal per step
 // down from it to an element the name does not reach. Naming the document
 // keeps the reference on its target when another document later declares the
-// same name. A zero ElementRef names nothing; one without a document names
-// whichever declaration the index lists first.
+// same name. A zero ElementRef names nothing; one without a document, or whose
+// document no longer declares the name, names whichever declaration the index
+// lists first: a copy of a library file standing in for the bundled one takes
+// over the references the other library files make into it.
 type ElementRef struct {
 	FQN  string
 	Path []int32
@@ -15,6 +19,24 @@ type ElementRef struct {
 
 // IsZero reports whether the reference names nothing.
 func (r ElementRef) IsZero() bool { return r.FQN == "" && len(r.Path) == 0 }
+
+// Clone returns a copy sharing no slice with r.
+func (r ElementRef) Clone() ElementRef {
+	r.Path = slices.Clone(r.Path)
+	return r
+}
+
+// cloneRefs returns a copy of refs sharing no slice with it; nil for nil.
+func cloneRefs(refs []ElementRef) []ElementRef {
+	if refs == nil {
+		return nil
+	}
+	out := make([]ElementRef, len(refs))
+	for i, r := range refs {
+		out[i] = r.Clone()
+	}
+	return out
+}
 
 // MemberAt is the i-th registration of the scope in declaration order, nil when
 // there is none.
@@ -94,11 +116,15 @@ func (idx *Index) Element(ref ElementRef) *Symbol {
 		return nil
 	}
 	var sym *Symbol
-	for _, d := range idx.declaringAll(ref.FQN) {
+	decls := idx.declaringAll(ref.FQN)
+	for _, d := range decls {
 		if ref.Doc == "" || d.DocName == ref.Doc {
 			sym = d
 			break
 		}
+	}
+	if sym == nil && len(decls) > 0 {
+		sym = decls[0]
 	}
 	for _, at := range ref.Path {
 		if sym == nil {

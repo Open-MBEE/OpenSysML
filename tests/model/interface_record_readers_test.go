@@ -200,6 +200,53 @@ func TestInterfaceRecordDeclarationReaders(t *testing.T) {
 }
 `),
 		},
+		// A KerML end takes its multiplicity from a recorded general's end at
+		// the same position: a range written on the end, a bound naming a
+		// feature the declaring scope values, a `multiplicity` member, the
+		// member it subsets and the end a `references` end attaches to; a
+		// redefinition reads the named bound as unknown.
+		"end multiplicity": {
+			"a.sysml": []byte(`package A {
+	part def T;
+	attribute one : ScalarValues::Integer = 1;
+	connection def L { end x : T[1]; end y : T[one]; end z : T[0..2]; }
+	part def P { part p : T[one]; part q : T[1]; }
+}
+`),
+			"k.kerml": []byte(`package K {
+	class T;
+	feature one : ScalarValues::Integer = 1;
+	assoc L {
+		end feature w : T[one];
+		end feature x : T { multiplicity mx [1]; }
+		end feature y : T { multiplicity my subsets K::L::x::mx; }
+		end feature z : T { multiplicity mz [0..2]; }
+		end feature v references w;
+	}
+}
+`),
+			"b.kerml": []byte(`package B {
+	assoc M specializes A::L { end feature x : A::T; end feature y : A::T; end feature z : A::T; }
+	assoc N specializes K::L { end feature w : K::T; end feature x : K::T; end feature y : K::T; end feature z : K::T; end feature v : K::T; }
+}
+`),
+			"c.sysml": []byte(`package C {
+	part def Q :> A::P { part :>> p : A::T[5]; part :>> q : A::T[5]; }
+}
+`),
+		},
+		// A usage the classification has no kind for is still a feature, and
+		// is named by its notation where a reference to it is refused.
+		"unclassified usage": {
+			"acts.sysml": []byte(`package Acts {
+	action def A { transition y; }
+}
+`),
+			"use.sysml": []byte(`package Use {
+	part w { satisfy Acts::A::y; }
+}
+`),
+		},
 	}
 	for name, docs := range cases {
 		t.Run(name, func(t *testing.T) {

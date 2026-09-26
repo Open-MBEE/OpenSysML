@@ -87,3 +87,29 @@ func TestElementRefKeepsItsDocumentUnderADuplicate(t *testing.T) {
 		t.Fatalf("Element(%+v) = %v, want z.sysml's P::T", ref, got)
 	}
 }
+
+// A reference into a document the index no longer holds falls back to the name:
+// a version of a library file standing in for the bundled one answers the
+// references the other library files wrote against the bundled file.
+func TestElementRefFallsBackToTheNameWhenItsDocumentIsGone(t *testing.T) {
+	const bundled = "package P { part def T; }"
+	written := buildIndex(t, map[string]string{"bundled.sysml": bundled})
+	target := written.LookupQualified("P::T")
+	if len(target) != 1 {
+		t.Fatalf("P::T: %v", target)
+	}
+	ref, ok := written.RefTo(target[0])
+	if !ok || ref.Doc != "bundled.sysml" {
+		t.Fatalf("RefTo(P::T) = %+v, %v; want a reference naming bundled.sysml", ref, ok)
+	}
+	read := buildIndex(t, map[string]string{"bundled.sysml": bundled})
+	read.RemoveDocument("bundled.sysml")
+	if got := read.Element(ref); got != nil {
+		t.Fatalf("Element(%+v) = %v with no declaration left, want nil", ref, got)
+	}
+	addDoc(t, read, "copy.sysml", "package P { part def T; }")
+	got := read.Element(ref)
+	if got == nil || got.DocName != "copy.sysml" || FQNOf(got) != "P::T" {
+		t.Fatalf("Element(%+v) = %v, want copy.sysml's P::T", ref, got)
+	}
+}

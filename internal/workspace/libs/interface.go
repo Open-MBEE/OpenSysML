@@ -18,7 +18,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 5
+const interfaceFormatVersion = 6
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -113,9 +113,13 @@ func (w *interfaceWriter) fail(sym *symbols.Symbol, what string) {
 	}
 }
 
-// checkAnnotationValues fails the record for an annotation value a record
-// cannot carry: a quantity, which only the runtime evaluates.
-func (w *interfaceWriter) checkAnnotationValues(sym *symbols.Symbol, a symbols.AnnotationFacts) {
+// checkAnnotation fails the record for an annotation no reference restores the
+// metadata type of, or with a value a record cannot carry: a quantity, which
+// only the runtime evaluates.
+func (w *interfaceWriter) checkAnnotation(sym *symbols.Symbol, a symbols.AnnotationFacts) {
+	if a.Type.IsZero() {
+		w.fail(sym, fmt.Sprintf("metadata type %s of an annotation", a.TypeFQN))
+	}
 	for _, v := range a.Values {
 		if v.Value.Quantity != nil {
 			w.fail(sym, "quantity-valued annotation")
@@ -173,10 +177,10 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.Annotations = m.DeclaredAnnotationFactsOf(sym)
 	facts.Annotation = m.AboutAnnotationFactsOf(sym)
 	for _, a := range facts.Annotations {
-		w.checkAnnotationValues(sym, a)
+		w.checkAnnotation(sym, a)
 	}
 	if facts.Annotation != nil {
-		w.checkAnnotationValues(sym, *facts.Annotation)
+		w.checkAnnotation(sym, *facts.Annotation)
 	}
 	if ends, ok := m.OwnedConnectorEnds(sym); ok {
 		facts.Ends = make([]symbols.ElementRef, len(ends))
@@ -196,6 +200,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.Modifiers |= w.r.DeclarationTraits(sym)
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()
+	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()
 	facts.DefKind, _ = sym.DefinitionKind()
 	for _, rel := range semantics.RelationshipsOf(sym) {
@@ -207,6 +212,12 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			rf.Target = w.ref(sym, target, rel.Kind.String()+" target")
 		}
 		facts.Relationships = append(facts.Relationships, rf)
+	}
+	if subsetted := m.SubsettedMultiplicity(sym); subsetted != nil {
+		facts.Relationships = append(facts.Relationships, symbols.RelationshipFacts{
+			Kind:   ast.RelSubsets,
+			Target: w.ref(sym, subsetted, "subsetted multiplicity"),
+		})
 	}
 	if semantics.AcceptPayload(sym) {
 		facts.Modifiers |= symbols.ModAcceptPayload

@@ -96,6 +96,9 @@ func (m *Model) RangeIn(scope *symbols.Scope, mult *ast.Multiplicity) (Range, bo
 // not a usage or declares none.
 func (m *Model) MultiplicityOf(sym *symbols.Symbol) (Range, bool) {
 	if sym.Recorded() {
+		if sym.Kind == symbols.SymbolMultiplicity {
+			return Range{}, false
+		}
 		return recordedRange(sym.Facts.Multiplicity)
 	}
 	mult := UsageMultiplicityOf(sym)
@@ -111,22 +114,61 @@ func recordedRange(facts *symbols.MultiplicityFacts) (Range, bool) {
 		return Range{}, false
 	}
 	bound := func(b symbols.BoundFacts) Bound {
+		if b.Named {
+			return Bound{}
+		}
 		return Bound{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
 	}
 	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
 }
 
-// MultiplicityFactsOf states the multiplicity sym declares as a record fact,
-// nil when it declares none.
+// recordedRangeIn is recordedRange as multiplicityRangeIn would read the
+// declaration in its scope: a bound written as a feature name has its value.
+func recordedRangeIn(facts *symbols.MultiplicityFacts) (Range, bool) {
+	if facts == nil {
+		return Range{}, false
+	}
+	bound := func(b symbols.BoundFacts) Bound {
+		return Bound{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	}
+	return Range{Lower: bound(facts.Lower), Upper: bound(facts.Upper)}, true
+}
+
+// MultiplicityFactsOf states the multiplicity sym declares — as a usage does,
+// or as a `multiplicity` member's range — as a record fact, nil when it
+// declares none. A bound only the declaring scope evaluates is marked Named.
 func (m *Model) MultiplicityFactsOf(sym *symbols.Symbol) *symbols.MultiplicityFacts {
-	r, ok := m.MultiplicityOf(sym)
-	if !ok {
+	mult := UsageMultiplicityOf(sym)
+	scope := declScope(sym)
+	if decl, ok := sym.Decl.(*ast.MultiplicityDecl); ok {
+		mult, scope = decl.Range, sym.OwnerScope
+	}
+	if mult == nil {
 		return nil
 	}
-	bound := func(b Bound) symbols.BoundFacts {
-		return symbols.BoundFacts{Value: b.Value, Known: b.Known, Infinite: b.Infinite}
+	plain, _ := m.multiplicityRangeIn(nil, mult)
+	scoped, _ := m.multiplicityRangeIn(scope, mult)
+	bound := func(plain, scoped Bound) symbols.BoundFacts {
+		if plain.Known || !scoped.Known {
+			return symbols.BoundFacts{Value: plain.Value, Known: plain.Known, Infinite: plain.Infinite}
+		}
+		return symbols.BoundFacts{Value: scoped.Value, Known: true, Infinite: scoped.Infinite, Named: true}
 	}
-	return &symbols.MultiplicityFacts{Lower: bound(r.Lower), Upper: bound(r.Upper)}
+	return &symbols.MultiplicityFacts{
+		Lower: bound(plain.Lower, scoped.Lower),
+		Upper: bound(plain.Upper, scoped.Upper),
+	}
+}
+
+// SubsettedMultiplicity is the multiplicity a `multiplicity` member subsets
+// (`multiplicity m subsets n;`), resolved; nil for any other declaration.
+func (m *Model) SubsettedMultiplicity(sym *symbols.Symbol) *symbols.Symbol {
+	decl, ok := sym.Decl.(*ast.MultiplicityDecl)
+	if !ok || decl.Subsets == nil {
+		return nil
+	}
+	w := &multiplicityWalk{m: m}
+	return w.resolve(sym.OwnerScope, decl.Subsets)
 }
 
 // UsageMultiplicityOf returns the multiplicity a usage, subject, cross feature or

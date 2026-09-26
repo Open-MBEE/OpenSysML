@@ -76,8 +76,10 @@ type LibraryFacts struct {
 	Node NodeKind
 
 	// Keyword is the keyword the declaration was written with (`part`,
-	// `feature`, a user-defined keyword), "" when it states none.
-	Keyword string
+	// `feature`, a user-defined keyword), "" when it states none; Notation is
+	// the declaration's notation as Symbol.Notation reports it.
+	Keyword  string
+	Notation string
 
 	// UsageKind and DefKind are the syntactic kind of a usage or definition.
 	UsageKind ast.UsageKind
@@ -145,18 +147,23 @@ func NodeKindOf(decl ast.Node) NodeKind {
 
 // Clone returns a copy of f sharing no slice or pointer with it.
 func (f LibraryFacts) Clone() LibraryFacts {
-	f.Supers = slices.Clone(f.Supers)
-	f.Redefines = slices.Clone(f.Redefines)
-	f.About = slices.Clone(f.About)
-	f.Ends = slices.Clone(f.Ends)
+	f.Supers = cloneRefs(f.Supers)
+	f.Redefines = cloneRefs(f.Redefines)
+	f.About = cloneRefs(f.About)
+	f.Ends = cloneRefs(f.Ends)
+	f.Alias = f.Alias.Clone()
+	f.References = f.References.Clone()
+	f.BaseType = f.BaseType.Clone()
 	f.Relationships = slices.Clone(f.Relationships)
+	for i := range f.Relationships {
+		f.Relationships[i].Target = f.Relationships[i].Target.Clone()
+	}
 	f.Annotations = slices.Clone(f.Annotations)
 	for i := range f.Annotations {
-		f.Annotations[i].Values = slices.Clone(f.Annotations[i].Values)
+		f.Annotations[i] = f.Annotations[i].Clone()
 	}
 	if f.Annotation != nil {
-		a := *f.Annotation
-		a.Values = slices.Clone(a.Values)
+		a := f.Annotation.Clone()
 		f.Annotation = &a
 	}
 	if f.Unit != nil {
@@ -178,6 +185,13 @@ func (f LibraryFacts) Clone() LibraryFacts {
 		f.Default = &v
 	}
 	return f
+}
+
+// Clone returns a copy sharing no slice with a.
+func (a AnnotationFacts) Clone() AnnotationFacts {
+	a.Type = a.Type.Clone()
+	a.Values = slices.Clone(a.Values)
+	return a
 }
 
 // RelationshipFacts is one written relationship of a declaration.
@@ -263,11 +277,14 @@ type MultiplicityFacts struct {
 	Lower, Upper BoundFacts
 }
 
-// BoundFacts is one evaluated multiplicity bound.
+// BoundFacts is one evaluated multiplicity bound. A Named bound is written as
+// a feature name; its value is the feature's in the declaring scope, which a
+// reader that evaluates bounds without a scope does not see.
 type BoundFacts struct {
 	Value    int64
 	Known    bool
 	Infinite bool
+	Named    bool
 }
 
 // Modifiers is the set of boolean modifiers a declaration states, as a

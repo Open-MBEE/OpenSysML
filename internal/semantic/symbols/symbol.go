@@ -225,8 +225,7 @@ func (s *Symbol) IsFeature() bool {
 	if s.Kind != SymbolUnknown {
 		return s.Kind.IsFeature()
 	}
-	_, ok := s.Decl.(*ast.Usage)
-	return ok
+	return s.DeclaresUsage()
 }
 
 // IsDefinition reports whether k classifies a definition — a SysML `def` or a
@@ -248,6 +247,9 @@ func (k SymbolKind) IsDefinition() bool {
 // Notation names a symbol the way the notation declares it — "part def",
 // "state", "render" — rather than by its internal classification.
 func (s *Symbol) Notation() string {
+	if s.Recorded() && s.Facts.Notation != "" {
+		return s.Facts.Notation
+	}
 	if n := ast.Notation(s.Decl); n != "" {
 		return n
 	}
@@ -368,10 +370,12 @@ func (s *Symbol) EffectiveName() bool {
 }
 
 // AnnotationFacts is one metadata annotation reduced to names and constants: the
-// fully-qualified name of the metadata type annotating it, and the values the
-// annotation body binds its features to, as written.
+// fully-qualified name of the metadata type annotating it, the reference that
+// restores that type (zero when none reaches it), and the values the annotation
+// body binds its features to, as written.
 type AnnotationFacts struct {
 	TypeFQN string
+	Type    ElementRef
 	Values  []AnnotationValueFacts
 }
 

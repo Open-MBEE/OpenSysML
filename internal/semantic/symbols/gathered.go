@@ -41,8 +41,8 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 	ends := func(in []GatheredEnds) []GatheredEnds {
 		out := slices.Clone(in)
 		for i := range out {
-			out[i].Sources = slices.Clone(out[i].Sources)
-			out[i].Targets = slices.Clone(out[i].Targets)
+			out[i].Sources = cloneRefs(out[i].Sources)
+			out[i].Targets = cloneRefs(out[i].Targets)
 		}
 		return out
 	}
@@ -53,8 +53,8 @@ func (g *GatheredRelationships) Clone() *GatheredRelationships {
 		Satisfactions: slices.Clone(g.Satisfactions),
 	}
 	for i := range out.Satisfactions {
-		out.Satisfactions[i].Requirements = slices.Clone(out.Satisfactions[i].Requirements)
-		out.Satisfactions[i].Satisfiers = slices.Clone(out.Satisfactions[i].Satisfiers)
+		out.Satisfactions[i].Requirements = cloneRefs(out.Satisfactions[i].Requirements)
+		out.Satisfactions[i].Satisfiers = cloneRefs(out.Satisfactions[i].Satisfiers)
 	}
 	return out
 }

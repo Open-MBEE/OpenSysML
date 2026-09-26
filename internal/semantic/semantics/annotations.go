@@ -84,7 +84,10 @@ func (m *Model) recordedAnnotations(sym *symbols.Symbol) []annotation {
 // annotationFromFacts is the annotation a fact states; the values it carries
 // are the ones the declaration bound or its type defaulted, already evaluated.
 func (m *Model) annotationFromFacts(facts symbols.AnnotationFacts, scope *symbols.Scope) (annotation, bool) {
-	typ := m.recordedElement(symbols.ElementRef{FQN: facts.TypeFQN})
+	if facts.Type.IsZero() {
+		return annotation{}, false
+	}
+	typ := m.recordedElement(facts.Type)
 	if typ == nil {
 		return annotation{}, false
 	}
@@ -146,7 +149,8 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 	return annotationFacts(m, m.annotationsOf(sym))
 }
 
-// annotationFacts states annotations as names and constants.
+// annotationFacts states annotations as names and constants. Type is the
+// reference that restores the metadata type, zero when none reaches it.
 func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 	var out []symbols.AnnotationFacts
 	for _, a := range annots {
@@ -158,6 +162,9 @@ func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 			continue
 		}
 		facts := symbols.AnnotationFacts{TypeFQN: typFQN}
+		if m.resolver != nil && m.resolver.Index() != nil {
+			facts.Type, _ = m.resolver.Index().RefTo(a.typ)
+		}
 		for _, feature := range a.featureNames() {
 			value, _ := a.value(feature)
 			facts.Values = append(facts.Values, symbols.AnnotationValueFacts{
