@@ -111,6 +111,9 @@ type LayoutSite struct {
 	// the site applies in that view alone; nil for an inline annotation and for
 	// one stated outside every view, which apply in every view.
 	View *symbols.Symbol
+	// Via is the namespace an `about` clause named the element through, when
+	// qualified: `about Acquire::start` positions the start Acquire inherits.
+	Via *symbols.Symbol
 	// Exactly one of Layout, Route, Canvas, Style, Note and Picture is set when
 	// the annotation reads; all are nil when a binding it needs has a Problem.
 	Layout  *Layout
@@ -179,7 +182,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 		if !IsLayoutFQN(fqn) {
 			continue
 		}
-		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about}
+		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about, Via: a.via}
 		if a.about || fqn == NoteFQN {
 			site.View = enclosingView(a.scope)
 		}
@@ -244,6 +247,24 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 	return m.resolveSite(view, elem, LayoutFQN)
 }
 
+// MemberLayoutOf resolves the Layout of the member owner has under name, as
+// drawn in view, among the annotations naming that member through owner: the
+// `start` and `done` a body inherits from the library are one element for every
+// body, so `about Acquire::start` positions Acquire's start alone.
+func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
+	member, ok := m.LookupMember(owner, name)
+	if !ok {
+		return nil, false
+	}
+	var sites []*LayoutSite
+	for _, site := range m.LayoutSitesOf(member) {
+		if site.TypeFQN == LayoutFQN && sameElement(site.Via, owner) {
+			sites = append(sites, site)
+		}
+	}
+	return pickSite(view, sites)
+}
+
 // RouteOf resolves the Route of the element an edge is declared as — a
 // connector, flow, transition or succession — as drawn in view, as LayoutOf
 // resolves a Layout.
@@ -304,16 +325,27 @@ func (m *Model) CanvasOf(view *symbols.Symbol) (*LayoutSite, bool) {
 // resolveSite picks the site of one type that positions elem in view: a
 // view-local one first, then one applying in every view, each first-wins.
 func (m *Model) resolveSite(view, elem *symbols.Symbol, typeFQN string) (*LayoutSite, bool) {
-	sites := m.LayoutSitesOf(elem)
+	var sites []*LayoutSite
+	for _, site := range m.LayoutSitesOf(elem) {
+		if site.TypeFQN == typeFQN {
+			sites = append(sites, site)
+		}
+	}
+	return pickSite(view, sites)
+}
+
+// pickSite is the site among sites that applies in view: a view-local one
+// first, then one applying in every view, each first-wins.
+func pickSite(view *symbols.Symbol, sites []*LayoutSite) (*LayoutSite, bool) {
 	if view != nil {
 		for _, site := range sites {
-			if site.TypeFQN == typeFQN && site.View != nil && sameElement(site.View, view) {
+			if site.View != nil && sameElement(site.View, view) {
 				return site, true
 			}
 		}
 	}
 	for _, site := range sites {
-		if site.TypeFQN == typeFQN && site.View == nil {
+		if site.View == nil {
 			return site, true
 		}
 	}

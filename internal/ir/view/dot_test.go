@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1052,12 +1053,14 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			}
 			clusters[tokens[i+1].text] = true
 			i++
-		case tok.quoted && i+1 < len(tokens) && tokens[i+1].text == "->":
-			if i+2 >= len(tokens) || !tokens[i+2].quoted {
+		case tok.quoted && i+1 < len(tokens) && (tokens[i+1].text == "->" || tokens[i+1].text == ":"):
+			from, next := dotEdgeEnd(tokens, i)
+			if next >= len(tokens) || tokens[next].text != "->" || next+1 >= len(tokens) || !tokens[next+1].quoted {
 				t.Fatalf("edge to an unquoted end at token %d:\n%s", i, dot)
 			}
-			edges = append(edges, edge{tok.text, tokens[i+2].text})
-			i += 2
+			to, next := dotEdgeEnd(tokens, next+1)
+			edges = append(edges, edge{from, to})
+			i = next - 1
 			if i+1 < len(tokens) && tokens[i+1].text == "[" {
 				i = checkDOTAttributes(t, tokens, i, dot, &clipped)
 			}
@@ -1102,6 +1105,16 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			t.Errorf("edge is clipped at %q, which no subgraph declares:\n%s", cluster, dot)
 		}
 	}
+}
+
+// dotEdgeEnd reads an edge end at tokens[i]: a quoted node, or `node:port` with
+// a quoted port; it returns the node and the index after the end.
+func dotEdgeEnd(tokens []dotToken, i int) (string, int) {
+	node := tokens[i].text
+	if i+2 < len(tokens) && tokens[i+1].text == ":" && !tokens[i+1].quoted && tokens[i+2].quoted {
+		return node, i + 3
+	}
+	return node, i + 1
 }
 
 // checkDOTAttributes checks the attribute list opening after tokens[i] and
@@ -1164,7 +1177,7 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			i += end
 			switch {
 			case tag == "br/" || tag == "hr/":
-			case tag == "b" || tag == "i" || tag == "tr" || tag == "td" || tag == `td align="left"` ||
+			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
 				tag == `table border="0" cellborder="0" cellspacing="0" cellpadding="2"` ||
 				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
 				open = append(open, strings.Fields(tag)[0])
@@ -1193,6 +1206,23 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 	if len(open) > 0 {
 		t.Fatalf("HTML label %q leaves <%s> open:\n%s", label, open[len(open)-1], dot)
 	}
+}
+
+// dotTableCellTag reports whether tag is a `td` with only the cell attributes
+// the writer sets, each with a quoted value.
+func dotTableCellTag(tag string) bool {
+	fields := strings.Fields(tag)
+	if len(fields) == 0 || fields[0] != "td" {
+		return false
+	}
+	for _, attr := range fields[1:] {
+		name, value, ok := strings.Cut(attr, "=")
+		if !ok || !slices.Contains([]string{"align", "port", "border", "fixedsize", "width", "height", "colspan"}, name) ||
+			len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
+			return false
+		}
+	}
+	return true
 }
 
 // checkDOTGeometry checks a geometry attribute's value as Graphviz reads it: a
@@ -1290,7 +1320,7 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 		case c == '-' && i+1 < len(dot) && dot[i+1] == '>':
 			tokens = append(tokens, dotToken{text: "->"})
 			i++
-		case strings.ContainsRune("{}[];,=", rune(c)):
+		case strings.ContainsRune("{}[];,=:", rune(c)):
 			tokens = append(tokens, dotToken{text: string(c)})
 		case c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.':
 			start := i

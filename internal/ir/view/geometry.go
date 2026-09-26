@@ -194,6 +194,28 @@ func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geome
 	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
 }
 
+// memberGeometryOf is the Geometry positioning, in view, the member owner has
+// under name — the `start` or `done` a body inherits rather than declares —
+// through a Layout naming it as owner's (`about Acquire::start`).
+func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, out *Rendering) *Geometry {
+	if owner == nil {
+		return nil
+	}
+	if member, ok := r.model.LookupMember(owner, name); ok {
+		out.drawn.note(member, false)
+	}
+	site, ok := r.model.MemberLayoutOf(view, owner, name)
+	if !ok {
+		return nil
+	}
+	r.noteLayoutProblems(site, owner, out)
+	if site.Layout == nil {
+		return nil
+	}
+	l := site.Layout
+	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
+}
+
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
@@ -228,6 +250,15 @@ func (r *Renderer) declaredRouteOf(view, elem *symbols.Symbol, decl ast.Node, ou
 func (r *Renderer) declaredNameSynthesized(elem *symbols.Symbol, decl ast.Node) bool {
 	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
 	return ok && r.model.NameSynthesized(sym)
+}
+
+// declaredSymbol is the element decl declares under elem, nil when it declares none.
+func (r *Renderer) declaredSymbol(elem *symbols.Symbol, decl ast.Node) *symbols.Symbol {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return nil
+	}
+	return sym
 }
 
 // declaredGeometryOf is the Geometry of the node lowered from decl, a state,

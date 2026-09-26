@@ -15,7 +15,7 @@ digraph "PlantViews::loopView" {
     penwidth=1;
     margin=8;
     subgraph "cluster_n0" {
-      label=<<font point-size="9">«part def»</font><br/><b>Loop</b>>;
+      label="";
       style=filled;
       fillcolor="#FFCC99:#FFFAD4";
       gradientangle=0;

@@ -36,6 +36,11 @@ type NodeData struct {
 	NameSynthesized bool
 	Type            string
 	Detail          string
+	// Text heads a node whose name is not shown, in place of its kind: a value
+	// specification's literal, an accept's event, a send's message.
+	Text string
+	// Ports are the pins drawn on the node's border, which an edge may end at.
+	Ports []Port
 	// Parent is the ID of the node this one is nested in, "" for a root.
 	Parent string
 	Origin Origin
@@ -47,11 +52,14 @@ type NodeData struct {
 
 // EdgeData is one edge of a rendering, joining two node IDs.
 type EdgeData struct {
-	From   string
-	To     string
-	Label  string
-	Kind   EdgeKind
-	Origin Origin
+	From string
+	To   string
+	// FromPort and ToPort are the ports the edge ends at, "" for the node itself.
+	FromPort string
+	ToPort   string
+	Label    string
+	Kind     EdgeKind
+	Origin   Origin
 	// Route is the waypoints the edge follows, empty when no Route gives any.
 	Route []Point
 	// Style is how the edge is drawn, nil when no Style colours it.
@@ -99,7 +107,7 @@ func appendNodeData(out []NodeData, node *Node, parent string) []NodeData {
 	}
 	out = append(out, NodeData{
 		ID: node.ID, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized, Type: node.Type, Detail: node.Detail,
-		Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
+		Text: node.Text, Ports: node.Ports, Parent: parent, Origin: node.Origin, Geometry: node.Geometry, Style: node.Style,
 	})
 	for _, child := range node.Children {
 		out = appendNodeData(out, child, node.ID)

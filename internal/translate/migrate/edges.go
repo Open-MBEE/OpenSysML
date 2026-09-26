@@ -29,6 +29,9 @@ type edgePlace struct {
 	// owner's body, when it is not a direct member.
 	nest []string
 	name string
+	// standIn marks a member ending at a node the migrator made up, such as the
+	// join gathering several edges: no diagram symbol stands at that end.
+	standIn bool
 }
 
 func (p edgePlace) equal(q edgePlace) bool {
@@ -38,6 +41,17 @@ func (p edgePlace) equal(q edgePlace) bool {
 // places lists where every member the edge was written as is declared, the first first.
 func (em edgeMember) places() []edgePlace {
 	return append([]edgePlace{em.edgePlace}, em.also...)
+}
+
+// routed lists the members a diagram's route of the edge follows: those whose
+// both ends a symbol stands at, or every member when none has such ends.
+func (em edgeMember) routed() []edgePlace {
+	places := em.places()
+	drawn := slices.DeleteFunc(slices.Clone(places), func(p edgePlace) bool { return p.standIn })
+	if len(drawn) == 0 {
+		return places
+	}
+	return drawn
 }
 
 // nameableEdge reports whether e is a relationship the migrator writes as a
@@ -134,6 +148,17 @@ func (m *migration) wroteNestedEdge(e, owner *sysmlv1.Element, keyword string, n
 	m.edgeMembers[e] = edgeMember{edgePlace: m.edgePlaceIn(owner, nest, name), keyword: keyword}
 }
 
+// wroteEdgeEnding records the member edge e was written as, like wroteEdge,
+// noting whether it ends at a node the migrator made up.
+func (m *migration) wroteEdgeEnding(e, owner *sysmlv1.Element, keyword, name string, standIn bool) {
+	if _, ok := m.edgeMembers[e]; ok {
+		return
+	}
+	p := m.edgePlaceIn(owner, nil, name)
+	p.standIn = standIn
+	m.edgeMembers[e] = edgeMember{edgePlace: p, keyword: keyword}
+}
+
 // edgePlaceIn locates a member declared in owner's body within the actions nest
 // names; a lone region's members are its owner's, a method's its operation's.
 func (m *migration) edgePlaceIn(owner *sysmlv1.Element, nest []string, name string) edgePlace {
@@ -222,12 +247,24 @@ func (m *migration) edgeRef(e, scope *sysmlv1.Element) string {
 // edgeRefs writes a reference to each member edge e was written as that a name
 // reaches, from inside scope's body; nil when the edge has no named member one does.
 func (m *migration) edgeRefs(e, scope *sysmlv1.Element) []string {
+	return m.refPlaces(e, scope, edgeMember.places)
+}
+
+// routeRefs writes a reference to each member a diagram's route of edge e is
+// pinned to, from inside scope's body; see edgeMember.routed.
+func (m *migration) routeRefs(e, scope *sysmlv1.Element) []string {
+	return m.refPlaces(e, scope, edgeMember.routed)
+}
+
+// refPlaces writes a reference to each of the members of e that of selects and
+// a name reaches, from inside scope's body.
+func (m *migration) refPlaces(e, scope *sysmlv1.Element, of func(edgeMember) []edgePlace) []string {
 	em, ok := m.edgeMembers[e]
 	if !ok || !m.written(e) {
 		return nil
 	}
 	var refs []string
-	for _, p := range em.places() {
+	for _, p := range of(em) {
 		if m.reaches(p.owner) {
 			refs = append(refs, m.refEdge(p, scope))
 		}
@@ -331,7 +368,7 @@ func (m *migration) routeTarget(el, scope *sysmlv1.Element, f viewForm) ([]strin
 		case !m.reaches(em.owner):
 			return nil, routeNotExposed
 		}
-		return m.edgeRefs(el, scope), ""
+		return m.routeRefs(el, scope), ""
 	}
 	if m.exposure(el, scope) != "" {
 		return nil, routeNotDrawn

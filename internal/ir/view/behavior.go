@@ -3,6 +3,8 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -61,6 +63,9 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	}
 	for _, state := range graph.States {
 		node := place(r.stateNode(state, graph, machine, ids), graph.DeclOf(state))
+		if graph.Completes(state) {
+			node.Geometry = r.memberGeometryOf(view, r.bodySymbol(machine, graph, bodyOwning(graph, state)), ast.DoneFeature, out)
+		}
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
 			regions[region] = place(r.regionNode(region, graph, machine, ids), region)
@@ -128,7 +133,8 @@ func (r *Renderer) entryEdges(view, machine *symbols.Symbol, graph *lower.StateG
 	if len(entries) == 0 {
 		return
 	}
-	start := &Node{ID: ids.take(), Kind: startKind}
+	start := &Node{ID: ids.take(), Kind: startKind,
+		Geometry: r.memberGeometryOf(view, r.bodySymbol(machine, graph, body.owner), ast.StartFeature, out)}
 	body.node.Children = append([]*Node{start}, body.node.Children...)
 	for _, entry := range entries {
 		target, ok := nodes[entry.Target]
@@ -181,6 +187,20 @@ type stateBody struct {
 	node  *Node
 }
 
+// bodySymbol is the element whose body owner is, as StateGraph.StartOf names
+// bodies: the machine itself for nil, else the state or region declared under
+// it; nil when owner declares no element.
+func (r *Renderer) bodySymbol(machine *symbols.Symbol, graph *lower.StateGraph, owner ast.Node) *symbols.Symbol {
+	if owner == nil {
+		return machine
+	}
+	decl := owner
+	if state, ok := owner.(*ast.StateNode); ok {
+		decl = graph.DeclOf(state)
+	}
+	return r.declaredSymbol(machine, decl)
+}
+
 // docOfer is a lowered graph that knows which document each of its
 // declarations was written in.
 type docOfer interface {
@@ -222,7 +242,7 @@ func (r *Renderer) stateNode(state *ast.StateNode, graph *lower.StateGraph, mach
 			list []lower.StateBehavior
 		}{{"entry", behaviors.Entry}, {"do", behaviors.Do}, {"exit", behaviors.Exit}} {
 			if len(part.list) > 0 {
-				detail = append(detail, stateBehaviorLabel(part.name, part.list))
+				detail = append(detail, r.stateBehaviorLabel(node.Origin.Doc, part.name, part.list))
 			}
 		}
 	}
@@ -259,7 +279,7 @@ func (r *Renderer) transitionLabel(doc string, transition *lower.Transition, syn
 		parts = append(parts, guard)
 	}
 	if len(transition.Effect) > 0 {
-		parts = append(parts, "/ "+behaviorNames(transition.Effect))
+		parts = append(parts, "/ "+r.behaviorNames(doc, transition.Effect))
 	}
 	return edgeLabel(transition.Name, strings.Join(parts, " "), synthesized)
 }
@@ -297,10 +317,10 @@ func transitionName(transition *lower.Transition) string {
 
 // behaviorNames names the behaviors an effect runs, so an edge says what it
 // does without carrying the statements themselves.
-func behaviorNames(behaviors []lower.StateBehavior) string {
+func (r *Renderer) behaviorNames(doc string, behaviors []lower.StateBehavior) string {
 	names := make([]string, 0, len(behaviors))
 	for _, behavior := range behaviors {
-		if name := behaviorName(behavior); name != "" {
+		if name := r.behaviorText(doc, behavior); name != "" {
 			names = append(names, name)
 			continue
 		}
@@ -309,24 +329,37 @@ func behaviorNames(behaviors []lower.StateBehavior) string {
 	return strings.Join(names, ", ")
 }
 
-// behaviorName is what a state behavior is drawn as: its name, else the
-// activity it performs by type (`do action : Reset` reads `Reset`), else "".
-func behaviorName(behavior lower.StateBehavior) string {
+// behaviorText is what a state behavior is drawn as: its name, else the
+// activity it performs by type (`do action : Reset` reads `Reset`), else what
+// its anonymous body does — the message it sends, the one assignment it makes —
+// else "".
+func (r *Renderer) behaviorText(doc string, behavior lower.StateBehavior) string {
 	if behavior.Name != "" {
 		return nameText(behavior.Name)
 	}
 	if typ := nodeType(behavior.Node); typ != "" {
 		return source.ReferenceEndNames(typ)
 	}
-	return ""
+	body := behavior.Body
+	if len(body) == 1 {
+		if block, ok := body[0].(lower.Block); ok {
+			body = block.Statements
+		}
+	}
+	for _, statement := range body {
+		if send, ok := statement.(*lower.Send); ok {
+			return r.messageText(doc, send.Message)
+		}
+	}
+	return r.assignmentText(doc, body)
 }
 
 // stateBehaviorLabel is a state's compartment line for one kind of behavior, as
 // UML writes it: `do / Activity`, or the kind alone when none is named.
-func stateBehaviorLabel(kind string, behaviors []lower.StateBehavior) string {
+func (r *Renderer) stateBehaviorLabel(doc, kind string, behaviors []lower.StateBehavior) string {
 	var names []string
 	for _, behavior := range behaviors {
-		if name := behaviorName(behavior); name != "" {
+		if name := r.behaviorText(doc, behavior); name != "" {
 			names = append(names, name)
 		}
 	}
@@ -448,6 +481,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 			out.Roots = append(out.Roots, node)
 		}
 	}
+	elideStandIns(out)
 }
 
 // actionSubject is the action being rendered and the naming context it is
@@ -496,7 +530,14 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
 			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+		if languageNamed(node) {
+			child.Geometry = r.memberGeometryOf(subject.view, r.declaredSymbol(subject.elem, decl), behaviorNodeName(node), out)
+		}
 		r.declaredDress(subject.view, subject.elem, node, child, out)
+		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))
+		if child.NameSynthesized {
+			child.Text = r.actionText(graph, node, nodeDoc)
+		}
 		nodes[node] = child
 		root.Children = append(root.Children, child)
 		if nested, ok := nestedAction(node); ok && depth < maxBehaviorDepth && !lowered[node] {
@@ -506,11 +547,10 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 			}
 			nestedSubject := actionSubject{decl: nested, kind: child.Kind, name: child.Name, typ: child.Type,
 				scope: nestedScope, doc: nodeDoc, view: subject.view, elem: subject.elem}
-			sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1)
-			if ok {
+			// The nested flow's own edges belong to the nested nodes, which the
+			// sub-rendering adds to out.Edges; a flow with no nodes leaves nothing to show.
+			if sub, ok := r.actionNode(nestedSubject, ids, out, lowered, depth+1); ok && len(sub.Children) > 0 {
 				child.Children, child.Detail = sub.Children, detailWith(child.Detail, "own flow")
-				// The nested flow's own edges belong to the nested nodes, which the
-				// sub-rendering already added to out.Edges.
 			}
 		}
 	}
@@ -548,10 +588,211 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 			}
 			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
 			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
+				FromPort: portNamed(nodes[src], flow.SourcePin, PortOut), ToPort: portNamed(to, flow.TargetPin, PortIn),
 				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
 				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
 		}
 	}
+}
+
+// flowLabel is what an object flow carries: the pins it joins; a flow naming no
+// pins is labelled by its name, unless synthesized. A writer drawing the pins
+// themselves names them there instead.
+func flowLabel(flow lower.ObjectFlow, synthesized bool) string {
+	label := flow.SourcePin
+	if flow.TargetPin != "" {
+		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
+	}
+	return edgeLabel(flow.Name, label, synthesized)
+}
+
+// actionPorts are the pins an action node declares itself: its parameters, and
+// the result its value binds. An attribute with no direction is no pin.
+func actionPorts(id string, features []lower.Feature, doc string) []Port {
+	var ports []Port
+	for _, feature := range features {
+		if feature.Direction == ast.DirNone && !feature.IsResult {
+			continue
+		}
+		ports = append(ports, Port{ID: portID(id, len(ports)), Name: nameText(feature.Name),
+			Direction: portDirection(feature), Origin: nodeOrigin(doc, feature.Node)})
+	}
+	return ports
+}
+
+// inheritedPorts adds to a node's declared pins the directed parameters it takes
+// from its type (`action provide : Provide` has Provide's `in`s and `out`s),
+// each not already declared by name, in the type's member order.
+func (r *Renderer) inheritedPorts(elem *symbols.Symbol, node ast.Node, id string, ports []Port) []Port {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), node)
+	if !ok {
+		return ports
+	}
+	for _, member := range r.model.MembersOf(sym) {
+		usage, ok := member.Decl.(*ast.Usage)
+		if !ok || !lower.DeclaresNodeFeature(usage) || usage.Direction == ast.DirNone && !usage.IsResult {
+			continue
+		}
+		name := nameText(member.Name)
+		if slices.ContainsFunc(ports, func(port Port) bool { return port.Name == name }) {
+			continue
+		}
+		ports = append(ports, Port{ID: portID(id, len(ports)), Name: name,
+			Direction: portDirection(lower.Feature{Direction: usage.Direction, IsResult: usage.IsResult}), Origin: member.Origin()})
+	}
+	return ports
+}
+
+// portID identifies the i-th port of a node, under the node's own ID.
+func portID(node string, i int) string {
+	return node + "." + strconv.Itoa(i)
+}
+
+// portDirection is which way a pin's values flow: a result is an output.
+func portDirection(feature lower.Feature) PortDirection {
+	switch {
+	case feature.Direction == ast.DirInOut:
+		return PortInOut
+	case feature.Output():
+		return PortOut
+	}
+	return PortIn
+}
+
+// portNamed is the ID of the node's port a flow end names, "" for an end naming
+// none. A pin the node takes from its type rather than declaring itself is added
+// to the node as the flow finds it, in the direction the flow uses it.
+func portNamed(node *Node, name string, direction PortDirection) string {
+	if name == "" {
+		return ""
+	}
+	name = nameText(name)
+	for _, port := range node.Ports {
+		if port.Name == name {
+			return port.ID
+		}
+	}
+	port := Port{ID: portID(node.ID, len(node.Ports)), Name: name, Direction: direction}
+	node.Ports = append(node.Ports, port)
+	return port.ID
+}
+
+// actionText is what heads an action node whose name the model did not give,
+// which is what it does: the event an accept waits for, the message a send
+// sends, the one assignment its body makes, the literal a value specification's
+// result is bound to. It is "" for a node its kind heads, and for one whose type
+// names what it calls.
+func (r *Renderer) actionText(graph *lower.ActionGraph, node ast.Node, doc string) string {
+	if accept, ok := graph.Accepts[node]; ok {
+		return r.acceptText(doc, accept)
+	}
+	for _, statement := range graph.Bodies[node] {
+		if send, ok := statement.(*lower.Send); ok {
+			return r.messageText(doc, send.Message)
+		}
+	}
+	if nodeType(node) != "" {
+		return ""
+	}
+	if body := graph.Bodies[node]; len(body) > 0 {
+		return r.assignmentText(doc, body)
+	}
+	if sub := graph.Subflows[node]; sub != nil && sub.Graph != nil && len(sub.Graph.Nodes) > 0 {
+		return ""
+	}
+	return r.valueSpecification(doc, graph.Features[node])
+}
+
+// acceptText is the event an accept waits for: the signal by the name it ends
+// in, else the trigger as the transition label writes it, without the keyword.
+func (r *Renderer) acceptText(doc string, accept lower.Accept) string {
+	if accept.SignalType != nil {
+		return endName(accept.SignalType)
+	}
+	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), "accept ")
+}
+
+// messageText is the message a send sends: the type it constructs by the name it
+// ends in, else the expression as written.
+func (r *Renderer) messageText(doc string, message ast.Node) string {
+	switch m := message.(type) {
+	case *ast.ConstructorExpr:
+		return endName(m.Type)
+	case *ast.InvocationExpr:
+		if m.Operand == nil {
+			return endName(m.Type)
+		}
+	}
+	return r.nodeText(doc, message)
+}
+
+// assignmentText is the one assignment a body makes, target and value as
+// written (`this.i := 1`), and "" for a body doing anything else.
+func (r *Renderer) assignmentText(doc string, body []lower.Statement) string {
+	if len(body) != 1 {
+		return ""
+	}
+	assign, ok := body[0].(lower.Assign)
+	if !ok {
+		return ""
+	}
+	stmt, ok := assign.Node.(*ast.AssignmentActionNode)
+	if !ok {
+		return ""
+	}
+	target, value := r.nodeText(doc, stmt.Target), r.nodeText(doc, stmt.Value)
+	if target == "" || value == "" {
+		return ""
+	}
+	return target + " := " + value
+}
+
+// valueSpecification is the value a node standing for one binds its one output
+// to: a literal as written, a reference by the bare name it ends in, and "" for
+// a node with any other pins.
+func (r *Renderer) valueSpecification(doc string, features []lower.Feature) string {
+	var value ast.Node
+	for _, feature := range features {
+		if feature.Direction == ast.DirNone && !feature.IsResult {
+			continue
+		}
+		if !feature.Output() || feature.Value == nil || value != nil {
+			return ""
+		}
+		value = feature.Value
+	}
+	if value == nil {
+		return ""
+	}
+	if qn := ast.AsQualifiedName(value); qn != nil && len(qn.Parts) > 0 {
+		return qn.Parts[len(qn.Parts)-1].Text
+	}
+	if text := r.nodeText(doc, value); text != "" {
+		return text
+	}
+	return literalText(value)
+}
+
+// literalText writes a literal expression as the notation does, and "" for an
+// expression that is no literal.
+func literalText(expr ast.Node) string {
+	switch e := expr.(type) {
+	case *ast.LiteralBool:
+		return strconv.FormatBool(e.Value)
+	case *ast.LiteralString:
+		return e.Value
+	case *ast.LiteralInteger:
+		return e.Value
+	case *ast.LiteralReal:
+		return e.Value
+	case *ast.LiteralInfinity:
+		return "*"
+	case *ast.NullExpr:
+		return "null"
+	case *ast.FeatureReference:
+		return notationName(qualifiedText(e.Name))
+	}
+	return ""
 }
 
 // successionLabel is the succession's guard in brackets, then its probability;
@@ -569,16 +810,6 @@ func (r *Renderer) successionLabel(edge lower.ActionEdge, edgeDoc, doc string, s
 		label = strings.TrimSpace(label + " p = " + r.nodeText(doc, weight.Expr))
 	}
 	return edgeLabel(edge.Name, label, synthesized)
-}
-
-// flowLabel is what an object flow carries: the pins it joins; a flow naming no
-// pins is labelled by its name, unless synthesized.
-func flowLabel(flow lower.ObjectFlow, synthesized bool) string {
-	label := flow.SourcePin
-	if flow.TargetPin != "" {
-		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
-	}
-	return edgeLabel(flow.Name, label, synthesized)
 }
 
 // nestedAction is the declaration of an action node that performs a body of its

@@ -118,7 +118,7 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	for _, want := range []string{
-		`"n5" [shape=point, fillcolor=black, label=""];`,
+		`"n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];`,
 		`label=<<b>off</b>>];`,
 		"style=\"rounded,filled\";\n      fillcolor=\"" + cameoStateFill + "\";",
 	} {

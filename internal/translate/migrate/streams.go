@@ -370,7 +370,9 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf fu
 		if !isNoteSymbol(note, m) && isNoteSymbol(target, m) {
 			note, target = target, note
 		}
-		anchors[note] = append(anchors[note], target.ElementID)
+		if target.ElementID != "" && !slices.Contains(anchors[note], target.ElementID) {
+			anchors[note] = append(anchors[note], target.ElementID)
+		}
 	}
 	pics := m.pastedPictures(d)
 	drawn := map[*sysmlv1.Symbol]bool{}
@@ -386,17 +388,14 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf fu
 			if sym.Bounds == nil {
 				continue
 			}
-			text := sym.Text
-			if el := m.model.Lookup(sym.ElementID); el != nil {
-				text = commentBody(el)
-			}
+			text := noteText(sym, m)
 			if text == "" {
 				continue
 			}
 			notes++
 			var refs []string
 			for _, id := range anchors[sym] {
-				if ref := refOf(id); ref != "" {
+				if ref := refOf(id); ref != "" && !slices.Contains(refs, ref) {
 					refs = append(refs, ref)
 				}
 			}
@@ -493,13 +492,35 @@ func (m *migration) notesShown(d *sysmlv1.Diagram, el *sysmlv1.Element) bool {
 	return false
 }
 
-// isNoteSymbol reports a symbol drawn as a note: a comment's, or a text box saying something.
+// isNoteSymbol reports a symbol drawn as a note: a Note symbol whatever it names, a
+// comment's symbol, or a text box saying something of its own rather than labelling
+// the element symbol it is drawn inside.
 func isNoteSymbol(sym *sysmlv1.Symbol, m *migration) bool {
+	if sym.Class == "Note" {
+		return true
+	}
 	if sym.Free() {
-		return sym.Text != "" && !sym.IsPath()
+		return sym.Text != "" && !sym.IsPath() && !labelsParent(sym)
 	}
 	el := m.model.Lookup(sym.ElementID)
 	return el != nil && el.Type == "Comment"
+}
+
+// labelsParent reports a free text symbol nested in an element's symbol: the tool
+// keeps a symbol's name, stereotype and multiplicity labels there, so the text is the
+// element's own and the view draws it with the element, not as a note.
+func labelsParent(sym *sysmlv1.Symbol) bool {
+	p := sym.Parent
+	return p != nil && !p.Free() && p.Class != "DiagramFrame"
+}
+
+// noteText is what a note symbol says: its comment's body when it stands for a
+// comment, else the text the tool wrote on the symbol itself.
+func noteText(sym *sysmlv1.Symbol, m *migration) string {
+	if el := m.model.Lookup(sym.ElementID); el != nil && el.Type == "Comment" {
+		return commentBody(el)
+	}
+	return sym.Text
 }
 
 // noteBody writes the attribute block of a Note annotation.

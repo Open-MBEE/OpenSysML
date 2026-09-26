@@ -144,7 +144,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		b.WriteString("  }\n")
 	}
 	for _, edge := range edges {
-		w.writeEdge(edge.From, edge.To, w.dotEdgeAttributes(edge))
+		w.writeEdge(edge, w.dotEdgeAttributes(edge))
 	}
 	w.writeAnchors(w.notes, edges)
 	b.WriteString("}\n")
@@ -192,6 +192,7 @@ func (w *dotWriter) frameHeader(r *Rendering) string {
 		}
 		if name := shown(root); name != "" {
 			parts = append(parts, dotEscape(displayText(w.labels.name(root))))
+			w.frameRoot = root.ID
 		}
 		break
 	}
@@ -221,7 +222,7 @@ func (w *dotWriter) dotBB(box nodeBox) string {
 func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	skin := skinOf(options.Style)
 	w := &dotWriter{tree: r.Kind == KindTree, clusters: map[string]bool{}, enclosing: map[string][]string{}, canvas: r.Canvas,
-		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, omitted: map[string]bool{},
+		placement: placeRendering(r), drawn: map[string]bool{}, boxes: map[string]nodeBox{}, pins: map[string]nodeBox{}, ported: map[string]*Node{}, omitted: map[string]bool{},
 		fills: familyFills{palette: options.Palette, tree: r.Kind == KindTree}, skin: skin, pictures: r.Pictures}
 	w.collectDrawn(r.Roots)
 	if w.placement.partial() && options.Unplaced != UnplacedStrip {
@@ -230,8 +231,13 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
+	w.collectPorts(r.Roots)
+	for _, root := range r.Roots {
+		w.placePorts(root, dotPortEnds(r.Edges))
+	}
 	w.notes = w.drawnNotes(r.Notes)
 	w.placeNotes(w.notes)
+	w.shareNotes()
 	for _, root := range r.Roots {
 		if !w.tree {
 			w.collectClusters(root, nil)
@@ -398,6 +404,8 @@ type dotWriter struct {
 	placement *placement          // which nodes have a place, shared with every form
 	drawn     map[string]bool     // node ID -> in the rendering's trees
 	boxes     map[string]nodeBox  // node ID -> the box it is drawn in, for every node that has one
+	pins      map[string]nodeBox  // port ID -> the box its pin is drawn in, for every port of a boxed node
+	ported    map[string]*Node    // port ID -> the node it is a port of
 	stated    map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
 	omitted   map[string]bool     // node IDs left undrawn for want of a box
 	routed    int                 // edges with a route to write
@@ -407,7 +415,9 @@ type dotWriter struct {
 	skin      dotSkin             // the drawing style's defaults
 	notes     []Note              // the notes the drawing keeps, those of the nodes it draws
 	noteBoxes []nodeBox           // where each positioned note is drawn, by index in notes
+	noteShown []int               // note index -> the index of the note drawn for it, itself unless a twin at the same place is
 	pictures  []Picture           // the pictures drawn, each at its stated bounds
+	frameRoot string              // the root the Cameo frame header names, drawn untitled
 }
 
 // The Standard B&W style, after the sysmlbw PlantUML skin: Helvetica text,
@@ -571,6 +581,12 @@ func (b nodeBox) centre() Point {
 	return Point{X: (b.low.X + b.high.X) / 2, Y: (b.low.Y + b.high.Y) / 2}
 }
 
+// size is the box's width and height, to a millionth of a pixel so the
+// subtraction leaves no float dust.
+func (b nodeBox) size() (width, height float64) {
+	return math.Round((b.high.X-b.low.X)*1e6) / 1e6, math.Round((b.high.Y-b.low.Y)*1e6) / 1e6
+}
+
 // encloses reports whether other lies within b and is the smaller of the two.
 func (b nodeBox) encloses(other nodeBox) bool {
 	return other != b && other.low.X >= b.low.X && other.low.Y >= b.low.Y &&
@@ -663,14 +679,18 @@ func (w *dotWriter) statedBox(node *Node) nodeBox {
 // routedBox is the box a node with no Layout takes from the routes that meet
 // it, sized to its label: centred one reach back from each route's end along
 // its end segment, so the route meets the border, at their mean under several.
+// A bar the routes reach sideways stands upright.
 func (w *dotWriter) routedBox(node *Node, ends []routeEnd) nodeBox {
 	width, height := w.labels.dotBox(node)
+	if isBarKind(node.Kind) && routesSideways(ends) {
+		width, height = height, width
+	}
 	var sum Point
 	for _, end := range ends {
 		centre := end.at
 		if d := math.Hypot(end.next.X-end.at.X, end.next.Y-end.at.Y); d > 0 {
 			ux, uy := (end.next.X-end.at.X)/d, (end.next.Y-end.at.Y)/d
-			reach := dotReach(node, width, height, ux, uy)
+			reach := dotReach(w.round(node), width, height, ux, uy)
 			centre = Point{X: end.at.X - ux*reach, Y: end.at.Y - uy*reach}
 		}
 		sum.X += centre.X
@@ -679,6 +699,17 @@ func (w *dotWriter) routedBox(node *Node, ends []routeEnd) nodeBox {
 	n := float64(len(ends))
 	c := Point{X: sum.X / n, Y: sum.Y / n}
 	return nodeBox{low: Point{X: c.X - width/2, Y: c.Y - height/2}, high: Point{X: c.X + width/2, Y: c.Y + height/2}}
+}
+
+// routesSideways reports whether the routes meeting a node run more across than
+// up and down where they end, summed over all of them.
+func routesSideways(ends []routeEnd) bool {
+	var dx, dy float64
+	for _, end := range ends {
+		dx += math.Abs(end.next.X - end.at.X)
+		dy += math.Abs(end.next.Y - end.at.Y)
+	}
+	return dx > dy
 }
 
 // dotEndGap is the space, in pixels, between a start or final node placed by
@@ -721,9 +752,9 @@ func (w *dotWriter) derivedBox(node *Node, edges []Edge) nodeBox {
 }
 
 // dotReach is the distance from the centre of a node's shape to its border along
-// a unit direction: a round pseudo-state's radius, the edge of a box otherwise.
-func dotReach(node *Node, width, height, ux, uy float64) float64 {
-	if dotRound(node) {
+// a unit direction: a round shape's radius, the edge of a box otherwise.
+func dotReach(round bool, width, height, ux, uy float64) float64 {
+	if round {
 		return width / 2
 	}
 	reach := math.Inf(1)
@@ -885,10 +916,11 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 	}
 	if len(node.Children) == 0 || w.tree {
 		fmt.Fprintf(&w.b, "%s%s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotNodeAttributes(node), ", "))
+		w.writePins(node, indent)
 		for _, child := range w.drawOrder(node.Children) {
 			w.writeNode(child, depth)
 			if !w.omitted[child.ID] && !w.compartmentRow(node, child) {
-				w.writeEdge(node.ID, child.ID, w.skin.containmentAttributes())
+				w.writeEdge(Edge{From: node.ID, To: child.ID}, w.skin.containmentAttributes())
 			}
 		}
 		return
@@ -898,6 +930,7 @@ func (w *dotWriter) writeNode(node *Node, depth int) {
 		fmt.Fprintf(&w.b, "%s  %s;\n", indent, attr)
 	}
 	fmt.Fprintf(&w.b, "%s  %s [%s];\n", indent, dotQuote(node.ID), strings.Join(w.dotAnchorAttributes(node), ", "))
+	w.writePins(node, indent+"  ")
 	for _, child := range w.drawOrder(node.Children) {
 		w.writeNode(child, depth+1)
 	}
@@ -915,20 +948,28 @@ func (w *dotWriter) compartmentRow(parent, child *Node) bool {
 	return ok && outer.encloses(inner)
 }
 
-// writeEdge writes one edge between the rendering's endpoints; an end that is
-// a cluster is its anchor node, clipped at the cluster with `ltail`/`lhead`.
-func (w *dotWriter) writeEdge(from, to string, attrs []string) {
-	if w.clipped(from, to) {
-		attrs = append(attrs, "ltail="+dotQuote(dotClusterName(from)))
+// writeEdge writes one edge between the rendering's endpoints: an end at a port
+// is the port's pin or label cell; one that is a cluster is its anchor node,
+// clipped at the cluster with `ltail`/`lhead`.
+func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
+	from, to := w.portEnd(edge.From, edge.FromPort), w.portEnd(edge.To, edge.ToPort)
+	if from == "" {
+		from = dotQuote(edge.From)
+		if w.clipped(edge.From, edge.To) {
+			attrs = append(attrs, "ltail="+dotQuote(dotClusterName(edge.From)))
+		}
 	}
-	if w.clipped(to, from) {
-		attrs = append(attrs, "lhead="+dotQuote(dotClusterName(to)))
+	if to == "" {
+		to = dotQuote(edge.To)
+		if w.clipped(edge.To, edge.From) {
+			attrs = append(attrs, "lhead="+dotQuote(dotClusterName(edge.To)))
+		}
 	}
 	if len(attrs) == 0 {
-		fmt.Fprintf(&w.b, "  %s -> %s;\n", dotQuote(from), dotQuote(to))
+		fmt.Fprintf(&w.b, "  %s -> %s;\n", from, to)
 		return
 	}
-	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", dotQuote(from), dotQuote(to), strings.Join(attrs, ", "))
+	fmt.Fprintf(&w.b, "  %s -> %s [%s];\n", from, to, strings.Join(attrs, ", "))
 }
 
 // dotNodeAttributes is a plain node's attribute list: the shape and style its
@@ -938,9 +979,9 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	var attrs []string
 	stated := node.Geometry != nil && node.Geometry.HasSize
 	switch {
-	case node.Kind == startKind:
+	case node.Kind == startKind && !w.symbol(node):
 		attrs = []string{"shape=point", dotFillBlack, `label=""`}
-	case isSymbolKind(node.Kind) && (stated || w.skin.cameo && !isPortKind(node.Kind)):
+	case w.symbol(node):
 		attrs = w.dotSymbolAttributes(node)
 	case node.Kind == "initial" || node.Kind == "final":
 		attrs = w.dotPseudostateAttributes(node)
@@ -949,9 +990,12 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
-		if stated {
+		switch {
+		case stated:
 			attrs = append(attrs, w.dotStatedLabel(node)...)
-		} else {
+		case len(node.Ports) > 0 && !w.pinNode(node):
+			attrs = append(attrs, w.dotPortedLabel(node, w.labels.dotLabel(node)))
+		default:
 			attrs = append(attrs, w.labels.dotLabel(node))
 		}
 	}
@@ -960,12 +1004,12 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	}
 	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...))
 	if box, ok := w.boxes[node.ID]; ok {
-		width, height := w.labels.dotBox(node)
+		width, height := box.size()
 		attrs = append(attrs, w.dotPin(box.centre()))
-		if node.Kind != startKind {
+		if node.Kind != startKind || w.symbol(node) {
 			attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height))
 		}
-		if stated {
+		if stated || w.symbol(node) {
 			attrs = append(attrs, "fixedsize=true")
 		}
 		if g := node.Geometry; g != nil && g.Collapsed {
@@ -1018,21 +1062,45 @@ func (w *dotWriter) headroom(node *Node) (height float64, header bool) {
 // as, with no text inside it: the control and pseudo-state nodes and a port.
 func isSymbolKind(kind string) bool {
 	switch kind {
-	case "initial", "final", terminateKind, "fork", "join", "merge", "decision", "choice", "junction":
+	case startKind, "initial", "final", terminateKind, "merge", "decision", "choice", "junction":
 		return true
 	}
-	return isPortKind(kind)
+	return isBarKind(kind) || isPortKind(kind)
 }
 
-// dotRound reports whether a node is drawn round, so an edge reaches its border
-// at its radius: the start point, the pseudo-states, and a stated junction or
-// terminate action.
-func dotRound(node *Node) bool {
+// isBarKind reports whether a kind is drawn as a fork or join bar.
+func isBarKind(kind string) bool {
+	return kind == "fork" || kind == "join"
+}
+
+// symbol reports whether a node is drawn as its notation symbol: a symbol kind
+// in a stated box, and every one but a port in the Cameo look.
+func (w *dotWriter) symbol(node *Node) bool {
+	stated := node.Geometry != nil && node.Geometry.HasSize
+	return isSymbolKind(node.Kind) && (stated || w.skin.cameo && !isPortKind(node.Kind))
+}
+
+// cameoSymbolSize is the size, in points, the Cameo look draws a symbol at with
+// no stated box: a bar lying across, a diamond, a dot.
+func cameoSymbolSize(kind string) (width, height float64) {
+	switch {
+	case isBarKind(kind):
+		return cameoBarWidth, cameoBarHeight
+	case kind == "decision" || kind == "merge" || kind == "choice":
+		return cameoDiamondWidth, cameoDiamondHeight
+	}
+	return dotPseudostateSize, dotPseudostateSize
+}
+
+// round reports whether a node is drawn round, so an edge reaches its border
+// at its radius: the start point, the pseudo-states, and a junction or
+// terminate action drawn as its symbol.
+func (w *dotWriter) round(node *Node) bool {
 	switch node.Kind {
 	case startKind, "initial", "final":
 		return true
 	case "junction", terminateKind:
-		return node.Geometry != nil && node.Geometry.HasSize
+		return w.symbol(node)
 	}
 	return false
 }
@@ -1056,21 +1124,16 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 		attrs = append([]string{"shape=diamond"}, w.skin.fill(node.Kind)...)
 	case "fork", "join":
 		attrs = []string{dotFillBlack}
-		if !boxed {
-			attrs = append(attrs, "width="+dotInches(cameoBarWidth), "height="+dotInches(cameoBarHeight), "fixedsize=true")
-		}
-	case "initial", "junction":
+	case startKind, "initial", "junction":
 		attrs = []string{"shape=circle", dotFillBlack}
 	case "final", terminateKind:
 		attrs = []string{"shape=doublecircle", dotFillBlack}
 	default:
 		attrs = append(attrs, w.fillAttributes(node)...)
 	}
-	switch node.Kind {
-	case "initial", "junction", "final", terminateKind:
-		if !boxed {
-			attrs = append(attrs, "width="+dotInches(dotPseudostateSize))
-		}
+	if !boxed && !isPortKind(node.Kind) {
+		width, height := cameoSymbolSize(node.Kind)
+		attrs = append(attrs, "width="+dotInches(width), "height="+dotInches(height), "fixedsize=true")
 	}
 	attrs = append(attrs, `label=""`)
 	if keyworded(node) {
@@ -1135,11 +1198,14 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 	if g := node.Geometry; g != nil && g.HasSize {
 		return g.Width, g.Height
 	}
-	if node.Kind == startKind {
+	if node.Kind == startKind && !l.skin.cameo {
 		return dotPointSize, dotPointSize
 	}
 	if (node.Kind == "initial" || node.Kind == "final") && shown(node) == "" {
 		return dotPseudostateSize, dotPseudostateSize
+	}
+	if l.skin.cameo && isSymbolKind(node.Kind) && !isPortKind(node.Kind) {
+		return cameoSymbolSize(node.Kind)
 	}
 	width, height = l.dotLabelExtent(node)
 	width = math.Ceil(width + 2*dotMarginWidth)
@@ -1160,7 +1226,7 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 		switch {
 		case i < head:
 			glyph = dotBoldGlyphEm
-		case i == head && keyworded(node):
+		case i == head && l.keyworded(node):
 			size = l.keywordSize()
 		}
 		width = math.Max(width, float64(utf8.RuneCountInString(line))*size*glyph)
@@ -1215,7 +1281,7 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
 	left := height - float64(len(head))*size*dotLineEm
 	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
-		keyword := i == len(l.headLines(node)) && keyworded(node)
+		keyword := i == len(l.headLines(node)) && l.keyworded(node)
 		lineSize := size
 		if keyword {
 			lineSize = math.Round(size * l.keywordSize() / l.size())
@@ -1233,7 +1299,7 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 		}
 		parts.details = append(parts.details, l.sized(lineSize, text))
 	}
-	return dotLabelAttribute(l.assemble(node, parts))
+	return dotLabelAttribute(l.assemble(parts))
 }
 
 // labelParts is a node's label as HTML-like content, by part: the bold head,
@@ -1252,9 +1318,9 @@ func (l labeller) keywordText(text string) string {
 }
 
 // assemble is the HTML-like label of the parts. The Pilot stacks head, keyword
-// and details; Cameo sets the keyword above the name (none for a state or an
-// action, as Cameo shows none) and the details in a compartment under a rule.
-func (l labeller) assemble(node *Node, parts labelParts) string {
+// and details; Cameo sets the keyword above the name and the details in a
+// compartment under a rule.
+func (l labeller) assemble(parts labelParts) string {
 	if !l.skin.cameo {
 		lines := []string{parts.head}
 		if parts.keyword != "" {
@@ -1263,7 +1329,7 @@ func (l labeller) assemble(node *Node, parts labelParts) string {
 		return "<" + strings.Join(append(lines, parts.details...), "<br/>") + ">"
 	}
 	title := parts.head
-	if parts.keyword != "" && node.Kind != "state" && node.Kind != "action" {
+	if parts.keyword != "" {
 		title = parts.keyword + "<br/>" + title
 	}
 	if len(parts.details) == 0 {
@@ -1416,7 +1482,10 @@ var dotInvisibleAttributes = []string{"shape=point", "style=invis", "width=0", "
 // element's), and its box as `bb` when it has an extent.
 func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	label := w.labels.dotLabel(node)
-	if g := node.Geometry; g != nil && g.HasSize {
+	switch g := node.Geometry; {
+	case node.ID == w.frameRoot:
+		label = `label=""`
+	case g != nil && g.HasSize:
 		height, _ := w.headroom(node)
 		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotFitFloor*dotLineEm))
 	}
@@ -1513,8 +1582,9 @@ func (b nodeBox) union(other nodeBox) nodeBox {
 // `pos` spline when a Route gives waypoints.
 func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	var attrs []string
-	if edge.Label != "" {
-		attrs = append(attrs, dotLabelAttribute(dotQuote(edge.Label)))
+	label := w.edgeText(edge)
+	if label != "" {
+		attrs = append(attrs, dotLabelAttribute(dotQuote(label)))
 	}
 	switch edge.Kind {
 	case EdgeConnection:
@@ -1530,7 +1600,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
 		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route, dotArrowheaded(attrs))))
-		if edge.Label != "" {
+		if label != "" {
 			attrs = append(attrs, "lp="+dotQuote(w.dotPoint(w.dotLabelPoint(edge))))
 		}
 	}
@@ -1593,9 +1663,26 @@ func (w *dotWriter) dotLabelPoint(edge Edge) Point {
 		return mid
 	}
 	nx, ny := (to.Y-from.Y)/length, -(to.X-from.X)/length
-	width, height := dotTextExtent([]string{edge.Label}, w.skin.edgePts)
+	width, height := dotTextExtent([]string{w.edgeText(edge)}, w.skin.edgePts)
 	off := math.Abs(nx)*width/2 + math.Abs(ny)*height/2 + dotLabelGap
 	return Point{X: halfPixel(mid.X + nx*off), Y: halfPixel(mid.Y + ny*off)}
+}
+
+// edgeText is the label an edge is drawn with: none for a pin-to-pin flow, whose
+// pins name it; under Cameo's look a transition reads `trigger [guard] / effect`
+// with the `accept` keyword off and every name bare, as Cameo writes it.
+func (w *dotWriter) edgeText(edge Edge) string {
+	if edge.FromPort != "" || edge.ToPort != "" {
+		return ""
+	}
+	if !w.skin.cameo {
+		return edge.Label
+	}
+	label := bareNames(edge.Label)
+	if edge.Kind == EdgeTransition {
+		label = strings.TrimPrefix(label, "accept ")
+	}
+	return displayText(label)
 }
 
 // halfPixel rounds a coordinate to the nearest half pixel.
@@ -1653,6 +1740,29 @@ func (w *dotWriter) placeNotes(notes []Note) {
 	}
 }
 
+// shareNotes draws one note for the positioned notes stating the same text at
+// the same box, as one comment anchored to several elements comes out: each
+// twin keeps its anchor and shares the first's node.
+func (w *dotWriter) shareNotes() {
+	w.noteShown = make([]int, len(w.notes))
+	for i, note := range w.notes {
+		w.noteShown[i] = i
+		if w.noteBoxes == nil || !note.HasSize {
+			continue
+		}
+		for j := 0; j < i; j++ {
+			twin := w.notes[j]
+			if w.noteShown[j] == j && twin.HasSize && twin.Text == note.Text && w.noteBoxes[j] == w.noteBoxes[i] {
+				w.noteShown[i] = j
+				break
+			}
+		}
+	}
+}
+
+// noteShared reports whether note i is drawn as an earlier note's node.
+func (w *dotWriter) noteShared(i int) bool { return w.noteShown[i] != i }
+
 // noteLines is a note's label text by line: Cameo heads it with «comment».
 func (w *dotWriter) noteLines(note Note) []string {
 	lines := strings.Split(note.Text, "\n")
@@ -1669,6 +1779,9 @@ func (w *dotWriter) noteLines(note Note) []string {
 // on top, as a note inside a node's box stays.
 func (w *dotWriter) noteLayers() (under, over []int) {
 	for i := range w.notes {
+		if w.noteShared(i) {
+			continue
+		}
 		if w.noteEnclosesNode(i) {
 			under = w.layerUnder(under, i)
 			continue
@@ -1774,20 +1887,21 @@ func (w *dotWriter) writeAnchors(notes []Note, edges []Edge) {
 		switch {
 		case note.Anchor != "":
 			if w.draws(note.Anchor) {
-				w.writeEdge(dotNoteID(i), note.Anchor, attrs)
+				w.writeEdge(Edge{From: dotNoteID(w.noteShown[i]), To: note.Anchor}, attrs)
 			}
 		case note.EdgeFrom != "":
 			if !w.draws(note.EdgeFrom) || !w.draws(note.EdgeTo) {
 				continue
 			}
 			route := edgeRoute(edges, note.EdgeFrom, note.EdgeTo)
+			id := dotNoteID(w.noteShown[i])
 			if len(route) < 2 || !w.placement.positioned() {
-				w.writeEdge(dotNoteID(i), note.EdgeFrom, attrs)
+				w.writeEdge(Edge{From: id, To: note.EdgeFrom}, attrs)
 				continue
 			}
 			point := dotNoteID(i) + ":on"
 			fmt.Fprintf(&w.b, "  %s [shape=point, width=0, height=0, style=invis, %s];\n", dotQuote(point), w.dotPin(routeMidpoint(route)))
-			w.writeEdge(dotNoteID(i), point, attrs)
+			w.writeEdge(Edge{From: id, To: point}, attrs)
 		}
 	}
 }
@@ -1831,14 +1945,14 @@ const dotKeywordPointSize = 10
 func (l labeller) dotLabel(node *Node) string {
 	head, rest := l.head(node), l.lines(node)[len(l.headLines(node)):]
 	parts := labelParts{head: "<b>" + dotEscape(head) + "</b>"}
-	if keyworded(node) {
+	if l.keyworded(node) {
 		parts.keyword = l.sized(l.keywordSize(), l.keywordText(dotEscape(rest[0])))
 		rest = rest[1:]
 	}
 	for _, line := range rest {
 		parts.details = append(parts.details, dotEscape(line))
 	}
-	return dotLabelAttribute(l.assemble(node, parts))
+	return dotLabelAttribute(l.assemble(parts))
 }
 
 // dotLabelAttribute is the `label=` attribute holding a quoted or HTML-like label.
