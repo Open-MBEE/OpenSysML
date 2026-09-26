@@ -274,7 +274,6 @@ func classify(v runtime.Value, r *Run) shape {
 // beside its kind, so the whole value falls back to its text. The empty sequence
 // is unset but multi-valued: it settles a member to [0..*] and spells `()`.
 func classifySequence(v runtime.Value, r *Run) shape {
-	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r))}
 	seq := v.Sequence()
 	var elements []runtime.Value
 	if seq != nil {
@@ -283,6 +282,8 @@ func classifySequence(v runtime.Value, r *Run) shape {
 	if len(elements) == 0 {
 		return shape{kind: kindUnset, multi: true, literal: "()"}
 	}
+	repeated := hasRepeatedElement(elements)
+	fallback := shape{kind: kindString, typ: scalarValuesString, literal: source.StringText(spellText(v, r)), repeated: repeated}
 	literals := make([]string, 0, len(elements))
 	var settled shape
 	for i, element := range elements {
@@ -306,7 +307,7 @@ func classifySequence(v runtime.Value, r *Run) shape {
 		literals = append(literals, es.literal)
 	}
 	settled.multi = true
-	settled.repeated = hasRepeatedLiteral(literals)
+	settled.repeated = repeated
 	settled.literal = "(" + strings.Join(literals, ", ") + ")"
 	return settled
 }
@@ -418,6 +419,9 @@ func buildFeatures(req *Request) ([]feature, error) {
 	// First pass: settle each member's shape over every run that supplies it.
 	var names []string
 	shapes := map[string]shape{}
+	// A repeated element anywhere in a member's runs marks its feature, even
+	// when a merge settles the shape over values that did not repeat.
+	repeated := map[string]bool{}
 	for i := range req.Runs {
 		for _, m := range members(req.Runs[i]) {
 			if m.inOf == "" {
@@ -429,6 +433,9 @@ func buildFeatures(req *Request) ([]feature, error) {
 				return nil, fmt.Errorf("case %s: parameter %q shares a name with a feature of AnalysisRecords::AnalysisRun", req.Case, m.name)
 			}
 			sh := classify(m.value, &req.Runs[i])
+			if sh.repeated {
+				repeated[m.name] = true
+			}
 			cur, seen := shapes[m.name]
 			if !seen {
 				names = append(names, m.name)
@@ -474,7 +481,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 			// definition: either way the member settles to Real, an Integer
 			// literal remaining valid under it.
 			if numericPair(cur.typ, sh.typ) {
-				cur = shape{kind: kindReal, typ: scalarValuesReal, multi: cur.multi, repeated: cur.repeated || sh.repeated}
+				cur = shape{kind: kindReal, typ: scalarValuesReal, multi: cur.multi}
 				shapes[m.name] = cur
 				continue
 			}
@@ -502,8 +509,8 @@ func buildFeatures(req *Request) ([]feature, error) {
 		case c.kind == kindQuantity && (o.kind == kindInteger || o.kind == kindReal):
 			shapes[owner] = c
 		case numericPair(o.typ, c.typ):
-			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal, multi: o.multi, repeated: o.repeated || c.repeated}
-			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal, multi: c.multi, repeated: o.repeated || c.repeated}
+			shapes[owner] = shape{kind: kindReal, typ: scalarValuesReal, multi: o.multi}
+			shapes[companion] = shape{kind: kindReal, typ: scalarValuesReal, multi: c.multi}
 		default:
 			f := feature{name: owner}
 			applyShape(&f, o)
@@ -527,6 +534,7 @@ func buildFeatures(req *Request) ([]feature, error) {
 		}
 		f := feature{name: name}
 		applyShape(&f, shapes[name])
+		f.repeated = repeated[name]
 		feats = append(feats, f)
 		if shapes[name].kind == kindQuantity {
 			feats = append(feats, feature{name: name + "Unit", typ: scalarValuesString, unitOf: name})
@@ -535,14 +543,14 @@ func buildFeatures(req *Request) ([]feature, error) {
 	return feats, nil
 }
 
-// hasRepeatedLiteral reports whether two elements of a sequence spell the same literal.
-func hasRepeatedLiteral(literals []string) bool {
-	seen := make(map[string]bool, len(literals))
-	for _, literal := range literals {
-		if seen[literal] {
+// hasRepeatedElement reports whether two elements of a sequence are equal values.
+func hasRepeatedElement(elements []runtime.Value) bool {
+	seen := runtime.NewSet()
+	for _, element := range elements {
+		if seen.Contains(element) {
 			return true
 		}
-		seen[literal] = true
+		seen.Add(element)
 	}
 	return false
 }
@@ -558,7 +566,6 @@ func numericPair(a, b string) bool {
 func applyShape(f *feature, sh shape) {
 	f.ref = sh.kind == kindRef
 	f.multi = sh.multi
-	f.repeated = sh.repeated
 	switch sh.kind {
 	case kindUnset:
 		f.typ = scalarValuesScalarValue
