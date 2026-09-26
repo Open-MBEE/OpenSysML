@@ -140,6 +140,7 @@ var (
 	pdfTitlePage     bool
 	pdfTOC           bool
 	pdfNumbering     bool
+	docNumberFigures bool
 	htmlCSS          stringSlice
 	htmlNoCSS        bool
 	htmlShowCSS      bool
@@ -410,7 +411,7 @@ func runCLI() int {
 			queryText != "" || len(evalExprs) > 0 || modelChecks.requested():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet and nothing else; ask for it in its own run")
 			return 2
-		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlPageFlagsGiven():
+		case docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlPageFlagsGiven():
 			fmt.Fprintln(os.Stderr, "sysml: -html-default-css writes the default stylesheet itself; the document and stylesheet options shape a rendered document, not the sheet")
 			return 2
 		case fromFormat != "" || strictMode || syncBase != "" || syncState != "" ||
@@ -425,7 +426,7 @@ func runCLI() int {
 	}
 
 	if renderDoc == "" && renderDocsDir == "" &&
-		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || htmlFlagsGiven()) {
+		(docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures || htmlFlagsGiven()) {
 		fmt.Fprintln(os.Stderr, "sysml: -doc-form, -diagram-form, the document options and the stylesheet options apply to -render-document and -render-documents; name the document to render")
 		return 2
 	}
@@ -502,6 +503,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -compile needs -o to name the executable (or the source file, with -source)")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runCompile(args); err != nil {
 			return fail(err)
 		}
@@ -521,7 +525,7 @@ func runCLI() int {
 		case convertFormat != "" || renderView != "" || renderDoc != "" || renderAllDir != "" || renderDocsDir != "" || queryText != "" || len(evalExprs) > 0:
 			fmt.Fprintf(os.Stderr, "sysml: %s syncs a change set; it cannot be combined with -convert, -render, -render-all, -render-document, -render-documents, -query or -eval\n", mode)
 			return 2
-		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || renderStyle != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering:
+		case outputPath != "" || fromFormat != "" || renderForm != "" || renderPalette != "" || renderUnplaced != "" || renderStyle != "" || docForm != "" || diagramForm != "" || pdfEngine != "" || pdfTitlePage || pdfTOC || pdfNumbering || docNumberFigures:
 			fmt.Fprintf(os.Stderr, "sysml: %s reads SysML or Turtle inputs and reports the change set; -output, -from and the render options do not apply\n", mode)
 			return 2
 		case modelChecks.requested():
@@ -591,6 +595,9 @@ func runCLI() int {
 			return refuse(modelChecks,
 				"-render-all writes views out and decides nothing about the model; check it in its own run")
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		if err := runRenderAll(args); err != nil {
 			return fail(err)
 		}
@@ -634,6 +641,9 @@ func runCLI() int {
 			fmt.Fprintln(os.Stderr, "sysml: -query cannot be combined with checks, -eval, -render, -render-document, -output or -from")
 			return 2
 		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
+		}
 		return runQuery(args, queryText)
 	}
 
@@ -645,6 +655,9 @@ func runCLI() int {
 		if renderDoc != "" {
 			fmt.Fprintln(os.Stderr, "sysml: -render and -render-document each write a document out; ask for one per run")
 			return 2
+		}
+		if status := resolveRunBounds(); status != 0 {
+			return status
 		}
 		if err := runRender(args); err != nil {
 			return fail(err)

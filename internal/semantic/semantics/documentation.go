@@ -22,6 +22,26 @@ func (m *Model) SourceText() source.Lookup {
 	return m.sourceText
 }
 
+// SetSourceFile tells the model which file on disk each of its documents' spans
+// was read from, for a document joining several files. Nil: source.FileNamed.
+func (m *Model) SetSourceFile(locate source.Locate) {
+	if m != nil {
+		m.sourceFile = locate
+	}
+}
+
+// SourceFileOf is the file on disk the declaration at origin was read from, ""
+// when it came from none.
+func (m *Model) SourceFileOf(origin symbols.Origin) string {
+	if !origin.Located() {
+		return ""
+	}
+	if m == nil || m.sourceFile == nil {
+		return source.FileNamed(origin.Doc, origin.Span)
+	}
+	return m.sourceFile(origin.Doc, origin.Span)
+}
+
 // DocumentationOf is Element::documentation (KerML 1.1 §8.2.4): the prose of
 // each `doc` the element owns, in declaration order. A body whose notation the
 // model cannot read, or that reads as blank, is left out.

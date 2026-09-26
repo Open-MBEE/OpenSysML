@@ -21,6 +21,26 @@ func TestQueryFlagIdentifiesElements(t *testing.T) {
 	}
 }
 
+func TestQueryFlagIdentifiesUnnamedSatisfyAndItsEnds(t *testing.T) {
+	binary := buildCLI(t)
+	model := filepath.Join(t.TempDir(), "model.sysml")
+	const queryModel = `package Demo {
+		part def Toaster;
+		requirement def EnergyReq { subject t : Toaster; }
+		requirement r : EnergyReq { subject t : Toaster; }
+		part t : Toaster;
+		assert satisfy r by t;
+	}`
+	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, binary, "-query", `oslc.where=rdf:type="SatisfyRequirementUsage"&oslc.select=sysml:satisfiedRequirement,sysml:satisfyingFeature`, model)
+	want := "Demo::@4  SatisfyRequirementUsage  sysml:satisfiedRequirement=Demo::r  sysml:satisfyingFeature=Demo::t"
+	if !strings.Contains(out, want) {
+		t.Fatalf("query output = %s, want it to contain %q", out, want)
+	}
+}
+
 func TestQueryFlagReportsNoMatchOnStderr(t *testing.T) {
 	binary := buildCLI(t)
 	model := filepath.Join(t.TempDir(), "model.sysml")

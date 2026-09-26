@@ -15,6 +15,10 @@ package Calibration {
 		part idle : Scenario {
 			attribute :>> label = "idle";
 		}
+		part single : Scenario {
+			attribute :>> durations = (36.0);
+			attribute :>> label = "single";
+		}
 	}
 
 	calc def Timings :> Query {

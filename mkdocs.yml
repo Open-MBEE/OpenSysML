@@ -207,6 +207,8 @@ nav:
       - Node API: reference/node-api.md
       - Java API: reference/java-api.md
       - Rust API: reference/rust-api.md
+      - Julia API: reference/julia-api.md
+      - MATLAB API: reference/matlab-api.md
       - Service transports: reference/service-transports.md
       - Wire contract: reference/wire-contract.md
       - RDF mapping: reference/rdf-mapping.md

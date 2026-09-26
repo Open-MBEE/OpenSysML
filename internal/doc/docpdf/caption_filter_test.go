@@ -84,7 +84,7 @@ func TestArtworkFilterMarksCaptionsPastTableRenderings(t *testing.T) {
 		t.Skipf("pandoc not installed: %v", err)
 	}
 	document := tableDiagramDocument(t)
-	captions := docrender.Captions(document)
+	captions := docrender.Captions(document, false)
 	if want := []string{"Masses", "Everything else", "Imaging chain", "Subsystems by name", "Total mass"}; strings.Join(captions, "|") != strings.Join(want, "|") {
 		t.Fatalf("captions = %q, want %q", captions, want)
 	}
@@ -166,7 +166,7 @@ func TestArtworkFilterMarksCaptionPastFallbackNotice(t *testing.T) {
 		t.Skipf("pandoc not installed: %v", err)
 	}
 	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
-	captions := docrender.Captions(document)
+	captions := docrender.Captions(document, false)
 	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{WithoutGraphviz: true})
 	if err != nil {
 		t.Fatal(err)

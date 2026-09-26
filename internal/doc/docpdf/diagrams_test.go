@@ -1,6 +1,7 @@
 package docpdf
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -111,7 +112,7 @@ func TestRenderDOTWithFakeGraphviz(t *testing.T) {
 		}
 	}
 	args, _ := os.ReadFile(log)
-	for _, want := range []string{"args:-Kdot -Tsvg -o diagram-1.svg diagram-1.dot\n", "args:-Kdot -Tsvg -o diagram-2.svg diagram-2.dot\n"} {
+	for _, want := range []string{"args:-Kdot " + imagePathArg(t) + " -Tsvg -o diagram-1.svg diagram-1.dot\n", "args:-Kdot " + imagePathArg(t) + " -Tsvg -o diagram-2.svg diagram-2.dot\n"} {
 		if !strings.Contains(string(args), want) {
 			t.Fatalf("dot arguments lack %q: %s", want, args)
 		}
@@ -173,8 +174,67 @@ func TestDrawDOTRunsTheHeaderEngine(t *testing.T) {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
 	args, _ := os.ReadFile(log)
-	if !strings.Contains(string(args), "args:-Kneato -n -Tsvg -o diagram-1.svg diagram-1.dot") {
+	if !strings.Contains(string(args), "args:-Kneato -n "+imagePathArg(t)+" -Tsvg -o diagram-1.svg diagram-1.dot") {
 		t.Fatalf("dot arguments: %s", args)
+	}
+}
+
+// imagePathArg is the picture search path dot is run with: the current
+// directory, the one a view's picture paths are relative to.
+func imagePathArg(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "-Gimagepath=" + cwd
+}
+
+// File references become data URIs, relative to the given directory; URLs, data URIs,
+// missing files and files that are no image (never copied into the document) stay as written.
+func TestEmbedImagesInlinesThePicturesAnSVGRefers(t *testing.T) {
+	base := t.TempDir()
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	if err := os.MkdirAll(filepath.Join(base, "images"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "images", "a&b.png"), png, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "notes.txt"), []byte("secret=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	abs := filepath.Join(base, "images", "a&b.png")
+	svg := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+		`<image xlink:href="images/a&amp;b.png" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + abs + `"/>` +
+		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
+		`<image xlink:href="https://example.org/a.png"/>` +
+		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`</svg>`
+	path := filepath.Join(t.TempDir(), "diagram-1.svg")
+	if err := os.WriteFile(path, []byte(svg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := embedImages(path, base); err != nil {
+		t.Fatalf("embedImages: %v", err)
+	}
+	out, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uri := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+	want := `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">` +
+		`<image xlink:href="` + uri + `" width="1px" height="1px"/>` +
+		`<image width="1px" href="` + uri + `"/>` +
+		`<image xlink:href="images/missing.png"/>` +
+		`<image xlink:href="notes.txt"/>` +
+		`<image xlink:href="https://example.org/a.png"/>` +
+		`<image xlink:href="data:image/png;base64,AAAA"/>` +
+		`</svg>`
+	if string(out) != want {
+		t.Errorf("embedded SVG:\n%s\nwant:\n%s", out, want)
 	}
 }
 
