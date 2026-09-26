@@ -57,6 +57,31 @@ func TestImageOfTableEmbedsTheTable(t *testing.T) {
 	wantOneNote(t, r, "_st_titled_image", migrate.Mapped, "the paragraph is the Table's caption")
 }
 
+// A table whose diagram a view owns has its query inside that view usage; a
+// section elsewhere reaches it by qualified name, as a definition is reached.
+func TestImageOfTableOwnedByViewEmbedsTheTable(t *testing.T) {
+	r := plantReportResult(t)
+	notation := string(r.Notation)
+	wantInOrder(t, "Gallery view", notation,
+		"view Gallery {",
+		"calc def 'Block Table Rows' :> DocumentQueries::Query {",
+		"part def 'Block Table Document' :> DocumentQueries::Document {",
+		"calc rows : 'Block Table Rows';")
+	sec := notationSection(notation, "Gallery")
+	if sec == "" {
+		t.Fatalf("no Gallery section written:\n%s", notation)
+	}
+	wantInOrder(t, "Gallery section", sec,
+		`attribute redefines text = "Every block of the plant.";`,
+		"part table : DocumentQueries::Table {",
+		`attribute redefines caption = "Block Table";`,
+		"calc rows : 'Plant Documents'::Gallery::'Block Table Rows';")
+	if strings.Contains(sec, "DocumentQueries::Diagram") {
+		t.Errorf("the Image of the table draws the view as a Diagram:\n%s", sec)
+	}
+	wantOneNote(t, r, "_st_plain_image", migrate.Mapped, "the Generic Table 'Block Table' is written as a Table over the query 'Block Table Rows' of its «DiagramTable»")
+}
+
 func TestImageOfRefusedTableIsRefused(t *testing.T) {
 	r := plantReportResult(t)
 	sec := notationSection(string(r.Notation), "Spares")
@@ -192,8 +217,13 @@ func TestEmbeddedTablesRenderHTML(t *testing.T) {
 		"Details",
 		"Pumping", "How pumping works.", "The following figure shows the pump.",
 		"Figure 2.", "Pump Structure",
-		"The pump moves fluid.", "It never runs dry.")
-	if strings.Contains(page, "Table 3.") || strings.Contains(page, "Figure 3.") {
+		"The pump moves fluid.", "It never runs dry.",
+		"Gallery", "Every block of the plant.",
+		`<table class="sysml-table" data-content="table" data-name="table" data-query="Plant Documents::Gallery::Block Table Rows">`,
+		"Table 3.", "Block Table",
+		`<th scope="col" data-column="name">name</th>`,
+		">Pump</span>", ">Valve</span>")
+	if strings.Contains(page, "Table 4.") || strings.Contains(page, "Figure 3.") {
 		t.Errorf("tables and figures are not numbered apart:\n%s", page)
 	}
 }
@@ -256,7 +286,10 @@ func TestEmbeddedTablesRenderInstalledPDF(t *testing.T) {
 		"Figure 1.", "Pump Structure",
 		"The following figure shows the pump.",
 		"Figure 2.", "Pump Structure",
-		"The pump moves fluid.", "It never runs dry.")
+		"The pump moves fluid.", "It never runs dry.",
+		"Every block of the plant.",
+		"Table 3.", "Block Table",
+		"name", "Pump", "Valve")
 }
 
 // skipWithoutTool skips the test for a converter that is not installed, or
