@@ -2123,3 +2123,46 @@ func TestClassifyAppliesNestedRedefinitions(t *testing.T) {
 		t.Fatalf("lazy.radius after classify = %v, want the classifier's 0.6", got)
 	}
 }
+
+// A child's own redefinition wins over a chain a classifier adds from outside:
+// the wheel keeps the 2.0 Wheel declares, whether it materialized before the
+// classification or after.
+func TestClassifyKeepsAChildsOwnRedefinition(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def BaseWheel { attribute radius : Real default = 1.0; }
+		part def Wheel :> BaseWheel { attribute :>> radius = 2.0; }
+		part def Car { part wheel : Wheel; }
+		part def Sport :> Car { attribute :>> wheel.radius = 3.0; }
+		part car : Car;
+	}`
+	for _, sub := range []struct {
+		name      string
+		readFirst bool
+	}{
+		{"materialized_before_classify", true},
+		{"materialized_after_classify", false},
+	} {
+		t.Run(sub.name, func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			car := instantiateQualified(t, ctx, idx, "test::car")
+			var wheel *Instance
+			if sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+				t.Fatalf("classify(car, Sport): %v", err)
+			}
+			if !sub.readFirst {
+				wheel = readInstance(t, ctx, car, "wheel")
+			}
+			fv, err := wheel.GetFeatureValue(ctx, "radius")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(radius): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 2.0 {
+				t.Fatalf("wheel.radius = %v, want Wheel's own 2.0", got)
+			}
+		})
+	}
+}

@@ -25,9 +25,19 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 	if owner == nil || feature == "" {
 		return nil
 	}
+	// A redefined member shares one feature value under every name it reads
+	// as, so a chain naming any of them applies to the member materialized here.
+	names := map[string]bool{feature: true}
+	if fv := owner.FeatureValues[feature]; fv != nil {
+		for name, other := range owner.FeatureValues {
+			if other == fv {
+				names[name] = true
+			}
+		}
+	}
 	var out []pendingRedefinition
 	for _, p := range owner.nested {
-		if len(p.rest) > 0 && p.rest[0] == feature {
+		if len(p.rest) > 0 && names[p.rest[0]] {
 			out = append(out, pendingRedefinition{rest: p.rest[1:], sym: p.sym})
 		}
 	}
@@ -39,7 +49,7 @@ func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) 
 			}
 			seen[src] = true
 			for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
-				if len(nr.Path) > 1 && nr.Path[0] == feature {
+				if len(nr.Path) > 1 && names[nr.Path[0]] {
 					out = append(out, pendingRedefinition{rest: nr.Path[1:], sym: nr.Feature})
 				}
 			}
@@ -128,6 +138,11 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 		if len(rest) == 1 {
 			cfv := child.FeatureValues[rest[0]]
 			if cfv == nil || cfv.Feature == nil {
+				continue
+			}
+			// A standard redefinition the child's own type declares wins over a
+			// chain reaching the feature from above, as it does on materialize.
+			if ctx.ownBodyRedefinition(child.Type, cfv.Feature.Symbol) {
 				continue
 			}
 			feat := ctx.effectiveFeature(rest[0], sym, child.Type)
