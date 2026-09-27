@@ -302,6 +302,23 @@ its type: `end [0..1] driver : Driver;`. From this point `%save` in the REPL, `-
 LSP and the clients all take the file as they take any other; nothing remembers that it was
 migrated.
 
+## Portable output with `-strict`
+
+By default a migration may write OpenSysML's own extensions — `defer <event>;` and the
+`choice`, `junction` and `history` pseudostates — which the runtime executes but no SysML v2
+production admits, so another tool would not read them. Pass `-strict` (see
+[Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
+conforming SysML v2 only, refusing each such construct as **unmapped** instead:
+
+```console
+$ sysml Project.xmi -strict -convert sysml -o Project.sysml
+$ sysml -strict -validate Project.sysml
+✓ Project.sysml: no errors
+```
+
+What a strict migration refuses is listed in the reference under
+[Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+
 ## Publishing a migrated document with Cameo-style diagrams
 
 A `.mdzip` carries, beside the model, Cameo's own drawing of every diagram: where each symbol
