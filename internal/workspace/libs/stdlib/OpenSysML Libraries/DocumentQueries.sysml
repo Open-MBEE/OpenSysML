@@ -293,6 +293,9 @@ library package DocumentQueries {
 		 * in the source's units; 0 sizes a column automatically. Renderers
 		 * honour them proportionally. */
 		attribute columnWidths : Integer[0..*] ordered nonunique;
+		/* columnLabels: the headings of the projected columns in order, where
+		 * they differ from the column names; "" heads a column by its name. */
+		attribute columnLabels : String[0..*] ordered nonunique;
 	}
 
 	part def List :> ContentBlock {

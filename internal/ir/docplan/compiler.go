@@ -1026,6 +1026,10 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	labels, err := c.optionalLabels(member)
+	if err != nil {
+		return Content{}, err
+	}
 	query, err := c.requiredQueryRef(member)
 	if err != nil {
 		return Content{}, err
@@ -1052,6 +1056,7 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 		caption:      caption,
 		groupBy:      groupBy,
 		columnWidths: widths,
+		columnLabels: labels,
 		query:        query,
 		origin:       member.Origin(),
 	}, nil
@@ -1060,18 +1065,8 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 // optionalWidths reads a table's columnWidths: a sequence of non-negative
 // integer literals, or one such literal, in projection order.
 func (c *compiler) optionalWidths(member *symbols.Symbol) ([]int, error) {
-	for _, candidate := range c.effectiveMembers(member) {
-		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != "columnWidths" {
-			continue
-		}
-		value := c.attributeValue(candidate, make(map[*symbols.Symbol]bool))
-		if value == nil {
-			continue
-		}
-		literals := []ast.Node{value}
-		if sequence, ok := value.(*ast.SequenceExpr); ok {
-			literals = sequence.Elements
-		}
+	candidate, literals := c.optionalSequence(member, "columnWidths")
+	if candidate != nil {
 		widths := make([]int, 0, len(literals))
 		for _, literal := range literals {
 			integer, ok := literal.(*ast.LiteralInteger)
@@ -1085,6 +1080,53 @@ func (c *compiler) optionalWidths(member *symbols.Symbol) ([]int, error) {
 			widths = append(widths, width)
 		}
 		return widths, nil
+	}
+	return nil, nil
+}
+
+// optionalLabels reads a table's columnLabels: a sequence of string literals,
+// or one such literal, in projection order.
+func (c *compiler) optionalLabels(member *symbols.Symbol) ([]string, error) {
+	candidate, literals := c.optionalSequence(member, "columnLabels")
+	if candidate == nil {
+		return nil, nil
+	}
+	labels := make([]string, 0, len(literals))
+	for _, literal := range literals {
+		text, ok := literal.(*ast.LiteralString)
+		label, err := "", error(nil)
+		if ok {
+			label, err = strconv.Unquote(text.Value)
+		}
+		if !ok || err != nil {
+			return nil, &Error{
+				Kind:      ErrorInvalidColumnLabels,
+				Document:  c.document,
+				Content:   symbols.FQNOf(member),
+				Parameter: "columnLabels",
+				Origin:    candidate.Origin(),
+			}
+		}
+		labels = append(labels, label)
+	}
+	return labels, nil
+}
+
+// optionalSequence is a table's valued attribute of the given name and the
+// literals of its value: the elements of a sequence, or the one value itself.
+func (c *compiler) optionalSequence(member *symbols.Symbol, name string) (*symbols.Symbol, []ast.Node) {
+	for _, candidate := range c.effectiveMembers(member) {
+		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != name {
+			continue
+		}
+		value := c.attributeValue(candidate, make(map[*symbols.Symbol]bool))
+		if value == nil {
+			continue
+		}
+		if sequence, ok := value.(*ast.SequenceExpr); ok {
+			return candidate, sequence.Elements
+		}
+		return candidate, []ast.Node{value}
 	}
 	return nil, nil
 }

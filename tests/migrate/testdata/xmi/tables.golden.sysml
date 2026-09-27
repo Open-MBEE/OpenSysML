@@ -3,6 +3,7 @@ package 'Plant Profile' {
         attribute level : ScalarValues::Integer;
         attribute grade : Grade[0..*];
     }
+    metadata def Urgent :> Critical;
     enum def Grade {
         high;
         low;
@@ -90,9 +91,9 @@ package Plant {
                                 source = DocumentQueries::WhereType(
                                     source = DocumentQueries::WhereType(
                                         source = DocumentQueries::Union(
-                                            source = DocumentQueries::Descendants(
-                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                                            other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                                            source = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2")),
+                                            other = DocumentQueries::Descendants(
+                                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory")))),
                                         type = ("Plant::Structure::Pump")),
                                     type = ("Definition")),
                                 'feature' = "isIndividual",
@@ -113,6 +114,7 @@ package Plant {
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Pump Table";
                 attribute redefines columnWidths = (200, 0, 0, 0);
+                attribute redefines columnLabels = ("", "classifier");
                 calc rows : 'Pump Table Rows';
             }
         }
@@ -148,6 +150,7 @@ package Plant {
             attribute redefines title = "Pump Ledger";
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Pump Ledger";
+                attribute redefines columnLabels = ("", "", "name");
                 calc rows : 'Pump Ledger Rows';
             }
         }
@@ -170,6 +173,9 @@ package Plant {
         requirement def <'R-2'> SealRequirement {
             doc /* Every valve seals when closed. */
             comment /* Every valve seals when closed. */
+            @'Plant Profile'::Urgent {
+                level = 3;
+            }
         }
         requirement def <'R-3'> MassRequirement {
             doc /* The pump mass stays under the limit. */
@@ -220,9 +226,9 @@ package Plant {
                     source = DocumentQueries::OrderBy(
                         source = DocumentQueries::WhereType(
                             source = DocumentQueries::Union(
-                                source = DocumentQueries::Descendants(
-                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements"))),
-                                other = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement"))),
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements::FlowRequirement", "Plant::Requirements::SealRequirement", "Plant::Requirements::MassRequirement")),
+                                other = DocumentQueries::Descendants(
+                                    source = DocumentQueries::Named(qualifiedName = ("Plant::Requirements")))),
                             type = ("RequirementDefinition")),
                         property = "shortName",
                         direction = "ascending",
@@ -232,7 +238,8 @@ package Plant {
                     columns = (
                         DocumentQueries::Column(name = "level", expression = 'Plant Profile'::Critical::level ?? ""),
                         DocumentQueries::Column(name = "level 2", expression = 'Plant Profile'::Critical::level ?? ""),
-                        DocumentQueries::Column(name = "grade", expression = 'Plant Profile'::Critical::grade ?? ""))),
+                        DocumentQueries::Column(name = "grade", expression = 'Plant Profile'::Critical::grade ?? ""),
+                        DocumentQueries::Column(name = "level 3", expression = 'Plant Profile'::Critical::level ?? ""))),
                 columns = ("level 2"),
                 operator = "matches",
                 value = "(?i)1.*")
@@ -241,7 +248,8 @@ package Plant {
             attribute redefines title = "Key Requirements";
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Key Requirements";
-                attribute redefines columnWidths = (60, 0, 400, 80, 0, 0);
+                attribute redefines columnWidths = (60, 0, 400, 80, 0, 0, 0);
+                attribute redefines columnLabels = ("Id", "", "Text", "", "level", "", "level");
                 calc rows : 'Key Requirements Rows';
             }
         }
@@ -269,6 +277,7 @@ package Plant {
             attribute redefines title = "Badly Filtered Requirements";
             part rows : DocumentQueries::Table {
                 attribute redefines caption = "Badly Filtered Requirements";
+                attribute redefines columnLabels = ("Id");
                 calc rows : 'Badly Filtered Requirements Rows';
             }
         }

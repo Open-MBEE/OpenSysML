@@ -123,10 +123,13 @@ type Column struct {
 	// Feature is the IColumn feature; its Element is nil when dangling.
 	Feature ElementRef
 	// Profile and Stereotype name a stereotype-tag column's stereotype as the
-	// id qualifies it, Profile "" when the id names the stereotype alone;
-	// Tag is the tag's name and TagDefinition the stereotype's property of
-	// that name, nil when the read documents define no such stereotype.
+	// id qualifies it, Profile "" when the id names the stereotype alone; Tag
+	// is the tag's name. Definition is the stereotype the read documents
+	// define under that name and TagDefinition the property of that name it
+	// owns or inherits; both nil when no read document defines the stereotype,
+	// TagDefinition alone when it defines no such tag.
 	Profile, Stereotype, Tag string
+	Definition               *Element
 	TagDefinition            *Element
 	// Hidden is whether hideColumns lists the column.
 	Hidden bool
@@ -463,8 +466,8 @@ const stereotypeTagPrefix = "QPROP:stereotypeTags:"
 
 // stereotypeTagColumn reads the <<Profile::Stereotype>>.tag of a stereotype
 // tag column, the stereotype qualified by its profile path or named alone,
-// and resolves the tag to the stereotype's property when a read document
-// defines the stereotype under a profile of that name.
+// and resolves the stereotype and its tag when a read document defines the
+// stereotype under a profile of that name.
 func (m *Model) stereotypeTagColumn(c *Column, spec string) {
 	c.Kind = ColumnUnknown
 	if !strings.HasPrefix(spec, "<<") {
@@ -479,24 +482,28 @@ func (m *Model) stereotypeTagColumn(c *Column, spec string) {
 	if i := strings.LastIndex(qualified, "::"); i >= 0 {
 		c.Profile, c.Stereotype = qualified[:i], qualified[i+2:]
 	}
-	c.TagDefinition = m.stereotypeTag(c.Profile, c.Stereotype, tag)
+	c.Definition, c.TagDefinition = m.stereotypeTag(c.Profile, c.Stereotype, tag)
 }
 
-// stereotypeTag finds the property named tag of the stereotype named
-// stereotype under the profile whose qualified name is profile ("" for any),
-// in the first read document that defines one; nil when none does.
-func (m *Model) stereotypeTag(profile, stereotype, tag string) *Element {
+// stereotypeTag finds the stereotype named stereotype under the profile whose
+// qualified name is profile ("" for any), in the first read document that
+// defines one, and the property named tag it owns or inherits from the
+// stereotypes it specializes, nearest first; nil for whichever is undefined.
+func (m *Model) stereotypeTag(profile, stereotype, tag string) (def, property *Element) {
 	for _, d := range m.stereotypeDefinitions() {
 		if d.Name != stereotype || !underProfile(d, profile) {
 			continue
 		}
-		for _, p := range d.Owned("ownedAttribute") {
-			if p.Name == tag {
-				return p
+		for _, owner := range append([]*Element{d}, m.Ancestors(d)...) {
+			for _, p := range owner.Owned("ownedAttribute") {
+				if p.Name == tag {
+					return d, p
+				}
 			}
 		}
+		return d, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // underProfile reports whether e sits under a Profile whose qualified name

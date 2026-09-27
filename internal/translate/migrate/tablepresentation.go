@@ -100,25 +100,30 @@ func (m *migration) arranged(rows qx, t *sysmlv1.Table, l *lowered) qx {
 }
 
 // tagColumn is what a stereotype-tag column reads: a standard requirement tag
-// as the query property the migration writes it to, a user stereotype's tag
-// as a Column over the metadata def's feature it became.
+// as the query property the migration writes it to, a user stereotype's tag —
+// its own or one inherited from a stereotype it specializes — as a Column over
+// that feature of the metadata def the named stereotype became.
 func (m *migration) tagColumn(c sysmlv1.Column) columnSource {
 	label := "«" + c.Stereotype + "»." + c.Tag
 	if c.Profile != "" {
 		label = "«" + c.Profile + "::" + c.Stereotype + "»." + c.Tag
 	}
-	tag := c.TagDefinition
+	def, tag := c.Definition, c.TagDefinition
 	switch {
-	case tag == nil:
+	case def == nil:
 		return columnSource{why: "the tag " + label + " belongs to no stereotype the document defines"}
+	case tag == nil:
+		return columnSource{why: "the tag " + label + " is defined by neither the stereotype " + qualifiedName(def) + " nor a stereotype it specializes"}
 	case requirementProperty(tag) != "":
 		return columnSource{key: requirementProperty(tag)}
+	case !m.userStereotype(def):
+		return columnSource{why: "the tag " + label + " belongs to a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(def)}
 	case tag.Parent == nil || !m.userStereotype(tag.Parent):
-		return columnSource{why: "the tag " + label + " belongs to a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(tag.Parent)}
-	case !m.written(tag.Parent) || !m.written(tag):
+		return columnSource{why: "the tag " + label + " is defined by a stereotype that is not written as a metadata def: " + m.stereotypeLibraryReason(tag.Parent)}
+	case !m.written(def) || !m.written(tag.Parent) || !m.written(tag):
 		return columnSource{why: "the tag " + label + " is not migrated"}
 	}
-	return columnSource{key: m.plainName(tag.Parent) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag)}
+	return columnSource{key: m.plainName(def) + "::" + m.nameOf(tag), feature: tag, caption: m.nameOf(tag), label: m.nameOf(tag)}
 }
 
 // stereotypeLibraryReason says why a stereotype is library content rather

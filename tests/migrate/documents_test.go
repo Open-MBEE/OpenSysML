@@ -183,10 +183,12 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"returned 1 row",
 		"Plant::Requirements::FlowRequirement", `@type = "RequirementDefinition"`)
 
-	// Whole-model scope filtered by a migrated user stereotype.
+	// Whole-model scope filtered by a migrated user stereotype, the elements
+	// its specializations are applied to included.
 	critical := rows(t, s, "Plant::'Critical Elements Rows'")
 	wantInOrder(t, "Critical Elements rows", critical,
-		"returned 2 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement")
+		"returned 3 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement",
+		"Plant::Requirements::SealRequirement")
 }
 
 // A generic table over a broad UML metaclass lists what that metaclass holds
@@ -311,7 +313,7 @@ func TestMigratedTablesRender(t *testing.T) {
 	md := markdown(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table Markdown", md,
 		"# Pump Table",
-		"| name | general | mass | flow |",
+		"| name | classifier | mass | flow |",
 		"| r1 | ReservePump | 14 |  |",
 		"| p1 | Pump | 12.5 | 3 |",
 		"| s1 | Pump | 7 |  |",

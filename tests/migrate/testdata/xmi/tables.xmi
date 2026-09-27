@@ -22,6 +22,9 @@
           <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_st_critical_grade_upper" value="*"/>
         </ownedAttribute>
       </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_urgent" name="Urgent">
+        <generalization xmi:type="uml:Generalization" xmi:id="_gen_urgent" general="_st_critical"/>
+      </packagedElement>
       <packagedElement xmi:type="uml:Enumeration" xmi:id="_enum_grade" name="Grade">
         <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_grade_high" name="high"/>
         <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_lit_grade_low" name="low"/>
@@ -257,6 +260,7 @@
     <grade>high</grade>
     <grade>low</grade>
   </Plant_Profile:Critical>
+  <Plant_Profile:Urgent xmi:id="_app_urgent_seal" base_Class="_req_seal" level="3"/>
 
   <MagicDraw_Profile:InstanceTable xmi:id="_tbl_pumps" base_Diagram="_diag_pumps" scope="_pkg_inventory" includeSubtypesOfRowTypes="true" showScopeAsRoot="false" displayMode="Compact tree" additionalElements="_inst_s1 _inst_s2" excludedElements="_inst_p2 _nowhere">
     <classifiers xmi:idref="_blk_pump"/>
@@ -316,6 +320,8 @@
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Critical&gt;&gt;.level</columnIds>
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Critical&gt;&gt;.grade</columnIds>
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Missing&gt;&gt;.level</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Urgent&gt;&gt;.level</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Plant Profile::Urgent&gt;&gt;.priority</columnIds>
     <columnIds>PROPERTY_COLUMN</columnIds>
     <columnIds>VALUE_COLUMN</columnIds>
     <hideColumns>PROPERTY_COLUMN</hideColumns>

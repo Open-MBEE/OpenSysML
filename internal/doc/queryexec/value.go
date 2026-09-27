@@ -200,10 +200,26 @@ type Column struct {
 	name   string
 	origin symbols.Origin
 	width  int
+	label  string
 }
 
 // Name returns the projected property name.
 func (c Column) Name() string { return c.name }
+
+// Label is the heading the column is presented under: the stated label, or
+// the name when none is stated.
+func (c Column) Label() string {
+	if c.label != "" {
+		return c.label
+	}
+	return c.name
+}
+
+// WithLabel returns the column headed label; "" heads it by its name.
+func (c Column) WithLabel(label string) Column {
+	c.label = label
+	return c
+}
 
 // Width is the column's stated width in source units relative to the other
 // columns of its table, 0 when the column is sized automatically.

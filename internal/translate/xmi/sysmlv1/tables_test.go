@@ -51,6 +51,9 @@ func tableDocument(applications, properties string) []byte {
       <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_props" name="Properties">
         <ownedAttribute xmi:type="uml:Property" xmi:id="_st_props_key" name="Key"/>
       </packagedElement>
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st_reviewed" name="Reviewed">
+        <generalization xmi:type="uml:Generalization" xmi:id="_st_reviewed_gen" general="_st_props"/>
+      </packagedElement>
     </packagedElement>
     <packagedElement xmi:type="uml:Package" xmi:id="_p" name="P">
       <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A"/>
@@ -95,6 +98,8 @@ const timingTable = `
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Req Profile::Properties&gt;&gt;.Key</columnIds>
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Properties&gt;&gt;.Key</columnIds>
     <columnIds>QPROP:stereotypeTags:&lt;&lt;Other&gt;&gt;.Key</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Req Profile::Reviewed&gt;&gt;.Key</columnIds>
+    <columnIds>QPROP:stereotypeTags:&lt;&lt;Reviewed&gt;&gt;.Grade</columnIds>
     <columnIds>QPROP:stereotypeTags:Properties.Key</columnIds>
     <columnIds>QPROP:Element:owner</columnIds>
     <hideColumns>QPROP:Element:owner</hideColumns>
@@ -136,22 +141,31 @@ func TestTableSettingsAreRead(t *testing.T) {
 		{ID: "QPROP:stereotypeTags:<<Req Profile::Properties>>.Key", Kind: ColumnStereotypeTag, Profile: "Req Profile", Stereotype: "Properties", Tag: "Key"},
 		{ID: "QPROP:stereotypeTags:<<Properties>>.Key", Kind: ColumnStereotypeTag, Stereotype: "Properties", Tag: "Key", Width: 105},
 		{ID: "QPROP:stereotypeTags:<<Other>>.Key", Kind: ColumnStereotypeTag, Stereotype: "Other", Tag: "Key"},
+		{ID: "QPROP:stereotypeTags:<<Req Profile::Reviewed>>.Key", Kind: ColumnStereotypeTag, Profile: "Req Profile", Stereotype: "Reviewed", Tag: "Key"},
+		{ID: "QPROP:stereotypeTags:<<Reviewed>>.Grade", Kind: ColumnStereotypeTag, Stereotype: "Reviewed", Tag: "Grade"},
 		{ID: "QPROP:stereotypeTags:Properties.Key", Kind: ColumnUnknown},
 		{ID: "QPROP:Element:owner", Kind: ColumnProperty, Property: "owner", Hidden: true},
+	}
+	// The stereotype and tag each column resolves to: Reviewed inherits Key
+	// from Properties, which it specializes, and defines no Grade.
+	wantDefs := map[string][2]string{
+		"QPROP:stereotypeTags:<<Req Profile::Properties>>.Key": {"_st_props", "_st_props_key"},
+		"QPROP:stereotypeTags:<<Properties>>.Key":              {"_st_props", "_st_props_key"},
+		"QPROP:stereotypeTags:<<Req Profile::Reviewed>>.Key":   {"_st_reviewed", "_st_props_key"},
+		"QPROP:stereotypeTags:<<Reviewed>>.Grade":              {"_st_reviewed", ""},
 	}
 	if len(tb.Columns) != len(want) {
 		t.Fatalf("columns: %d, want %d", len(tb.Columns), len(want))
 	}
 	for i, c := range tb.Columns {
 		w := want[i]
-		def := c.TagDefinition
-		c.TagDefinition = nil
+		def, tag := c.Definition, c.TagDefinition
+		c.Definition, c.TagDefinition = nil, nil
 		if c != w {
 			t.Errorf("column %d: %+v, want %+v", i, c, w)
 		}
-		wantDef := w.Kind == ColumnStereotypeTag && w.Stereotype == "Properties"
-		if (def != nil) != wantDef || (def != nil && def.ID != "_st_props_key") {
-			t.Errorf("column %d: tag definition %v, want resolved=%v", i, def, wantDef)
+		if got := [2]string{elementID(def), elementID(tag)}; got != wantDefs[c.ID] {
+			t.Errorf("column %d: stereotype and tag %q, want %q", i, got, wantDefs[c.ID])
 		}
 	}
 	if len(tb.Malformed) != 0 {
@@ -243,4 +257,11 @@ func TestDiagramPropertiesSingleChoiceAndGarbage(t *testing.T) {
 	if f := m.Tables[0].RowFilter; f != nil {
 		t.Errorf("unsaved filter read as %+v", f)
 	}
+}
+
+func elementID(e *Element) string {
+	if e == nil {
+		return ""
+	}
+	return e.ID
 }

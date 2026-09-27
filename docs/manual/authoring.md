@@ -308,6 +308,27 @@ part masses : Table {
 }
 ```
 
+### Column labels
+
+A `columnLabels` attribute states the headings of the projected columns, in
+order, where they differ from the column names: a column's name is the unique
+key the query, `groupBy` and the HTML `data-column` attribute know it by, while
+its label is what the reader sees over it, so two columns may be headed alike
+(`Key` and `Key`) though named apart (`Key` and `Key 2`). `""` heads a column
+by its name, and an entry for every column is not required. A migrated Cameo
+table is headed as the tool headed it — `Id`, `Text`, `classifier`, the tag's
+name over a stereotype-tag column — over the query properties it reads
+(`shortName`, `documentation`, `general`). Every backend prints the label;
+HTML keeps the name on the cell and heading as `data-column`.
+
+```sysml
+part key : Table {
+	attribute redefines caption = "Key Requirements";
+	attribute redefines columnLabels = ("Id", "", "Text");
+	calc rows : KeyRequirements;
+}
+```
+
 ## Lists
 
 A `List` requires a query and renders each result value as one item. `style`

@@ -1,6 +1,9 @@
 package docir
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 const widthsFixture = `
 	part def Sub;
@@ -20,6 +23,7 @@ const widthsFixture = `
 		attribute redefines title = "Report";
 		part sized : Table {
 			attribute redefines columnWidths = (206, 774);
+			attribute redefines columnLabels = ("Item", "");
 			calc rows : Named { in root = telescope; }
 		}
 		part nested : Table {
@@ -29,8 +33,9 @@ const widthsFixture = `
 `
 
 // TestEvaluateTableCarriesColumnWidthsAndRowDepth locks that a table's stated
-// widths reach its columns by position, with the unstated remainder automatic,
-// and that a tree query's row depths reach the evaluated rows.
+// widths and labels reach its columns by position, with the unstated remainder
+// automatic and headed by name, and that a tree query's row depths reach the
+// evaluated rows.
 func TestEvaluateTableCarriesColumnWidthsAndRowDepth(t *testing.T) {
 	fixture := loadEvaluationFixture(t, widthsFixture)
 	document := fixture.mustEvaluate(t, "Report")
@@ -41,6 +46,13 @@ func TestEvaluateTableCarriesColumnWidthsAndRowDepth(t *testing.T) {
 	}
 	if len(widths) != 3 || widths[0] != 206 || widths[1] != 774 || widths[2] != 0 {
 		t.Fatalf("column widths = %v", widths)
+	}
+	labels := make([]string, 0, 3)
+	for _, column := range sized.Columns() {
+		labels = append(labels, column.Label())
+	}
+	if !reflect.DeepEqual(labels, []string{"Item", "documentation", "qualifiedName"}) {
+		t.Fatalf("column labels = %v", labels)
 	}
 	nested := document.Content()[1]
 	rows := nested.Rows()

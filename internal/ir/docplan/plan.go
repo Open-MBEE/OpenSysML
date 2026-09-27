@@ -284,6 +284,7 @@ type Content struct {
 	style        ListStyle
 	groupBy      string
 	columnWidths []int
+	columnLabels []string
 	term         string
 	description  string
 	runs         []Run
@@ -330,6 +331,10 @@ func (c Content) GroupBy() string { return c.groupBy }
 // order, one per column stated; 0 sizes a column automatically.
 func (c Content) ColumnWidths() []int { return append([]int(nil), c.columnWidths...) }
 
+// ColumnLabels returns the stated headings of a table's columns in projection
+// order, one per column stated; "" heads a column by its name.
+func (c Content) ColumnLabels() []string { return append([]string(nil), c.columnLabels...) }
+
 // Term returns the projected column naming each entry of a definitions node.
 func (c Content) Term() string { return c.term }
 
@@ -370,6 +375,7 @@ func cloneContent(content []Content) []Content {
 			style:        child.style,
 			groupBy:      child.groupBy,
 			columnWidths: append([]int(nil), child.columnWidths...),
+			columnLabels: append([]string(nil), child.columnLabels...),
 			term:         child.term,
 			description:  child.description,
 			runs:         cloneRuns(child.runs),
