@@ -50,7 +50,7 @@ turned out to rest on a clause after all — retained so it is not re-audited).
 | 1 | Silent wrong result | Redefinition whose target is a feature chain (the motivating case) | accepts, no effect | redefines the chained feature (since #634) | spec clear (author-confirmed); pilot short |
 | 2 | Silent wrong result | `Natural / Natural` evaluates to a `Rational` against a `Natural[1]` return declaration | evaluates `5/2` to `2.5` | types the operator `Rational`, as the pilot; the named function `NaturalFunctions::'/'` follows its declaration | spec ambiguous (library text vs. evaluator) |
 | 3 | Silent wrong result | Two enabled branches of one choice (state machine or `decide`); which is taken | no executor; not exercised | first enabled in declaration order | spec silent |
-| 4 | Silent wrong result | Filter conditions that read through a feature chain rooted in an unfeatured feature | evaluates them | reports the chain as not evaluated (known limitation) | spec clear; ours short |
+| 4 | Silent wrong result | Filter conditions that read through a multi-hop feature chain, or a computed value, rooted in an unfeatured feature | evaluates them | reported as not evaluated and the filter not applied; fixed in #642 | spec clear; ours short |
 | 5 | Silent wrong result | Repeated literal values bound to a unique multi-valued feature (`Integer[*] = (1, 1)`) | silent | reports the duplicate | spec clear; pilot short |
 | 6 | Silent wrong result | Invocation leaving a required `in` parameter unbound (`F(1.0)` with two inputs) | silent | advisory only | spec ambiguous (no constraint stated) |
 | 7 | Spurious error | Bare `import X::*;` without a visibility indicator | parse error | warning, then imports | pilot-following justified by the grammar; severity is ours |
@@ -181,15 +181,22 @@ declaration order normative, or should a validator report the overlap?
 **Model text**
 
 ```kerml
-package P { feature root { feature n : ScalarValues::Integer = 1; } }
-package Q { import P::*[root.n == 1]; }
+package P {
+    feature root { feature n : ScalarValues::Integer = 1; feature m : ScalarValues::Integer = n + 1;
+                   feature inner { feature k : ScalarValues::Integer = 3; } }
+}
+package Q { private import P::*[root.inner.k == 3]; }   // likewise [root.m == 2]
 ```
 
-**Pilot:** evaluates the condition (recorded in the code comment `chainLimitation`,
-`internal/semantic/semantics/filter.go`: "the reference accepts chains rooted in a feature with no
-featuring type").
+**Pilot:** evaluates the condition (recorded in the code comment `chainLimitation` of
+`internal/semantic/semantics/filter.go` before #642: "the reference accepts chains rooted in a
+feature with no featuring type").
 
-**OpenSysML:** reports the chain as outside the evaluable subset and does not apply the filter.
+**OpenSysML:** before #642, only a one-hop chain to a literal value (`root.n == 1`) was evaluated;
+`root.inner.k` and `root.m` were reported as not evaluated and the filter was not applied. #642
+evaluates every hop and the read feature's value expression; a chain through a feature with its
+own value, a non-numeric/boolean terminal value, or a metaclass feature still reports the
+limitation.
 
 **Specification:** KerML §8.3.4.13.2 `ElementFilterMembership`,
 `validateElementFilterMembershipConditionIsModelLevelEvaluable`: "The condition Expression must be
@@ -202,8 +209,7 @@ argument, so a chain rooted in an unfeatured feature is evaluable when the roote
 (reported, not silent) but a filtered import with an unfiltered result is a wrong model. Listed
 because the only rationale recorded is the pilot's acceptance, not the clause above.
 
-**Question for the authors:** none needed for the rule; the follow-up is to evaluate chains whose
-root has no featuring type.
+**Question for the authors:** none needed for the rule; the follow-up is #642.
 
 ### 5. Repeated values bound to a unique feature
 
