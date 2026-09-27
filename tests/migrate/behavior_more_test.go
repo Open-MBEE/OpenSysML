@@ -710,7 +710,7 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
-	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it leaves the state and for both when the transition stays within it, so that occurrence is kept as well")
 	wantClean(t, "deferralInactiveSubstate", r)
 
 	s := session(t, r)
@@ -741,6 +741,67 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 // occurrences as a v2 accept typed by the general does, so under -strict the
 // state does not keep the signal; a transition on a specialization takes only
 // the occurrences of that specialization, so the state keeps the general.
+func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_pick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tPick" source="_off" target="_pick">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPick" event="_doorEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPicked" source="_pick" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	wantNoLine(t, r.Notation, "choice pick;")
+	for _, line := range []string{
+		"state Off {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantClean(t, "deferralTargetNoForm", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
 func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	const signals = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>

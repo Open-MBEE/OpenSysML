@@ -1109,7 +1109,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			if !s.m.acceptsGeneralOf(t, k.sig) {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else if s.m.model.Ref(t, "source") != v {
-				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
+				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it leaves the state and for both when the transition stays within it, so that occurrence is kept as well")
 			} else {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
 			}
@@ -1302,6 +1302,9 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Ele
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
+			if !m.targetHasForm(t) {
+				continue
+			}
 			for _, tr := range t.Owned("trigger") {
 				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.signalsMeet(sig, m.model.Ref(ev, "signal")) {
 					g := m.guardOf(t)
@@ -1322,6 +1325,17 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Ele
 	}
 	walk(v)
 	return always, contested
+}
+
+// targetHasForm reports whether transition t leads somewhere the output can
+// name, so the transition is written and accepts its trigger: not a vertex
+// outside the document, nor a pseudostate with no v2 form.
+func (m *migration) targetHasForm(t *sysmlv1.Element) bool {
+	tgt := m.model.Ref(t, "target")
+	if tgt == nil || tgt.IsProxy() {
+		return false
+	}
+	return tgt.Type != "Pseudostate" || (m.extensionVertex(tgt) == "" && m.points[tgt].why == "")
 }
 
 // signalConforms reports whether every occurrence of signal sig is one of
