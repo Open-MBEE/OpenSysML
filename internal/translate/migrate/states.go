@@ -138,6 +138,7 @@ func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) 
 		if v.Type == "State" {
 			m.nameVertex(v, owner, used)
 			inner := inheritedStateNamesSet()
+			m.stateUsed[v] = inner
 			m.namePoints(v, inner)
 			m.nameRegions(m.populatedRegions(v), v, inner)
 			for _, pr := range pointRegions(v) {
@@ -884,26 +885,26 @@ func (m *migration) writtenPoints(v *sysmlv1.Element) int {
 func (s *stateRegion) state(v *sysmlv1.Element) {
 	name := writeName(s.name(v))
 	s.m.madeUp(v, name)
-	defers := s.deferrals(v)
+	entry, do, exit := s.m.behaviorIn(v, "entry"), s.m.behaviorIn(v, "doActivity"), s.m.behaviorIn(v, "exit")
+	defers := s.deferrals(v, do, exit)
 	head := s.stateHead(v, name)
 	regions := s.m.populatedRegions(v)
-	entry, do, exit := s.m.behaviorIn(v, "entry"), s.m.behaviorIn(v, "doActivity"), s.m.behaviorIn(v, "exit")
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
-	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
+	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers.kept) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
 		s.m.w.line(head + ";")
 		s.m.statePoints(v)
 		return
 	}
 	s.m.w.block(head, func() {
 		s.m.writeComments(v, false)
-		s.m.w.lines(defers)
+		s.deferredHead(v, defers)
 		if inv != nil {
 			s.m.invariant(inv)
 		}
 		entered := entry != nil && s.m.inlineBehavior("entry action", entry, v)
-		between := s.betweenActions(v, do, exit, points)
+		between := s.betweenActions(v, do, exit, points, defers)
 		if len(regions) == 0 {
 			between()
 		} else {
@@ -915,13 +916,19 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 
 // betweenActions is a state's block body after its entry action: its do and
 // exit actions and its connection points.
-func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, points []*sysmlv1.Element) func() {
+func (s *stateRegion) betweenActions(v, do, exit *sysmlv1.Element, points []*sysmlv1.Element, defers *deferrals) func() {
 	return func() {
-		if do != nil {
-			s.m.inlineBehavior(doAction, do, v)
-		}
-		if exit != nil {
-			s.m.inlineBehavior(exitAction, exit, v)
+		switch {
+		case defers.encoded():
+			s.deferredDo(v, do, defers)
+			s.deferredExit(v, exit, defers)
+		default:
+			if do != nil {
+				s.m.inlineBehavior(doAction, do, v)
+			}
+			if exit != nil {
+				s.m.inlineBehavior(exitAction, exit, v)
+			}
 		}
 		if len(points) > 0 {
 			s.m.statePoints(v)
@@ -985,10 +992,36 @@ func (m *migration) invariant(inv *sysmlv1.Element) {
 	m.unmapped(inv, note)
 }
 
-// deferrals writes a state's deferrable triggers as `defer Sig;` lines: v2
-// defers the signal a transition would accept, so no other event kind can be.
-func (s *stateRegion) deferrals(v *sysmlv1.Element) []string {
-	var lines []string
+// deferral is a deferrable trigger a state keeps, with the members a strict
+// migration encodes it through: its buffer item and its accept loop.
+type deferral struct {
+	trigger, event, sig            *sysmlv1.Element
+	buffer, receive, keep, payload string
+}
+
+// deferrals is what a state defers and how it is written: `defer Sig;` lines by
+// default, or under -strict the members of the buffering do and flushing exit actions.
+type deferrals struct {
+	kept  []*deferral
+	lines []string
+	// split forks the accept loops beside the state's own do behavior, run;
+	// exitRun is the state's own exit behavior inside flush.
+	buffer, split, run, flush, exitRun string
+}
+
+// encoded reports whether the state's body carries the standard encoding.
+func (d *deferrals) encoded() bool {
+	return d.buffer != ""
+}
+
+// deferredEventFQN names the library metadata marking a deferred signal.
+const deferredEventFQN = "MigrationMetadata::DeferredEvent"
+
+// deferrals reads a state's deferrable triggers: v2 defers the signal a
+// transition would accept, so no other event kind can be, and a signal a
+// transition out of the state accepts is never deferred, the transition winning.
+func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
+	out := &deferrals{}
 	for _, d := range v.Owned("deferrableTrigger") {
 		ev := s.m.model.Ref(d, "event")
 		if ev == nil {
@@ -1007,18 +1040,223 @@ func (s *stateRegion) deferrals(v *sysmlv1.Element) []string {
 			continue
 		}
 		if s.m.strict {
-			note := s.m.extensionOnly("defer <event>;")
-			s.m.add(d, Unmapped, "", note)
-			s.m.add(ev, Unmapped, "", note)
-			continue
+			if t := s.m.acceptsOutOf(v, sig); t != nil {
+				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it"
+				s.m.add(d, Approximated, "", note)
+				continue
+			}
+			if t := s.m.completionOutOf(v); t != nil {
+				note := "the completion transition " + describe(t) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
+				s.m.add(d, Unmapped, "", note)
+				s.m.add(ev, Unmapped, "", note)
+				continue
+			}
 		}
-		clause := "defer " + s.m.ref(sig, v)
-		lines = append(lines, clause+";")
-		note := "written as " + clause + ", an OpenSysML extension of the notation that the runtime executes"
-		s.m.add(d, Approximated, "", note)
-		s.m.add(ev, Approximated, "", "written where a trigger refers to it, as "+clause+", an OpenSysML extension of the notation")
+		out.kept = append(out.kept, &deferral{trigger: d, event: ev, sig: sig})
 	}
-	return lines
+	if len(out.kept) == 0 {
+		return out
+	}
+	if !s.m.strict {
+		for _, k := range out.kept {
+			clause := "defer " + s.m.ref(k.sig, v)
+			out.lines = append(out.lines, clause+";")
+			note := "written as " + clause + ", an OpenSysML extension of the notation that the runtime executes; the state is annotated @" + deferredEventFQN
+			s.m.add(k.trigger, Approximated, "", note)
+			s.m.add(k.event, Approximated, "", "written where a trigger refers to it, as "+clause+", an OpenSysML extension of the notation")
+		}
+		return out
+	}
+	s.nameDeferrals(v, do, exit, out)
+	for _, k := range out.kept {
+		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
+		s.m.add(k.trigger, Approximated, "", note)
+		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
+	}
+	return out
+}
+
+// nameDeferrals names the members the standard encoding adds to the state's
+// body and to its do action, clear of the members the state has of its own.
+func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) {
+	used, ok := s.m.stateUsed[v]
+	if !ok {
+		used = inheritedStateNamesSet()
+		s.m.stateUsed[v] = used
+	}
+	for _, k := range d.kept {
+		base := "deferred"
+		if len(d.kept) > 1 {
+			base += identifierSuffix(s.m.nameFor(k.sig))
+		}
+		k.buffer = s.m.freshMember(v, used, base)
+	}
+	d.buffer = s.m.freshMember(v, used, "buffer")
+	d.flush = s.m.freshMember(v, used, "flush")
+	inner := inheritedActionNamesSet()
+	if do != nil {
+		d.run = s.m.nestedBehaviorName(do, v, inner, "run", d.buffer)
+	}
+	if exit != nil {
+		d.exitRun = s.m.nestedBehaviorName(exit, v, inheritedActionNamesSet(), "run", d.flush)
+	}
+	if do != nil || len(d.kept) > 1 {
+		d.split = freshIn(inner, "split")
+	}
+	for _, k := range d.kept {
+		suffix := ""
+		if len(d.kept) > 1 {
+			suffix = identifierSuffix(s.m.nameFor(k.sig))
+		}
+		k.receive = freshIn(inner, "receive"+suffix)
+		k.keep = freshIn(inner, "keep"+suffix)
+		k.payload = freshIn(inner, deferredPayload+suffix)
+	}
+}
+
+// nestedBehaviorName names the action a state's behavior becomes in the body
+// of the generated action it is nested in: the behavior's own name when the
+// state owns it and no inherited member takes it, base otherwise. A behavior
+// declared elsewhere keeps its own name there; the nested action is fresh.
+// An owned behavior's qualified name gains the segment within.
+func (m *migration) nestedBehaviorName(b, owner *sysmlv1.Element, used map[string]bool, base, within string) string {
+	name := m.nameOf(b)
+	if b.Parent != owner {
+		if name != "" && !used[name] {
+			used[name] = true
+			return name
+		}
+		return freshIn(used, base)
+	}
+	m.nestedIn[b] = within
+	if name == "" || used[name] {
+		name = freshIn(used, base)
+		m.names[b], m.synthesized[b] = name, true
+		return name
+	}
+	used[name] = true
+	return name
+}
+
+// acceptsOutOf returns a transition out of state v, or out of a vertex within
+// it, that a trigger referring to signal sig fires; nil when none does.
+func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) *sysmlv1.Element {
+	var found *sysmlv1.Element
+	var walk func(e *sysmlv1.Element)
+	walk = func(e *sysmlv1.Element) {
+		for _, t := range m.outgoing[e] {
+			for _, tr := range t.Owned("trigger") {
+				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.model.Ref(ev, "signal") == sig {
+					found = t
+					return
+				}
+			}
+		}
+		for _, r := range e.Owned("region") {
+			for _, sub := range r.Owned("subvertex") {
+				walk(sub)
+				if found != nil {
+					return
+				}
+			}
+		}
+	}
+	walk(v)
+	return found
+}
+
+// completionOutOf returns a transition out of state v that no trigger fires,
+// which v1 takes when the state's do activity completes; nil when none.
+func (m *migration) completionOutOf(v *sysmlv1.Element) *sysmlv1.Element {
+	for _, t := range m.outgoing[v] {
+		if len(t.Owned("trigger")) == 0 && t.Attrs["kind"] != "internal" {
+			return t
+		}
+	}
+	return nil
+}
+
+// deferredHead writes what a state's body opens with for its deferrals: the
+// `defer` lines, the annotation naming each deferred signal, and under
+// -strict the item buffering each.
+func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
+	s.m.w.lines(d.lines)
+	prefix := ""
+	if s.m.shadowsLibrary("MigrationMetadata", v) {
+		prefix = "$::"
+	}
+	for _, k := range d.kept {
+		s.m.w.line("@" + prefix + deferredEventFQN + " { ref :>> signal : " + s.m.ref(k.sig, v) + "; }")
+	}
+	if !d.encoded() {
+		return
+	}
+	for _, k := range d.kept {
+		s.m.w.line("item " + writeName(k.buffer) + " : " + s.m.ref(k.sig, v) + "[*] ordered;")
+		s.m.w.madeUp(k.buffer)
+	}
+}
+
+// deferredPayload is the base name of a generated accept's parameter and of a
+// generated flush loop's variable.
+const deferredPayload = "kept"
+
+// deferredDo writes the do action that keeps each deferred signal while the
+// state is active: one endless accept loop per signal, run beside the state's
+// own do behavior when it has one.
+func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
+	s.m.w.block(doAction+" "+writeName(d.buffer), func() {
+		if d.split != "" {
+			s.m.w.line("first start then " + d.split + ";")
+			s.m.w.line("fork " + d.split + ";")
+			s.m.w.madeUp(d.split)
+			if do != nil {
+				s.m.w.line("then " + writeName(d.run) + ";")
+			}
+			for _, k := range d.kept {
+				s.m.w.line("then " + k.receive + ";")
+			}
+		} else {
+			s.m.w.line("first start then " + d.kept[0].receive + ";")
+		}
+		if do != nil {
+			if s.m.inlineBehaviorHeaded(doAction, "action "+writeName(d.run), do, v) {
+				s.m.madeUp(do, d.run)
+			}
+		}
+		for _, k := range d.kept {
+			sig := s.m.ref(k.sig, v)
+			s.m.w.line("action " + k.receive + " accept " + k.payload + " : " + sig + ";")
+			s.m.w.line("then action " + k.keep + " { assign " + writeName(k.buffer) + " := SequenceFunctions::including(" + writeName(k.buffer) + ", " + k.receive + "." + k.payload + "); }")
+			s.m.w.line("then " + k.receive + ";")
+			s.m.w.madeUp(k.receive)
+			s.m.w.madeUp(k.keep)
+		}
+	})
+	s.m.w.madeUp(d.buffer)
+}
+
+// deferredExit writes the exit action that sends each kept occurrence to the
+// state's own object once the state exits, after the state's own exit behavior.
+func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
+	s.m.w.block(exitAction+" "+writeName(d.flush), func() {
+		prefix := ""
+		if exit != nil && s.m.inlineBehaviorHeaded(exitAction, "action "+writeName(d.exitRun), exit, v) {
+			s.m.madeUp(exit, d.exitRun)
+			prefix = "then "
+		}
+		for _, k := range d.kept {
+			s.m.w.line(prefix + "for " + k.payload + " in " + writeName(k.buffer) + " { send " + k.payload + " to self; }")
+			prefix = "then "
+		}
+	})
+	s.m.w.madeUp(d.flush)
+}
+
+// inheritedActionNamesSet is a fresh used-name set seeded with the members
+// every action usage inherits, for an action body that hands out names.
+func inheritedActionNamesSet() map[string]bool {
+	return map[string]bool{"start": true, "done": true, "self": true}
 }
 
 // inheritedStateNames are the members every state usage inherits, which the
@@ -1041,8 +1279,14 @@ func inheritedStateNamesSet() map[string]bool {
 // inlineBehavior writes a behavior a state or transition owns as the action
 // kw of the current body, and reports whether anything was written.
 func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
+	return m.inlineBehaviorHeaded(kw, kw, b, owner)
+}
+
+// inlineBehaviorHeaded is inlineBehavior declaring the behavior as head, a
+// keyword and name, where it is nested; kw still says what it is to the state.
+func (m *migration) inlineBehaviorHeaded(kw, head string, b, owner *sysmlv1.Element) bool {
 	if b.Parent != owner {
-		return m.referencedBehavior(kw, b, owner)
+		return m.referencedBehavior(kw, head, b, owner)
 	}
 	saved := m.scope
 	m.scope = b
@@ -1060,8 +1304,8 @@ func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
 			m.unbound(b, performsIts+kw+" with no arguments; only a transition's effect receives the accepted signal")
 		}
 	}
-	header := kw
-	if name := m.nameOf(b); name != "" {
+	header := head
+	if name := m.nameOf(b); name != "" && head == kw {
 		if inheritedStateNames[name] {
 			name = freshIn(map[string]bool{name: true}, name)
 			m.names[b] = name
@@ -1130,7 +1374,7 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 
 // referencedBehavior writes `kw : ref` for a behavior written elsewhere, binding
 // its context and signal-carried parameters where it can and reporting why not.
-func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) bool {
+func (m *migration) referencedBehavior(kw, head string, b, owner *sysmlv1.Element) bool {
 	if !m.written(b) {
 		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
 		m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
@@ -1163,7 +1407,7 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 			return false
 		}
 	}
-	line := kw + " : " + m.ref(b, owner)
+	line := head + " : " + m.ref(b, owner)
 	switch {
 	case len(ins) > 0:
 		line += " { " + strings.Join(ins, "; ") + "; }"
@@ -1588,7 +1832,7 @@ func (m *migration) reentryObservable(v *sysmlv1.Element) bool {
 	if m.behaviorIn(v, "entry") != nil || m.behaviorIn(v, "exit") != nil || m.behaviorIn(v, "doActivity") != nil {
 		return true
 	}
-	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || (!m.strict && len(v.Owned("deferrableTrigger")) > 0)
+	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || len(v.Owned("deferrableTrigger")) > 0
 }
 
 // behaviorIn gives the behavior a state or transition runs in a role, whether

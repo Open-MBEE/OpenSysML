@@ -308,7 +308,10 @@ By default a migration may write OpenSysML's own extensions — `defer <event>;`
 `choice`, `junction` and `history` pseudostates — which the runtime executes but no SysML v2
 production admits, so another tool would not read them. Pass `-strict` (see
 [Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
-conforming SysML v2 only, refusing each such construct as **unmapped** instead:
+conforming SysML v2 only: a deferred signal becomes standard notation — an `item` buffer the
+state's do action fills from an accept loop while the state is active, substates included,
+and its exit action sends back to the object once the state is left — and each pseudostate
+extension is refused as **unmapped** instead:
 
 ```console
 $ sysml Project.xmi -strict -convert sysml -o Project.sysml
@@ -316,8 +319,12 @@ $ sysml -strict -validate Project.sysml
 ✓ Project.sysml: no errors
 ```
 
-What a strict migration refuses is listed in the reference under
+What a strict migration refuses, and how it encodes a deferred signal, is described in the
+reference under
 [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+In both modes a state that defers a signal is annotated
+`@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }`, so a reader sees what was
+deferred without reading the encoding.
 
 ## Publishing a migrated document with Cameo-style diagrams
 
