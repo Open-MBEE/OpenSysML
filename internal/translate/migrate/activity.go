@@ -1709,6 +1709,13 @@ func (a *activity) starve(pin *sysmlv1.Element, to, why string) {
 // parameter to, as a bind at a parameter or a flow between pins.
 func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 	if callee, p := a.calleeOutput(s); callee != nil && p == nil {
+		if a.m.placeholders[s.Parent] {
+			if from, ok := a.pinRef(s); ok {
+				a.dataEdge(e, s, tgt, from, to)
+				a.m.add(e, Approximated, "", "the flow is written, but its source "+describe(s.Parent)+" is not migrated and produces no value")
+				return
+			}
+		}
 		why := "the pin " + describe(s) + " of " + describe(s.Parent) + " stands for no out parameter of the called " + qualifiedName(callee) + ", so it carries no value"
 		a.m.w.line(flowNote + describe(s) + " to " + to + notWritten + why + " */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: "+why+", and none reaches "+describe(tgt))
@@ -1733,6 +1740,11 @@ func (a *activity) objectFlowSource(e, s, tgt *sysmlv1.Element, to string) {
 		return
 	}
 	if a.inert[s.Parent] {
+		if a.m.placeholders[s.Parent] {
+			a.dataEdge(e, s, tgt, from, to)
+			a.m.add(e, Approximated, "", "the flow is written, but its source "+describe(s.Parent)+" is not migrated and produces no value")
+			return
+		}
 		a.m.w.line(flowNote + from + " to " + to + notWritten + describe(s.Parent) + " is not migrated and produces no value */")
 		a.m.add(e, Approximated, "", "the flow is kept as a comment: its source "+describe(s.Parent)+" is not migrated, so no value reaches "+describe(s))
 		a.starve(tgt, to, describe(s.Parent)+" is not migrated")

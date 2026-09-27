@@ -653,14 +653,14 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
 		"in target : Coords[0..1];",
 		"perform action aim ::> Sky::aim;",
-		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
+		"flow zero.result to aim.target;",
 		"first zero then aim;",
 		"first aim then final;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "not migrated: CallBehaviorAction 'aim'")
-	wantNoLine(t, r.Notation, "flow zero.result to aim.target;")
+	wantNote(t, r, "_of", migrate.Approximated, "the flow is written, but its source 'zero' is not migrated and produces no value")
 	wantNote(t, r, "_zero", migrate.Approximated, "the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base")
 	wantNote(t, r, "_callAim", migrate.Approximated, "the pin 'target' it passes for the parameter target of Sky::Aim receives none: 'zero', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_aimIn", migrate.Approximated, "it is declared admitting no value: the pin 'target' the call 'aim' in Sky::Run passes for it receives none: 'zero', which feeds it, produces no value, and v1 runs the callee without one")
