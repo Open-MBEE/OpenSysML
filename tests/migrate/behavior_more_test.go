@@ -196,6 +196,9 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, strict, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 	wantNote(t, strict, "_pick", migrate.Unmapped, "`choice <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
 	wantNoLine(t, strict.Notation, "choice choice;")
+	noExtensionStatement(t, strict.Notation)
+	wantNote(t, strict, "_trOff", migrate.Unmapped, "its transition is not written")
+	wantNote(t, strict, "_gWorn", migrate.Unmapped, "the guard [cycles >= 3] is dropped with it")
 
 	r = migrateDocument(t, ovenMachine, ovenApplications)
 	s := session(t, r)

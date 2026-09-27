@@ -737,7 +737,11 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
-			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
+			why := "the target " + describe(tgt) + isA + kindOf(tgt) + outsideRegion
+			s.m.unmapped(t, why)
+			if s.m.strict {
+				s.refusedParts(t, why)
+			}
 		}
 		return
 	}
@@ -1638,13 +1642,21 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	}
 	from, ok := s.source(t, src)
 	if !ok {
-		s.m.unmapped(t, "the source "+describe(src)+s.noForm(src))
+		why := "the source " + describe(src) + s.noForm(src)
+		s.m.unmapped(t, why)
+		if s.m.strict {
+			s.refusedParts(t, why)
+		}
 		return
 	}
 	to := from
 	if !internal {
 		if to, ok = s.target(t, tgt); !ok {
-			s.m.unmapped(t, "the target "+describe(tgt)+s.noForm(tgt))
+			why := "the target " + describe(tgt) + s.noForm(tgt)
+			s.m.unmapped(t, why)
+			if s.m.strict {
+				s.refusedParts(t, why)
+			}
 			return
 		}
 	}
@@ -1682,6 +1694,33 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
+}
+
+// refusedParts accounts for the children of a transition a strict migration
+// refuses because an endpoint is an extension pseudostate: its triggers and
+// the events they name, its guard and its effect go unmapped with it, so the
+// report loses none of them.
+func (s *stateRegion) refusedParts(t *sysmlv1.Element, why string) {
+	note := "its transition is not written: " + why
+	for _, tr := range t.Owned("trigger") {
+		s.m.add(tr, Unmapped, "", note)
+		if ev := s.m.model.Ref(tr, "event"); ev != nil {
+			s.m.triggered[ev] = true
+			if !s.m.reported(ev) {
+				s.m.add(ev, Unmapped, "", note)
+			}
+		}
+	}
+	if g := s.m.guardOf(t); g != nil {
+		gnote := note
+		if spec := firstOwned(g, "specification"); spec != nil {
+			gnote += "; the guard [" + describeValue(spec) + "] is dropped with it"
+		}
+		s.m.add(g, Unmapped, "", gnote)
+	}
+	if eff := s.m.behaviorIn(t, "effect"); eff != nil && !s.m.reported(eff) {
+		s.m.add(eff, Unmapped, "", note)
+	}
 }
 
 // transitionBase spells the name a shown anonymous transition is declared
