@@ -1040,7 +1040,7 @@ func (w *dotWriter) dotStatedLabel(node *Node) []string {
 	height, header := w.headroom(node)
 	if !dotHoldsALine(width, height) {
 		attrs := []string{`label=""`}
-		if keyworded(node) {
+		if headed(node) {
 			attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 		}
 		return attrs
@@ -1052,9 +1052,10 @@ func (w *dotWriter) dotStatedLabel(node *Node) []string {
 	return attrs
 }
 
-// dotHoldsALine reports whether a box has room for one line of one glyph at the floor size.
+// dotHoldsALine reports whether a box has room for one line at the floor size,
+// were it the ellipsis alone.
 func dotHoldsALine(width, height float64) bool {
-	return width >= dotFitFloor*dotBoldGlyphEm && height >= dotFitFloor*dotFitLineEm
+	return width >= dotTextWidth("…", dotFitFloor, true) && height >= dotLineHeight(dotFitFloor)
 }
 
 // headroom is the height a stated box has for its title: the strip above the
@@ -1166,7 +1167,7 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 	if !isHistoryKind(node.Kind) {
 		attrs = append(attrs, `label=""`)
 	}
-	if keyworded(node) {
+	if headed(node) {
 		attrs = append(attrs, "xlabel="+dotQuote(w.labels.head(node)))
 	}
 	return attrs
@@ -1309,11 +1310,6 @@ func (l labeller) keywordSize() float64 {
 // dotFitFloor is the smallest font size, in points, a stated box's label shrinks to.
 const dotFitFloor = 8
 
-// dotFitLineEm is the height a line is fitted into a stated box at. Graphviz
-// lays the text out in the font's own metrics, which set a line up to 1.23em
-// (Liberation Sans standing in for Arial at 11pt), over its 1.2em estimate.
-const dotFitLineEm = 1.25
-
 // The Cameo compartment table's chrome about its text, in points: the padding
 // either side of a cell, and that of its two cells stacked (the rule between
 // them is drawn within it).
@@ -1324,7 +1320,7 @@ const (
 )
 
 // dotFittedLabel is a node's label composed to fit a stated box: the head wrapped
-// at the box's width and shrunk from the default size to the largest at which it
+// at the box's width and shrunk from the node's size to the largest at which it
 // fits, the keyword and detail lines after it while height remains. A head too
 // tall even at the floor is cut to the lines that fit and ellipsized. A Cameo
 // label with detail lines is set in the compartment table, so it is fitted to
@@ -1346,18 +1342,18 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 	lines := l.lines(node)
 	base := l.sizeOf(node)
-	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, base)
+	size, head, fits := dotFitText(l.headLines(node), true, width, height, base)
 	var parts labelParts
 	parts.head = l.sized(base, size, "<b>"+dotEscapeLines(head)+"</b>")
-	left := height - float64(len(head))*size*dotFitLineEm
+	left := height - float64(len(head))*dotLineHeight(size)
 	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
 		keyword := i == len(l.headLines(node)) && l.keyworded(node)
 		lineSize := size
 		if keyword {
 			lineSize = math.Round(size * l.keywordSize() / base)
 		}
-		wrapped := dotWrap(lines[i], dotRunesAcross(width, lineSize, dotGlyphEm))
-		used := float64(len(wrapped)) * lineSize * dotFitLineEm
+		wrapped := dotWrap(lines[i], width, lineSize, false)
+		used := float64(len(wrapped)) * dotLineHeight(lineSize)
 		if used > left {
 			break
 		}
@@ -1420,75 +1416,74 @@ func (l labeller) assemble(parts labelParts) string {
 }
 
 // dotFitText wraps lines of text into a box at the largest font size, from the
-// default down to the floor, at which they fit with their words whole, else at
+// one given down to the floor, at which they fit with their words whole, else at
 // the largest at which they fit with a word broken; when none does, the floor's
 // wrapping is cut to the lines the height holds, the last ellipsized. Each
-// entry is wrapped separately at the runes a glyph of the size holds and the
-// wrappings concatenated; a whole-word pass fails when any entry must break a
-// word.
-func dotFitText(text []string, glyph, width, height, from float64) (size float64, lines []string, fits bool) {
+// entry is wrapped separately at the box's width and the wrappings
+// concatenated; a whole-word pass fails when any entry must break a word.
+func dotFitText(text []string, bold bool, width, height, from float64) (size float64, lines []string, fits bool) {
 	for _, whole := range []bool{true, false} {
 		for size = from; size >= dotFitFloor; size-- {
-			across := dotRunesAcross(width, size, glyph)
 			lines = lines[:0]
 			broken := false
 			for _, entry := range text {
-				if whole && dotBreaksAWord(entry, across) {
+				if whole && dotBreaksAWord(entry, width, size, bold) {
 					broken = true
 					break
 				}
-				lines = append(lines, dotWrap(entry, across)...)
+				lines = append(lines, dotWrap(entry, width, size, bold)...)
 			}
 			if broken {
 				continue
 			}
-			if float64(len(lines))*size*dotFitLineEm <= height {
+			if float64(len(lines))*dotLineHeight(size) <= height {
 				return size, lines, true
 			}
 		}
 	}
 	size = dotFitFloor
-	across := dotRunesAcross(width, size, glyph)
 	lines = lines[:0]
 	for _, entry := range text {
-		lines = append(lines, dotWrap(entry, across)...)
+		lines = append(lines, dotWrap(entry, width, size, bold)...)
 	}
-	down := max(1, int(height/(size*dotFitLineEm)))
+	down := max(1, int(height/dotLineHeight(size)))
 	if len(lines) > down {
 		lines = lines[:down]
-		last := []rune(lines[down-1])
-		lines[down-1] = string(last[:max(0, min(len(last), across-1))]) + "…"
+		lines[down-1] = dotEllipsize(lines[down-1], width, size, bold)
 	}
 	return size, lines, false
 }
 
-// dotBreaksAWord reports whether wrapping text to across runes a line must break
-// a word: one longer than the line.
-func dotBreaksAWord(text string, across int) bool {
+// dotEllipsize cuts a line to the runes that fit across a width with an ellipsis
+// after them.
+func dotEllipsize(line string, width, size float64, bold bool) string {
+	runes := []rune(line)
+	for len(runes) > 0 && dotTextWidth(string(runes)+"…", size, bold) > width {
+		runes = runes[:len(runes)-1]
+	}
+	return string(runes) + "…"
+}
+
+// dotBreaksAWord reports whether wrapping text across a width must break a
+// word: one wider than the line.
+func dotBreaksAWord(text string, width, size float64, bold bool) bool {
 	for _, word := range strings.Fields(text) {
-		if utf8.RuneCountInString(word) > across {
+		if dotTextWidth(word, size, bold) > width {
 			return true
 		}
 	}
 	return false
 }
 
-// dotRunesAcross is how many glyphs of a font size fit across a width, one at
-// least so a line can be written at all.
-func dotRunesAcross(width, size, glyph float64) int {
-	return max(1, int(width/(size*glyph)))
-}
-
-// dotWrap word-wraps text to at most across runes a line, breaking a word longer
-// than that at the rune it overruns. A ":" that would end a line instead leads
-// the type name after it onto the next, where the two fit together.
-func dotWrap(text string, across int) []string {
+// dotWrap word-wraps text to lines no wider than width at a font size, breaking
+// a word wider than that at the rune it overruns. A ":" that would end a line
+// instead leads the type name after it onto the next, where the two fit together.
+func dotWrap(text string, width, size float64, bold bool) []string {
 	fits := func(line, word string) bool { // word fits on line, joined by a space when line is not empty
-		n := utf8.RuneCountInString(word)
 		if line != "" {
-			n += utf8.RuneCountInString(line) + 1
+			word = line + " " + word
 		}
-		return n <= across
+		return dotTextWidth(word, size, bold) <= width
 	}
 	var lines []string
 	line := ""
@@ -1506,9 +1501,13 @@ func dotWrap(text string, across int) []string {
 			lines = append(lines, line)
 		}
 		runes := []rune(word)
-		for len(runes) > across {
-			lines = append(lines, string(runes[:across]))
-			runes = runes[across:]
+		for !fits("", string(runes)) && len(runes) > 1 {
+			cut := len(runes) - 1
+			for cut > 1 && !fits("", string(runes[:cut])) {
+				cut--
+			}
+			lines = append(lines, string(runes[:cut]))
+			runes = runes[cut:]
 		}
 		line = string(runes)
 	}
@@ -1567,7 +1566,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 		label = w.labels.dotFramedLabel(node)
 	case g != nil && g.HasSize:
 		height, _ := w.headroom(node)
-		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotFitFloor*dotFitLineEm))
+		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotLineHeight(dotFitFloor)))
 	}
 	attrs := []string{dotStyledLabel(label, node.Style)}
 	attrs = append(attrs, w.clusterStyle(node)...)
@@ -2018,14 +2017,14 @@ func (w *dotWriter) dotNoteLabel(note Note, box *nodeBox) []string {
 		return []string{`label=""`, "xlabel=" + dotQuote(note.Text)}
 	}
 	if w.skin.cameo {
-		body := height - cameoSmallPts*dotFitLineEm
-		if body >= dotFitFloor*dotFitLineEm && dotRunesAcross(width, cameoSmallPts, dotGlyphEm) >= utf8.RuneCountInString(cameoCommentKeyword) {
+		body := height - dotLineHeight(cameoSmallPts)
+		if body >= dotLineHeight(dotFitFloor) && dotTextWidth(cameoCommentKeyword, cameoSmallPts, false) <= width {
 			height = body
 		} else {
 			header = ""
 		}
 	}
-	size, fitted, _ := dotFitText(lines, dotGlyphEm, width, height, w.labels.size())
+	size, fitted, _ := dotFitText(lines, false, width, height, w.labels.size())
 	return []string{"margin=0", dotLabelAttribute("<" + header + w.labels.sized(w.labels.size(), size, dotEscapeLines(fitted)) + ">")}
 }
 

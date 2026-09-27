@@ -285,6 +285,12 @@ func keyworded(node *Node) bool {
 	return shown(node) != "" || node.Type != ""
 }
 
+// headed reports whether a node's head says something of the node's own — a
+// name, a type or what it does — rather than its kind alone.
+func headed(node *Node) bool {
+	return keyworded(node) || node.Text != ""
+}
+
 // keyworded reports whether the skin writes a node's keyword line: Cameo shows
 // none on a state or an action, whose notation says their kind already.
 func (l labeller) keyworded(node *Node) bool {

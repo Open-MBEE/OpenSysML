@@ -79,7 +79,7 @@ digraph "NotationViews::alignmentView" {
       }
       "n11" [shape=doublecircle, fillcolor=black, label="", pos="360,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
     }
-    "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>guide on the current<br/>star>, pos="375,130!", pin=true, width=2.0833333333333335, height=0.5555555555555556, fixedsize=true];
+    "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>guide on the current star>, pos="375,130!", pin=true, width=2.0833333333333335, height=0.5555555555555556, fixedsize=true];
   }
   "n18" -> "n1" [pos="e,47,300 47,355 47,355 47,310 47,310"];
   "n19" -> "n4" [pos="e,567,280 567,325 567,325 567,290 567,290"];

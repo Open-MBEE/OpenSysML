@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -68,6 +69,30 @@ func TestElideNodeMovesNotesOntoJoinedEdges(t *testing.T) {
 	want := []string{"in:a->c", "out:a->c", "out:b->c", "apart:a->b"}
 	if strings.Join(got, " ") != strings.Join(want, " ") {
 		t.Errorf("notes after eliding w = %v, want %v", got, want)
+	}
+}
+
+// Two routes joined through an elided node keep every waypoint of both: the
+// point where they meet once, and the route out's first point where it starts
+// off the route in's end, so the bend it makes there is drawn.
+func TestJoinEdgesKeepsBothRoutesWaypoints(t *testing.T) {
+	in := Edge{From: "a", To: "w", Route: []Point{{X: 0, Y: 20}, {X: 10, Y: 20}}}
+	for _, tc := range []struct {
+		name string
+		out  []Point
+		want string
+	}{
+		{"meeting", []Point{{X: 10, Y: 20}, {X: 10, Y: 50}}, "0,20 10,20 10,50"},
+		{"apart", []Point{{X: 30, Y: 20}, {X: 30, Y: 50}}, "0,20 10,20 30,20 30,50"},
+	} {
+		joined, ok := joinEdges(in, Edge{From: "w", To: "c", Route: tc.out}, map[string]*Geometry{})
+		var got []string
+		for _, p := range joined.Route {
+			got = append(got, fmt.Sprintf("%g,%g", p.X, p.Y))
+		}
+		if !ok || strings.Join(got, " ") != tc.want {
+			t.Errorf("%s: joined route = %v, %v; want %q, true", tc.name, got, ok, tc.want)
+		}
 	}
 }
 

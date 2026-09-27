@@ -151,14 +151,19 @@ func rejoinNotes(notes []Note, id string, joins [][2]string) []Note {
 }
 
 // joinEdges is the edge in and out draw as one, along in's route continued by
-// out's; false when neither has a route. Where one alone has a route, it ends
-// at the elided node, so the way on to the other's end is added: straight to
-// the border of that node's box, when its geometry gives one.
+// out's, less the point where they meet; false when neither has a route. Where
+// one alone has a route, it ends at the elided node, so the way on to the
+// other's end is added: straight to the border of that node's box, when its
+// geometry gives one.
 func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
 	route := append([]Point(nil), in.Route...)
 	switch {
 	case len(route) > 1 && len(out.Route) > 1:
-		route = append(route, out.Route[1:]...)
+		if out.Route[0] == route[len(route)-1] {
+			route = append(route, out.Route[1:]...)
+		} else {
+			route = append(route, out.Route...)
+		}
 	case len(out.Route) > 1:
 		route = reachFrom(geometry[in.From], out.Route)
 	case len(route) < 2:

@@ -495,11 +495,13 @@ digraph "PlantViews::placedView" {
   outside as `xlabel`, as a symbol's is, and a box with only its kind to show is left bare
   (`dotStatedLabel`). A stated node drawn as a cluster round its children has its label fitted the
   same way, to the strip above its topmost stated child; a cluster's label has no outside to go
-  to, so a strip thinner than a line still gets one line at 8 pt. The estimate is
-  the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.25 em a line (`dotFitLineEm`: Graphviz
-  sets the text in the font's own metrics, which stand a line up to 1.23 em over its 1.2 em
-  estimate, so a box fitted at 1.2 em could still be reported too small) — so nothing here is
-  particular to the tool that stated the box. A Cameo-style label with detail lines is set in
+  to, so a strip thinner than a line still gets one line at 8 pt. Text is measured as Graphviz
+  sets it (`dot_metrics.go`): each glyph's advance from the font's own table, hinted to a whole
+  pixel at 96 dots an inch, a line the font's ascent and descent each rounded up to a pixel. The
+  font is DejaVu Sans, plain or bold — what an installation without Helvetica sets the skins'
+  Helvetica in, and the widest of its usual substitutes, so a box fitted by it holds its lines
+  where Graphviz has a narrower font too — so nothing here is particular to the tool that
+  stated the box. A Cameo-style label with detail lines is set in
   the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
   before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
   (`compartmented`); when no detail line fits in what is left, the table is dropped and the title

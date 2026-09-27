@@ -39,18 +39,18 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 		{"a compartment row shrinks to one line", stated(&Node{ID: "n", Kind: "attribute", Name: "errorReq", Type: "Real"}, 449, 14),
 			`label=<<font point-size="11"><b>errorReq : Real</b></font>>, margin=0, pos="224.5,-7!", pin=true, width=6.236111111111111, height=0.19444444444444445, fixedsize=true];`},
 		{"a name too long for the floor is ellipsized", stated(&Node{ID: "n", Kind: "attribute", Name: "'a name that runs on well past the width of the row it is drawn in'"}, 120, 14),
-			`label=<<font point-size="8"><b>&#39;a name that runs on…</b></font>>, margin=0, pos="60,-7!", pin=true, width=1.6666666666666667, height=0.19444444444444445, fixedsize=true];`},
+			`label=<<font point-size="8"><b>&#39;a name that runs on we…</b></font>>, margin=0, pos="60,-7!", pin=true, width=1.6666666666666667, height=0.19444444444444445, fixedsize=true];`},
 		{"a word wider than the box is broken across lines", stated(&Node{ID: "n", Kind: "action", Name: "Reconfiguration"}, 60, 60),
-			`label=<<b>Reconf<br/>igurat<br/>ion</b>>`},
+			`label=<<b>Reconfi<br/>guratio<br/>n</b>>`},
 		{"shrinking to keep a word whole comes before breaking it", stated(&Node{ID: "n", Kind: "part", Name: "EventStream"}, 77, 32),
 			`label=<<font point-size="10"><b>EventStream</b></font><br/><font point-size="7"><i>«part»</i></font>>`},
 		{"wrapping comes before shrinking", stated(&Node{ID: "n", Kind: "part", Name: "pump", Type: "Pump"}, 60, 40),
 			`label=<<b>pump<br/>: Pump</b>>`},
-		// Twenty bold 14pt glyphs measure 184.8pt: the whole width is the label's, no margin off it.
-		{"a head filling the width keeps its size", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 185, 20),
-			`label=<<b>doughboundhoundpound</b>>, margin=0, pos="92.5,-10!"`},
-		{"a head a point over the width shrinks", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 184, 20),
-			`label=<<font point-size="13"><b>doughboundhoundpound</b></font>>, margin=0, pos="92,-10!"`},
+		// Twenty bold 14pt glyphs measure 196pt: the whole width is the label's, no margin off it.
+		{"a head filling the width keeps its size", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 196, 20),
+			`label=<<b>doughboundhoundpound</b>>, margin=0, pos="98,-10!"`},
+		{"a head a point over the width shrinks", stated(&Node{ID: "n", Kind: "action", Name: "doughboundhoundpound"}, 195, 20),
+			`label=<<font point-size="13"><b>doughboundhoundpound</b></font>>, margin=0, pos="97.5,-10!"`},
 	}
 	for _, tc := range cases {
 		dot, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{tc.node}}).DOT()
@@ -79,10 +79,10 @@ func TestDOTFitsTheLabelToAStatedBox(t *testing.T) {
 	}
 }
 
-// The fitting estimates with the writer's glyph metrics: dotFitText wraps a
-// head at the runes a bold line of the size holds and picks the largest size
-// whose wrapped lines stack within the height, with every word whole where a
-// size down to the floor allows it.
+// The fitting measures with the font's metrics: dotFitText wraps a head at the
+// runes a bold line of the size holds and picks the largest size whose wrapped
+// lines stack within the height, with every word whole where a size down to
+// the floor allows it.
 func TestDOTFitHead(t *testing.T) {
 	cases := []struct {
 		head          string
@@ -92,36 +92,39 @@ func TestDOTFitHead(t *testing.T) {
 		fits          bool
 	}{
 		{"call : doTracking", 200, 80, 14, []string{"call : doTracking"}, true},
-		{"call : doTracking", 100, 80, 14, []string{"call :", "doTracking"}, true},
-		{"call : doTracking", 100, 20, 8, []string{"call : doTracking"}, true},
+		{"call : doTracking", 100, 80, 14, []string{"call", ": doTracking"}, true},
+		{"call : doTracking", 100, 20, 10, []string{"call : doTracking"}, true},
 		{"errorReq : Real", 449, 14, 11, []string{"errorReq : Real"}, true},
 		{"EventStream", 77, 32, 10, []string{"EventStream"}, true},
-		{"Reconfiguration", 60, 60, 14, []string{"Reconf", "igurat", "ion"}, true},
+		{"Reconfiguration", 60, 60, 14, []string{"Reconfi", "guratio", "n"}, true},
 		{"abcdefghijklmnopqrstuvwxyz", 40, 14, 8, []string{"abcdef…"}, false},
-		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmn", "opqrst…"}, false},
+		{"abcdefghijklmnopqrstuvwxyz", 40, 30, 8, []string{"abcdefg", "hijklmno", "pqrstu…"}, false},
 	}
 	for _, tc := range cases {
-		size, lines, fits := dotFitText([]string{tc.head}, dotBoldGlyphEm, tc.width, tc.height, dotFontSize)
+		size, lines, fits := dotFitText([]string{tc.head}, true, tc.width, tc.height, dotFontSize)
 		if size != tc.size || fits != tc.fits || strings.Join(lines, "|") != strings.Join(tc.lines, "|") {
 			t.Errorf("dotFitText(%q, %v, %v) = %v, %q, %v; want %v, %q, %v", tc.head, tc.width, tc.height, size, lines, fits, tc.size, tc.lines, tc.fits)
 		}
 	}
+	// dotWrap fills lines to a width: here the width of a line it should fill exactly.
+	width := func(text string) float64 { return dotTextWidth(text, 10, false) }
 	for _, tc := range []struct {
-		text   string
-		across int
-		want   []string
+		text  string
+		width float64
+		want  []string
 	}{
-		{"a b c", 3, []string{"a b", "c"}},
-		{"a b c", 1, []string{"a", "b", "c"}},
-		{"abcdef gh", 4, []string{"abcd", "ef", "gh"}},
-		{"  spaced   out  ", 10, []string{"spaced out"}},
-		{"", 5, []string{""}},
-		{"call : Pump", 6, []string{"call", ": Pump"}},
-		{": Pump", 6, []string{": Pump"}},
-		{"a :", 1, []string{"a", ":"}},
+		{"a b c", width("a b"), []string{"a b", "c"}},
+		{"a b c", width("a"), []string{"a", "b", "c"}},
+		{"abcdef gh", width("abcd"), []string{"abcd", "ef", "gh"}},
+		{"  spaced   out  ", width("spaced out"), []string{"spaced out"}},
+		{"", width("abcde"), []string{""}},
+		{"call : Pump", width(": Pump"), []string{"call", ": Pump"}},
+		{": Pump", width(": Pump"), []string{": Pump"}},
+		{"a :", width("a"), []string{"a", ":"}},
+		{"iw", width("i"), []string{"i", "w"}},
 	} {
-		if got := dotWrap(tc.text, tc.across); strings.Join(got, "|") != strings.Join(tc.want, "|") {
-			t.Errorf("dotWrap(%q, %d) = %q, want %q", tc.text, tc.across, got, tc.want)
+		if got := dotWrap(tc.text, tc.width, 10, false); strings.Join(got, "|") != strings.Join(tc.want, "|") {
+			t.Errorf("dotWrap(%q, %g) = %q, want %q", tc.text, tc.width, got, tc.want)
 		}
 	}
 }
@@ -306,7 +309,7 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39;…</b></font>>, margin=0, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
+	if want := `"outer" [style="rounded,filled", label=<<font point-size="8"><b>&#39;summit Installation&#39; : &#39;Summit…</b></font>>, margin=0, labelloc=t, pos="75,-100!"`; !strings.Contains(dot, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, dot)
 	}
 	// A member 9px below the top leaves no room for a line even at the floor: the head is set outside.
@@ -340,8 +343,9 @@ func TestDOTHeadsAnEnclosingBoxAboveItsMembers(t *testing.T) {
 }
 
 // A stated box too short for one line at the floor, or too narrow for one glyph,
-// holds no text: its head is set outside as `xlabel`, as a symbol's is, and a
-// box with nothing but its kind to show is left bare.
+// holds no text: its head — a name, a type or the text of what it does — is set
+// outside as `xlabel`, as a symbol's is, and a box with nothing but its kind to
+// show is left bare.
 func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -354,6 +358,8 @@ func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 			`"n" [style="rounded,filled", label="", xlabel=": Pump", pos="2,-20!"`},
 		{"bare", &Node{ID: "n", Kind: "action", Geometry: &Geometry{X: 0, Y: 0, Width: 20, Height: 6, HasSize: true}},
 			`"n" [style="rounded,filled", label="", pos="10,-3!"`},
+		{"headed by its text", &Node{ID: "n", Kind: "action", Name: "value3", NameSynthesized: true, Text: "true", Geometry: &Geometry{X: 0, Y: 0, Width: 20, Height: 6, HasSize: true}},
+			`"n" [style="rounded,filled", label="", xlabel="true", pos="10,-3!"`},
 		{"one line", &Node{ID: "n", Kind: "action", Name: "tick", Geometry: &Geometry{X: 0, Y: 0, Width: 30, Height: 10, HasSize: true}},
 			`"n" [style="rounded,filled", label=<<font point-size="8"><b>tick</b></font>>, margin=0, pos="15,-5!"`},
 	} {
@@ -372,15 +378,16 @@ func TestDOTSetsATinyBoxsHeadOutside(t *testing.T) {
 // two one-rune lines stay two lines where one wrap would join them, and a word
 // one entry must break fails the whole-word pass for all.
 func TestDOTFitTextWrapsEachLine(t *testing.T) {
-	size, lines, fits := dotFitText([]string{"a", "b"}, dotGlyphEm, 100, 100, dotFontSize)
+	size, lines, fits := dotFitText([]string{"a", "b"}, false, 100, 100, dotFontSize)
 	if size != dotFontSize || !fits || strings.Join(lines, "|") != "a|b" {
 		t.Errorf("dotFitText(a, b) = %v, %q, %v; want 14, a|b, true", size, lines, fits)
 	}
-	// "wordier" is seven runes: under 30pt of width it breaks even at the floor's
-	// six-rune line, so the broken pass applies to both entries.
-	size, lines, fits = dotFitText([]string{"wordier", "line"}, dotGlyphEm, 30, 100, dotFontSize)
-	if size != 14 || !fits || strings.Join(lines, "|") != "wor|die|r|lin|e" {
-		t.Errorf("dotFitText(wordier, line) = %v, %q, %v; want 14, wor|die|r|lin|e, true", size, lines, fits)
+	// "wordier" is wider than 30pt even at the floor, so the broken pass applies
+	// to both entries at 14pt: "lines", which shrinking a point would keep whole,
+	// is broken with it.
+	size, lines, fits = dotFitText([]string{"wordier", "lines"}, false, 30, 100, dotFontSize)
+	if size != 14 || !fits || strings.Join(lines, "|") != "wor|dier|line|s" {
+		t.Errorf("dotFitText(wordier, lines) = %v, %q, %v; want 14, wor|dier|line|s, true", size, lines, fits)
 	}
 }
 
@@ -450,16 +457,17 @@ func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
 }
 
 // A line is fitted at the height the font sets it, over Graphviz's 1.2em estimate:
-// five 11pt lines in a table take 75.5pt of a 74pt box, so the last detail line
-// is left off rather than written for Graphviz to find the box too small.
+// four 11pt lines in a table take 62pt of a 61pt box (60.8pt by the estimate),
+// so the last detail line is left off rather than written for Graphviz to find
+// the box too small.
 func TestDOTFitsLinesAtTheFontsHeight(t *testing.T) {
-	node := stated(&Node{ID: "n", Kind: "state", Name: "INITIALIZING", Detail: "entry / initializeM1RTC, do / configDefaultParams"}, 136, 74)
+	node := stated(&Node{ID: "n", Kind: "state", Name: "INITIALIZING", Detail: "entry / initializeM1RTC, do / configDefaultParams"}, 136, 61)
 	source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
 	checkDOTSyntax(t, source)
-	want := `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>INITIALIZING</b></td></tr><hr/><tr><td align="left">entry /<br/>initializeM1RTC</td></tr></table>>, margin=0`
+	want := `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>INITIALIZING</b></td></tr><hr/><tr><td align="left">entry / initializeM1RTC</td></tr></table>>, margin=0`
 	if !strings.Contains(source, want) {
 		t.Errorf("DOT lacks %q:\n%s", want, source)
 	}
@@ -469,7 +477,7 @@ func TestDOTFitsLinesAtTheFontsHeight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	if want := `margin=0, label=<<font point-size="10">&lt;html&gt;</font>>`; !strings.Contains(noted, want) {
+	if want := `margin=0, label=<<font point-size="8">&lt;html&gt;</font>>`; !strings.Contains(noted, want) {
 		t.Errorf("noted DOT lacks %q:\n%s", want, noted)
 	}
 	dot := os.Getenv("OPENSYSML_DOT")
@@ -493,8 +501,8 @@ func TestDOTFitsLinesAtTheFontsHeight(t *testing.T) {
 // A node whose Style sets a font size is drawn at it, so its label is measured
 // and fitted from that size, and a shrunk size is written relative to it.
 func TestDOTFittedLabelStartsFromTheStyledSize(t *testing.T) {
-	// Twenty bold glyphs take 185pt at 14pt and 145pt at 11pt.
-	node := stated(&Node{ID: "n", Kind: "action", Name: "SendAck_TakeSnapshot", Style: &Style{FontSize: 14}}, 147, 40)
+	// Twenty bold glyphs take 186pt at 14pt and 148pt at 11pt.
+	node := stated(&Node{ID: "n", Kind: "action", Name: "SendAck_TakeSnapshot", Style: &Style{FontSize: 14}}, 148, 40)
 	source, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
@@ -561,7 +569,7 @@ func TestDOTNoteLabelFitsAStatedBox(t *testing.T) {
 	}{
 		{"unstated", Note{Text: "ok"}, nil, `label=<<font point-size="9">«comment»</font><br/>ok>`},
 		{"header and a body line fit", Note{Text: "ok"}, box(100, 40), `margin=0, label=<<font point-size="9">«comment»</font><br/>ok>`},
-		{"header dropped when only one line fits", Note{Text: "doAcquisition"}, box(66, 14), `margin=0, label=<<font point-size="8">doAcquisition</font>>`},
+		{"header dropped when only one line fits", Note{Text: "doAcquisition"}, box(66, 14), `margin=0, label=<<font point-size="9">doAcquisition</font>>`},
 		{"header dropped when it does not fit across", Note{Text: "ok"}, box(40, 40), `margin=0, label=<ok>`},
 	} {
 		if got := strings.Join(cameo.dotNoteLabel(tc.note, tc.box), ", "); got != tc.want {
