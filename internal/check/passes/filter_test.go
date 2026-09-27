@@ -261,19 +261,25 @@ func TestChainFilterDiagnosticsUseSemanticResultAndEvaluability(t *testing.T) {
 		want []wantDiagnostic
 	}{
 		{"metaclass Boolean chain", boolChain, []wantDiagnostic{
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a"},
 			{"feature-reference-featuring-types", diag.SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
 		}},
 		{"metaclass integer chain", intChain, []wantDiagnostic{
 			{"filter-not-boolean", diag.SeverityError, msgFilterNotBoolean, "filter R1::N::m.a"},
 		}},
 		{"chain comparison", comparison, []wantDiagnostic{
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::N::m.a > 2"},
 			{"feature-reference-featuring-types", diag.SeverityError, msgSubsettingFeaturingTypes, "R1::N::m"},
 		}},
 		{"struct-featured chain", structChain, []wantDiagnostic{
 			{"filter-not-evaluable", diag.SeverityError, msgFilterNotEvaluable, "filter R1::T::s.x"},
 		}},
-		{"library metaclass chain", libraryChain, nil},
-		{"package-level chain", packageChain, nil},
+		{"library metaclass chain", libraryChain, []wantDiagnostic{
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter KerML::Root::Element::owner.name"},
+		}},
+		{"package-level chain", packageChain, []wantDiagnostic{
+			{"filter-not-evaluated", diag.SeverityWarning, msgFilterNotEvaluated, "filter R1::p.a"},
+		}},
 	}
 
 	for _, tc := range tests {

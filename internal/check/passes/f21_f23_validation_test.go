@@ -129,6 +129,21 @@ func TestFilterChainThroughValuedHopReportsLimitation(t *testing.T) {
 	}
 }
 
+// A chain whose terminal is a feature of a metaclass is read reflectively
+// from the candidate, which OpenSysML does not evaluate.
+func TestFilterChainIntoMetaclassFeatureReportsLimitation(t *testing.T) {
+	const src = `package ScalarValues { attribute def Boolean; }
+	package E {
+		private import ScalarValues::*;
+		metaclass M { var feature a : Boolean[1]; }
+		feature p : M[1];
+		package Q { filter E::p.a; }
+	}`
+	if diags := only(filterDiags(t, src), "filter-not-evaluated"); len(diags) != 1 {
+		t.Fatalf("expected one not-evaluated diagnostic, got %v", diags)
+	}
+}
+
 // A read feature whose value is not a number or boolean reports the same.
 func TestFilterChainNonNumericValueReportsLimitation(t *testing.T) {
 	const src = `package ScalarValues { attribute def Integer; attribute def String; }

@@ -368,6 +368,10 @@ const chainRedirectLimitation = "a feature on the chain before the last one has 
 // chainValueLimitation is the reason a read feature's unevaluable value reports.
 const chainValueLimitation = "the value of the feature the chain reads is not a number, boolean or arithmetic over them, which OpenSysML does not evaluate in a filter condition"
 
+// chainReflectiveLimitation is the reason a chain reading a metaclass feature
+// reports: the read is reflective, against the candidate element.
+const chainReflectiveLimitation = "a filter condition reads a feature of a metaclass through a chain, which OpenSysML does not evaluate (known limitation: the chain is read from the candidate element)"
+
 // compileChainRead compiles a chain rooted in a feature with no featuring
 // type, which is model-level evaluable whatever the hop count: the chain is an
 // operator over `'.'` [KerML, 8.3.4.8.4] and its value is the read feature's,
@@ -384,27 +388,23 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 	if reason, notEvaluable := m.referenceNotEvaluable(rootSym); notEvaluable {
 		return unsupported(span, reason)
 	}
-	var hops []string
-	var flatten func(n ast.Node)
-	flatten = func(n ast.Node) {
-		chain, isChain := n.(*ast.FeatureChainExpr)
-		if !isChain {
-			return
+	if IsMetadataType(m.ownerOf(rootSym)) {
+		read := rootSym
+		if r, ok := m.resolver.ResolveTarget(scope, e); ok && r != nil {
+			read = r
 		}
-		flatten(chain.Operand)
-		if chain.Member != nil {
-			for _, p := range chain.Member.Parts {
-				hops = append(hops, p.Text)
-			}
-		}
+		return evaluatorUnsupported(span, chainReflectiveLimitation, read)
 	}
-	flatten(e)
+	hops := chainHops(e)
 	cur := rootSym
 	soFar := qnText(root.Name)
 	for i, hop := range hops {
 		next, ok := m.LookupMember(cur, hop)
 		if !ok || next == nil {
 			return unresolvedReference(span, fmt.Sprintf("%s has no feature %s to read", soFar, hop))
+		}
+		if IsMetadataType(m.ownerOf(next)) {
+			return evaluatorUnsupported(span, chainReflectiveLimitation, next)
 		}
 		if i < len(hops)-1 {
 			if u, isUsage := next.Decl.(*ast.Usage); isUsage && u.Value != nil {
@@ -480,6 +480,27 @@ func (m *Model) filterMemberType(typeFQN, feature string) *symbols.Symbol {
 	}
 	member, _ := m.LookupMember(typ, feature)
 	return member
+}
+
+// chainHops is the member names a chain reads, root outward, so `a.b.c` and
+// `(a.b).c` are the same hop list.
+func chainHops(e *ast.FeatureChainExpr) []string {
+	var hops []string
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		chain, isChain := n.(*ast.FeatureChainExpr)
+		if !isChain {
+			return
+		}
+		walk(chain.Operand)
+		if chain.Member != nil {
+			for _, p := range chain.Member.Parts {
+				hops = append(hops, p.Text)
+			}
+		}
+	}
+	walk(e)
+	return hops
 }
 
 func chainRoot(n ast.Node) ast.Node {
