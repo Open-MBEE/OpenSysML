@@ -12,7 +12,7 @@ public interface AddSatisfyEditOrBuilder extends
 
   /**
    * <pre>
-   * Namespace FQN receiving the usage.
+   * Body receiving the usage.
    * </pre>
    *
    * <code>string owner = 1 [json_name = "owner"];</code>
@@ -21,7 +21,7 @@ public interface AddSatisfyEditOrBuilder extends
   java.lang.String getOwner();
   /**
    * <pre>
-   * Namespace FQN receiving the usage.
+   * Body receiving the usage.
    * </pre>
    *
    * <code>string owner = 1 [json_name = "owner"];</code>

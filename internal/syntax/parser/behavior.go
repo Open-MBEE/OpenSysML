@@ -1519,6 +1519,9 @@ func (p *Parser) atReturnedUsage() bool {
 // without `return`, so an expression after `return` is refused here.
 func (p *Parser) parseResultMember() ast.Node {
 	start := p.peek().Span.Offset
+	if p.isResultKeyword() && p.bodyContext() == bodyRequirement {
+		p.error(p.peek().Span, "'return' is not a member of a requirement body: only a calculation, constraint or case body declares a return parameter")
+	}
 
 	// Expect 'return' keyword
 	if !p.acceptKeyword("return") {
@@ -3033,22 +3036,33 @@ func (p *Parser) atTransitionClause() bool {
 
 // parseTransitionTail parses the clauses a transition carries after its source —
 // trigger, guard, effect and the `then` naming its target — and the terminating
-// ';'. The clauses are read in the order they were written so a misordered
-// transition is reported once, at the clause that is out of place, rather than
-// silently dropped.
+// ';'. Repeated and misordered clauses are reported at the offending keyword;
+// parsing continues so the remaining transition can be recovered.
 func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *ast.QualifiedName) ast.Node {
 	node := &ast.TransitionMember{
 		Name:     name.Text,
 		NameSpan: name.Span,
 		Source:   source,
 	}
+	var lastClause int
+	var seenTrigger, seenGuard, seenEffect bool
+	reportClause := func(tok lexer.Token, keyword string, order int, repeated bool) {
+		if repeated {
+			p.error(tok.Span, fmt.Sprintf("a transition has at most one '%s' clause", keyword))
+		}
+		if order < lastClause {
+			p.error(tok.Span, "transition clauses must appear in the order 'accept', 'if', 'do'")
+		}
+		if order > lastClause {
+			lastClause = order
+		}
+	}
 
 	for {
 		switch {
 		case p.atKeyword("accept"):
-			if node.Trigger != nil {
-				p.error(p.peek().Span, "a transition accepts one trigger: write a second transition for the other event")
-			}
+			reportClause(p.peek(), "accept", 1, seenTrigger)
+			seenTrigger = true
 			acceptStart := p.peek().Span.Offset
 			p.advance() // consume 'accept'
 			node.Trigger = p.parseTriggerEvent()
@@ -3064,19 +3078,22 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 			// standard `accept`. What follows is read as an expression and
 			// classified when lowered, so a name states a signal and a condition a
 			// change, as it did before the standard spelling was added.
-			if node.Trigger != nil {
-				p.error(p.peek().Span, "a transition accepts one trigger: write a second transition for the other event")
-			}
+			reportClause(p.peek(), "when", 1, seenTrigger)
+			seenTrigger = true
 			whenStart := p.peek().Span.Offset
 			p.advance() // consume 'when'
 			node.Trigger = p.ParseExpression()
 			node.TriggerSpan = p.spanFrom(whenStart)
 			continue
 		case p.atKeyword("if"):
+			reportClause(p.peek(), "if", 2, seenGuard)
+			seenGuard = true
 			p.advance() // consume 'if'
 			node.Guard = p.ParseExpression()
 			continue
 		case p.atKeyword("do"):
+			reportClause(p.peek(), "do", 3, seenEffect)
+			seenEffect = true
 			p.advance() // consume 'do'
 			effect, err := p.parseTransitionEffect(start)
 			if err != nil {

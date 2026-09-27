@@ -81,6 +81,13 @@ func TestAddRequirementConstraintWritesAndAnalyzes(t *testing.T) {
 	requireClean(t, loadContent(t, "constraint.sysml", got))
 }
 
+func TestAddRequirementConstraintRejectsQuotedDuplicateName(t *testing.T) {
+	m := loadContent(t, "constraint-quoted-duplicate.sysml",
+		"part def Vehicle;\nrequirement def R { subject s : Vehicle; require constraint isValid { true } }\n")
+	addFailure(t, m, AddRequirementConstraint("R", "require", "true", "'isValid'"),
+		FailureMemberNameTaken)
+}
+
 func TestAddRequirementConstraintRefusals(t *testing.T) {
 	t.Run("outside requirement body", func(t *testing.T) {
 		m := loadContent(t, "part.sysml", "part def P;\n")

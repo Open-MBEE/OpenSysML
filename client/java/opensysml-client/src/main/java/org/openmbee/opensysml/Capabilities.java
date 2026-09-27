@@ -92,6 +92,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} accepts additional member modifiers and kinds. */
   public static final String MEMBER_MODIFIERS = "member_modifiers";
 
+  /** {@code ApplyEdits} can add transitions to state bodies. */
+  public static final String TRANSITION_AUTHORING = "transition_authoring";
+
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";
 
