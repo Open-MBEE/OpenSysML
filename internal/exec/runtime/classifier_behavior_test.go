@@ -2736,6 +2736,12 @@ const calcDefThisFixture = `
 			in x : Integer = 4;
 			return : Integer = this.x;
 		}
+		calc def SetBack {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			assign n := 5;
+			return : Integer = this.n;
+		}
 	}
 `
 
@@ -2772,6 +2778,17 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 	if got.Const.Int != 9 {
 		t.Errorf("EchoLate(9) = %s, want 9: x mirrored into the early occurrence", FormatTraceValue(got))
+	}
+
+	// A write to a declared feature after `this` materialized mirrors into the
+	// occurrence, or this.n reads the declared default 0.
+	setBack, setBackScope := calcByName(t, root, "test", "SetBack")
+	got, err = ctx.InvokeCalc(setBack, nil, setBackScope)
+	if err != nil {
+		t.Fatalf("SetBack(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("SetBack() = %s, want 5: the assign mirrored into the occurrence", FormatTraceValue(got))
 	}
 }
 

@@ -125,11 +125,28 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 	// Written to the body's own data, so later statements read the output bound —
 	// an assignment may accumulate into it — and the read that follows the
 	// activation answers from what the body left.
-	return storeBodyValue(h.ctx, h, env, name, value, s)
+	if err := storeBodyValue(h.ctx, h, env, name, value, s); err != nil {
+		return err
+	}
+	return h.mirrorOccurrence(name, value)
 }
 
 func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lower.Assign) error {
-	return storeBodyValue(h.ctx, h, env, name, value, s)
+	if err := storeBodyValue(h.ctx, h, env, name, value, s); err != nil {
+		return err
+	}
+	return h.mirrorOccurrence(name, value)
+}
+
+// mirrorOccurrence carries a write to a declared feature into the occurrence
+// `this` materialized for, as bindCalcParameters mirrors bound inputs.
+func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
+	if h.occ != nil && h.occ.inst != nil {
+		if _, ok := h.occ.inst.FeatureValues[name]; ok {
+			return h.occ.inst.SetFeatureValue(h.ctx, name, value)
+		}
+	}
+	return nil
 }
 
 // assignChain rejects a chained target: writing a feature of another object is
@@ -253,14 +270,14 @@ func (h *calcStmtHost) setFeature(name string, value Value) error {
 // of the body: an output the case declares, or a parameter or local it holds.
 func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 	if h.env.assignLocal(name, value) {
-		return true, nil
+		return true, h.mirrorOccurrence(name, value)
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
 		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.set(name, value)
-		return true, nil
+		return true, h.mirrorOccurrence(name, value)
 	}
 	return false, nil
 }
