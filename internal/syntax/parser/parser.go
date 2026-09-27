@@ -57,6 +57,14 @@ type Parser struct {
 	// commentBodies are the offsets of the comments consumed as a comment body
 	// (`comment /* */`, `doc /* */`, `rep … /* */`).
 	commentBodies []int
+	// attachedStarts are the offsets where a member continuing the one before
+	// it began — a one-name `then`/`else`/`if … then` edge or a transition
+	// stating no `first` source — which opens no member position of its own.
+	attachedStarts []int
+	// lastTok is the non-trivia token most recently buffered, kept past
+	// compact() so a comment can be judged by the token before it.
+	lastTok    lexer.Token
+	hasLastTok bool
 
 	// constraintCalcDepth counts the calculation bodies that are constraint
 	// bodies, whose bare expressions are the conditions the constraint states.
@@ -129,10 +137,13 @@ func (p *Parser) bodyContext() bodyContext {
 	return p.bodyCtx[len(p.bodyCtx)-1]
 }
 
-// pendingComment is a regular comment with the non-trivia token following it.
+// pendingComment is a regular comment with the non-trivia tokens either side
+// of it, so where it sits can be judged once the file is parsed.
 type pendingComment struct {
-	span source.Span
-	next lexer.Token
+	span    source.Span
+	next    lexer.Token
+	prev    lexer.Token
+	hasPrev bool
 }
 
 // parseCheckpoint captures parser state for backtracking.
@@ -143,6 +154,7 @@ type parseCheckpoint struct {
 	undefinedOpLen int
 	memberStartLen int
 	commentBodyLen int
+	attachedLen    int
 	// triv is a copy of the pending trivia at the checkpoint; trivLogLen is
 	// how much of trivLog was already lexed then.
 	triv        []ast.Trivia
@@ -192,8 +204,11 @@ func (p *Parser) fill(n int) {
 		}
 		p.buf = append(p.buf, p.unreserved(tok))
 		for _, sp := range comments {
-			p.comments = append(p.comments, pendingComment{span: sp, next: p.buf[len(p.buf)-1]})
+			p.comments = append(p.comments, pendingComment{
+				span: sp, next: p.buf[len(p.buf)-1], prev: p.lastTok, hasPrev: p.hasLastTok,
+			})
 		}
+		p.lastTok, p.hasLastTok = p.buf[len(p.buf)-1], true
 		if tok.Kind == lexer.EOF {
 			// keep EOF sticky: stop growing further with real tokens
 			return
@@ -518,7 +533,9 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 		p.memberStart()
 		before := p.pos
 		beforeOff := p.peek().Span.Offset
-		root.Members = append(root.Members, p.parseMember())
+		member := p.parseMember()
+		p.markAttached(member)
+		root.Members = append(root.Members, member)
 		// Guarantee progress: if nothing was consumed, skip a token.
 		if p.pos == before && p.peek().Span.Offset == beforeOff && !p.atEOF() {
 			p.advance()
@@ -530,24 +547,47 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	return root
 }
 
+// markAttached records where a member continuing the one before it began:
+// such a member opens no member position of its own, so a comment before it
+// is written where the grammar admits none.
+func (p *Parser) markAttached(m ast.Node) {
+	if m != nil && isAttachedMember(memberNode(m)) {
+		p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
+	}
+}
+
 // reportMisplacedComments warns on each regular comment written where the
-// grammar admits no member: a comment element is admitted only where a member
-// may start, at the close of a body, or as the body of a comment notation.
+// grammar admits none. A comment is admitted only: where a member may start
+// (not before a member that continues the previous one — an attached `then`,
+// `else` or `if … then` edge or a source-less transition); at the close of a
+// body, where a member's end leaves a place for it (after `;`, `{` or `}`, or
+// at the start of the file); or as the body of a comment notation
+// (`comment /* */`, `doc /* */`).
 func (p *Parser) reportMisplacedComments() {
 	starts := make(map[int]bool, len(p.memberStarts))
 	for _, off := range p.memberStarts {
 		starts[off] = true
+	}
+	attached := make(map[int]bool, len(p.attachedStarts))
+	for _, off := range p.attachedStarts {
+		attached[off] = true
 	}
 	bodies := make(map[int]bool, len(p.commentBodies))
 	for _, off := range p.commentBodies {
 		bodies[off] = true
 	}
 	for _, c := range p.comments {
+		var admitted bool
 		switch {
-		case c.next.Kind == lexer.RBrace || c.next.Kind == lexer.EOF:
-		case starts[c.next.Span.Offset]:
 		case bodies[c.span.Offset]:
+			admitted = true
+		case c.next.Kind == lexer.RBrace || c.next.Kind == lexer.EOF:
+			admitted = !c.hasPrev || c.prev.Kind == lexer.Semicolon ||
+				c.prev.Kind == lexer.LBrace || c.prev.Kind == lexer.RBrace
 		default:
+			admitted = starts[c.next.Span.Offset] && !attached[c.next.Span.Offset]
+		}
+		if !admitted {
 			p.warn(c.span, "a /* */ comment is admitted only where a member may appear (SysML.xtext DefinitionMember/AnnotatingMember); write it before or after this declaration, or as `comment /* … */`", codeNonstandardNotation)
 		}
 	}
@@ -564,6 +604,7 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		undefinedOpLen: len(p.undefinedOps),
 		memberStartLen: len(p.memberStarts),
 		commentBodyLen: len(p.commentBodies),
+		attachedLen:    len(p.attachedStarts),
 		triv:           slices.Clone(p.triv),
 		trivLogLen:     len(p.trivLog),
 		pendingSpan:    p.pendingComment,
@@ -582,6 +623,7 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
 	p.memberStarts = p.memberStarts[:cp.memberStartLen]
 	p.commentBodies = p.commentBodies[:cp.commentBodyLen]
+	p.attachedStarts = p.attachedStarts[:cp.attachedLen]
 	p.pendingComment = cp.pendingSpan
 	p.hasPendingComment = cp.hadPending
 	p.triv = append(cp.triv, p.trivLog[cp.trivLogLen:]...)

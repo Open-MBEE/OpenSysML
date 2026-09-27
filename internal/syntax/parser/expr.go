@@ -723,7 +723,9 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				leave := p.pushBodyContext(bodyOther)
 				for !p.at(lexer.RBrace) && !p.atEOF() {
 					p.memberStart()
-					paramMembers = append(paramMembers, p.parseBodyMember())
+					pm := p.parseBodyMember()
+					p.markAttached(pm)
+					paramMembers = append(paramMembers, pm)
 				}
 				leave()
 				p.expect(lexer.RBrace, "expected '}'")

@@ -1631,6 +1631,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 					p.memberStart()
 					m := p.parseBodyMember()
 					if m != nil {
+						p.markAttached(m)
 						members = append(members, m)
 					}
 				}
@@ -2408,7 +2409,9 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 				if inEffect {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
-				members = append(members, p.parseActionMember())
+				member := p.parseActionMember()
+				p.markAttached(member)
+				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
 				if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
@@ -4574,6 +4577,7 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		for !p.at(lexer.RBrace) && !p.atEOF() {
 			p.memberStart()
 			if m := p.parseBodyMember(); m != nil {
+				p.markAttached(m)
 				body = append(body, m)
 				continue
 			}

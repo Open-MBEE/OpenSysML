@@ -402,6 +402,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 			p.memberStart()
 			m := p.parseBodyMember()
 			if m != nil {
+				p.markAttached(m)
 				usage.Members = append(usage.Members, m)
 			}
 		}
