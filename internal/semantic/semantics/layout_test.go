@@ -166,6 +166,49 @@ func TestMemberLayoutOfFallsBackToInheritedMembersOwnLayout(t *testing.T) {
 	}
 }
 
+// A Layout naming a member through an inheriting body, or stated unqualified in
+// one, positions that body's member alone: neither the declaring body's nor an
+// enclosing body's that inherits the member too. One stated unqualified where no
+// body has the member is the declaring body's.
+func TestMemberLayoutOfKeepsTheDeclaringMemberApartFromInheritors(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s; first s then done; }
+		action def A :> Base {
+			action a; first s then a;
+			action def N :> Base { action n; first s then n; metadata Layout about s { x = 30; y = 30; } }
+		}
+		action def B :> Base { action b; first s then b; }
+		view v {
+			expose Base; expose A; expose A::N; expose B;
+			metadata Layout about B::s { x = 20; y = 20; }
+		}
+		view w { expose Base; expose A; expose B; private import Base::*; metadata Layout about s { x = 40; y = 40; } }
+	`)
+	for _, tc := range []struct {
+		view, owner string
+		x           float64
+		found       bool
+	}{
+		{"v", "B", 20, true},
+		{"v", "A::N", 30, true},
+		{"v", "Base", 0, false},
+		{"v", "A", 0, false},
+		{"w", "Base", 40, true},
+		{"w", "A", 0, false},
+		{"w", "B", 0, false},
+	} {
+		owner := sym(t, p, strings.Split(tc.owner, "::")[0])
+		if rest := strings.Split(tc.owner, "::")[1:]; len(rest) > 0 {
+			owner = sym(t, owner.Scope, rest[0])
+		}
+		site, ok := m.MemberLayoutOf(sym(t, p, tc.view), owner, "s")
+		if ok != tc.found || ok && (site.Layout == nil || site.Layout.X != tc.x) {
+			t.Errorf("MemberLayoutOf(%s, %s, s) = %+v, %v, want x = %v, %v", tc.view, tc.owner, site, ok, tc.x, tc.found)
+		}
+	}
+}
+
 func TestRouteOfReadsWaypointPairs(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
