@@ -87,6 +87,7 @@ type imagedObject struct {
 	anonymous    []int64
 	keptAnon     []keptAnonymous
 	keptConn     []keptConnector
+	nested       []pendingRedefinition
 }
 
 // imagedFeature is one feature value by value, with every name the object reads it under.
@@ -331,6 +332,7 @@ func (t *imaging) object(inst *Instance) error {
 		ends:      slices.Clone(inst.Ends),
 		anonymous: slices.Clone(inst.anonymous),
 		keptAnon:  slices.Clone(inst.keptAnonymous),
+		nested:    clonePendingRedefinitions(inst.nested),
 	}
 	if inst.owner != nil {
 		obj.owner = inst.owner.ID
@@ -721,6 +723,7 @@ func (m *materializing) run() error {
 			explicit:      obj.explicit, ownerFeature: obj.ownerFeature,
 			anonymous:     slices.Clone(obj.anonymous),
 			keptAnonymous: slices.Clone(obj.keptAnon),
+			nested:        clonePendingRedefinitions(obj.nested),
 		}
 		dst.registerInstance(inst)
 		dst.claimID(obj.id)

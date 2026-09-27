@@ -2084,3 +2084,42 @@ func TestEnumerationTypedFeatureAdmitsOnlyEnumeratedValues(t *testing.T) {
 		t.Errorf("error = %v, want the feature's type named", err)
 	}
 }
+
+// A classifier's nested redefinition reaches the children the object already
+// holds, the way its carried direct features do, and the ones still lazy read
+// it when they materialize.
+func TestClassifyAppliesNestedRedefinitions(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Wheel { attribute radius : Real default = 1.0; }
+		part def Car { part wheel : Wheel; part lazy : Wheel; }
+		part def Sport :> Car {
+			attribute :>> wheel.radius = 0.4;
+			attribute :>> lazy.radius = 0.6;
+		}
+		part car : Car;
+	}`)
+	radius := func(inst *Instance) float64 {
+		t.Helper()
+		fv, err := inst.GetFeatureValue(ctx, "radius")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(radius): %v", err)
+		}
+		return realValue(t, fv.HeldValue())
+	}
+	car := instantiateQualified(t, ctx, idx, "test::car")
+	wheel := readInstance(t, ctx, car, "wheel")
+	if got := radius(wheel); got != 1.0 {
+		t.Fatalf("wheel.radius = %v, want the declared 1.0", got)
+	}
+	if err := ctx.classify(car, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(car, Sport): %v", err)
+	}
+	if got := radius(wheel); got != 0.4 {
+		t.Fatalf("wheel.radius after classify = %v, want the classifier's 0.4", got)
+	}
+	lazy := readInstance(t, ctx, car, "lazy")
+	if got := radius(lazy); got != 0.6 {
+		t.Fatalf("lazy.radius after classify = %v, want the classifier's 0.6", got)
+	}
+}

@@ -1391,3 +1391,36 @@ func TestHeldImageServesConcurrentSweeps(t *testing.T) {
 		t.Errorf("the sweeps changed the source:\n%s\nwas\n%s", after, before)
 	}
 }
+
+// A nested redefinition carried below a member not yet materialized survives
+// the image: the copy applies it when the member materializes after the restore.
+func TestHeldImageCarriesANestedRedefinition(t *testing.T) {
+	ctx := contextOver(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Top { part mid : Mid; }
+		part top : Top { attribute :>> mid.leaf.value = 99.0; }
+	}`)
+	obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	mid := readInstance(t, ctx, obj, "mid")
+	if len(mid.nested) == 0 {
+		t.Fatal("mid carries no nested redefinition for the image to hold")
+	}
+	dst := imageInto(t, ctx, obj)
+	restored, ok := dst.Instance(obj.ID)
+	if !ok {
+		t.Fatalf("the materialized image holds no object under #%d", obj.ID)
+	}
+	leaf := readInstance(t, dst, readInstance(t, dst, restored, "mid"), "leaf")
+	fv, err := leaf.GetFeatureValue(dst, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 99.0 {
+		t.Fatalf("mid.leaf.value after the image = %v, want 99.0", got)
+	}
+}

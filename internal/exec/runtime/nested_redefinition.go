@@ -66,7 +66,11 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		if overrides == nil {
 			overrides = make(map[string]*symbols.Symbol)
 		}
-		overrides[p.rest[0]] = p.sym
+		// The first chain reaching a feature wins: the tails carried down are
+		// listed first, then each type's own before its member sources'.
+		if _, taken := overrides[p.rest[0]]; !taken {
+			overrides[p.rest[0]] = p.sym
+		}
 	}
 	if len(overrides) > 0 {
 		features = slices.Clone(features)
@@ -84,6 +88,71 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		}
 	}
 	return features, carry
+}
+
+// applyClassifierNestedRedefinitions applies the nested redefinitions typ and
+// its member sources declare to the children inst already holds, as a carried
+// direct feature's redefinition refines one (see classify).
+func (ctx *Context) applyClassifierNestedRedefinitions(inst *Instance, typ *symbols.Symbol) error {
+	for _, src := range append([]*symbols.Symbol{typ}, ctx.model.semantics.MemberSources(typ)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) < 2 {
+				continue
+			}
+			if err := ctx.refineNestedBelow(inst, nr.Path, nr.Feature); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// refineNestedBelow walks chain below inst: its last segment refines the
+// feature value of every child the chain reaches, and a longer rest carries on
+// each child and reaches the grandchildren it already materialized.
+func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbols.Symbol) error {
+	fv := inst.FeatureValues[chain[0]]
+	if fv == nil {
+		return nil
+	}
+	for _, el := range elementsOf(fv.HeldValue()) {
+		id, ok := el.Object()
+		if !ok {
+			continue
+		}
+		child, ok := ctx.instances[id]
+		if !ok {
+			continue
+		}
+		rest := chain[1:]
+		if len(rest) == 1 {
+			cfv := child.FeatureValues[rest[0]]
+			if cfv == nil || cfv.Feature == nil {
+				continue
+			}
+			feat := ctx.effectiveFeature(rest[0], sym, child.Type)
+			if err := ctx.refineFeatureValue(child, cfv, &feat, child.Type); err != nil {
+				return err
+			}
+			continue
+		}
+		ctx.noteProbeUndo(func() { child.nested = child.nested[:len(child.nested)-1] })
+		child.nested = append(child.nested, pendingRedefinition{rest: rest, sym: sym})
+		if err := ctx.refineNestedBelow(child, rest, sym); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// clonePending copies the pending tails of a nested redefinition by value, for
+// an image to hold and a materialization to restore.
+func clonePendingRedefinitions(pending []pendingRedefinition) []pendingRedefinition {
+	out := slices.Clone(pending)
+	for i := range out {
+		out[i].rest = slices.Clone(out[i].rest)
+	}
+	return out
 }
 
 // ownBodyRedefinition reports whether member is a redefinition declared by
