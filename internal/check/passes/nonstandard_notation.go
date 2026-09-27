@@ -33,7 +33,9 @@ type NonstandardNotationPass struct{}
 // Level reports the syntax level: the written notation is all it reads.
 func (NonstandardNotationPass) Level() PassLevel { return LevelSyntax }
 
-// Run walks the document for extension and language-specific notation.
+// Run walks the document for extension and language-specific notation, and
+// under strict conformance escalates the parser's nonstandard-notation
+// warnings — a /* */ comment where no member may start — to errors.
 func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if root == nil {
 		return nil
@@ -48,6 +50,16 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 	}
 	w.walk(root.Members)
+	// A comment where no member may start is the parser's own warning, which
+	// strict conformance escalates; the escalated finding replaces the warning.
+	if ctx.Options.Conformance.IsStrict() {
+		for _, d := range ctx.ParseDiagnostics {
+			if d.Severity == diag.SeverityWarning && d.Code == CodeNonstandardNotation {
+				d.Severity = diag.SeverityError
+				w.diags = append(w.diags, d)
+			}
+		}
+	}
 	// Notation errors describe the writing, not the recovered model's meaning.
 	for i := range w.diags {
 		w.diags[i].Notation = true
