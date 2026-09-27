@@ -53,6 +53,11 @@ func TestCommentPlacement(t *testing.T) {
 		{"body_expr_result_start", `part def P { attribute y = xs.?{ in x; /* c */ x }; }`, 0},
 		{"body_expr_result_end", `part def P { attribute y = xs.?{ in x; x /* c */ }; }`, 1},
 		{"after_nested_body_result", `calc def F { { 1 } /* c */ }`, 1},
+		{"after_constraint_condition", `constraint def C { x > 0 /* c */ }`, 1},
+		{"after_param_constraint_condition", `constraint def C { in x : Real; x > 0 /* c */ }`, 1},
+		{"before_param_constraint_condition", `constraint def C { in x : Real; /* c */ x > 0 }`, 0},
+		{"before_constraint_condition", `constraint def C { /* c */ x > 0 }`, 0},
+		{"after_nested_constraint_member", `constraint def C { constraint c { x > 0 } /* c */ }`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			warnings, errs := commentWarnings(t, tc.input)

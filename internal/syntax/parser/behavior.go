@@ -48,7 +48,9 @@ func (p *Parser) parseCalcBody() []ast.Node {
 		// A constraint body that declares parameters is read here, so its
 		// asserted conditions are members of this body too.
 		if p.atConstraintCondition() {
-			body.add(p.parseConstraintMember())
+			m := p.parseConstraintMember()
+			body.add(m)
+			p.endResultAfterCondition(m)
 			continue
 		}
 
@@ -65,7 +67,9 @@ func (p *Parser) parseCalcBody() []ast.Node {
 				// In a constraint body a bare expression is a condition the
 				// constraint states, not a calculated result.
 				if constraintConditions {
-					body.add(p.parseConstraintMember())
+					m := p.parseConstraintMember()
+					body.add(m)
+					p.endResultAfterCondition(m)
 				} else {
 					body.add(p.ParseExpression())
 					p.resultEnd()
@@ -1669,6 +1673,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 			member = nil
 		}
 		body.add(member)
+		p.endResultAfterCondition(member)
 
 		// Force progress: a member that consumed nothing would spin the loop.
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
@@ -1678,6 +1683,17 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 
 	p.expect(lexer.RBrace, "expected '}' after constraint body")
 	return body.finish()
+}
+
+// endResultAfterCondition records the body's close as a result end when the
+// member just parsed was a bare condition: a constraint body's trailing
+// condition is its result expression (SysML.xtext CalculationBodyPart), so no
+// comment is admitted after it. Declared members — a nested `constraint` or a
+// `return` parameter — leave the close open.
+func (p *Parser) endResultAfterCondition(m ast.Node) {
+	if c, ok := m.(*ast.ConstraintMember); ok && c.Expression != nil && p.at(lexer.RBrace) {
+		p.resultEnd()
+	}
 }
 
 // atConstraintBodyDeclaration reports whether a declaration member of a
