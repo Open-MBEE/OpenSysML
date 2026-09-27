@@ -437,6 +437,7 @@ func (p *Parser) parseNamespaceBody() ([]ast.Node, bool) {
 	defer p.pushBodyContext(bodyOther)()
 	var members []ast.Node
 	for !p.atEOF() && !p.at(lexer.RBrace) {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		members = append(members, p.parseMember())
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {

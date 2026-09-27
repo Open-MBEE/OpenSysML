@@ -722,6 +722,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				p.advance() // {
 				leave := p.pushBodyContext(bodyOther)
 				for !p.at(lexer.RBrace) && !p.atEOF() {
+					p.memberStart()
 					paramMembers = append(paramMembers, p.parseBodyMember())
 				}
 				leave()

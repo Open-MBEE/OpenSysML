@@ -35,6 +35,7 @@ func (p *Parser) parseCalcBody() []ast.Node {
 	}
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A calculation body carries the members of an action body
@@ -110,6 +111,7 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A member-attached `then` sequences the members either side of it, so
@@ -397,6 +399,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 		// Parse body members generically
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			m := p.parseBodyMember()
 			if m != nil {
 				usage.Members = append(usage.Members, m)
@@ -1046,6 +1049,7 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		parsed := p.newBodyBuilder()
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			if parsed.atSuccession() {
 				parsed.takeSuccession()
 				continue
@@ -1097,6 +1101,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1219,6 +1224,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1366,6 +1372,7 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1632,6 +1639,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A member-attached `then` sequences the members either side of it.
@@ -1880,6 +1888,7 @@ func (p *Parser) parseRequirementBody() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// A requirement body carries the members of a definition body
 		// (SysML.xtext RequirementBodyItem), a member-attached `then` among them,
@@ -2317,6 +2326,7 @@ func (p *Parser) parseStateBody() []ast.Node {
 	allowBody := true
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		// A member-attached `then` sequences the members either side of it; a
 		// `then` naming states (`succession first idle then done;`) is a member of its own,
 		// which parseStateMember reads (see succession.go).
