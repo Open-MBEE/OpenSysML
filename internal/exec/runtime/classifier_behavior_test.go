@@ -2238,3 +2238,93 @@ func TestInvokeOperationPositionalSeedsTheImplicitRef(t *testing.T) {
 		t.Errorf("level = %d, want 6", got)
 	}
 }
+
+// performerSeedFixture performs Spin on the member motor through `::>`: its
+// `sensor` ref declares a default the binding resolves to the member's own
+// part, so the performer must not override it, while the defaultless `context`
+// ref takes the performer.
+const performerSeedFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Sensor;
+		part def Motor {
+			attribute flag : Boolean = false;
+			part s : Sensor;
+			action def Spin {
+				in n : Integer = 0;
+				in ref sensor : Sensor = s;
+				in ref context : Motor;
+				first step;
+				action step { assign context.flag := sensor == s; }
+				first step then done;
+			}
+			action spin : Spin;
+		}
+		part def Rig {
+			part motor : Motor;
+			action def Go {
+				in ref context : Rig;
+				first spin;
+				perform action spin : Motor::Spin ::> context.motor.spin { in n = 1; }
+				first spin then done;
+			}
+			perform action go : Go { in ref :>> context = this; }
+		}
+	}
+`
+
+// A `::>` performance seeds the performer's `in ref` parameters only where the
+// performer may supply them: a ref declaring a default keeps it (and the type
+// check never sees the performer), while a defaultless conforming ref takes
+// the performer — so `sensor` resolves to the member's part and `context` to
+// the performer.
+func TestPerformerSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
+	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	if err = ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run behaviors: %v", err)
+	}
+	motor, err := inst.GetFeatureValue(ctx, "motor")
+	if err != nil {
+		t.Fatalf("read motor: %v", err)
+	}
+	motorID, _ := motor.HeldValue().Object()
+	motorInst := ctx.instances[motorID]
+	fv, err := motorInst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: the sensor binding came from the declared default, not the performer", got)
+	}
+}
+
+// The positional form of InvokeOperationWith seeds the same way: it binds the
+// argued `in` and leaves the defaulted `sensor` to its declaration while the
+// defaultless `context` still takes the object the action runs on.
+func TestInvokeOperationPositionalSeedsOnlyTheConformingDefaultlessRef(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerSeedFixture))
+	motor := findSymbolByName(idx.DocumentRoot("<test>"), "Motor", ast.DefPart)
+	inst, err := ctx.Instantiate(motor)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, err := ctx.InvokeOperationWith(inst, "spin",
+		OperationArguments{Positional: []Value{intArgument(1)}}); err != nil {
+		t.Fatalf("spin(1): %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: the sensor binding came from the declared default, not the performer", got)
+	}
+}

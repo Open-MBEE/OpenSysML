@@ -58,8 +58,10 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 		named = clone
 	}
 	// An `in ref` parameter no argument binds takes the performer, as any
-	// behavior run on an object binds the object it runs on to it — it satisfies
-	// the arity check but is no input the caller stated.
+	// behavior run on an object binds the object it runs on to it — unless the
+	// parameter declares a default of its own or a type the performer does not
+	// conform to. Seeding satisfies the arity check but is no input the caller
+	// stated.
 	var seeded []string
 	if isActionSymbol(sym) {
 		for _, param := range ctx.actionParametersOf(sym) {
@@ -67,6 +69,9 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 				continue
 			}
 			if _, bound := named[param.Name]; bound {
+				continue
+			}
+			if !ctx.performerSeedsRef(param, inst) {
 				continue
 			}
 			if named == nil {

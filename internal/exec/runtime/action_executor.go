@@ -1200,16 +1200,11 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 		scope = e.graph.Scope
 	}
 	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
-	if !ok {
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
-	for _, typ := range e.ctx.model.semantics.DirectSupertypes(param) {
-		if e.ctx.instanceConforms(e.self, typ) {
-			e.root.data[e.root.key(attr.Name)] = Value{Kind: ValInstance, Instance: e.self.ID}
-			return true
-		}
-	}
-	return false
+	e.root.data[e.root.key(attr.Name)] = Value{Kind: ValInstance, Instance: e.self.ID}
+	return true
 }
 
 // streamInitialOutput carries the initial value of an output or inout to the listeners,

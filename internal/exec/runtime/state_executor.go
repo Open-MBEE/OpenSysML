@@ -356,16 +356,11 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 		scope = e.graph.Scope
 	}
 	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
-	if !ok {
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
-	for _, typ := range e.ctx.model.semantics.DirectSupertypes(param) {
-		if e.ctx.instanceConforms(e.self, typ) {
-			e.stateData[attr.Name] = Value{Kind: ValInstance, Instance: e.self.ID}
-			return true
-		}
-	}
-	return false
+	e.stateData[attr.Name] = Value{Kind: ValInstance, Instance: e.self.ID}
+	return true
 }
 
 // dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`

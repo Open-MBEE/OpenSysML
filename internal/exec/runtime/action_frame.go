@@ -1545,10 +1545,11 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			return nil, err
 		}
 		// A `::>` performance binds its `ref` inputs to the performer, which
-		// bindContextDefault resolves once it runs on that object.
+		// bindContextDefault resolves once it runs on that object — but only
+		// the ones the performer may supply: a declared default binds instead.
 		for _, param := range params {
 			if param.IsReference {
-				if _, bound := inputs[param.Name]; !bound {
+				if _, bound := inputs[param.Name]; !bound && e.ctx.performerSeedsRef(param, performer) {
 					inputs[param.Name] = Value{Kind: ValInstance, Instance: performer.ID}
 				}
 			}

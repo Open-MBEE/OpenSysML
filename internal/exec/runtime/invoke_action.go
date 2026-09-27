@@ -535,6 +535,9 @@ type actionParameter struct {
 	Optional bool
 	// IsResult marks the `return` parameter, what the action's value read yields.
 	IsResult bool
+	// Symbol is the parameter's declaration, from which its declared default
+	// and type are read.
+	Symbol *symbols.Symbol
 }
 
 // actionParametersOf returns an action's parameters in invocation order: its own, then
@@ -551,9 +554,29 @@ func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 			IsReference: isReferenceUsage(param.Symbol),
 			Optional:    ctx.model.semantics.OptionalParameter(param.Symbol),
 			IsResult:    param.IsResult,
+			Symbol:      param.Symbol,
 		})
 	}
 	return params
+}
+
+// performerSeedsRef reports whether the object a behavior runs on supplies an
+// unbound ref input: only when the parameter declares no default of its own —
+// which the binding resolves instead — and, when it declares a type, the
+// performer conforms to it.
+func (ctx *Context) performerSeedsRef(param actionParameter, performer *Instance) bool {
+	return param.Symbol == nil || ctx.performerSeedsRefParam(param.Symbol, performer)
+}
+
+// performerSeedsRefParam is performerSeedsRef on the parameter's own symbol.
+func (ctx *Context) performerSeedsRefParam(param *symbols.Symbol, performer *Instance) bool {
+	if value, _ := ctx.model.semantics.ParameterDefault(param); value != nil {
+		return false
+	}
+	if typ := ctx.extractType(param); typ != nil && !ctx.instanceConforms(performer, typ) {
+		return false
+	}
+	return true
 }
 
 // ActionInputNames is the action's `in` and `inout` parameter names in
