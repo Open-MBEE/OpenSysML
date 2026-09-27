@@ -321,7 +321,7 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	w.extensionFix(keywordSpan(n, n.Keyword), fmt.Sprintf(
 		"%s is an OpenSysML extension; write `%s`%s",
 		written, replacement, importNote), annotation+"Metadata", needsImport,
-		diag.Replace(n.Span(), replacement))
+		diag.Replace(w.memberSpan(n), replacement))
 }
 
 // pseudostateAnnotations names the StateMachines metadata definition a
@@ -366,7 +366,7 @@ func (w *notationWalker) deferredMember(n *ast.DeferMember) {
 	w.extensionFix(keywordSpan(n, "defer"), fmt.Sprintf(
 		"`defer %s;` is an OpenSysML extension; write %s%s",
 		strings.Join(spelled, ", "), strings.Join(refs, " and "), importNote),
-		"DeferredMetadata", needsImport, diag.Replace(n.Span(), w.deferredRefLines(n, refs)))
+		"DeferredMetadata", needsImport, diag.Replace(w.memberSpan(n), w.deferredRefLines(n, refs)))
 }
 
 // deferredRefLines spells the `#deferred ref` members a `defer` member rewrites
@@ -381,6 +381,19 @@ func (w *notationWalker) deferredRefLines(n *ast.DeferMember, refs []string) str
 		return strings.Join(lines, "\n"+w.indentOf(n.Span().Offset))
 	}
 	return strings.Join(lines, " ")
+}
+
+// memberSpan is the member's own text: a node's span runs to the next token's
+// start, so the fix trims it at the terminating `;` to keep the following
+// whitespace and any trailing comment.
+func (w *notationWalker) memberSpan(n ast.Node) source.Span {
+	span := n.Span()
+	if w.lookup != nil {
+		if i := strings.Index(w.lookup(w.doc, span), ";"); i >= 0 {
+			span.Len = i + 1
+		}
+	}
+	return span
 }
 
 // indentOf returns the leading whitespace of the line offset opens, or "" when

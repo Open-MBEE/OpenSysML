@@ -155,6 +155,18 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 	if n := strings.Count(fixed, "private import StateMachines::*;"); n != 1 {
 		t.Fatalf("fixed text carries the StateMachines import %d times:\n%s", n, fixed)
 	}
+	// The rewrite ends at the member's `;`: the next member keeps its line
+	// and indentation rather than being swallowed into the replacement.
+	for _, want := range []string{
+		"#choice state pick;\n\t\t#junction state j;",
+		"#junction state j;\n\t\tstate comp {",
+		"#deferred ref : setSpeed;\n\t\t}",
+		"#shallowHistory state sh;\n\t\t#deepHistory state dh;\n\t}",
+	} {
+		if !strings.Contains(fixed, want) {
+			t.Fatalf("fixed text lost the trivia after the rewritten member; want %q in:\n%s", want, fixed)
+		}
+	}
 
 	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
 	if len(fixedDiags) != 0 {
