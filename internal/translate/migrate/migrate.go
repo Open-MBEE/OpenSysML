@@ -351,6 +351,9 @@ type migration struct {
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
+	// asides, when set, collects the notes a declaration's writer emits, so it
+	// can place them where the grammar admits a comment: before the declaration.
+	asides *[]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
 	deciding map[*sysmlv1.Element]bool
