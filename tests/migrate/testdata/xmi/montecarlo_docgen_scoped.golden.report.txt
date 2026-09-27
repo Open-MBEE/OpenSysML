@@ -40,8 +40,8 @@ ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<Co
 ControlFlow	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<ControlFlow>	_stats_table_e3
 FlowFinalNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<FlowFinalNode>	_stats_table_final	-> done	(a flow final ends the token, as done does)
 InitialNode	Viewpoints::Statistics Viewpoint::Statistics Method::Statistics::<InitialNode>	_stats_table_init	-> start
-«Expose» Dependency	Views::<Dependency>	_expose_scoped	-> Views::'Scoped Statistics'
-«Expose» Dependency	Views::<Dependency>	_expose_recorded	-> Views::'Recorded Statistics'
+«Expose» Dependency	Views::<Dependency>	_expose_scoped	-> ViewsModel::'Scoped Statistics'
+«Expose» Dependency	Views::<Dependency>	_expose_recorded	-> ViewsModel::'Recorded Statistics'
 «View» Class	Views::Recorded Statistics	_view_recorded	-> ViewsModel::'Recorded Statistics'
 «Conform» Generalization	Views::Recorded Statistics::<Generalization>	_gen_recorded	-> ViewsModel::'Recorded Statistics'
 «View» Class	Views::Scoped Statistics	_view_scoped	-> ViewsModel::'Scoped Statistics'

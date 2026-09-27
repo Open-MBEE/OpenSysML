@@ -35,10 +35,10 @@ Package	Viewpoints	_vps	-> Viewpoints
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_safetyVpDoc
 Comment	Viewpoints::Safety Viewpoint::<Comment>	_hazardConcern
 Activity	Viewpoints::Safety Viewpoint::Collect Guards	_collect	-> Viewpoints::'Safety Viewpoint'::'Collect Guards'
-«Expose» Dependency	Views::<Dependency>	_exposeSys	-> Views::'Safety View'
-«Expose» Dependency	Views::<Dependency>	_exposeDiagram	-> Views::'Safety View'
-«Expose» Dependency	Views::<Dependency>	_exposeViewpoint	-> Views::'Operations View'
-«Conform» Dependency	Views::<Dependency>	_conformDep	-> Views::'Operations View'
+«Expose» Dependency	Views::<Dependency>	_exposeSys	-> ViewsModel::'Safety View'
+«Expose» Dependency	Views::<Dependency>	_exposeDiagram	-> ViewsModel::'Safety View'
+«Expose» Dependency	Views::<Dependency>	_exposeViewpoint	-> ViewsModel::'Operations View'
+«Conform» Dependency	Views::<Dependency>	_conformDep	-> ViewsModel::'Operations View'
 «View» Class	Views::Guard Detail	_detailView	-> ViewsModel::'Guard Detail'
 «View» Class	Views::Operations View	_opsView	-> ViewsModel::'Operations View'
 «View» Class	Views::Safety View	_safetyView	-> ViewsModel::'Safety View'

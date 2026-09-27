@@ -39,7 +39,7 @@ Signal	Behavior::Stop	_sig_stop	-> Behavior::Stop
 Model	Model	_m	(the root model's members are written at the top level)
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> Structure::Vehicle::'satisfy Mass Limit'
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_hidden	-> Structure::Vehicle
-«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Requirements::'Mass Test'::'objective'::'verify Mass Limit'
+«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> RequirementsModel::'Mass Test'::'objective'::'verify Mass Limit'
 «Requirement» Class	Requirements::Mass Limit	_req_mass	-> RequirementsModel::'Mass Limit'
 «Requirement» Class	Requirements::Speed Limit	_req_speed	-> RequirementsModel::'Speed Limit'
 Diagram	Requirements::Traceability	_diag_req	-> RequirementsModel::Traceability	(a SysML Requirement Diagram written as a view rendered asTreeDiagram)

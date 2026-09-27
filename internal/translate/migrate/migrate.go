@@ -567,6 +567,9 @@ func (m *migration) prepare() {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		if e.Parent == nil {
+			m.avoidLibraryRoots(e)
+		}
 		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
@@ -684,44 +687,42 @@ func (m *migration) prepare() {
 	for _, a := range associations {
 		m.nameEnds(a)
 	}
-	m.avoidLibraryRoots()
 }
 
 // avoidLibraryRoots renames a top-level declaration named like a standard
 // library root package: a qualified name starting with that name resolves to
 // the library package, which the standard loads first, so a reference into the
 // written one would fail. The source name is kept for the report and for the
-// LibraryNameAvoided metadata line.
-func (m *migration) avoidLibraryRoots() {
-	for _, r := range m.model.Roots {
-		var decls []*sysmlv1.Element
-		if m.flattened(r) {
-			for _, c := range r.Children {
-				if !ownerWritten(c.Role) {
-					decls = append(decls, c)
-				}
+// LibraryNameAvoided metadata line. It runs for root r after the top level has
+// been distinguished, before anything derives names from the old ones.
+func (m *migration) avoidLibraryRoots(r *sysmlv1.Element) {
+	var decls []*sysmlv1.Element
+	if m.flattened(r) {
+		for _, c := range r.Children {
+			if !ownerWritten(c.Role) {
+				decls = append(decls, c)
 			}
-		} else if !m.isLibrary(r) {
-			decls = append(decls, r)
 		}
-		for _, e := range decls {
-			if m.isLibrary(e) {
-				continue
-			}
-			src := m.nameOf(e)
-			if src == "" || !m.libraryPackage(src) {
-				continue
-			}
-			base := src + " Model"
-			if source.IsIdentifier(src) && !source.IsKeyword(src) {
-				base = src + "Model"
-			}
-			fresh := base
-			for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
-				fresh = fmt.Sprintf("%s %d", base, i)
-			}
-			m.names[e], m.libraryClash[e] = fresh, src
+	} else if !m.isLibrary(r) {
+		decls = append(decls, r)
+	}
+	for _, e := range decls {
+		if m.isLibrary(e) {
+			continue
 		}
+		src := m.nameOf(e)
+		if src == "" || !m.libraryPackage(src) {
+			continue
+		}
+		base := src + " Model"
+		if source.IsIdentifier(src) && !source.IsKeyword(src) {
+			base = src + "Model"
+		}
+		fresh := base
+		for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
+			fresh = fmt.Sprintf("%s %d", base, i)
+		}
+		m.names[e], m.libraryClash[e] = fresh, src
 	}
 }
 

@@ -29,7 +29,7 @@ Model	Model	_model	(the root model's members are written at the top level)
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy	-> 'Vehicle Design'::Vehicle
 «Satisfy» Abstraction	Requirements::<Abstraction>	_dep_satisfy_prop	-> 'Vehicle Design'::Vehicle
 «DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> RequirementsModel::'Derive Engine Mass Requirement'
-«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Requirements::'Mass Test'
+«Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> RequirementsModel::'Mass Test'
 «Refine» Abstraction	Requirements::<Abstraction>	_dep_refine
 «Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate
 «Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks
