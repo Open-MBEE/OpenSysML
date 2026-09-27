@@ -2813,6 +2813,34 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 }
 
+// Each run of a case definition is its own occurrence: `this.n` reads the input
+// that run bound, not the object a shared occurrence cached under the symbol.
+func TestAnalysisDefRunGetsItsOwnOccurrence(t *testing.T) {
+	src := `
+package test {
+	analysis def Occurrence {
+		in n : Integer;
+		return : Integer = this.n;
+	}
+}
+`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	root := idx.DocumentRoot("<test>")
+	occ, scope := calcByName(t, root, "test", "Occurrence")
+	for _, n := range []int64{3, 8} {
+		result, err := ctx.RunAnalysis(occ, AnalysisArgs{
+			Positional: []Value{constInt(n)},
+		}, scope, nil)
+		if err != nil {
+			t.Fatalf("Occurrence(%d): %v", n, err)
+		}
+		if len(result.Outputs) != 1 || result.Outputs[0].Value.Const.Int != n {
+			t.Errorf("Occurrence(%d) = %+v, want %d: each run's this holds its own inputs",
+				n, result.Outputs, n)
+		}
+	}
+}
+
 // stateFlowThisFixture calls Observer from the entry action of a state
 // definition run directly: the `= this` the call's context binding reads is the
 // machine's occurrence, made lazily when no earlier read produced one, and the

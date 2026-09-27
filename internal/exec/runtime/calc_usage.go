@@ -660,18 +660,48 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 	defer leave()
 	start := &calcUsageStart{shape: shape, key: key, reader: reader}
 	// `this` in the usage's bindings denotes the occurrence the usage itself is,
-	// made on the first read of it as every other usage's occurrence is.
+	// made on the first read of it as every other usage's occurrence is. A
+	// definition's `this` denotes the occurrence the run itself is — one per run,
+	// seeded with the parameters bound so far, ending with it — not the object
+	// occurrenceOf caches under the symbol, which every run would share.
 	start.occurrence = &calcOccurrence{}
-	start.occurrence.materialize = func() (*Instance, error) {
-		if start.occurrence.inst != nil {
-			return start.occurrence.inst, nil
+	if isBehaviorDefKind(shape.Sym.Kind) {
+		start.occurrence.materialize = func() (*Instance, error) {
+			if start.occurrence.inst != nil {
+				return start.occurrence.inst, nil
+			}
+			inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+			if err != nil {
+				return nil, err
+			}
+			for _, name := range shape.ParamNames {
+				if value, held := start.env.lookup(name); held {
+					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+							ErrActionPerformanceOccurrence, name, inst.ID, err)
+					}
+				}
+			}
+			activation := reader.activation
+			if start.engine != nil {
+				activation = start.engine.activation
+			}
+			ctx.beginPerformanceLife(inst, activation)
+			start.occurrence.inst = inst
+			return inst, nil
 		}
-		inst, err := ctx.occurrenceOf(start.key.sym)
-		if err != nil {
-			return nil, err
+	} else {
+		start.occurrence.materialize = func() (*Instance, error) {
+			if start.occurrence.inst != nil {
+				return start.occurrence.inst, nil
+			}
+			inst, err := ctx.occurrenceOf(start.key.sym)
+			if err != nil {
+				return nil, err
+			}
+			start.occurrence.inst = inst
+			return inst, nil
 		}
-		start.occurrence.inst = inst
-		return inst, nil
 	}
 	start.ec, start.nested, start.env, err = ctx.bindCalcUsage(shape, reader, args, start.occurrence)
 	if err != nil {
@@ -912,6 +942,13 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer = nested
 	run.activation, run.perf, run.boundInputs, run.occurrence = engine.activation, host.performance(), start.inputs, start.occurrence
+	// A definition's occurrence lives for the run, as a performed behavior's does:
+	// the run's end ends it.
+	defer func() {
+		if isBehaviorDefKind(shape.Sym.Kind) && start.occurrence.inst != nil {
+			ctx.endPerformanceLife(start.occurrence.inst)
+		}
+	}()
 
 	// A tool-computed calc runs no body: the tool's answers are its outputs, the
 	// result parameter's answer its result, and reading an unanswered one is the
