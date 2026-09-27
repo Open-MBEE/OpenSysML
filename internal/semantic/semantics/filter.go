@@ -372,6 +372,14 @@ const chainValueLimitation = "the value of the feature the chain reads is not a 
 // reports: the read is reflective, against the candidate element.
 const chainReflectiveLimitation = "a filter condition reads a feature of a metaclass through a chain, which OpenSysML does not evaluate (known limitation: the chain is read from the candidate element)"
 
+// chainUnvaluedLimitation is the reason a chain whose read feature has no
+// value reports: a value inherited through redefinition is not followed.
+const chainUnvaluedLimitation = "the feature the chain reads has no value of its own (a value inherited through redefinition is not followed), so OpenSysML does not evaluate it in a filter condition"
+
+// chainQualifiedLimitation is the reason a hop that is a qualified name, not a
+// member of the preceding feature, reports.
+const chainQualifiedLimitation = "the chain reads through a qualified name that does not name a member of the preceding feature, which OpenSysML does not evaluate in a filter condition"
+
 // compileChainRead compiles a chain rooted in a feature with no featuring
 // type, which is model-level evaluable whatever the hop count: the chain is an
 // operator over `'.'` [KerML, 8.3.4.8.4] and its value is the read feature's,
@@ -395,12 +403,27 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 		}
 		return evaluatorUnsupported(span, chainReflectiveLimitation, read)
 	}
+	for n := ast.Node(e); ; n = n.(*ast.FeatureChainExpr).Operand {
+		chain, isChain := n.(*ast.FeatureChainExpr)
+		if !isChain {
+			break
+		}
+		if chain.Member != nil && len(chain.Member.Parts) > 1 {
+			if resolved, resolvedOk := m.resolver.ResolveTarget(scope, e); resolvedOk && resolved != nil {
+				return evaluatorUnsupported(span, chainQualifiedLimitation, resolved)
+			}
+			return unresolvedReference(span, "a feature chain does not resolve")
+		}
+	}
 	hops := chainHops(e)
 	cur := rootSym
 	soFar := qnText(root.Name)
 	for i, hop := range hops {
 		next, ok := m.LookupMember(cur, hop)
 		if !ok || next == nil {
+			if resolved, resolvedOk := m.resolver.ResolveTarget(scope, e); resolvedOk && resolved != nil {
+				return evaluatorUnsupported(span, chainQualifiedLimitation, resolved)
+			}
 			return unresolvedReference(span, fmt.Sprintf("%s has no feature %s to read", soFar, hop))
 		}
 		if IsMetadataType(m.ownerOf(next)) {
@@ -421,16 +444,7 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 		}
 		return evaluatorUnsupported(span, chainValueLimitation, read)
 	}
-	fqn := m.fqnOf(read)
-	if fqn == "" {
-		return unsupported(span, fmt.Sprintf("%s has no qualified name to compare", soFar))
-	}
-	return &symbols.FilterPredicate{
-		Op:         symbols.FilterConst,
-		Value:      symbols.FilterValue{Kind: symbols.FilterValueRef, RefFQN: fqn},
-		ResultType: read,
-		Span:       span,
-	}
+	return evaluatorUnsupported(span, chainUnvaluedLimitation, read)
 }
 
 // compileReference compiles a name a filter condition uses as a value: a feature

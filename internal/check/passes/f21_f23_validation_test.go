@@ -144,6 +144,24 @@ func TestFilterChainIntoMetaclassFeatureReportsLimitation(t *testing.T) {
 	}
 }
 
+// A read feature with no value of its own reports the limitation rather than
+// comparing the feature itself.
+func TestFilterChainUnvaluedTerminalReportsLimitation(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; }
+	package E {
+		private import ScalarValues::*;
+		attribute root { attribute inner { attribute k : Integer; } }
+		package Q { filter E::root.inner.k == 3; }
+	}`
+	diags := filterDiags(t, src)
+	if got := only(diags, "filter-not-evaluated"); len(got) != 1 {
+		t.Fatalf("expected one not-evaluated diagnostic, got %v", diags)
+	}
+	if got := only(diags, "filter-not-evaluable"); len(got) != 0 {
+		t.Fatalf("expected no not-evaluable diagnostic, got %v", diags)
+	}
+}
+
 // A read feature whose value is not a number or boolean reports the same.
 func TestFilterChainNonNumericValueReportsLimitation(t *testing.T) {
 	const src = `package ScalarValues { attribute def Integer; attribute def String; }
