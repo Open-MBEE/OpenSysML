@@ -689,7 +689,7 @@ func (s *Session) transcript() (string, bool) {
 func (s *Session) openDocuments() {
 	var inputs []model.Input
 	if typed, found := s.transcript(); found {
-		inputs = append(inputs, model.Input{Name: docName, Content: []byte(typed), Version: s.version})
+		inputs = append(inputs, model.Input{Name: docName, Content: []byte(typed), Version: s.version, Transient: true})
 	} else {
 		s.ws.Remove(docName)
 	}
@@ -1340,7 +1340,8 @@ func (s *Session) newRuntimeOver(model *runtime.Model) (*runtime.Context, error)
 // and the ones its wildcard imports surfaced, so a submission costs its own
 // document rather than a reload of the library.
 func (s *Session) symbolIndex() *symbols.Index {
-	docs := s.sessionDocs()
+	// The index is built from trees, and the runtime over it evaluates them.
+	docs := s.hydratedDocs()
 	if !hasScope(docs) {
 		s.dropIndexedDocs()
 		return nil
@@ -1381,6 +1382,19 @@ func (s *Session) dropIndexedDocs() {
 	}
 	s.idxDocs = nil
 	s.idxVersion, s.about = 0, semantics.NewAboutIndex()
+}
+
+// hydratedDocs is sessionDocs with every file held as its record hydrated
+// first, for a reader of the session's trees.
+func (s *Session) hydratedDocs() []*model.Document {
+	docs := s.sessionDocs()
+	for _, doc := range docs {
+		if doc.Recorded() {
+			s.ws.HydrateAll()
+			return s.sessionDocs()
+		}
+	}
+	return docs
 }
 
 // hasScope reports whether any of the documents built a scope tree.
@@ -1453,11 +1467,8 @@ func (s *Session) sessionDocs() []*model.Document {
 func (s *Session) sessionMembers() []Member {
 	var out []Member
 	for _, l := range s.locatedDocs() {
-		if l.doc.AST == nil {
-			continue
-		}
-		for _, m := range l.doc.AST.Members {
-			out = append(out, Member{Node: m, Offset: l.base + m.Span().Offset, scope: l.doc.Scope})
+		for _, m := range l.doc.TopMembers() {
+			out = append(out, Member{Summary: m, Offset: l.base + m.Span.Offset, scope: l.doc.Scope})
 		}
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Offset < out[j].Offset })

@@ -89,18 +89,12 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyGeneral:
 		return r.generals(sym)
 	case PropertyIsAbstract:
-		switch decl := sym.Decl.(type) {
-		case *ast.Usage:
-			return []string{strconv.FormatBool(decl.IsAbstract)}, true
-		case *ast.Definition:
-			return []string{strconv.FormatBool(decl.IsAbstract)}, true
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:
-		switch decl := sym.Decl.(type) {
-		case *ast.Usage:
-			return []string{strconv.FormatBool(decl.IsIndividual)}, true
-		case *ast.Definition:
-			return []string{strconv.FormatBool(decl.IsIndividual)}, true
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(individual(sym))}, true
 		}
 	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
 		if r.semantics == nil {
@@ -224,13 +218,27 @@ func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
 	return values, len(values) > 0
 }
 
+// individual reports whether sym's declaration carries the `individual` modifier.
+func individual(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModIndividual)
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		return decl.IsIndividual
+	case *ast.Definition:
+		return decl.IsIndividual
+	}
+	return false
+}
+
 // generalizes reports whether a relationship at sym's declaration names a
 // type it specializes: a definition's `:>`, or a usage's typing.
 func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
-	switch sym.Decl.(type) {
-	case *ast.Definition:
+	switch {
+	case sym.DeclaresDefinition():
 		return kind == ast.RelSpecializes
-	case *ast.Usage:
+	case sym.DeclaresUsage():
 		return kind == ast.RelTyping
 	}
 	return false

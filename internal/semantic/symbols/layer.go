@@ -215,6 +215,35 @@ func insertSorted(l *layer[string, []string], k, s string) {
 	l.set(k, out)
 }
 
+// mergeSorted is the sorted, duplicate-free union of the sorted have and the
+// names in add, in any order; it is have itself when add brings nothing new.
+func mergeSorted(have, add []string) []string {
+	slices.Sort(add)
+	add = slices.Compact(add)
+	out := make([]string, 0, len(have)+len(add))
+	i, j := 0, 0
+	for i < len(have) && j < len(add) {
+		switch {
+		case have[i] < add[j]:
+			out = append(out, have[i])
+			i++
+		case have[i] > add[j]:
+			out = append(out, add[j])
+			j++
+		default:
+			out = append(out, have[i])
+			i++
+			j++
+		}
+	}
+	out = append(out, have[i:]...)
+	out = append(out, add[j:]...)
+	if len(out) == len(have) {
+		return have
+	}
+	return out
+}
+
 // removeSorted drops s from the sorted slice under k and returns what remains.
 func removeSorted(l *layer[string, []string], k, s string) []string {
 	have, _ := l.get(k)

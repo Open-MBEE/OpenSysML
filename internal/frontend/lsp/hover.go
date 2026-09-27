@@ -29,6 +29,7 @@ func (s *Server) Hover(ctx context.Context, params *protocol.HoverParams) (*prot
 	// in: the type a usage declares, the query a document block invokes.
 	if ref := refAtOffset(collectRefs(doc.AST, doc.Scope), offset); ref != nil {
 		if target, span, ok := s.referencedSegment(name, *ref, offset); ok && target != nil {
+			target, span = s.hydratedTarget(name, *ref, offset, target, span)
 			signature := target.Notation()
 			if target.Name != "" {
 				signature += " " + source.NameText(target.Name)
@@ -106,6 +107,22 @@ func (s *Server) ambiguousCallHover(doc string, content []byte, ref resolve.Refe
 		Contents: s.hoverContents(strings.Join(lines, "\n"), []string{"Ambiguous call: the arguments fit each of these overloads equally."}, ""),
 		Range:    &rng,
 	}
+}
+
+// hydratedTarget is the hovered reference's target over its declaring document
+// hydrated when the workspace held that as its record: the documentation hover
+// shows is read from the tree. A declaration outside the workspace is left as is.
+func (s *Server) hydratedTarget(doc string, ref resolve.Reference, offset int, target *symbols.Symbol, span source.Span) (*symbols.Symbol, source.Span) {
+	if !target.Recorded() || s.ws.Document(target.DocName) == nil {
+		return target, span
+	}
+	if err := s.ws.Hydrate(target.DocName); err != nil {
+		return target, span
+	}
+	if hydrated, hydratedSpan, ok := s.referencedSegment(doc, ref, offset); ok && hydrated != nil {
+		return hydrated, hydratedSpan
+	}
+	return target, span
 }
 
 // symbolDocComments returns the comment trivia preceding a symbol's

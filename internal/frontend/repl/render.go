@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // Result is the outcome of one Submit: the top-level members of the session's
@@ -52,8 +53,8 @@ type Result struct {
 // Member is one top-level member of a session document; Offset is where the
 // member begins in the buffer, a loaded file's document having offsets of its own.
 type Member struct {
-	Node   ast.Node
-	Offset int
+	Summary libs.TopMember
+	Offset  int
 	// scope is the root scope of the document declaring the member.
 	scope *symbols.Scope
 }
@@ -131,42 +132,25 @@ func (r Result) holdsMine(span source.Span) bool {
 func renderSummary(members []Member) []string {
 	out := make([]string, 0, len(members))
 	for _, m := range members {
-		if line := renderMember(m.Node); line != "" {
+		if line := renderMember(m.Summary); line != "" {
 			out = append(out, "✓ "+line)
 		}
 	}
 	return out
 }
 
-// renderMember maps a top-level member (possibly wrapped in a Membership) to a
-// "<kind> <name>" summary, or "" for members that carry no useful summary.
-func renderMember(m ast.Node) string {
-	node := m
-	if mem, ok := m.(*ast.Membership); ok {
-		node = mem.Member
-	}
-	switch d := node.(type) {
-	case *ast.Package:
-		return "package " + nameOrAnon(d.Ident)
-	case *ast.Namespace:
-		return "namespace " + nameOrAnon(d.Ident)
-	case *ast.Alias:
-		return "alias " + nameOrAnon(d.Ident)
-	case *ast.Import:
-		return "import " + importTarget(d)
-	case *ast.Dependency:
-		return "dependency " + nameOrAnon(d.Ident)
-	case *ast.Comment:
-		return "comment"
-	case *ast.RelationshipMember:
-		return ast.Notation(d) + " " + nameOrAnon(d.Ident)
-	case *ast.Definition:
-		return ast.Notation(d) + " " + nameOrAnon(d.Ident)
-	case *ast.Usage:
-		return ast.Notation(d) + " " + nameOrAnon(d.Ident)
-	default:
+// renderMember maps a top-level member to a "<kind> <name>" summary, or "" for
+// members that carry no useful summary.
+func renderMember(m libs.TopMember) string {
+	switch m.Kind {
+	case "":
 		return ""
+	case "comment":
+		return m.Kind
+	case "import":
+		return m.Kind + " " + m.Target
 	}
+	return m.Kind + " " + nameOrAnon(ast.Identification{Name: m.Name, ShortName: m.ShortName})
 }
 
 func nameOrAnon(id ast.Identification) string {
@@ -177,32 +161,6 @@ func nameOrAnon(id ast.Identification) string {
 		return "<" + source.NameText(id.ShortName) + ">"
 	}
 	return "<anonymous>"
-}
-
-// importTarget echoes what an import names, wildcards included, so the
-// confirmation matches what was typed.
-func importTarget(imp *ast.Import) string {
-	name := qnString(imp.Imported)
-	switch {
-	case imp.Kind == ast.ImportNamespace && imp.IsRecursive:
-		return name + "::*::**"
-	case imp.IsRecursive:
-		return name + "::**"
-	case imp.Kind == ast.ImportNamespace:
-		return name + "::*"
-	}
-	return name
-}
-
-func qnString(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return "<?>"
-	}
-	parts := make([]string, len(qn.Parts))
-	for i, p := range qn.Parts {
-		parts[i] = p.Text
-	}
-	return strings.Join(parts, "::")
 }
 
 // renderDiagnostics formats each diagnostic as a two-line block:
@@ -553,7 +511,7 @@ func (r Result) within(span source.Span) Result {
 func (r Result) ownMembers() []Member {
 	out := make([]Member, 0, len(r.Members))
 	for _, m := range r.Members {
-		if r.holdsMine(source.Span{Offset: m.Offset, Len: m.Node.Span().Len}) {
+		if r.holdsMine(source.Span{Offset: m.Offset, Len: m.Summary.Span.Len}) {
 			out = append(out, m)
 		}
 	}

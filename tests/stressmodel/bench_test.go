@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
 
@@ -357,4 +358,110 @@ func TestEditsHoldNoStaleState(t *testing.T) {
 		t.Fatalf("live heap grew from %d to %d bytes over 1000 edits", warm, after)
 	}
 	t.Logf("live heap after 1 edit %d bytes, after 1000 edits %d bytes", warm, after)
+}
+
+// splitInputs is the split network as a batch opens it.
+func splitInputs(files []repl.SourceFile) []model.Input {
+	inputs := make([]model.Input, len(files))
+	for i, f := range files {
+		inputs[i] = model.Input{Name: f.Name, Content: []byte(f.Text), Version: 1}
+	}
+	return inputs
+}
+
+// splitNames are the split network's document names.
+func splitNames(files []repl.SourceFile) []string {
+	names := make([]string, len(files))
+	for i, f := range files {
+		names[i] = f.Name
+	}
+	return names
+}
+
+// recordedCache is a record cache holding the records of every file of the
+// split network, as a run over it leaves.
+func recordedCache(tb testing.TB, files []repl.SourceFile) *libs.Cache {
+	tb.Helper()
+	cache, err := libs.NewCacheIn(tb.TempDir())
+	if err != nil {
+		tb.Fatal(err)
+	}
+	ws := model.NewWorkspace(model.WithRecordCache(cache))
+	ws.OpenAll(splitInputs(files))
+	for _, diags := range ws.DiagnosticsAll(splitNames(files)) {
+		for _, d := range diags {
+			tb.Fatalf("the split network did not analyse cleanly: %s", d.Message)
+		}
+	}
+	return cache
+}
+
+// BenchmarkOpenSplit opens the split network as a workspace and asks for every
+// file's diagnostics: cold, with no record cache, so every file is parsed and
+// analyzed; and warm, from a cache holding every file's record.
+func BenchmarkOpenSplit(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		cache := recordedCache(b, files)
+		for _, warm := range []bool{false, true} {
+			state := "cold"
+			if warm {
+				state = "warm"
+			}
+			b.Run(fmt.Sprintf("satellites=%d/files=%d/%s", stats.Satellites, len(files), state), func(b *testing.B) {
+				open := func() {
+					var opts []model.Option
+					if warm {
+						opts = append(opts, model.WithRecordCache(cache))
+					}
+					ws := model.NewWorkspace(opts...)
+					ws.OpenAll(splitInputs(files))
+					for _, diags := range ws.DiagnosticsAll(splitNames(files)) {
+						if len(diags) > 0 {
+							b.Fatal(diags[0].Message)
+						}
+					}
+					if warm && !ws.Recorded(files[len(files)-1].Name) {
+						b.Fatal("a warm cache did not hold the network as records")
+					}
+				}
+				open()
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					open()
+				}
+			})
+		}
+	}
+}
+
+// BenchmarkHydratePlane measures what a workspace holding the split network as
+// records pays to hydrate one plane file — parse it, replace its record symbols
+// with tree-backed ones and invalidate what read it — and to answer the
+// constellation file's diagnostics again over the hydrated plane.
+func BenchmarkHydratePlane(b *testing.B) {
+	for _, n := range networkSizes {
+		files, stats := splitFiles(network(n))
+		cache := recordedCache(b, files)
+		plane, constellation := files[1].Name, files[len(files)-1].Name
+		b.Run(fmt.Sprintf("satellites=%d/files=%d", stats.Satellites, len(files)), func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				ws := model.NewWorkspace(model.WithRecordCache(cache))
+				ws.OpenAll(splitInputs(files))
+				if !ws.Recorded(plane) || !ws.Recorded(constellation) {
+					b.Fatal("a warm cache did not hold the network as records")
+				}
+				b.StartTimer()
+				if err := ws.Hydrate(plane); err != nil {
+					b.Fatal(err)
+				}
+				if diags := ws.Diagnostics(constellation); len(diags) > 0 {
+					b.Fatal(diags[0].Message)
+				}
+			}
+		})
+	}
 }

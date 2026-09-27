@@ -442,7 +442,9 @@ func (m *migration) behaviorUsage(b *sysmlv1.Element) string {
 	m.usageOf[b] = name
 	if m.model.Ref(owner, "classifierBehavior") != b || b.Parent != owner {
 		m.extras[owner] = append(m.extras[owner], func() {
-			m.w.line("action " + writeName(name) + " : " + m.ref(b, owner) + ";")
+			if !m.asUsage[b] {
+				m.w.line("action " + writeName(name) + " : " + m.ref(b, owner) + ";")
+			}
 		})
 	}
 	return name

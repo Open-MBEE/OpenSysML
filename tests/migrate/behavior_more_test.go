@@ -420,7 +420,7 @@ const handshakeApplications = `
 func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	r := migrateDocument(t, handshakeInteraction, handshakeApplications)
 	for _, line := range []string{
-		"action def Handshake {",
+		"action handshake {",
 		"/* duration constraint on request not migrated — the duration constraint has no interval */",
 		"action request send new Request(n = 7) to this.b;",
 		"first start then request;",
@@ -445,7 +445,7 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
 	meta(t, s, "%seed 1")
-	meta(t, s, "%action Net::Handshake #1")
+	meta(t, s, "%action Net::handshake #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the scenario did not run to completion:\n%s", out)
 	}
@@ -552,7 +552,7 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::Timed #1")
+	meta(t, s, "%action Net::timed #1")
 	if out := meta(t, s, "%advance 9.9"); strings.Contains(out, "completed") {
 		t.Errorf("the scenario completed before the 10 s the reply must come after the request:\n%s", out)
 	}
@@ -749,11 +749,11 @@ const nestedApplications = `
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
-		"perform action outer : Motor::Spin ::> motor.spin { in rpm = 30.0; }",
-		"perform action inner : Motor::Spin ::> motor.spin { in rpm = 40.0; }",
+		"perform action outer ::> motor.spin { in rpm = 30.0; }",
+		"perform action inner ::> motor.spin { in rpm = 40.0; }",
 		"assign this.ctrl.got := inner.result;",
 		"assign this.ctrl.'first' := outer.result;",
-		"action def Either {",
+		"action either {",
 		"if this.mode == 1 {",
 		"assign this.ctrl.got := spin.result;",
 		"else {",
@@ -773,7 +773,7 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Rig::Nested #1")
+	meta(t, s, "%action Rig::nested #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the scenario did not complete:\n%s", out)
 	}
@@ -783,7 +783,7 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 30.0") {
 		t.Errorf("the outer reply did not store the outer call's result:\n%s", out)
 	}
-	meta(t, s, "%action Rig::Either #1")
+	meta(t, s, "%action Rig::either #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the alternative scenario did not complete:\n%s", out)
 	}
@@ -917,7 +917,7 @@ const inoutApplications = `
 // value the callee gives the parameter is written back to what the argument named.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump : Counter::Bump ::> counter.bump { inout level = this.level; }")
+	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = this.level; }")
 	wantNoLine(t, r.Notation, "{ in level = this.level; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -925,7 +925,7 @@ func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Bench")
-	meta(t, s, "%action Bench::Raise #1")
+	meta(t, s, "%action Bench::raise #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the scenario did not complete:\n%s", out)
 	}

@@ -2189,22 +2189,13 @@ func (s *Session) promptScope() *symbols.Scope {
 		}
 	}
 	for i := len(members) - 1; i >= 0; i-- {
-		member := members[i].Node
-		if mem, ok := member.(*ast.Membership); ok {
-			member = mem.Member
-		}
-		var ident ast.Identification
-		switch n := member.(type) {
-		case *ast.Package:
-			ident = n.Ident
-		case *ast.Namespace:
-			ident = n.Ident
-		default:
+		member := members[i].Summary
+		if member.Kind != "package" && member.Kind != "namespace" {
 			continue
 		}
-		name := ident.Name
+		name := member.Name
 		if name == "" {
-			name = ident.ShortName
+			name = member.ShortName
 		}
 		if sym, ok := members[i].scope.LookupLocal(name); ok && sym != nil && sym.Scope != nil {
 			return sym.Scope
