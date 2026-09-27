@@ -376,6 +376,12 @@ func (h *stateStmtHost) performer() *Instance {
 	return h.exec.self
 }
 
+// occurrence is the state performance this machine runs as: `this` in a body
+// statement denotes it.
+func (h *stateStmtHost) occurrence() *Instance {
+	return h.exec.occurrence
+}
+
 // acceptReturn rejects a `return`: a state behavior computes no result.
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())

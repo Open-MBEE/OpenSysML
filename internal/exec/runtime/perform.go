@@ -242,7 +242,7 @@ func (e *StateExecutor) newPendingCall(payload Call) (*pendingCall, error) {
 // for each parameter, as PSSM 8.5.9's call event execution does.
 func (e *StateExecutor) callInputs(member *symbols.Symbol, operation string, args map[string]Value) (map[string]Value, error) {
 	ctx := e.ctx
-	inputs, err := operationInputs(ctx.model.semantics.SignatureParametersOf(member), operation, OperationArguments{Named: args})
+	inputs, err := operationInputs(ctx.model.semantics.SignatureParametersOf(member), operation, args)
 	if err != nil {
 		return nil, err
 	}

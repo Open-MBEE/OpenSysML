@@ -56,12 +56,6 @@ type Context struct {
 	// transformation), so `target = that` finds it and a cycle is reported.
 	framesReading map[int64]*CoordinateFrame
 
-	// ambientFrames are the run frames every evaluation over this context reads:
-	// the data frame of each state machine under way, so a member default
-	// evaluated at occurrence initialization — `Ctl::context` inside a state's
-	// `in ref :>>` member — finds the binding the running machine gave it.
-	ambientFrames []frame
-
 	// evaluations is the log of the case run under way (evaluation_log.go), nil
 	// outside one.
 	evaluations *evaluationLog
@@ -1772,7 +1766,9 @@ var ErrPerformedInputs = errors.New("inputs for a performed action")
 // performanceOf is the performance self runs of action's declaration, to run in
 // place of a second; nil when self performs none. The `in ref` parameters a
 // usage binds by redefinition (`in ref :>> context = …`) are the declaration's
-// own bindings, not arguments a call supplies, so they do not count against it.
+// own bindings, not arguments a call supplies, so they do not count against it:
+// an input counts only where it is not a reference bound to self itself, the
+// implicit binding the running performance supplies.
 func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	if self == nil {
 		return nil, nil
@@ -1781,16 +1777,22 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 	case 0:
 		return nil, nil
 	case 1:
-		nonReference := 0
-		if len(inputs) > 0 {
-			for _, param := range ctx.actionParametersOf(action) {
-				if param.IsReference {
-					delete(inputs, param.Name)
+		conflicts := 0
+		for name, value := range inputs {
+			implicit := false
+			if value.Kind == ValInstance && value.Instance == self.ID {
+				for _, param := range ctx.actionParametersOf(action) {
+					if param.Name == name && param.IsReference {
+						implicit = true
+						break
+					}
 				}
 			}
-			nonReference = len(inputs)
+			if !implicit {
+				conflicts++
+			}
 		}
-		if nonReference > 0 {
+		if conflicts > 0 {
 			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
 		}
 		return performed[0].Action, nil

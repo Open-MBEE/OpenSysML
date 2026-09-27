@@ -172,6 +172,9 @@ type stmtHost interface {
 	// performer is the object running the behavior, nil when it runs outside any
 	// object: what the body's names read and write through.
 	performer() *Instance
+	// occurrence is the performance instance `this` denotes in a def body; nil
+	// when none is materialized.
+	occurrence() *Instance
 }
 
 // stmtEngine runs lowered body statements for a host: declarations,
@@ -235,6 +238,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		ctx:            e.ctx,
 		scope:          scope,
 		self:           e.host.performer(),
+		occurrence:     e.host.occurrence(),
 		frames:         frames,
 		trace:          e.ctx.trace,
 		inBehaviorBody: true,

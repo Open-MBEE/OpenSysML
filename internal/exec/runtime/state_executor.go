@@ -241,12 +241,6 @@ func newStateExecutorForOccurrence(
 	}
 	exec := newStateExecutorOn(ctx, stateMachine, self, occurrence, graph)
 
-	// The machine's data frame is ambient to every evaluation made under it,
-	// including the member defaults occurrence initialization evaluates: a
-	// `Ctl::context` written in a state's `in ref :>>` member reads the binding
-	// the running machine gave the parameter.
-	ctx.ambientFrames = append(ctx.ambientFrames, frame{vars: exec.stateData, performed: stateMachine})
-
 	// Initialize state machine attributes
 	if err := exec.initializeAttributes(); err != nil {
 		return nil, err
@@ -304,6 +298,7 @@ func (e *StateExecutor) initializeAttributes() error {
 	evalDefaults := func() *EvalContext {
 		if ec == nil {
 			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
+			ec.pushFrame(e.dataFrame())
 			endStep = ec.beginStep()
 		}
 		return ec
@@ -372,6 +367,12 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 	return false
 }
 
+// dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`
+// written in a member the machine owns reads the binding the running machine gave it.
+func (e *StateExecutor) dataFrame() frame {
+	return frame{vars: e.stateData, performed: e.stateMachine}
+}
+
 // initializeStateAttributes gives every state that owns attributes its own
 // values, so two usages of one state definition never share them.
 func (e *StateExecutor) initializeStateAttributes() error {
@@ -390,6 +391,7 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				scope = e.graph.Scope
 			}
 			ec := NewEvalContextIn(e.ctx, scope, e.self)
+			ec.pushFrame(e.dataFrame())
 			end := ec.beginStep()
 			value, err := ec.Eval(attr.Value)
 			end()

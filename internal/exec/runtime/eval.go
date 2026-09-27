@@ -65,10 +65,9 @@ type EvalContext struct {
 // from a traced context is recorded, including nested calc invocations.
 func NewEvalContext(ctx *Context, scope *symbols.Scope) *EvalContext {
 	return &EvalContext{
-		ctx:    ctx,
-		scope:  scope,
-		frames: slices.Clone(ctx.ambientFrames),
-		trace:  ctx.trace,
+		ctx:   ctx,
+		scope: scope,
+		trace: ctx.trace,
 	}
 }
 

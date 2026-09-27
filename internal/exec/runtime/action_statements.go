@@ -79,6 +79,12 @@ func (h *actionStmtHost) performer() *Instance {
 	return h.exec.self
 }
 
+// occurrence is the performance instance this action runs as: `this` in a body
+// statement denotes it.
+func (h *actionStmtHost) occurrence() *Instance {
+	return h.exec.occurrence
+}
+
 // acceptReturn rejects a `return`: an action node computes no result to return.
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())

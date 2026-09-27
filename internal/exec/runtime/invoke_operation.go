@@ -45,12 +45,23 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 	if err != nil {
 		return nil, err
 	}
+	params := ctx.model.semantics.SignatureParametersOf(sym)
+	named := args.Named
+	if len(args.Positional) > 0 {
+		if named, err = positionalArguments(params, name, args.Positional); err != nil {
+			return nil, err
+		}
+	} else if len(named) > 0 {
+		// The caller's map is read, never written.
+		clone := make(map[string]Value, len(named))
+		maps.Copy(clone, named)
+		named = clone
+	}
 	// An `in ref` parameter no argument binds takes the performer, as any
 	// behavior run on an object binds the object it runs on to it — it satisfies
 	// the arity check but is no input the caller stated.
 	var seeded []string
-	if isActionSymbol(sym) && len(args.Positional) == 0 {
-		named := args.Named
+	if isActionSymbol(sym) {
 		for _, param := range ctx.actionParametersOf(sym) {
 			if !param.IsReference || param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
 				continue
@@ -64,9 +75,8 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 			named[param.Name] = Value{Kind: ValInstance, Instance: inst.ID}
 			seeded = append(seeded, param.Name)
 		}
-		args = OperationArguments{Named: named}
 	}
-	inputs, err := operationInputs(ctx.model.semantics.SignatureParametersOf(sym), name, args)
+	inputs, err := operationInputs(params, name, named)
 	if err != nil {
 		return nil, err
 	}
@@ -216,22 +226,25 @@ func (ctx *Context) evaluateConstraintInvocation(sym *symbols.Symbol, scope *sym
 	return holds, err
 }
 
-// operationInputs binds arguments to the operation's input parameters — a positional
-// list in signature order, a named one by name — reporting a surplus positional, an
-// argument naming no parameter and a parameter left with no value: any would
-// otherwise run the body against values the invocation never stated.
-func operationInputs(params []semantics.SignatureParameter, name string, args OperationArguments) (map[string]Value, error) {
-	named := args.Named
-	if len(args.Positional) > 0 {
-		if len(args.Positional) > len(params) {
-			return nil, fmt.Errorf("%w: operation %s takes %d input parameter(s), got %d argument(s)",
-				ErrOperationArity, name, len(params), len(args.Positional))
-		}
-		named = make(map[string]Value, len(args.Positional))
-		for i, value := range args.Positional {
-			named[params[i].Name] = value
-		}
+// positionalArguments binds positional arguments to the parameters in signature
+// order, reporting a surplus.
+func positionalArguments(params []semantics.SignatureParameter, name string, positional []Value) (map[string]Value, error) {
+	if len(positional) > len(params) {
+		return nil, fmt.Errorf("%w: operation %s takes %d input parameter(s), got %d argument(s)",
+			ErrOperationArity, name, len(params), len(positional))
 	}
+	named := make(map[string]Value, len(positional))
+	for i, value := range positional {
+		named[params[i].Name] = value
+	}
+	return named, nil
+}
+
+// operationInputs binds arguments to the operation's input parameters — a named
+// map read, not written — reporting an argument naming no parameter and a
+// parameter left with no value: any would otherwise run the body against values
+// the invocation never stated.
+func operationInputs(params []semantics.SignatureParameter, name string, named map[string]Value) (map[string]Value, error) {
 	inputs := make(map[string]Value, len(named))
 	for _, param := range params {
 		value, bound := named[param.Name]

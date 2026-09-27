@@ -136,6 +136,11 @@ func (h *calcStmtHost) performer() *Instance {
 	return h.self
 }
 
+// occurrence is nil: a calculation materializes no performance instance `this` denotes.
+func (h *calcStmtHost) occurrence() *Instance {
+	return nil
+}
+
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
 func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {

@@ -2081,3 +2081,102 @@ func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
 		t.Errorf("level = %d, want 5: the declared context binding did not reach the invoked action", got)
 	}
 }
+
+// performedJoinFixture performs Nudge on the object itself, the implicit `in ref`
+// context binding the running performance supplies.
+const performedJoinFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 0;
+			action def Nudge {
+				in delta : Integer = 1;
+				in ref context : Heater;
+				first apply;
+				action apply { assign context.level := context.level + delta; }
+				first apply then done;
+			}
+			perform action nudge : Nudge { in ref :>> context = this; }
+		}
+	}
+`
+
+// Joining the performance an object already runs takes only the implicit
+// performer binding: a ref input bound to the object itself is the declaration's
+// own binding, not an argument, and the caller's map is read, never written. A
+// ref input bound to a different object is an argument the call stated, and the
+// join is refused.
+func TestPerformedActionJoinReadsOnlyTheImplicitBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinFixture))
+	nudge := oneSymbol(t, idx, "test::Heater::Nudge")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+
+	inputs := map[string]Value{"context": {Kind: ValInstance, Instance: inst.ID}}
+	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, inputs); err != nil {
+		t.Fatalf("join with the implicit binding: %v", err)
+	}
+	if len(inputs) != 1 || inputs["context"].Instance != inst.ID {
+		t.Errorf("inputs = %v, want the one implicit binding unchanged", inputs)
+	}
+
+	other, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": {Kind: ValInstance, Instance: other.ID},
+	})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join with a binding to another object: %v, want ErrPerformedInputs", err)
+	}
+}
+
+// invokeContextFixture owns an operation whose trailing `in ref` parameter a
+// migrated action declares, read through `context.` in its body.
+const invokeContextFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 2;
+			action nudge { in delta : Integer; in ref context : Heater;
+				first apply; action apply { assign context.level := context.level + delta; } }
+		}
+	}
+`
+
+// A positional invocation binds the parameters it argues for and leaves the
+// trailing `in ref` to the performer the operation runs on, positional or
+// named, and the caller's named map is read, never written.
+func TestInvokeOperationPositionalSeedsTheImplicitRef(t *testing.T) {
+	ctx, inst, err := instantiateWithLibraries(t, invokeContextFixture, "test::Heater")
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	positional := func(values ...Value) OperationArguments {
+		return OperationArguments{Positional: values}
+	}
+	if _, err = ctx.InvokeOperationWith(inst, "nudge", positional(intArgument(3))); err != nil {
+		t.Fatalf("nudge(3): %v", err)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 5 {
+		t.Errorf("level = %d, want 5: the context bound was not the performer", got)
+	}
+
+	args := map[string]Value{"delta": intArgument(1)}
+	if _, err = ctx.InvokeOperationWith(inst, "nudge", OperationArguments{Named: args}); err != nil {
+		t.Fatalf("nudge(delta=1): %v", err)
+	}
+	if len(args) != 1 {
+		t.Errorf("named args = %v, want the caller's map unchanged", args)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 6 {
+		t.Errorf("level = %d, want 6", got)
+	}
+}

@@ -408,12 +408,8 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		// A reference parameter's declared value binds its referent like a `bind`
-		// connector: the binding states the identity, which no write check narrows.
-		if ref, isRef := feature.Node.(*ast.Usage); !isRef || !ref.IsReference {
-			if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
-				return err
-			}
+		if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
+			return err
 		}
 		perf.data[perf.key(feature.Name)] = value
 		if err := e.streamFrom(perf, perf.key(feature.Name), value); err != nil {
