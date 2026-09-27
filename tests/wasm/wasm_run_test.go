@@ -101,7 +101,7 @@ func newRunner(t *testing.T, target wasmTarget) runner {
 	t.Helper()
 	node, err := exec.LookPath("node")
 	if err != nil {
-		skipOrFail(t, "node is not on PATH", "install Node 20 or later: it hosts the WASI target and runs wasm_exec")
+		skipOrFail(t, "node is not on PATH", "install Node 24 or later: it hosts the WASI target and runs wasm_exec")
 		return runner{}
 	}
 	switch target.goos {
@@ -574,6 +574,22 @@ func TestWasmRuns(t *testing.T) {
 				}
 			})
 
+			t.Run("names the Go toolchain it cannot start", func(t *testing.T) {
+				out := filepath.Join(t.TempDir(), "square")
+				got := r.run(t, bins["sysml"], fixture(t, "calc.sysml"),
+					"-compile", "calcdemo::Square", "-target", "go", "-o", out)
+				if got.code == 0 {
+					t.Errorf("-compile -target go exited 0, want a refusal:\n%s", got.output)
+				}
+				const want = "codegen: go cannot run: a WebAssembly build cannot start external processes"
+				if !strings.Contains(got.output, want) {
+					t.Errorf("-compile -target go output missing %q:\n%s", want, got.output)
+				}
+				if _, err := os.Stat(out + ".go"); !os.IsNotExist(err) {
+					t.Errorf("generated source stat error = %v, want not-exist", err)
+				}
+			})
+
 			t.Run("names the converter it cannot start", func(t *testing.T) {
 				out := filepath.Join(t.TempDir(), "document.pdf")
 				got := r.run(t, bins["sysml"], fixture(t, "document.sysml"),
@@ -706,6 +722,6 @@ func manifestDir(t *testing.T, name string) string {
 func requireNode(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("node"); err != nil {
-		skipOrFail(t, "node is not on PATH", "install Node 20 or later: it hosts the WASI target and runs wasm_exec")
+		skipOrFail(t, "node is not on PATH", "install Node 24 or later: it hosts the WASI target and runs wasm_exec")
 	}
 }

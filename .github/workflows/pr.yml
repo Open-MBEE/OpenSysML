@@ -27,7 +27,7 @@ env:
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"
-  # The WebAssembly gate runs the wasm binaries under Node, which the runners carry;
+  # The WebAssembly gate runs the wasm binaries under Node 24, set up by its jobs;
   # without a runtime it would skip instead of proving they run (see tests/wasm).
   OPENSYSML_REQUIRE_WASM: "1"
 
@@ -84,6 +84,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      # The WebAssembly gate runs the wasm binaries under Node; Node 22's WASI host
+      # crashes on them, so the version is pinned rather than the runner's default.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Download Go modules
         run: go mod download
@@ -234,6 +241,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      # The WebAssembly gate runs the wasm binaries under Node; Node 22's WASI host
+      # crashes on them, so the version is pinned rather than the runner's default.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Download Go modules
         run: go mod download
