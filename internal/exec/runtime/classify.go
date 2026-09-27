@@ -65,6 +65,21 @@ func (ctx *Context) comparableTypes(typ, other *symbols.Symbol, seen map[*symbol
 // so it carries the features its type and body declare; the caller has checked each may be held.
 // The value is classified whole: one object refused leaves every object as it was.
 func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
+	return ctx.classifyValues(feature, val, true)
+}
+
+// classifyWritten is classifyHeld for a value a write stated: an object written
+// into a feature answers to it however else it is held, so the implied-collection
+// deferral that the contribution path needs does not apply.
+func (ctx *Context) classifyWritten(feature *symbols.Symbol, val Value) error {
+	return ctx.classifyValues(feature, val, false)
+}
+
+// classifyValues classifies the objects of val by feature. With implied, an
+// object held by a feature reaching this one only through subsetting implied
+// by nesting is left as it is: it counts as the collection's value by kind,
+// not by anything the collection declares.
+func (ctx *Context) classifyValues(feature *symbols.Symbol, val Value, implied bool) error {
 	if feature == nil {
 		return nil
 	}
@@ -75,7 +90,7 @@ func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
 			continue
 		}
 		inst, ok := ctx.instances[id]
-		if !ok || inst == nil || inst.Type == nil || ctx.impliedClassifier(inst, feature) {
+		if !ok || inst == nil || inst.Type == nil || (implied && ctx.impliedClassifier(inst, feature)) {
 			continue
 		}
 		if err := ctx.classify(inst, feature); err != nil {
@@ -196,7 +211,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		rollback()
 		return err
 	}
-	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
+	if err := ctx.classifyWritten(fv.Feature.heldBy(), val); err != nil {
 		rollback()
 		return err
 	}
