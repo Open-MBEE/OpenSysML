@@ -18,11 +18,14 @@ import (
 
 // EvalContext is the lexical environment during evaluation (Tier 3).
 type EvalContext struct {
-	ctx    *Context       // runtime context
-	scope  *symbols.Scope // scope context for name resolution
-	self   *Instance      // instance a feature name resolves against, nil when unbound
-	frames []frame        // stack of local bindings (innermost = frames[len-1])
-	trace  *TraceRecorder // evaluation trace recorder, nil when not tracing
+	ctx   *Context       // runtime context
+	scope *symbols.Scope // scope context for name resolution
+	self  *Instance      // instance a feature name resolves against, nil when unbound
+	// occurrence is the performance instance `this` denotes where this evaluation
+	// is written inside a behavior definition: the def's own occurrence.
+	occurrence *Instance
+	frames     []frame        // stack of local bindings (innermost = frames[len-1])
+	trace      *TraceRecorder // evaluation trace recorder, nil when not tracing
 
 	// features are the features of the element being evaluated — a requirement's
 	// or constraint's own, inherited and rebound features — which its conditions
@@ -64,7 +67,7 @@ func NewEvalContext(ctx *Context, scope *symbols.Scope) *EvalContext {
 	return &EvalContext{
 		ctx:    ctx,
 		scope:  scope,
-		frames: nil,
+		frames: slices.Clone(ctx.ambientFrames),
 		trace:  ctx.trace,
 	}
 }
@@ -891,14 +894,26 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName) (Value, error) {
 func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value, bool) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
-		if f.owner == nil || !f.owner.qualifiedBy(ec.ctx, qualifier) {
+		if f.owner != nil {
+			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
+				continue
+			}
+			name, ok := f.owner.memberName(ec.ctx, sym)
+			if !ok {
+				continue
+			}
+			if val, ok := f.lookup(name); ok {
+				return val, true
+			}
 			continue
 		}
-		name, ok := f.owner.memberName(ec.ctx, sym)
-		if !ok {
+		// A frame of an action or state performance qualifies by the behavior it
+		// runs: `Run::context` inside a call it performs reads the parameter the
+		// running performance bound it under.
+		if !f.runs(ec.ctx, qualifier) {
 			continue
 		}
-		if val, ok := f.lookup(name); ok {
+		if val, ok := f.lookup(sym.Name); ok {
 			return val, true
 		}
 	}
@@ -1142,7 +1157,35 @@ func (ec *EvalContext) thisValue() (Value, error) {
 		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
 			ErrThisNotAnObject, symbolText(object))
 	}
+	// `this` inside a behavior definition denotes that definition's own
+	// occurrence — the performance instance the run was materialized as — not
+	// the performer itself.
+	if isBehaviorDefKind(object.Kind) {
+		if ec.occurrence == nil {
+			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
+				ErrThisNotAnObject, symbolText(object))
+		}
+		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
+	}
+	// A value declared in a nested usage — the redefined feature of an exhibited
+	// or performed occurrence — evaluates `this` against that occurrence's own
+	// object, where the name's context is the owner holding it: walk to it.
+	for inst := ec.self; inst != nil; inst = inst.owner {
+		if inst.Type == object || ec.ctx.modelConforms(inst.Type, object) {
+			return Value{Kind: ValInstance, Instance: inst.ID}, nil
+		}
+	}
 	return Value{Kind: ValInstance, Instance: ec.self.ID}, nil
+}
+
+// isBehaviorDefKind reports whether kind is a behavior definition — an action,
+// state or calc def — whose `this` is the def's own occurrence.
+func isBehaviorDefKind(kind symbols.SymbolKind) bool {
+	switch kind {
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef:
+		return true
+	}
+	return false
 }
 
 // selfFeatureInScope reports whether the bound instance's feature of that name

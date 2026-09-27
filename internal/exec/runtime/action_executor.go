@@ -217,7 +217,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self, behavior: action},
+		performances: performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -1131,11 +1131,25 @@ func (e *ActionExecutor) NodeNames() []string {
 // initializeAttributes fills the features no supplied input holds: from the occurrence's
 // slots, else the declared defaults in order, each evaluated where it was declared.
 func (e *ActionExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.features {
-			if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
-				continue
-			}
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = e.evalContextFor(e.root, e.graph.Scope)
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.features {
+		if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -1146,21 +1160,16 @@ func (e *ActionExecutor) initializeAttributes() error {
 				if err := e.streamInitialOutput(attr.Name, value); err != nil {
 					return err
 				}
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := e.evalContextFor(e.root, e.graph.Scope)
-	defer ec.beginStep()()
-	for _, attr := range e.features {
-		if attr.Value == nil || e.dynamics.ownsFeature(attr.Name) {
+		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		if _, held := e.root.data[e.root.key(attr.Name)]; held {
-			continue
-		}
-		value, err := ec.evalIn(attr.Scope).Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
@@ -1171,6 +1180,36 @@ func (e *ActionExecutor) initializeAttributes() error {
 	}
 
 	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a behavior started on an
+// object to that object, when the object is of the type the parameter declares: a
+// performance started on an instance answers `in ref :>> context` with the instance
+// itself rather than a fresh unnamed one. It reports whether the parameter took the
+// object.
+func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok {
+		return false
+	}
+	for _, typ := range e.ctx.model.semantics.DirectSupertypes(param) {
+		if e.ctx.instanceConforms(e.self, typ) {
+			e.root.data[e.root.key(attr.Name)] = Value{Kind: ValInstance, Instance: e.self.ID}
+			return true
+		}
+	}
+	return false
 }
 
 // streamInitialOutput carries the initial value of an output or inout to the listeners,

@@ -277,14 +277,14 @@ func TestProbabilitiesAreWrittenOnlyWhenTheyAreSound(t *testing.T) {
 // same-named stereotype from a user profile, which is not read.
 func TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability(t *testing.T) {
 	r := migrateFixtureFile(t, "weighted_decision")
-	wantLine(t, r.Notation, "first 'decide' then left { @Stochastic::Probability { p = bias; } }")
+	wantLine(t, r.Notation, "first 'decide' then left { @Stochastic::Probability { p = context.bias; } }")
 	wantLine(t, r.Notation, "first 'decide' then right { @Stochastic::Probability { p = 0.3; } }")
-	wantLine(t, r.Notation, "first 'decide' then reject { @Stochastic::Probability { p = 1.0 - (bias + 0.3); } }")
+	wantLine(t, r.Notation, "first 'decide' then reject { @Stochastic::Probability { p = 1.0 - (context.bias + 0.3); } }")
 	wantNoLine(t, r.Notation, "p = 0.9")
 	wantNote(t, r, "_eLeft", migrate.Mapped, "the probability reads the property bias of the object performing the action")
 	wantNote(t, r, "_eRight", migrate.Mapped, "")
 	wantNote(t, r, "_eReject", migrate.Approximated, "«Probability» from http://example.com/routing/profile is not the SysML profile's; its probability is not read")
-	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3)")
+	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (context.bias + 0.3)")
 	s := session(t, r)
 	meta(t, s, "%seed 1")
 	wantVerdict(t, s.RunAction("Sorter::Route"))
@@ -343,7 +343,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_sure"/>
   <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.75"/>`)
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pA; } }")
 		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
 		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pA of the object performing the action")
 		wantNote(t, r, "_eb", migrate.Mapped, "")
@@ -360,7 +360,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Block xmi:id="_s2" base_Class="_sure"/>
   <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pA"/>
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="0.0"/>`)
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pA; } }")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
 		// Chooser's own pA is 0.25: the branches sum to 0.25, which a run refuses.
@@ -381,8 +381,8 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
   <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="_pa"/>
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="pB"/>`)
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
-		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = pB; } }")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = context.pB; } }")
 		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property pB")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
@@ -395,8 +395,8 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		r := migrateDocument(t, weightedChooser, `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
   <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pA"/>`)
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = pA; } }")
-		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pA; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.pA; } }")
 		wantNote(t, r, "_eb", migrate.Approximated, "read when the decision is reached")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
@@ -430,8 +430,8 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
 		wantLine(t, r.Notation, "attribute phase : ScalarValues::Complex default = 1.0;")
 		wantLine(t, r.Notation, "attribute count : ScalarValues::Number default = 0.0;")
-		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = phase; } }")
-		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = count; } }")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.phase; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = context.count; } }")
 		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property phase")
 		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property count")
 		if errs := errors(t, "chooser.sysml", r.Notation); len(errs) > 0 {
@@ -522,8 +522,8 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if this.attempts < 3 then Retry;",
-		"first 'decide' if this.manualOverride then Retry;",
+		"first 'decide' if context.attempts < 3 then Retry;",
+		"first 'decide' if context.manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
@@ -631,15 +631,15 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"state Busy {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
-		"state Cool : Cooling;",
+		"state Cool : Cooling { in ref :>> context = Control::context; }",
 		"transition start2 first Idle accept Go",
-		"assign this.count := this.count + 1;",
+		"assign context.count := context.count + 1;",
 		"then Busy;",
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",
 		"transition first Cool accept Go then done;",
 		"state def Cooling {",
 		"state 'in';",
-		"exhibit state control : Control;",
+		"exhibit state control : Control { in ref :>> context = this; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -785,7 +785,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action def Point {",
 		"in az : ScalarValues::Real;",
 		"action 'set azimuth' {",
-		"assign this.azimuth := value;",
+		"assign context.azimuth := value;",
 		"bind 'set azimuth'.value = az;",
 		"abstract action def Park;",
 		"action def Go {",
@@ -794,13 +794,13 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = this.tel;",
-		"send new Go() to this.tel;",
+		"out result = context.tel;",
+		"send new Go() to context.tel;",
 		"action 'wait Ack' accept Ack;",
 		"out result = 90.0;",
-		"action point : Point;",
+		"action point : Point { in az; in ref :>> context = this; }",
 		"action park : Park;",
-		"perform action point ::> tel.point;",
+		"perform action point ::> context.tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
 		"action log : Logging;",
 		"first log then final;",
@@ -822,7 +822,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
 	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")
-	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
+	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target context.tel")
 	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
 
 	s := session(t, r)

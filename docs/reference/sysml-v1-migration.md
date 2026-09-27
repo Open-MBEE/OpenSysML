@@ -219,17 +219,17 @@ returned over the service yet.
 | «BindingConnector» to another statistic of `MonteCarloAnalysis`, to a value of no numeric type, one of several binding the same statistic, one whose owner does not inherit the pattern, or to a statistic other than `Mean` where nothing is bound to `Mean` | comment naming the statistic and the reason | **unmapped** |
 | Slots of `MonteCarloAnalysis::N`, `::Mean`, `::Deviation`, `::OutOfSpec` in a result snapshot | `analysis 'Monte Carlo' : '<Block> Monte Carlo' { subject :>> <subject> : '<the snapshot>'; out :>> runs = …; out :>> mean = …; … }` in the snapshot's individual, and the snapshot's `"statistics"` in the sidecar | mapped |
 | ObjectFlow | `flow a.out to b.in;`, or `bind` to a parameter; each producer-pin pair is written once however many edges carry it; a flow from or to an action that is not migrated, or from an output pin a translated opaque body never assigns, is a comment | mapped / approximated |
-| SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `this.part` where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
+| SendSignalAction | `action x send new Sig(args) to <target>;`, `via <port>` when `onPort` is set; the target is read from the target pin's flow: `this`, `context.part` inside a definition or bare `part` inside a usage, where a structural read feeds the pin, else the pin itself (`in target;` bound to what feeds it, an activity parameter or another node's output), which the runtime evaluates to the object it holds | mapped / approximated |
 | AcceptEventAction | `action x accept p : Sig;` (signal trigger), `accept after <d> [SI::s]` (relative TimeEvent), `accept when <cond>` (ChangeEvent) | mapped |
 | AcceptEventAction on an absolute TimeEvent (`when` is an instant, not a duration) | `accept at <instant>`, the instant a `Time::TimeInstantValue` attribute of the `action def` when `when` is a number with a time unit or an expression that resolves; otherwise a comment | approximated (the instant is read on the simulation clock, which starts at 0) / **unmapped** |
 | OpaqueAction, ValueSpecificationAction, ReadStructuralFeatureAction, AddStructuralFeatureValueAction | `assign`/`out result = …` when the body parses as a v2 expression whose names resolve, or is a JavaScript body of the [subset](#the-opaque-language-subset): `i = 1; GS_Found = true;` is a sequence of `assign` statements, `i += 1` an assignment of `i + 1`, `var t = 0` a local `attribute`; names resolve against the action's own pins first, then the swimlane's represented object, then the activity, then the owning block; otherwise the body as a comment inside `action x { }` naming the language and the token refused | mapped / approximated |
-| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after this.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `this.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
+| DurationConstraint on an action | a wait before the action: `accept after lo [SI::s]` when the interval is a point, `accept after RandomFunctions::uniform(lo, hi) [SI::s]` otherwise; `1s`, `0.5 s`, `80ms`, `2 min`, `1 h` and `t = 1 minute 30 seconds` literals are scaled to seconds, and a bare number (`200`, a LiteralInteger, `t = 1500`) is in the simulation toolkit's default unit, the millisecond, with a note; a symbolic bound (`ditSetup s`, `setup * 2 min`) is an expression whose names resolve like an action body's, `accept after context.tcs.ditSetup [SI::s]`, one with no unit scaled from milliseconds, `context.settle * 0.001` | approximated (a tool's min/max/average/random mode is the run's `-draws` policy, which its configuration records) |
 | DurationConstraint whose interval is open on one side (a min with no max, a max of `*`, a max with no min) | comment naming the bound it lacks | **unmapped** — every wait past the bound satisfies the interval, so no one delay stands for it; a MagicDraw document's min beside a max that is a duration with no expression is that tool's encoding of a one-valued `{60s}` and is written as its fixed wait, approximated |
 | DurationConstraint whose bounds name nothing the activity can read | comment | **unmapped** — the note names the unresolved name |
 | DurationObservation whose events are two nodes of one activity | an `attribute <name> : Real [0..1]` of the `action def`, stamped with `localClock.currentTime` when the first node starts and assigned the elapsed clock when the second ends (`assign T := localClock.currentTime - 'T start';`, guarded on the stamp having happened); one node observed is its own duration; an initial node's start is the activity's `start`, a flow final's or a control node no edge leaves the token's arrival before `done`; the attribute is one a run can `-observe`, and a run that does not reach both nodes leaves it without a value | mapped |
 | DurationObservation reading the clock at the end of a node that is no action — an initial, final, flow final or control node has no end of its own | comment | **unmapped** — the note names the node |
 | DurationObservation whose events are not nodes of the activity, or none, or name an element the document does not define; a DurationObservation or TimeObservation owned outside an activity; TimeObservation | comment | **unmapped** — the note names the events, or the owner |
-| ActivityPartition | comment naming the partition, what it `represents` and its nodes; a name a body or guard in the partition uses is resolved against the represented property first and written through it, `this.tcs.i` for a partition representing the part `tcs` (a nested partition through its enclosing ones, `this.tank.valve.open`; a partition representing the context block itself, `this.x`) | mapped when the partition resolved a name / approximated when nothing in it needed one, when `represents` is unset, names nothing the document defines, a property of no v2 type, or a classifier the activity does not run in |
+| ActivityPartition | comment naming the partition, what it `represents` and its nodes; a name a body or guard in the partition uses is resolved against the represented property first and written through it, `context.tcs.i` inside a definition or `tcs.i` inside a usage, for a partition representing the part `tcs` (a nested partition through its enclosing ones, `context.tank.valve.open`; a partition representing the context block itself, `context.x`) | mapped when the partition resolved a name / approximated when nothing in it needed one, when `represents` is unset, names nothing the document defines, a property of no v2 type, or a classifier the activity does not run in |
 | StructuredActivityNode, SequenceNode | `action x { }` holding the nested flow | mapped |
 | ExpansionRegion, LoopNode, ConditionalNode | `action x { }` holding the body's flow once; the expansion, the loop test and the clause tests are not written | approximated |
 | StateMachine | `state def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also exhibited by an `exhibit state` usage of the `part def` | mapped |
@@ -263,7 +263,7 @@ returned over the service yet.
 | Absolute TimeEvent a trigger refers to | `accept at <instant>` on the transition or accept action, the instant an attribute of the `state def`/`action def` typed `Time::TimeInstantValue` when `when` is a number with a time unit or an expression that resolves, read on the simulation clock, which starts at 0 | approximated (the clock's origin is the run's, not the calendar's) |
 | Event (of any kind) no trigger refers to | — | skipped, counted as a model element nothing refers to |
 | SignalEvent whose signal is not written, TimeEvent whose `when` is not a number with a time unit | comment; the transition that refers to it drops the trigger | **unmapped** — the reason names the signal or the time |
-| Interaction | a scenario `action def` on the owning block: each message in occurrence order as a step — a signal send `send new Sig(args) to this.part`, a `synchCall`/`asynchCall` of an operation `perform action x : Owner::Op ::> part.op { in p = arg; }` with the arguments bound to the `in` parameters by name or position, a `reply` an assignment of the call's `out` to the caller lifeline's attribute the reply's argument names | approximated (the lifelines' own behavior is not part of it; an `asynchCall` waits for the callee where v1 did not) |
+| Interaction | a scenario `action def` on the owning block: each message in occurrence order as a step — a signal send `send new Sig(args) to context.part`, a `synchCall`/`asynchCall` of an operation `perform action x : Owner::Op ::> part.op { in p = arg; }` with the arguments bound to the `in` parameters by name or position, a `reply` an assignment of the call's `out` to the caller lifeline's attribute the reply's argument names | approximated (the lifelines' own behavior is not part of it; an `asynchCall` waits for the callee where v1 did not) |
 | Lifeline | the feature path from the owning block to the part, port or reference it `represents`, through the parts and their types (`drive.motor`), or the interaction's `in` parameter | mapped |
 | Lifeline with a `selector`, standing for an `out` parameter, a property no part of the owning block reaches or one reached along two paths, or for no ConnectableElement; Interaction owned by a Collaboration or by no block | comment: the whole interaction is refused | **unmapped** — the reason names the lifeline |
 | CombinedFragment `alt`, `opt` | `action x { if <guard> { … } else { … } }` when every guard parses as a v2 expression whose names resolve | mapped |
@@ -865,22 +865,22 @@ without a fork is written through one (`fork fork2;`), and a node several edges 
 a join waits through one, both reported as approximations. An opaque action whose body is a
 script is read statement by statement through the [opaque-language subset](#the-opaque-language-subset):
 `i = 1; GS_Found = false;` becomes two `assign` statements, `i += 1` an
-`assign this.tcs.i := this.tcs.i + 1;`, and the body is kept as a comment naming its language
+`assign context.tcs.i := context.tcs.i + 1;`, and the body is kept as a comment naming its language
 and the token refused when any statement is outside the subset or names something unwritten.
 
 **Swimlanes.** An `ActivityPartition` that `represents` a property of the activity's context
 block names the object whose features the nodes inside it read and write: a body `i = 1` in
-the partition of the part `tcs` is `assign this.tcs.i := 1;`, and a guard `GS_Found` on an
-edge whose source sits in that partition is `if this.tcs.GS_Found`. Names are looked up among
+the partition of the part `tcs` is `assign context.tcs.i := 1;`, and a guard `GS_Found` on an
+edge whose source sits in that partition is `if context.tcs.GS_Found`. Names are looked up among
 the node's own pins first — the tool binds a pin as a script variable, so a pin `Retries` on a
-node in the partition is the value flowing into that node, not `this.tcs.Retries` — then in the
+node in the partition is the value flowing into that node, not `context.tcs.Retries` — then in the
 represented object, then among the activity's own parameters and locals, then in the owning
-block; a nested partition reads through its enclosing ones (`this.tank.valve.open`), a
+block; a nested partition reads through its enclosing ones (`context.tank.valve.open`), a
 partition representing the context block itself reads `this`, and one representing a classifier,
 or a property of one, that the context holds only through a chain of composite parts reads
-through the whole chain, however long (`this.site.control.rack.controller.status`), when exactly
+through the whole chain, however long (`context.site.control.rack.controller.status`), when exactly
 one such chain exists. A body's explicit `this` is the same object: the tool runs a node in a
-partition in the represented object's context, so `this.status = true` there is the part's
+partition in the represented object's context, so `context.status = true` there is the part's
 `status`, and a feature the part lacks is refused (`Tank has no feature level`) rather than read
 from the context block — a node that needs the block's own features sits outside the partition
 or in one representing the block. A node in no partition, and a
@@ -912,7 +912,7 @@ configurations when several do. The variable is the tool's global — every conf
 name is recognized in every body, whichever activity the configuration targets — so a
 parameter, pin or property of the same name visible where the body lands shadows it and is
 read as that feature. `Time_Acq_Total = simtime;` is
-`assign this.Time_Acq_Total := localClock.currentTime;`, and
+`assign context.Time_Acq_Total := localClock.currentTime;`, and
 `Time_Acq_Total = simtime - Time_Acq_Total;` the elapsed time since. `localClock.currentTime`
 is the standard library's own form (`Occurrences::Occurrence::localClock`, a `Clock` whose
 `currentTime` the [runtime](../guide/06-behavior.md#reading-the-clock) evaluates against the
@@ -940,12 +940,21 @@ activity, whose `event` list names an element the document does not define (the 
 is refused whole, never read as the one event that does resolve), and observations owned
 outside any activity, are comments whose report line says which.
 
-**The object an activity acts on.** A block's own activity acts on the block's object, `this`.
-An activity no block owns, or one whose sends, accepts and calls all go through the ports of
-another block, acts in v1 on whichever object ran it; it is written with a reference parameter
-for that object, `in ref context : Host;`, its ports read `context.tx`, and every call of it
-binds the parameter, `bind hit.context = this;` from that block's behaviors or `= context` from
-another such activity. The block is the one whose ports the activity or the behaviors it calls
+**The object an activity acts on.** A block's own activity acts on the block's object. In
+SysML v2 `this` inside a behavior definition is that definition's own occurrence, so a
+definition owned by a block cannot name the block's features at all — it reads them through a
+reference parameter the migration appends after its declared ones, `in ref context : Host;`,
+spelling them `context.tx`, `context.level`, `context` where a bare `this` value stood. The
+same holds of every block-owned definition whose body needs its owner — an activity reading
+the block's features, sending through its ports, passing the object on — and of an activity no
+block owns, or one whose sends, accepts and calls all go through the ports of another block,
+which acts in v1 on whichever object ran it and takes the parameter for it. A call binds the
+parameter inside the call usage's own body by redefinition: `in ref :>> context = this;` where
+the caller is the block or one of its usages, and `in ref :>> context = Caller::context;`
+where the caller is itself a definition carrying the parameter. A usage the block owns —
+states, nested actions, entry/do/exit actions, transition guards and effects — sees the
+block's features lexically instead and names them bare (`assign level := value;`), a bare
+`this` value staying `this`. The block is the one whose ports the activity or the behaviors it calls
 name; activities calling each other in a cycle name the ports of the whole cycle and take the
 same block. An activity naming ports of several blocks none of which specializes the others
 takes no parameter, and the report says which blocks; an activity naming none accepts through
@@ -1043,7 +1052,7 @@ nothing enters, so a machine whose one other region is populated is written inli
 paths hold no parallel state; a submachine state is a `state` usage typed by the
 referenced machine's `state def`, composing through any depth. Triggers are written on the
 transition that refers to them — `accept Sig`, `accept after 2.0 [SI::s]`,
-`accept when this.temperature > 200.0`, `accept at dawn` for an absolute time the `state def`
+`accept when context.temperature > 200.0`, `accept at dawn` for an absolute time the `state def`
 holds as a `Time::TimeInstantValue` attribute — and the event's own report line says where. An
 event no trigger refers to is not a gap in the migration: nothing would ever accept it, so it
 is skipped and the summary counts it apart from profile content. An effect with parameters
@@ -1128,7 +1137,7 @@ type are two paths, `left.motor` and `right.motor`, so a lifeline standing for t
 `motor` is ambiguous), and a lifeline that resolves to nothing, to two paths, to an `out`
 parameter or through a `selector` refuses the whole interaction, since the scenario could not
 address its steps. A signal message is
-`send new Sig(n = 3) to this.drive.motor;`; a call message is a typed perform of the
+`send new Sig(n = 3) to context.drive.motor;`; a call message is a typed perform of the
 operation's usage on the object, `perform action spin : Motor::Spin ::> drive.motor.spin
 { in rpm = 30.0; }`, its arguments bound to the operation's `in` and `inout` parameters by
 name or by position, each with the parameter's direction so an `inout` value is written back
@@ -1203,7 +1212,7 @@ or state machine is, then step it or run it many times with the model seed:
 mean, max, p50 and p90 with a histogram, and `sysml model.sysml -action <name> -runs 100 -seed 1`
 does the same from the command line. An attribute the migrated body assigns from the clock is
 observed beside it with `-observe this.Time_Acq_Total`; an action that reads its performer's
-features (the `this.tcs.i` of a swimlane) is run through the performer, `-action "'Block' 'Action'"`.
+features (the `context.tcs.i` of a swimlane) is run through the performer, `-action "'Block' 'Action'"`.
 
 ### Calls to the fUML and Alf libraries
 
@@ -1414,7 +1423,7 @@ Expression Language`, `ECMAScript for XML`, `JSON`:
 | `var x = e;` `let x = e;` `const x = e;` (one name, initialized) | `attribute x : ScalarValues::T;` `assign x := e;` with `T` the type of `e`; a later assignment to a `const` is refused, as is a declaration of a name already declared, of a pin, parameter or property visible where the body lands, or of a member every action has (`start`, `done`, `self`) |
 | several statements, on `;` or newlines | a sequence of the above |
 | integer, real, Boolean and string literals | the same literal; a whole number is refused beyond what an `Integer` holds (2⁶³ − 1), and in a JavaScript body beyond 2⁵³ − 1, since the script would round it to a `Number` (a Java body's `long` is exact); a string's `\n` `\t` `\r` `\b` `\f` `\\` `\'` `\"` `\xHH` `\uHHHH` `\u{H…}` escapes and line continuations are decoded, a high and low surrogate escape pair as the one character they spell, while a legacy octal escape or a character the notation cannot spell (`\0`, `\v`, other control characters, a lone surrogate) is refused |
-| `a`, `a.b.c` naming features that resolve | `this.a`, `this.a.b.c` (through the swimlane's object when it has one) |
+| `a`, `a.b.c` naming features that resolve | `context.a`, `context.a.b.c` inside a definition, `a`, `a.b.c` inside a usage (through the swimlane's object when it has one) |
 | `+ - * / %`, comparisons, `&& \|\| !`, parentheses | `+ - * / %`, comparisons, `and or not`, parentheses; a Java body's `/` of two whole numbers drops the remainder, so it is `OpenSysMLMathFunctions::quotient(x, y)` (the exact Integer quotient truncated toward zero, refused at run time only for the least Integer by `-1`, whose quotient no Integer holds), and is refused when the operands' types cannot tell whether both are whole. Whole-number arithmetic is the exact arithmetic of a v2 `Integer`: a script that rounds a result beyond 2⁵³ to a `Number`, or a Java `int`/`long` that wraps past its range, computes something else there, which the translation does not reproduce — the translated feature holds the modeler's `Integer`, not a floating-point or fixed-width number |
 | Java's `a.equals(b)` / `"x".equals(b)` on strings | `a == b`, the comparison of their content; a Java body's `==` or `!=` with an operand known to be a string is refused, since Java compares strings there by identity, which no comparison of their values reproduces, and `equals` is translated only on a receiver known to be a string — a string literal, or a feature or local declared `String` — since any other type's `equals` is that type's own method, and is refused where the argument is known not to be a string (a script's `==` on strings compares their content and translates as it stands) |
 | `c ? a : b` | `if c ? a else b` when `a` and `b` are of one scalar type |
@@ -1437,7 +1446,7 @@ that is not expression syntax, a construct outside the subset (`for`, `while`, `
 `new`, `function`, a declaration of several names or of a name a feature already has, an
 assignment to a `const`, to an `in` parameter or to an input pin, a string method, a regular expression, an expression that assigns nothing, text
 after the one expression a guard or default is), a call not in the table (`the call "log" is not in the
-translated function table`), a name that resolves to nothing readable (`this.` in a context with
+translated function table`), a name that resolves to nothing readable (`context.` where the activity carries no such parameter
 no object, a property of no v2 type, a name no scope defines), or types that disagree (an
 `Integer` guard, a `Boolean` added to a `Real`, a plural where a scalar is wanted, a feature
 typed by an enumeration or a block where a number or Boolean is wanted, assigned to a feature

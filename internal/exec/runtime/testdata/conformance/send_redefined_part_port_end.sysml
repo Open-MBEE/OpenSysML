@@ -43,7 +43,7 @@ package RedefinedPartEnd {
 				do action run {
 					first start then call;
 					action call : Handshake;
-					bind call.context = this;
+					bind call.context = that;
 					first call then keep;
 					action keep {
 						assign lastAck := call.ack;

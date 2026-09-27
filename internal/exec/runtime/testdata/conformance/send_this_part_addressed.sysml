@@ -1,4 +1,4 @@
-// A send addressing `this.<part>` from an action def owned by a part def
+// A send addressing `that.<part>` from an action def owned by a part def
 // delivers to that part of the performing object: `this` is the context
 // occurrence the performance runs for, so the path is read from the host.
 package SendThisPart {
@@ -14,7 +14,7 @@ package SendThisPart {
 		state def Listen {
 			entry; then idle;
 			state idle;
-			transition first idle accept g : Go do assign this.got := g.n then idle;
+			transition first idle accept g : Go do assign that.got := g.n then idle;
 		}
 
 		exhibit state listen : Listen;
@@ -26,8 +26,8 @@ package SendThisPart {
 
 		action def Notify {
 			first start;
-			then action poke send new Go(n = 7) to this.worker;
-			then action note assign this.mark := 1;
+			then action poke send new Go(n = 7) to that.worker;
+			then action note assign that.mark := 1;
 			then done;
 		}
 

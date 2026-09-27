@@ -13,8 +13,8 @@ import (
 func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 	r := migrateFixtureFile(t, "ported_calls")
 	for _, line := range []string{
-		"perform action 'spin over p' ::> motor.spin;",
-		"perform action 'spin over cmd' ::> motor.spin;",
+		"perform action 'spin over p' ::> context.motor.spin;",
+		"perform action 'spin over cmd' ::> context.motor.spin;",
 		"action 'spin over loose' : Motor::Spin;",
 		"action 'spin over split' : Motor::Spin;",
 		"flow thirty.result to 'spin over p'.rpm;",
@@ -26,7 +26,7 @@ func TestCallOperationOverPortsReachesTheConnectedPart(t *testing.T) {
 		t.Errorf("a call was performed on a port whose type has no operation:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_callP", migrate.Mapped, "the call performs the usage spin of the part connected to the port p")
-	wantNote(t, r, "_callCmdTgt", migrate.Mapped, "the call performs the usage spin of the target this.motor; its port cmd is not written, as a v2 perform names the operation on the object")
+	wantNote(t, r, "_callCmdTgt", migrate.Mapped, "the call performs the usage spin of the target context.motor; its port cmd is not written, as a v2 perform names the operation on the object")
 	wantNote(t, r, "_callCmd", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
 	wantNote(t, r, "_callLoose", migrate.Approximated, "the call runs in the caller's context: no connector of Drive joins its port loose to a part")
 	wantNote(t, r, "_callSplit", migrate.Approximated, "the call runs in the caller's context: the port split of Drive connects to several parts whose types have the operation Spin (motor, spare), and the call names no one of them")

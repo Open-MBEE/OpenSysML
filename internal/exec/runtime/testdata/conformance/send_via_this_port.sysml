@@ -1,5 +1,5 @@
-// `via this.tx` names the performing part's own port tx, as `via tx` does: the send
-// crosses that port's connector rather than looking for a nested feature `this.tx`.
+// `via that.tx` names the performing part's own port tx, as `via tx` does: the send
+// crosses that port's connector rather than looking for a nested feature `that.tx`.
 package SendViaThisPort {
 	item def Ping;
 
@@ -20,7 +20,7 @@ package SendViaThisPort {
 			state begin;
 
 			state sending {
-				entry send new Ping() via this.tx;
+				entry send new Ping() via that.tx;
 			}
 			state heard;
 

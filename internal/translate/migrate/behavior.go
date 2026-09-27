@@ -118,14 +118,13 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.calcBody(e)
 	case e.Type == "Interaction":
 		m.parameters(e, e)
-		m.interactionBody(e)
+		m.bodyWithContext(e, func() { m.interactionBody(e) })
 	case e.Type == "Activity":
 		m.parameters(e, e)
-		m.contextParameter(e)
-		m.activityBody(e, e)
+		m.bodyWithContext(e, func() { m.activityBody(e, e) })
 	default:
 		m.parameters(e, e)
-		m.opaqueBehaviorBody(e, e)
+		m.bodyWithContext(e, func() { m.opaqueBehaviorBody(e, e) })
 	}
 	m.stereotypeAnnotations(e)
 	m.w.markMadeUp(m.synthesizedNames)
@@ -145,13 +144,19 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	if b == nil {
 		return
 	}
+	var head string
 	switch cat {
 	case catStateDef:
-		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head = "exhibit state " + writeName(name) + " : " + m.ref(b, c)
 	case catActionDef:
-		m.w.line("perform action " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head = "perform action " + writeName(name) + " : " + m.ref(b, c)
 	default:
 		return
+	}
+	if ins, _ := m.contextIns(m.contextOf(b), c); ins != "" {
+		m.w.line(head + " { " + m.contextBody(b, ins) + "; }")
+	} else {
+		m.w.line(head + ";")
 	}
 	m.downgrade(b, "the classifier behavior is run by every object of "+qualifiedName(c)+" as its usage "+name)
 }
@@ -198,7 +203,12 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	if cat, _ := m.classify(op.Parent); cat == catPortDef {
 		kw = "ref " + actionKw
 	}
-	m.w.line(kw + writeName(usage) + " : " + m.ref(op, op.Parent) + ";")
+	line := kw + writeName(usage) + " : " + m.ref(op, op.Parent)
+	if ins, _ := m.contextIns(m.contextOf(op), op.Parent); ins != "" {
+		m.w.line(line + " { " + m.contextBody(op, ins) + "; }")
+	} else {
+		m.w.line(line + ";")
+	}
 	m.add(op, Mapped, "", "its owner's usage "+usage+" performs it, as a call on an object does")
 }
 
@@ -430,9 +440,17 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	prefix := m.self + "."
+	if c := m.defContext(scope); c != nil {
+		c.used = true
+		prefix = writeName(c.name) + "."
+	} else if m.self == "this" {
+		// Inside a usage of the object its features resolve bare.
+		prefix = ""
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + m.self + "." + text[s:]
+		text = text[:s] + prefix + text[s:]
 	}
 	return text
 }
@@ -553,7 +571,7 @@ func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, boo
 		return "", false
 	}
 	if m.ownedByClassifier(f, scope) {
-		return "this." + writeName(name), true
+		return m.ownerPrefix(scope) + writeName(name), true
 	}
 	return writeName(name), true
 }
@@ -802,12 +820,14 @@ func (m *migration) resultRefusal(e *sysmlv1.Element) string {
 func (m *migration) calcBody(e *sysmlv1.Element) {
 	m.unwrittenMembers(e)
 	m.parameters(e, e)
-	expr, _, _, translated := m.calcExprHow(e)
-	_, lang := opaqueBody(e)
-	m.w.line(expr)
-	if lang != "" && !translated {
-		m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
-	}
+	m.bodyWithContext(e, func() {
+		expr, _, _, translated := m.calcExprHow(e)
+		_, lang := opaqueBody(e)
+		m.w.line(expr)
+		if lang != "" && !translated {
+			m.downgrade(e, "the "+lang+" body is written verbatim as the result expression, since it is also v2 expression syntax")
+		}
+	})
 }
 
 // opaqueBehaviorBody writes an opaque or function behavior's body that is no single
@@ -868,21 +888,23 @@ func (m *migration) operationBody(op *sysmlv1.Element) {
 			m.parameter(p, op, declared)
 		}
 	}
-	m.operationConditions(op)
-	switch {
-	case method == nil:
-		if len(m.model.Unresolved(op, "method")) > 0 {
-			m.downgrade(op, "the method refers to nothing in the document; the operation is written abstract")
+	m.bodyWithContext(op, func() {
+		m.operationConditions(op)
+		switch {
+		case method == nil:
+			if len(m.model.Unresolved(op, "method")) > 0 {
+				m.downgrade(op, "the method refers to nothing in the document; the operation is written abstract")
+			}
+		case method.Parent != op.Parent:
+			m.downgrade(op, methodNote+qualifiedName(method)+" is owned elsewhere and written there; the operation is written abstract")
+		case method.Type == "Activity":
+			m.activityBody(method, op)
+		case method.Type == "OpaqueBehavior" || method.Type == "FunctionBehavior":
+			m.opaqueBehaviorBody(method, op)
+		default:
+			m.downgrade(op, "a "+method.Type+" method has no action body form")
 		}
-	case method.Parent != op.Parent:
-		m.downgrade(op, methodNote+qualifiedName(method)+" is owned elsewhere and written there; the operation is written abstract")
-	case method.Type == "Activity":
-		m.activityBody(method, op)
-	case method.Type == "OpaqueBehavior" || method.Type == "FunctionBehavior":
-		m.opaqueBehaviorBody(method, op)
-	default:
-		m.downgrade(op, "a "+method.Type+" method has no action body form")
-	}
+	})
 }
 
 // abstractOperation reports whether an operation is written abstract: it has
@@ -959,18 +981,25 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	}
 	route := receptionRoute{owner: owner, sig: sig, method: performed, used: map[string]bool{"start": true, "done": true}}
 	m.w.block("action def "+writeName(name), func() {
-		from := "start"
-		if len(ports) > 0 {
-			from = freshIn(route.used, "spread")
-			m.w.line("first start then " + from + ";")
-			m.w.line("fork " + from + ";")
-		}
-		m.receptionLoop(r, &route, from, nil)
-		for _, p := range ports {
-			m.receptionLoop(r, &route, from, p)
-		}
+		m.bodyWithContext(r, func() {
+			from := "start"
+			if len(ports) > 0 {
+				from = freshIn(route.used, "spread")
+				m.w.line("first start then " + from + ";")
+				m.w.line("fork " + from + ";")
+			}
+			m.receptionLoop(r, &route, from, nil)
+			for _, p := range ports {
+				m.receptionLoop(r, &route, from, p)
+			}
+		})
 	})
-	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+	line := "perform action " + writeName(usage) + " : " + writeName(name)
+	if ins, _ := m.contextIns(m.ownerContext(r), owner); ins != "" {
+		m.w.line(line + " { " + m.contextBody(r, ins) + "; }")
+	} else {
+		m.w.line(line + ";")
+	}
 	m.receptionParameters(r, sig)
 	desc := "written as an action def accepting " + m.nameFor(sig)
 	if route.performed {
@@ -997,7 +1026,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	suffix, via := "", ""
 	if port != nil {
 		suffix = " via " + m.nameFor(port)
-		via = " via " + writeName(m.nameFor(port))
+		via = " via " + m.ownerPrefix(r) + writeName(m.nameFor(port))
 	}
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
@@ -1019,6 +1048,9 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		if refusal != "" {
 			route.note = refusal + "; the reception only accepts the signal"
 			break
+		}
+		if ins, _ := m.contextIns(m.contextOf(method), r); ins != "" {
+			args = append(args, ins)
 		}
 		run := writeName(freshIn(route.used, "run"+suffix))
 		last, route.performed = run, true

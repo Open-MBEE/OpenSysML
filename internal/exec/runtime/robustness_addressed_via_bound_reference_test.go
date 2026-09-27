@@ -42,7 +42,7 @@ func hostAddressing(send string) string {
 			}
 			action def Round {
 				first start;
-				then action fire : Fire { in ref dev = this.device; }
+				then action fire : Fire { in ref dev = that.device; }
 				then done;
 			}
 			perform action round : Round;

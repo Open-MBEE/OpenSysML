@@ -15,12 +15,12 @@ package test {
 			first start then 'set speed';
 			action 'set speed' {
 				in value;
-				assign this.speed := value;
+				assign that.speed := value;
 			}
 			bind 'set speed'.value = rpm;
 			first 'set speed' then 'read speed';
 			action 'read speed' {
-				out result = this.speed;
+				out result = that.speed;
 			}
 			bind result = 'read speed'.result;
 			first 'read speed' then done;
@@ -42,7 +42,7 @@ package test {
 			perform action sp : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }
 			first sp then keep;
 			action keep {
-				assign this.got := sp.result;
+				assign that.got := sp.result;
 			}
 			first keep then done;
 		}

@@ -78,7 +78,7 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 		"in target;",
 		"send new Ping() to target;",
 		"bind ping.target = recipient;",
-		"out result = this.b;",
+		"out result = context.b;",
 		"flow 'read b'.result to notify.recipient;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -86,9 +86,10 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 	if strings.Contains(string(r.Notation), "to this.target") {
 		t.Errorf("the target pin was written as a feature of the sender:\n%s", r.Notation)
 	}
-	for _, id := range []string{"_send", "_of1", "_kof1", "_call", "_readB"} {
+	for _, id := range []string{"_send", "_of1", "_kof1", "_readB"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
+	wantNote(t, r, "_call", migrate.Approximated, "the behavior acts on a Net through its parameter context, which is bound to Kick::context")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")

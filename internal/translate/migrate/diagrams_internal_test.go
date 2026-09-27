@@ -114,7 +114,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Shutting", "_shutting", "SysML Activity Diagram", "_pump"),
-			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n        /* body not migrated"}, Mapped,
+			[]string{"action def Shut {\n        view Shutting {\n            expose Sys::Pump;\n            render Views::asTextualNotation;\n        }\n            /* body not migrated"}, Mapped,
 			"its owner OpaqueBehavior Valve::Shutting is written as the body of action def Valve::Shut, whose method it is"},
 		{"a diagram owned by an action node is written in the body of the node's activity",
 			`<packagedElement xmi:type="uml:Activity" xmi:id="_fill" name="Fill">
@@ -146,7 +146,7 @@ func TestDiagramViews(t *testing.T) {
 			   </ownedBehavior>
 			 </packagedElement>`,
 			diagram("_d", "Valves", "_sys", "SysML Block Definition Diagram", "_status"),
-			[]string{"action def Open {\n        ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"action def Open {\n            ref status;", "view Valves {\n        expose Valve::Open::status;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
 		{"a diagram of a method activity named like one of its members is numbered, the member keeping its name",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_valve" name="Valve">
 			   <ownedOperation xmi:type="uml:Operation" xmi:id="_open" name="Open" method="_opening"/>
@@ -199,7 +199,7 @@ func TestDiagramViews(t *testing.T) {
 		{"a state machine diagram exposes the state def whose graph it draws, its states drawn by the graph",
 			machineMembers,
 			diagram("_d", "Modes", "_sm", "SysML State Machine Diagram", "_idle", "_run", "_t_go", "_sm_init"),
-			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    entry; then Idle;\n    state Idle;\n    state Run;\n    transition 'Idle accept Go then Run' first Idle accept Go then Run;\n    metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Run';\n}"},
+			[]string{"state def Modes {\n    view Modes : StandardViewDefinitions::StateTransitionView {\n        expose $::Modes;\n        render Views::asInterconnectionDiagram;\n    }\n        entry; then Idle;\n        state Idle;\n        state Run;\n        transition 'Idle accept Go then Run' first Idle accept Go then Run;\n        metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Run';\n}"},
 			Mapped, "the view exposes state def Modes, whose graph the rendering draws with the 4 shown nodes and edges of it"},
 		{"a diagram of a composite state is drawn as the graph of the state def its machine is written as",
 			`<packagedElement xmi:type="uml:StateMachine" xmi:id="_sm" name="Modes">
@@ -212,7 +212,7 @@ func TestDiagramViews(t *testing.T) {
 			   </region>
 			 </packagedElement>`,
 			diagram("_d", "Busy", "_busy", "SysML State Machine Diagram", "_read"),
-			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n    /* the region has no initial pseudostate: nothing enters it */\n    state Busy {\n        /* the region has no initial pseudostate: nothing enters it */\n        state Read;\n    }\n}"},
+			[]string{"state def Modes {\n    view 'Busy 2' : StandardViewDefinitions::StateTransitionView {\n        expose Modes;\n        render Views::asInterconnectionDiagram;\n    }\n        /* the region has no initial pseudostate: nothing enters it */\n        state Busy {\n            /* the region has no initial pseudostate: nothing enters it */\n            state Read;\n        }\n}"},
 			Approximated, "the view exposes state def Modes, whose graph the rendering draws with the 1 shown nodes and edges of it; its owner State Modes::<Region>::Busy has no v2 body; written in state def Modes"},
 		{"a state shown by another diagram is exposed as the member its state def declares",
 			machineMembers,
@@ -240,7 +240,7 @@ func TestDiagramViews(t *testing.T) {
 			   <edge xmi:type="uml:ControlFlow" xmi:id="_f_e" source="_f_init" target="_pour"/>
 			 </packagedElement>`,
 			diagram("_d", "Sketch", "_fill", "SysML Activity Diagram"),
-			[]string{"action def Fill {\n    view Sketch {\n        render Views::asTextualNotation;\n    }\n    first start then pour;"}, Approximated,
+			[]string{"action def Fill {\n    view Sketch {\n        render Views::asTextualNotation;\n    }\n        first start then pour;"}, Approximated,
 			"the diagram shows nothing; the view exposes nothing"},
 		{"a state machine diagram showing none of the graph is not a graph view of the state def",
 			machineMembers,

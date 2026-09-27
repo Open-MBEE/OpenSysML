@@ -7,7 +7,8 @@ func IsSuccessionSource(member Node) bool {
 	case *Membership:
 		return n.Member != nil && IsSuccessionSource(n.Member)
 	case *Usage:
-		return !n.Kind.IsEdge()
+		// A directioned usage is a parameter, not a node a flow can leave.
+		return n.Direction == DirNone && !n.Kind.IsEdge()
 	case *SuccessionEdge, *ControlFlowEdge, *ObjectFlowEdge, *TransitionEdge, *TransitionMember:
 		return false
 	case *Definition, *Package, *Namespace, *Import, *Alias, *Dependency, *MultiplicityDecl,

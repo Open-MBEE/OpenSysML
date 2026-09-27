@@ -11,18 +11,18 @@ materialize: Motor #4
   eval chain motor -> instance#4
 step 1: token 1@set speed
   eval feature rpm -> 30.0
-  stmt assign this.speed
+  stmt assign that.speed
     eval feature value -> 30.0
-    eval feature this -> instance#4
+    eval feature that -> instance#4
 step 2: token 1@read speed
-    eval feature this -> instance#4
+    eval feature that -> instance#4
   eval chain speed -> 30.0
 step 3: token 1@done
 step 4: no active tokens
 step 2: token 1@keep
-  stmt assign this.got
+  stmt assign that.got
     eval chain result -> 30.0
-    eval feature this -> instance#1
+    eval feature that -> instance#1
 step 3: token 1@done
 step 4: no active tokens
 run: exhibited state machine run of #1

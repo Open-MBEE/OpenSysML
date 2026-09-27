@@ -77,11 +77,11 @@ func TestTriggersAcceptViaThePortsTheSignalArrivesAt(t *testing.T) {
 	r := migrateDocument(t, portedRig, portedRigApplications)
 	for _, line := range []string{
 		"transition first idle accept Go then got;",
-		"transition first idle accept Go via rx then got;",
+		"transition first idle accept Go via context.rx then got;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	if got := strings.Count(string(r.Notation), "accept Go via rx then got;"); got != 2 {
+	if got := strings.Count(string(r.Notation), "accept Go via context.rx then got;"); got != 2 {
 		t.Errorf("accept via rx written %d times, want one per machine:\n%s", got, r.Notation)
 	}
 	if strings.Contains(string(r.Notation), "via aux") || strings.Contains(string(r.Notation), "via tx then") {

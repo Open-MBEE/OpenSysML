@@ -14,13 +14,13 @@ package 'Use Cases' {
         include use case 'pay Fee' : 'Pay Fee';
         /* not migrated: ExtensionPoint 'garage full' — v2 has no extension points; an extending use case is written as a dependency on the extended one */
         action def 'Park Flow' {
-            first start then Enter;
-            action Enter {
-                /* body not migrated (the body is empty) */
-            }
-            first Enter then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+                first start then Enter;
+                action Enter {
+                    /* body not migrated (the body is empty) */
+                }
+                first Enter then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
         }
         actor driver : Context::Driver;
         actor attendant : Context::Attendant[0..1];

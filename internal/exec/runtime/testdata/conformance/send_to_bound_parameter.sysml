@@ -15,7 +15,7 @@ package SendToBoundParameter {
 		state def Listen {
 			entry; then idle;
 			state idle;
-			transition first idle accept g : Go do assign this.got := g.n then idle;
+			transition first idle accept g : Go do assign that.got := g.n then idle;
 		}
 
 		exhibit state listen : Listen;
@@ -47,9 +47,9 @@ package SendToBoundParameter {
 
 		action def Round {
 			first start;
-			then action toRight : Notify { in recipient = this.right; in n = 7; }
-			then action toLeft : Notify { in recipient = this.left; in n = 3; }
-			then action toCrew : Brief { in team = this.crew; }
+			then action toRight : Notify { in recipient = that.right; in n = 7; }
+			then action toLeft : Notify { in recipient = that.left; in n = 3; }
+			then action toCrew : Brief { in team = that.crew; }
 			then done;
 		}
 

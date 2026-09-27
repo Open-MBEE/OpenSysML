@@ -14,7 +14,7 @@ package test {
 			first start then 'set azimuth';
 			action 'set azimuth' {
 				in value;
-				assign this.azimuth := value;
+				assign that.azimuth := value;
 			}
 			bind 'set azimuth'.value = az;
 			first 'set azimuth' then done;
@@ -31,7 +31,7 @@ package test {
 			in az : Real;
 			first start then turn;
 			action turn {
-				assign this.azimuth := az;
+				assign that.azimuth := az;
 			}
 			first turn then done;
 		}

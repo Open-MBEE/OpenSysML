@@ -45,7 +45,7 @@ Property	Gauge::reading	_reading	-> Gauge::reading	(the JavaScript body is trans
 Property	Gauge::t_sim	_gts	-> Gauge::t_sim
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Reactor	_reactor	-> Reactor
-Activity	Reactor::Cycle	_cycle	-> Reactor::Cycle
+Activity	Reactor::Cycle	_cycle	-> Reactor::Cycle	(acts on its owner Reactor, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Reactor::Cycle::<ActivityFinalNode>	_final	-> final
 ControlFlow	Reactor::Cycle::<ControlFlow>	_c2
 ControlFlow	Reactor::Cycle::<ControlFlow>	_c3

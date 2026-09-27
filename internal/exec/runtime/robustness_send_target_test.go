@@ -72,7 +72,7 @@ func testSendTargetHoldsNothing(t *testing.T) {
 // port or object is unroutable, named as the target was written.
 func testSendTargetChainNamesNoFeature(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
-		"in recipient : Worker;", "in recipient = this.worker;", "recipient.nowhere",
+		"in recipient : Worker;", "in recipient = that.worker;", "recipient.nowhere",
 	), "test::Host")
 	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `"recipient.nowhere" names no port of an object`) {
 		t.Fatalf("error = %v, want ErrUnroutableSend over a chain naming no feature", err)

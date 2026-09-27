@@ -43,7 +43,7 @@ func hostWiring(param, binding string) string {
 			}
 			action def Round {
 				first start;
-				then action fire : Fire { in ref dev = this.device; ` + binding + ` }
+				then action fire : Fire { in ref dev = that.device; ` + binding + ` }
 				then done;
 			}
 			perform action round : Round;

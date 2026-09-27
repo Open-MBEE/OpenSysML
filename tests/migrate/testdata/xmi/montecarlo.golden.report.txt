@@ -17,7 +17,7 @@ Slot	Results::run 1::<Slot>	_rawN	-> Results::'run 1'::'Monte Carlo'::runs	(the 
 Slot	Results::run 1::<Slot>	_rawMean	-> Results::'run 1'::'Monte Carlo'::mean	(the tool left mean blank, so no value is written)
 «Block» Class	Timer Analysis	_analysis	-> 'Timer Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
 «BindingConnector» Connector	Timer Analysis::<Connector>	_bind	-> 'Timer Analysis Monte Carlo'::observed	(the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Timer Analysis Monte Carlo' as the observed value, of which Mean is returned)
-Activity	Timer::Tick	_act	-> Timer::Tick	(the classifier behavior is run by every object of Timer as its usage tick)
+Activity	Timer::Tick	_act	-> Timer::Tick	(acts on its owner Timer, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Timer as its usage tick)
 «Block» Class	Unbound Analysis	_unbound	-> 'Unbound Analysis'	(generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Unbound Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject)
 
 ## mapped (62)

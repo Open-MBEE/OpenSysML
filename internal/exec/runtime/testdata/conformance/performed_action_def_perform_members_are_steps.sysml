@@ -16,8 +16,8 @@ package test {
 			action def Sample {
 				perform action read ::> sensor.sample;
 				action sum {
-					assign this.last := this.sensor.reading;
-					assign this.total := this.total + this.last;
+					assign that.last := that.sensor.reading;
+					assign that.total := that.total + that.last;
 				}
 				first start then read;
 				first read then sum;
@@ -25,7 +25,7 @@ package test {
 
 			action sample : Sample;
 			action count {
-				assign this.cycles := this.cycles + 1;
+				assign that.cycles := that.cycles + 1;
 			}
 			first start then sample;
 			first sample then count;
@@ -39,7 +39,7 @@ package test {
 
 		action def Read {
 			action bump {
-				assign this.reading := this.reading + 1.5;
+				assign that.reading := that.reading + 1.5;
 			}
 			first start then bump;
 		}

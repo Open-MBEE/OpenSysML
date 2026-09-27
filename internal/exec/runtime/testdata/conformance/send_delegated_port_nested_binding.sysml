@@ -27,7 +27,7 @@ package SendDelegatedPort {
 				do action run {
 					first start then call;
 					action call : Command;
-					bind call.context = this;
+					bind call.context = that;
 					first call then done;
 				}
 			}

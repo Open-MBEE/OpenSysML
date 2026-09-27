@@ -135,8 +135,12 @@ type activity struct {
 }
 
 func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
+	ctx := m.selfContext(def)
+	if ctx == nil {
+		ctx = m.contextOf(enclosingActivity(def))
+	}
 	a := &activity{
-		m: m, act: act, def: def, ctx: m.contextOf(enclosingActivity(def)),
+		m: m, act: act, def: def, ctx: ctx,
 		names:       map[*sysmlv1.Element]string{},
 		used:        inheritedActionNames(),
 		named:       map[*sysmlv1.Element]bool{},
@@ -1037,6 +1041,7 @@ func (a *activity) isElse(e *sysmlv1.Element) bool {
 // carries, which its guards are compared with; "" when nothing names it.
 func (a *activity) decisionInput(n *sysmlv1.Element) string {
 	if a.selfFed[n] {
+		a.markSelf()
 		return a.self()
 	}
 	if srcs := a.sources[n]; len(srcs) == 1 {
@@ -1305,7 +1310,7 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 	if mult, _ := a.m.multiplicity(p); mult != "" {
 		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which holds " + mult + " values, not one number"
 	}
-	return probabilityWeight{expr: writeName(a.m.nameOf(p)), property: p}, ""
+	return probabilityWeight{expr: a.on(a.self(), writeName(a.m.nameOf(p))), property: p}, ""
 }
 
 // finiteNumber reads text as a finite number written as a v2 real literal.
@@ -1827,22 +1832,31 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		c := a.m.contextOf(b)
 		note := ""
 		if l, _, why := a.m.lanePerformer(n); l != nil {
-			usage := strings.TrimPrefix(l.expr, "this.") + "." + writeName(a.m.behaviorUsage(b))
+			usage := a.m.anchorExpr(l.expr, a.def) + "." + writeName(a.m.behaviorUsage(b))
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
-		} else {
-			a.m.w.line(actionKw + name + " : " + a.m.ref(b, a.def) + ";")
-			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
-				note = "the behavior belongs to " + qualifiedName(owner) + " and runs here in the caller's context"
-			}
 			note = joinNotes(why, note)
+		} else {
+			ins := ""
+			if c != nil && !a.m.insideStateUsage(n) {
+				expr, cnote := a.callContext(n, c)
+				if expr != "" {
+					ins = "in ref :>> " + writeName(c.name) + " = " + expr
+					c.bound = true
+					note = cnote
+				}
+			}
+			line := actionKw + name + " : " + a.m.ref(b, a.def)
+			if ins != "" {
+				a.m.w.line(line + " { " + a.m.contextBody(b, ins) + "; }")
+			} else {
+				a.m.w.line(line + ";")
+			}
+			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
+				note = joinNotes(note, "the behavior belongs to "+qualifiedName(owner)+" and runs here in the caller's context")
+			}
 		}
 		a.pins(n, b)
-		if c != nil {
-			expr, cnote := a.callContext(n, c)
-			a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + expr + ";")
-			a.m.add(n, Mapped, name, cnote)
-		}
 		note = joinNotes(note, a.absentArguments(inputPins(n), b))
 		a.m.add(n, verdictFor(note), name, note)
 		return
@@ -1925,6 +1939,12 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	if port != nil {
 		receiver, note, ok = a.portReceiver(port, t, op)
 	}
+	withIns := func() string {
+		if ins, _ := a.m.contextIns(a.m.contextOf(op), a.def); ins != "" {
+			return " { " + a.m.contextBody(op, ins) + "; }"
+		}
+		return ";"
+	}
 	switch {
 	case ok:
 		a.m.w.line("perform action " + name + " ::> " + receiver + ";")
@@ -1936,12 +1956,12 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 		}
 		note = ""
 	case port != nil && t == nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	case t != nil:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 		a.m.add(t, Approximated, "", "the target pin is not written; the call runs in the caller's context")
 	default:
-		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
+		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	}
 	a.declarePins(n, ins, outs, op)
 	note = joinNotes(note, a.absentArguments(ins, op))
@@ -2069,6 +2089,7 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 // and so on down); typ is that object's classifier, nil when it is not known.
 func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
 	if a.selfFed[pin] {
+		a.markSelf()
 		return a.self(), a.selfType(), true
 	}
 	srcs := a.sources[pin]
@@ -2091,6 +2112,7 @@ func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Ele
 // its object pin holds, or this when the pin is absent or nothing feeds it.
 func (a *activity) readObject(obj *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
 	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] {
+		a.markSelf()
 		return a.self(), a.selfType(), true
 	}
 	return a.objectOf(obj)
@@ -2231,6 +2253,7 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			case !a.m.written(port):
 				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
 			case a.hasPort(port):
+				a.markSelf()
 				line += " via " + a.self() + "." + writeName(a.m.nameOf(port))
 			default:
 				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"

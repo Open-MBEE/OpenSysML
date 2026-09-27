@@ -92,10 +92,10 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 		"action def Tune {",
 		"in gain : ScalarValues::Integer[0..1];",
 		"in image : ScalarValues::Integer default = 3;",
-		"action find : Needs;",
-		"action refind : Needs;",
-		"action peek : Admits;",
-		"action settle : Defaults;",
+		"action find : Needs { in image; out found; in ref :>> context = Run::context; }",
+		"action refind : Needs { in image; out found; in ref :>> context = Run::context; }",
+		"action peek : Admits { in image; in ref :>> context = Run::context; }",
+		"action settle : Defaults { in image; in ref :>> context = Run::context; }",
 		"action tune : Tune;",
 		"/* flow find.found to refind.image not written: nothing in the called Ctl::Needs gives its parameter found a value */",
 		"first find then refind;",
@@ -114,8 +114,8 @@ func TestCallsWithoutRequiredArgumentsAdmitNone(t *testing.T) {
 	wantNote(t, r, "_callAgain", migrate.Approximated, "the pin 'image' it passes for the parameter image of Ctl::Needs receives none: 'find', which feeds it, produces no value"+absent)
 	wantNote(t, r, "_needsIn", migrate.Approximated, "it is declared admitting no value: the call 'find' in Ctl::Run passes no argument for it, and v1 runs the callee without one")
 	wantNote(t, r, "_opGain", migrate.Approximated, "it is declared admitting no value: the call 'tune' in Ctl::Run passes no argument for it, and v1 runs the callee without one")
-	wantNote(t, r, "_callAdmits", migrate.Mapped, "")
-	wantNote(t, r, "_callDefaults", migrate.Mapped, "")
+	wantNote(t, r, "_callAdmits", migrate.Approximated, "the behavior acts on a Ctl through its parameter context, which is bound to Run::context")
+	wantNote(t, r, "_callDefaults", migrate.Approximated, "the behavior acts on a Ctl through its parameter context, which is bound to Run::context")
 	wantNote(t, r, "_admitsIn", migrate.Mapped, "")
 	wantNote(t, r, "_defaultsIn", migrate.Mapped, "")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -261,13 +261,13 @@ const dryOutputsApplications = `
 func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 	r := migrateDocument(t, dryOutputs, dryOutputsApplications)
 	for _, line := range []string{
-		"action fetch : Fetch;",
+		"action fetch : Fetch { out image; in ref :>> context = Run::context; }",
 		"in image : ScalarValues::Integer[0..1];",
 		"in value[0..1];",
 		"if value->SequenceFunctions::notEmpty() {",
-		"assign this.seen := value;",
+		"assign context.seen := value;",
 		"bind 'set seen'.value = image;",
-		"action apply : Use;",
+		"action apply : Use { in image; in ref :>> context = Run::context; }",
 		"/* flow fetch.image to apply.image not written: nothing in the called Cache::Fetch gives its parameter image a value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -363,9 +363,9 @@ const surplusResult = `
 func TestResultPinsBeyondTheCalleesParametersCarryNoValue(t *testing.T) {
 	r := migrateDocument(t, surplusResult, dryOutputsApplications)
 	for _, line := range []string{
-		"action fetch : Fetch;",
+		"action fetch : Fetch { out image; in ref :>> context = Run::context; }",
 		"in image : ScalarValues::Integer[0..1];",
-		"action apply : Use;",
+		"action apply : Use { in image; in ref :>> context = Run::context; }",
 		"/* flow 'extra' to apply.image not written: the pin 'extra' of 'fetch' stands for no out parameter of the called Cache::Fetch, so it carries no value */",
 		"first fetch then apply;",
 		"first apply then notify;",
@@ -491,8 +491,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
-		"action alarm send new Alert(level = 2, code = 1) to this.s;",
-		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
+		"action alarm send new Alert(level = 2, code = 1) to context.s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to context.s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -500,8 +500,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
-	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
-	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to context.s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to context.s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -651,7 +651,7 @@ func TestUnwrittenValuesAreNotPassedToCalls(t *testing.T) {
 		"action zero {",
 		"/* not migrated: ValueSpecificationAction 'zero' — the value 0 is not written: the literal \"0\" is not a value of Coords, which has no scalar base */",
 		"in target : Coords[0..1];",
-		"action aim : Aim;",
+		"action aim : Aim { in target; in ref :>> context = Run::context; }",
 		"/* flow zero.result to aim.target not written: 'zero' is not migrated and produces no value */",
 		"first zero then aim;",
 		"first aim then final;",

@@ -11,11 +11,11 @@ enter action node: state behavior beat
   stmt assign beats
     eval literal 1 -> 1
 run: performed action selfDestruct of #1
-stmt assign this.seen
+stmt assign that.seen
   eval literal 1 -> 1
-  eval feature this -> instance#1
+  eval feature that -> instance#1
 stmt terminate
-  eval feature this -> instance#1
+  eval feature that -> instance#1
 terminate: Probe #1
 terminated with occurrence: life (do behavior abandoned: alive)
 terminate action: dropped token 1@step

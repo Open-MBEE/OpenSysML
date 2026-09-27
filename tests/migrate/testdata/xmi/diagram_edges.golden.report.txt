@@ -53,7 +53,7 @@ Connector	Structure::Vehicle::<Connector>	_conn_shown	-> Structure::Vehicle::'en
 Connector	Structure::Vehicle::<Connector>	_conn_twin	-> Structure::Vehicle::'engine to wheel 2'
 Connector	Structure::Vehicle::<Connector>	_conn_hidden
 «BindingConnector» Connector	Structure::Vehicle::<Connector>	_conn_bind	-> Structure::Vehicle::'mass = limit'
-Activity	Structure::Vehicle::Drive	_act_drive	-> Structure::Vehicle::Drive
+Activity	Structure::Vehicle::Drive	_act_drive	-> Structure::Vehicle::Drive	(acts on its owner Structure::Vehicle, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Structure::Vehicle::Drive::<ActivityFinalNode>	_final	-> final
 ControlFlow	Structure::Vehicle::Drive::<ControlFlow>	_cf_hidden
 InitialNode	Structure::Vehicle::Drive::<InitialNode>	_init	-> start

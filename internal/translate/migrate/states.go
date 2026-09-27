@@ -60,13 +60,15 @@ func (m *migration) stateMachineBody(sm *sysmlv1.Element) {
 			m.member(c)
 		}
 	}
-	used := m.nameMachine(sm)
-	m.instants(sm, used)
-	m.carriers(sm, used)
-	for _, cp := range sm.Owned("connectionPoint") {
-		m.connectionPoint(cp)
-	}
-	m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
+	m.bodyWithContext(sm, func() {
+		used := m.nameMachine(sm)
+		m.instants(sm, used)
+		m.carriers(sm, used)
+		for _, cp := range sm.Owned("connectionPoint") {
+			m.connectionPoint(cp)
+		}
+		m.regions(sm, m.populatedRegions(sm), false, func() { /* no extra nesting to write */ })
+	})
 }
 
 // nameMachine names every vertex of a machine down through its nested regions ahead of writing,
@@ -895,13 +897,25 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
+	ins := ""
+	sub := s.m.model.Ref(v, "submachine")
+	if sub != nil && s.m.written(sub) {
+		ins, _ = s.m.contextIns(s.m.contextOf(sub), v)
+	}
 	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
-		s.m.w.line(head + ";")
+		if ins != "" {
+			s.m.w.line(head + " { " + s.m.contextBody(sub, ins) + "; }")
+		} else {
+			s.m.w.line(head + ";")
+		}
 		s.m.statePoints(v)
 		return
 	}
 	s.m.w.block(head, func() {
 		s.m.writeComments(v, false)
+		if ins != "" {
+			s.m.w.line(ins + ";")
+		}
 		s.m.w.lines(defers)
 		if inv != nil {
 			s.m.invariant(inv)
@@ -1150,15 +1164,16 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 	}
 	var ins []string
 	note := "also run as the " + kw + " of " + describe(owner)
+	var contextIn string
 	if c := m.contextOf(b); c != nil {
-		expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
-		if expr == "" {
+		in, cnote := m.contextIns(c, owner)
+		if in == "" && cnote != "" {
 			m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + cnote))
 			m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
 			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+cnote)
 			return false
 		}
-		ins = append(ins, "in "+writeName(c.name)+" = "+expr)
+		contextIn = in
 		note = joinNotes(note, cnote)
 	}
 	if params := inParameters(b); len(params) > 0 && owner.Type != "Transition" {
@@ -1167,6 +1182,12 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 		if !ok {
 			return false
 		}
+	}
+	// The context redefinition follows the parameter bindings: a directioned
+	// member in a usage body redefines parameters positionally, so it must come
+	// after the members that bind them.
+	if contextIn != "" {
+		ins = append(ins, contextIn)
 	}
 	line := kw + " : " + m.ref(b, owner)
 	switch {
@@ -1188,7 +1209,7 @@ func (m *migration) parameterIns(kw string, b, owner *sysmlv1.Element, params []
 	switch {
 	case bound != nil && kw != exitAction:
 		for _, p := range params {
-			ins = append(ins, m.parameterBinding(p, m.nameFor(p), bound[p]))
+			ins = append(ins, m.parameterBinding(p, m.nameFor(p), m.callBodyExpr(bound[p], owner)))
 		}
 		return ins, joinNotes(note, "its parameters take the attributes of the signal the transitions into the state accept"), true
 	case slices.IndexFunc(params, requiresValue) >= 0:
@@ -1612,7 +1633,7 @@ func (s *stateRegion) routes(tr *sysmlv1.Element, a acceptance) (routes []accept
 	}
 	for _, p := range ports {
 		via := a
-		via.clause = a.clause + " via " + writeName(s.m.nameFor(p))
+		via.clause = a.clause + " via " + s.m.ownerPrefix(tr) + writeName(s.m.nameFor(p))
 		routes = append(routes, via)
 	}
 	return routes, info, note

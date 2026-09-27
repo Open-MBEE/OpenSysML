@@ -7,28 +7,28 @@ package Plant {
                 expose Modes;
                 render Views::asInterconnectionDiagram;
             }
-            entry; then Idle;
-            state Idle;
-            state Running;
-            transition 'Idle accept Start then Running' first Idle accept Start then Running;
-            metadata MigrationMetadata::SynthesizedName about 'Idle accept Start then Running';
+                entry; then Idle;
+                state Idle;
+                state Running;
+                transition 'Idle accept Start then Running' first Idle accept Start then Running;
+                metadata MigrationMetadata::SynthesizedName about 'Idle accept Start then Running';
         }
         action def Prime {
             view Priming : StandardViewDefinitions::ActionFlowView {
                 expose Prime;
                 render Views::asInterconnectionDiagram;
             }
-            first start then Fill;
-            action Fill {
-                /* body not migrated (the body is empty) */
-            }
-            first Fill then Vent;
-            action Vent {
-                /* body not migrated (the body is empty) */
-            }
-            first Vent then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+                first start then Fill;
+                action Fill {
+                    /* body not migrated (the body is empty) */
+                }
+                first Fill then Vent;
+                action Vent {
+                    /* body not migrated (the body is empty) */
+                }
+                first Vent then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     part def Tank;
@@ -60,36 +60,36 @@ package Plant {
 package 'Plant Viewpoints' {
     viewpoint 'Figures Viewpoint' {
         action def 'Figures Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
     }
     viewpoint 'Pictures Viewpoint' {
         action def 'Pictures Method' {
-            first start then Image;
-            action Image;
-            first Image then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+                first start then Image;
+                action Image;
+                first Image then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'pictures Method' : 'Pictures Method';
     }
     viewpoint 'Shown Viewpoint' {
         action def 'Shown Method' {
-            first start then 'Collect Things On Diagram';
-            action 'Collect Things On Diagram';
-            first 'Collect Things On Diagram' then 'Shown Blocks';
-            action 'Shown Blocks' {
-                first start then Name;
-                action Name;
-            }
-            first 'Shown Blocks' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about final;
+                first start then 'Collect Things On Diagram';
+                action 'Collect Things On Diagram';
+                first 'Collect Things On Diagram' then 'Shown Blocks';
+                action 'Shown Blocks' {
+                    first start then Name;
+                    action Name;
+                }
+                first 'Shown Blocks' then final;
+                action final terminate;
+                metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
     }

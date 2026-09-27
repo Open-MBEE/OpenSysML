@@ -14,12 +14,12 @@ DurationObservation	Observatory::Acquire::Time_Lost	_dangle	(the observation's e
 «SimulationConfig» Class	Group 1	_config1	-> 'Group 1'	(the configuration names no execution target, so it runs no behavior)
 MergeNode	Observatory::Acquire::<MergeNode>	_drop	(no edge leaves the node, so the token it takes ends there, as at done)
 OpaqueAction	Observatory::Acquire::abort	_abort	-> abort	(the JavaScript body is translated to v2; names resolve against the context's tcs, read as this.tcs; several edges leave the node, which a fork fork2 carries)
-DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds; written as a fixed wait of this.tcs.ditSetup s before 'attempt')
+DurationConstraint	Observatory::Acquire::settle	_dc	-> Observatory::Acquire	(the duration "ditSetup s" is read as the expression context.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression context.tcs.ditSetup, in seconds; written as a fixed wait of context.tcs.ditSetup s before 'attempt')
 
 ## mapped (52)
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Observatory	_obs	-> Observatory
-Activity	Observatory::Acquire	_acq	-> Observatory::Acquire
+Activity	Observatory::Acquire	_acq	-> Observatory::Acquire	(acts on its owner Observatory, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Observatory::Acquire::<ActivityFinalNode>	_final	-> final
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e2
 ControlFlow	Observatory::Acquire::<ControlFlow>	_e2b

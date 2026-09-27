@@ -45,9 +45,33 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 	if err != nil {
 		return nil, err
 	}
+	// An `in ref` parameter no argument binds takes the performer, as any
+	// behavior run on an object binds the object it runs on to it — it satisfies
+	// the arity check but is no input the caller stated.
+	var seeded []string
+	if isActionSymbol(sym) && len(args.Positional) == 0 {
+		named := args.Named
+		for _, param := range ctx.actionParametersOf(sym) {
+			if !param.IsReference || param.Direction != ast.DirIn && param.Direction != ast.DirInOut {
+				continue
+			}
+			if _, bound := named[param.Name]; bound {
+				continue
+			}
+			if named == nil {
+				named = make(map[string]Value)
+			}
+			named[param.Name] = Value{Kind: ValInstance, Instance: inst.ID}
+			seeded = append(seeded, param.Name)
+		}
+		args = OperationArguments{Named: named}
+	}
 	inputs, err := operationInputs(ctx.model.semantics.SignatureParametersOf(sym), name, args)
 	if err != nil {
 		return nil, err
+	}
+	for _, name := range seeded {
+		delete(inputs, name)
 	}
 	switch {
 	case isActionSymbol(sym):

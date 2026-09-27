@@ -23,7 +23,7 @@ func rigWithUntypedPorts(binding, wiring string) string {
 			port tx;
 			action def Fire {
 				first start;
-				then action go send new Go() via this.tx;
+				then action go send new Go() via that.tx;
 				then done;
 			}
 			perform action fire : Fire;

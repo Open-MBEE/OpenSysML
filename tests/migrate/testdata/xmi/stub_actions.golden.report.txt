@@ -14,7 +14,7 @@ ObjectFlow	Rig::Sampling::<ObjectFlow>	_of4	(the flow is written, but 'measure' 
 ValueSpecificationAction	Rig::Sampling::gain	_gain	-> gain	(several edges leave the node, which a fork fork carries)
 CallBehaviorAction	Rig::Sampling::measure	_measure	-> measure	(several edges lead to the node, which waits for all of them through the join 'join'; a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'reading' holds no value; its «Allocate» to Rig::probe says where it runs, not what it does)
 OutputPin	Rig::Sampling::measure::reading	_measureOut	-> Rig::Sampling::measure.reading	(it is declared admitting no value: the action calls no behavior, so nothing computes it)
-CallBehaviorAction	Rig::Sampling::record	_recordCall	-> record	(several edges lead to the node, which waits for all of them through the join join2; the pin 'value' it passes for the parameter value of Rig::Record receives none: 'measure', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none)
+CallBehaviorAction	Rig::Sampling::record	_recordCall	-> record	(several edges lead to the node, which waits for all of them through the join join2; the behavior acts on a Rig through its parameter context, which is bound to Sampling::context; the pin 'value' it passes for the parameter value of Rig::Record receives none: 'measure', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none)
 Parameter	Rig::Sampling::sample	_sample	-> Rig::Sampling::sample	(it is declared admitting no value: the pin 'reading' of 'measure', which feeds it, admits no value: the action calls no behavior, so nothing computes it)
 ValueSpecificationAction	Rig::Sampling::stamp	_stamp	-> stamp	(several edges leave the node, which a fork fork2 carries)
 
@@ -25,13 +25,13 @@ ValueSpecificationAction	Rig::Sampling::stamp	_stamp	-> stamp	(several edges lea
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Probe	_probe	-> Probe
 «Block» Class	Rig	_rig	-> Rig
-Activity	Rig::Record	_record	-> Rig::Record
+Activity	Rig::Record	_record	-> Rig::Record	(acts on its owner Rig, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Rig::Record::<ActivityFinalNode>	_rFinal	-> final
 ControlFlow	Rig::Record::<ControlFlow>	_rE2
 InitialNode	Rig::Record::<InitialNode>	_rInit	-> start
 ObjectFlow	Rig::Record::<ObjectFlow>	_rOf
 ActivityParameterNode	Rig::Record::value	_rApn	-> Rig::Record::value	(the flows to and from the node name the parameter value)
-Activity	Rig::Sampling	_sampling	-> Rig::Sampling
+Activity	Rig::Sampling	_sampling	-> Rig::Sampling	(acts on its owner Rig, which it takes as its parameter context, since its this is the def's own occurrence)
 ActivityFinalNode	Rig::Sampling::<ActivityFinalNode>	_final	-> final
 ControlFlow	Rig::Sampling::<ControlFlow>	_e2
 ControlFlow	Rig::Sampling::<ControlFlow>	_e3

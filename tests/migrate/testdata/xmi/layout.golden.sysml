@@ -26,12 +26,12 @@ package Structure {
 }
 package Behavior {
     action def Drive {
-        succession 'start to step' first start then 'step';
-        action 'step' {
-            /* body not migrated (the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going) {JavaScript}:
-             * going = true;
-             */
-        }
-        metadata MigrationMetadata::SynthesizedName about 'start to step';
+            succession 'start to step' first start then 'step';
+            action 'step' {
+                /* body not migrated (the name "going" resolves to nothing readable: nothing visible from Behavior::Drive::step is called going) {JavaScript}:
+                 * going = true;
+                 */
+            }
+            metadata MigrationMetadata::SynthesizedName about 'start to step';
     }
 }

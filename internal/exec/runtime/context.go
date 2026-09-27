@@ -56,6 +56,12 @@ type Context struct {
 	// transformation), so `target = that` finds it and a cycle is reported.
 	framesReading map[int64]*CoordinateFrame
 
+	// ambientFrames are the run frames every evaluation over this context reads:
+	// the data frame of each state machine under way, so a member default
+	// evaluated at occurrence initialization — `Ctl::context` inside a state's
+	// `in ref :>>` member — finds the binding the running machine gave it.
+	ambientFrames []frame
+
 	// evaluations is the log of the case run under way (evaluation_log.go), nil
 	// outside one.
 	evaluations *evaluationLog
@@ -116,6 +122,12 @@ type Context struct {
 	// by the outermost materialization so a start reached from inside a running
 	// behavior does not run it recursively.
 	pendingBehaviors []*ObjectBehavior
+
+	// attachingBehaviors are the members whose behaviors are attaching — bound,
+	// materialized and initializing — but not yet recorded on the object: an
+	// initialization that classifies the object (a bound feature typing it)
+	// re-scans its types and must not attach the same member again.
+	attachingBehaviors map[*Instance]map[*symbols.Symbol]bool
 
 	// behaviorRunDepth is the number of classifier-behavior starts under way.
 	behaviorRunDepth int
@@ -1560,7 +1572,7 @@ func (ctx *Context) ActionOutcomePerformedBy(action *symbols.Symbol, self *Insta
 // executor that ran it, whose root performance holds what it produced. An object
 // performing the action runs the performance it already runs rather than a second.
 func (ctx *Context) performAction(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
-	exec, err := performanceOf(action, self, inputs)
+	exec, err := ctx.performanceOf(action, self, inputs)
 	if err != nil {
 		return nil, err
 	}
@@ -1758,8 +1770,10 @@ var ErrAmbiguousAction = errors.New("ambiguous action")
 var ErrPerformedInputs = errors.New("inputs for a performed action")
 
 // performanceOf is the performance self runs of action's declaration, to run in
-// place of a second; nil when self performs none.
-func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
+// place of a second; nil when self performs none. The `in ref` parameters a
+// usage binds by redefinition (`in ref :>> context = …`) are the declaration's
+// own bindings, not arguments a call supplies, so they do not count against it.
+func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	if self == nil {
 		return nil, nil
 	}
@@ -1767,7 +1781,16 @@ func performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Val
 	case 0:
 		return nil, nil
 	case 1:
+		nonReference := 0
 		if len(inputs) > 0 {
+			for _, param := range ctx.actionParametersOf(action) {
+				if param.IsReference {
+					delete(inputs, param.Name)
+				}
+			}
+			nonReference = len(inputs)
+		}
+		if nonReference > 0 {
 			return nil, fmt.Errorf("%w: the object performs %s already, with the arguments its declaration binds", ErrPerformedInputs, symbolText(action))
 		}
 		return performed[0].Action, nil

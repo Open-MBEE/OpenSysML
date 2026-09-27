@@ -53,8 +53,8 @@ package 'Vehicle Design' {
         }
         action 'start 2' : start;
         state def 'Vehicle States' {
-            /* the region has no initial pseudostate: nothing enters it */
-            state Off;
+                /* the region has no initial pseudostate: nothing enters it */
+                state Off;
         }
         constraint 'positive mass' { mass > 0 }
         part def Chassis {

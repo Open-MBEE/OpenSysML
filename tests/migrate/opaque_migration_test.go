@@ -43,15 +43,15 @@ func migrateXMI(t *testing.T, name string) *migrate.Result {
 func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	r := migrateXMI(t, "acquisition")
 	for _, line := range []string{
-		"assign this.Time_Acq_Total := localClock.currentTime;",
-		"assign this.tcs.i := 1;",
-		"assign this.tcs.GS_Found := false;",
-		"assign this.tcs.GS_Found := true;",
-		"assign this.tcs.i := this.tcs.i + 1;",
-		"assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;",
-		"if this.tcs.i >= this.tcs.Retries",
-		"if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries",
-		"action wait accept after this.tcs.ditSetup [SI::s];",
+		"assign context.Time_Acq_Total := localClock.currentTime;",
+		"assign context.tcs.i := 1;",
+		"assign context.tcs.GS_Found := false;",
+		"assign context.tcs.GS_Found := true;",
+		"assign context.tcs.i := context.tcs.i + 1;",
+		"assign context.Time_Acq_Total := localClock.currentTime - context.Time_Acq_Total;",
+		"if context.tcs.i >= context.tcs.Retries",
+		"if not context.tcs.GS_Found and not context.tcs.'Guide Star Lost' and context.tcs.i < context.tcs.Retries",
+		"action wait accept after context.tcs.ditSetup [SI::s];",
 		"action attempt;",
 		"attribute 'Time_Loop start' : ScalarValues::Real [0..1];",
 		"attribute Time_Loop : ScalarValues::Real [0..1];",
@@ -76,7 +76,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"assign Time_Drop := localClock.currentTime - 'Time_Drop start';",
 		"first stamp12 then done;",
 		"in Retries : ScalarValues::Integer = 2;",
-		"assign this.tcs.GS_Found := Retries < 1;",
+		"assign context.tcs.GS_Found := Retries < 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -90,7 +90,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_e6", migrate.Mapped, "the English body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_lane", migrate.Mapped, "read as this.tcs")
 	wantNote(t, r, "_attempt", migrate.Mapped, "a step with a duration and no further behavior")
-	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds`)
+	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression context.tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression context.tcs.ditSetup, in seconds; written as a fixed wait of context.tcs.ditSetup s before 'attempt'`)
 	wantNote(t, r, "_span", migrate.Mapped, "from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds")
 	wantNote(t, r, "_between", migrate.Mapped, "from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds")
 	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds, and left without a value by a run that does not reach both")
@@ -169,16 +169,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
 	for _, line := range []string{
-		"assign this.tank.valve.open := true;",
-		"assign this.tank.volume := this.tank.volume * 2 + (if this.tank.valve.open ? 1 else 0);",
-		"assign this.runs := this.runs + 1;",
-		"assign this.level := this.tank.volume;",
-		"assign this.level := this.level + 1;",
-		"assign this.level := this.level + this.tank.volume;",
-		"assign this.pump.on := true;",
-		"assign this.tank.volume := this.tank.volume + 1;",
-		"assign this.site.control.rack.controller.status := true;",
-		"assign this.site.control.rack.controller.led.lit := true;",
+		"assign context.tank.valve.open := true;",
+		"assign context.tank.volume := context.tank.volume * 2 + (if context.tank.valve.open ? 1 else 0);",
+		"assign context.runs := context.runs + 1;",
+		"assign context.level := context.tank.volume;",
+		"assign context.level := context.level + 1;",
+		"assign context.level := context.level + context.tank.volume;",
+		"assign context.pump.on := true;",
+		"assign context.tank.volume := context.tank.volume + 1;",
+		"assign context.site.control.rack.controller.status := true;",
+		"assign context.site.control.rack.controller.led.lit := true;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -235,10 +235,10 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"calc def Energy {",
 		"RealFunctions::max(E_0 - P * dt, 0)",
 		"attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);",
-		"assign this.started := localClock.currentTime;",
+		"assign context.started := localClock.currentTime;",
 		"attribute k : ScalarValues::Integer;",
 		"assign n := n * k;",
-		"assign y := x * this.power;",
+		"assign y := x * context.power;",
 		"assign d := t_sim * 2;",
 		"attribute reading : ScalarValues::Real default = t_sim + 1;",
 	} {
@@ -349,14 +349,14 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	for _, line := range []string{
 		"assign y := x * 2;",
 		"flow sense.y to record.v;",
-		"assign this.total := v + 1;",
-		"assign this.peak := v;",
-		"assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);",
-		"assign this.ratio := this.total / 2;",
-		"assign this.floored := RealFunctions::floor(this.total) / 8;",
-		"assign this.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(this.total + 0.5), 8);",
-		"assign this.quarter := OpenSysMLMathFunctions::quotient(this.ticks, 4);",
-		"assign this.eighth := this.ticks / 8;",
+		"assign context.total := v + 1;",
+		"assign context.peak := v;",
+		"assign context.half := OpenSysMLMathFunctions::quotient(context.ticks, 2);",
+		"assign context.ratio := context.total / 2;",
+		"assign context.floored := RealFunctions::floor(context.total) / 8;",
+		"assign context.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(context.total + 0.5), 8);",
+		"assign context.quarter := OpenSysMLMathFunctions::quotient(context.ticks, 4);",
+		"assign context.eighth := context.ticks / 8;",
 		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
 		"/* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */",
 	} {
@@ -371,7 +371,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_judgem", migrate.Mapped, "")
 	for _, line := range []string{
 		"in ok : ScalarValues::Boolean;",
-		"in n : ScalarValues::Integer = RealFunctions::floor(this.total);",
+		"in n : ScalarValues::Integer = RealFunctions::floor(context.total);",
 		"in m : ScalarValues::Integer = 2;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -384,13 +384,13 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_cc", migrate.Approximated, "the JavaCC body is written as v2 assignments")
 	wantNote(t, r, "_o2", migrate.Approximated, "the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it")
 	wantNote(t, r, "_sinkw", migrate.Approximated, "it is declared admitting no value: 'idle', which feeds it, produces no value")
-	wantNote(t, r, "_sink", migrate.Approximated, "this.total must hold a value, so it is assigned only when w, which may hold none, holds one")
-	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign this.total := w; }")
+	wantNote(t, r, "_sink", migrate.Approximated, "the JavaScript body is translated to v2; context.total must hold a value, so it is assigned only when w, which may hold none, holds one")
+	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign context.total := w; }")
 	wantNote(t, r, "_o3", migrate.Approximated, "the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q'")
 	// A console print is left out of a translated body, and a body of prints alone is an empty action.
 	wantNote(t, r, "_log", migrate.Approximated, "the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
-	wantLine(t, r.Notation, "assign this.ticks := this.ticks + 1;")
+	wantLine(t, r.Notation, "assign context.ticks := context.ticks + 1;")
 	wantLine(t, r.Notation, "action shout;")
 	wantNoLine(t, r.Notation, "print(")
 
@@ -420,10 +420,10 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
-		`assign this.label := "` + "\U0001F600" + `";`,
-		`assign this.lit := this.label == "` + "\U0001F600" + `";`,
-		"assign this.count := 9007199254740991;",
-		"assign this.dial := this.hand;",
+		`assign context.label := "` + "\U0001F600" + `";`,
+		`assign context.lit := context.label == "` + "\U0001F600" + `";`,
+		"assign context.count := 9007199254740991;",
+		"assign context.dial := context.hand;",
 		"attribute cube : ScalarValues::Real default = -(total ** 3);",
 		"ref part shown : Gauge default = if (count > 0) ? dial else hand;",
 		`/* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */`,
@@ -433,10 +433,10 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
 		`/* default value not migrated: {JavaScript} ready or enabled — the text "or" is not expression syntax: text follows the expression */`,
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
-		"in limit : ScalarValues::Integer default = this.count + 1;",
+		"in limit : ScalarValues::Integer default = context.count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
 		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
-		"assign this.flag := this.ready and this.enabled;",
+		"assign context.flag := context.ready and context.enabled;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -452,7 +452,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "assign this.count := this.mode;")
 	wantNoLine(t, r.Notation, "assign this.mode := this.dial;")
 	wantNoLine(t, r.Notation, "assign this.count := 9007199254740993;")
-	if strings.Count(string(r.Notation), `assign this.lit := this.label == "`+"\U0001F600"+`";`) != 1 {
+	if strings.Count(string(r.Notation), `assign context.lit := context.label == "`+"\U0001F600"+`";`) != 1 {
 		t.Errorf("the Java == on strings is written beside its equals:\n%s", r.Notation)
 	}
 	wantNoLine(t, r.Notation, "ref part pointer : Needle default = if (count > 0) ? dial else hand;")
@@ -496,8 +496,8 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 // collection function over it translates and runs.
 func TestPluralPathsStayCollections(t *testing.T) {
 	r := migrateXMI(t, "meter")
-	wantLine(t, r.Notation, "assign this.total := this.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
-	wantLine(t, r.Notation, "action ticking : Gauge::Tick;")
+	wantLine(t, r.Notation, "assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
+	wantLine(t, r.Notation, "action ticking : Gauge::Tick { in ref :>> context = Sweep::context; }")
 	wantNoLine(t, r.Notation, "assign this.total := this.cells.reading + 1;")
 	wantNoLine(t, r.Notation, "assign this.cells.reading := 1;")
 	wantNoLine(t, r.Notation, "assign this.cells.reading := 2;")
@@ -507,10 +507,10 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
 		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
-		"_reset":   `the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
+		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
 		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
 		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
-		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context",
+		"_ticking": "the behavior acts on a Gauge through its parameter context, which is bound to Sweep::context",
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}

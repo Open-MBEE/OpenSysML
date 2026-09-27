@@ -8,7 +8,7 @@ package SendUntypedPort {
 
 		action def Fire {
 			first start;
-			then action go send new Go() via this.tx;
+			then action go send new Go() via that.tx;
 			then done;
 		}
 

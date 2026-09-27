@@ -355,3 +355,52 @@ package Q { filter @Safety; }`,
 		})
 	}
 }
+
+// A behavior definition is the occurrence its `this` denotes: `this.<feature>`
+// inside a def reads the def's own features, so an enclosing object's feature
+// does not resolve through it — while a usage's bare feature read still reaches
+// the object lexically.
+func TestW8CFeatureReferenceThisInsideBehaviorDef(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			action step { assign this.level := 1; }
+		}
+	}
+}`
+	msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m, "level") {
+			found = true
+		}
+	}
+	if !found || len(msgs) == 0 {
+		t.Errorf("this.level inside action def Nudge should not resolve to H's level, got %v", msgs)
+	}
+}
+
+// `context.<feature>` inside a def and a bare feature read inside a usage both
+// analyse clean: the def reads its context parameter, the usage sees the object.
+func TestW8CFeatureReferenceContextParameterAndUsageReads(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			in ref context : H;
+			action step { assign context.level := 1; }
+		}
+		action nudge : Nudge { in ref :>> context = this; }
+		state s {
+			entry; then on;
+			state on { entry action e { assign level := level + 1; } }
+		}
+	}
+}`
+	if msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(msgs) != 0 {
+		t.Errorf("context reads and usage-level bare reads must be clean, got %v", msgs)
+	}
+}

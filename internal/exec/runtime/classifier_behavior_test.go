@@ -2033,3 +2033,51 @@ func TestActionExecutedOnItsPerformerRunsTheExistingPerformance(t *testing.T) {
 		t.Errorf("Fill on an object performing it twice: %v, want %v naming morning and evening", err, ErrAmbiguousAction)
 	}
 }
+
+// A behavior usage started on an object reads a parameter its own body binds —
+// `in ref :>> context = this` — rather than the object it runs on being the only
+// source of values: the declared binding still applies, for an action invoke and
+// for an exhibited machine.
+func TestUsageDeclaredContextBindingOnAnOccurrence(t *testing.T) {
+	src := `
+		part def Tank {
+			attribute level : Integer = 2;
+			action def Fill {
+				in ref context : Tank;
+				first start;
+				then action bump { assign context.level := context.level + 3; }
+				then done;
+			}
+			action fill : Fill { in ref :>> context = this; }
+			state def Watch {
+				in ref context : Tank;
+				attribute seen : Integer;
+				entry; then watching;
+				state watching {
+					entry action note { assign seen := context.level; }
+				}
+			}
+			exhibit state life : Watch { in ref :>> context = this; }
+		}
+	`
+	model, resolver, root := parseAndBuildLibraryModel(t, src)
+	ctx := NewContext(typedModel(model, resolver), 10000)
+
+	inst, err := ctx.Instantiate(resolveSymbol(t, root, "Tank"))
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	behavior, ok := inst.Behavior("life")
+	if !ok {
+		t.Fatal("object runs no life behavior")
+	}
+	if got := behavior.State.stateData["seen"].Const.Int; got != 2 {
+		t.Errorf("life state data seen = %d, want 2: the declared context binding did not reach the entry action", got)
+	}
+	if _, err := ctx.InvokeOperation(inst, "fill", nil); err != nil {
+		t.Fatalf("InvokeOperation: %v", err)
+	}
+	if got := featureInt(t, ctx, inst, "level"); got != 5 {
+		t.Errorf("level = %d, want 5: the declared context binding did not reach the invoked action", got)
+	}
+}

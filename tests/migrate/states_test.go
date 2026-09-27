@@ -21,7 +21,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"history last;",
 		"deep history deepest;",
 		"transition first last then Prep;",
-		"state Cell : CellMachine;",
+		"state Cell : CellMachine { in ref :>> context = Line::context; }",
 		"junction route;",
 		"fork spread;",
 		"join gather;",
@@ -29,10 +29,12 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"state regions parallel {",
 		"transition first Work::Run accept Stop then Idle;",
 		"transition first Idle accept Resume then Work::Run;",
-		"transition first Pause accept Resume\n            do action log { }\n            then Work::last;",
+		"transition first Pause accept Resume",
+		"do action log { }",
+		"then Work::last;",
 		"transition first Idle accept Enter then Cell::warmStart;",
 		"transition first Cell::spent then Idle;",
-		"transition first route if this.count < 2 then Work;",
+		"transition first route if context.count < 2 then Work;",
 		"transition first route then done;",
 		"transition first spread then Both::regions::a::A1;",
 		"transition first spread then Both::regions::b::B1;",
@@ -564,7 +566,7 @@ func TestTargetlessInternalTransitionsStayInTheirSource(t *testing.T) {
 	for _, line := range []string{
 		"transition first Idle accept Ping",
 		"do action {",
-		"assign this.pings := this.pings + 1;",
+		"assign context.pings := context.pings + 1;",
 		"then Idle;",
 		"/* not migrated: Transition (_itJump) — an internal transition targets 'Busy', not its source 'Idle'; whether it stays or moves cannot be told */",
 		"/* not migrated: Transition (_itPick) — the source (_ipick) is a Pseudostate, and only a state has an internal transition */",
@@ -891,7 +893,7 @@ const guardedEntryApplications = `
 // the owning state's entry behavior falsifying it does not turn the route.
 func TestGuardedEntryPointRouteIsKept(t *testing.T) {
 	r := migrateDocument(t, guardedEntryMachine, guardedEntryApplications)
-	for _, line := range []string{"junction arm;", "transition first Work::arm if this.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
+	for _, line := range []string{"junction arm;", "transition first Work::arm if Main::context.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}

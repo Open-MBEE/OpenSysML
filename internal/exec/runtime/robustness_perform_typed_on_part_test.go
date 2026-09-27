@@ -24,7 +24,7 @@ func testPerformTypedOnPartPerformer(t *testing.T) {
 			attribute azimuth : Real default = 0.0;
 			action def Point {
 				first start then turn;
-				action turn { assign this.azimuth := 45.0; }
+				action turn { assign that.azimuth := 45.0; }
 				first turn then done;
 			}
 			action point : Point;

@@ -81,7 +81,7 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
 	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -116,9 +116,12 @@ func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
 	return f
 }
 
-// dataFrame is the machine's data as the behavior reads it, within its firing.
+// dataFrame is the machine's data as the behavior reads it, within its firing. The
+// frame runs the machine, so a member of the machine's behavior read by a qualified
+// name — `Track::context` inside a behavior of a state of Track's — finds its value
+// here.
 func (h *stateStmtHost) dataFrame() frame {
-	return frame{vars: h.exec.stateData, firing: h.firing}
+	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait

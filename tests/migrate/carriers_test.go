@@ -141,7 +141,7 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"assign setPoint := setPoint2;",
 		"then Heating;",
 		"transition first Off accept setPoint2 : SetPoint",
-		"assign this.sets := this.sets + 1;",
+		"assign context.sets := context.sets + 1;",
 		"transition first Heating accept setPoint2 : SetPoint",
 		"do action Retarget {",
 		"first start then keep;",
@@ -150,7 +150,7 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"state Heating {",
 		"in target : ScalarValues::Real = setPoint.level;",
 		"in keep : ScalarValues::Boolean = setPoint.hold;",
-		"assign this.last := target;",
+		"assign Ctl::context.last := target;",
 		"do action Run {",
 		"in level : ScalarValues::Real = setPoint.level;",
 		"in hold : ScalarValues::Boolean = setPoint.hold;",
@@ -272,7 +272,7 @@ func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
 		"item fine : Fine;",
 		"in keep : ScalarValues::Boolean = fine.hold;",
 		"in target : ScalarValues::Real = fine.level;",
-		"assign this.last := target;",
+		"assign Dim::context.last := target;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -346,7 +346,7 @@ func TestReferencedStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.
 	for _, line := range []string{
 		"item warning : Warning;",
 		"state Ready {",
-		"entry action : Handle { in level = warning.level; }",
+		"entry action : Handle { in level = warning.level; in ref :>> context = Watch::context; }",
 		"/* do action Monitor::Handle is not run: its parameter level must hold a value that nothing supplies: a state performs its do action with no arguments; the signal the transitions into the state accept would value them, but the transition from the initial pseudostate (_minit) enters the state with no signal of its own */",
 	} {
 		wantLine(t, r.Notation, line)
@@ -429,7 +429,7 @@ const gaugeApplications = `
 // reads the accepted signal's attribute and writes its value back.
 func TestReferencedStateBehaviorsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, gaugeMachine, gaugeApplications)
-	wantLine(t, r.Notation, "entry action : Adjust { inout value = level.value; }")
+	wantLine(t, r.Notation, "entry action : Adjust { inout value = level.value; in ref :>> context = Track::context; }")
 	wantNoLine(t, r.Notation, "{ in value = level.value; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)

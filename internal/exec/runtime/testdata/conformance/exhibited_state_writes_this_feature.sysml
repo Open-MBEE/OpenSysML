@@ -13,8 +13,8 @@ package test {
 
 			state alpha {
 				entry action bump {
-					assign this.count := this.count + 1;
-					assign this.trail := this.trail + "f";
+					assign that.count := that.count + 1;
+					assign that.trail := that.trail + "f";
 				}
 			}
 
@@ -24,8 +24,8 @@ package test {
 
 			state beta {
 				entry action bumpAgain {
-					assign this.count := this.count + 1;
-					assign this.trail := this.trail + "s";
+					assign that.count := that.count + 1;
+					assign that.trail := that.trail + "s";
 				}
 			}
 		}

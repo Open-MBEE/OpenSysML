@@ -160,6 +160,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
 		contexts:     map[*sysmlv1.Element]*behaviorContext{},
 		contextNotes: map[*sysmlv1.Element]string{},
+		ownerCtx:     map[*sysmlv1.Element]*behaviorContext{},
 		visiting:     map[*sysmlv1.Element]*contextVisit{},
 		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:     map[*sysmlv1.Element]bool{},
@@ -373,6 +374,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// ownerCtx holds the context a def declares for the object its owner is,
+	// which its `this` does not reach.
+	ownerCtx map[*sysmlv1.Element]*behaviorContext
 	// visiting is the search settling contexts: each activity it has reached and
 	// not settled, and the order it reached them in.
 	visiting map[*sysmlv1.Element]*contextVisit

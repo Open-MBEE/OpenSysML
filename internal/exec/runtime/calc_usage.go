@@ -1220,6 +1220,11 @@ func (ec *EvalContext) occurrenceOperand(operand ast.Node) (*symbols.Symbol, boo
 	if !ok || !ec.ctx.namesOneObject(sym) && !ec.ctx.namesObjects(sym) {
 		return nil, false
 	}
+	if isReferenceUsage(sym) {
+		// A reference member of a behavior — `Raise::context` — holds the value
+		// its run bound, not an occurrence of its own: read it as a value.
+		return nil, false
+	}
 	return sym, true
 }
 

@@ -160,10 +160,14 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 	var a featureAnchor
 	switch {
 	case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
-		a.expr, a.f, a.plural, a.carrier = s.lane.expr, s.lane.typ, s.lane.plural, s.lane.expr
+		a.expr, a.f, a.plural, a.carrier = m.anchorExpr(s.lane.expr, s.scope), s.lane.typ, s.lane.plural, s.lane.expr
 		s.viaLane = true
 	case m.contextClassifier(s.scope) != nil:
-		a.expr, a.f = "this", m.contextClassifier(s.scope)
+		a.expr, a.f = m.thisName(s.scope), m.contextClassifier(s.scope)
+		if m.defContext(s.scope) == nil && len(path) > 1 {
+			// Inside a usage of the object its features resolve bare: `this.f` is f.
+			a.expr = ""
+		}
 	default:
 		return featureAnchor{refusal: &refusal{kind: refusedContext, token: "this",
 			why: "the body is in no classifier and its partition represents no object"}}
@@ -184,7 +188,7 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	name := path[0]
 	if lf := m.laneFeature(s.lane, name); lf != nil {
 		s.viaLane = true
-		return featureAnchor{expr: s.lane.expr + "." + writeName(m.nameOf(lf)), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
+		return featureAnchor{expr: m.anchorExpr(s.lane.expr, s.scope) + "." + writeName(m.nameOf(lf)), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
 	}
 	visible, hidden := m.visibleFrom(s.scope)
 	f := visible[name]
@@ -209,7 +213,7 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	}
 	expr := writeName(m.nameOf(f))
 	if m.ownedByClassifier(f, s.scope) {
-		expr = "this." + expr
+		expr = m.ownerPrefix(s.scope) + expr
 	}
 	return featureAnchor{expr: expr, f: f}
 }
@@ -243,7 +247,10 @@ func (s *bodyScope) featureSteps(path []string, full, expr string, f *sysmlv1.El
 			return expr, f, plural, carrier, &refusal{kind: refusedName, token: full,
 				why: step + " is " + kindOf(next) + ", not a feature a body reads"}
 		}
-		expr += "." + writeName(m.nameOf(next))
+		if expr != "" {
+			expr += "."
+		}
+		expr += writeName(m.nameOf(next))
 		f = next
 	}
 	return expr, f, plural, carrier, nil

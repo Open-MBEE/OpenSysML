@@ -11,7 +11,7 @@ package test {
 		action def CoolDown {
 			first start then flip;
 			action flip {
-				assign this.cooled := true;
+				assign that.cooled := true;
 			}
 			first flip then done;
 		}

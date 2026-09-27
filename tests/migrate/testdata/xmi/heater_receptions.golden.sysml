@@ -20,137 +20,146 @@ part def Heater {
     port rx;
     port aux;
     action def SetLevel {
-        first start then spread;
-        fork spread;
-        first spread then receive;
-        action receive accept setLevel : Signals::SetLevel;
-        first receive then run;
-        action run : 'Apply Level' { in value = setLevel.value; }
-        first run then receive;
-        first spread then 'receive via rx';
-        action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;
-        first 'receive via rx' then 'run via rx';
-        action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }
-        first 'run via rx' then 'receive via rx';
+        in ref context : Heater;
+            first start then spread;
+            fork spread;
+            first spread then receive;
+            action receive accept setLevel : Signals::SetLevel;
+            first receive then run;
+            action run : 'Apply Level' { in value = setLevel.value; in ref :>> context = SetLevel::context; }
+            first run then receive;
+            first spread then 'receive via rx';
+            action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via context.rx;
+            first 'receive via rx' then 'run via rx';
+            action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; in ref :>> context = SetLevel::context; }
+            first 'run via rx' then 'receive via rx';
     }
-    perform action setLevel : SetLevel;
+    perform action setLevel : SetLevel { in value; in extra; in ref :>> context = this; }
     action def Stop {
-        first start then spread;
-        fork spread;
-        first spread then receive;
-        action receive accept stop : Signals::Stop;
-        first receive then receive;
-        first spread then 'receive via rx';
-        action 'receive via rx' accept 'stop via rx' : Signals::Stop via rx;
-        first 'receive via rx' then 'receive via rx';
+        in ref context : Heater;
+            first start then spread;
+            fork spread;
+            first spread then receive;
+            action receive accept stop : Signals::Stop;
+            first receive then receive;
+            first spread then 'receive via rx';
+            action 'receive via rx' accept 'stop via rx' : Signals::Stop via context.rx;
+            first 'receive via rx' then 'receive via rx';
     }
-    perform action stop : Stop;
+    perform action stop : Stop { in ref :>> context = this; }
     action def Reset {
-        first start then receive;
-        action receive accept reset : Signals::Reset;
-        first receive then receive;
+            first start then receive;
+            action receive accept reset : Signals::Reset;
+            first receive then receive;
     }
     perform action reset : Reset;
     action def Boost {
-        first start then receive;
-        action receive accept boost : Signals::Boost;
-        first receive then receive;
+            first start then receive;
+            action receive accept boost : Signals::Boost;
+            first receive then receive;
     }
     perform action boost : Boost;
     action def SetName {
-        first start then receive;
-        action receive accept setName : Signals::SetName;
-        first receive then receive;
+            first start then receive;
+            action receive accept setName : Signals::SetName;
+            first receive then receive;
     }
     perform action setName : SetName;
     action def SetLevels {
-        first start then receive;
-        action receive accept setLevels : Signals::SetLevels;
-        first receive then receive;
+            first start then receive;
+            action receive accept setLevels : Signals::SetLevels;
+            first receive then receive;
     }
     perform action setLevels : SetLevels;
     action def OnNudge {
-        first start then receive;
-        action receive accept nudge : Signals::Nudge;
-        first receive then run;
-        action run : Nudge { in delta = nudge.delta; }
-        first run then receive;
+        in ref context : Heater;
+            first start then receive;
+            action receive accept nudge : Signals::Nudge;
+            first receive then run;
+            action run : Nudge { in delta = nudge.delta; in ref :>> context = OnNudge::context; }
+            first run then receive;
     }
-    perform action onNudge : OnNudge;
+    perform action onNudge : OnNudge { in ref :>> context = this; }
     comment /* reception 'Away' */
     action def Nudge {
         in delta : ScalarValues::Real;
-        first start then 'set level';
-        action 'set level' {
-            in value;
-            assign this.level := value;
-        }
-        bind 'set level'.value = delta;
+        in ref context : Heater;
+            first start then 'set level';
+            action 'set level' {
+                in value;
+                assign context.level := value;
+            }
+            bind 'set level'.value = delta;
     }
-    action nudge : Nudge;
+    action nudge : Nudge { in delta; in ref :>> context = this; }
     action def 'Apply Level' {
         in value : ScalarValues::Real;
         in gain : ScalarValues::Real default = 1.0;
         in slack : ScalarValues::Real[0..1];
-        first start then 'set level';
-        action 'set level' {
-            in value;
-            assign this.level := value;
-        }
-        bind 'set level'.value = value;
+        in ref context : Heater;
+            first start then 'set level';
+            action 'set level' {
+                in value;
+                assign context.level := value;
+            }
+            bind 'set level'.value = value;
     }
     action def Boosting {
         in amount : ScalarValues::Real;
-        first start then 'set level';
-        action 'set level' {
-            in value;
-            assign this.level := value;
-        }
-        bind 'set level'.value = amount;
+        in ref context : Heater;
+            first start then 'set level';
+            action 'set level' {
+                in value;
+                assign context.level := value;
+            }
+            bind 'set level'.value = amount;
     }
     action def Naming {
         in name : ScalarValues::Integer;
-        first start then 'set level';
-        action 'set level' {
-            in value;
-            assign this.level := value;
-        }
-        bind 'set level'.value = name;
+        in ref context : Heater;
+            first start then 'set level';
+            action 'set level' {
+                in value;
+                assign context.level := value;
+            }
+            bind 'set level'.value = name;
     }
     action def Leveling {
         in values : ScalarValues::Real;
-        first start then 'set level';
-        action 'set level' {
-            in value;
-            assign this.level := value;
-        }
-        bind 'set level'.value = values;
+        in ref context : Heater;
+            first start then 'set level';
+            action 'set level' {
+                in value;
+                assign context.level := value;
+            }
+            bind 'set level'.value = values;
     }
     state def Resetting {
-        /* the region has no initial pseudostate: nothing enters it */
-        state Idle;
+            /* the region has no initial pseudostate: nothing enters it */
+            state Idle;
     }
 }
 part def Thermostat {
     port tx;
     action def 'Turn Up' {
-        first start then seven;
-        action seven {
-            out result = 7.25;
-        }
-        first seven then 'send level';
-        action 'send level' {
-            in value;
-            send new Signals::SetLevel(value) via this.tx;
-        }
-        first 'send level' then 'send stop';
-        action 'send stop' {
-            send new Signals::Stop() via this.tx;
-        }
-        first 'send stop' then final;
-        action final terminate;
-        flow seven.result to 'send level'.value;
-        metadata MigrationMetadata::SynthesizedName about final;
+        in ref context : Thermostat;
+            first start then seven;
+            action seven {
+                out result = 7.25;
+            }
+            first seven then 'send level';
+            action 'send level' {
+                in value;
+                send new Signals::SetLevel(value) via context.tx;
+            }
+            first 'send level' then 'send stop';
+            action 'send stop' {
+                send new Signals::Stop() via context.tx;
+            }
+            first 'send stop' then final;
+            action final terminate;
+            flow seven.result to 'send level'.value;
+            metadata MigrationMetadata::SynthesizedName about final;
     }
 }
 part def Room {

@@ -22,6 +22,9 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// occurrence is the performance instance the root frame runs as, when the
+	// performed usage materialized one: `this` inside a behavior def denotes it.
+	occurrence *Instance
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
@@ -405,8 +408,12 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 		if err != nil {
 			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
 		}
-		if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
-			return err
+		// A reference parameter's declared value binds its referent like a `bind`
+		// connector: the binding states the identity, which no write check narrows.
+		if ref, isRef := feature.Node.(*ast.Usage); !isRef || !ref.IsReference {
+			if err := e.ctx.checkBodyDeclaration(feature.Scope, perf.describe(), feature.Name, &value); err != nil {
+				return err
+			}
 		}
 		perf.data[perf.key(feature.Name)] = value
 		if err := e.streamFrom(perf, perf.key(feature.Name), value); err != nil {
@@ -1023,6 +1030,7 @@ func lookupEnclosing(perf *actionFrame, name string) (Value, bool) {
 // every frame around it in reach, innermost last.
 func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
 	for _, f := range perf.lexicalFrames() {
 		ec.pushFrame(f)
 	}
@@ -1035,6 +1043,7 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 // only by names resolving to them.
 func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
 	ec.inBehaviorBody = true
 	if perf.parent != nil {
 		for _, f := range perf.parent.lexicalFrames() {
@@ -1512,17 +1521,25 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		}
 	}
 	if inv.expr == nil {
+		// A `::>` performance binds its `ref` inputs to the object it is
+		// performed on; a like-named feature of the caller, such as its own
+		// context parameter, is never the argument.
+		refInputs := make(map[string]bool)
+		if inv.chain != nil {
+			for _, param := range params {
+				if param.IsReference {
+					refInputs[param.Name] = true
+				}
+			}
+		}
 		for _, name := range in {
-			if _, bound := inputs[name]; bound {
+			if _, bound := inputs[name]; bound || refInputs[name] {
 				continue
 			}
 			if value, ok := lookupEnclosing(perf, name); ok {
 				inputs[name] = value
 			}
 		}
-	}
-	if err := checkInputsBound(inv, params, inputs); err != nil {
-		return nil, err
 	}
 	performer := e.self
 	if inv.chain != nil {
@@ -1531,6 +1548,18 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
 			return nil, err
 		}
+		// A `::>` performance binds its `ref` inputs to the performer, which
+		// bindContextDefault resolves once it runs on that object.
+		for _, param := range params {
+			if param.IsReference {
+				if _, bound := inputs[param.Name]; !bound {
+					inputs[param.Name] = Value{Kind: ValInstance, Instance: performer.ID}
+				}
+			}
+		}
+	}
+	if err := checkInputsBound(inv, params, inputs); err != nil {
+		return nil, err
 	}
 
 	sort.Strings(out)

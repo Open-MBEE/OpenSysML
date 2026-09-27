@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -240,6 +241,12 @@ func newStateExecutorForOccurrence(
 	}
 	exec := newStateExecutorOn(ctx, stateMachine, self, occurrence, graph)
 
+	// The machine's data frame is ambient to every evaluation made under it,
+	// including the member defaults occurrence initialization evaluates: a
+	// `Ctl::context` written in a state's `in ref :>>` member reads the binding
+	// the running machine gave the parameter.
+	ctx.ambientFrames = append(ctx.ambientFrames, frame{vars: exec.stateData, performed: stateMachine})
+
 	// Initialize state machine attributes
 	if err := exec.initializeAttributes(); err != nil {
 		return nil, err
@@ -289,11 +296,28 @@ func newStateExecutorOn(
 	return exec
 }
 
-// initializeAttributes populates stateData from the exhibited occurrence, or
-// from declared defaults when the machine has no occurrence.
+// initializeAttributes populates stateData from the exhibited occurrence's
+// slots, else the declared defaults, each evaluated where it was declared.
 func (e *StateExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.graph.Attributes {
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.graph.Attributes {
+		if _, held := e.stateData[attr.Name]; held {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -301,18 +325,16 @@ func (e *StateExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.stateData[attr.Name] = value
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
-	defer ec.beginStep()()
-	for _, attr := range e.graph.Attributes {
 		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		value, err := ec.Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
@@ -320,6 +342,34 @@ func (e *StateExecutor) initializeAttributes() error {
 	}
 
 	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a machine exhibited on an
+// object to that object, when the object is of the type the parameter declares, as the
+// action executor's does for a performance started on one.
+func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok {
+		return false
+	}
+	for _, typ := range e.ctx.model.semantics.DirectSupertypes(param) {
+		if e.ctx.instanceConforms(e.self, typ) {
+			e.stateData[attr.Name] = Value{Kind: ValInstance, Instance: e.self.ID}
+			return true
+		}
+	}
+	return false
 }
 
 // initializeStateAttributes gives every state that owns attributes its own
