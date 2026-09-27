@@ -19,8 +19,7 @@ type pendingRedefinition struct {
 // pendingNestedRedefinitions returns the nested redefinitions applying to the
 // object materialized as the member feature of owner: the tails carried down
 // from above, plus the chains every type of owner declares whose first segment
-// names feature (an OpenSysML extension to SysML v2; see
-// semantics.NestedRedefinitionsOf).
+// names feature (see semantics.NestedRedefinitionsOf).
 func (ctx *Context) pendingNestedRedefinitions(owner *Instance, feature string) []pendingRedefinition {
 	if owner == nil || feature == "" {
 		return nil

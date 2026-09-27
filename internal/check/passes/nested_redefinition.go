@@ -2,7 +2,6 @@ package passes
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -10,22 +9,20 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// CodeNonstandardSemantics marks semantics OpenSysML applies beyond what the
-// pinned SysML v2 pilot does: the notation parses there, but the pilot does not
-// act on it the way OpenSysML does.
-const CodeNonstandardSemantics = "nonstandard-semantics"
+// CodeRedefinitionThroughReference marks a chain redefinition walking through
+// a feature that owns no object — a reference, subject or port usage — so the
+// redefinition has nothing below it to apply on.
+const CodeRedefinitionThroughReference = "redefinition-through-reference"
 
-// NestedRedefinitionPass reports the nested redefinition extension: a chain
-// redefinition (`:>> mid.leaf.value`) written on a usage applies below the
-// member it names in OpenSysML, while the pinned pilot accepts the notation but
-// applies no redefinition below the first segment. It also reports a chain
-// walking through a reference usage, which has no owned object to redefine on.
+// NestedRedefinitionPass reports a chain redefinition (`:>> mid.leaf.value`)
+// whose path crosses a reference usage: the reference owns no object below it
+// for the redefinition to apply on.
 type NestedRedefinitionPass struct{}
 
 // Level reports the constraint level: the pass reads resolved symbols.
 func (NestedRedefinitionPass) Level() PassLevel { return LevelConstraint }
 
-// Run reports each nested redefinition of the document.
+// Run reports each nested redefinition of the document crossing a reference.
 func (NestedRedefinitionPass) Run(ctx *Context, name string, root *ast.RootNamespace) []diag.Diagnostic {
 	if ctx == nil || ctx.Index == nil || root == nil {
 		return nil
@@ -35,19 +32,17 @@ func (NestedRedefinitionPass) Run(ctx *Context, name string, root *ast.RootNames
 		return nil
 	}
 	p := &nestedRedefinitionChecker{
-		model:    ctx.Model(),
-		severity: notationSeverity(ctx.Options.Conformance),
-		seen:     make(map[*symbols.Symbol]bool),
+		model: ctx.Model(),
+		seen:  make(map[*symbols.Symbol]bool),
 	}
 	p.walk(rootScope)
 	return p.diags
 }
 
 type nestedRedefinitionChecker struct {
-	model    *semantics.Model
-	severity diag.Severity
-	seen     map[*symbols.Symbol]bool
-	diags    []diag.Diagnostic
+	model *semantics.Model
+	seen  map[*symbols.Symbol]bool
+	diags []diag.Diagnostic
 }
 
 func (p *nestedRedefinitionChecker) walk(scope *symbols.Scope) {
@@ -65,21 +60,10 @@ func (p *nestedRedefinitionChecker) walk(scope *symbols.Scope) {
 	})
 }
 
-// check reports the advisory for each nested redefinition sym declares, and the
-// error for one whose chain crosses a reference, subject or port feature.
+// check reports each nested redefinition sym declares whose chain crosses a
+// reference, subject or port feature.
 func (p *nestedRedefinitionChecker) check(sym *symbols.Symbol) {
 	for _, nr := range p.model.NestedRedefinitionsOf(sym) {
-		span := nr.Feature.Decl.Span()
-		p.diags = append(p.diags, diag.Diagnostic{
-			Severity: p.severity,
-			Span:     span,
-			Message: fmt.Sprintf(
-				"nested redefinition of %s is an OpenSysML extension: the pinned SysML v2 pilot accepts the notation "+
-					"but does not apply the redefinition below %s; write it as nested redefining usages for a pilot-portable model",
-				strings.Join(nr.Path, "."), nr.Path[0]),
-			Code:   CodeNonstandardSemantics,
-			Source: "constraint",
-		})
 		p.checkChainSegments(sym, nr)
 	}
 }
@@ -105,7 +89,7 @@ func (p *nestedRedefinitionChecker) checkChainSegments(owner *symbols.Symbol, nr
 			Message: fmt.Sprintf(
 				"nested redefinition through reference %s has no owned object to redefine on",
 				nr.Path[i]),
-			Code:   CodeNonstandardSemantics,
+			Code:   CodeRedefinitionThroughReference,
 			Source: "constraint",
 		})
 		return

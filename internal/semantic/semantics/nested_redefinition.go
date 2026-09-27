@@ -6,7 +6,7 @@ import (
 )
 
 // NestedRedefinition is a member of a type redefining a feature below one or
-// more of its composite features, an OpenSysML extension to SysML v2.
+// more of its composite features.
 type NestedRedefinition struct {
 	Feature *symbols.Symbol // the redefining member
 	Path    []string        // chain segment names, e.g. ["mid","leaf","value"]

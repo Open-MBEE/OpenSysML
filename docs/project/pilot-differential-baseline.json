@@ -75,12 +75,12 @@
   },
   "totals": {
     "files": 380,
-    "filesFullyAgreeing": 344,
+    "filesFullyAgreeing": 347,
     "agreement": 38,
     "severityMismatch": 3,
-    "openSysMLOnly": 46,
+    "openSysMLOnly": 38,
     "pilotOnly": 1614,
-    "openSysMLDiagnostics": 87,
+    "openSysMLDiagnostics": 79,
     "pilotDiagnostics": 1655
   },
   "roots": [
@@ -104,12 +104,12 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "totals": {
         "files": 99,
-        "filesFullyAgreeing": 92,
+        "filesFullyAgreeing": 95,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 15,
+        "openSysMLOnly": 7,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 15,
+        "openSysMLDiagnostics": 7,
         "pilotDiagnostics": 0
       },
       "files": [
@@ -186,88 +186,16 @@
             }
           ],
           "pilotOnly": []
-        },
-        {
-          "path": "State Space Representation Examples/EVSample1.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 351,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 354,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
-          "path": "Timeslice and Snapshot Examples/TimeVaryingAttribute.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 12,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 19,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 23,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 41,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
-        },
-        {
-          "path": "Vehicle Example/VehicleIndividuals.sysml",
-          "agreement": [],
-          "severityMismatch": [],
-          "openSysMLOnly": [
-            {
-              "line": 46,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            },
-            {
-              "line": 59,
-              "severity": "warning",
-              "category": "unmapped",
-              "count": 1
-            }
-          ],
-          "pilotOnly": []
         }
       ],
       "errataTotals": {
         "files": 99,
-        "filesFullyAgreeing": 93,
+        "filesFullyAgreeing": 96,
         "agreement": 0,
         "severityMismatch": 0,
-        "openSysMLOnly": 14,
+        "openSysMLOnly": 6,
         "pilotOnly": 0,
-        "openSysMLDiagnostics": 14,
+        "openSysMLDiagnostics": 6,
         "pilotDiagnostics": 0
       }
     },
@@ -8069,16 +7997,6 @@
     },
     {
       "side": "opensysml",
-      "message": "nested redefinition of localClock.currentTime is an OpenSysML extension: the pinned SysML v2 pilot accepts the notation but does not apply the redefinition below localClock; write it as nested redefining usages for a pilot-portable model",
-      "count": 3
-    },
-    {
-      "side": "opensysml",
-      "message": "nested redefinition of pwrCmd.pwrLevel is an OpenSysML extension: the pinned SysML v2 pilot accepts the notation but does not apply the redefinition below pwrCmd; write it as nested redefining usages for a pilot-portable model",
-      "count": 3
-    },
-    {
-      "side": "opensysml",
       "message": "1 (an Integer) is written at positions 1 and 2 of a unique feature",
       "count": 2
     },
@@ -8175,16 +8093,6 @@
     {
       "side": "opensysml",
       "message": "This modular system interface satisfies no requirement: the model declares interface requirements, so MOSA expects a `satisfy` naming it (or its definition) after `by`.",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "nested redefinition of input.voltage is an OpenSysML extension: the pinned SysML v2 pilot accepts the notation but does not apply the redefinition below input; write it as nested redefining usages for a pilot-portable model",
-      "count": 1
-    },
-    {
-      "side": "opensysml",
-      "message": "nested redefinition of output.voltage is an OpenSysML extension: the pinned SysML v2 pilot accepts the notation but does not apply the redefinition below output; write it as nested redefining usages for a pilot-portable model",
       "count": 1
     },
     {
@@ -8428,12 +8336,12 @@
     ],
     "totals": {
       "files": 380,
-      "filesFullyAgreeing": 345,
+      "filesFullyAgreeing": 348,
       "agreement": 38,
       "severityMismatch": 3,
-      "openSysMLOnly": 45,
+      "openSysMLOnly": 37,
       "pilotOnly": 1614,
-      "openSysMLDiagnostics": 86,
+      "openSysMLDiagnostics": 78,
       "pilotDiagnostics": 1655
     },
     "findings": [
