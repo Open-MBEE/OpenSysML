@@ -120,6 +120,36 @@ the warning names the position, not the keyword.
 | `assume <constraint>;`, `require <constraint>;` | a requirement, concern, viewpoint or objective body | `RequirementConstraintMember` (`SysML.xtext:2039`) is the only production that admits it |
 | a one-ended `first <node>;` | an action body | `InitialNodeMember` is reachable from `ActionBodyItem` alone (`:1376`), never from `DefinitionBodyItem` (`:516`); elsewhere a succession names both ends, `first <source> then <target>` |
 
+### OpenSysML extension semantics — warning `nonstandard-semantics`
+
+The constructs below are *written* in standard notation — the pinned grammars
+admit them and the pinned pilot accepts the file — but the pilot does not act on
+them the way OpenSysML does. OpenSysML reports each as a warning (an error in
+strict mode) so a model meaning more here than the pilot applies is visible.
+
+| Construct | What OpenSysML applies that the pilot does not |
+|-----------|-------------------------------------------------|
+| a chain redefinition of two or more segments written as a member of a type or usage, `:>> mid.leaf.value = 99.0;` | the redefining member applies below each composite feature the chain walks: every object of the type behaves as if the chain had been written as nested redefining usages (`part :>> mid { part :>> leaf { attribute :>> value = 99.0; } }`), carrying a declared value (`=` or `default =`), a declared type, a multiplicity and a body of its own |
+
+Rules of the extension, in detail:
+
+- The shorthand and the nested-body form are interchangeable: a chain whose
+  segments reach a feature the nested-body form also redefines loses to it — a
+  redefinition the object's own type declares wins over the chain's.
+- Each chain applies below every object of the declaring type, including every
+  element of a multi-valued intermediate (`part wheels : Wheel[2];` then
+  `attribute :>> wheels.radius = 0.4;` redefines `radius` on each wheel).
+- A value the redefining member declares is evaluated in the declaring body's
+  scope, so `= factor * 2.0` reads the outer feature exactly as the nested-body
+  form does.
+- A chain walking through a reference — a `ref` usage, a port or a `subject` —
+  owns no object below the reference for the redefinition to land on. OpenSysML
+  reports `nested redefinition through reference <segment> has no owned object
+  to redefine on` as an error in every mode, and the redefinition is never
+  applied at runtime.
+- A chain whose target does not resolve declares no nested redefinition and is
+  reported by name resolution instead.
+
 ### Removed extension notation — no longer accepted
 
 An inline condition introduced by a keyword (`assert <expression>;` or

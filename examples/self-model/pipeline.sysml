@@ -297,6 +297,7 @@ package OpenSysMLPipeline {
         }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
+        part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;

@@ -287,6 +287,12 @@ func (ctx *Context) classify(inst *Instance, typ *symbols.Symbol) error {
 		rollback()
 		return err
 	}
+	// The classifier's nested redefinitions refine the children materialized
+	// already; the ones still to materialize pick them up from inst's types.
+	if err := ctx.applyClassifierNestedRedefinitions(inst, typ); err != nil {
+		rollback()
+		return err
+	}
 	if err := ctx.startClassifierBehaviors(inst, len(ctx.created)); err != nil {
 		rollback()
 		return err

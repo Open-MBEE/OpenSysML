@@ -214,13 +214,13 @@ nor double-counted as two independent disagreements.
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `examples/sysml-v2-training` | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 95 | 7 | 0 | 0 | 0 | 7 | 0 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 92 | 15 | 0 | 0 | 0 | 15 | 0 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 56 | 0 | 0 | 0 | 0 | 0 | 0 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 10 | 0 | 0 | 0 | 10 | 0 |
 | `tests/testdata` | 18 | 10 | 43 | 55 | 34 | 1 | 8 | 20 |
 | `examples` | 45 | 30 | 13 | 1600 | 4 | 2 | 7 | 1594 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **380** | **347** | **79** | **1655** | **38** | **3** | **38** | **1614** |
+| **Total** | **380** | **344** | **87** | **1655** | **38** | **3** | **46** | **1614** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -918,7 +918,7 @@ Its only-ours counts remain `training` 0, `pilot-examples` 8, `pilot-validation`
 populated and unchanged: 122 diagnostics total, 66 pilot-only. Step 3's two semantic recoveries are
 Xpect assertions not present in these seven differential roots.
 
-Per category, the only-ours totals are: `pilot-examples` 4 `unmapped`, 2
+Per category, the only-ours totals are: `pilot-examples` 12 `unmapped`, 2
 `units`, 1 `kind-mismatch`; `kerml-examples` 9 `unmapped`, 1 `multiplicity` (the
 [unbound-parameter advisory](#the-unbound-parameter-advisory)); `examples` 1 syntax, 4 `unmapped`,
 2 `multiplicity` (the five warnings the MOSA demo draws on purpose, below, and the unbound-parameter
@@ -1016,13 +1016,13 @@ page's history.
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **347 / 38 / 79** |
+| overall: fully agreeing / only ours / our diagnostics | **344 / 46 / 87** |
 | only pilot | **1614** |
 | pilot diagnostics | **1655** |
 | severity-only | **3** |
-| unmapped, our side | **34** |
+| unmapped, our side | **42** |
 | kerml-examples: only ours | **10** |
-| pilot-examples: only ours | **7** |
+| pilot-examples: only ours | **15** |
 | examples: only pilot | **1594** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **10** only-ours against 6
@@ -2922,6 +2922,30 @@ unchanged at 366 files, 338 fully agreeing, 43 agreed, 20 only ours, 302 only th
 the Xpect baseline is left alone; a sweep of `examples/`, `testdata/` and the bundled library
 with both binaries produces identical diagnostics. The 8 only-ours rejection cases are the
 control-node successions the pilot leaves as `TODO`s; the three new cases are both-reject.
+
+### Nested-redefinition chain round
+
+A chain redefinition written as a member of a type or usage — `attribute :>> mid.leaf.value = 99.0;`
+— now applies below every composite feature the chain walks, exactly as the nested-body form does
+(`semantics/nested_redefinition.go` `NestedRedefinitionsOf`, `runtime/nested_redefinition.go`,
+`passes/nested_redefinition.go`; see
+[the grammar audit](../reference/grammar/conformance-audit.md#opensysml-extension-semantics--warning-nonstandard-semantics)).
+The pinned pilot accepts the notation but applies no redefinition below the first segment, so each
+chain is reported as a `nonstandard-semantics` warning — **ours, one-sided by design** — reaching
+three files of the reference corpora: `sysml-examples/Timeslice and Snapshot Examples/TimeVaryingAttribute.sysml`
+(4 warnings: `localClock.currentTime` once, `pwrCmd.pwrLevel` three times),
+`sysml-examples/Vehicle Example/VehicleIndividuals.sysml` (2: `localClock.currentTime` twice) and
+`sysml-examples/State Space Representation Examples/EVSample1.sysml` (2: `output.voltage`,
+`input.voltage`). None of the chains crosses a `ref`, port or subject, so no error fires; the
+pilot-corpora ratchet records the same movement (three previously-clean files now report).
+
+| Count | Before | Now |
+|---|---:|---:|
+| overall: fully agreeing | 347 | **344** |
+| overall: our diagnostics | 79 | **87** |
+| overall: only ours | 38 | **46** |
+| `pilot-examples`: fully agreeing | 95 | **92** |
+| `pilot-examples`: only ours | 7 | **15** |
 
 ## Current branch movement and adjudications
 

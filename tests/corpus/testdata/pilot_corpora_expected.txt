@@ -13,3 +13,6 @@
 1	sysml-examples/Analysis Examples/Turbojet Stage Analysis.sysml
 1	sysml-examples/Geometry Examples/VehicleGeometryAndCoordinateFrames.sysml
 4	sysml-examples/Simple Tests/PartTest.sysml
+2	sysml-examples/State Space Representation Examples/EVSample1.sysml
+4	sysml-examples/Timeslice and Snapshot Examples/TimeVaryingAttribute.sysml
+2	sysml-examples/Vehicle Example/VehicleIndividuals.sysml

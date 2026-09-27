@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
 // A qualified redefinition of a feature inherited from the standard library is
@@ -97,7 +99,16 @@ func TestFlowEndsRedefineLibraryMessageEnds(t *testing.T) {
 	ws.Open("test.sysml", []byte(src), 1)
 	defer ws.Close("test.sysml")
 
-	if diags := ws.Diagnostics("test.sysml"); len(diags) != 0 {
+	var diags []diag.Diagnostic
+	for _, d := range ws.Diagnostics("test.sysml") {
+		// The chained redefinitions of the flow ends are an OpenSysML
+		// extension, reported as an advisory warning on its own.
+		if d.Code == "nonstandard-semantics" {
+			continue
+		}
+		diags = append(diags, d)
+	}
+	if len(diags) != 0 {
 		t.Errorf("unexpected diagnostics: %v", diags)
 	}
 }
