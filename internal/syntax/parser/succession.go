@@ -242,6 +242,11 @@ func (b *bodyBuilder) declares(name string) bool {
 func (b *bodyBuilder) takeSuccession() {
 	p := b.p
 	tok := p.advance() // consume 'then'
+	if w, ok := p.actionNodeWordAt(0); ok && w == "done" {
+		// `then done;` is a target succession to the done node, which the
+		// keyword opens rather than a member: neither offset is a member start.
+		p.attachedStarts = append(p.attachedStarts, tok.Span.Offset, p.peek().Span.Offset)
+	}
 	if b.pending {
 		p.error(tok.Span, "`then` cannot follow another `then`: a succession sequences two members, so each keyword needs a member between it and the next")
 		return
@@ -319,6 +324,9 @@ func (b *bodyBuilder) add(m ast.Node) {
 	if m == nil {
 		return
 	}
+	// A one-name edge or a source-less transition continues the member before
+	// it: record it before its source is bound, which clears the mark it is read by.
+	b.p.markAttached(m)
 	pending, at, valid := b.pending, b.pendingAt, b.valid
 	b.pending = false
 
@@ -406,6 +414,21 @@ func memberNode(m ast.Node) ast.Node {
 		return ms.Member
 	}
 	return m
+}
+
+// isAttachedMember reports whether m continues the member before it rather
+// than opening a member position of its own: a one-name target succession
+// (`then x;`, `if g then x;`, `else x;`) or a transition stating no `first`
+// source (`accept Go then Off;`, `transition accept Go then Off;`). The
+// two-ended spellings are members of their own.
+func isAttachedMember(m ast.Node) bool {
+	switch n := m.(type) {
+	case *ast.SuccessionEdge, *ast.ControlFlowEdge:
+		return unnamedEdgeSource(n) != nil
+	case *ast.TransitionMember:
+		return !n.IsSuccession && (n.Source == nil || len(n.Source.Parts) == 0)
+	}
+	return false
 }
 
 // unnamedEdgeSource addresses the source end of an edge member, guarded or not,

@@ -107,8 +107,8 @@ part def Gate {
         transition first Hot
             do action : Reset
             then Idle;
+        /* do action Gate::Blink is written as a state def, which no state runs */
         transition first Idle accept Stop
-            /* do action Gate::Blink is written as a state def, which no state runs */
             then Off;
     }
     exhibit state cycle : Cycle;

@@ -39,4 +39,7 @@ const (
 	codeImportVisibility = "import-visibility"
 	// codeEnumerationBodyMember marks a member EnumerationBody does not admit.
 	codeEnumerationBodyMember = "enumeration-body-member"
+	// codeNonstandardNotation marks notation the parser reads but the grammar
+	// does not admit, such as a /* */ comment where no member may start.
+	codeNonstandardNotation = "nonstandard-notation"
 )
