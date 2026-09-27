@@ -2315,6 +2315,61 @@ func TestClassifyChainReachesPastAPlainFeatureInItsContext(t *testing.T) {
 	}
 }
 
+// Two chains from unrelated classifiers keep the lazy path's first-wins rule
+// on an already-materialized child: the second does not displace the first.
+// A chain from a context specializing the first's replaces it in both orders.
+func TestClassifyNestedChainKeepsTheFirstUnrelatedChain(t *testing.T) {
+	for _, sub := range []struct {
+		name   string
+		second string
+		want   float64
+	}{
+		{"unrelated_second", "SportB", 2.0},
+		{"specializing_second", "SportC", 3.0},
+	} {
+		for _, readFirst := range []bool{true, false} {
+			name := sub.name
+			if readFirst {
+				name += "_materialized_first"
+			} else {
+				name += "_materialized_after"
+			}
+			t.Run(name, func(t *testing.T) {
+				ctx, idx := libraryShapeContext(t, `package test {
+					private import ScalarValues::Real;
+					part def Wheel { attribute radius : Real default = 1.0; }
+					part def Car { part wheel : Wheel; }
+					part def SportA :> Car { attribute :>> wheel.radius = 2.0; }
+					part def SportB :> Car { attribute :>> wheel.radius = 3.0; }
+					part def SportC :> SportA { attribute :>> wheel.radius = 3.0; }
+					part car : Car;
+				}`)
+				car := instantiateQualified(t, ctx, idx, "test::car")
+				if err := ctx.classify(car, idx.LookupQualified("test::SportA")[0]); err != nil {
+					t.Fatalf("classify(car, SportA): %v", err)
+				}
+				var wheel *Instance
+				if readFirst {
+					wheel = readInstance(t, ctx, car, "wheel")
+				}
+				if err := ctx.classify(car, idx.LookupQualified("test::" + sub.second)[0]); err != nil {
+					t.Fatalf("classify(car, %s): %v", sub.second, err)
+				}
+				if !readFirst {
+					wheel = readInstance(t, ctx, car, "wheel")
+				}
+				fv, err := wheel.GetFeatureValue(ctx, "radius")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(radius): %v", err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != sub.want {
+					t.Fatalf("car.wheel.radius = %v, want %v", got, sub.want)
+				}
+			})
+		}
+	}
+}
+
 // A chain through a ref reaches no object at all — but a ref can hold an
 // object the same parent owns through a sibling part: the chain stays within
 // the feature that owns the object, so the sibling's object reads unchanged.

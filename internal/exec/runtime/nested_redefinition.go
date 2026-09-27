@@ -83,7 +83,7 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		// A chain declared by a type specializing the earlier chain's context
 		// outranks it, as a nested redefining body in the subtype does; equal
 		// and unrelated contexts keep the first, the tails carried down first.
-		if next, prior := ctx.redefinitionContext(p.sym), ctx.redefinitionContext(taken); next != prior && ctx.modelConforms(next, prior) {
+		if ctx.chainOutranks(p.sym, taken) {
 			overrides[p.rest[0]] = p.sym
 		}
 	}
@@ -184,9 +184,11 @@ func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *
 			return nil
 		}
 		// A redefinition declared by the chain's context or a type
-		// specializing it wins over the chain; a plain feature is no
-		// redefinition and yields, as with the nested-body form.
-		if hasRedefines(cfv.Feature.Symbol) && ctx.blocksChain(cfv.Feature.Symbol, sym) {
+		// specializing it wins over the chain, and a chain host installed by an
+		// unrelated classifier keeps its place, as the lazy path's first-wins
+		// rule keeps it; a plain feature is no redefinition and yields.
+		if hasRedefines(cfv.Feature.Symbol) && (ctx.blocksChain(cfv.Feature.Symbol, sym) ||
+			(isChainHost(cfv.Feature.Symbol) && !ctx.chainOutranks(sym, cfv.Feature.Symbol))) {
 			return nil
 		}
 		feat := ctx.effectiveFeature(rest[0], sym, child.Type)
@@ -261,6 +263,27 @@ func isUsageSymbol(sym *symbols.Symbol) bool {
 	}
 	_, ok := sym.Decl.(*ast.Usage)
 	return ok
+}
+
+// isChainHost reports whether member redefines a feature chain — it is the
+// host feature a chain redefinition parses to.
+func isChainHost(member *symbols.Symbol) bool {
+	for _, rel := range semantics.RelationshipsOf(member) {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			if _, ok := rel.Target.(*ast.FeatureChainExpr); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// chainOutranks reports whether the chain next was declared by a context
+// strictly specializing the chain prior's: the newer chain then replaces it,
+// as a nested redefining body in the subtype does.
+func (ctx *Context) chainOutranks(next, prior *symbols.Symbol) bool {
+	nextCtx, priorCtx := ctx.redefinitionContext(next), ctx.redefinitionContext(prior)
+	return nextCtx != priorCtx && ctx.modelConforms(nextCtx, priorCtx)
 }
 
 // valuedChain reports whether a pending chain member states a value: its own,
