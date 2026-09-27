@@ -116,17 +116,34 @@ func (w *dotWriter) placePorts(node *Node, ends map[string]Point) {
 }
 
 // pinBox is the box of a pin a route meets at end: the pin sits just outside
-// the node's border, touching it, on the side the end lies off; an end on or
-// inside the border puts the pin outside its nearest side.
+// the node's border, touching it, on the side the end lies off — past a corner,
+// the side it lies farther off; an end on or inside the border puts the pin
+// outside its nearest side.
 func pinBox(box nodeBox, end Point) nodeBox {
 	border := Point{X: math.Min(math.Max(end.X, box.low.X), box.high.X), Y: math.Min(math.Max(end.Y, box.low.Y), box.high.Y)}
 	dx, dy := end.X-border.X, end.Y-border.Y
-	if d := math.Hypot(dx, dy); d > 0 {
-		dx, dy = dx/d, dy/d
-	} else {
+	switch {
+	case dx == 0 && dy == 0:
 		dx, dy = outwardNormal(box, border)
+		border = Point{X: sideAlong(dx, box.low.X, box.high.X, border.X), Y: sideAlong(dy, box.low.Y, box.high.Y, border.Y)}
+	case math.Abs(dx) >= math.Abs(dy):
+		dx, dy = math.Copysign(1, dx), 0
+	default:
+		dx, dy = 0, math.Copysign(1, dy)
 	}
 	return pinAround(Point{X: halfPixel(border.X + dx*dotPinSize/2), Y: halfPixel(border.Y + dy*dotPinSize/2)})
+}
+
+// sideAlong is the coordinate of the side an outward normal component points
+// at, low or high, and at for a component of zero.
+func sideAlong(normal, low, high, at float64) float64 {
+	switch {
+	case normal < 0:
+		return low
+	case normal > 0:
+		return high
+	}
+	return at
 }
 
 // outwardNormal is the unit normal of the side of box nearest p, pointing out.

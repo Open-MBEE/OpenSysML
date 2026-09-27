@@ -332,13 +332,16 @@ func (r *Renderer) behaviorNames(doc string, behaviors []lower.StateBehavior) st
 // behaviorText is what a state behavior is drawn as: its name, else the
 // activity it performs by type (`do action : Reset` reads `Reset`), else what
 // its anonymous body does — the message it sends, the one assignment it makes —
-// else "".
+// as written in the document declaring it, else "".
 func (r *Renderer) behaviorText(doc string, behavior lower.StateBehavior) string {
 	if behavior.Name != "" {
 		return nameText(behavior.Name)
 	}
 	if typ := nodeType(behavior.Node); typ != "" {
 		return source.ReferenceEndNames(typ)
+	}
+	if declared := symbols.DocNameOf(behavior.Scope); declared != "" {
+		doc = declared
 	}
 	body := behavior.Body
 	if len(body) == 1 {
