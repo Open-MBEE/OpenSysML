@@ -239,7 +239,7 @@ func NotYetMember(sym, declaring *symbols.Symbol) bool {
 // redefinitionTarget resolves one redefinition target reference as the resolver
 // reads it: from the owner's generals, then the enclosing namespaces (KerML 8.2.3.5.2).
 func (m *Model) redefinitionTarget(sym *symbols.Symbol, target ast.Node) *symbols.Symbol {
-	found, ok := m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, target)
+	found, ok := m.resolver.ProbeRedefinitionTarget(sym.OwnerScope, sym.Decl, target)
 	if !ok || found == nil {
 		return nil
 	}
