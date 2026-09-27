@@ -187,6 +187,92 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 		}
 	})
 
+	// A chain stating a multiplicity below an adopted bound object applies to
+	// it the way a redefining body does: the held object is classified by the
+	// chain's declaration, so too few values violate it — both forms alike.
+	t.Run("multiplicity_chain_below_an_adopted_object_errors", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real[2] default = (1.0, 2.0); }
+			part def Mid { part leaf : Leaf; }
+			part def Top { part mid : Mid; }
+			part existing : Mid;
+			part top : Top { part :>> mid = existing; attribute :>> mid.leaf.value : Real[3]; }
+			part top2 : Top {
+				part :>> mid = existing {
+					part :>> leaf { attribute :>> value : Real[3]; }
+				}
+			}
+		}`)
+		for _, root := range []string{"top", "top2"} {
+			obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::"+root))
+			if err != nil {
+				t.Fatalf("Instantiate(%s): %v", root, err)
+			}
+			leaf := readInstance(t, ctx, readInstance(t, ctx, obj, "mid"), "leaf")
+			if _, err := leaf.GetFeatureValue(ctx, "value"); !errors.Is(err, ErrMultiplicityViolation) {
+				t.Fatalf("%s.mid.leaf.value = %v, want ErrMultiplicityViolation", root, err)
+			}
+		}
+	})
+
+	// A chain stating only a type below an adopted bound object changes no
+	// bound: the held object still reads its own values.
+	t.Run("type_only_chain_below_an_adopted_object_reads_its_values", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real[2] default = (1.0, 2.0); }
+			part def Mid { part leaf : Leaf; }
+			part def Top { part mid : Mid; }
+			part existing : Mid;
+			part top : Top { part :>> mid = existing; attribute :>> mid.leaf.value : Real; }
+		}`)
+		obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		leaf := readInstance(t, ctx, readInstance(t, ctx, obj, "mid"), "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		var got []float64
+		for _, el := range elementsOf(fv.HeldValue()) {
+			got = append(got, realValue(t, el))
+		}
+		if len(got) != 2 || got[0] != 1.0 || got[1] != 2.0 {
+			t.Fatalf("top.mid.leaf.value = %v, want the adopted (1.0, 2.0)", got)
+		}
+	})
+
+	// An object written to a composite feature is adopted and classified by
+	// the feature, so a chain's multiplicity reaches it the same as a bound
+	// one: the write of an under-sized object is refused.
+	t.Run("multiplicity_chain_below_a_written_object_errors", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real[2] default = (1.0, 2.0); }
+			part def Mid { part leaf : Leaf; }
+			part def Top { part mid : Mid; }
+			part top : Top { attribute :>> mid.leaf.value : Real[3]; }
+		}`)
+		obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::top"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		mid, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::Mid"))
+		if err != nil {
+			t.Fatalf("Instantiate(Mid): %v", err)
+		}
+		if err := obj.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: mid.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		leaf := readInstance(t, ctx, readInstance(t, ctx, obj, "mid"), "leaf")
+		if _, err := leaf.GetFeatureValue(ctx, "value"); !errors.Is(err, ErrMultiplicityViolation) {
+			t.Fatalf("top.mid.leaf.value = %v, want ErrMultiplicityViolation", err)
+		}
+	})
+
 	// A chain whose last segment resolves to no feature declares no nested
 	// redefinition: the object materializes and the feature below reads its
 	// declared default, no panic and no hang.

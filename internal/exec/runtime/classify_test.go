@@ -2315,6 +2315,31 @@ func TestClassifyChainReachesPastAPlainFeatureInItsContext(t *testing.T) {
 	}
 }
 
+// A chain through a ref reaches no object at all — but a ref can hold an
+// object the same parent owns through a sibling part: the chain stays within
+// the feature that owns the object, so the sibling's object reads unchanged.
+func TestClassifyNestedChainStaysWithinTheOwningFeature(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Top { part a : Leaf; ref b : Leaf = a; }
+		part def Ext :> Top { attribute :>> b.value = 9.0; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	a := readInstance(t, ctx, top, "a")
+	if err := ctx.classify(top, idx.LookupQualified("test::Ext")[0]); err != nil {
+		t.Fatalf("classify(top, Ext): %v", err)
+	}
+	fv, err := a.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 1.0 {
+		t.Fatalf("top.a.value = %v, want its own 1.0", got)
+	}
+}
+
 // A classifier's valued chain governs a bound member the way a redefining
 // body does: a `mid` that adopted the bound object re-materializes fresh on
 // classification, and the bound object keeps its own value.

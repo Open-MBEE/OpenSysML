@@ -161,33 +161,67 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 			continue
 		}
 		child, ok := ctx.instances[id]
-		// A reference, port or subject holds an object it does not own: the
-		// chain stays within owned objects.
-		if !ok || child.owner != inst {
+		// A reference, port or subject holds an object it does not own, and a
+		// sibling feature can hold an object inst owns through another feature:
+		// the chain stays within objects inst owns through this feature value.
+		if !ok || child.owner != inst || inst.FeatureValues[child.ownerFeature] != fv {
 			continue
 		}
-		rest := chain[1:]
-		if len(rest) == 1 {
-			cfv := child.FeatureValues[rest[0]]
-			if cfv == nil || cfv.Feature == nil {
+		if err := ctx.refineChildBelow(inst, child, chain[1:], sym); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// refineChildBelow applies the rest of a chain reaching below inst's child
+// object: a one-segment rest refines that feature of it, a longer one is
+// carried on the child and reaches the grandchildren it already materialized.
+func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *symbols.Symbol) error {
+	if len(rest) == 1 {
+		cfv := child.FeatureValues[rest[0]]
+		if cfv == nil || cfv.Feature == nil {
+			return nil
+		}
+		// A redefinition declared by the chain's context or a type
+		// specializing it wins over the chain; a plain feature is no
+		// redefinition and yields, as with the nested-body form.
+		if hasRedefines(cfv.Feature.Symbol) && ctx.blocksChain(cfv.Feature.Symbol, sym) {
+			return nil
+		}
+		feat := ctx.effectiveFeature(rest[0], sym, child.Type)
+		return ctx.installFeatureValue(child, cfv, &feat)
+	}
+	ctx.noteProbeUndo(func() { child.nested = child.nested[:len(child.nested)-1] })
+	child.nested = append(child.nested, pendingRedefinition{rest: rest, sym: sym})
+	return ctx.refineNestedBelow(child, rest, sym)
+}
+
+// applyPendingToHeld applies the nested redefinitions a type of inst declares
+// below fv's feature to the objects val holds: a composite feature owns the
+// objects it holds however they arrived, so a bound or written object reads
+// the chain a redefining body would give it. A governed feature materialized
+// a fresh object the chain already rode down.
+func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Value) error {
+	if fv.Feature == nil || fv.Feature.GovernedByChain || !ctx.ownsHeld(fv.Feature) {
+		return nil
+	}
+	for _, p := range ctx.pendingNestedRedefinitions(inst, fv.Feature.Name) {
+		if len(p.rest) == 0 {
+			continue
+		}
+		for _, el := range elementsOf(val) {
+			id, ok := el.Object()
+			if !ok {
 				continue
 			}
-			// A redefinition declared by the chain's context or a type
-			// specializing it wins over the chain; a plain feature is no
-			// redefinition and yields, as with the nested-body form.
-			if hasRedefines(cfv.Feature.Symbol) && ctx.blocksChain(cfv.Feature.Symbol, sym) {
+			child, ok := ctx.instances[id]
+			if !ok {
 				continue
 			}
-			feat := ctx.effectiveFeature(rest[0], sym, child.Type)
-			if err := ctx.installFeatureValue(child, cfv, &feat); err != nil {
+			if err := ctx.refineChildBelow(inst, child, p.rest, p.sym); err != nil {
 				return err
 			}
-			continue
-		}
-		ctx.noteProbeUndo(func() { child.nested = child.nested[:len(child.nested)-1] })
-		child.nested = append(child.nested, pendingRedefinition{rest: rest, sym: sym})
-		if err := ctx.refineNestedBelow(child, rest, sym); err != nil {
-			return err
 		}
 	}
 	return nil

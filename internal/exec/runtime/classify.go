@@ -103,6 +103,10 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		rollback()
 		return err
 	}
+	if err := ctx.applyPendingToHeld(inst, fv, val); err != nil {
+		rollback()
+		return err
+	}
 	commit()
 	return nil
 }
@@ -117,6 +121,10 @@ func (ctx *Context) holdDeclared(inst *Instance, fv *FeatureValue, val Value) (V
 	}
 	val, err := ctx.admitted(fv.Feature, val, admitDeclared)
 	if err != nil {
+		rollback()
+		return Value{}, err
+	}
+	if err := ctx.applyPendingToHeld(inst, fv, val); err != nil {
 		rollback()
 		return Value{}, err
 	}
