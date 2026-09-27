@@ -490,10 +490,12 @@ digraph "PlantViews::placedView" {
   the box's top and the topmost box it encloses and set there with `labelloc=t`, so the title
   reads as a diagram frame's header and the members below it stay where the Layout put them
   (`headroom` in `dot.go`; a box that is only placed, and so sized to its own label, is not one
-  the title moves for). A stated box too short for one 8 pt line, or too narrow for one glyph —
+  the title moves for). A stated box too short for one 8 pt line, or too narrow for the ellipsis —
   whether the whole box or the strip its members leave it — holds no text: its head is set
   outside as `xlabel`, as a symbol's is, and a box with only its kind to show is left bare
-  (`dotStatedLabel`). A stated node drawn as a cluster round its children has its label fitted the
+  (`dotStatedLabel`). A line no size down to the floor sets within the width — a lone glyph
+  wider than the box, which wrapping cannot narrow — is ellipsized rather than written over
+  the border, and a detail line that would be is left off. A stated node drawn as a cluster round its children has its label fitted the
   same way, to the strip above its topmost stated child; a cluster's label has no outside to go
   to, so a strip thinner than a line still gets one line at 8 pt. Text is measured as Graphviz
   sets it (`dot_metrics.go`): each glyph's advance from the font's own table, hinted to a whole

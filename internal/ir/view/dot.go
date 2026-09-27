@@ -1354,7 +1354,7 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		}
 		wrapped := dotWrap(lines[i], width, lineSize, false)
 		used := float64(len(wrapped)) * dotLineHeight(lineSize)
-		if used > left {
+		if used > left || dotOverruns(wrapped, width, lineSize, false) {
 			break
 		}
 		left -= used
@@ -1418,7 +1418,8 @@ func (l labeller) assemble(parts labelParts) string {
 // dotFitText wraps lines of text into a box at the largest font size, from the
 // one given down to the floor, at which they fit with their words whole, else at
 // the largest at which they fit with a word broken; when none does, the floor's
-// wrapping is cut to the lines the height holds, the last ellipsized. Each
+// wrapping is cut to the lines the height holds, the last ellipsized, as is any
+// line still wider than the box (a lone glyph wrapping cannot narrow). Each
 // entry is wrapped separately at the box's width and the wrappings
 // concatenated; a whole-word pass fails when any entry must break a word.
 func dotFitText(text []string, bold bool, width, height, from float64) (size float64, lines []string, fits bool) {
@@ -1433,7 +1434,7 @@ func dotFitText(text []string, bold bool, width, height, from float64) (size flo
 				}
 				lines = append(lines, dotWrap(entry, width, size, bold)...)
 			}
-			if broken {
+			if broken || dotOverruns(lines, width, size, bold) {
 				continue
 			}
 			if float64(len(lines))*dotLineHeight(size) <= height {
@@ -1447,11 +1448,26 @@ func dotFitText(text []string, bold bool, width, height, from float64) (size flo
 		lines = append(lines, dotWrap(entry, width, size, bold)...)
 	}
 	down := max(1, int(height/dotLineHeight(size)))
-	if len(lines) > down {
+	cut := len(lines) > down
+	if cut {
 		lines = lines[:down]
-		lines[down-1] = dotEllipsize(lines[down-1], width, size, bold)
+	}
+	for i, line := range lines {
+		if (cut && i == len(lines)-1) || dotTextWidth(line, size, bold) > width {
+			lines[i] = dotEllipsize(line, width, size, bold)
+		}
 	}
 	return size, lines, false
+}
+
+// dotOverruns reports whether any line is wider than a width at a font size.
+func dotOverruns(lines []string, width, size float64, bold bool) bool {
+	for _, line := range lines {
+		if dotTextWidth(line, size, bold) > width {
+			return true
+		}
+	}
+	return false
 }
 
 // dotEllipsize cuts a line to the runes that fit across a width with an ellipsis
