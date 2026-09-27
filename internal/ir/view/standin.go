@@ -100,6 +100,7 @@ func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
 		}
 	}
 	dropped := 0
+	var joins [][2]string
 	for _, in := range into {
 		for _, o := range from {
 			joined, ok := joinEdges(in, o, geometry)
@@ -108,18 +109,45 @@ func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
 				continue
 			}
 			kept = append(kept, joined)
+			joins = append(joins, [2]string{in.From, o.To})
 		}
 	}
 	out.Edges = kept
 	out.Roots = removeNode(out.Roots, id)
-	notes := make([]Note, 0, len(out.Notes))
-	for _, note := range out.Notes {
-		if note.Anchor != id && note.EdgeFrom != id && note.EdgeTo != id {
-			notes = append(notes, note)
+	out.Notes = rejoinNotes(out.Notes, id, joins)
+	return dropped
+}
+
+// rejoinNotes moves the notes on the edges into and out of the elided node id
+// onto the joined edges, given as (from, to) pairs, continuing each: a note on
+// `a -> id` goes on every `a -> c` joined, one on `id -> c` on every `a -> c`.
+// Notes on the node itself, and on edges no join continued, are dropped.
+func rejoinNotes(notes []Note, id string, joins [][2]string) []Note {
+	kept := make([]Note, 0, len(notes))
+	for _, note := range notes {
+		switch {
+		case note.Anchor == id:
+		case note.EdgeTo == id:
+			for _, join := range joins {
+				if join[0] == note.EdgeFrom {
+					moved := note
+					moved.EdgeTo = join[1]
+					kept = append(kept, moved)
+				}
+			}
+		case note.EdgeFrom == id:
+			for _, join := range joins {
+				if join[1] == note.EdgeTo {
+					moved := note
+					moved.EdgeFrom = join[0]
+					kept = append(kept, moved)
+				}
+			}
+		default:
+			kept = append(kept, note)
 		}
 	}
-	out.Notes = notes
-	return dropped
+	return kept
 }
 
 // joinEdges is the edge in and out draw as one, along in's route continued by

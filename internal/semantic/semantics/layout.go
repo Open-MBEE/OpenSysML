@@ -248,21 +248,40 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 }
 
 // MemberLayoutOf resolves the Layout of the member owner has under name, as
-// drawn in view, among the annotations naming that member through owner: the
-// `start` and `done` a body inherits from the library are one element for every
-// body, so `about Acquire::start` positions Acquire's start alone.
+// drawn in view. A member owner declares itself resolves as LayoutOf does. The
+// `start` and `done` a body inherits from the library are one element for
+// every body, so those resolve among the annotations naming the member as
+// owner's — `about Acquire::start`, or `about start` stated in Acquire's body
+// — before the ones stated on the member itself, which every body draws.
 func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
 	member, ok := m.LookupMember(owner, name)
 	if !ok {
 		return nil, false
 	}
-	var sites []*LayoutSite
+	if sameElement(member.Owner(), owner) {
+		return m.LayoutOf(view, member)
+	}
+	var owners, inherited []*LayoutSite
 	for _, site := range m.LayoutSitesOf(member) {
-		if site.TypeFQN == LayoutFQN && sameElement(site.Via, owner) {
-			sites = append(sites, site)
+		switch {
+		case site.TypeFQN != LayoutFQN:
+		case sameElement(site.Via, owner), site.Via == nil && site.About && statedWithin(site.Scope, owner):
+			owners = append(owners, site)
+		case !site.About:
+			inherited = append(inherited, site)
 		}
 	}
-	return pickSite(view, sites)
+	return pickSite(view, append(owners, inherited...))
+}
+
+// statedWithin reports whether scope is the body of owner or nested in it.
+func statedWithin(scope *symbols.Scope, owner *symbols.Symbol) bool {
+	for sc := scope; sc != nil; sc = sc.Parent() {
+		if sameElement(sc.Owner(), owner) {
+			return true
+		}
+	}
+	return false
 }
 
 // RouteOf resolves the Route of the element an edge is declared as — a

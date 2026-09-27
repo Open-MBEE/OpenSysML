@@ -50,6 +50,27 @@ func TestDOTElidesMigrationStandIns(t *testing.T) {
 	}
 }
 
+// A note on an edge into or out of an elided stand-in goes on every edge the
+// two are joined into; one on the stand-in itself goes with it.
+func TestElideNodeMovesNotesOntoJoinedEdges(t *testing.T) {
+	route := []Point{{X: 0, Y: 0}, {X: 10, Y: 10}}
+	out := &Rendering{
+		Roots: []*Node{{ID: "a"}, {ID: "b"}, {ID: "c"}, {ID: "w", Kind: "join", StandIn: true}},
+		Edges: []Edge{{From: "a", To: "w", Route: route}, {From: "b", To: "w"}, {From: "w", To: "c", Route: route}},
+		Notes: []Note{{Text: "in", EdgeFrom: "a", EdgeTo: "w"}, {Text: "out", EdgeFrom: "w", EdgeTo: "c"},
+			{Text: "on", Anchor: "w"}, {Text: "apart", EdgeFrom: "a", EdgeTo: "b"}},
+	}
+	elideNode(out, "w", map[string]*Geometry{})
+	var got []string
+	for _, note := range out.Notes {
+		got = append(got, note.Text+":"+note.Anchor+note.EdgeFrom+"->"+note.EdgeTo)
+	}
+	want := []string{"in:a->c", "out:a->c", "out:b->c", "apart:a->b"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("notes after eliding w = %v, want %v", got, want)
+	}
+}
+
 // The same join is kept, and drawn as a bar in the strip with all three of its
 // edges, when the drawing sets unplaced nodes in a strip: there it has a place.
 func TestDOTStripKeepsMigrationStandIns(t *testing.T) {

@@ -137,6 +137,35 @@ func TestMemberLayoutOfKeepsInheritedMembersApartByOwner(t *testing.T) {
 	}
 }
 
+// A Layout stated on an inherited member itself positions it in every body
+// inheriting it, after one naming the member as the body's: qualified through
+// the body, or stated unqualified in the body. A member the body declares
+// itself resolves as any element does.
+func TestMemberLayoutOfFallsBackToInheritedMembersOwnLayout(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s { @Layout { x = 1; y = 1; } } }
+		action def A :> Base { action a; first s then a; }
+		action def B :> Base { action b; first s then b; metadata Layout about s { x = 20; y = 20; } }
+		action def C :> Base { action c; first s then c; }
+		action def D { action s { @Layout { x = 4; y = 4; } } }
+		view v {
+			expose A; expose B; expose C; expose D;
+			metadata Layout about A::s { x = 10; y = 10; }
+		}
+	`)
+	view := sym(t, p, "v")
+	for _, tc := range []struct {
+		owner string
+		x     float64
+	}{{"A", 10}, {"B", 20}, {"C", 1}, {"D", 4}} {
+		site, ok := m.MemberLayoutOf(view, sym(t, p, tc.owner), "s")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Errorf("MemberLayoutOf(v, %s, s) = %+v, %v, want x = %v", tc.owner, site, ok, tc.x)
+		}
+	}
+}
+
 func TestRouteOfReadsWaypointPairs(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
