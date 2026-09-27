@@ -221,7 +221,8 @@ type HTMLOptions struct {
 
 	// TableColumns is the most columns one table is written with: a table
 	// projecting more is written as continuation tables, each repeating the
-	// first column ahead of its share of the rest. 0 writes every table whole.
+	// first column ahead of its share of the rest. 0 writes every table whole;
+	// 1 is refused, as nothing would fit beside the repeated column.
 	TableColumns int
 }
 
@@ -254,6 +255,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
+	if err := checkTableColumns(opts.TableColumns, "HTML"); err != nil {
+		return "", err
+	}
 	for _, sheet := range opts.Stylesheets {
 		if err := sheet.Check(); err != nil {
 			return "", err
@@ -273,7 +277,10 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 			return "", err
 		}
 	}
-	w := &htmlWriter{opts: opts, base: base, forms: diagrams, ids: contentIDs(document), captions: captionNumbering{on: opts.NumberFigures}}
+	w := &htmlWriter{
+		opts: opts, base: base, forms: diagrams, ids: contentIDs(document),
+		captions: captionNumbering{on: opts.NumberFigures}, names: document.ElementName,
+	}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
 	if err := w.writeDocument(document); err != nil {
 		return "", err
@@ -317,6 +324,7 @@ type htmlWriter struct {
 	captions captionNumbering
 	diagrams int
 	mermaid  []string
+	names    namer
 }
 
 // captionMarkup is a caption's inner HTML: its number, when it has one, in a
@@ -556,10 +564,22 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 // continuedSuffix marks the caption of a continuation table.
 const continuedSuffix = "(continued)"
 
+// checkTableColumns refuses a table-column limit no split keeps: a
+// continuation table repeats the first column, so one holds nothing beside
+// it, and a negative limit is no limit at all.
+func checkTableColumns(limit int, form string) error {
+	if limit < 0 || limit == 1 {
+		return &Error{Kind: ErrorTableColumns, Count: limit, Form: form}
+	}
+	return nil
+}
+
 // tableParts splits the indexes of a table's columns into the column sets its
 // parts are written with: one part holding every column when at most limit
 // (or when limit is 0), otherwise parts of the first column followed by
-// consecutive slices of the rest, each part of at most limit columns.
+// consecutive slices of the rest, each part of at most limit columns. A limit
+// of 1 leaves no room beside the repeated column and is refused by the
+// renderers; here it sets the table whole rather than looping.
 func tableParts(columns, limit int) [][]int {
 	all := make([]int, columns)
 	for i := range all {
@@ -779,18 +799,18 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 		classes += " sysml-event"
 	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
-		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + spanClose)
+		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(valueText(w.names, value)) + spanClose)
 }
 
 // quantityAttrs carries a quantity's magnitude and unit apart, so a theme or a
 // script reads them without parsing the cell text.
-func quantityAttrs(value queryexec.Value) string {
+func quantityAttrs(names namer, value queryexec.Value) string {
 	quantity, ok := value.Quantity()
 	if !ok {
 		return ""
 	}
 	magnitude, _ := value.Magnitude()
-	return attr("data-magnitude", valueText(magnitude)) + attr("data-unit", quantity.Unit.String())
+	return attr("data-magnitude", valueText(names, magnitude)) + attr("data-unit", quantity.Unit.String())
 }
 
 // writeList writes one bullet or numbered list, one item per query row, each

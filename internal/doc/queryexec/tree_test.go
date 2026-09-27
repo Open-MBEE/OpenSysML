@@ -191,3 +191,30 @@ calc def NestedThenFlat :> Query {
 		}
 	}
 }
+
+// Tree keeps a row the source repeats: each occurrence nests where the first
+// does, its cells staying with it.
+func TestExecuteTreeKeepsRepeatedRows(t *testing.T) {
+	fixture := loadExecutionFixture(t, treeBody+treeQueries+`
+calc def Repeated :> Query {
+	in rows : Element[0..*] ordered;
+	Project(source = Tree(source = rows), properties = ("name"))
+}
+`)
+	north := ElementValue(fixture.symbol(t, "Site::North"))
+	inlet := ElementValue(fixture.symbol(t, "Site::North::Inlet"))
+	rows, err := fixture.execute(t, "Repeated", Bindings{"rows": {north, inlet, inlet, north}}, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := treeOutline(rows); got != "0:North 1:Inlet 1:Inlet 0:North" {
+		t.Errorf("outline = %q", got)
+	}
+	for i, row := range rows.Rows() {
+		sym, _ := row.Element().Element()
+		values := row.Cells()[0].Values()
+		if name, _ := values[0].String(); len(values) != 1 || name != sym.Name {
+			t.Errorf("row %d (%s) has name cell %v", i, sym.Name, values)
+		}
+	}
+}

@@ -1,6 +1,7 @@
 package docrender
 
 import (
+	"errors"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -159,5 +160,26 @@ func TestMarkdownTableContinuation(t *testing.T) {
 	whole := renderFixtureDocument(t, sizedReportPath(), sizedReport)
 	if strings.Contains(whole, "continued") {
 		t.Fatalf("the default split a table:\n%s", whole)
+	}
+}
+
+// TestTableColumnsOfOneRefused locks that a limit no continuation table keeps
+// — one, or a negative number — is refused by both backends, and that 0
+// leaves every table whole.
+func TestTableColumnsOfOneRefused(t *testing.T) {
+	document := fixtureDocument(t, sizedReportPath(), sizedReport)
+	for _, columns := range []int{1, -1} {
+		_, err := Markdown(document, MarkdownOptions{TableColumns: columns})
+		var typed *Error
+		if !errors.As(err, &typed) || typed.Kind != ErrorTableColumns || typed.Count != columns || !strings.Contains(err.Error(), "at least 2") {
+			t.Errorf("Markdown with %d columns: error = %v", columns, err)
+		}
+		_, err = HTML(document, HTMLOptions{TableColumns: columns})
+		if !errors.As(err, &typed) || typed.Kind != ErrorTableColumns || typed.Count != columns || typed.Form != "HTML" {
+			t.Errorf("HTML with %d columns: error = %v", columns, err)
+		}
+	}
+	if parts := tableParts(20, 0); len(parts) != 1 || len(parts[0]) != 20 {
+		t.Errorf("tableParts(20, 0) = %v, want one part of every column", parts)
 	}
 }

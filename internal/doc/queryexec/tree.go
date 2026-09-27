@@ -20,7 +20,8 @@ type treeNode struct {
 // each row nests under the nearest row containing it — the nearest owner
 // among the rows, or the individual whose part is typed by it — and rows
 // nobody contains are top-level. Rows of `ancestors` join the tree as
-// intermediate levels where a source row nests under them.
+// intermediate levels where a source row nests under them. A row repeated in
+// the source is kept, nesting where its first occurrence does.
 func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, error) {
 	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
@@ -36,10 +37,9 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 	index := make(map[rowKey]int, len(source.values)+len(ancestors.values))
 	for i, value := range source.values {
 		key := keyOfRow(value)
-		if _, duplicate := index[key]; duplicate {
-			continue
+		if _, present := index[key]; !present {
+			index[key] = len(nodes)
 		}
-		index[key] = len(nodes)
 		node := &treeNode{value: value, source: true, parent: -1}
 		if i < len(source.cells) {
 			node.cells = cloneCells(source.cells[i])
@@ -59,8 +59,10 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 		return sequence{}, err
 	}
 	for i, node := range nodes {
-		parent := e.owningNode(node.value, index)
-		if parent < 0 {
+		parent := -1
+		if first := index[keyOfRow(node.value)]; first != i {
+			parent = nodes[first].parent
+		} else if parent = e.owningNode(node.value, index); parent < 0 {
 			parent = typed[i]
 		}
 		if parent >= 0 && parent != i && !reaches(nodes, parent, i) {

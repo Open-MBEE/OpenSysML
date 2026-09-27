@@ -65,7 +65,8 @@ type MarkdownOptions struct {
 
 	// TableColumns is the most columns one pipe table is written with: a table
 	// projecting more is written as continuation tables, each repeating the
-	// first column ahead of its share of the rest. 0 writes every table whole.
+	// first column ahead of its share of the rest. 0 writes every table whole;
+	// 1 is refused, as nothing would fit beside the repeated column.
 	TableColumns int
 }
 
@@ -87,6 +88,9 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
+	if err := checkTableColumns(opts.TableColumns, ""); err != nil {
+		return "", err
+	}
 	diagrams := opts.diagramOptions()
 	if err := diagrams.check(); err != nil {
 		return "", err
@@ -97,6 +101,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
 		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns,
+		names: document.ElementName,
 	}
 	var blocks []string
 	blocks = append(blocks, heading(1, document.Title()))
@@ -131,6 +136,7 @@ type markdownWriter struct {
 	outputDir    string
 	numbers      captionNumbering
 	tableColumns int
+	names        namer
 }
 
 // figureOptions is what a diagram's rendering is written with: its stated
@@ -172,7 +178,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentParagraph:
 		return []string{w.blockText(node.Runs())}, nil
 	case docir.ContentTable:
-		return renderTable(node, w.numbers.caption(node).String(), w.tableColumns), nil
+		return renderTable(node, w.numbers.caption(node).String(), w.tableColumns, w.names), nil
 	case docir.ContentList:
 		return w.renderList(node), nil
 	case docir.ContentDefinitions:
@@ -204,7 +210,7 @@ func heading(level int, title string) string {
 // of at most limit columns, each repeating the first column under the caption with its
 // continued suffix. A grouped table writes one subtable per group, each preceded by its
 // group key in strong emphasis; the group column keeps its place in every subtable.
-func renderTable(node docir.Content, caption string, limit int) []string {
+func renderTable(node docir.Content, caption string, limit int, names namer) []string {
 	var blocks []string
 	columns := node.Columns()
 	for i, part := range tableParts(len(columns), limit) {
@@ -213,42 +219,42 @@ func renderTable(node docir.Content, caption string, limit int) []string {
 		} else {
 			blocks = append(blocks, captionBlock(caption)...)
 		}
-		blocks = append(blocks, renderTablePart(node, columns, part)...)
+		blocks = append(blocks, renderTablePart(node, columns, part, names)...)
 	}
 	return blocks
 }
 
 // renderTablePart writes the pipe table, or the grouped subtables, over the
 // columns at the given indexes.
-func renderTablePart(node docir.Content, columns []queryexec.Column, indexes []int) []string {
-	names := make([]string, 0, len(indexes))
+func renderTablePart(node docir.Content, columns []queryexec.Column, indexes []int, names namer) []string {
+	labels := make([]string, 0, len(indexes))
 	for _, i := range indexes {
-		names = append(names, columns[i].Name())
+		labels = append(labels, columns[i].Name())
 	}
-	if len(names) == 0 {
-		names = []string{elementColumn}
+	if len(labels) == 0 {
+		labels = []string{elementColumn}
 	}
 	var blocks []string
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
 			blocks = append(blocks, delimited("**", node.GroupBy()+": "+group.Key()))
-			blocks = append(blocks, pipeTable(names, group.Rows(), indexes))
+			blocks = append(blocks, pipeTable(labels, group.Rows(), indexes, names))
 		}
 		if len(node.Groups()) == 0 {
-			blocks = append(blocks, pipeTable(names, nil, indexes))
+			blocks = append(blocks, pipeTable(labels, nil, indexes, names))
 		}
 		return blocks
 	}
-	return append(blocks, pipeTable(names, node.Rows(), indexes))
+	return append(blocks, pipeTable(labels, node.Rows(), indexes, names))
 }
 
 // pipeTable writes one pipe table: header, delimiter, and one line per row.
-func pipeTable(names []string, rows []queryexec.Row, indexes []int) string {
+func pipeTable(labels []string, rows []queryexec.Row, indexes []int, names namer) string {
 	var b strings.Builder
-	writeTableRow(&b, names, 0)
-	b.WriteString("|" + strings.Repeat(" --- |", len(names)) + "\n")
+	writeTableRow(&b, labels, 0)
+	b.WriteString("|" + strings.Repeat(" --- |", len(labels)) + "\n")
 	for _, row := range rows {
-		writeTableRow(&b, tableCells(row, indexes), row.Depth())
+		writeTableRow(&b, tableCells(row, indexes, names), row.Depth())
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -345,26 +351,26 @@ func diagramSource(name string, rendering *view.Rendering, options view.Options,
 // tableCells renders one row's cells at the given column indexes, an empty
 // cell where the row has none. A row of a table without projected columns is
 // its element alone.
-func tableCells(row queryexec.Row, indexes []int) []string {
+func tableCells(row queryexec.Row, indexes []int, names namer) []string {
 	if len(indexes) == 0 {
-		return []string{valueText(row.Element())}
+		return []string{valueText(names, row.Element())}
 	}
 	cells := row.Cells()
 	out := make([]string, len(indexes))
 	for n, i := range indexes {
 		if i < len(cells) {
-			out[n] = cellText(cells[i])
+			out[n] = cellText(cells[i], names)
 		}
 	}
 	return out
 }
 
 // cellText renders one projected cell: its values joined by ", ".
-func cellText(cell queryexec.Cell) string {
+func cellText(cell queryexec.Cell, names namer) string {
 	values := cell.Values()
 	parts := make([]string, len(values))
 	for i, value := range values {
-		parts[i] = valueText(value)
+		parts[i] = valueText(names, value)
 	}
 	return strings.Join(parts, ", ")
 }
@@ -667,18 +673,18 @@ func destination(target string) string {
 	return strings.ReplaceAll(destinationEscaper.Replace(newlineNormalizer.Replace(target)), "\n", "%0A")
 }
 
+// namer is the name an element value is displayed by; a document's ElementName.
+type namer func(*symbols.Symbol) string
+
 // valueText renders one typed value as plain, unescaped text: elements by
-// name (falling back to qualified name when nameless), objects by the label the
+// names — their effective name, else qualified name — objects by the label the
 // session reaches them by (`car.wheels[2]`), verdicts, states and events by
 // their summary, strings as their text, integers in base 10, reals in shortest
 // 'g' form, booleans, infinity as "*", and quantities as their magnitude in
 // the unit written: `2290000 [kg]`.
-func valueText(value queryexec.Value) string {
+func valueText(names namer, value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
-		if element.Name != "" {
-			return element.Name
-		}
-		return symbols.FQNOf(element)
+		return names(element)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label
@@ -709,7 +715,7 @@ func valueText(value queryexec.Value) string {
 	}
 	if quantity, ok := value.Quantity(); ok {
 		magnitude, _ := value.Magnitude()
-		return quantity.TextWithMagnitude(valueText(magnitude))
+		return quantity.TextWithMagnitude(valueText(names, magnitude))
 	}
 	return ""
 }

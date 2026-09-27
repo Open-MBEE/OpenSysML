@@ -67,7 +67,8 @@ type Options struct {
 
 	// TableColumns is the most columns one table is set with on a page: a
 	// table projecting more is split into continuation tables, each repeating
-	// the first column ahead of its share of the rest. 0 is DefaultTableColumns.
+	// the first column ahead of its share of the rest. 0 is DefaultTableColumns;
+	// 1 is refused, as nothing would fit beside the repeated column.
 	TableColumns int
 }
 
@@ -178,6 +179,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 // the HTML backend's stylesheet choices for a converter reading Markdown,
 // whose HTML carries none of the backend's classes.
 func checkOptions(converter Converter, opts Options) error {
+	if opts.TableColumns < 0 || opts.TableColumns == 1 {
+		return &Error{Kind: ErrorTableColumns, Columns: opts.TableColumns}
+	}
 	for _, sheet := range opts.Stylesheets {
 		if err := sheet.Check(); err != nil {
 			return err

@@ -153,6 +153,7 @@ func evaluate(
 		title:   plan.Title(),
 		content: content,
 		origin:  plan.Origin(),
+		model:   context.Model,
 	}, nil
 }
 
@@ -861,10 +862,7 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 // event as its summary.
 func (e *evaluator) valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
-		if name := e.context.Model.EffectiveNameOf(element); name != "" {
-			return name
-		}
-		return symbols.FQNOf(element)
+		return elementName(e.context.Model, element)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label

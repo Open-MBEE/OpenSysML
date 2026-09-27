@@ -13,8 +13,9 @@
   the metadata def feature it became (every value of a multi-valued tag), widths become
   `Table.columnWidths`, and the saved filter becomes `WhereText` over the projected columns its
   `ChoiceProperty` value selects — every column when the selection is empty. An element-valued
-  cell — a `general`, an enumeration literal — prints the element's name, as Cameo prints a
-  classifier or a tag value; HTML carries the qualified name in `data-element`. A user profile
+  cell — a `general`, an enumeration literal — prints the element's effective name, the one the
+  `name` property reads, as Cameo prints a classifier or a tag value; HTML carries the qualified
+  name in `data-element`. A user profile
   marked «auxiliaryResource» is migrated like any other user profile, since its stereotypes'
   applications carry the user's data. The report row states each setting applied and each still
   refused.

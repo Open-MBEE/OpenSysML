@@ -937,3 +937,23 @@ func TestRenderStateReportPage(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderTableColumnsOfOneRefused checks a table-column limit no
+// continuation table keeps — one, or a negative number — is refused for every
+// engine before any tool is looked for.
+func TestRenderTableColumnsOfOneRefused(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	document := plainDocument(t)
+	for _, columns := range []int{1, -3} {
+		for _, engine := range Engines() {
+			_, err := Render(document, engine, Options{TableColumns: columns})
+			var docErr *Error
+			if !errors.As(err, &docErr) || docErr.Kind != ErrorTableColumns || docErr.Columns != columns {
+				t.Fatalf("engine %s, %d columns: got %v, want ErrorTableColumns", engine, columns, err)
+			}
+			if !strings.Contains(err.Error(), "at least 2") || !strings.Contains(err.Error(), "12, the default") {
+				t.Fatalf("engine %s: message %q", engine, err.Error())
+			}
+		}
+	}
+}
