@@ -1482,6 +1482,16 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	for _, id := range []string{"_tRoute", "_tBusy", "_tSpent", "_tResume", "_tHist"} {
 		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
 	}
+	// The refused transitions' triggers, guards and effects are unmapped with
+	// them; an event another written trigger reports stays as that trigger
+	// reported it.
+	wantNote(t, r, "_trRoute", migrate.Unmapped, "its transition is not written: the target 'route' has no v2 form: `junction <name>;`")
+	wantNote(t, r, "_routeEv", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_trResume", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_gBusy", migrate.Unmapped, "the guard [count < 2] is dropped with it")
+	wantNote(t, r, "_gSpent", migrate.Unmapped, "the guard [else] is dropped with it")
+	wantNote(t, r, "_resumeLog", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_resumeEv", migrate.Mapped, "written where a trigger refers to it, as accept Resume")
 	wantNote(t, r, "_fork", migrate.Mapped, "written as a fork pseudostate")
 	wantNote(t, r, "_join", migrate.Mapped, "written as a join pseudostate")
 
@@ -1498,4 +1508,7 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	for _, id := range []string{"_tGo", "_tDive", "_tDeep", "_tBack", "_tFinish", "_tLeave", "_tOut", "_tResume", "_tStart"} {
 		wantNote(t, r, id, migrate.Unmapped, "has no v2 form: `")
 	}
+	wantNote(t, r, "_trGo", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_startEff", migrate.Unmapped, "its transition is not written")
+	wantNote(t, r, "_leaveEff", migrate.Unmapped, "its transition is not written")
 }
