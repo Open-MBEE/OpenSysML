@@ -4,6 +4,7 @@ package Instruments {
 	action def Cool;
 	attribute def Reset;
 	attribute def Halt;
+	attribute def 'Stop, Now';
 
 	// A state's behaviours are named by their own name, their type's when they
 	// have none, and by their kind alone when they have neither; the triggers it
@@ -22,7 +23,7 @@ package Instruments {
 		state Idle {
 			do action;
 			exit action wrap { }
-			defer Reset, Halt;
+			defer Reset, Halt, 'Stop, Now';
 		}
 		state Booting {
 			do action : InitializePEAS;
