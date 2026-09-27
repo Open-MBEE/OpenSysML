@@ -1054,7 +1054,7 @@ func (w *dotWriter) dotStatedLabel(node *Node) []string {
 
 // dotHoldsALine reports whether a box has room for one line of one glyph at the floor size.
 func dotHoldsALine(width, height float64) bool {
-	return width >= dotFitFloor*dotBoldGlyphEm && height >= dotFitFloor*dotLineEm
+	return width >= dotFitFloor*dotBoldGlyphEm && height >= dotFitFloor*dotFitLineEm
 }
 
 // headroom is the height a stated box has for its title: the strip above the
@@ -1252,7 +1252,7 @@ func (l labeller) dotBox(node *Node) (width, height float64) {
 func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 	head := len(l.headLines(node))
 	for i, line := range l.lines(node) {
-		size, glyph := l.size(), dotGlyphEm
+		size, glyph := l.sizeOf(node), dotGlyphEm
 		switch {
 		case i < head:
 			glyph = dotBoldGlyphEm
@@ -1289,6 +1289,15 @@ func (l labeller) size() float64 {
 	return l.skin.fontSize
 }
 
+// sizeOf is the font size a node's label is drawn in: its Style's when that
+// sets one, else the skin's.
+func (l labeller) sizeOf(node *Node) float64 {
+	if node.Style != nil && node.Style.FontSize > 0 {
+		return node.Style.FontSize
+	}
+	return l.size()
+}
+
 // keywordSize is the guillemet keyword line's font size under the skin.
 func (l labeller) keywordSize() float64 {
 	if l.skin.cameo {
@@ -1299,6 +1308,11 @@ func (l labeller) keywordSize() float64 {
 
 // dotFitFloor is the smallest font size, in points, a stated box's label shrinks to.
 const dotFitFloor = 8
+
+// dotFitLineEm is the height a line is fitted into a stated box at. Graphviz
+// lays the text out in the font's own metrics, which set a line up to 1.23em
+// (Liberation Sans standing in for Arial at 11pt), over its 1.2em estimate.
+const dotFitLineEm = 1.25
 
 // The Cameo compartment table's chrome about its text, in points: the padding
 // either side of a cell, and that of its two cells stacked (the rule between
@@ -1331,28 +1345,29 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 // fitParts is a node's label fitted to a box, by part.
 func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 	lines := l.lines(node)
-	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, l.size())
+	base := l.sizeOf(node)
+	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, base)
 	var parts labelParts
-	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
-	left := height - float64(len(head))*size*dotLineEm
+	parts.head = l.sized(base, size, "<b>"+dotEscapeLines(head)+"</b>")
+	left := height - float64(len(head))*size*dotFitLineEm
 	for i := len(l.headLines(node)); fits && i < len(lines); i++ {
 		keyword := i == len(l.headLines(node)) && l.keyworded(node)
 		lineSize := size
 		if keyword {
-			lineSize = math.Round(size * l.keywordSize() / l.size())
+			lineSize = math.Round(size * l.keywordSize() / base)
 		}
 		wrapped := dotWrap(lines[i], dotRunesAcross(width, lineSize, dotGlyphEm))
-		used := float64(len(wrapped)) * lineSize * dotLineEm
+		used := float64(len(wrapped)) * lineSize * dotFitLineEm
 		if used > left {
 			break
 		}
 		left -= used
 		text := dotEscapeLines(wrapped)
 		if keyword {
-			parts.keyword = l.sized(lineSize, l.keywordText(text))
+			parts.keyword = l.sized(base, lineSize, l.keywordText(text))
 			continue
 		}
-		parts.details = append(parts.details, l.sized(lineSize, text))
+		parts.details = append(parts.details, l.sized(base, lineSize, text))
 	}
 	return parts
 }
@@ -1427,7 +1442,7 @@ func dotFitText(text []string, glyph, width, height, from float64) (size float64
 			if broken {
 				continue
 			}
-			if float64(len(lines))*size*dotLineEm <= height {
+			if float64(len(lines))*size*dotFitLineEm <= height {
 				return size, lines, true
 			}
 		}
@@ -1438,7 +1453,7 @@ func dotFitText(text []string, glyph, width, height, from float64) (size float64
 	for _, entry := range text {
 		lines = append(lines, dotWrap(entry, across)...)
 	}
-	down := max(1, int(height/(size*dotLineEm)))
+	down := max(1, int(height/(size*dotFitLineEm)))
 	if len(lines) > down {
 		lines = lines[:down]
 		last := []rune(lines[down-1])
@@ -1513,9 +1528,9 @@ func dotEscapeLines(lines []string) string {
 }
 
 // sized wraps label text in a `<font point-size>` when its size is not the
-// skin's node default.
-func (l labeller) sized(size float64, text string) string {
-	if size == l.size() {
+// base its node is drawn in.
+func (l labeller) sized(base, size float64, text string) string {
+	if size == base {
 		return text
 	}
 	return fmt.Sprintf(`<font point-size="%s">%s</font>`, formatCoord(size), text)
@@ -1552,7 +1567,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 		label = w.labels.dotFramedLabel(node)
 	case g != nil && g.HasSize:
 		height, _ := w.headroom(node)
-		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotFitFloor*dotLineEm))
+		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotFitFloor*dotFitLineEm))
 	}
 	attrs := []string{dotStyledLabel(label, node.Style)}
 	attrs = append(attrs, w.clusterStyle(node)...)
@@ -1896,11 +1911,14 @@ func (w *dotWriter) shareNotes() {
 // noteShared reports whether note i is drawn as an earlier note's node.
 func (w *dotWriter) noteShared(i int) bool { return w.noteShown[i] != i }
 
+// cameoCommentKeyword heads a note in the Cameo look.
+const cameoCommentKeyword = "«comment»"
+
 // noteLines is a note's label text by line: Cameo heads it with «comment».
 func (w *dotWriter) noteLines(note Note) []string {
 	lines := strings.Split(note.Text, "\n")
 	if w.skin.cameo {
-		return append([]string{"«comment»"}, lines...)
+		return append([]string{cameoCommentKeyword}, lines...)
 	}
 	return lines
 }
@@ -1980,13 +1998,14 @@ func (w *dotWriter) writeNotes(indices []int, depth int, top bool) {
 }
 
 // dotNoteLabel is a note's label attributes: its text at the label size, or fitted
-// to a stated box as a node's label is — a Cameo header only when a body line still
-// fits below it — set outside as `xlabel` when the box holds no line.
+// to a stated box as a node's label is — a Cameo header only when it fits across
+// and a body line still fits below it — set outside as `xlabel` when the box holds
+// no line.
 func (w *dotWriter) dotNoteLabel(note Note, box *nodeBox) []string {
 	lines := strings.Split(note.Text, "\n")
 	header := ""
 	if w.skin.cameo {
-		header = fmt.Sprintf(`<font point-size="%d">«comment»</font><br/>`, cameoSmallPts)
+		header = fmt.Sprintf(`<font point-size="%d">%s</font><br/>`, cameoSmallPts, cameoCommentKeyword)
 	}
 	if box == nil || !box.stated {
 		if w.skin.cameo {
@@ -1999,15 +2018,15 @@ func (w *dotWriter) dotNoteLabel(note Note, box *nodeBox) []string {
 		return []string{`label=""`, "xlabel=" + dotQuote(note.Text)}
 	}
 	if w.skin.cameo {
-		body := height - cameoSmallPts*dotLineEm
-		if body >= dotFitFloor*dotLineEm {
+		body := height - cameoSmallPts*dotFitLineEm
+		if body >= dotFitFloor*dotFitLineEm && dotRunesAcross(width, cameoSmallPts, dotGlyphEm) >= utf8.RuneCountInString(cameoCommentKeyword) {
 			height = body
 		} else {
 			header = ""
 		}
 	}
 	size, fitted, _ := dotFitText(lines, dotGlyphEm, width, height, w.labels.size())
-	return []string{"margin=0", dotLabelAttribute("<" + header + w.labels.sized(size, dotEscapeLines(fitted)) + ">")}
+	return []string{"margin=0", dotLabelAttribute("<" + header + w.labels.sized(w.labels.size(), size, dotEscapeLines(fitted)) + ">")}
 }
 
 // writeAnchors writes each anchored note's anchor: a dashed line with no
@@ -2079,7 +2098,7 @@ func (l labeller) dotLabel(node *Node) string {
 	head, rest := l.head(node), l.lines(node)[len(l.headLines(node)):]
 	parts := labelParts{head: "<b>" + dotEscape(head) + "</b>"}
 	if l.keyworded(node) {
-		parts.keyword = l.sized(l.keywordSize(), l.keywordText(dotEscape(rest[0])))
+		parts.keyword = l.sized(l.sizeOf(node), l.keywordSize(), l.keywordText(dotEscape(rest[0])))
 		rest = rest[1:]
 	}
 	for _, line := range rest {

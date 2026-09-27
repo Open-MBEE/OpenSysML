@@ -390,7 +390,7 @@ func TestDOTFitTextWrapsEachLine(t *testing.T) {
 // no detail line gives its whole self to the title, and Graphviz, when
 // present, agrees no box is too small.
 func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
-	// Four 11pt lines stack in 52.8pt; the table about them needs 8pt more.
+	// Four 11pt lines stack in 55pt; the table about them needs 8pt more.
 	node := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / configMode, do / update"}, 104, 60)
 	source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
 	if err != nil {
@@ -418,7 +418,7 @@ func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
 	if want := `label=<<font point-size="8"><b>Standing By</b></font>>, margin=0`; !strings.Contains(source, want) {
 		t.Errorf("short box's DOT lacks %q:\n%s", want, source)
 	}
-	// Two 11pt lines stack in 26.4pt: within the box, but not with the table about them.
+	// Two 11pt lines stack in 27.5pt: within the box, but not with the table about them.
 	snug := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / start"}, 200, 30)
 	source, err = (&Rendering{View: "V", Kind: KindState, Roots: []*Node{snug}}).DOTWith(Options{Style: StyleCameo})
 	if err != nil {
@@ -446,6 +446,83 @@ func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
 		if stderr.Len() != 0 {
 			t.Errorf("box %gx%g: dot warned: %s\n%s", n.Geometry.Width, n.Geometry.Height, stderr.String(), source)
 		}
+	}
+}
+
+// A line is fitted at the height the font sets it, over Graphviz's 1.2em estimate:
+// five 11pt lines in a table take 75.5pt of a 74pt box, so the last detail line
+// is left off rather than written for Graphviz to find the box too small.
+func TestDOTFitsLinesAtTheFontsHeight(t *testing.T) {
+	node := stated(&Node{ID: "n", Kind: "state", Name: "INITIALIZING", Detail: "entry / initializeM1RTC, do / configDefaultParams"}, 136, 74)
+	source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, source)
+	want := `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>INITIALIZING</b></td></tr><hr/><tr><td align="left">entry /<br/>initializeM1RTC</td></tr></table>>, margin=0`
+	if !strings.Contains(source, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, source)
+	}
+	// A 36x22 Cameo note holds no «comment» head across it: the text alone, shrunk to fit.
+	note := Note{Text: "<html>", X: 10, Y: 10, Width: 36, Height: 22, HasSize: true}
+	noted, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}, Notes: []Note{note}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `margin=0, label=<<font point-size="10">&lt;html&gt;</font>>`; !strings.Contains(noted, want) {
+		t.Errorf("noted DOT lacks %q:\n%s", want, noted)
+	}
+	dot := os.Getenv("OPENSYSML_DOT")
+	if dot == "" {
+		t.Skip("OPENSYSML_DOT not set")
+	}
+	for _, source := range []string{source, noted} {
+		cmd := exec.Command(dot, "-Kneato", "-n2", "-Tplain")
+		cmd.Stdin = strings.NewReader(source)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if _, err := cmd.Output(); err != nil {
+			t.Fatalf("dot: %v\n%s", err, stderr.String())
+		}
+		if stderr.Len() != 0 {
+			t.Errorf("dot warned: %s\n%s", stderr.String(), source)
+		}
+	}
+}
+
+// A node whose Style sets a font size is drawn at it, so its label is measured
+// and fitted from that size, and a shrunk size is written relative to it.
+func TestDOTFittedLabelStartsFromTheStyledSize(t *testing.T) {
+	// Twenty bold glyphs take 185pt at 14pt and 145pt at 11pt.
+	node := stated(&Node{ID: "n", Kind: "action", Name: "SendAck_TakeSnapshot", Style: &Style{FontSize: 14}}, 147, 40)
+	source, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, source)
+	for _, want := range []string{`label=<<font point-size="11"><b>SendAck_TakeSnapshot</b></font>>, margin=0`, "fontsize=14"} {
+		if !strings.Contains(source, want) {
+			t.Errorf("DOT lacks %q:\n%s", want, source)
+		}
+	}
+	// Unstated, the box is sized to the label at the styled size.
+	loose := &Node{ID: "n", Kind: "action", Name: "SendAck_TakeSnapshot", Style: &Style{FontSize: 14}}
+	if w, _ := (labeller{skin: skinOf(StyleCameo)}).dotLabelExtent(loose); w != 20*14*dotBoldGlyphEm {
+		t.Errorf("styled extent width = %g, want %g", w, 20*14*dotBoldGlyphEm)
+	}
+	dot := os.Getenv("OPENSYSML_DOT")
+	if dot == "" {
+		t.Skip("OPENSYSML_DOT not set")
+	}
+	cmd := exec.Command(dot, "-Kneato", "-n2", "-Tplain")
+	cmd.Stdin = strings.NewReader(source)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if _, err := cmd.Output(); err != nil {
+		t.Fatalf("dot: %v\n%s", err, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("dot warned: %s\n%s", stderr.String(), source)
 	}
 }
 
@@ -485,6 +562,7 @@ func TestDOTNoteLabelFitsAStatedBox(t *testing.T) {
 		{"unstated", Note{Text: "ok"}, nil, `label=<<font point-size="9">«comment»</font><br/>ok>`},
 		{"header and a body line fit", Note{Text: "ok"}, box(100, 40), `margin=0, label=<<font point-size="9">«comment»</font><br/>ok>`},
 		{"header dropped when only one line fits", Note{Text: "doAcquisition"}, box(66, 14), `margin=0, label=<<font point-size="8">doAcquisition</font>>`},
+		{"header dropped when it does not fit across", Note{Text: "ok"}, box(40, 40), `margin=0, label=<ok>`},
 	} {
 		if got := strings.Join(cameo.dotNoteLabel(tc.note, tc.box), ", "); got != tc.want {
 			t.Errorf("cameo %s: dotNoteLabel = %q, want %q", tc.name, got, tc.want)

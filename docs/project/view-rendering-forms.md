@@ -370,7 +370,7 @@ horizontal gradient, sampled at the left and right of a box. The constants live 
 | Pins: 12 px squares on an action's border, the pin name in ~8 px type beside it, object flows pin to pin | each `Port` a node `shape=box, label="", xlabel="<name>", fontsize=8, fixedsize=true`, `fillcolor="#FFFFFF"`, at the route's end on the border, or spread along the top (inputs) and bottom (outputs); the flow edge runs between the pin nodes ([Action pins](#what-the-dot-writer-emits)) |
 | Pseudo-states and control nodes: initial a 10 px filled dot, final a 15 px bull's-eye, decision, merge and choice a diamond, fork and join a thin filled bar (10×60 px or 60×10 px), junction a dot, history a ring lettered H or H* | `shape=circle`/`doublecircle` with `fillcolor=black, label=""` at the stated box, or 0.2 in when none is stated; `shape=diamond`, 24×12 px when none is stated; a bar `shape=box, fillcolor=black, fixedsize=true` at the stated box's width and height, so a 10×60 box stands and a 60×10 box lies, 60×5 px when none is stated; `shape=circle, fillcolor=white, label="H"` (`"H*"`) for a history — drawn as symbols with no text inside even when no Layout sizes them, where the Pilot style needs a stated box; a name the model gave is set beside the symbol as `xlabel`, a synthesized one not at all |
 | Transition and edge labels: `trigger [guard] / effect` beside the line, not on it, the `accept` keyword and quotes off | one `label` per edge, never an `xlabel` beside it: the `EdgeKind` label text with `accept ` removed and every name bare (`Finished / diffTime`), placed with `lp` beside one of the route's segments — the candidates are the normals of every segment, scored for the state boxes and notes the label box would cover and for leaving the canvas, the least covered wins — so a label never sits on a box a route hugs ([Geometry](#geometry)) |
-| Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text, pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
+| Notes: white box with a folded corner, `«comment»` above the text, a dashed anchor to the element | `shape=note`, `fillcolor="#FFFFFF"`, `color="#5B5B59"`, label `«comment»` at 9 pt over the text — left off a stated box too narrow for the word or too short for a body line below it — pinned at the Note's box; the anchor `style=dashed, arrowhead=none` |
 | Drop shadow: a 2 px light grey shadow under every box | dropped; Graphviz draws no shadow |
 | Corner radius: ~20 px on states and actions | Graphviz's fixed radius, as in the Pilot style |
 
@@ -496,15 +496,20 @@ digraph "PlantViews::placedView" {
   (`dotStatedLabel`). A stated node drawn as a cluster round its children has its label fitted the
   same way, to the strip above its topmost stated child; a cluster's label has no outside to go
   to, so a strip thinner than a line still gets one line at 8 pt. The estimate is
-  the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
+  the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.25 em a line (`dotFitLineEm`: Graphviz
+  sets the text in the font's own metrics, which stand a line up to 1.23 em over its 1.2 em
+  estimate, so a box fitted at 1.2 em could still be reported too small) — so nothing here is
   particular to the tool that stated the box. A Cameo-style label with detail lines is set in
   the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
   before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
   (`compartmented`); when no detail line fits in what is left, the table is dropped and the title
-  alone is fitted to the whole box. A symbol kind in a stated box carries no label at
-  all ([Style](#style)). Without a stated size
+  alone is fitted to the whole box. The size the fitting starts from, and the one a line is
+  written without a `<font point-size>` at, is the size the node is drawn in: its `Style`'s
+  `fontSize` when that sets one, else the skin's (`sizeOf`). A symbol kind in a stated box
+  carries no label at all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
-  1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
+  1.2 em a line, at the node's size (14 pt, or its `Style`'s) for every line but the 10 pt
+  keyword line, Graphviz's margins, no
   smaller than its 54×36 pt default box, a circle round the label for a
   pseudo-state, a 3.6 pt point for a start — and writes that `width`/`height` without
   `fixedsize`, so Graphviz may still grow the box for its own font but the corner is where the

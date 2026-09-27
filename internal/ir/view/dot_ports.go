@@ -238,7 +238,7 @@ func (w *dotWriter) dotPortRow(ports []Port) string {
 	var cells []string
 	for _, port := range ports {
 		cells = append(cells, fmt.Sprintf(`<td port=%s border="1" fixedsize="true" width="%d" height="%d"></td><td align="left">%s</td>`,
-			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(dotPinPts, dotEscape(port.Name))))
+			dotQuote(port.ID), dotPinSize-2, dotPinSize-2, w.labels.sized(w.labels.size(), dotPinPts, dotEscape(port.Name))))
 	}
 	return "<tr>" + strings.Join(cells, "") + "</tr>"
 }
