@@ -10,6 +10,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 )
@@ -800,5 +801,64 @@ func TestInterfaceRecordDocumentQueriesMatchLoaded(t *testing.T) {
 				t.Fatalf("render over the recorded %s differs from loaded:\n%s\n--- loaded ---\n%s", tc.recorded, got, want)
 			}
 		})
+	}
+}
+
+// TestInterfaceRecordAnnotationSpans checks that an identity annotation a
+// recorded document states about a loaded element keeps the span of the node
+// stating it, as the identity table of the loaded workspace reports.
+func TestInterfaceRecordAnnotationSpans(t *testing.T) {
+	t.Parallel()
+	goods := []byte(`package Goods {
+    @IdentityMetadata::ProjectRef { projectId = "proj"; }
+    part def A;
+}
+`)
+	tags := []byte(`package Tags {
+    metadata aid : IdentityMetadata::ElementId about Goods::A { id = "a-id"; }
+}
+`)
+	inputs := []model.Input{
+		{Name: "goods.sysml", Content: goods, Version: 1},
+		{Name: "tags.sysml", Content: tags, Version: 1},
+	}
+	type declaration struct {
+		about bool
+		span  source.Span
+	}
+	declarationsOf := func(ws *model.Workspace) []declaration {
+		syms := ws.LookupQualified("Goods::A")
+		if len(syms) != 1 {
+			t.Fatalf("%d symbols named Goods::A", len(syms))
+		}
+		info, ok := ws.IdentityOf("goods.sysml", syms[0])
+		if !ok {
+			t.Fatal("no identity for Goods::A")
+		}
+		var out []declaration
+		for _, d := range info.Declarations {
+			out = append(out, declaration{about: d.About, span: d.Span})
+		}
+		return out
+	}
+
+	loaded := model.NewWorkspace()
+	loaded.OpenAll(inputs)
+	want := declarationsOf(loaded)
+	if len(want) != 1 || !want[0].about || want[0].span.Len == 0 {
+		t.Fatalf("loaded declarations of Goods::A: %+v; want one about-declaration with a span", want)
+	}
+
+	rec, err := loaded.InterfaceRecord("tags.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := model.NewWorkspace()
+	ws.OpenAll(inputs)
+	if err := ws.OpenRecorded(rec, tags); err != nil {
+		t.Fatal(err)
+	}
+	if got := declarationsOf(ws); !slices.Equal(got, want) {
+		t.Fatalf("declarations of Goods::A with tags.sysml recorded: %+v; loaded: %+v", got, want)
 	}
 }

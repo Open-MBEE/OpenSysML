@@ -376,7 +376,9 @@ func (s *Symbol) EffectiveName() bool {
 type AnnotationFacts struct {
 	TypeFQN string
 	Type    ElementRef
-	Values  []AnnotationValueFacts
+	// Span locates the node stating the annotation in its document.
+	Span   source.Span
+	Values []AnnotationValueFacts
 }
 
 // AnnotationValueFacts is one feature binding inside an annotation body

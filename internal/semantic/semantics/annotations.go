@@ -36,6 +36,8 @@ type annotation struct {
 	defaults map[string][]symbols.FilterValue
 	// node states the annotation: the prefix-metadata node or metadata usage.
 	node ast.Node
+	// span locates node, or the node a recorded annotation was written from.
+	span source.Span
 	// scope is where the annotating node is declared.
 	scope *symbols.Scope
 	// about marks an annotation stated elsewhere with an `about` clause.
@@ -99,7 +101,7 @@ func (m *Model) annotationFromFacts(facts symbols.AnnotationFacts, scope *symbol
 	for _, v := range facts.Values {
 		bound[v.Feature] = v.Values
 	}
-	return annotation{typ: typ, bound: bound, scope: scope, recorded: true}, true
+	return annotation{typ: typ, bound: bound, span: facts.Span, scope: scope, recorded: true}, true
 }
 
 // DeclaredAnnotationFactsOf is AnnotationFactsOf over the annotations sym's own
@@ -165,7 +167,7 @@ func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 		if typFQN == "" {
 			continue
 		}
-		facts := symbols.AnnotationFacts{TypeFQN: typFQN}
+		facts := symbols.AnnotationFacts{TypeFQN: typFQN, Span: a.span}
 		if m.resolver != nil && m.resolver.Index() != nil {
 			facts.Type, _ = m.resolver.Index().RefTo(a.typ)
 		}
@@ -183,6 +185,9 @@ func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 type AnnotationSite struct {
 	TypeFQN string
 	Node    ast.Node
+	// Span locates the node stating the annotation, also when the annotation
+	// comes from a record and Node is nil.
+	Span source.Span
 	// Scope is where the annotating node is declared; for an `about`-form
 	// annotation that may be another document than the annotated element's.
 	Scope  *symbols.Scope
@@ -194,7 +199,7 @@ type AnnotationSite struct {
 // it, inline annotations first and `about`-form ones after, each in
 // declaration order. An annotation a recorded document states, on its own
 // declaration or `about` an element elsewhere, has no node: its record carries
-// the type and values, not the tree.
+// the type, values and span, not the tree.
 func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	var out []AnnotationSite
 	for _, a := range m.annotationsOf(sym) {
@@ -205,7 +210,7 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		if typFQN == "" || (a.node == nil && !a.recorded) {
 			continue
 		}
-		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Scope: a.scope, About: a.about}
+		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Span: a.span, Scope: a.scope, About: a.about}
 		for _, feature := range a.featureNames() {
 			site.Values = append(site.Values, a.valueFacts(feature))
 		}
@@ -438,6 +443,7 @@ func (m *Model) prefixAnnotation(scope *symbols.Scope, p *ast.PrefixMetadata) (a
 	}
 	a := m.annotationOfType(typ, scope, p.Body)
 	a.node = p
+	a.span = p.Span()
 	a.scope = scope
 	return a, true
 }
@@ -464,6 +470,7 @@ func (m *Model) usageAnnotation(scope *symbols.Scope, u *ast.Usage) (annotation,
 		}
 		a := m.annotationOfType(typ, bodyScope(u, scope), u.Members)
 		a.node = u
+		a.span = u.Span()
 		a.scope = scope
 		return a, true
 	}
