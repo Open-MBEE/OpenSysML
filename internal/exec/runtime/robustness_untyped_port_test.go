@@ -22,11 +22,12 @@ func rigWithUntypedPorts(binding, wiring string) string {
 		part def Sender {
 			port tx;
 			action def Fire {
+				in ref context : Sender;
 				first start;
-				then action go send new Go() via that.tx;
+				then action go send new Go() via context.tx;
 				then done;
 			}
-			perform action fire : Fire;
+			perform action fire : Fire { in ref :>> context = this; }
 		}
 		part def Receiver {
 			port rx;
@@ -54,7 +55,7 @@ func rigWithUntypedPorts(binding, wiring string) string {
 // is refused as unroutable rather than dropped.
 func testUntypedPortJoinedToNothing(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, rigWithUntypedPorts("bind cmd = r.rx;", ""), "test::Rig")
-	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `port "tx" is joined to no port that can receive it`) {
+	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `port "context.tx" is joined to no port that can receive it`) {
 		t.Fatalf("error = %v, want ErrUnroutableSend over an unjoined untyped port", err)
 	}
 }

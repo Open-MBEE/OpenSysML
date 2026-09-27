@@ -7,10 +7,10 @@ package Plant {
             abstract action def prime;
             action 'prime 2' : prime;
             state def Cycle {
-                    entry; then Idle;
-                    state Idle;
-                    state Running;
-                    transition first Idle then Running;
+                entry; then Idle;
+                state Idle;
+                state Running;
+                transition first Idle then Running;
             }
         }
         part def Valve;

@@ -9,14 +9,15 @@ package test {
 		attribute cooled : Boolean default = false;
 
 		action def CoolDown {
+			in ref context : Controller;
 			first start then flip;
 			action flip {
-				assign that.cooled := true;
+				assign context.cooled := true;
 			}
 			first flip then done;
 		}
 
-		action coolDown : CoolDown;
+		action coolDown : CoolDown { in ref :>> context = this; }
 	}
 
 	part def Machine {

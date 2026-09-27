@@ -30,11 +30,12 @@ func stationPerforming(part, body string) string {
 		part def Station {
 			` + part + `
 			action def Observe {
+				in ref context : Station;
 				` + body + `
 			}
 			exhibit state run {
 				entry; then observing;
-				state observing { entry action observe : Observe; }
+				state observing { entry action observe : Observe { in ref :>> context = this; } }
 			}
 		}
 	}`
@@ -50,7 +51,7 @@ func performing(pt string) string {
 func testPerformOnPartHoldingNoObject(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationPerforming(
 		"part tel : Telescope[0..1];",
-		performing("perform action pt ::> tel.point;"),
+		performing("perform action pt ::> context.tel.point;"),
 	), "test::Station")
 	if !errors.Is(err, ErrPerformerNotObject) || !strings.Contains(err.Error(), "tel.point is performed by [], which is no one object") {
 		t.Fatalf("error = %v, want ErrPerformerNotObject over an empty tel", err)
@@ -62,7 +63,7 @@ func testPerformOnPartHoldingNoObject(t *testing.T) {
 func testPerformOnPartHoldingSeveralObjects(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationPerforming(
 		"part tels : Telescope[2];",
-		performing("perform action pt ::> tels.point;"),
+		performing("perform action pt ::> context.tels.point;"),
 	), "test::Station")
 	if !errors.Is(err, ErrPerformerNotObject) || !strings.Contains(err.Error(), "tels.point is performed by [instance(") {
 		t.Fatalf("error = %v, want ErrPerformerNotObject over two telescopes", err)
@@ -77,7 +78,7 @@ func testPerformOnPartDestroyed(t *testing.T) {
 		`first start then gone;
 		action gone { assign tel := destroy(tel); }
 		first gone then pt;
-		perform action pt ::> tel.point;
+		perform action pt ::> context.tel.point;
 		first pt then done;`,
 	), "test::Station")
 	if !errors.Is(err, ErrOccurrenceDestroyed) || !strings.Contains(err.Error(), "(Telescope) was destroyed at") {
@@ -90,7 +91,7 @@ func testPerformOnPartDestroyed(t *testing.T) {
 func testPerformOnPartChainEndsInNoAction(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, stationPerforming(
 		"part tel : Telescope;",
-		performing("perform action pt ::> tel.azimuth;"),
+		performing("perform action pt ::> context.tel.azimuth;"),
 	), "test::Station")
 	if err == nil || !strings.Contains(err.Error(), "azimuth is not an action (attributeUsage)") {
 		t.Fatalf("error = %v, want the chain's last member reported as no action", err)

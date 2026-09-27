@@ -1,6 +1,6 @@
-// `this` in a performed action written in its part names that part: an owned
-// performance takes the object owning it as its context occurrence, so
-// `that.<feature>` reads and writes that object's feature.
+// An action a part performs reads that part's features by their bare names:
+// an owned performance takes the object owning it as its context occurrence,
+// so the object's features are in the performance's own scope.
 package test {
 	private import ScalarValues::*;
 
@@ -9,7 +9,7 @@ package test {
 
 		perform action marking {
 			action step {
-				assign that.seen := that.seen + 2;
+				assign seen := seen + 2;
 			}
 			first step;
 		}

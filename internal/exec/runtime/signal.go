@@ -919,7 +919,7 @@ func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, 
 	}
 	segments := strings.Split(send.Target, ".")
 	root := segments[0]
-	if root == thisName || root == thatName {
+	if root == thisName {
 		return nil, false, nil
 	}
 	value, bound := ec.Lookup(root)
@@ -953,9 +953,8 @@ func (ec *EvalContext) boundTargetAddresses(send lower.Send) ([]messageAddress, 
 // the shortest prefix names in the send's scope — a prefix rather than one name,
 // since a namespace qualifies the occurrence in `P::alpha.inPort`.
 func (ctx *Context) addressOwner(scope *symbols.Scope, self *Instance, segments []string) (*Instance, []string, bool, error) {
-	// `this.…` and `that.…` read from the sending object, the occurrence the send
-	// performs on: `this` names the performance there, `that` its performer.
-	if (segments[0] == thisName || segments[0] == thatName) && len(segments) > 1 && self != nil {
+	// `this.…` reads from the sending object, the context occurrence of the send.
+	if segments[0] == thisName && len(segments) > 1 && self != nil {
 		return self, segments[1:], true, nil
 	}
 	// A name is a feature of the sending object, or of an object holding it: a

@@ -16,8 +16,8 @@ package Mockups {
     part def Clock {
         ref ticks;
         state def Ticking {
-                entry; then Running;
-                state Running;
+            entry; then Running;
+            state Running;
         }
         exhibit state ticking : Ticking;
         /* applied stereotype «Frame»: title = Clock */

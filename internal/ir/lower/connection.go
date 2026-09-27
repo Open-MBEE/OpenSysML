@@ -194,8 +194,5 @@ func ViaPortPath(node ast.Node) (path string, self bool) {
 	if rest, ok := strings.CutPrefix(path, "this."); ok && rest != "" {
 		return rest, true
 	}
-	if rest, ok := strings.CutPrefix(path, "that."); ok && rest != "" {
-		return rest, true
-	}
 	return path, false
 }

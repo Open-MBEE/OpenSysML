@@ -951,7 +951,11 @@ block owns, or one whose sends, accepts and calls all go through the ports of an
 which acts in v1 on whichever object ran it and takes the parameter for it. A call binds the
 parameter inside the call usage's own body by redefinition: `in ref :>> context = this;` where
 the caller is the block or one of its usages, and `in ref :>> context = Caller::context;`
-where the caller is itself a definition carrying the parameter. A usage the block owns —
+where the caller is itself a definition carrying the parameter. The parameters a call
+usage's body declares redefine the definition's own positionally — `action run : Nudge
+{ in delta = nudge.delta; in ref :>> context = Caller::context; }` binds `delta` because
+it stands where `Nudge` declares `delta` — so the context redefinition goes last, after
+the declared ones. A usage the block owns —
 states, nested actions, entry/do/exit actions, transition guards and effects — sees the
 block's features lexically instead and names them bare (`assign level := value;`), a bare
 `this` value staying `this`. The block is the one whose ports the activity or the behaviors it calls

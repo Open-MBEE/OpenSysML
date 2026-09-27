@@ -50,34 +50,34 @@ package 'Fleet Viewpoints' {
                 expose 'Parts Method';
                 render Views::asInterconnectionDiagram;
             }
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements' {
-                    out result[0..1];
-                }
-                first 'Collect Owned Elements' then 'Filter By Metaclasses';
-                action 'Filter By Metaclasses' {
-                    in input[0..1];
-                }
-                first 'Filter By Metaclasses' then 'Sort By Name';
-                action 'Sort By Name';
-                first 'Sort By Name' then 'Fleet Parts';
-                action 'Fleet Parts' {
-                    first start then Name;
-                    action Name;
-                    first Name then Payload;
-                    action Payload;
-                    first Payload then 'Qualified Name';
-                    action 'Qualified Name';
-                    first 'Qualified Name' then 'Owner Name';
-                    action 'Owner Name';
-                    first 'Owner Name' then Alias;
-                    action Alias;
-                    first Alias then done;
-                }
-                first 'Fleet Parts' then final;
-                action final terminate;
-                flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements' {
+                out result[0..1];
+            }
+            first 'Collect Owned Elements' then 'Filter By Metaclasses';
+            action 'Filter By Metaclasses' {
+                in input[0..1];
+            }
+            first 'Filter By Metaclasses' then 'Sort By Name';
+            action 'Sort By Name';
+            first 'Sort By Name' then 'Fleet Parts';
+            action 'Fleet Parts' {
+                first start then Name;
+                action Name;
+                first Name then Payload;
+                action Payload;
+                first Payload then 'Qualified Name';
+                action 'Qualified Name';
+                first 'Qualified Name' then 'Owner Name';
+                action 'Owner Name';
+                first 'Owner Name' then Alias;
+                action Alias;
+                first Alias then done;
+            }
+            first 'Fleet Parts' then final;
+            action final terminate;
+            flow 'Collect Owned Elements'.result to 'Filter By Metaclasses'.input;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
     }
@@ -86,21 +86,21 @@ package 'Fleet Viewpoints' {
          * method: Fleet Viewpoints::Requirements Viewpoint::Requirements Method
          */
         action def 'Requirements Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Filter By Names';
-                action 'Filter By Names';
-                first 'Filter By Names' then Introduction;
-                action Introduction;
-                first Introduction then 'Requirement List';
-                action 'Requirement List';
-                first 'Requirement List' then 'Requirement Texts';
-                action 'Requirement Texts';
-                first 'Requirement Texts' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then Introduction;
+            action Introduction;
+            first Introduction then 'Requirement List';
+            action 'Requirement List';
+            first 'Requirement List' then 'Requirement Texts';
+            action 'Requirement Texts';
+            first 'Requirement Texts' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     viewpoint 'Safety Viewpoint' {
@@ -108,168 +108,168 @@ package 'Fleet Viewpoints' {
         abstract action def View;
         action 'view' : View;
         action def 'Safety Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Filter By Names';
-                action 'Filter By Names';
-                first 'Filter By Names' then 'Safety Requirements';
-                action 'Safety Requirements' {
-                    first start then Name;
-                    action Name;
-                    first Name then Text;
-                    action Text;
-                    first Text then Owner;
-                    action Owner;
-                }
-                first 'Safety Requirements' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'Safety Requirements';
+            action 'Safety Requirements' {
+                first start then Name;
+                action Name;
+                first Name then Text;
+                action Text;
+                first Text then Owner;
+                action Owner;
+            }
+            first 'Safety Requirements' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
     }
     viewpoint 'Figures Viewpoint' {
         action def 'Figures Method' {
-                first start then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figures Method' : 'Figures Method';
     }
     viewpoint 'Gallery Viewpoint' {
         action def 'Gallery Method' {
-                first start then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'gallery Method' : 'Gallery Method';
     }
     viewpoint 'Selected Figures Viewpoint' {
         action def 'Selected Figures Method' {
-                first start then 'Truck Diagrams';
-                action 'Truck Diagrams';
-                first 'Truck Diagrams' then Sort;
-                action Sort;
-                first Sort then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Truck Diagrams';
+            action 'Truck Diagrams';
+            first 'Truck Diagrams' then Sort;
+            action Sort;
+            first Sort then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'selected Figures Method' : 'Selected Figures Method';
     }
     viewpoint 'Other Figures Viewpoint' {
         action def 'Other Figures Method' {
-                first start then 'Not Truck Diagrams';
-                action 'Not Truck Diagrams';
-                first 'Not Truck Diagrams' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Not Truck Diagrams';
+            action 'Not Truck Diagrams';
+            first 'Not Truck Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Figures Method' : 'Other Figures Method';
     }
     viewpoint 'Figure Owners Viewpoint' {
         action def 'Figure Owners Method' {
-                first start then 'Collect Owners';
-                action 'Collect Owners';
-                first 'Collect Owners' then Sort;
-                action Sort;
-                first Sort then List;
-                action List;
-                first List then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owners';
+            action 'Collect Owners';
+            first 'Collect Owners' then Sort;
+            action Sort;
+            first Sort then List;
+            action List;
+            first List then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'figure Owners Method' : 'Figure Owners Method';
     }
     viewpoint 'No Figures Viewpoint' {
         action def 'No Figures Method' {
-                first start then 'Packages Only';
-                action 'Packages Only';
-                first 'Packages Only' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Packages Only';
+            action 'Packages Only';
+            first 'Packages Only' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Figures Method' : 'No Figures Method';
     }
     viewpoint 'Traceability Viewpoint' {
         action def 'Traceability Method' {
-                first start then 'fork';
-                fork 'fork';
-                first 'fork' then 'Collect Satisfiers';
-                first 'fork' then 'Collect Owned Elements';
-                action 'Collect Satisfiers';
-                first 'Collect Satisfiers' then 'merge';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'merge';
-                merge 'merge';
-                first 'merge' then 'Related Elements';
-                action 'Related Elements';
-                first 'Related Elements' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
+            first start then 'fork';
+            fork 'fork';
+            first 'fork' then 'Collect Satisfiers';
+            first 'fork' then 'Collect Owned Elements';
+            action 'Collect Satisfiers';
+            first 'Collect Satisfiers' then 'merge';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'merge';
+            merge 'merge';
+            first 'merge' then 'Related Elements';
+            action 'Related Elements';
+            first 'Related Elements' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'traceability Method' : 'Traceability Method';
     }
     viewpoint 'Oddities Viewpoint' {
         action def 'Oddities Method' {
-                first start then 'Evaluated Paragraph';
-                action 'Evaluated Paragraph';
-                first 'Evaluated Paragraph' then Image;
-                action Image;
-                first Image then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Collect Types';
-                action 'Collect Types';
-                first 'Collect Types' then 'Type Table';
-                action 'Type Table' {
-                    first start then Name;
-                    action Name;
-                }
-                first 'Type Table' then 'Per Truck';
-                action 'Per Truck' : 'Fleet Viewpoints'::'Oddities Viewpoint'::'Per Truck';
-                first 'Per Truck' then 'Missing Behavior';
-                action 'Missing Behavior' {
-                    /* not migrated: CallBehaviorAction 'Missing Behavior' — 1 behavior reference(s) resolve to nothing in the document (_act_gone); the action calls no behavior */
-                }
-                first 'Missing Behavior' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Evaluated Paragraph';
+            action 'Evaluated Paragraph';
+            first 'Evaluated Paragraph' then Image;
+            action Image;
+            first Image then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Collect Types';
+            action 'Collect Types';
+            first 'Collect Types' then 'Type Table';
+            action 'Type Table' {
+                first start then Name;
+                action Name;
+            }
+            first 'Type Table' then 'Per Truck';
+            action 'Per Truck' : 'Fleet Viewpoints'::'Oddities Viewpoint'::'Per Truck';
+            first 'Per Truck' then 'Missing Behavior';
+            action 'Missing Behavior' {
+                /* not migrated: CallBehaviorAction 'Missing Behavior' — 1 behavior reference(s) resolve to nothing in the document (_act_gone); the action calls no behavior */
+            }
+            first 'Missing Behavior' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         action def 'Per Truck' {
-                first start then Paragraph;
-                action Paragraph;
-                first Paragraph then 'Per Truck Again';
-                action 'Per Truck Again' : 'Per Truck';
-                first 'Per Truck Again' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then Paragraph;
+            action Paragraph;
+            first Paragraph then 'Per Truck Again';
+            action 'Per Truck Again' : 'Per Truck';
+            first 'Per Truck Again' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
             /* applied stereotype «Dynamic_View»: loop = true; title = Per Truck */
         }
         perform action 'oddities Method' : 'Oddities Method';
     }
     viewpoint 'Broken Viewpoint' {
         action def 'Broken Method' {
-                first start then Paragraph;
-                action Paragraph;
-                first Paragraph then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then Paragraph;
+            action Paragraph;
+            first Paragraph then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'broken Method' : 'Broken Method';
     }
     viewpoint 'Severed Viewpoint' {
         action def 'Severed Method' {
-                first start then Paragraph;
-                action Paragraph;
+            first start then Paragraph;
+            action Paragraph;
         }
         perform action 'severed Method' : 'Severed Method';
     }

@@ -7,12 +7,13 @@ package SendUntypedPort {
 		port tx;
 
 		action def Fire {
+			in ref context : Sender;
 			first start;
-			then action go send new Go() via that.tx;
+			then action go send new Go() via context.tx;
 			then done;
 		}
 
-		perform action fire : Fire;
+		perform action fire : Fire { in ref :>> context = this; }
 	}
 
 	part def Receiver {

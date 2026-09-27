@@ -3,33 +3,25 @@ start: exhibited state machine counting of #1
 materialize: counting #2
 enter: alpha (entry action)
 stmt action body
-  stmt assign that.count
-        eval feature that -> instance#1
-      eval chain count -> 0
+  stmt assign count
+      eval feature count -> 0
       eval literal 1 -> 1
     eval operator + -> 1
-    eval feature that -> instance#1
-  stmt assign that.trail
-        eval feature that -> instance#1
+  stmt assign trail
         eval literal "" -> ""
-      eval chain trail -> ""
+      eval feature trail -> ""
       eval literal "f" -> "f"
     eval operator + -> "f"
-    eval feature that -> instance#1
 run: exhibited state machine counting of #1
 exit: alpha
 enter: beta (entry action)
 stmt action body
-  stmt assign that.count
-        eval feature that -> instance#1
-      eval chain count -> 1
+  stmt assign count
+      eval feature count -> 1
       eval literal 1 -> 1
     eval operator + -> 2
-    eval feature that -> instance#1
-  stmt assign that.trail
-        eval feature that -> instance#1
-      eval chain trail -> "f"
+  stmt assign trail
+      eval feature trail -> "f"
       eval literal "s" -> "s"
     eval operator + -> "fs"
-    eval feature that -> instance#1
 transition: alpha -> beta

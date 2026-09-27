@@ -4,19 +4,19 @@ part def Timer {
     attribute p : ScalarValues::Real default = 0.5;
     action def Tick {
         in ref context : Timer;
-            first start then three;
-            action three {
-                out result = 3.0;
-            }
-            first three then 'set t';
-            action 'set t' {
-                in value;
-                assign context.t := value;
-            }
-            first 'set t' then final;
-            action final terminate;
-            flow three.result to 'set t'.value;
-            metadata MigrationMetadata::SynthesizedName about final;
+        first start then three;
+        action three {
+            out result = 3.0;
+        }
+        first three then 'set t';
+        action 'set t' {
+            in value;
+            assign context.t := value;
+        }
+        first 'set t' then final;
+        action final terminate;
+        flow three.result to 'set t'.value;
+        metadata MigrationMetadata::SynthesizedName about final;
     }
     perform action tick : Tick { in ref :>> context = this; }
 }

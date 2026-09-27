@@ -22,20 +22,20 @@ package Structure {
             }
             in target : ScalarValues::Real;
             in ref context : Vehicle;
-                succession 'start to gain' first start then gain;
-                action gain {
-                    out result = 2.5;
-                }
-                first gain then 'set speed';
-                action 'set speed' {
-                    in value;
-                    assign context.speed := value;
-                }
-                succession finish first 'set speed' then final;
-                action final terminate;
-                flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
-                binding 'set speed.value = target' bind 'set speed'.value = target;
-                metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
+            succession 'start to gain' first start then gain;
+            action gain {
+                out result = 2.5;
+            }
+            first gain then 'set speed';
+            action 'set speed' {
+                in value;
+                assign context.speed := value;
+            }
+            succession finish first 'set speed' then final;
+            action final terminate;
+            flow 'gain.result to set speed.value' from gain.result to 'set speed'.value;
+            binding 'set speed.value = target' bind 'set speed'.value = target;
+            metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
         }
         satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
         satisfy requirement : Requirements::'Speed Limit';
@@ -83,22 +83,22 @@ package Behavior {
             expose Behavior::Modes;
             render Views::asInterconnectionDiagram;
         }
-            entry; then Idle;
-            state Idle;
-            state Running {
-                do action spin {
-                    /* body not migrated (the statement "keep turning" is not an assignment of a v2 expression (language English)) {English}:
-                     * keep turning
-                     */
-                }
+        entry; then Idle;
+        state Idle;
+        state Running {
+            do action spin {
+                /* body not migrated (the statement "keep turning" is not an assignment of a v2 expression (language English)) {English}:
+                 * keep turning
+                 */
             }
-            state Halted;
-            transition 'Idle accept Go then Running' first Idle accept Go then Running;
-            transition halt first Running accept Stop then Halted;
-            transition first Halted then Idle;
-            transition 'Halted accept Go then Running' first Halted accept Go then Running;
-            transition 'Halted accept Resume then Running' first Halted accept Resume then Running;
-            metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Running', 'Halted accept Go then Running', 'Halted accept Resume then Running';
+        }
+        state Halted;
+        transition 'Idle accept Go then Running' first Idle accept Go then Running;
+        transition halt first Running accept Stop then Halted;
+        transition first Halted then Idle;
+        transition 'Halted accept Go then Running' first Halted accept Go then Running;
+        transition 'Halted accept Resume then Running' first Halted accept Resume then Running;
+        metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Running', 'Halted accept Go then Running', 'Halted accept Resume then Running';
     }
 }
 package Requirements {

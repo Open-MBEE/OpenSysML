@@ -31,15 +31,15 @@ package Structure {
                 expose Crank;
                 render Views::asInterconnectionDiagram;
             }
-                succession 'start to ignite' first start then ignite;
-                action ignite {
-                    /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
-                     * ignited = true;
-                     */
-                }
-                succession 'ignite to final' first ignite then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about 'start to ignite', 'ignite to final', final;
+            succession 'start to ignite' first start then ignite;
+            action ignite {
+                /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Cranking::ignite is called ignited) {JavaScript}:
+                 * ignited = true;
+                 */
+            }
+            succession 'ignite to final' first ignite then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'start to ignite', 'ignite to final', final;
         }
         action crank : Crank;
         action def Halt {
@@ -48,9 +48,9 @@ package Structure {
                 expose Engine;
                 render Views::asTextualNotation;
             }
-                /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
-                 * ignited = false;
-                 */
+            /* body not migrated (the name "ignited" resolves to nothing readable: nothing visible from Structure::Engine::Halt is called ignited) {JavaScript}:
+             * ignited = false;
+             */
         }
         action halt : Halt;
         metadata MigrationMetadata::SynthesizedName about wheel;
@@ -88,26 +88,26 @@ package Behavior {
             expose Drive;
             render Views::asInterconnectionDiagram;
         }
-            succession 'start to start engine' first start then 'start engine';
-            action 'start engine' {
-                /* body not migrated (the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running) {JavaScript}:
-                 * running = true;
-                 */
-            }
-            succession 'start engine to final' first 'start engine' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about 'start to start engine', 'start engine to final', final;
+        succession 'start to start engine' first start then 'start engine';
+        action 'start engine' {
+            /* body not migrated (the name "running" resolves to nothing readable: nothing visible from Behavior::Drive::start engine is called running) {JavaScript}:
+             * running = true;
+             */
+        }
+        succession 'start engine to final' first 'start engine' then final;
+        action final terminate;
+        metadata MigrationMetadata::SynthesizedName about 'start to start engine', 'start engine to final', final;
     }
     state def Modes {
         view 'Idle 2' : StandardViewDefinitions::StateTransitionView {
             expose Modes;
             render Views::asInterconnectionDiagram;
         }
-            entry; then Idle;
-            state Idle;
-            state Running;
-            transition 'Idle then Running' first Idle then Running;
-            metadata MigrationMetadata::SynthesizedName about 'Idle then Running';
+        entry; then Idle;
+        state Idle;
+        state Running;
+        transition 'Idle then Running' first Idle then Running;
+        metadata MigrationMetadata::SynthesizedName about 'Idle then Running';
     }
 }
 package Usage {

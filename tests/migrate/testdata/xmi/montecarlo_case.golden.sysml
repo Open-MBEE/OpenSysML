@@ -6,21 +6,21 @@ part def Sensor {
     attribute misses : ScalarValues::Integer;
     action def Settle {
         in ref context : Sensor;
-            first start then 'start timer';
-            action 'start timer' {
-                assign context.settleTime := localClock.currentTime;
-            }
-            first 'start timer' then wait;
-            action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];
-            first wait then settle;
-            action settle;
-            first settle then 'stop timer';
-            action 'stop timer' {
-                assign context.settleTime := localClock.currentTime - context.settleTime;
-            }
-            first 'stop timer' then final;
-            action final terminate;
-            metadata MigrationMetadata::SynthesizedName about wait, final;
+        first start then 'start timer';
+        action 'start timer' {
+            assign context.settleTime := localClock.currentTime;
+        }
+        first 'start timer' then wait;
+        action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];
+        first wait then settle;
+        action settle;
+        first settle then 'stop timer';
+        action 'stop timer' {
+            assign context.settleTime := localClock.currentTime - context.settleTime;
+        }
+        first 'stop timer' then final;
+        action final terminate;
+        metadata MigrationMetadata::SynthesizedName about wait, final;
     }
     perform action settle : Settle { in ref :>> context = this; }
 }

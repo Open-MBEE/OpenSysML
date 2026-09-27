@@ -35,7 +35,7 @@ package AcceptViaBoundContext {
 		join meet;
 		first meet then keep;
 		action keep {
-			assign ack := msg;
+			assign ack := heard.msg;
 		}
 		first keep then done;
 	}
@@ -44,14 +44,14 @@ package AcceptViaBoundContext {
 		ref item lastAck : Ack[0..1];
 
 		state def Life {
+			in ref context : Commander;
 			entry; then idle;
 			state idle;
 			transition first idle accept Go then commanding;
 			state commanding {
 				do action run {
 					first start then call;
-					action call : Handshake;
-					bind call.context = that;
+					action call : Handshake { in ref :>> context = Life::context; }
 					first call then keep;
 					action keep {
 						assign lastAck := call.ack;
@@ -63,7 +63,7 @@ package AcceptViaBoundContext {
 			transition first commanding then ready;
 		}
 
-		exhibit state life : Life;
+		exhibit state life : Life { in ref :>> context = this; }
 	}
 
 	part def Box {

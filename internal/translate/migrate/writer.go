@@ -175,6 +175,15 @@ func (w *writer) capture(body func()) string {
 	return inner
 }
 
+// captureAt renders what body writes at the current indent, without writing
+// it: for a body continued on lines already inside the braces.
+func (w *writer) captureAt(body func()) string {
+	w.buf()
+	w.bufs = append(w.bufs, &buffer{})
+	body()
+	return w.close()
+}
+
 // indented writes body one level deeper, for a clause continued on the next lines.
 func (w *writer) indented(body func()) {
 	w.indent++

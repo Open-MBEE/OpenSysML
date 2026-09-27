@@ -46,126 +46,126 @@ package Spares {
 package 'Depot Viewpoints' {
     viewpoint 'Critical Items Viewpoint' {
         action def 'Critical Items Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Critical Items';
-                action 'Critical Items' {
-                    first start then Name;
-                    action Name;
-                }
-                first 'Critical Items' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Critical Items';
+            action 'Critical Items' {
+                first start then Name;
+                action Name;
+            }
+            first 'Critical Items' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Items Method' : 'Critical Items Method';
     }
     viewpoint 'Exact Critical Layouts Viewpoint' {
         action def 'Exact Critical Layouts Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
-                action 'Collect Owned Elements 2';
-                first 'Collect Owned Elements 2' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
+            action 'Collect Owned Elements 2';
+            first 'Collect Owned Elements 2' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'exact Critical Layouts Method' : 'Exact Critical Layouts Method';
     }
     viewpoint 'Critical Figures Viewpoint' {
         action def 'Critical Figures Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Figures Method' : 'Critical Figures Method';
     }
     viewpoint 'Uncritical Figures Viewpoint' {
         action def 'Uncritical Figures Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'uncritical Figures Method' : 'Uncritical Figures Method';
     }
     viewpoint 'Critical Layouts Viewpoint' {
         action def 'Critical Layouts Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
-                action 'Collect Owned Elements 2';
-                first 'Collect Owned Elements 2' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
+            action 'Collect Owned Elements 2';
+            first 'Collect Owned Elements 2' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'critical Layouts Method' : 'Critical Layouts Method';
     }
     viewpoint 'Satisfier Figures Viewpoint' {
         action def 'Satisfier Figures Method' {
-                first start then 'Collect Satisfiers';
-                action 'Collect Satisfiers';
-                first 'Collect Satisfiers' then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Satisfiers';
+            action 'Collect Satisfiers';
+            first 'Collect Satisfiers' then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Figures Method' : 'Satisfier Figures Method';
     }
     viewpoint 'Satisfier Layouts Viewpoint' {
         action def 'Satisfier Layouts Method' {
-                first start then 'Collect Satisfiers';
-                action 'Collect Satisfiers';
-                first 'Collect Satisfiers' then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Satisfiers';
+            action 'Collect Satisfiers';
+            first 'Collect Satisfiers' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'satisfier Layouts Method' : 'Satisfier Layouts Method';
     }
     viewpoint 'Owned Figures Viewpoint' {
         action def 'Owned Figures Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
-                action 'Collect Owned Elements 2';
-                first 'Collect Owned Elements 2' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Collect Owned Elements 2';
+            action 'Collect Owned Elements 2';
+            first 'Collect Owned Elements 2' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owned Figures Method' : 'Owned Figures Method';
     }

@@ -614,7 +614,7 @@ func (m *migration) contextParameter(b *sysmlv1.Element) {
 // the context parameter the body's reads and the calls passing the object on
 // settled: it is evaluated by the time the parameter is decided.
 func (m *migration) bodyWithContext(e *sysmlv1.Element, body func()) {
-	inner := m.w.capture(body)
+	inner := m.w.captureAt(body)
 	if c := m.contextOf(e); c != nil {
 		c.evaluated = true
 	}

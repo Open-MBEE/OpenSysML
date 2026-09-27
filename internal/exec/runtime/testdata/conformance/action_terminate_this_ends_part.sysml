@@ -1,4 +1,4 @@
-// `terminate that;` in an action a part performs ends the part (SysML v2 §7.17.10):
+// `terminate this;` in an action a part performs ends the part (SysML v2 §7.17.10):
 // the action's own performance ends at that statement with the writes made so far,
 // and so does every other behavior the part performs — the machine it exhibits is
 // terminated where it stands, its do behavior abandoned, no state exited.
@@ -28,9 +28,9 @@ package test {
 
 		perform action selfDestruct {
 			action step {
-				assign that.seen := 1;
-				terminate that;
-				assign that.seen := 2;
+				assign seen := 1;
+				terminate this;
+				assign seen := 2;
 			}
 			first step;
 		}

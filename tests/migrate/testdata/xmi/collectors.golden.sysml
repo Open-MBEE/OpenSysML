@@ -93,339 +93,339 @@ package Drafts {
 package 'Yard Viewpoints' {
     viewpoint 'Block Diagrams Viewpoint' {
         action def 'Block Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'block Diagrams Method' : 'Block Diagrams Method';
     }
     viewpoint 'All Diagrams Viewpoint' {
         action def 'All Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'all Diagrams Method' : 'All Diagrams Method';
     }
     viewpoint 'No Diagrams Viewpoint' {
         action def 'No Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'no Diagrams Method' : 'No Diagrams Method';
     }
     viewpoint 'Sketched Diagrams Viewpoint' {
         action def 'Sketched Diagrams Method' {
-                first start then 'fork';
-                fork 'fork';
-                first 'fork' then 'Filter By Names';
-                first 'fork' then 'Filter By Diagram Type';
-                action 'Filter By Names';
-                first 'Filter By Names' then 'merge';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then 'merge';
-                merge 'merge';
-                first 'merge' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
+            first start then 'fork';
+            fork 'fork';
+            first 'fork' then 'Filter By Names';
+            first 'fork' then 'Filter By Diagram Type';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'merge';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then 'merge';
+            merge 'merge';
+            first 'merge' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'sketched Diagrams Method' : 'Sketched Diagrams Method';
     }
     viewpoint 'Retargeted Diagrams Viewpoint' {
         action def 'Retargeted Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then 'fork';
-                fork 'fork';
-                first 'fork' then 'Filter By Names';
-                first 'fork' then 'Sort By Name';
-                action 'Filter By Names';
-                first 'Filter By Names' then 'merge';
-                action 'Sort By Name';
-                first 'Sort By Name' then 'merge';
-                merge 'merge';
-                first 'merge' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then 'fork';
+            fork 'fork';
+            first 'fork' then 'Filter By Names';
+            first 'fork' then 'Sort By Name';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'merge';
+            action 'Sort By Name';
+            first 'Sort By Name' then 'merge';
+            merge 'merge';
+            first 'merge' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about 'fork', 'merge', final;
         }
         perform action 'retargeted Diagrams Method' : 'Retargeted Diagrams Method';
     }
     viewpoint 'Kin Diagrams Viewpoint' {
         action def 'Kin Diagrams Method' {
-                first start then 'Collect Owners';
-                action 'Collect Owners';
-                first 'Collect Owners' then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owners';
+            action 'Collect Owners';
+            first 'Collect Owners' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'kin Diagrams Method' : 'Kin Diagrams Method';
     }
     viewpoint 'Other Diagrams Viewpoint' {
         action def 'Other Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'other Diagrams Method' : 'Other Diagrams Method';
     }
     viewpoint 'Internal Diagrams Viewpoint' {
         action def 'Internal Diagrams Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'internal Diagrams Method' : 'Internal Diagrams Method';
     }
     viewpoint 'Parametric Diagrams Viewpoint' {
         action def 'Parametric Diagrams Method' {
-                first start then 'Filter By Diagram Type';
-                action 'Filter By Diagram Type';
-                first 'Filter By Diagram Type' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Filter By Diagram Type';
+            action 'Filter By Diagram Type';
+            first 'Filter By Diagram Type' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parametric Diagrams Method' : 'Parametric Diagrams Method';
     }
     viewpoint 'Shown Viewpoint' {
         action def 'Shown Method' {
-                first start then 'Collect Things On Diagram';
-                action 'Collect Things On Diagram';
-                first 'Collect Things On Diagram' then 'Sort By Name';
-                action 'Sort By Name';
-                first 'Sort By Name' then 'Shown Blocks';
-                action 'Shown Blocks' {
-                    first start then Name;
-                    action Name;
-                    first Name then Documentation;
-                    action Documentation;
-                }
-                first 'Shown Blocks' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Things On Diagram';
+            action 'Collect Things On Diagram';
+            first 'Collect Things On Diagram' then 'Sort By Name';
+            action 'Sort By Name';
+            first 'Sort By Name' then 'Shown Blocks';
+            action 'Shown Blocks' {
+                first start then Name;
+                action Name;
+                first Name then Documentation;
+                action Documentation;
+            }
+            first 'Shown Blocks' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Method' : 'Shown Method';
     }
     viewpoint 'Shown Everywhere Viewpoint' {
         action def 'Shown Everywhere Method' {
-                first start then 'Collect Things On Diagram';
-                action 'Collect Things On Diagram';
-                first 'Collect Things On Diagram' then 'Shown Everywhere';
-                action 'Shown Everywhere' {
-                    first start then Name;
-                    action Name;
-                }
-                first 'Shown Everywhere' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Things On Diagram';
+            action 'Collect Things On Diagram';
+            first 'Collect Things On Diagram' then 'Shown Everywhere';
+            action 'Shown Everywhere' {
+                first start then Name;
+                action Name;
+            }
+            first 'Shown Everywhere' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shown Everywhere Method' : 'Shown Everywhere Method';
     }
     viewpoint 'Drive Parts Viewpoint' {
         action def 'Drive Parts Method' {
-                first start then 'Collect By Association';
-                action 'Collect By Association';
-                first 'Collect By Association' then 'Drive Parts';
-                action 'Drive Parts';
-                first 'Drive Parts' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect By Association';
+            action 'Collect By Association';
+            first 'Collect By Association' then 'Drive Parts';
+            action 'Drive Parts';
+            first 'Drive Parts' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'drive Parts Method' : 'Drive Parts Method';
     }
     viewpoint 'Parts Viewpoint' {
         action def 'Parts Method' {
-                first start then 'Collect By Association';
-                action 'Collect By Association';
-                first 'Collect By Association' then Parts;
-                action Parts;
-                first Parts then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect By Association';
+            action 'Collect By Association';
+            first 'Collect By Association' then Parts;
+            action Parts;
+            first Parts then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'parts Method' : 'Parts Method';
     }
     viewpoint 'Direct Parts Viewpoint' {
         action def 'Direct Parts Method' {
-                first start then 'Collect By Association';
-                action 'Collect By Association';
-                first 'Collect By Association' then 'Direct Parts';
-                action 'Direct Parts';
-                first 'Direct Parts' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect By Association';
+            action 'Collect By Association';
+            first 'Collect By Association' then 'Direct Parts';
+            action 'Direct Parts';
+            first 'Direct Parts' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'direct Parts Method' : 'Direct Parts Method';
     }
     viewpoint 'Shared Parts Viewpoint' {
         action def 'Shared Parts Method' {
-                first start then 'Collect By Association';
-                action 'Collect By Association';
-                first 'Collect By Association' then 'Shared Parts';
-                action 'Shared Parts';
-                first 'Shared Parts' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect By Association';
+            action 'Collect By Association';
+            first 'Collect By Association' then 'Shared Parts';
+            action 'Shared Parts';
+            first 'Shared Parts' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'shared Parts Method' : 'Shared Parts Method';
     }
     viewpoint 'To Do Viewpoint' {
         action def 'To Do Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'To Do Items';
-                action 'To Do Items' {
-                    first start then Name;
-                    action Name;
-                }
-                first 'To Do Items' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'To Do Items';
+            action 'To Do Items' {
+                first start then Name;
+                action Name;
+            }
+            first 'To Do Items' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'to Do Method' : 'To Do Method';
     }
     viewpoint 'Documented Diagrams Viewpoint' {
         action def 'Documented Diagrams Method' {
-                first start then 'Sort By Documentation';
-                action 'Sort By Documentation';
-                first 'Sort By Documentation' then 'Documented Owners';
-                action 'Documented Owners';
-                first 'Documented Owners' then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then 'Documented Owners';
+            action 'Documented Owners';
+            first 'Documented Owners' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'documented Diagrams Method' : 'Documented Diagrams Method';
     }
     viewpoint 'Reverse Documented Diagrams Viewpoint' {
         action def 'Reverse Documented Diagrams Method' {
-                first start then 'Sort By Documentation';
-                action 'Sort By Documentation';
-                first 'Sort By Documentation' then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'reverse Documented Diagrams Method' : 'Reverse Documented Diagrams Method';
     }
     viewpoint 'Diagrams By Documentation Viewpoint' {
         action def 'Diagrams By Documentation Method' {
-                first start then 'Sort By Documentation';
-                action 'Sort By Documentation';
-                first 'Sort By Documentation' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Sort By Documentation';
+            action 'Sort By Documentation';
+            first 'Sort By Documentation' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'diagrams By Documentation Method' : 'Diagrams By Documentation Method';
     }
     viewpoint 'Unnamed Drafts Viewpoint' {
         action def 'Unnamed Drafts Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Names';
-                action 'Filter By Names';
-                first 'Filter By Names' then 'Bulleted List';
-                action 'Bulleted List';
-                first 'Bulleted List' then 'Collect Owned Diagrams';
-                action 'Collect Owned Diagrams';
-                first 'Collect Owned Diagrams' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'Bulleted List';
+            action 'Bulleted List';
+            first 'Bulleted List' then 'Collect Owned Diagrams';
+            action 'Collect Owned Diagrams';
+            first 'Collect Owned Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'unnamed Drafts Method' : 'Unnamed Drafts Method';
     }
     viewpoint 'Optional Drafts Viewpoint' {
         action def 'Optional Drafts Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Names';
-                action 'Filter By Names';
-                first 'Filter By Names' then 'Bulleted List';
-                action 'Bulleted List';
-                first 'Bulleted List' then 'Collect Owned Diagrams';
-                action 'Collect Owned Diagrams';
-                first 'Collect Owned Diagrams' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Names';
+            action 'Filter By Names';
+            first 'Filter By Names' then 'Bulleted List';
+            action 'Bulleted List';
+            first 'Bulleted List' then 'Collect Owned Diagrams';
+            action 'Collect Owned Diagrams';
+            first 'Collect Owned Diagrams' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'optional Drafts Method' : 'Optional Drafts Method';
     }
     viewpoint 'Owner Sorted Diagrams Viewpoint' {
         action def 'Owner Sorted Diagrams Method' {
-                first start then 'Sort By Owner';
-                action 'Sort By Owner';
-                first 'Sort By Owner' then Image;
-                action Image;
-                first Image then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Sort By Owner';
+            action 'Sort By Owner';
+            first 'Sort By Owner' then Image;
+            action Image;
+            first Image then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'owner Sorted Diagrams Method' : 'Owner Sorted Diagrams Method';
     }
     viewpoint 'Specification Viewpoint' {
         action def 'Specification Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements';
-                first 'Collect Owned Elements' then 'Filter By Stereotypes';
-                action 'Filter By Stereotypes';
-                first 'Filter By Stereotypes' then 'Requirements Specification Table';
-                action 'Requirements Specification Table' {
-                    first start then ID;
-                    action ID;
-                    first ID then Name;
-                    action Name;
-                    first Name then 'Requirement Text';
-                    action 'Requirement Text';
-                }
-                first 'Requirements Specification Table' then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements';
+            first 'Collect Owned Elements' then 'Filter By Stereotypes';
+            action 'Filter By Stereotypes';
+            first 'Filter By Stereotypes' then 'Requirements Specification Table';
+            action 'Requirements Specification Table' {
+                first start then ID;
+                action ID;
+                first ID then Name;
+                action Name;
+                first Name then 'Requirement Text';
+                action 'Requirement Text';
+            }
+            first 'Requirements Specification Table' then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'specification Method' : 'Specification Method';
     }

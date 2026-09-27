@@ -25,21 +25,21 @@ package Viewpoints {
     viewpoint 'Statistics Viewpoint' {
         doc /* List the statistics. */
         action def 'Statistics Method' {
-                first start then 'Collect Owned Elements';
-                action 'Collect Owned Elements' {
-                    out result[0..1];
-                }
-                first 'Collect Owned Elements' then Statistics;
-                action Statistics {
-                    first start then Name;
-                    action Name;
-                    first Name then Mean;
-                    action Mean;
-                    first Mean then done;
-                }
-                first Statistics then final;
-                action final terminate;
-                metadata MigrationMetadata::SynthesizedName about final;
+            first start then 'Collect Owned Elements';
+            action 'Collect Owned Elements' {
+                out result[0..1];
+            }
+            first 'Collect Owned Elements' then Statistics;
+            action Statistics {
+                first start then Name;
+                action Name;
+                first Name then Mean;
+                action Mean;
+                first Mean then done;
+            }
+            first Statistics then final;
+            action final terminate;
+            metadata MigrationMetadata::SynthesizedName about final;
         }
         perform action 'statistics Method' : 'Statistics Method';
     }
