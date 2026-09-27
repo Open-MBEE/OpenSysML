@@ -135,7 +135,7 @@ type closure struct {
 // objectDef is a classifier objects are created of, spelled as a part
 // definition: a class, or an activity instantiated as an object, which runs
 // itself when started. A behavior it owns is spelled inside it, so that the
-// behavior's `this` is the object performing it.
+// behavior's `context` parameter is the object performing it.
 type objectDef struct {
 	name       string
 	generals   []TypeRef
@@ -237,7 +237,7 @@ const (
 func closureOf(a *Activity) (*closure, error) {
 	if a.Owner != nil {
 		return nil, &TranslateError{a.Name, "activity", "an owned behavior of " + a.Owner.Name +
-			" performs only as the behavior of an object of it; on its own it has no object to be this"}
+			" performs only as the behavior of an object of it; on its own it has no object to be its context"}
 	}
 	cl := &closure{root: a, m: a.Model, instantiated: map[*Activity]bool{}, owner: map[*Activity]*objectDef{}}
 	if err := cl.behaviors(); err != nil {
@@ -597,9 +597,9 @@ func (cl *closure) emitSignal(sg *Signal) (string, error) {
 // emitObject spells a classifier as a part definition: an object of it is an
 // occurrence with structural features, created and then written to. Its generals
 // are its supertypes, its attributes keep their multiplicity exactly. A behavior
-// it owns is an action definition nested in it, so `this` in the behavior is the
-// object performing it; the classifier behavior is bound by a usage of that
-// definition, which a start performs and creation leaves alone.
+// it owns is an action definition nested in it, whose `context` parameter the
+// object performing it binds; the classifier behavior is bound by a usage of
+// that definition, which a start performs and creation leaves alone.
 func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*Parameter]string) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "\tpart def %s", quote(o.name))
@@ -626,7 +626,7 @@ func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*
 		b.WriteString(text)
 	}
 	if o.classifier != nil {
-		fmt.Fprintf(&b, "\t\taction %s : %s;\n", startMember, quote(o.behaviorName(o.classifier)))
+		fmt.Fprintf(&b, "\t\taction %s : %s { in ref :>> context = this; }\n", startMember, quote(o.behaviorName(o.classifier)))
 	}
 	b.WriteString("\t}\n")
 	return b.String(), nil
@@ -918,6 +918,11 @@ func (cl *closure) emitActivity(a *Activity, owner *objectDef, indent string, na
 			}
 			decls = append(decls, decl)
 		}
+	} else {
+		// A definition nested in a part definition is its own occurrence: `this`
+		// is the performance, not the object, so the object performing the
+		// behavior arrives as a parameter, bound by the usage that starts it.
+		decls = append(decls, "in ref context : "+quote(owner.name)+";")
 	}
 	name := a.Name
 	if owner != nil {
@@ -1337,8 +1342,8 @@ func (s *scope) createNode(n *Node) error {
 	return nil
 }
 
-// selfNode spells a read self action as `this`, the object whose behavior the
-// activity is spelled inside; performed on its own, self is no object.
+// selfNode spells a read self action as `context`, the object whose behavior
+// the activity is spelled inside; performed on its own, self is no object.
 func (s *scope) selfNode(n *Node) error {
 	e := s.e
 	outs := n.Outputs()
@@ -1352,7 +1357,7 @@ func (s *scope) selfNode(n *Node) error {
 	name := s.names.name(nodeName(n))
 	s.pins[outs[0]] = "result"
 	s.add(&snode{name: name, kind: kindAction, node: n,
-		decl: fmt.Sprintf("action %s { out result : %s = this; }", quote(name), quote(o.name))})
+		decl: fmt.Sprintf("action %s { out result : %s = context; }", quote(name), quote(o.name))})
 	return nil
 }
 
