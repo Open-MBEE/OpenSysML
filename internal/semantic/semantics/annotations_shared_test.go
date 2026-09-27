@@ -23,7 +23,7 @@ const sharedAnnotationsSrc = `
 // map memoized per type, not a copy merged into each annotation.
 func TestAnnotationsOfOneTypeShareItsDefaults(t *testing.T) {
 	m, root := buildModel(t, sharedAnnotationsSrc)
-	var defaults []map[string]symbols.FilterValue
+	var defaults []map[string][]symbols.FilterValue
 	for _, name := range []string{"a", "b", "c", "d"} {
 		annots := m.annotationsOf(sym(t, root, name))
 		if len(annots) != 1 {

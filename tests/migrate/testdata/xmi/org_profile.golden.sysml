@@ -51,7 +51,7 @@ package 'Pump System' {
         @'Org Profile'::'Org Requirement' {
             Rationale = "Sized for the peak load.";
             criticality = 'Org Profile'::Criticality::high;
-            owner = Acme;
+            owner = Acme meta SysML::PartDefinition;
             weight = 2.0;
         }
     }
@@ -87,7 +87,7 @@ package 'Pump System' {
         }
         @'Org Profile'::'Org Block' {
             partNumber = "P-100";
-            supplier = Acme;
+            supplier = Acme meta SysML::PartDefinition;
         }
         @Review::Reviewed {
             approved = true;

@@ -70,8 +70,9 @@ returned over the service yet.
   tool-internal state, a Papyrus `.notation` file — are skipped; the report says so once per
   skipped profile or library package. A package is library content
   when it is a standard or tool profile (a user profile is written, see
-  [Profiles and stereotypes](#profiles-and-stereotypes)), is marked «ModelLibrary» or
-  «auxiliaryResource», or is a document root
+  [Profiles and stereotypes](#profiles-and-stereotypes), however the tool marks it — one marked
+  «auxiliaryResource» still holds the stereotypes whose applications carry the user's data), is
+  marked «ModelLibrary» or «auxiliaryResource», or is a document root
   beside the user's Model or package bearing a standard library name; a user package named
   `SysML` or `Libraries` inside the model, or standing alone as the document's only root, is
   migrated like any other.
@@ -155,7 +156,8 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
+| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named, in the body whose features both ends are: a package's, or a `part def`'s, whose `allocate` reaches its attributes, ports and parts and the actions of its `perform action` (`allocate sampling.measure to probe;`), a nested one by dot notation; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two | mapped |
+| «Allocate» between a definition and a usage, or with an end no `allocate` reaches — a node of an `action def` (`Ctl::Run::measure`), or of a composite `action` usage of a part, which is a constant feature where the part's `allocate` is a variable one | `dependency a to b` (`dependency name from a to b` when named) in the package, an «Allocate» being an `allocation` in the report | approximated — the note says why no `allocate` could be written |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
@@ -163,7 +165,7 @@ returned over the service yet.
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
 | User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
-| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name, HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
+| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold, and an activity written as its block's action usage likewise, `runs = Ctl::run meta SysML::ActionUsage;` — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
 | Stereotype applied from a profile the document does not define (a used project not in the archive, an unknown namespace) | preserved as `/* applied stereotype «Name»: tag = value */`; the report names the namespace | mapped, noted |
 | MagicDraw's property-kind markers — «ValueProperty», «PartProperty», «SharedProperty», «ReferenceProperty», «ConstraintProperty» on a UML Property, and «ConstraintParameter» on a constraint block's parameter — recognised by the provenance of their profile (`magicdraw.com` or `nomagic.com`, under `/spec/Customization/`), carrying no tag, on a property whose usage keyword (`attribute`, `part`, `ref part`, `constraint`, `in …`) already says the kind | nothing: the declaration stays one line. A same-named stereotype from any other profile, a marker carrying a tag, or one on a property written as another kind (a «ValueProperty» on a block-typed part) is kept as above | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
@@ -195,6 +197,7 @@ returned over the service yet.
 | «Viewpoint» Class | package-level `viewpoint <Name>` usage: `purpose`, `language`, `method` and `presentation` tags in a `doc`; each `stakeholder` tag a `stakeholder x : <Stakeholder>` usage; each `concern` tag and each `concernList` comment a `frame concern { doc /* … */ }`; a stakeholder or concern id that is not in the document is named in the report | mapped / approximated |
 | «Stakeholder» Class | `part def`; the OMG standard library bundled here defines no `Stakeholder` base definition, so nothing is specialized; the `concern` tag stays a comment | approximated |
 | Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
+| Activity a block owns whose body reads or writes a feature of the block — an attribute, port or part, a «Probability» property, a port a signal arrives at, an operation of a part it calls, or another such activity — where every call of it reaches a usage of the block | an `action` usage of the `part def` carrying the body, named as a usage (`Run` → `run`), so the body runs on the object and reaches its features, which a definition nested in the block cannot; the classifier behavior `perform action run { … }`; a call from another behavior of the block `perform action x ::> run;` (`::> part.run` from a swimlane's part), a reception's method `perform action run ::> 'apply Level' { in value = receive.setLevel.value; }`; the report names the usage (see [Behaviors](#behaviors)) | mapped |
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
@@ -235,12 +238,12 @@ returned over the service yet.
 | State, composite State, Region | `state`; the regions of an orthogonal state are sub-states of a `parallel` state | mapped |
 | State with `submachine` | `state s : SubMachineDef;` — the referenced state machine's own `state def`, not inlined | mapped |
 | Pseudostate initial, FinalState | `entry; then s;`, `done` | mapped |
-| Pseudostate choice, junction | `junction x;` / `choice x;` — a transient node the guarded transitions leave at once | mapped |
+| Pseudostate choice, junction | `junction x;` / `choice x;` — a transient node the guarded transitions leave at once | mapped; under `-strict`, refused as unmapped: `junction <name>;` / `choice <name>;` is an OpenSysML extension |
 | Pseudostate fork, join | `fork x;` / `join x;` — the transitions out of a fork enter the states of several regions of a `parallel` state, those into a join leave them | mapped |
-| Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped |
+| Pseudostate shallowHistory, deepHistory | `history x;` / `deep history x;` in the composite state; a transition targeting it re-enters the substate (the innermost substates) active when the state was last left, the history's own outgoing transition being its default | mapped; under `-strict`, refused as unmapped: `history <name>;` / `deep history <name>;` is an OpenSysML extension |
 | Pseudostate entryPoint, exitPoint on a state machine | a `state` of the submachine's `state def`; a transition into an entry point continues by the entry point's own transition, a transition out of an exit point leaves the submachine state | mapped |
-| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work::x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped |
-| Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work::x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped |
+| Pseudostate entryPoint on a composite State (`State.connectionPoint`) | `junction x;` of the state, a transition into it written `then Work::x` by path; the runtime runs the state's entry behavior, then the junction's outgoing transition, then the target's entries, in one run-to-completion step. One whose outgoing transitions each start a different orthogonal region is `fork x;`; one no transition leaves is the state's default entry, and the transition is written to the state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the fork and default-entry forms are standard and stay) |
+| Pseudostate exitPoint on a composite State | `junction x;` of the state, a transition out of it written `first Work::x` by path; the runtime runs the transition into it (its source's exits, its effect), the state's exit behavior, then the outgoing transition. One reached from several orthogonal regions is `join x;`, left through when every region's transition has fired. A connection point a tool lists among a region's vertices belongs to the state all the same; a region listing nothing else is skipped, not written as a region of a `parallel` state | mapped; under `-strict`, the junction form is refused as unmapped: `junction <name>;` is an OpenSysML extension (the join form is standard and stays) |
 | Entry point leading straight to an exit point of the same state, back to the state itself, out of the state, into a history pseudostate or to no target, or whose outgoing transition has a trigger, or several of whose outgoing transitions start the same region; an exit point reached from outside its state, one no transition leaves or whose outgoing transition has a trigger, leads back to the state or into it, into a history pseudostate or to no target, or one several regions reach that is also reached twice from one region, from the state's own local transition, or from a pseudostate; a connection point route into a history pseudostate | refused with the shape named | unmapped |
 | Pseudostate exitPoint on a region, terminate | a transition into it is written to `done` | approximated |
 | ConnectionPointReference on a submachine state | the transition is written to `s.<entryPoint>` / from `s.<exitPoint>`, the submachine's state named by its path | mapped |
@@ -251,9 +254,9 @@ returned over the service yet.
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an Activity whose every action node is refused | the action, holding the flow and a comment for each refused node; the behavior runs nothing | approximated (each node: **unmapped**) |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` that is an OpaqueBehavior in a language the mapping cannot write | the action, holding the body as a comment | approximated |
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
-| `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition's target; the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
+| `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
-| State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated |
+| State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation | approximated; under `-strict`, refused as unmapped: `defer <event>;` is an OpenSysML extension |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
 | `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
@@ -277,9 +280,10 @@ returned over the service yet.
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
-| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
+| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does; an operation whose method reads the owner's features, and whose every call reaches a usage of the owner, is the usage `action <op> { … }` alone, carrying the body and the parameters, as an [Activity](#mapping) so read is | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name whose type they conform to and whose multiplicity holds theirs, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies, or whose type or multiplicity the same-named attribute does not fit, leaves the method unrun, with the reason. Where the signal arrives at ports of the block over the document's connectors or declarations, a `fork` after `start` adds one such loop per port, `accept … : Sig via <port>;` | mapped (a required parameter unsupplied, or an attribute not fitting its parameter: approximated, the signal is only accepted) |
+| Reception whose signal arrives at a port, or whose method is written as a usage of the block | `perform action sig { … }`, the loop on the usage itself, since `via <port>` and the method's usage are features of the block a nested `action def` does not reach | mapped |
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
@@ -362,7 +366,7 @@ otherwise a name spelled from what it is written between, in the body it is writ
 
 | v1 edge shown by a diagram | named member |
 |---|---|
-| ControlFlow | `succession 'a to b' first a then b;` (`'start to b'` from an initial node, `if g` after the source as before); a decision's `else` branch, which v2 admits no name for, stays anonymous and is reported so |
+| ControlFlow | `succession 'a to b' first a then b;` (`'start to b'` from an initial node, `if g` after the source as before); a decision's `else` branch, which v2 admits no name for, is written `else x;` on the line right after its `decide` (the grammar sequences it from the member before it) and is reported so |
 | ObjectFlow between pins | `flow 'a.out to b.in' from a.out to b.in;`; several edges carrying one producer–pin pair share the one member, named when any of them is shown |
 | ObjectFlow at a parameter | `binding 'p = a.out' bind p = a.out;` — exposable, but an `ActionFlowView` draws neither the parameter nor the binding, so its route is reported `not drawn` |
 | Transition | `transition 'S accept Sig then T' first S accept Sig then T;` — the trigger, guard and target as written, the payload binding left out of the name; several triggers are several transitions, each named for its own trigger (a v1 name is numbered, `halt`, `halt2`), and the edge's route pins every one of them |
@@ -504,11 +508,13 @@ calc def 'Pump Table Rows' :> DocumentQueries::Query {
         source = DocumentQueries::OrderBy(
             source = DocumentQueries::WhereFeature(
                 source = DocumentQueries::WhereType(
-                    source = DocumentQueries::Union(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
-                        other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
-                    type = ("Plant::Structure::Pump")),
+                    source = DocumentQueries::WhereType(
+                        source = DocumentQueries::Union(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Plant::Inventory"))),
+                            other = DocumentQueries::Named(qualifiedName = ("Plant::Spares::s1", "Plant::Spares::s2"))),
+                        type = ("Plant::Structure::Pump")),
+                    type = ("Definition")),
                 'feature' = "isIndividual", operator = "=", value = "true"),
             property = "mass", direction = "descending", missing = "last", multiple = "first"),
         properties = ("name"),
@@ -535,10 +541,16 @@ metadata, and a look-alike application from an unbundled profile stays a comment
 | Table definition | Query |
 |---|---|
 | `scope` (the packages or classifiers whose subtree the table lists); `takeWholeModelAsScope` | `Descendants(source = Named(qualifiedName = (…)))`, unbounded; the whole model is the union of the top-level members and their descendants |
-| `rowElements`, `additionalElements` (explicit rows) | one `Union(source = <scope>, other = Named(qualifiedName = (row, row, …)))`, the rows in their v1 order after the scope's |
-| an instance table's `classifiers` | `WhereType(type = (<the classifiers' v2 names>))` then `WhereFeature('feature' = "isIndividual", operator = "=", value = "true")`, so the rows are the individuals of the classifier and, as in Cameo, of its subtypes; `includeSubtypesOfRowTypes = false` is approximated with the note that subtypes are listed too |
+| `rowElements`, `additionalElements` (explicit rows) | one `Union(source = Named(qualifiedName = (row, row, …)), other = <scope>)`, the rows in their v1 order ahead of the scope's other elements, so an unsorted table — and each level of a tree — keeps the order the tool listed them in |
+| `excludedElements` | `Except(source = <rows>, exclude = Named(qualifiedName = (…)))` ahead of the sort, the row noted with their count; an excluded element that resolves to nothing, or that the migration does not write, is absent regardless and the note says so; the rows nested under an excluded row stay, as they do in the tool, which lists each row it hides by itself |
+| `displayMode` — `List`, `Compact tree` or `Complete tree`, the literals of the MagicDraw profile's `TableDisplayMode` enumeration — with `showScopeAsRoot` and `expandedRows` | a list stays flat; `Compact tree` wraps the sorted rows in `Tree(source = <rows>)`, which nests each row under the nearest row containing it at the depth the renderers indent by ([hierarchical rows](../manual/outputs.md#hierarchical-rows)), so a nested row's `name` cell is the element's own name (a dotted name the tool gave a nested instance stays as written) and its depth is structural, never spaces in the name; `Complete tree` adds `ancestors = Descendants(source = <scope>)`, so the scope's elements containing the rows join as intermediate levels; `showScopeAsRoot = true` adds the scope itself to the ancestors, as the root (noted, not applied, for a flat list or a table naming no scope). A mode the profile does not define lists the rows flat with the note; `expandedRows` records which nodes the tool had unfolded (`NoExpanded` when none was), which is window state, so every nested row is listed, with the note; an entry not of the form `<level>,<id>` is dropped with the note, not a refusal |
+| an instance table's `classifiers` | `WhereType(type = (<the classifiers' v2 names>))`, then `WhereType(type = "Definition")` and `WhereFeature('feature' = "isIndividual", operator = "=", value = "true")`, so the rows are the individual definitions the instance specifications became — of the classifier and, as in Cameo, of its subtypes — and not the slots typed by them; `includeSubtypesOfRowTypes = false` is approximated with the note that subtypes are listed too |
 | a generic table's `rowElementType` — a UML metaclass or a stereotype | `WhereType` on the v2 kind the metaclass or a standard stereotype [maps to](#mapping) (`Class` and «Block» → `PartDefinition`, «Requirement» → `RequirementDefinition`…); the abstract metaclasses list what they hold in UML, so `Type` and `Classifier` are every `Definition` plus the `ViewUsage`/`ViewpointUsage` a «View»/«Viewpoint» class became, `Namespace` adds `Package` and `StateUsage`, and `PackageableElement` adds `Package` and the dependencies — never the features a classifier owns; `Element` and `NamedElement` alone admit everything; a user stereotype the migration writes as a `metadata def` → `WhereMetadata('metadata' = (…))`, which honors specializations |
-| `columnIds` `QPROP:Element:name`, `documentation`, `qualifiedName`, `owner`, `Id` | `Project(properties = (…))`, in column order; `hideColumns` omits a column; `QPROP:Element:classifier` and other tool properties are omitted with the note |
+| `columnIds` `QPROP:Element:name`, `documentation`, `qualifiedName`, `owner`, `Id`, `Text`, `classifier` | `Project(properties = (…))`, in column order — `Project` lists its properties ahead of its computed columns, so a table interleaving a tag column among these is reordered, with the note: `Id` reads `shortName` and `Text` `documentation`, since a «Requirement»'s `Id` and `Text` tags are written as the requirement def's short name and `doc` — a row that is no requirement has an empty cell under either, as it has in the tool, the element's identity being the `ID` column (`@id`); `classifier` reads `general`, the row's type by name; each column is headed by the tool's property name (`Id`, `Text`, `classifier`) through `Table.columnLabels`, the query property staying the column's name; `hideColumns` omits a column, the tool's own columns (`_NUMBER_`, `PROPERTY_COLUMN`, `VALUE_COLUMN`, `MARGIN_COLUMN`) are omitted silently, and other tool properties are omitted with the note |
+| `columnIds` `QPROP:stereotypeTags:<<Profile::Stereotype>>.tag` — a stereotype tag | a standard «Requirement» tag as the property above; a user stereotype's tag as `Column(name = "<tag>", expression = <Profile>::<Stereotype>::<tag> ?? "")` over the feature of the `metadata def` the stereotype [became](#profiles-and-stereotypes), which reads what the row's applications bind it to — every value of a multi-valued tag, as one multi-valued cell, an enumeration literal by its name, as every element cell prints; a tag of a stereotype the migration does not write (library content), or one the archive does not define, is omitted with the reason; the same tag listed twice is two columns, the second named `<tag> 2` but headed `<tag>` like the first, since column names are unique and headings need not be |
+| `columnWidth` (`-1` = automatic) | `Table.columnWidths`, one entry per projected column in `Project`'s order, `0` for automatic, a width staying with the column it was stated on when `Project` reorders; the renderers honour them proportionally ([Column widths](../manual/authoring.md#column-widths)); a width that is not a whole number is read as automatic, with the note |
+| the columns' headings | `Table.columnLabels`, one entry per projected column in `Project`'s order, `""` where the heading is the column's name ([Column labels](../manual/authoring.md#column-labels)): the tool's property name over a built-in column, the tag's name over a stereotype-tag column, a DocGen column's `titles` over a property column, the caption a renamed column keeps |
+| the saved row filter — `SAVE_FILTER_VALUE = true` with `OPTION_FILTER_SEARCHING_TEXT`, `OPTION_FILTER_COLUMN_INDEXES` and the `OPTION_FILTER_*` flags among the diagram's properties | `WhereText(source = <projected rows>, columns = (…), operator = "matches", value = "<pattern>")` after `Project`, since the tool applies its filter box to the rows it lists, explicit ones and exclusions included: the text as a literal, wildcard (`*`, `?`) or regular-expression pattern as the flags say, case-folded unless case-sensitive, anchored by the from-start/from-end flags. `OPTION_FILTER_COLUMN_INDEXES` is a `ChoiceProperty`: its `<value>` (`0^1^3`) is the selection, counting the shown columns from 0, each mapped to the projected column reading it — an empty value, the tool's default, searches every column — while its `<choice>` elements only list the indexes offered; an index of a column the query does not read is noted, and a filter every one of whose selected columns the query does not read is dropped with the note, since the tool searched only those columns. A filter not saved with the table (`SAVE_FILTER_VALUE` absent or `false`) is window state and is not applied; a pattern Go's regular expressions do not compile is dropped with the note, and so is a filter whose column selection is not indexes joined by `^` — the selection is not read as every column |
 | `columnIds` `IColumn:<property>` — a value property of the row classifier | `Column(name = "<property>", expression = <Def>::<property> ?? "")`, an empty cell where a row has no slot, as the tool draws it; the property is kept reachable (never written private) because the column names it |
 | built-in and value-property columns interleaved (`name`, `mass`, `qualifiedName`) | `Project(properties = ("name", "qualifiedName"), columns = (Column(…)))` — `Project` lists its properties before its columns, so the built-in columns move ahead of the value properties; approximated with the note. Column names are unique: the built-in properties claim theirs first, and a value property captioned like one (`Pump::name`) is written `name 2` with the note |
 | `sort` `<column>^Asc` / `^Desc` | `OrderBy(property, direction, missing = "last", multiple = "first")` — empty cells last and the first value of a multi-valued slot, the tool's own ordering; `-1`/`_EMPTY_` is no sort, a sort by tool identity is dropped with the note |
@@ -559,8 +571,12 @@ lists the hrefs), a `sort` not of the form `<column>^Asc|Desc`, a `depth` that i
 whole number, an instance table naming no classifier, a matrix with no filter, a criterion
 whose XML does not parse — with every fault stated at once. A refused table is an `unmapped`
 report row and a `not migrated` comment beside its view, which is still written; the rest of the
-model is unaffected. Presentation settings (`displayMode`, `showScopeAsRoot`, colors, widths,
-legend, `rowsOrder`…) draw the table and are dropped without a report row. A [DocGen
+model is unaffected. A setting that only draws the table — a `columnWidth` that is not a number,
+an `expandedRows` entry not of the form `<level>,<id>` — does not refuse it: the table is read
+without the setting, and the report row notes what the tool wrote. The presentation settings the table's rendering depends on — exclusions,
+display mode, scope root, column widths, the saved row filter — are applied as the table above
+says, the report row stating each; the ones that only draw it in the tool (colors, `legend`,
+`rowsOrder`, `expandedRows`, the number and margin columns) are dropped without one. A [DocGen
 document](#docgen-documents) whose step draws the table's diagram embeds the same `Table` over
 the same `… Rows` query — the query is written once, beside the view — so the section and the
 standalone document render the same columns and cells.
@@ -855,6 +871,31 @@ script is read statement by statement through the [opaque-language subset](#the-
 `assign this.tcs.i := this.tcs.i + 1;`, and the body is kept as a comment naming its language
 and the token refused when any statement is outside the subset or names something unwritten.
 
+**Activities of a block.** A v1 activity a block owns is an `action def` nested in the
+`part def`, and a call of it `action call : Def;`, when its body reads nothing of the block: a
+definition nested in a type is not a feature of it, so v2 gives it no access to the block's
+features, and the pilot implementation rejects `accept sig via rx`, `perform action x ::>
+motor.spin` or `p = bias` written in one. An activity whose body does read or write a feature of
+the block — an attribute it assigns, a port a signal arrives at, an operation of a part it calls,
+a `«Probability»` property, or another activity of the block already written so — is written
+instead as an `action` usage of the `part def` carrying the body, `action run { … }` (`perform
+action run { … }` for the classifier behavior, which every object runs from creation), named in
+lower case as a usage is (`Run` → `run`; `Drive` stays when a part `drive` already exists); its body
+runs on the object and reaches its features by their bare names. What names the activity then
+names the usage: a call from another behavior of the block is `perform action x ::> run;` (`::>
+tcs.run` from a swimlane representing the part `tcs`, `::> obj.op` for an operation of the
+object a call's target pin holds), an interaction step `perform action x ::> part.op { in p =
+arg; }`, a simulation configuration `perform action run ::> target.run;`; a call whose target is
+not an object reached from `this` — a parameter, an object the activity creates — or one from a
+state's `entry`, `do` or `exit`, whose `state def` reaches no feature of the block, is one no
+usage of the block can stand for, so such an activity stays an `action def` with `action x :
+Def;` calls. A reception whose
+signal arrives at a port, or whose method is such a usage, is likewise `perform action sig
+{ action receive accept sig : Sig via rx; perform action run ::> apply { in value =
+receive.sig.value; } first run then receive; }`, the payload of a sibling accept reached by dot
+notation. The report notes each: "written as an action usage of `Block`, which a call on an
+object performs, so its body runs on the object and reaches its features".
+
 **Swimlanes.** An `ActivityPartition` that `represents` a property of the activity's context
 block names the object whose features the nodes inside it read and write: a body `i = 1` in
 the partition of the part `tcs` is `assign this.tcs.i := 1;`, and a guard `GS_Found` on an
@@ -1145,8 +1186,9 @@ the block, the steps addressing the parts through it.
 
 **Receptions.** A block's reception is an `action def` of the block that accepts its signal,
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
-action whose `in` parameters read the accepted signal's attributes of the same name,
-`action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
+action whose `in` parameters read the accepted signal's attributes of the same name through the
+accept that holds the payload, `action run : 'Apply Level' { in value = receive.setLevel.value; }`
+(a feature of a sibling action is reachable only by dot notation), then returns to the accept,
 `first run then receive;`; a method that is also the method of an operation of the block is
 written once, as that operation's body, so the reception runs the operation's `action def`,
 binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
@@ -1668,3 +1710,17 @@ Every migrated model is gated in the test suite to:
 
 A model the reader cannot make sense of — not XMI, a zipped project container, a document
 without a model — is refused with an error naming the reason rather than migrated partially.
+
+### Portable output with `-strict`
+
+A migration under `-strict` writes only notation a pinned SysML v2 production admits, so the
+output analyses clean under [strict conformance](../guide/03-command-line.md#strict-conformance)
+and carries nothing an interchange partner could not read: a construct whose only v2 form is an
+OpenSysML extension — a `deferrableTrigger` (`defer <event>;`), a `choice`, `junction`,
+`shallowHistory` or `deepHistory` pseudostate, or an entry or exit point of a composite state
+that would be written as a junction — is refused and reported **unmapped** with the note
+`… is an OpenSysML extension with no SysML v2 production, which a strict migration does not
+write`, and a transition to or from it is refused rather than written to an undeclared name.
+The standard forms stay: `fork`, `join`, an entry point's default entry and a machine's
+connection points are written as before. The default migration is unchanged — it writes the
+extension notation, which the runtime executes and the validator reports as a warning.

@@ -22,6 +22,27 @@ func oneSymbol(t *testing.T, ws *Workspace, fqn string) *symbols.Symbol {
 	return syms[0]
 }
 
+// refsOf is ReferencesTo over a workspace with no recorded document, so no
+// answer is a hydration request.
+func refsOf(t *testing.T, ws *Workspace, target *symbols.Symbol) []ReferenceLocation {
+	t.Helper()
+	locs, err := ws.ReferencesTo(target)
+	if err != nil {
+		t.Errorf("ReferencesTo: %v", err)
+	}
+	return locs
+}
+
+// namedRefsOf is NameReferencesTo, as refsOf.
+func namedRefsOf(t *testing.T, ws *Workspace, target *symbols.Symbol, name string) []ReferenceLocation {
+	t.Helper()
+	locs, err := ws.NameReferencesTo(target, name)
+	if err != nil {
+		t.Errorf("NameReferencesTo: %v", err)
+	}
+	return locs
+}
+
 func spanTexts(locs []ReferenceLocation) []string {
 	out := make([]string, len(locs))
 	for i, l := range locs {
@@ -43,12 +64,12 @@ func TestReferenceIndexListsBothIdentities(t *testing.T) {
 			t.Errorf("got %s, want %v", g, texts)
 		}
 	}
-	want(ws.ReferencesTo(cube), "Cube@46", "Box@61", "Box@100", "Cube@122")
-	want(ws.NameReferencesTo(cube, "Cube"), "Cube@46", "Cube@122")
-	want(ws.ReferencesTo(box), "Box@61", "Box@100")
-	want(ws.NameReferencesTo(box, "Box"), "Box@61", "Box@100")
-	want(ws.ReferencesTo(shapes), "Shapes@92", "Shapes@114")
-	if ws.ReferencesTo(nil) != nil || ws.NameReferencesTo(nil, "Cube") != nil {
+	want(refsOf(t, ws, cube), "Cube@46", "Box@61", "Box@100", "Cube@122")
+	want(namedRefsOf(t, ws, cube, "Cube"), "Cube@46", "Cube@122")
+	want(refsOf(t, ws, box), "Box@61", "Box@100")
+	want(namedRefsOf(t, ws, box, "Box"), "Box@61", "Box@100")
+	want(refsOf(t, ws, shapes), "Shapes@92", "Shapes@114")
+	if refsOf(t, ws, nil) != nil || namedRefsOf(t, ws, nil, "Cube") != nil {
 		t.Error("nil target should list nothing")
 	}
 }
@@ -66,10 +87,10 @@ func TestReferenceIndexTellsShortNameFromLongName(t *testing.T) {
 			t.Errorf("got %s, want %v", g, texts)
 		}
 	}
-	want(ws.ReferencesTo(old), "O@50", "Old@62", "O@79")
-	want(ws.NameReferencesTo(old, "Old"), "Old@62")
-	want(ws.NameReferencesTo(old, "O"), "O@50", "O@79")
-	want(ws.NameReferencesTo(old, "Fresh"))
+	want(refsOf(t, ws, old), "O@50", "Old@62", "O@79")
+	want(namedRefsOf(t, ws, old, "Old"), "Old@62")
+	want(namedRefsOf(t, ws, old, "O"), "O@50", "O@79")
+	want(namedRefsOf(t, ws, old, "Fresh"))
 }
 
 // Locations come in document-name then position order, addressing the text the
@@ -78,7 +99,7 @@ func TestReferenceIndexOrdersAcrossDocuments(t *testing.T) {
 	ws := NewWorkspace()
 	ws.Open("b.sysml", []byte("package B { import A::*; part y : X; part z : A::X; }"), 1)
 	ws.Open("a.sysml", []byte("package A { part def X; part x : X; }"), 1)
-	locs := ws.ReferencesTo(oneSymbol(t, ws, "A::X"))
+	locs := refsOf(t, ws, oneSymbol(t, ws, "A::X"))
 	var got []string
 	for _, l := range locs {
 		got = append(got, l.Doc+":"+string(l.Content[l.Span.Offset:l.Span.End()]))
@@ -99,7 +120,7 @@ func TestReferenceIndexRebuiltLazilyAfterChanges(t *testing.T) {
 		t.Fatal("index built before any query")
 	}
 	x := oneSymbol(t, ws, "A::X")
-	if n := len(ws.ReferencesTo(x)); n != 1 || ws.refs == nil {
+	if n := len(refsOf(t, ws, x)); n != 1 || ws.refs == nil {
 		t.Fatalf("references = %d (index %v), want 1 and a built index", n, ws.refs != nil)
 	}
 	ws.SetConformanceMode(ws.ConformanceMode())
@@ -136,11 +157,11 @@ func TestReferenceIndexRebuiltLazilyAfterChanges(t *testing.T) {
 		if got := tables(); fmt.Sprint(got) != fmt.Sprint(step.kept) {
 			t.Fatalf("%s: tables kept across the change = %v, want %v", step.name, got, step.kept)
 		}
-		if n := len(ws.ReferencesTo(x)); n != step.want {
+		if n := len(refsOf(t, ws, x)); n != step.want {
 			t.Fatalf("%s: references = %d, want %d", step.name, n, step.want)
 		}
 	}
-	if n := len(ws.ReferencesTo(x)); n != 0 {
+	if n := len(refsOf(t, ws, x)); n != 0 {
 		t.Fatalf("references after removing the declaring document = %d, want 0", n)
 	}
 }
@@ -165,10 +186,10 @@ func TestReferenceIndexConcurrentQueriesAndUpdates(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for v := 0; v < 30; v++ {
-				if n := len(ws.ReferencesTo(x)); n < 8 || n > 12 {
+				if n := len(refsOf(t, ws, x)); n < 8 || n > 12 {
 					t.Errorf("references = %d, want between 8 and 12", n)
 				}
-				ws.NameReferencesTo(x, "X")
+				namedRefsOf(t, ws, x, "X")
 			}
 		}()
 	}

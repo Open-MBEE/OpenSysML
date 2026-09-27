@@ -2,6 +2,7 @@ package passes
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -101,6 +102,20 @@ func (u *mosaUnion) regather(ctx *Context, g *Gathers, a *mosaAudit, doc string,
 	} else {
 		u.perDoc[doc] = cur
 	}
+}
+
+// Contributors implements kit.Contributing: the documents with any MOSA facts.
+func (u *mosaUnion) Contributors(name string) ([]string, bool) {
+	if !strings.HasPrefix(name, "\x00mosa/") {
+		return nil, false
+	}
+	var out []string
+	for doc, f := range u.perDoc {
+		if len(f.present)+len(f.marks)+len(f.conformant)+len(f.satisfiers) > 0 {
+			out = append(out, doc)
+		}
+	}
+	return out, true
 }
 
 func (f *mosaFacts) presentSet() map[mosaKind]bool {

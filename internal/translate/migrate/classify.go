@@ -99,6 +99,43 @@ func (c category) keyword() string {
 	return ""
 }
 
+// metaclass is the qualified name of the SysML metaclass a definition of
+// category c is an instance of; "" for a category that is not a definition
+// (an individual's follows its classifier: migration.metaclassOf).
+func (c category) metaclass() string {
+	switch c {
+	case catPartDef:
+		return "SysML::PartDefinition"
+	case catPortDef:
+		return "SysML::PortDefinition"
+	case catAttributeDef:
+		return "SysML::AttributeDefinition"
+	case catEnumDef:
+		return "SysML::EnumerationDefinition"
+	case catConstraintDef:
+		return "SysML::ConstraintDefinition"
+	case catRequirementDef:
+		return "SysML::RequirementDefinition"
+	case catConnectionDef:
+		return "SysML::ConnectionDefinition"
+	case catVerificationDef:
+		return "SysML::VerificationCaseDefinition"
+	case catItemDef:
+		return "SysML::ItemDefinition"
+	case catActionDef, catSimConfig:
+		return "SysML::ActionDefinition"
+	case catCalcDef:
+		return "SysML::CalculationDefinition"
+	case catStateDef:
+		return "SysML::StateDefinition"
+	case catUseCaseDef:
+		return "SysML::UseCaseDefinition"
+	case catMetadataDef:
+		return "SysML::MetadataDefinition"
+	}
+	return ""
+}
+
 // requirementStereotypes are the SysML profile's requirement stereotypes.
 var requirementStereotypes = []string{"Requirement", "AbstractRequirement"}
 
@@ -229,11 +266,19 @@ func monteCarloFeature(e *sysmlv1.Element) string {
 
 // isLibrary reports whether e sits in profile or bundled-library content: a
 // standard or modeling-tool profile (a user's profile is migrated, see
-// userProfile), a package the model marks as a library or auxiliary resource,
-// or a document root with a library name that sits beside the user's Model.
+// userProfile, however the tool marks it: its stereotypes' applications carry
+// the user's data), a package the model marks as a library or auxiliary
+// resource, or a document root with a library name that sits beside the
+// user's Model.
 func (m *migration) isLibrary(e *sysmlv1.Element) bool {
 	for cur := e; cur != nil; cur = cur.Parent {
-		if (cur.Type == "Profile" && !m.userProfile(cur)) || has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
+		if cur.Type == "Profile" {
+			if !m.userProfile(cur) {
+				return true
+			}
+			continue
+		}
+		if has(cur, "ModelLibrary", "modelLibrary", "auxiliaryResource") {
 			return true
 		}
 		if cur.Parent == nil && cur.Type != "Model" && libraryRoots[cur.Name] && m.besideUserModel(cur) {

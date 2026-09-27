@@ -7,6 +7,7 @@ User-facing behavior is documented in [the guide](../guide/) and
 - **[Architecture](architecture.md)** — the pipeline, the tiers, the test contracts
 - **[Testing](testing.md)** — the test contracts each kind of change must satisfy
 - **[Performance](performance.md)** — profiling, and what a large model costs
+- **[Interface records](interface-records.md)** — what a closed document keeps in memory, and why
 - **[An execution-owned IR](execution-ir-design.md)** — a proposal: lowered graphs that own
   their identity and carry no syntax-tree pointers, with the inventory, the migration and the
   open decisions

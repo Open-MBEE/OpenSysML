@@ -35,6 +35,7 @@ func (p *Parser) parseCalcBody() []ast.Node {
 	}
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A calculation body carries the members of an action body
@@ -47,7 +48,9 @@ func (p *Parser) parseCalcBody() []ast.Node {
 		// A constraint body that declares parameters is read here, so its
 		// asserted conditions are members of this body too.
 		if p.atConstraintCondition() {
-			body.add(p.parseConstraintMember())
+			m := p.parseConstraintMember()
+			body.add(m)
+			p.endResultAfterCondition(m)
 			continue
 		}
 
@@ -64,9 +67,12 @@ func (p *Parser) parseCalcBody() []ast.Node {
 				// In a constraint body a bare expression is a condition the
 				// constraint states, not a calculated result.
 				if constraintConditions {
-					body.add(p.parseConstraintMember())
+					m := p.parseConstraintMember()
+					body.add(m)
+					p.endResultAfterCondition(m)
 				} else {
 					body.add(p.ParseExpression())
+					p.resultEnd()
 				}
 			} else {
 				// Parse as generic body member (parameters, etc.)
@@ -110,6 +116,7 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A member-attached `then` sequences the members either side of it, so
@@ -397,8 +404,10 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 		// Parse body members generically
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			m := p.parseBodyMember()
 			if m != nil {
+				p.markAttached(m)
 				usage.Members = append(usage.Members, m)
 			}
 		}
@@ -1046,6 +1055,7 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		parsed := p.newBodyBuilder()
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			if parsed.atSuccession() {
 				parsed.takeSuccession()
 				continue
@@ -1097,6 +1107,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1183,7 +1194,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 	// The variable is a full UsageDeclaration, so it may state its type before
 	// `in` (`for n : ScalarValues::Integer in (1, 2, 3)`).
-	variableRels := p.parseRelationships(true)
+	variableRels := p.parseRelationships(declFeature)
 
 	// Expect 'in' keyword
 	if !p.acceptKeyword("in") {
@@ -1219,6 +1230,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1366,6 +1378,7 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if parsed.atSuccession() {
 			parsed.takeSuccession()
@@ -1632,6 +1645,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 
 		// A member-attached `then` sequences the members either side of it.
@@ -1659,6 +1673,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 			member = nil
 		}
 		body.add(member)
+		p.endResultAfterCondition(member)
 
 		// Force progress: a member that consumed nothing would spin the loop.
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
@@ -1668,6 +1683,17 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 
 	p.expect(lexer.RBrace, "expected '}' after constraint body")
 	return body.finish()
+}
+
+// endResultAfterCondition records the body's close as a result end when the
+// member just parsed was a bare condition: a constraint body's trailing
+// condition is its result expression (SysML.xtext CalculationBodyPart), so no
+// comment is admitted after it. Declared members — a nested `constraint` or a
+// `return` parameter — leave the close open.
+func (p *Parser) endResultAfterCondition(m ast.Node) {
+	if c, ok := m.(*ast.ConstraintMember); ok && c.Expression != nil && p.at(lexer.RBrace) {
+		p.resultEnd()
+	}
 }
 
 // atConstraintBodyDeclaration reports whether a declaration member of a
@@ -1880,6 +1906,7 @@ func (p *Parser) parseRequirementBody() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// A requirement body carries the members of a definition body
 		// (SysML.xtext RequirementBodyItem), a member-attached `then` among them,
@@ -2017,7 +2044,7 @@ func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) a
 	}
 
 	// A subject may redefine the one it inherits: subject subj : View[1] :>> RequirementCheck::subj;
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 
 	// Value part: `= expr`, `:= expr` or `default [=] expr`.
 	valueOp, hasValue := p.acceptValueOperator()
@@ -2198,7 +2225,7 @@ func (p *Parser) parseOwnedConstraintDecl(what string) ownedConstraintDecl {
 	if p.atName() || p.at(lexer.Lt) {
 		d.ident = p.parseIdentification()
 	}
-	d.relationships = p.parseRelationships(true)
+	d.relationships = p.parseRelationships(declFeature)
 	if p.at(lexer.LBracket) {
 		d.multiplicity = p.parseMultiplicity()
 	}
@@ -2240,13 +2267,13 @@ func (p *Parser) tryParseConstraintReference() (constraintReference, bool) {
 		p.restore(cp)
 		return constraintReference{}, false
 	}
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 	// The specialization part carries a multiplicity of its own, which may be
 	// followed by further specializations: `require c [0..*] :> d;`.
 	var mult *ast.Multiplicity
 	if p.at(lexer.LBracket) {
 		mult = p.parseMultiplicity()
-		rels = append(rels, p.parseRelationships(true)...)
+		rels = append(rels, p.parseRelationships(declFeature)...)
 	}
 	if p.at(lexer.LBrace) {
 		p.advance() // consume '{'
@@ -2317,6 +2344,7 @@ func (p *Parser) parseStateBody() []ast.Node {
 	allowBody := true
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		// A member-attached `then` sequences the members either side of it; a
 		// `then` naming states (`succession first idle then done;`) is a member of its own,
 		// which parseStateMember reads (see succession.go).
@@ -2610,7 +2638,7 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 			param.Ident = p.parseIdentification()
 		}
 		if p.atPayloadOperator() {
-			rels := p.parseRelationships(true)
+			rels := p.parseRelationships(declFeature)
 			param.Relationships = append(param.Relationships, rels...)
 		}
 		if p.atTriggerKeyword() {

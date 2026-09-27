@@ -86,19 +86,15 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return presentValues(MetamodelTypeNameOf(sym))
 	case PropertyElementType:
 		return r.elementType(sym)
+	case PropertyGeneral:
+		return r.generals(sym)
 	case PropertyIsAbstract:
-		switch decl := sym.Decl.(type) {
-		case *ast.Usage:
-			return []string{strconv.FormatBool(decl.IsAbstract)}, true
-		case *ast.Definition:
-			return []string{strconv.FormatBool(decl.IsAbstract)}, true
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:
-		switch decl := sym.Decl.(type) {
-		case *ast.Usage:
-			return []string{strconv.FormatBool(decl.IsIndividual)}, true
-		case *ast.Definition:
-			return []string{strconv.FormatBool(decl.IsIndividual)}, true
+		if sym.DeclaresUsage() || sym.DeclaresDefinition() {
+			return []string{strconv.FormatBool(individual(sym))}, true
 		}
 	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
 		if r.semantics == nil {
@@ -191,6 +187,61 @@ func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {
 		return presentValues(r.index.GetFQN(resolved))
 	}
 	return nil, false
+}
+
+// generals resolves the general types a definition's specializations (`:>`)
+// name, in declaration order; a usage's `:>` subsets a feature and is no general.
+func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
+	if r.resolver == nil {
+		return nil, false
+	}
+	var values []string
+	for _, relationship := range semantics.RelationshipsOf(sym) {
+		if !generalizes(sym, relationship.Kind) {
+			continue
+		}
+		qn, ok := relationship.Target.(*ast.QualifiedName)
+		if !ok {
+			continue
+		}
+		resolved, ok := r.resolver.ResolveQualified(sym.OwnerScope, qn)
+		if !ok || resolved == nil {
+			continue
+		}
+		if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
+			resolved = alias
+		}
+		if fqn := r.index.GetFQN(resolved); fqn != "" {
+			values = append(values, fqn)
+		}
+	}
+	return values, len(values) > 0
+}
+
+// individual reports whether sym's declaration carries the `individual` modifier.
+func individual(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModIndividual)
+	}
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		return decl.IsIndividual
+	case *ast.Definition:
+		return decl.IsIndividual
+	}
+	return false
+}
+
+// generalizes reports whether a relationship at sym's declaration names a
+// type it specializes: a definition's `:>`, or a usage's typing.
+func generalizes(sym *symbols.Symbol, kind ast.RelationshipKind) bool {
+	switch {
+	case sym.DeclaresDefinition():
+		return kind == ast.RelSpecializes
+	case sym.DeclaresUsage():
+		return kind == ast.RelTyping
+	}
+	return false
 }
 
 func presentValues(value string) ([]string, bool) {

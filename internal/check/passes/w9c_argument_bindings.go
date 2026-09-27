@@ -62,7 +62,7 @@ func positionalArgSpan(call invocation, arg ast.Node) source.Span {
 // parameterTypes are the types p declares, else those of the parameter it redefines.
 func (ec *exprChecker) parameterTypes(p parameter) []*symbols.Symbol {
 	for q := &p; q != nil; q = q.redefined {
-		if types := ec.declaredTypeSymbols(q.scope(), q.usage.Relationships); len(types) > 0 {
+		if types := ec.parameterDeclaredTypes(*q); len(types) > 0 {
 			return types
 		}
 	}

@@ -220,7 +220,7 @@ func (a *mosaAudit) kindOf(sym *symbols.Symbol) mosaKind {
 	var types []*symbols.Symbol
 	if sym.IsFeature() {
 		types = a.model.FeatureTypeSet(sym)
-	} else if _, ok := sym.Decl.(*ast.Definition); ok {
+	} else if sym.DeclaresDefinition() {
 		types = []*symbols.Symbol{sym}
 	}
 	kind := mosaNone
@@ -295,21 +295,30 @@ func (a *mosaAudit) gather(root *symbols.Scope) {
 		}
 		switch {
 		case usage.Kind == ast.UsageConnection:
-			a.gatherConformance(sym)
+			if standards, conformant, ok := a.conformanceEnds(sym); ok {
+				a.noteConformance(standards, conformant)
+			}
 		case usage.Kind == ast.UsageSatisfy && usage.Keyword != "verify":
-			a.gatherSatisfaction(sym, usage)
+			a.noteSatisfiers(a.satisfiers(sym, usage))
 		}
 	})
+	// A recorded document's body is gone; its record kept what it stated.
+	if rec := a.ctx.Index.Gathered(root.DocName()); rec != nil {
+		for _, c := range rec.Conformances {
+			a.noteConformance(a.ctx.Index.Elements(c.Sources), a.ctx.Index.Elements(c.Targets))
+		}
+		for _, s := range rec.Satisfactions {
+			a.noteSatisfiers(a.ctx.Index.Elements(s.Satisfiers))
+		}
+	}
 }
 
-// gatherConformance records the elements at the `#conformant` ends of a
-// `#conformance` connection whose `#conformsTo` ends name at least one standard.
-func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
+// conformanceEnds reads the referents of a `#conformance` connection's
+// `#conformsTo` and `#conformant` ends; ok is false for any other connection.
+func (a *mosaAudit) conformanceEnds(sym *symbols.Symbol) (standards, conformant []*symbols.Symbol, ok bool) {
 	if !a.annotatedWith(sym, mosaConformanceMetadata) {
-		return
+		return nil, nil, false
 	}
-	var conformant []*symbols.Symbol
-	namesStandard := false
 	for _, end := range a.bodyEnds(sym) {
 		u, ok := end.Decl.(*ast.Usage)
 		if !ok {
@@ -317,12 +326,20 @@ func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
 		}
 		switch {
 		case a.annotatedWith(end, mosaConformsToMetadata):
-			for _, target := range a.referents(end, u) {
-				namesStandard = namesStandard || a.kindOf(target) == mosaStandard
-			}
+			standards = append(standards, a.referents(end, u)...)
 		case a.annotatedWith(end, mosaConformantMetadata):
 			conformant = append(conformant, a.referents(end, u)...)
 		}
+	}
+	return standards, conformant, true
+}
+
+// noteConformance records the conformant elements of a conformance whose
+// `#conformsTo` ends name at least one standard.
+func (a *mosaAudit) noteConformance(standards, conformant []*symbols.Symbol) {
+	namesStandard := false
+	for _, target := range standards {
+		namesStandard = namesStandard || a.kindOf(target) == mosaStandard
 	}
 	if !namesStandard {
 		return
@@ -332,12 +349,14 @@ func (a *mosaAudit) gatherConformance(sym *symbols.Symbol) {
 	}
 }
 
-// gatherSatisfaction records what a `satisfy` says satisfies its requirement:
-// the element after `by`, else the element whose body declares the satisfy.
-func (a *mosaAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
+// satisfiers reads what a `satisfy` says satisfies its requirement: the
+// elements after `by`, else the feature whose body declares the satisfy; a
+// negated satisfy names none.
+func (a *mosaAudit) satisfiers(sym *symbols.Symbol, usage *ast.Usage) []*symbols.Symbol {
 	if usage.IsNegated {
-		return
+		return nil
 	}
+	var out []*symbols.Symbol
 	named := false
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil || rel.Kind != ast.RelSubject {
@@ -345,14 +364,21 @@ func (a *mosaAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
 		}
 		named = true
 		if target, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, rel.Target); ok && target != nil {
-			a.facts.satisfiers[symbols.KeyOf(target)] = true
+			out = append(out, target)
 		}
 	}
 	if named || sym.OwnerScope == nil {
-		return
+		return out
 	}
 	if owner := sym.OwnerScope.Owner(); owner != nil && owner.IsFeature() {
-		a.facts.satisfiers[symbols.KeyOf(owner)] = true
+		out = append(out, owner)
+	}
+	return out
+}
+
+func (a *mosaAudit) noteSatisfiers(satisfiers []*symbols.Symbol) {
+	for _, s := range satisfiers {
+		a.facts.satisfiers[symbols.KeyOf(s)] = true
 	}
 }
 

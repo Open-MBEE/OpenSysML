@@ -609,6 +609,143 @@ model over the read-only index, as a pool of workers must — with the audits'
 facts gathered once for the batch ("What a batch of files costs"), and pay
 none of it.
 
+## What a closed document holds as its interface record
+
+A document nobody is editing can be held as its **interface record** — the
+scopes and symbols other documents can reach through the language with the
+facts their readers need attached, and its diagnostics, with no syntax tree,
+no resolver frame and no analysis memo (`docs/internals/interface-records.md`).
+`BenchmarkPlaneResidency` in `tests/stressmodel` holds the satellite
+constellation split one file per orbital plane twice: every file loaded, and
+the plane files installed from their records with the library and the
+constellation file (which connects every satellite to the ground stations)
+loaded and analyzed against them. It collects and reads `runtime.MemStats`
+after each state. Machine: Intel Xeon Platinum 8559C, 8 cores, 31 GiB,
+go1.25.0 linux/amd64; three runs each, the figures did not move between runs.
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench PlaneResidency -benchtime 1x -count 3
+```
+
+| satellites | planes | all loaded | planes recorded | of which the records | loaded / satellite | record / satellite | record on disk / plane |
+| ---------- | ------ | ---------- | --------------- | -------------------- | ------------------ | ------------------ | ---------------------- |
+| 32 | 4 | 26.5 MiB | 22.9 MiB | 10.1 MiB | 848 KiB | 323 KiB | 409 KiB |
+| 128 | 4 | 64.6 MiB | 49.5 MiB | 17.7 MiB | 517 KiB | 142 KiB | 1 631 KiB |
+| 512 | 4 | 215 MiB | 154 MiB | 39.8 MiB | 430 KiB | 80 KiB | 6 524 KiB |
+| 1 600 | 32 | 697 MiB | 508 MiB | 164 MiB | 446 KiB | 105 KiB | 2 551 KiB |
+
+"Of which the records" is what installing the plane records added to a
+workspace holding the library and the constellation file; the remainder of
+"planes recorded" is the constellation document itself, loaded and analyzed
+— it states a connection per satellite, so it is the largest document of the
+split and grows with the constellation. At 1 600 satellites a satellite held
+as part of a record costs **about 105 KiB** against about 446 KiB loaded,
+4x less; the design's prior of 10–50x is not reached. What the record still
+holds per satellite is its members: a satellite is some forty features, each
+a recorded symbol with its facts, and the record keeps every one because a
+qualified name from another document can name any of them and the diagnostic
+it gets ("not visible" against "does not exist") depends on which it finds.
+About 10 KiB of the 105 is the plane file's text, which a recorded document
+keeps so that its stored diagnostics locate in it.
+The per-satellite record cost falls with the constellation because the four
+records of the small networks carry a fixed cost of about 8 MiB between them
+that 32 satellites do not amortize.
+
+Measured from outside with `/usr/bin/time -v`, one process per state
+(`TestPlaneResidencyProcess`, `OPENSYSML_RESIDENCY=write|loaded|recorded`;
+the recorded process reads the plane records from the cache the write left
+and never parses a plane), 1 600 satellites:
+
+| process | live heap after GC | peak RSS | wall |
+| ------- | ------------------ | -------- | ---- |
+| planes loaded | 733 MiB | 2 608 MiB | 11.1 s |
+| planes recorded, from the cache | 545 MiB | 1 371 MiB | 6.0 s |
+
+The 32 plane records on disk total 80 MiB, 51 KiB per satellite, as gob in
+the library cache's directory; every reference in them names its declaring
+document, and gob repeats that name where the decoded record shares it. What
+the constellation document's own analysis holds is later work.
+
+### Opening from records, and hydrating one
+
+`sysml -validate` writes the record of every file it analyzes to the cache
+under the user's cache directory, and a later run over the same files takes
+the records whose provenance still holds and parses the rest
+(`docs/internals/interface-records.md`, "Hydration and demotion");
+`-no-record-cache` is the command as it was, reading and writing none. The
+constellation of the stress model split one file per orbital plane, at 10 000
+satellites (`stress-model -planes 400 -satellites 25 -split-planes`, 402
+files: the planes, the library and the constellation file) and at 1 600
+satellites (34 files), measured with `/usr/bin/time -v`, one run per row, the
+cache emptied before each cold run; same machine as above (Intel Xeon
+Platinum 8559C, 8 cores, 31 GiB, go1.25.0 linux/amd64):
+
+| model | jobs | record cache | wall | user | peak RSS |
+| ----- | ---- | ------------ | ---- | ---- | -------- |
+| 10 000 satellites, 402 files | 8 | none (`-no-record-cache`) | 86.6 s | 351 s | 17.5 GB |
+| | 8 | cold, writing 402 records | 147.6 s | 450 s | 17.9 GB |
+| | 8 | warm | 36.7 s | 63 s | 10.2 GB |
+| | 8 | warm, again | 33.4 s | 58 s | 10.2 GB |
+| 1 600 satellites, 34 files | 1 | none | 23.4 s | 29.8 s | 2.24 GB |
+| | 1 | cold, writing 34 records | 37.4 s | 47.5 s | 2.42 GB |
+| | 1 | warm | 6.3 s | 7.5 s | 1.63 GB |
+| | 8 | none | 9.8 s | 36.3 s | 2.80 GB |
+| | 8 | cold, writing 34 records | 19.2 s | 51.8 s | 3.10 GB |
+| | 8 | warm | 4.1 s | 7.8 s | 1.55 GB |
+
+The cache holds 588 MiB for the 10 000-satellite model and 94 MiB for the
+1 600-satellite one. Without a cache the command costs what it did before
+records were written: the same binary's base, which analyzes but never
+records, validates the 1 600-satellite split in 23.6 s on one job and 9.9 s
+on eight against 23.4 s and 9.8 s here, because a batch records what each
+analysis read only when it has a cache to write to. Writing the records costs
+a validation about as much again as the analysis on eight jobs (9.8 s to
+19.2 s; 86.6 s to 147.6 s at 10 000 satellites): the writer walks every
+recorded symbol's facts, attributes each analysis's reads to the documents
+that answered them and encodes the record. A warm run parses nothing and
+re-analyzes nothing, and a validation from records is 2.4x faster than one
+without at eight jobs and 3.7x on one — but it is not yet the time to read
+the records: 33 s at 10 000 satellites, 4.1 s at 1 600, and mostly serial
+(6.3 s on one job against 4.1 s on eight). A CPU profile of the warm open of
+the 512-satellite split (`BenchmarkOpenSplit`, below) puts about two thirds
+of it in checking the records' provenance, nearly all of that in the OOSEM,
+MOSA and identity audits' gathers, which the check runs over the recorded
+workspace to confirm that the same documents contribute to the shared audit
+state the analyses read; the rest is installing the recorded scope trees and
+expanding wildcard imports. Peak RSS of the warm run is 58% of the cold
+one's at 10 000 satellites, where every plane is held as its record and only
+the constellation file, which the records' provenance does not cover for the
+connections it states, is parsed and analyzed.
+
+`BenchmarkOpenSplit` in `tests/stressmodel` opens the split network as a
+workspace and asks for every file's diagnostics, cold — no record cache, every
+file parsed and analyzed — and warm, from a cache holding every file's record;
+`BenchmarkHydratePlane`, beside `BenchmarkEditBeside`, holds the split network
+as records and measures hydrating one plane file — parsing it, replacing its
+record symbols with tree-backed ones and invalidating what read it — and
+answering the constellation file's diagnostics again over the hydrated plane.
+Medians of three runs, `-benchtime 1x -count 3`, same machine:
+
+```bash
+go test ./tests/stressmodel -run '^$' -bench 'OpenSplit|HydratePlane|EditBeside' -benchtime 1x -count 3
+```
+
+| satellites | files | open, cold | allocated | open, warm | allocated | hydrate one plane | allocated | edit a small file beside |
+| ---------- | ----- | ---------- | --------- | ---------- | --------- | ----------------- | --------- | ------------------------ |
+| 32 | 6 | 195 ms | 150 MiB | 106 ms | 65 MiB | 136 ms | 26 MiB | 1.2 ms |
+| 128 | 6 | 524 ms | 467 MiB | 197 ms | 166 MiB | 255 ms | 76 MiB | 3.7 ms |
+| 512 | 6 | 2.08 s | 1.70 GiB | 762 ms | 610 MiB | 1.03 s | 286 MiB | 13.5 ms |
+
+Opening warm costs 37% of opening cold at 512 satellites and allocates 35% as
+much. Hydrating one of the four planes costs half a cold open of all six files
+at 512 satellites: the plane is parsed and indexed, and the constellation
+file, which states a connection to every satellite and so read every plane,
+is analyzed again; the small file beside the constellation in
+`BenchmarkEditBeside` is what an edit costs when what it invalidates is
+small. The hydration itself — the tree-backed scopes replacing the recorded
+ones and the dependents' entries dropped through `Index.TakeChanges` and
+`Resolver.Invalidate` — is the same path an edit of the plane takes.
+
 ## Notes for further work
 
 - The `about`-metadata index walks the bundled library's documents once per

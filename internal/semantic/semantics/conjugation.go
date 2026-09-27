@@ -480,6 +480,9 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || m.resolver == nil {
 		return nil
 	}
+	if sym.Recorded() {
+		return m.RecordedRelationshipTargets(sym, ast.RelTyping)
+	}
 	var types []*symbols.Symbol
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {

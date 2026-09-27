@@ -63,7 +63,14 @@ func TestGoldenNotation(t *testing.T) {
 // errors returns the error diagnostics the analyser reports for notation.
 func errors(t *testing.T, name string, notation []byte) []diag.Diagnostic {
 	t.Helper()
+	return errorsMode(t, name, notation, diag.ConformanceDefault)
+}
+
+// errorsMode is errors under the given conformance mode.
+func errorsMode(t *testing.T, name string, notation []byte, mode diag.ConformanceMode) []diag.Diagnostic {
+	t.Helper()
 	ws := model.NewWorkspace()
+	ws.SetConformanceMode(mode)
 	ws.Open(name, notation, 1)
 	var errs []diag.Diagnostic
 	for _, d := range ws.Diagnostics(name) {
@@ -167,7 +174,9 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		":> RequirementDerivation::Derivation {",
 		"end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';",
 		"verify requirement : 'Mass Requirement';",
-		"allocate 'Vehicle Design'::Motor to 'Vehicle Design'::Engine;",
+		"allocation def 'Motor to Engine' {",
+		"end motor : 'Vehicle Design'::Motor;",
+		"end engine : 'Vehicle Design'::Engine;",
 		"state def 'Vehicle States' {",
 		"abstract action def start {",
 		"action def Drive;",
@@ -340,16 +349,23 @@ var constructFixtures = []string{
 	"type_modifiers",
 	"table_homonyms",
 	"relation_subtypes",
+	"decision_else",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.
 func migrateFixtureFile(t *testing.T, name string) *migrate.Result {
 	t.Helper()
+	return migrateFixtureFileOptions(t, name, migrate.Options{})
+}
+
+// migrateFixtureFileOptions migrates testdata/xmi/<name>.xmi under opts.
+func migrateFixtureFileOptions(t *testing.T, name string, opts migrate.Options) *migrate.Result {
+	t.Helper()
 	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := migrate.Migrate(name+".xmi", data)
+	r, err := migrate.MigrateOptions(name+".xmi", data, opts)
 	if err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
@@ -369,6 +385,20 @@ func TestGoldenConstructFixtures(t *testing.T) {
 			}
 			checkGolden(t, "testdata/xmi/"+name+".golden.report.txt", report.Bytes())
 			for _, d := range errors(t, name+".sysml", r.Notation) {
+				t.Errorf("%v", d)
+			}
+		})
+	}
+}
+
+// A strict migration writes only notation a pinned SysML v2 production admits:
+// every fixture's strict output analyses with zero error diagnostics in strict
+// conformance mode, where extension notation is an error.
+func TestStrictMigrationAnalysesCleanUnderStrictConformance(t *testing.T) {
+	for _, name := range append([]string{"vehicle"}, constructFixtures...) {
+		t.Run(name, func(t *testing.T) {
+			r := migrateFixtureFileOptions(t, name, migrate.Options{Strict: true})
+			for _, d := range errorsMode(t, name+".sysml", r.Notation, diag.ConformanceStrict) {
 				t.Errorf("%v", d)
 			}
 		})

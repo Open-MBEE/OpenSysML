@@ -357,9 +357,9 @@ func (p *Parser) tryParseCrossFeature() *ast.CrossFeatureMember {
 	if p.atName() || p.at(lexer.Lt) {
 		cross.Ident = p.parseIdentification()
 	}
-	cross.Relationships = p.parseRelationships(true)
+	cross.Relationships = p.parseRelationships(declFeature)
 	if p.parseCrossMultiplicityPart(cross) {
-		cross.Relationships = append(cross.Relationships, p.parseRelationships(true)...)
+		cross.Relationships = append(cross.Relationships, p.parseRelationships(declFeature)...)
 	}
 	declared := cross.Ident.Name != "" || cross.Ident.ShortName != "" ||
 		len(cross.Relationships) > 0 || cross.Multiplicity != nil || cross.IsOrdered || cross.IsNonunique
@@ -1279,9 +1279,15 @@ func (p *Parser) parsePostModifiers(kind ast.UsageKind) featureMods {
 		}
 		switch t.KeywordID {
 		case "ordered":
+			if m.isOrdered {
+				p.error(t.Span, "duplicate `ordered`")
+			}
 			m.isOrdered = true
 			p.advance()
 		case "nonunique":
+			if m.isNonunique {
+				p.error(t.Span, "duplicate `nonunique`")
+			}
 			m.isNonunique = true
 			p.advance()
 		case "terminate":
@@ -1628,8 +1634,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 				var members []ast.Node
 				leave := p.pushBodyContext(usageBodyContext(ast.UsageUseCase))
 				for !p.at(lexer.RBrace) && !p.atEOF() {
+					p.memberStart()
 					m := p.parseBodyMember()
 					if m != nil {
+						p.markAttached(m)
 						members = append(members, m)
 					}
 				}
@@ -1833,7 +1841,7 @@ func (p *Parser) parseDefinition(start int, kind ast.DefinitionKind, keyword str
 	if !defKeywordConsumed && isKerMLClassifierDefinitionKeyword(keyword) && p.at(lexer.LBracket) {
 		def.Multiplicity = p.parseMultiplicity()
 	}
-	def.Relationships = p.parseRelationships(false)
+	def.Relationships = p.parseRelationships(declClassifierDef)
 
 	// Dispatch to specialized body parsers based on kind
 	var members []ast.Node
@@ -2231,7 +2239,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			if !p.atKeyword("by") {
 				u.Ident = p.parseUsageIdentification(kind)
 			}
-			declRels := p.parseRelationships(true)
+			declRels := p.parseRelationships(declFeature)
 			u.Relationships = append(u.Relationships, declRels...)
 		} else if reqName := p.parseChainedName(); reqName != nil {
 			// SysML.xtext:2119's ReferenceSubsetting reaches a nested feature through a '.'
@@ -2243,7 +2251,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			// The reference form takes specializations of its own:
 			// `verify r :>> massRequirement;` (SysML.xtext:2272,
 			// RequirementVerificationUsage's `FeatureSpecialization*`).
-			u.Relationships = append(u.Relationships, p.parseRelationships(true)...)
+			u.Relationships = append(u.Relationships, p.parseRelationships(declFeature)...)
 		}
 
 		// ValuePart? — a satisfy usage may bind a value like any usage.
@@ -2315,7 +2323,8 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 	// (SysML.xtext FeatureDeclaration): `part redefines wheel` is the same unnamed
 	// usage as `part :>> wheel`. The name it answers to is its redefinition's, and
 	// the symbol layer derives that (KerML 7.3.4.5, symbols.effectiveIdent).
-	preRels := p.parsePreNameRelationships(true)
+	var seen relClauseState
+	preRels := p.parsePreNameRelationships(p.usageDeclShape(keyword), &seen)
 	// A bare flow shorthand `flow x to y` and anonymous succession `succession x then y` have no declaration name
 	// Anonymous connector starts with 'from' keyword (e.g., `connector : X from y to z`)
 	// A connection or interface stating ends where its name would go declares
@@ -2340,7 +2349,7 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 	}
 
 	// Parse post-identification relationships (e.g., : Type)
-	postIdRels := p.parseRelationships(true)
+	postIdRels := p.parseRelationshipsInto(p.usageDeclShape(keyword), &seen)
 	u.Relationships = append(preRels, postIdRels...)
 
 	// For anonymous succession/flow, skip multiplicity parsing - it belongs to connector ends
@@ -2357,11 +2366,26 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 		if earlyMultiplicity != nil {
 			u.Multiplicity = earlyMultiplicity
 		} else {
+			// A KerML classifier's OwnedMultiplicity sits ahead of its
+			// specialization part, not after it (KerML.xtext
+			// ClassifierDeclaration).
+			if p.usageDeclShape(keyword) != declFeature && len(u.Relationships) > 0 && p.at(lexer.LBracket) {
+				p.error(p.peek().Span, "multiplicity precedes the specialization list in a classifier declaration")
+			}
 			u.Multiplicity = p.parseMultiplicity()
 		}
 	}
 
-	p.parseSpecializationsAfterMultiplicity(u)
+	p.parseSpecializationsAfterMultiplicity(u, &seen)
+	// A multiplicity trailing the specialization list is misplaced the same way
+	// one between the name and the list is (`class X [2] :> A [3]`).
+	if p.usageDeclShape(keyword) != declFeature && len(u.Relationships) > 0 && p.at(lexer.LBracket) {
+		p.error(p.peek().Span, "multiplicity precedes the specialization list in a classifier declaration")
+		u.Multiplicity = p.parseMultiplicity()
+		// Whatever clauses follow the stray multiplicity still belong to the
+		// declaration (`class X [2] :> A [3] :> B` declares a second list).
+		u.Relationships = append(u.Relationships, p.parseRelationshipsInto(p.usageDeclShape(keyword), &seen)...)
+	}
 	p.checkTypeDeclarationSpecialization(u, keyword)
 
 	p.parseUsageValue(u)
@@ -2403,10 +2427,13 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			inEffect := p.atTransitionEffectStatement(start)
 			savedEffectStmtStart := p.effectStmtStart
 			for !p.atEOF() && !p.atNamespaceSuccession() {
+				p.memberStart()
 				if inEffect {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
-				members = append(members, p.parseActionMember())
+				member := p.parseActionMember()
+				p.markAttached(member)
+				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
 				if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
@@ -2561,6 +2588,7 @@ func (p *Parser) parseDefUsageBody() (members []ast.Node, hasBody bool) {
 func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
@@ -2590,6 +2618,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 func (p *Parser) parseCaseBody() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if body.atSuccession() {
 			body.takeSuccession()
@@ -2607,6 +2636,7 @@ func (p *Parser) parseCaseBody() []ast.Node {
 		}
 		if p.atResultExpression() {
 			body.add(p.ParseExpression())
+			p.resultEnd()
 			continue
 		}
 		body.add(p.parseBodyMember())
@@ -2665,6 +2695,7 @@ var wordBinaryOpKeywords = map[string]bool{
 func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// `= 60.0;`, `uncl : Level = 0;`, `<u> uncl;`, `: Level;` and `#M a;` are
 		// enumerated values (SysML.xtext EnumeratedValue), not keyword-less attributes.
@@ -3498,7 +3529,7 @@ func (p *Parser) parseReferenceMemberUsage(start int, kind ast.UsageKind, kw, no
 	if p.at(lexer.LBracket) {
 		u.Multiplicity = p.parseMultiplicity()
 	}
-	specRels := p.parseRelationships(true)
+	specRels := p.parseRelationships(declFeature)
 	u.Relationships = append(u.Relationships, specRels...)
 	if allowValue {
 		p.parseUsageValue(u)
@@ -3723,47 +3754,197 @@ func (p *Parser) parseRelationshipTarget() ast.Node {
 // parsePreNameRelationships parses the specializations a declaration may state
 // where its name would go. A word the grammar does not reserve names the
 // declaration instead, so only a reserved spelling begins a clause here.
-func (p *Parser) parsePreNameRelationships(isUsage bool) []*ast.Relationship {
+func (p *Parser) parsePreNameRelationships(shape declShape, seen *relClauseState) []*ast.Relationship {
 	if t := p.peek(); t.Kind == lexer.Keyword && !p.reservedWord(t.KeywordID) {
 		return nil
 	}
-	return p.parseRelationships(isUsage)
+	return p.parseRelationshipsInto(shape, seen)
 }
 
 // parseFeatureSpecializationPart parses a usage's
 // `FeatureSpecialization* MultiplicityPart? FeatureSpecialization*` (KerML.xtext:574) onto u.
 func (p *Parser) parseFeatureSpecializationPart(u *ast.Usage) {
-	u.Relationships = append(u.Relationships, p.parseRelationships(true)...)
+	var seen relClauseState
+	u.Relationships = append(u.Relationships, p.parseRelationshipsInto(p.usageDeclShape(u.Keyword), &seen)...)
 	if p.at(lexer.LBracket) {
 		u.Multiplicity = p.parseMultiplicity()
 	}
-	p.parseSpecializationsAfterMultiplicity(u)
+	p.parseSpecializationsAfterMultiplicity(u, &seen)
 }
 
 // parseSpecializationsAfterMultiplicity parses the `ordered`/`nonunique` tail of
 // a MultiplicityPart and the FeatureSpecialization* that may follow it onto u.
-func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage) {
+func (p *Parser) parseSpecializationsAfterMultiplicity(u *ast.Usage, seen *relClauseState) {
 	post := p.parsePostModifiers(u.Kind)
 	u.IsOrdered = u.IsOrdered || post.isOrdered
 	u.IsNonunique = u.IsNonunique || post.isNonunique
 	u.IsTerminate = u.IsTerminate || post.isTerminate
-	u.Relationships = append(u.Relationships, p.parseRelationships(true)...)
+	u.Relationships = append(u.Relationships, p.parseRelationshipsInto(p.usageDeclShape(u.Keyword), seen)...)
 }
 
-// parseRelationships parses zero or more relationship clauses. isUsage selects
-// the meaning of the symbolic `:>` operator (subsets on a usage, specializes on
-// a definition). Each clause may carry a comma-separated target list; every
-// target becomes its own Relationship sharing the clause kind.
-func (p *Parser) parseRelationships(isUsage bool) (rels []*ast.Relationship) {
+// declShape distinguishes the two declaration shapes a relationship clause may
+// appear in. A feature declaration (KerML FeatureDeclaration, and every SysML
+// usage) repeats specialization clauses freely; a classifier declaration
+// (SysML DefinitionDeclaration, KerML ClassifierDeclaration) states a single
+// specialization list ahead of its type-relationship clauses.
+type declShape int
+
+const (
+	declFeature         declShape = iota
+	declClassifierDef             // a *ast.Definition (SysML DefinitionDeclaration)
+	declClassifierUsage           // a KerML classifier read through parseUsage
+)
+
+// usageDeclShape reports the declaration shape a usage's kind keyword selects.
+// In a KerML file the classifier keywords declare a ClassifierDeclaration even
+// though the parser reads them through the usage path; in a SysML file the
+// same words keep their usage (feature) shape.
+func (p *Parser) usageDeclShape(keyword string) declShape {
+	// "assoc struct" is the compound keyword an association structure is
+	// spelled with; isKerMLClassifierDefinitionKeyword sees the first word.
+	if p.src.Kind() == source.KindKerML &&
+		(isKerMLClassifierDefinitionKeyword(keyword) || keyword == "assoc struct") {
+		return declClassifierUsage
+	}
+	return declFeature
+}
+
+func (s declShape) noun() string {
+	if s == declClassifierDef {
+		return "definition"
+	}
+	return "classifier"
+}
+
+// relClauseState records which clause groups a declaration has already stated,
+// enforcing the order the grammars give them.
+type relClauseState struct {
+	spec       bool // specialization part (a `:>`/`specializes` list or conjugation) stated
+	conj       bool // conjugation stated
+	typeRel    bool // `disjoint from`/`unions`/`intersects`/`differences` stated
+	featureRel bool // a FeatureRelationshipPart (the type-relationship clauses, `chains`, `inverse of`, `featured by`) stated
+}
+
+// relationshipClauseSpelling names a clause as a declaration writes it, for
+// diagnostics.
+func relationshipClauseSpelling(kind ast.RelationshipKind, conjugated bool) string {
+	if conjugated {
+		return "conjugates"
+	}
+	switch kind {
+	case ast.RelTyping:
+		return ":"
+	case ast.RelSubsets:
+		return "subsets"
+	case ast.RelRedefines:
+		return ":>>"
+	case ast.RelReferences:
+		return "::>"
+	case ast.RelCrosses:
+		return "=>"
+	case ast.RelDisjoint:
+		return "disjoint from"
+	case ast.RelUnions:
+		return "unions"
+	case ast.RelIntersects:
+		return "intersects"
+	case ast.RelDifferences:
+		return "differences"
+	case ast.RelChains:
+		return "chains"
+	case ast.RelInverseOf:
+		return "inverse of"
+	case ast.RelFeaturedBy:
+		return "featured by"
+	default:
+		return "specializes"
+	}
+}
+
+// checkRelationshipClause diagnoses a clause the declaration's shape forbids or
+// misorders, before its targets are read. The clause is still parsed, so the
+// tree stays usable.
+func (p *Parser) checkRelationshipClause(shape declShape, tok lexer.Token, kind ast.RelationshipKind, conjugated bool, seen *relClauseState) {
+	featureRel := kind == ast.RelDisjoint || kind == ast.RelUnions || kind == ast.RelIntersects ||
+		kind == ast.RelDifferences || kind == ast.RelChains || kind == ast.RelInverseOf || kind == ast.RelFeaturedBy
+
+	if shape == declFeature {
+		switch {
+		case featureRel:
+			seen.featureRel = true
+		case seen.featureRel:
+			p.error(tok.Span, fmt.Sprintf("`%s` is a specialization: specializations precede the `disjoint from`, `chains`, `inverse of` and `featured by` clauses of a feature declaration",
+				relationshipClauseSpelling(kind, conjugated)))
+			if conjugated {
+				seen.conj = true
+			} else {
+				seen.spec = true
+			}
+		case conjugated && seen.spec:
+			p.error(tok.Span, "`conjugates` is the alternative to a specialization list: a feature declaration admits one or the other")
+			seen.conj = true
+		case !conjugated && seen.conj:
+			p.error(tok.Span, fmt.Sprintf("`%s` is a specialization: a feature declaration conjugates a type or specializes features, not both",
+				relationshipClauseSpelling(kind, conjugated)))
+			seen.spec = true
+		case conjugated:
+			// A second `~` on a feature is not a parse error:
+			// passes/conjugator.go's at-most-one-conjugator check owns it.
+			seen.conj = true
+		default:
+			seen.spec = true
+		}
+		return
+	}
+
+	switch kind {
+	case ast.RelDisjoint, ast.RelUnions, ast.RelIntersects, ast.RelDifferences:
+		seen.typeRel = true
+	case ast.RelSpecializes:
+		switch {
+		case seen.typeRel:
+			p.error(tok.Span, fmt.Sprintf("`%s` must precede the `disjoint from`, `unions`, `intersects` and `differences` clauses of a classifier declaration",
+				relationshipClauseSpelling(kind, conjugated)))
+		case seen.spec && !conjugated:
+			p.error(tok.Span, "a classifier declares one specialization list: write `:> A, B` instead of a second `:>`")
+		case seen.spec:
+			p.error(tok.Span, "`conjugates` is the alternative to a specialization list: a classifier declaration admits one or the other")
+		}
+		seen.spec = true
+	default:
+		p.error(tok.Span, fmt.Sprintf("`%s` relates features: a %s declaration admits no `%s` clause",
+			relationshipClauseSpelling(kind, conjugated), shape.noun(), relationshipClauseSpelling(kind, conjugated)))
+	}
+}
+
+// parseRelationships parses zero or more relationship clauses against a fresh
+// clause state. shape selects the declaration grammar they belong to —
+// classifier or feature — which fixes the meaning of the symbolic `:>`
+// operator (specializes on a classifier, subsets on a feature) and which
+// clauses, counts and orders are admitted. Each clause may carry a
+// comma-separated target list; every target becomes its own Relationship
+// sharing the clause kind.
+func (p *Parser) parseRelationships(shape declShape) (rels []*ast.Relationship) {
+	var seen relClauseState
+	return p.parseRelationshipsInto(shape, &seen)
+}
+
+// parseRelationshipsInto is parseRelationships over a caller-held clause
+// state, so a declaration whose clauses a multiplicity interrupts —
+// `class X [2] :> A [3] :> B` — is judged as one sequence rather than two.
+func (p *Parser) parseRelationshipsInto(shape declShape, seen *relClauseState) (rels []*ast.Relationship) {
 	for {
+		clauseTok := p.peek()
 		if p.atDeclarationConjugation() {
+			p.checkRelationshipClause(shape, clauseTok, ast.RelSpecializes, true, seen)
 			rels = append(rels, p.parseDeclarationConjugation())
 			continue
 		}
-		kind, ok := p.relationshipClauseKind(isUsage)
+		kind, ok := p.relationshipClauseKind(shape == declFeature)
 		if !ok {
 			return rels
 		}
+		p.checkRelationshipClause(shape, clauseTok, kind, false, seen)
 		for {
 			r := p.parseRelationshipClauseTarget(kind)
 			rels = append(rels, r)
@@ -4567,7 +4748,9 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		var body []ast.Node
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			if m := p.parseBodyMember(); m != nil {
+				p.markAttached(m)
 				body = append(body, m)
 				continue
 			}

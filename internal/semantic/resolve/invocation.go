@@ -111,7 +111,7 @@ func (r *Resolver) surfacedMembers(cur *symbols.Symbol, from *symbols.Scope, nam
 	if len(out) > 0 || cur.Scope == nil {
 		return out
 	}
-	for _, imp := range r.importsOf(cur.Scope.Node()) {
+	for _, imp := range r.scopeImports(cur.Scope) {
 		if r.importStack[imp] || r.resolvingImports[imp] ||
 			!r.importPrefixAvailable(cur.Scope, imp, name) || !r.importVisibleFrom(cur, from, imp) {
 			continue
@@ -231,7 +231,7 @@ func (r *Resolver) visibleMemberCandidates(sym *symbols.Symbol, name string) ([]
 		return nil, false
 	}
 	var out []*symbols.Symbol
-	for _, imp := range r.importsOf(sym.Scope.Node()) {
+	for _, imp := range r.scopeImports(sym.Scope) {
 		if r.resolvingImports[imp] || !r.importPrefixAvailable(sym.Scope, imp, name) {
 			continue
 		}
@@ -263,7 +263,7 @@ func declaresLocally(sym, found *symbols.Symbol, name string) bool {
 // declared directly in scope, in import order.
 func (r *Resolver) importMatches(scope *symbols.Scope, name string) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, imp := range r.importsOf(scope.Node()) {
+	for _, imp := range r.scopeImports(scope) {
 		if r.resolvingImports[imp] || !r.importPrefixAvailable(scope, imp, name) {
 			continue
 		}

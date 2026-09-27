@@ -11,8 +11,7 @@ func TestGoCommandResolvesTheToolchainBeforeRunningIt(t *testing.T) {
 	if err != nil {
 		t.Skip("no go command on PATH")
 	}
-	t.Setenv(GoCommandEnvVar, "")
-	got, err := goCommand()
+	got, err := goCommand("go")
 	if err != nil || got != want {
 		t.Fatalf("goCommand() = %q, %v; want %q", got, err, want)
 	}
@@ -20,8 +19,31 @@ func TestGoCommandResolvesTheToolchainBeforeRunningIt(t *testing.T) {
 		t.Fatalf("goCommand() = %q is not an absolute path", got)
 	}
 
-	t.Setenv(GoCommandEnvVar, "no-such-go-command-for-opensysml")
-	if got, err := goCommand(); err == nil {
+	if got, err := goCommand("no-such-go-command-for-opensysml"); err == nil {
 		t.Fatalf("goCommand() = %q for a missing override, want an error", got)
 	}
+}
+
+func TestCompilerName(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		t.Setenv(CCompilerEnvVar, "")
+		t.Setenv(GoCommandEnvVar, "")
+		if got := compilerName(TargetC); got != "cc" {
+			t.Errorf("compilerName(TargetC) = %q, want cc", got)
+		}
+		if got := compilerName(TargetGo); got != "go" {
+			t.Errorf("compilerName(TargetGo) = %q, want go", got)
+		}
+	})
+
+	t.Run("environment overrides", func(t *testing.T) {
+		t.Setenv(CCompilerEnvVar, "custom-cc")
+		t.Setenv(GoCommandEnvVar, "custom-go")
+		if got := compilerName(TargetC); got != "custom-cc" {
+			t.Errorf("compilerName(TargetC) = %q, want custom-cc", got)
+		}
+		if got := compilerName(TargetGo); got != "custom-go" {
+			t.Errorf("compilerName(TargetGo) = %q, want custom-go", got)
+		}
+	})
 }

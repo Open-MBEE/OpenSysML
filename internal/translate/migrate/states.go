@@ -17,6 +17,30 @@ const (
 	outsideMachine = " outside the machine, or one with no v2 form"
 )
 
+// extensionOnly is the note a strict migration reports for a construct whose
+// only v2 form is an OpenSysML extension.
+func (m *migration) extensionOnly(clause string) string {
+	return "`" + clause + "` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write"
+}
+
+// extensionVertex is extensionOnly for the pseudostate v is written as when a
+// strict migration refuses it: "" for a vertex strict writes.
+func (m *migration) extensionVertex(v *sysmlv1.Element) string {
+	if !m.strict {
+		return ""
+	}
+	kw := map[string]string{
+		"choice":         "choice",
+		"junction":       "junction",
+		"shallowHistory": "history",
+		"deepHistory":    "deep history",
+	}[pseudoKind(v)]
+	if kw == "" {
+		return ""
+	}
+	return m.extensionOnly(kw + " <name>;")
+}
+
 // stateMachineBody writes a state machine's regions as the body of its state def.
 
 // The note fragments the writer repeats.
@@ -257,6 +281,9 @@ func (m *migration) entryPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(out, owner, "target")
 	if len(out) < 2 || len(regions) < 2 {
+		if m.strict {
+			return pointForm{why: m.extensionOnly("junction <name>;")}
+		}
 		return pointForm{kw: "junction", note: "written as a junction of its state; a transition entering through it runs the state's entry behavior, then the transition leaving the junction"}
 	}
 	if len(regions) < len(out) {
@@ -320,6 +347,9 @@ func (m *migration) exitPointForm(v, owner *sysmlv1.Element) pointForm {
 	}
 	regions := m.regionsCrossed(in, owner, "source")
 	if len(in) < 2 || len(regions) < 2 {
+		if m.strict {
+			return pointForm{why: m.extensionOnly("junction <name>;")}
+		}
 		return pointForm{kw: "junction", note: "written as a junction of its state; a transition leaving through it runs the transition into the junction, the state's exit behavior, then the transition leaving it"}
 	}
 	joinBut := "several regions of " + describe(owner) + " leave through the exit point, as through a join, but "
@@ -706,7 +736,11 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		if tgt == nil {
 			s.m.unmapped(t, joinNotes(s.m.dangling(t, "target"), "the transition lacks a target"))
 		} else {
-			s.m.unmapped(t, "the target "+describe(tgt)+isA+kindOf(tgt)+outsideRegion)
+			why := "the target " + describe(tgt) + isA + kindOf(tgt) + outsideRegion
+			s.m.unmapped(t, why)
+			if s.m.strict {
+				s.refusedParts(t, why)
+			}
 		}
 		return
 	}
@@ -750,6 +784,10 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		switch pseudoKind(v) {
 		case "initial":
 		case "choice", "junction":
+			if why := s.m.extensionVertex(v); why != "" {
+				s.m.unmapped(v, why)
+				return
+			}
 			name := writeName(s.name(v))
 			s.m.w.line(pseudoKind(v) + " " + name + ";")
 			s.m.madeUp(v, name)
@@ -760,11 +798,19 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a "+pseudoKind(v)+" pseudostate, whose segments the runtime fires together")
 		case "shallowHistory":
+			if why := s.m.extensionVertex(v); why != "" {
+				s.m.unmapped(v, why)
+				return
+			}
 			name := writeName(s.name(v))
 			s.m.w.line("history " + name + ";")
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a shallow history, which re-enters the substate active when its state was last left")
 		case "deepHistory":
+			if why := s.m.extensionVertex(v); why != "" {
+				s.m.unmapped(v, why)
+				return
+			}
 			name := writeName(s.name(v))
 			s.m.w.line("deep history " + name + ";")
 			s.m.madeUp(v, name)
@@ -964,6 +1010,13 @@ func (s *stateRegion) deferrals(v *sysmlv1.Element) []string {
 			s.m.add(ev, Unmapped, "", note)
 			continue
 		}
+		if s.m.strict {
+			note := s.m.extensionOnly("defer <event>;")
+			lines = append(lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
+			s.m.add(d, Unmapped, "", note)
+			s.m.add(ev, Unmapped, "", note)
+			continue
+		}
 		clause := "defer " + s.m.ref(sig, v)
 		lines = append(lines, clause+";")
 		note := "written as " + clause + ", an OpenSysML extension of the notation that the runtime executes"
@@ -988,6 +1041,16 @@ func inheritedStateNamesSet() map[string]bool {
 		used[n] = true
 	}
 	return used
+}
+
+// aside writes a note where the grammar admits a comment: in place, or before
+// the declaration being written when one has claimed the notes.
+func (m *migration) aside(text string) {
+	if m.asides != nil {
+		*m.asides = append(*m.asides, commentLines(text)...)
+		return
+	}
+	m.w.lines(commentLines(text))
 }
 
 // inlineBehavior writes a behavior a state or transition owns as the action
@@ -1075,7 +1138,7 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 		}
 		return true
 	}
-	m.w.lines(commentLines(kw + " " + describe(b) + isA + b.Type + ", which has no action form"))
+	m.aside(kw + " " + describe(b) + isA + b.Type + ", which has no action form")
 	m.add(b, Unmapped, "", "a "+b.Type+" has no action form")
 	return false
 }
@@ -1084,13 +1147,13 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 // its context and signal-carried parameters where it can and reporting why not.
 func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if !m.written(b) {
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
+		m.aside(kw + " " + qualifiedName(b) + " has no v2 declaration")
 		m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it has no v2 declaration")
 		return false
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
+		m.aside(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs")
 		m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it is written as a "+cat.keyword())
 		return false
@@ -1100,7 +1163,7 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 	if c := m.contextOf(b); c != nil {
 		expr, cnote := m.contextBinding(c, classifierOf(owner), "this")
 		if expr == "" {
-			m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + cnote))
+			m.aside(kw + " " + qualifiedName(b) + notRun + cnote)
 			m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
 			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+cnote)
 			return false
@@ -1141,7 +1204,7 @@ func (m *migration) parameterIns(kw string, b, owner *sysmlv1.Element, params []
 	case slices.IndexFunc(params, requiresValue) >= 0:
 		p := params[slices.IndexFunc(params, requiresValue)]
 		why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + why))
+		m.aside(kw + " " + qualifiedName(b) + notRun + why)
 		m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+why)
 		return ins, note, false
@@ -1223,7 +1286,12 @@ func (s *stateRegion) target(t, v *sysmlv1.Element) (string, bool) {
 				return p, ok
 			}
 			return s.endpoint(t, v, "target")
-		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory":
+		case "choice", "junction", "shallowHistory", "deepHistory":
+			if s.m.extensionVertex(v) != "" {
+				return "", false
+			}
+			return s.endpoint(t, v, "target")
+		case "fork", "join":
 			return s.endpoint(t, v, "target")
 		}
 	case "ConnectionPointReference":
@@ -1248,7 +1316,12 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 				return "", false
 			}
 			return s.endpoint(t, v, "source")
-		case "choice", "junction", "fork", "join", "shallowHistory", "deepHistory":
+		case "choice", "junction", "shallowHistory", "deepHistory":
+			if s.m.extensionVertex(v) != "" {
+				return "", false
+			}
+			return s.endpoint(t, v, "source")
+		case "fork", "join":
 			return s.endpoint(t, v, "source")
 		}
 	case "ConnectionPointReference":
@@ -1261,6 +1334,9 @@ func (s *stateRegion) source(t, v *sysmlv1.Element) (string, bool) {
 // else that it lies outside the machine or has no v2 form.
 func (s *stateRegion) noForm(v *sysmlv1.Element) string {
 	if why := s.m.points[v].why; why != "" {
+		return " has no v2 form: " + why
+	}
+	if why := s.m.extensionVertex(v); why != "" {
 		return " has no v2 form: " + why
 	}
 	return isA + kindOf(v) + outsideMachine
@@ -1327,19 +1403,27 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	if !ok {
 		return
 	}
-	if transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
+	if !s.m.strict && transient(src) && (pseudoKind(tgt) == "shallowHistory" || pseudoKind(tgt) == "deepHistory") {
 		s.m.unmapped(t, "the runtime does not follow a transition from a "+pseudoKind(src)+" pseudostate on into the history pseudostate "+describe(tgt))
 		return
 	}
 	from, ok := s.source(t, src)
 	if !ok {
-		s.m.unmapped(t, "the source "+describe(src)+s.noForm(src))
+		why := "the source " + describe(src) + s.noForm(src)
+		s.m.unmapped(t, why)
+		if s.m.strict {
+			s.refusedParts(t, why)
+		}
 		return
 	}
 	to := from
 	if !internal {
 		if to, ok = s.target(t, tgt); !ok {
-			s.m.unmapped(t, "the target "+describe(tgt)+s.noForm(tgt))
+			why := "the target " + describe(tgt) + s.noForm(tgt)
+			s.m.unmapped(t, why)
+			if s.m.strict {
+				s.refusedParts(t, why)
+			}
 			return
 		}
 	}
@@ -1377,6 +1461,33 @@ func (s *stateRegion) transition(t *sysmlv1.Element) {
 	s.writeAccepts(t, accepts, tname, guard, eff, from, to)
 	note := strings.Join(notes, "; ")
 	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), joinNotes(note, strings.Join(info, "; ")))
+}
+
+// refusedParts accounts for the children of a transition a strict migration
+// refuses because an endpoint is an extension pseudostate: its triggers and
+// the events they name, its guard and its effect go unmapped with it, so the
+// report loses none of them.
+func (s *stateRegion) refusedParts(t *sysmlv1.Element, why string) {
+	note := "its transition is not written: " + why
+	for _, tr := range t.Owned("trigger") {
+		s.m.add(tr, Unmapped, "", note)
+		if ev := s.m.model.Ref(tr, "event"); ev != nil {
+			s.m.triggered[ev] = true
+			if !s.m.reported(ev) {
+				s.m.add(ev, Unmapped, "", note)
+			}
+		}
+	}
+	if g := s.m.guardOf(t); g != nil {
+		gnote := note
+		if spec := firstOwned(g, "specification"); spec != nil {
+			gnote += "; the guard [" + describeValue(spec) + "] is dropped with it"
+		}
+		s.m.add(g, Unmapped, "", gnote)
+	}
+	if eff := s.m.behaviorIn(t, "effect"); eff != nil && !s.m.reported(eff) {
+		s.m.add(eff, Unmapped, "", note)
+	}
 }
 
 // transitionBase spells the name a shown anonymous transition is declared
@@ -1527,7 +1638,7 @@ func (m *migration) reentryObservable(v *sysmlv1.Element) bool {
 	if m.behaviorIn(v, "entry") != nil || m.behaviorIn(v, "exit") != nil || m.behaviorIn(v, "doActivity") != nil {
 		return true
 	}
-	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || len(v.Owned("deferrableTrigger")) > 0
+	return len(v.Owned("region")) > 0 || m.model.Ref(v, "submachine") != nil || (!m.strict && len(v.Owned("deferrableTrigger")) > 0)
 }
 
 // behaviorIn gives the behavior a state or transition runs in a role, whether
@@ -1573,16 +1684,21 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	if i > 0 && eff != nil {
 		s.m.downgrade(eff, "run by each of the transitions written for it")
 	}
-	s.m.w.line(line)
-	s.m.w.indented(func() {
+	var notes []string
+	effect := s.m.w.capture(func() {
 		if eff == nil {
 			s.m.w.braced(doAction, func() { s.m.w.line(accept.keeping) })
-		} else {
-			saved, savedKeep := s.m.bound, s.m.keeping
-			s.m.bound, s.m.keeping = accept.bound, accept.keeping
-			s.m.inlineBehavior(doAction, eff, t)
-			s.m.bound, s.m.keeping = saved, savedKeep
+			return
 		}
+		saved, savedKeep, savedAsides := s.m.bound, s.m.keeping, s.m.asides
+		s.m.bound, s.m.keeping, s.m.asides = accept.bound, accept.keeping, &notes
+		s.m.inlineBehavior(doAction, eff, t)
+		s.m.bound, s.m.keeping, s.m.asides = saved, savedKeep, savedAsides
+	})
+	s.m.w.lines(notes)
+	s.m.w.line(line)
+	s.m.w.indented(func() {
+		_, _ = s.m.w.buf().WriteString(effect) // already rendered one level deeper by capture
 		s.m.w.line("then " + to + ";")
 	})
 }
