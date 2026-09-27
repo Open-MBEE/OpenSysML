@@ -143,7 +143,8 @@ type Resolver struct {
 	// an implicit redefinition, collected once per scope: see implicitParameters.
 	implicitParams map[*symbols.Scope][]*symbols.Symbol
 	// importTargets are the namespaces imports resolved to, one per import.
-	// Only a hit is kept (a miss may only mean sibling imports were suspended);
+	// Only a hit is kept (a miss may only mean sibling imports were suspended),
+	// and never one found while a filter condition resolves (InCondition);
 	// the OMG pilot likewise resolves an import's target once, as a linked
 	// cross-reference. Without it, resolving each of n sibling imports searched
 	// the others' unresolved targets in every order (issue #636).

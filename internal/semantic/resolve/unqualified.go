@@ -485,16 +485,19 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	}
 	// Resolved aside: a miss here may only mean sibling imports were suspended
 	// for cycle safety, so it must not be memoized or reported as unresolved.
-	// A hit is memoized (importTargets).
+	// A hit is memoized (importTargets), except while a filter condition's own
+	// names resolve: that lookup is unfiltered, and its answers reach nothing
+	// else (InCondition).
 	var target *symbols.Symbol
 	var ok bool
-	if res, done := r.importTargets[imp]; done {
+	remember := r.inCondition == 0
+	if res, done := r.importTargets[imp]; done && remember {
 		target, ok = res.sym, res.ok
 	} else {
 		r.resolvingImports[imp] = true
 		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
 		delete(r.resolvingImports, imp)
-		if ok {
+		if ok && remember {
 			journalNew(r, r.importTargets, imp, imp)
 			r.importTargets[imp] = resolution{sym: target, ok: true}
 		}
