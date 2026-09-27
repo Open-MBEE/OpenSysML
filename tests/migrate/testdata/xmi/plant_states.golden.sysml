@@ -23,14 +23,14 @@ part def Plant {
             }
             state Prep;
             state Run;
-            history last;
-            deep history deepest;
+            #StateMachines::shallowHistory state last;
+            #StateMachines::deepHistory state deepest;
             transition first Prep accept Next then Run;
             transition first last then Prep;
         }
         state Pause;
         state Cell : CellMachine;
-        junction route;
+        #StateMachines::junction state route;
         fork spread;
         join gather;
         state Both {
@@ -87,3 +87,4 @@ part def Plant {
     }
     exhibit state line : Line;
 }
+private import StateMachines::*;

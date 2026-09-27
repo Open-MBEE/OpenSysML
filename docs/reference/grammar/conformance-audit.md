@@ -107,9 +107,9 @@ one state substate per region, `entry; then <state>;`, a transition targeting
 
 | Construct | Why it is not standard |
 |-----------|------------------------|
-| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind |
-| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same |
-| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation |
+| `choice <name>;`, `junction <name>;` | no literal; no pseudostate production of any kind. Deprecated: write `#choice state <name>;` / `#junction state <name>;`, the `StateMachines` library's `ChoiceMetadata`/`JunctionMetadata` (with `private import StateMachines::*;`) — the warning names the replacement and a quick-fix rewrites the member and adds the import |
+| `history <name>;`, `shallow history <name>;`, `deep history <name>;` | same. Deprecated: write `#shallowHistory state <name>;` / `#deepHistory state <name>;` (`ShallowHistoryMetadata`/`DeepHistoryMetadata`) |
+| `defer <event> [, <event>]*;` | no `defer` literal; `StatePerformance::deferrable` has the semantics but no notation. Deprecated: write one `#deferred ref : <event>;` per trigger (`DeferredMetadata`), the trigger named by a signal type or the operation of a call event — call arguments are not carried |
 
 ### Removed extension notation — no longer accepted
 

@@ -304,11 +304,13 @@ migrated.
 
 ## Portable output with `-strict`
 
-By default a migration may write OpenSysML's own extensions — `defer <event>;` and the
-`choice`, `junction` and `history` pseudostates — which the runtime executes but no SysML v2
-production admits, so another tool would not read them. Pass `-strict` (see
-[Strict conformance](03-command-line.md#strict-conformance)) and the migration writes
-conforming SysML v2 only, refusing each such construct as **unmapped** instead:
+Pseudostates and deferrable triggers are written through the `StateMachines`
+library's metadata spellings — `#StateMachines::junction state x;`,
+`#StateMachines::deferred ref : Sig;` — with `private import StateMachines::*;`
+added to each package that holds one, so the output is conforming SysML v2 by
+default. Pass `-strict` (see
+[Strict conformance](03-command-line.md#strict-conformance)) and the migration still
+writes only notation a pinned grammar admits:
 
 ```console
 $ sysml Project.xmi -strict -convert sysml -o Project.sysml

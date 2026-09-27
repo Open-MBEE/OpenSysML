@@ -7,9 +7,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// stateMachineMetadataFQN are the qualified names of the StateMachines library
-// metadata definitions (`OpenSysML Libraries/StateMachines.sysml`) that spell a
-// state machine's pseudostates and deferred events as annotations.
+// deferredEventsMetadataFQN names the StateMachines deferred-events metadata definition.
 const deferredEventsMetadataFQN = "StateMachines::DeferredMetadata"
 
 // pseudostateMetadataFQN maps each pseudostate metadata definition to the kind
@@ -21,11 +19,8 @@ var pseudostateMetadataFQN = map[string]ast.PseudostateKind{
 	"StateMachines::DeepHistoryMetadata":    ast.PseudostateDeepHistory,
 }
 
-// annotationSymbol resolves the metadata definition an annotation names, in the
-// scope the annotated member was written in. Alias-tolerant: an alias naming the
-// definition counts as the definition. nil when no resolver backs the lowering
-// or the name resolves to nothing — an unresolved annotation is the
-// name-resolution tier's finding, not lowering's.
+// annotationSymbol resolves the metadata definition an annotation names in its
+// member's scope, alias-tolerantly; nil without a resolver or a resolution.
 func annotationSymbol(resolver *resolve.Resolver, scope *symbols.Scope, a semantics.MetadataAnnotation) *symbols.Symbol {
 	if resolver == nil || a.Node == nil || a.Node.Type == nil {
 		return nil
@@ -90,10 +85,8 @@ func pseudostateFromUsage(usage *ast.Usage, kind ast.PseudostateKind) *ast.Pseud
 	return ps
 }
 
-// deferredSourceVertex returns the vertex a positional `then` sequences from
-// when the member it would bind is a `#deferred` ref: like the `defer` member
-// it replaces, the deferred ref is no feature a succession leaves, so the edge
-// passes over it to the member before.
+// deferredSourceVertex is the vertex a positional `then` sequences from when
+// the member it would bind is a `#deferred` ref — no feature, like `defer`.
 func (g *StateGraph) deferredSourceVertex(edge *ast.SuccessionEdge, body transitionBody, scope *symbols.Scope) ast.Node {
 	var src ast.Node
 	if edge.SourceMember != nil {
@@ -117,10 +110,8 @@ func (g *StateGraph) deferredSourceVertex(edge *ast.SuccessionEdge, body transit
 	return node
 }
 
-// precedingSuccessionSource is the member before marker the succession a
-// member-attached `then` binds actually leaves: the nearest preceding member a
-// succession sequences from, passing over deferred members the way the parser
-// passes over a `defer` member.
+// precedingSuccessionSource is the nearest member before marker a succession
+// sequences from, passing over deferred members like the parser passes `defer`.
 func precedingSuccessionSource(members []ast.Node, marker ast.Node, g *StateGraph, scope *symbols.Scope) ast.Node {
 	var prev ast.Node
 	for _, member := range members {
@@ -154,9 +145,8 @@ func pseudostateAnnotationKeyword(kind ast.PseudostateKind) string {
 	}
 }
 
-// deferredTrigger is the trigger a `#deferred ref : <event>;` member retains:
-// the accepted occurrence named by the reference's typing, as a call event when
-// the typing resolves to an action, else a signal.
+// deferredTrigger is the trigger a `#deferred ref : <event>;` retains: a call
+// event when the ref's typing resolves to an action, else the usage itself.
 func (g *StateGraph) deferredTrigger(usage *ast.Usage, scope *symbols.Scope) ast.Node {
 	if qn := typingTarget(usage); qn != nil && g.resolvesToAction(scope, qn) {
 		evt := &ast.CallEvent{Operation: qn}
@@ -166,8 +156,8 @@ func (g *StateGraph) deferredTrigger(usage *ast.Usage, scope *symbols.Scope) ast
 	return usage
 }
 
-// resolvesToAction reports whether qn names an action definition or usage in
-// scope, which a deferred reference defers as a call event rather than a signal.
+// resolvesToAction reports whether qn names an action def or usage in scope,
+// which a deferred ref defers as a call event rather than a signal.
 func (g *StateGraph) resolvesToAction(scope *symbols.Scope, qn *ast.QualifiedName) bool {
 	if g.resolver == nil {
 		return false

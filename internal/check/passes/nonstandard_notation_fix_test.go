@@ -1,0 +1,171 @@
+package passes
+
+import (
+	"sort"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+// applyFixes renders every fix edit against content and applies them back to
+// front, collapsing several fixes' identical import insertions into one.
+func applyFixes(t *testing.T, content []byte, diags []diag.Diagnostic) string {
+	t.Helper()
+	type rendered struct {
+		span    source.Span
+		newText string
+	}
+	seen := map[string]bool{}
+	var edits []rendered
+	for _, d := range diags {
+		for _, fix := range d.Fixes {
+			for _, e := range fix.Edits {
+				span, text := e.Render(content)
+				key := string(rune(span.Offset)) + "|" + text
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				edits = append(edits, rendered{span, text})
+			}
+		}
+	}
+	sort.Slice(edits, func(i, j int) bool { return edits[i].span.Offset > edits[j].span.Offset })
+	out := string(content)
+	for _, e := range edits {
+		out = out[:e.span.Offset] + e.newText + out[e.span.End():]
+	}
+	return out
+}
+
+// notationDiagnostics parses and runs the notation pass over one document,
+// carrying its source text so fixes can indent like the member they rewrite.
+func notationDiagnostics(t *testing.T, name, src string) (*ast.RootNamespace, *source.SourceFile, []diag.Diagnostic) {
+	t.Helper()
+	sf := source.New(name, []byte(src))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, p.Diagnostics)
+	}
+	idx := newTestIndexFromDoc(name, root)
+	ctx := NewContext(name, idx, nil)
+	ctx.Batch = &kit.Batch{
+		Documents: []string{name},
+		Source:    source.TextOf(map[string]*source.SourceFile{name: sf}, nil),
+	}
+	return root, sf, (NonstandardNotationPass{}).Run(ctx, name, root)
+}
+
+// stateGraphOf lowers the state usage name in one parsed document through the
+// standard library, the way the runtime does.
+func stateGraphOf(t *testing.T, name, src, usage string) *lower.StateGraph {
+	t.Helper()
+	sf := source.New(name, []byte(src))
+	p := parser.New(sf)
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("%s: parse errors %+v", src, p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument(name, root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot(name).LookupLocal("P")
+	if !ok {
+		t.Fatal("package P not indexed")
+	}
+	u, ok := pkg.Scope.LookupLocal(usage)
+	if !ok {
+		t.Fatalf("state %s not indexed", usage)
+	}
+	g, err := lower.ToStateGraphWithEndpoints(u.Decl, u.Scope,
+		lower.NewLibraryStateTypes(resolve.New(idx)))
+	if err != nil {
+		t.Fatalf("lowering %s: %v", usage, err)
+	}
+	return g
+}
+
+func graphShape(g *lower.StateGraph) []string {
+	shape := make([]string, 0, len(g.Pseudostates))
+	for _, ps := range g.Pseudostates {
+		shape = append(shape, ps.Kind.String()+":"+ps.Name)
+	}
+	for _, s := range g.States {
+		shape = append(shape, "state:"+s.Name+":defer="+itoa(len(s.Defer)))
+	}
+	return shape
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	d := []byte{}
+	for n > 0 {
+		d = append([]byte{byte('0' + n%10)}, d...)
+		n /= 10
+	}
+	return string(d)
+}
+
+// TestNotationFixRewritesOldSpellings: applying the fixes every old state
+// spelling's diagnostic carries produces text that parses with no
+// nonstandard-notation diagnostic and lowers to the same graph.
+func TestNotationFixRewritesOldSpellings(t *testing.T) {
+	oldForm := `package P {
+	private import ScalarValues::*;
+	item def Ping;
+	action def setSpeed { attribute v : Integer; }
+	state def M {
+		entry; then a;
+		state a {
+			defer Ping, setSpeed(v);
+		}
+		choice pick;
+		junction j;
+		state comp {
+			entry; then inner;
+			state inner;
+		}
+		shallow history sh;
+		deep history dh;
+	}
+}`
+
+	root, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
+	_ = root
+	if len(diags) != 5 {
+		t.Fatalf("got %d diagnostics %+v, want 5", len(diags), diags)
+	}
+	for _, d := range diags {
+		if len(d.Fixes) == 0 {
+			t.Fatalf("diagnostic %q carries no fix", d.Message)
+		}
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+	}
+
+	gOld := stateGraphOf(t, "a.sysml", oldForm, "M")
+	gNew := stateGraphOf(t, "b.sysml", fixed, "M")
+	oldShape, newShape := graphShape(gOld), graphShape(gNew)
+	if len(oldShape) != len(newShape) {
+		t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
+	}
+	for i := range oldShape {
+		if oldShape[i] != newShape[i] {
+			t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
+		}
+	}
+}

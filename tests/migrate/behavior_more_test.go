@@ -128,7 +128,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"attribute instant : Time::TimeInstantValue = 43200.0 [SI::s];",
 		"entry; then Off;",
 		"state Off {",
-		"defer Door;",
+		"#StateMachines::deferred ref : Door;",
 		"entry action cool {",
 		"assign this.temperature := 20.0;",
 		"state On {",
@@ -144,7 +144,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
 		"transition first Dark accept after 0.5 [SI::s] then Lit;",
 		"transition first regions then done;",
-		"choice choice;",
+		"#StateMachines::choice state choice;",
 		"state Resting;",
 		"transition first Off accept TurnOn then On;",
 		"transition first On accept TurnOff then choice;",
@@ -159,7 +159,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_rHeat", migrate.Mapped, "an orthogonal region is written as a sub-state of the parallel state regions")
 	wantNote(t, r, "_offEntry", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_onExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
-	wantNote(t, r, "_pick", migrate.Mapped, "written as a choice pseudostate, whose guarded transitions the runtime reads when it is reached")
+	wantNote(t, r, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate, whose guarded transitions the runtime reads when it is reached")
 	wantNote(t, r, "_gWorn", migrate.Mapped, "")
 	wantNote(t, r, "_gFresh", migrate.Mapped, "an else guard is written as the unguarded transition out of the choice")
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
@@ -167,18 +167,23 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_tSelf", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Resting")
 	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when this.temperature > 200.0")
 	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
-	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes")
-	wantNote(t, r, "_doorEv", migrate.Approximated, "written where a trigger refers to it, as defer Door, an OpenSysML extension of the notation")
+	wantNote(t, r, "_dDoor", migrate.Mapped, "written as #StateMachines::deferred ref : Door, the StateMachines library's deferred-event metadata")
+	wantNote(t, r, "_doorEv", migrate.Mapped, "written where a trigger refers to it, as #StateMachines::deferred ref : Door, the StateMachines library's deferred-event metadata")
 	wantNote(t, r, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 
 	r = migrateDocumentOptions(t, ovenMachine, ovenApplications, migrate.Options{Strict: true})
 	noExtensionStatement(t, r.Notation)
-	wantLine(t, r.Notation, "not migrated: defer Door;")
-	wantNote(t, r, "_dDoor", migrate.Unmapped, "`defer <event>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_doorEv", migrate.Unmapped, "`defer <event>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_pick", migrate.Unmapped, "`choice <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_trOff", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_gWorn", migrate.Unmapped, "the guard [cycles >= 3] is dropped with it")
+	for _, line := range []string{
+		"private import StateMachines::*;",
+		"#StateMachines::deferred ref : Door;",
+		"#StateMachines::choice state choice;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Mapped, "written as #StateMachines::deferred ref : Door, the StateMachines library's deferred-event metadata")
+	wantNote(t, r, "_doorEv", migrate.Mapped, "written where a trigger refers to it, as #StateMachines::deferred ref : Door")
+	wantNote(t, r, "_pick", migrate.Mapped, "written as a #StateMachines::choice state pseudostate")
+	wantNote(t, r, "_gWorn", migrate.Mapped, "")
 
 	r = migrateDocument(t, ovenMachine, ovenApplications)
 	s := session(t, r)

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -45,8 +46,14 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		sysml:       ctx.Kind != source.KindKerML,
 		severity:    notationSeverity(ctx.Options.Conformance),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
+		doc:         name,
 	}
+	if ctx.Batch != nil {
+		w.lookup = ctx.Batch.Source
+	}
+	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
 	w.walk(root.Members)
+	w.bodies = w.bodies[:0]
 	// Notation errors describe the writing, not the recovered model's meaning.
 	for i := range w.diags {
 		w.diags[i].Notation = true
@@ -77,6 +84,20 @@ type notationWalker struct {
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
+	// doc names the document being walked; lookup reads its text when the run
+	// carries a source lookup, which an indent-preserving fix needs.
+	doc    string
+	lookup source.Lookup
+	// bodies stacks the member lists enclosing the member being walked, so a
+	// fix can see the imports already written and where a new one belongs.
+	bodies []bodyFrame
+}
+
+// bodyFrame is one enclosing member list: the members it declares and whether
+// it is the body of a namespace or package, where a fix places an import.
+type bodyFrame struct {
+	members      []ast.Node
+	namespaceish bool
 }
 
 // keywordNameSpans collects where the parser recovered a keyword written as a name,
@@ -109,10 +130,10 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Package:
 			w.keywordAsName(n.Ident)
-			w.walk(n.Members)
+			w.walkPackageMembers(n.Members)
 		case *ast.Definition:
 			w.kermlRelationships(n.Relationships)
 			w.sysmlDeclaration(n, n.Keyword)
@@ -148,8 +169,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
 		case *ast.DeferMember:
-			w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
-				"no notation states a deferred event")
+			w.deferredMember(n)
 		case *ast.InitialNode:
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
@@ -186,8 +206,18 @@ func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Nod
 	action, viewDef := w.inActionBody, w.inViewDefBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
+	w.bodies = append(w.bodies, bodyFrame{members: members})
 	w.walk(members)
+	w.bodies = w.bodies[:len(w.bodies)-1]
 	w.inActionBody, w.inViewDefBody = action, viewDef
+}
+
+// walkPackageMembers walks a namespace or package body, the member lists a fix
+// may add an import to.
+func (w *notationWalker) walkPackageMembers(members []ast.Node) {
+	w.bodies = append(w.bodies, bodyFrame{members: members, namespaceish: true})
+	w.walk(members)
+	w.bodies = w.bodies[:len(w.bodies)-1]
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -271,8 +301,163 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	case ast.PseudostateFork, ast.PseudostateJoin:
 		return
 	}
-	w.extension(keywordSpan(n, n.Keyword), fmt.Sprintf("`%s <name>;`", n.Keyword),
-		"the grammars define no pseudostate notation")
+	annotation, ok := pseudostateAnnotations[n.Kind]
+	if !ok {
+		return
+	}
+	written := fmt.Sprintf("`%s %s;`", n.Keyword, n.Name)
+	replacement := fmt.Sprintf("#%s state %s;", annotation, n.Name)
+	w.extensionFix(keywordSpan(n, n.Keyword), fmt.Sprintf(
+		"%s is an OpenSysML extension; write `%s` (with `private import StateMachines::*;`)",
+		written, replacement), annotation+"Metadata", diag.Replace(n.Span(), replacement))
+}
+
+// pseudostateAnnotations names the StateMachines metadata definition a
+// keyword-spelled pseudostate rewrites as.
+var pseudostateAnnotations = map[ast.PseudostateKind]string{
+	ast.PseudostateChoice:         "choice",
+	ast.PseudostateJunction:       "junction",
+	ast.PseudostateShallowHistory: "shallowHistory",
+	ast.PseudostateDeepHistory:    "deepHistory",
+}
+
+// deferredMember reports `defer <event>[, <event>]*;`, which the StateMachines
+// library writes as one `#deferred ref : <event>;` per trigger.
+func (w *notationWalker) deferredMember(n *ast.DeferMember) {
+	refs := make([]string, 0, len(n.Triggers))
+	spelled := make([]string, 0, len(n.Triggers))
+	for _, trigger := range n.Triggers {
+		name := deferredRefTarget(trigger)
+		if name == "" {
+			continue
+		}
+		spelled = append(spelled, triggerText(trigger))
+		refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
+	}
+	if len(refs) == 0 {
+		w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
+			"no notation states a deferred event")
+		return
+	}
+	w.extensionFix(keywordSpan(n, "defer"), fmt.Sprintf(
+		"`defer %s;` is an OpenSysML extension; write %s (with `private import StateMachines::*;`)",
+		strings.Join(spelled, ", "), strings.Join(refs, " and ")),
+		"DeferredMetadata", diag.Replace(n.Span(), w.deferredRefLines(n, refs)))
+}
+
+// deferredRefLines spells the `#deferred ref` members a `defer` member rewrites
+// as, one per trigger, each on its own line indented like the member when the
+// source text can be read, else on one line.
+func (w *notationWalker) deferredRefLines(n *ast.DeferMember, refs []string) string {
+	lines := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		lines = append(lines, strings.Trim(ref, "`"))
+	}
+	if w.lookup != nil {
+		return strings.Join(lines, "\n"+w.indentOf(n.Span().Offset))
+	}
+	return strings.Join(lines, " ")
+}
+
+// indentOf returns the leading whitespace of the line offset opens, or "" when
+// the member sits mid-line.
+func (w *notationWalker) indentOf(offset int) string {
+	prefix := w.lookup(w.doc, source.Span{Offset: 0, Len: offset})
+	line := prefix[strings.LastIndex(prefix, "\n")+1:]
+	if strings.TrimLeft(line, " \t") != "" {
+		return ""
+	}
+	return line
+}
+
+// deferredRefTarget names the occurrence a deferred trigger defers: the signal
+// a bare name accepts, or the operation a call event invokes (its arguments are
+// dropped, matching what `#deferred ref` carries).
+func deferredRefTarget(trigger ast.Node) string {
+	switch t := trigger.(type) {
+	case *ast.QualifiedName:
+		return qualifiedNameText(t)
+	case *ast.CallEvent:
+		return qualifiedNameText(t.Operation)
+	}
+	return ""
+}
+
+// triggerText spells a deferred trigger as it was written, for the message.
+func triggerText(trigger ast.Node) string {
+	switch t := trigger.(type) {
+	case *ast.QualifiedName:
+		return qualifiedNameText(t)
+	case *ast.CallEvent:
+		params := make([]string, 0, len(t.Parameters))
+		for _, p := range t.Parameters {
+			params = append(params, p.Text)
+		}
+		return fmt.Sprintf("%s(%s)", qualifiedNameText(t.Operation), strings.Join(params, ", "))
+	}
+	return ""
+}
+
+// qualifiedNameText spells a qualified name as `A::B::c`.
+func qualifiedNameText(qn *ast.QualifiedName) string {
+	if qn == nil {
+		return ""
+	}
+	parts := make([]string, 0, len(qn.Parts))
+	for _, p := range qn.Parts {
+		parts = append(parts, p.Text)
+	}
+	return strings.Join(parts, "::")
+}
+
+// extensionFix reports one construct as an OpenSysML extension and attaches the
+// fix rewriting it: the member's own replacement plus the library import when
+// no enclosing body already makes the metadata visible.
+func (w *notationWalker) extensionFix(span source.Span, message, metadata string, replace diag.Edit) {
+	edits := []diag.Edit{replace}
+	if edit, ok := w.stateMachinesImport(metadata); ok {
+		edits = append(edits, edit)
+	}
+	w.diags = append(w.diags, diag.Diagnostic{
+		Severity: w.severity,
+		Span:     span,
+		Message:  message,
+		Code:     CodeNonstandardNotation,
+		Source:   "syntax",
+		Fixes: []diag.Fix{{
+			Title:     "Rewrite as standard `StateMachines` metadata notation",
+			Edits:     edits,
+			Preferred: true,
+		}},
+	})
+}
+
+// stateMachinesImport is the edit that inserts `private import StateMachines::*;`
+// as the first member of the innermost enclosing namespace body, nil when an
+// import already in scope covers the needed metadata definition.
+func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			imp, ok := kit.UnwrapMembership(member).(*ast.Import)
+			if !ok || imp.IsExpose {
+				continue
+			}
+			target := qualifiedNameText(imp.Imported)
+			if target == "StateMachines" && (imp.IsAll || imp.IsRecursive) ||
+				target == "StateMachines::"+metadata {
+				return diag.Edit{}, false
+			}
+		}
+	}
+	for i := len(w.bodies) - 1; i >= 0; i-- {
+		body := w.bodies[i]
+		if !body.namespaceish || len(body.members) == 0 {
+			continue
+		}
+		return diag.InsertLine(body.members[0].Span().Offset,
+			"private import StateMachines::*;"), true
+	}
+	return diag.Edit{}, false
 }
 
 // kermlNamespace reports a `namespace` declaration in a SysML file, whose root

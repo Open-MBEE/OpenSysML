@@ -23,10 +23,10 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 	binary := buildCLI(t)
 
 	wantReport(t, check(t, binary, extensionModel, "-validate"),
-		0, "warning:", "is an OpenSysML extension with no SysML v2 production")
+		0, "warning:", "is an OpenSysML extension; write")
 
 	strict := check(t, binary, extensionModel, "-validate", "-strict")
-	wantReport(t, strict, 2, "error:", "is an OpenSysML extension with no SysML v2 production",
+	wantReport(t, strict, 2, "error:", "is an OpenSysML extension; write",
 		"did not analyse cleanly")
 	rejectReport(t, strict, "warning:")
 }
@@ -36,13 +36,13 @@ func TestStrictConformanceDecidesTheExitStatus(t *testing.T) {
 func TestStateBodyExtensionsAreReportedByDefault(t *testing.T) {
 	binary := buildCLI(t)
 	const corpus = "../../tools/referee/reject/testdata/negative/extensions/"
-	for _, tc := range []struct{ file, notation string }{
-		{"x02-choice-pseudostate.sysml", "`choice <name>;`"},
-		{"x03-junction-pseudostate.sysml", "`junction <name>;`"},
-		{"x05-defer-member.sysml", "`defer <event>;`"},
-		{"x06-history-member.sysml", "`history <name>;`"},
+	for _, tc := range []struct{ file, old, replacement string }{
+		{"x02-choice-pseudostate.sysml", "`choice evaluate;`", "`#choice state evaluate;`"},
+		{"x03-junction-pseudostate.sysml", "`junction route;`", "`#junction state route;`"},
+		{"x05-defer-member.sysml", "`defer Ping;`", "`#deferred ref : Ping;`"},
+		{"x06-history-member.sysml", "`history resume;`", "`#shallowHistory state resume;`"},
 	} {
-		want := tc.notation + " is an OpenSysML extension with no SysML v2 production"
+		want := tc.old + " is an OpenSysML extension; write " + tc.replacement
 		got := checkPaths(t, binary, "-validate", corpus+tc.file)
 		wantReport(t, got, got.status, "warning: "+want)
 		rejectReport(t, got, "error: "+want)

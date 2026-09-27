@@ -106,12 +106,12 @@ func TestKerMLRelationshipClausesInKerMLAreSilent(t *testing.T) {
 // construct.
 func TestStateExtensionsAreReported(t *testing.T) {
 	for _, tc := range []struct{ src, want string }{
-		{"state def S { choice c; }", "`choice <name>;`"},
-		{"state def S { junction j; }", "`junction <name>;`"},
-		{"state def S { history h; }", "history"},
-		{"state def S { shallow history h; }", "history"},
-		{"state def S { deep history h; }", "history"},
-		{"state def S { state a { defer e; } }", "`defer <event>;`"},
+		{"state def S { choice c; }", "write `#choice state c;`"},
+		{"state def S { junction j; }", "write `#junction state j;`"},
+		{"state def S { history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { shallow history h; }", "write `#shallowHistory state h;`"},
+		{"state def S { deep history h; }", "write `#deepHistory state h;`"},
+		{"state def S { state a { defer e; } }", "write `#deferred ref : e;`"},
 	} {
 		wantNotation(t, "a.sysml", tc.src, CodeNonstandardNotation, tc.want)
 	}
