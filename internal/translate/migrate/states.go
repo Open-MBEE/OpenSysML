@@ -1008,6 +1008,9 @@ type deferral struct {
 	// takes the signal from the deferral only while its guard holds or its
 	// substate is active.
 	contested *sysmlv1.Element
+	// completion is a guarded completion transition out of the state, which
+	// the accept loop keeping the signal never lets the do action end for.
+	completion *sysmlv1.Element
 	// info and note say which routes the loops accept by, and which they skip.
 	info, note string
 }
@@ -1075,13 +1078,15 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 				k.info = joinNotes(k.info, taken)
 			}
 			k.contested = contested
-			if t := s.m.completionOutOf(v); t != nil {
-				note := "the completion transition " + describe(t) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
+			alwaysDone, guardedDone := s.m.completionOutOf(v)
+			if alwaysDone != nil {
+				note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
 				out.lines = append(out.lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
 				s.m.add(d, Unmapped, "", note)
 				s.m.add(ev, Unmapped, "", note)
 				continue
 			}
+			k.completion = guardedDone
 		}
 		out.kept = append(out.kept, k)
 	}
@@ -1109,10 +1114,13 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			if !s.m.acceptsGeneralOf(t, k.sig) {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else if s.m.model.Ref(t, "source") != v {
-				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it leaves the state and for both when the transition stays within it, so that occurrence is kept as well")
+				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
 			}
+		}
+		if t := k.completion; t != nil {
+			note = joinNotes(note, "the guarded completion transition "+describe(t)+" leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
 		}
 		s.m.add(k.trigger, Approximated, "", note)
 		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
@@ -1382,15 +1390,24 @@ func (m *migration) acceptsGeneralOf(t, sig *sysmlv1.Element) bool {
 	return false
 }
 
-// completionOutOf returns a transition out of state v that no trigger fires,
-// which v1 takes when the state's do activity completes; nil when none.
-func (m *migration) completionOutOf(v *sysmlv1.Element) *sysmlv1.Element {
+// completionOutOf returns the transitions out of state v that no trigger
+// fires, which v1 takes when the state's do activity completes: always is one
+// under no guard or a true one, which then leaves for certain; guarded is one
+// under any other guard, which may leave the state active. nil when none.
+func (m *migration) completionOutOf(v *sysmlv1.Element) (always, guarded *sysmlv1.Element) {
 	for _, t := range m.outgoing[v] {
-		if len(t.Owned("trigger")) == 0 && t.Attrs["kind"] != "internal" {
-			return t
+		if len(t.Owned("trigger")) > 0 || t.Attrs["kind"] == "internal" {
+			continue
+		}
+		if g := m.guardOf(t); g == nil || trueLiteral(firstOwned(g, "specification")) {
+			if always == nil {
+				always = t
+			}
+		} else if guarded == nil {
+			guarded = t
 		}
 	}
-	return nil
+	return always, guarded
 }
 
 // deferredHead writes what a state's body opens with for its deferrals: the

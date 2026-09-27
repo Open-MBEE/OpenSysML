@@ -657,7 +657,8 @@ func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
 // Under -strict, a transition accepting the signal out of a substate does not
 // stop the composite state deferring it: v1 lets the transition win only while
 // that substate is active, so the composite keeps the signal the rest of the
-// time. The result runs: a Door sent while the sibling without the transition
+// time. The result runs: a Door sent while the substate with the transition is
+// active takes the transition alone, and one sent while the sibling without it
 // is active is kept, and replayed once the composite exits.
 func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	const machine = `
@@ -710,10 +711,21 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
-	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it leaves the state and for both when the transition stays within it, so that occurrence is kept as well")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
 	wantClean(t, "deferralInactiveSubstate", r)
 
 	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Door")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Opened"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Opened") || strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Fatalf("the Door sent while Heating did not take the transition alone:\n%s", out)
+	}
+
+	s = session(t, r)
 	meta(t, s, "%instantiate Oven")
 	meta(t, s, "%state Oven::Run")
 	meta(t, s, "%send Go")
@@ -737,10 +749,9 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	}
 }
 
-// A transition out of the state on a general of the deferred signal takes its
-// occurrences as a v2 accept typed by the general does, so under -strict the
-// state does not keep the signal; a transition on a specialization takes only
-// the occurrences of that specialization, so the state keeps the general.
+// Under -strict, a transition the migration refuses to write, its target
+// having no v2 form, does not take the signal from the deferral: the state
+// keeps the signal and replays it once it exits.
 func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	const machine = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
@@ -802,6 +813,87 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	}
 }
 
+// Under -strict, a guarded completion transition out of a deferring state may
+// leave it active while the guard is false, so the state keeps the signal: the
+// accept loop stays, and the completion transition never fires. The result
+// runs: a Door sent while Off is active is kept, Off leaves by the triggered
+// transition only, and the Door is replayed then.
+func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ready" name="ready">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_ready0" value="true"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_done" name="Done"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_done">
+            <guard xmi:type="uml:Constraint" xmi:id="_gReady">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gReadyX"><body>ready</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"state Off {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Off if this.ready then Done;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the guarded completion transition (_tDone) leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
+	wantClean(t, "deferralGuardedCompletion", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") {
+		t.Fatalf("Off did not stay active with the accept loop running, its guarded completion transition notwithstanding:\n%s", out)
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
+// A transition out of the state on a general of the deferred signal takes its
+// occurrences as a v2 accept typed by the general does, so under -strict the
+// state does not keep the signal; a transition on a specialization takes only
+// the occurrences of that specialization, so the state keeps the general.
 func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	const signals = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>
