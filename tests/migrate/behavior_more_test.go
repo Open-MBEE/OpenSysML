@@ -275,6 +275,7 @@ const deferringMachine = `
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_beepEv" signal="_beep"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goDeferredEv" signal="_go"/>
     <packagedElement xmi:type="uml:Class" xmi:id="_panel" name="Panel" classifierBehavior="_psm">
       <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks">
         <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
@@ -297,7 +298,7 @@ const deferringMachine = `
           <subvertex xmi:type="uml:State" xmi:id="_wait" name="Waiting">
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dAlarm" event="_alarmEv"/>
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dBeep" event="_beepEv"/>
-            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dGo" event="_goEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dGo" event="_goDeferredEv"/>
             <doActivity xmi:type="uml:OpaqueBehavior" xmi:id="_waitDo">
               <language>JavaScript</language>
               <body>ticks = ticks + 1;</body>
@@ -390,6 +391,7 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	}
 	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_tGo) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @MigrationMetadata::DeferredEvent annotation records the deferral")
 	wantNoLine(t, r.Notation, "item deferredGo : Go[*] ordered;")
+	wantNote(t, r, "_goDeferredEv", migrate.Approximated, "deferred by 'Waiting', which the state's @MigrationMetadata::DeferredEvent annotation records; the state does not keep the signal, the transition (_tGo) accepting it")
 	wantNote(t, r, "_dPrepAlarm", migrate.Unmapped, "the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped")
 	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept in the item deferredAlarm by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
 	wantNote(t, r, "_dBeep", migrate.Approximated, "kept in the item deferredBeep by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
@@ -750,8 +752,9 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 }
 
 // Under -strict, a transition the migration refuses to write, its target
-// having no v2 form, does not take the signal from the deferral: the state
-// keeps the signal and replays it once it exits.
+// having no v2 form, does not take the signal from the deferral, nor does a
+// completion transition it refuses drop it: the state keeps the signal and
+// replays it once it exits.
 func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	const machine = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
@@ -772,6 +775,7 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
           <transition xmi:type="uml:Transition" xmi:id="_tPick" source="_off" target="_pick">
             <trigger xmi:type="uml:Trigger" xmi:id="_trPick" event="_doorEv"/>
           </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_pick"/>
           <transition xmi:type="uml:Transition" xmi:id="_tPicked" source="_pick" target="_idle"/>
           <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
             <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
@@ -785,6 +789,7 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
 	wantNoLine(t, r.Notation, "choice pick;")
+	wantNoLine(t, r.Notation, "/* not migrated: defer Door; — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
 	for _, line := range []string{
 		"state Off {",
 		"item deferred : Door[*] ordered;",
@@ -794,6 +799,7 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	}
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
 	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, r, "_tDone", migrate.Unmapped, "the target 'pick' has no v2 form")
 	wantClean(t, "deferralTargetNoForm", r)
 
 	s := session(t, r)

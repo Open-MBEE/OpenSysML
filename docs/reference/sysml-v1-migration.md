@@ -1799,7 +1799,8 @@ and the signal is deferred otherwise; the standard leaves open which of a transi
 action's accept takes an occurrence both could, which the OpenSysML runtime settles for the
 transition whenever it fires — out of the deferring state or out of a substate within it — and
 for the accept loop otherwise; the note names the transition. A transition `-strict` does not write, into a pseudostate with no v2 form such as a
-choice, takes no signal, so the deferral keeps every route it would have accepted by.
+choice, takes no signal, so the deferral keeps every route it would have accepted by; nor does
+such a completion transition drop the deferral.
 
 The `@MigrationMetadata::DeferredEvent` annotation is written in both modes, so a consumer sees
 what the state deferred without reading the encoding; `MigrationMetadata` is a bundled

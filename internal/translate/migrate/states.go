@@ -1073,6 +1073,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
 				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
 				s.m.add(d, Approximated, "", note)
+				s.m.add(ev, Approximated, "", "deferred by "+describe(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
 				continue
 			} else if taken != "" {
 				k.info = joinNotes(k.info, taken)
@@ -1393,10 +1394,11 @@ func (m *migration) acceptsGeneralOf(t, sig *sysmlv1.Element) bool {
 // completionOutOf returns the transitions out of state v that no trigger
 // fires, which v1 takes when the state's do activity completes: always is one
 // under no guard or a true one, which then leaves for certain; guarded is one
-// under any other guard, which may leave the state active. nil when none.
+// under any other guard, which may leave the state active. A transition the
+// output does not write, its target having no form, is none. nil when none.
 func (m *migration) completionOutOf(v *sysmlv1.Element) (always, guarded *sysmlv1.Element) {
 	for _, t := range m.outgoing[v] {
-		if len(t.Owned("trigger")) > 0 || t.Attrs["kind"] == "internal" {
+		if len(t.Owned("trigger")) > 0 || t.Attrs["kind"] == "internal" || !m.targetHasForm(t) {
 			continue
 		}
 		if g := m.guardOf(t); g == nil || trueLiteral(firstOwned(g, "specification")) {
