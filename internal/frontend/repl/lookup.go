@@ -460,6 +460,11 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 		}
 	}
 	for _, name := range fvs {
+		// A collection populated only through subsetting implied by nesting
+		// holds objects another feature already lists; it is not a path of its own.
+		if ctx.ImpliedCollection(of.inst, name) {
+			continue
+		}
 		fv, ok := read(name)
 		if !ok {
 			continue

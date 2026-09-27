@@ -1376,6 +1376,17 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 			return truncated(lines, "")
 		}
 		feat := of.Feature
+		// A collection populated only through subsetting implied by nesting is
+		// not a path of its own: its objects are listed under the declared
+		// features holding them, and reading it would manufacture them.
+		if w.ctx.ImpliedCollection(inst, of.Name) {
+			if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+				lines = w.emit(lines, fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv)))
+			} else {
+				lines = w.emit(lines, fmt.Sprintf("%s%s = []", indent, of.Name))
+			}
+			continue
+		}
 		// A state or action holds no value either; what it has is a run, or none,
 		// which is listed under its own heading after the values.
 		if isBehaviorFeature(feat) {
