@@ -564,9 +564,8 @@ jobs:
         with:
           node-version: '24'
 
-      # The WebAssembly gate on its own, for the same reason: it compiles and vets
-      # the whole tree for both wasm targets, links the commands and runs them under
-      # Node, so a skip has to be visible and has to fail.
+      # It compiles and vets the whole tree for both wasm targets, links the commands
+      # and runs them under Node, so a skip has to be visible and has to fail.
       - name: Run the WebAssembly gate
         run: |
           set -o pipefail
