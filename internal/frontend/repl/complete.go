@@ -481,6 +481,16 @@ func (s *Session) objectTypeOf(feat *runtime.EffectiveFeature) *symbols.Symbol {
 	return nil
 }
 
+// impliedCollection reports whether the feature of shape named name is a
+// collection populated only through subsetting implied by nesting, which
+// completion does not offer as a path of its own.
+func (s *Session) impliedCollection(shape objectShape, name string) bool {
+	if shape.inst != nil {
+		return s.rtCtx.ImpliedCollection(shape.inst, name)
+	}
+	return s.rtCtx.ImpliedCollectionOfType(shape.typ, name)
+}
+
 // featureNamed is the effective feature called name, or nil.
 func featureNamed(features []runtime.EffectiveFeature, name string) *runtime.EffectiveFeature {
 	for i := range features {
@@ -514,7 +524,10 @@ func (s *Session) featureCompletions(shape objectShape, prefix, partial string) 
 	features := s.rtCtx.FeaturesOf(shape.typ)
 	for i := range features {
 		feat := &features[i]
-		if feat.Name == "" || !s.holdsObjects(shape, feat) {
+		// An implied collection is offered only once materialized, when its
+		// elements — possibly written into it directly — are resolvable.
+		impliedUnread := s.impliedCollection(shape, feat.Name) && heldFeatureValue(shape.inst, feat.Name) == nil
+		if feat.Name == "" || impliedUnread || !s.holdsObjects(shape, feat) {
 			continue
 		}
 		name := prefix + source.NameText(feat.Name)

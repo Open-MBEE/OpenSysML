@@ -304,7 +304,7 @@ func (ctx *Context) unfoldSubsettedDefaults(inst *Instance, typ *symbols.Symbol,
 		if features[i].Symbol == nil {
 			continue
 		}
-		for _, name := range ctx.subsettedNames(features[i].Symbol, typ) {
+		for _, name := range ctx.declaredSubsettedNames(features[i].Symbol, typ) {
 			fv, ok := inst.FeatureValues[name]
 			if !ok || !fv.Materialized || fv.Written || !ctx.valueBinds(fv.Feature) || !fv.Feature.DefaultIsFallback() {
 				continue

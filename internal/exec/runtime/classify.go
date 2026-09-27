@@ -65,6 +65,21 @@ func (ctx *Context) comparableTypes(typ, other *symbols.Symbol, seen map[*symbol
 // so it carries the features its type and body declare; the caller has checked each may be held.
 // The value is classified whole: one object refused leaves every object as it was.
 func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
+	return ctx.classifyValues(feature, val, true)
+}
+
+// classifyWritten is classifyHeld for a value a write stated: an object written
+// into a feature answers to it however else it is held, so the implied-collection
+// deferral that the contribution path needs does not apply.
+func (ctx *Context) classifyWritten(feature *symbols.Symbol, val Value) error {
+	return ctx.classifyValues(feature, val, false)
+}
+
+// classifyValues classifies the objects of val by feature. With implied, an
+// object held by a feature reaching this one only through subsetting implied
+// by nesting is left as it is: it counts as the collection's value by kind,
+// not by anything the collection declares.
+func (ctx *Context) classifyValues(feature *symbols.Symbol, val Value, implied bool) error {
 	if feature == nil {
 		return nil
 	}
@@ -75,7 +90,7 @@ func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
 			continue
 		}
 		inst, ok := ctx.instances[id]
-		if !ok || inst == nil || inst.Type == nil {
+		if !ok || inst == nil || inst.Type == nil || (implied && ctx.impliedClassifier(inst, feature)) {
 			continue
 		}
 		if err := ctx.classify(inst, feature); err != nil {
@@ -85,6 +100,103 @@ func (ctx *Context) classifyHeld(feature *symbols.Symbol, val Value) error {
 	}
 	commit()
 	return nil
+}
+
+// impliedClassifier reports whether feature is a collection the feature holding inst
+// reaches only through a subsetting implied by nesting: the object is one of its
+// values by kind already, so the collection classifies it with nothing its own
+// declaration does not.
+func (ctx *Context) impliedClassifier(inst *Instance, feature *symbols.Symbol) bool {
+	owner, name := inst.Owner()
+	if owner == nil {
+		return false
+	}
+	return !ctx.reachesSubsetted(owner, name, feature.Name, ctx.declaredSubsettedNamesOf) &&
+		ctx.reachesSubsetted(owner, name, feature.Name, ctx.subsettedNamesOf)
+}
+
+// reachesSubsetted reports whether the feature of owner named from subsets the one
+// named to, transitively along the edges of gives.
+func (ctx *Context) reachesSubsetted(owner *Instance, from, to string, gives func(*Instance, *symbols.Symbol) []string) bool {
+	byName := make(map[string]*symbols.Symbol, len(owner.FeatureValues))
+	for name, fv := range owner.FeatureValues {
+		if fv.Feature.Symbol != nil {
+			byName[name] = fv.Feature.Symbol
+		}
+	}
+	return reachesNames(byName, from, to, func(sym *symbols.Symbol) []string {
+		return gives(owner, sym)
+	})
+}
+
+// reachesSubsettedType is reachesSubsetted for a type alone, over the features
+// its instances would hold.
+func (ctx *Context) reachesSubsettedType(typ *symbols.Symbol, from, to string, gives func(sym, owner *symbols.Symbol) []string) bool {
+	byName := make(map[string]*symbols.Symbol)
+	for _, feat := range ctx.FeaturesOf(typ) {
+		if feat.Symbol != nil {
+			byName[feat.Name] = feat.Symbol
+		}
+	}
+	return reachesNames(byName, from, to, func(sym *symbols.Symbol) []string {
+		return gives(sym, typ)
+	})
+}
+
+// reachesNames walks the feature names of an owner from `from`, returning true
+// when `to` is reached transitively along the edges of gives.
+func reachesNames(byName map[string]*symbols.Symbol, from, to string, gives func(*symbols.Symbol) []string) bool {
+	seen := map[string]bool{from: true}
+	queue := []string{from}
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		sym := byName[name]
+		if sym == nil {
+			continue
+		}
+		for _, next := range gives(sym) {
+			if next == to {
+				return true
+			}
+			if !seen[next] {
+				seen[next] = true
+				queue = append(queue, next)
+			}
+		}
+	}
+	return false
+}
+
+// ImpliedCollection reports whether the feature of inst named name is reached
+// only through subsetting implied by nesting: enumeration surfaces skip it, an
+// object it holds being listed under the declared feature that holds it.
+func (ctx *Context) ImpliedCollection(inst *Instance, name string) bool {
+	for _, of := range ctx.FeaturesOfObject(inst) {
+		if of.Feature == nil || of.Feature.Symbol == nil || of.Name == name {
+			continue
+		}
+		if ctx.reachesSubsetted(inst, of.Name, name, ctx.subsettedNamesOf) &&
+			!ctx.reachesSubsetted(inst, of.Name, name, ctx.declaredSubsettedNamesOf) {
+			return true
+		}
+	}
+	return false
+}
+
+// ImpliedCollectionOfType is ImpliedCollection for a type alone, over the
+// features its instances would hold.
+func (ctx *Context) ImpliedCollectionOfType(typ *symbols.Symbol, name string) bool {
+	for _, feat := range ctx.FeaturesOf(typ) {
+		if feat.Name == name || feat.Symbol == nil {
+			continue
+		}
+		if ctx.reachesSubsettedType(typ, feat.Name, name, ctx.subsettedNames) &&
+			!ctx.reachesSubsettedType(typ, feat.Name, name, ctx.declaredSubsettedNames) {
+			return true
+		}
+	}
+	return false
 }
 
 // holdWritten makes the objects written to a feature of inst its values (KerML §7.3.4.1): a composite
@@ -99,7 +211,7 @@ func (ctx *Context) holdWritten(inst *Instance, fv *FeatureValue, val Value) err
 		rollback()
 		return err
 	}
-	if err := ctx.classifyHeld(fv.Feature.heldBy(), val); err != nil {
+	if err := ctx.classifyWritten(fv.Feature.heldBy(), val); err != nil {
 		rollback()
 		return err
 	}
@@ -445,14 +557,23 @@ func (ctx *Context) subsettingFeaturesOf(inst *Instance, name string) []Effectiv
 
 // subsettedNamesOf returns the features of inst that its feature sym subsets, through any of its types.
 func (ctx *Context) subsettedNamesOf(inst *Instance, sym *symbols.Symbol) []string {
+	return ctx.namesOfThroughTypes(inst, sym, ctx.subsettedNames)
+}
+
+// declaredSubsettedNamesOf is subsettedNamesOf for the declared subsettings alone.
+func (ctx *Context) declaredSubsettedNamesOf(inst *Instance, sym *symbols.Symbol) []string {
+	return ctx.namesOfThroughTypes(inst, sym, ctx.declaredSubsettedNames)
+}
+
+func (ctx *Context) namesOfThroughTypes(inst *Instance, sym *symbols.Symbol, of func(sym, owner *symbols.Symbol) []string) []string {
 	types := inst.types()
 	if len(types) == 1 {
-		return ctx.subsettedNames(sym, types[0])
+		return of(sym, types[0])
 	}
 	seen := map[string]bool{}
 	var out []string
 	for _, typ := range types {
-		for _, name := range ctx.subsettedNames(sym, typ) {
+		for _, name := range of(sym, typ) {
 			if !seen[name] {
 				seen[name] = true
 				out = append(out, name)

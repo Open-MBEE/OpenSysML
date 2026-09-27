@@ -1243,6 +1243,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
 	}
+	// A usage's `nested*` and a definition's `owned*` derive its owned usages of
+	// the metaclass the suffix names (see reflective_usages.go).
+	if elems, ok := m.reflectiveOwnedUsages(sym, feature); ok {
+		return elems, true
+	}
 	return nil, false
 }
 
