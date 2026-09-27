@@ -171,7 +171,7 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	for _, line := range []string{
 		"assign tank.valve.open := true;",
 		"assign tank.volume := tank.volume * 2 + (if tank.valve.open ? 1 else 0);",
-		"assign this.runs := this.runs + 1;",
+		"assign runs := runs + 1;",
 		"assign level := tank.volume;",
 		"assign level := level + 1;",
 		"assign level := level + tank.volume;",
@@ -356,7 +356,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 		"assign floored := RealFunctions::floor(total) / 8;",
 		"assign rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(total + 0.5), 8);",
 		"assign quarter := OpenSysMLMathFunctions::quotient(ticks, 4);",
-		"assign eighth := this.ticks / 8;",
+		"assign eighth := ticks / 8;",
 		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
 		"/* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */",
 	} {

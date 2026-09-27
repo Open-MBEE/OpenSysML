@@ -1838,7 +1838,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		c := a.m.contextOf(b)
 		note := ""
 		if l, _, why := a.m.lanePerformer(n); l != nil {
-			usage := a.m.anchorExpr(l.expr, a.def) + "." + writeName(a.m.behaviorUsage(b))
+			usage := joinDot(a.m.anchorExpr(l.expr, a.def), writeName(a.m.behaviorUsage(b)))
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
 			note = joinNotes(why, note)
@@ -2162,7 +2162,7 @@ func (a *activity) featureOn(objPin, f *sysmlv1.Element) (string, string) {
 		if !a.m.mayHaveFeature(t, f) {
 			return "", "the object read, " + obj + ", is a " + qualifiedName(t) + noFeature + a.m.nameOf(f)
 		}
-		return obj + "." + writeName(a.m.nameOf(f)), ""
+		return a.m.respellThis(obj+"."+writeName(a.m.nameOf(f)), a.act), ""
 	}
 	if objPin == nil || len(a.sources[objPin]) == 0 {
 		return "", ""
@@ -2247,7 +2247,7 @@ func (a *activity) writeFeature(n *sysmlv1.Element, name string) {
 	note := ""
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
-		assign := "assign " + target + "." + writeName(a.m.nameOf(f)) + " := " + writeName(a.names[val]) + ";"
+		assign := "assign " + a.m.respellThis(target+"."+writeName(a.m.nameOf(f)), a.act) + " := " + writeName(a.names[val]) + ";"
 		if !a.m.lacksValue(val) {
 			a.m.w.line(assign)
 			return
@@ -2284,7 +2284,7 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			case !a.m.written(port):
 				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
 			case a.hasPort(port):
-				line += " via " + a.self() + "." + writeName(a.m.nameOf(port))
+				line += " via " + a.m.respellThis(a.self()+"."+writeName(a.m.nameOf(port)), a.act)
 			default:
 				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"
 			}
@@ -2293,9 +2293,9 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			switch {
 			case ok && obj == a.self():
 			case ok:
-				line += " to " + obj
+				line += " to " + a.m.respellThis(obj, a.act)
 			case len(a.sources[t]) > 0:
-				line += " to " + writeName(a.names[t])
+				line += " to " + a.m.respellThis(writeName(a.names[t]), a.act)
 			default:
 				note = joinNotes(note, "the target pin holds nothing a flow names; the signal is sent to the sender")
 			}

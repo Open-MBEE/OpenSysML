@@ -103,6 +103,11 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if r != nil {
 		return opaqueRef{}, r
 	}
+	if path[0] == "this" && len(path) > 1 && m.selfContext(s.scope) == nil {
+		// In a usage the object has no name: `this.f` spells bare — or through
+		// the owning def where a nearer declaration shadows the name.
+		expr = m.respellThis("this."+expr, s.scope)
+	}
 	if unreadableBounds(f) {
 		return opaqueRef{}, boundsRefusal(f, full)
 	}
@@ -191,7 +196,7 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	name := path[0]
 	if lf := m.laneFeature(s.lane, name); lf != nil {
 		s.viaLane = true
-		return featureAnchor{expr: m.anchorExpr(s.lane.expr, s.scope) + "." + writeName(m.nameOf(lf)), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
+		return featureAnchor{expr: joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(lf))), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
 	}
 	visible, hidden := m.visibleFrom(s.scope)
 	f := visible[name]

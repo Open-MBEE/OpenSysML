@@ -1254,6 +1254,28 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 			}
 			continue
 		}
+		if end.OtherFeature != "" {
+			// A qualified path (`Bench::level`) names a feature of the object the
+			// binding joins: write it on that object, as `this.level` writes it.
+			target := e.bindingEndContext(end).self
+			switch {
+			case target == nil:
+			case target.FeatureValues[end.OtherFeature] == nil:
+				if end.FromValue {
+					continue
+				}
+				return fmt.Errorf("%w: %s is bound to %s: %w",
+					ErrBindingEnd, end.pinText(), bindingEndText(end.Other),
+					fmt.Errorf("object #%d (%s) has no feature %s", target.ID, symbolText(target.Type), end.OtherFeature))
+			default:
+				if err := target.SetFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
+					return fmt.Errorf("%w: %s is bound to %s: %w",
+						ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+				}
+				e.ctx.noteObjectWrite(target, end.OtherFeature, value)
+			}
+			continue
+		}
 		name := simpleEndName(end.Other)
 		if name == "" {
 			if end.FromValue {

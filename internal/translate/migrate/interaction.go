@@ -290,8 +290,12 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 		if self == "this" {
 			// Inside the def the object is its context parameter, not this.
 			self = s.m.thisName(s.e)
+			if self == "this" {
+				// Inside a usage the object has no name: its parts spell bare.
+				self = ""
+			}
 		}
-		ref = lifelineRef{line: line, path: self + "." + paths[0], chain: paths[0], typ: s.m.model.Ref(rep, "type")}
+		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type")}
 		if self != "this" {
 			ref.chain = ref.path
 		}

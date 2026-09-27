@@ -9,4 +9,4 @@
 23718	mapped
 6	skipped
 9643	unmapped
-23	validation-errors
+16	validation-errors

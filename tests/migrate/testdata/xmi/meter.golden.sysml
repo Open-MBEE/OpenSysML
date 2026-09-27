@@ -80,7 +80,7 @@ part def Meter {
         }
         first quarterly then cc;
         action cc {
-            assign eighth := this.ticks / 8;
+            assign eighth := ticks / 8;
         }
         first cc then judge;
         action judge {

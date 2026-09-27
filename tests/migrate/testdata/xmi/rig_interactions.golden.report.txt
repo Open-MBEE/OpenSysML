@@ -6,7 +6,7 @@ Interaction	Rig::Astray	_astray	(the lifeline 'o' stands for 'motor' of Other, w
 Interaction	Rig::Spinup at 12.01	_trace	(the interaction has no message: it records 2 state invariant(s) under 2 time constraint(s), a timing trace, which no scenario step performs)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sNew	(the occurrence belongs to the message 'new', which is not written)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rNew	(the occurrence belongs to the message 'new', which is not written)
-Message	Rig::Spinup::new	_mNew	(the message creates this.drive.motor, a part that exists for as long as its owner does; the steps after it address it as it is)
+Message	Rig::Spinup::new	_mNew	(the message creates drive.motor, a part that exists for as long as its owner does; the steps after it address it as it is)
 Interaction	Twin::Twinned	_twinned	(the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor)
 
 ## approximated (6)
@@ -14,8 +14,8 @@ Parameter	Motor::Spin::result	_spRes	-> Motor::spin::result	(the return paramete
 AddStructuralFeatureValueAction	Motor::Spinning::set speed	_set	-> 'set speed'	(no edge leads to the node, so it starts with the activity)
 Interaction	Rig::Spinup	_spinup	-> Rig::spinup	(written as an action usage of Rig, which a call on an object performs, so its body runs on the object and reaches its features; written as a scenario of 8 steps, one per message in occurrence order; the lifelines' own behavior is not part of it)
 «TestCase» Interaction	Rig::Spinup Test	_tc	-> Rig::'Spinup Test'	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; the test case has no return parameter, so the verification case states no verdict and is inconclusive once its steps complete)
-Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on this.drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
-Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to this.ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
+Message	Rig::Spinup::brake	_mBrake	-> brake	(written as a call of Brake on drive.motor; the asynchronous call is performed to completion before the next step: an action performs what it calls)
+Message	Rig::Spinup::spun	_mRet	-> spun	(written as the assignment of the call spin's results to ctrl; the value 30.0 the reply states for result is the operation's own result, which the call computes)
 
 ## mapped (75)
 «Block» Class	Controller	_ctrl	-> Controller
@@ -76,17 +76,17 @@ MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOper
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rGo2	-> parEnd	(the occurrence orders the step parEnd)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_sDone	-> parOp1	(the occurrence orders the step parOp1)
 MessageOccurrenceSpecification	Rig::Spinup::<CombinedFragment>::<InteractionOperand>::<MessageOccurrenceSpecification>	_rDone	-> parOp1	(the occurrence orders the step parOp1)
-Message	Rig::Spinup::<Message>	_mSpin2	-> callSpin	(written as a call of spin on this.drive.motor)
+Message	Rig::Spinup::<Message>	_mSpin2	-> callSpin	(written as a call of spin on drive.motor)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sSpin	-> spin	(the occurrence orders the step spin)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rSpin	-> spin	(the occurrence orders the step spin)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_sRet	-> spun	(the occurrence orders the step spun)
 MessageOccurrenceSpecification	Rig::Spinup::<MessageOccurrenceSpecification>	_rRet	-> spun	(the occurrence orders the step spun)
-Lifeline	Rig::Spinup::c	_lc	-> this.ctrl	(the lifeline stands for this.ctrl, which the steps address)
-Message	Rig::Spinup::go	_mGo	-> go	(written as a send to this.drive.motor)
-Lifeline	Rig::Spinup::m	_lm	-> this.drive.motor	(the lifeline stands for this.drive.motor, which the steps address)
-Message	Rig::Spinup::parEnd	_mGo2	-> parEnd	(written as a send to this.drive.motor)
-Message	Rig::Spinup::parOp1	_mDone	-> parOp1	(written as a send to this.ctrl)
-Message	Rig::Spinup::spin	_mSpin	-> spin	(written as a call of spin on this.drive.motor)
+Lifeline	Rig::Spinup::c	_lc	-> ctrl	(the lifeline stands for ctrl, which the steps address)
+Message	Rig::Spinup::go	_mGo	-> go	(written as a send to drive.motor)
+Lifeline	Rig::Spinup::m	_lm	-> drive.motor	(the lifeline stands for drive.motor, which the steps address)
+Message	Rig::Spinup::parEnd	_mGo2	-> parEnd	(written as a send to drive.motor)
+Message	Rig::Spinup::parOp1	_mDone	-> parOp1	(written as a send to ctrl)
+Message	Rig::Spinup::spin	_mSpin	-> spin	(written as a call of spin on drive.motor)
 Property	Rig::ctrl	_rCtrl	-> Rig::ctrl
 Property	Rig::drive	_rDrive	-> Rig::drive
 Property	Rig::mode	_mode	-> Rig::mode

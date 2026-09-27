@@ -125,7 +125,7 @@ part def Reactor {
         }
         first mixed then python;
         action python {
-            assign power := this.power + 1;
+            assign power := power + 1;
         }
         first python then partial;
         action partial {

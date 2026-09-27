@@ -3,7 +3,7 @@ part def Engine {
     action tune {
         action 'set rpm' {
             in value;
-            assign this.rpm := value;
+            assign rpm := value;
         }
     }
 }
@@ -13,7 +13,7 @@ part def Host {
     action hit {
         action 'mark hit' {
             in value;
-            assign this.hits := value;
+            assign hits := value;
         }
     }
     action run {

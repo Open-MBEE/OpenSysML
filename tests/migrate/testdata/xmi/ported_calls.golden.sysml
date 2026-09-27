@@ -32,7 +32,7 @@ part def Drive {
         perform action 'spin over p' ::> motor.spin;
         first 'spin over p' then 'read motor';
         action 'read motor' {
-            out result = this.motor;
+            out result = motor;
         }
         first 'read motor' then 'fork';
         fork 'fork';

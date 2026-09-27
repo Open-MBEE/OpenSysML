@@ -228,6 +228,9 @@ func (Send) statement() { /* marker: closed Statement set */ }
 // feature.
 type Assign struct {
 	Target string
+	// Qualified marks a namespace-qualified target (`Scope::azimuth`): it names
+	// the feature on the object performing the body, no host binding applies.
+	Qualified bool
 	// Chain is the chained target the assignment writes through (`s.reading`),
 	// nil when the target was a plain name the body's host binds.
 	Chain *AssignTarget
@@ -1248,8 +1251,40 @@ func inoutValueBinding(node, pin *ast.Usage, name string, scope *symbols.Scope) 
 	binding := PinBinding{Node: node, Pin: name, Other: pin.Value, Scope: scope, Decl: pin, FromValue: true}
 	if chain, feature, ok := assignTarget(pin.Value); ok {
 		binding.OtherChain, binding.OtherFeature = chain, feature
+		return binding, true
+	}
+	if feature, ok := qualifiedEndFeature(pin.Value, scope); ok {
+		binding.OtherFeature = feature
 	}
 	return binding, true
+}
+
+// qualifiedEndFeature names the feature a qualified path ends in (`Bench::level`
+// ends in `level`), when the path resolves to one where it was written: it binds
+// the pin to that feature on the object the binding joins, so the pin writes back.
+// A qualified name of another kind (`Mode::idle`) holds a value, not a feature.
+func qualifiedEndFeature(node ast.Node, scope *symbols.Scope) (string, bool) {
+	if ref, ok := node.(*ast.FeatureReference); ok {
+		node = ref.Name
+	}
+	qn, ok := node.(*ast.QualifiedName)
+	if !ok || len(qn.Parts) < 2 {
+		return "", false
+	}
+	segments := make([]string, 0, len(qn.Parts))
+	for _, part := range qn.Parts {
+		if part.Text == "" {
+			return "", false
+		}
+		segments = append(segments, part.Text)
+	}
+	if sym, ok := resolve.FeatureSymbolInScope(scope, segments); ok && sym != nil {
+		owner, named := resolve.FeatureSymbolInScope(scope, segments[:len(segments)-1])
+		if named && owner != nil && owner.Kind != symbols.SymbolPackage && owner.Kind != symbols.SymbolNamespace {
+			return segments[len(segments)-1], true
+		}
+	}
+	return "", false
 }
 
 // DeclaresNodeFeature reports whether an action member is a parameter or attribute.
@@ -1357,9 +1392,12 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 		if chain, feature, ok := assignTarget(m.Target); ok {
 			return Assign{Target: feature, Chain: chain, Value: m.Value, Node: m, Scope: scope}
 		}
-		// A namespace-qualified target names no object to write on: an assignment
-		// writes a feature of its target occurrence (Actions::AssignmentAction).
+		// A namespace-qualified target names a feature of the object performing
+		// the body: `Scope::azimuth` writes feature azimuth on it.
 		if qname := ast.AsQualifiedName(m.Target); qname != nil && len(qname.Parts) > 1 {
+			if feature, ok := qualifiedEndFeature(m.Target, scope); ok {
+				return Assign{Target: feature, Qualified: true, Value: m.Value, Node: m, Scope: scope}
+			}
 			return Unsupported{
 				Description: "assignment to a qualified target",
 				Node:        m,

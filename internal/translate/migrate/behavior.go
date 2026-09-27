@@ -429,9 +429,15 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	// Inside a def a classifier feature spells through the context parameter;
+	// inside a usage it resolves bare, so no prefix is inserted there.
+	prefix := m.self + "."
+	if m.self == "this" {
+		prefix = m.selfPrefix(scope)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + m.self + "." + text[s:]
+		text = text[:s] + prefix + text[s:]
 	}
 	return text
 }

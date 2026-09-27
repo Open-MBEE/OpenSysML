@@ -78,7 +78,7 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 		"in target;",
 		"send new Ping() to target;",
 		"bind ping.target = recipient;",
-		"out result = this.b;",
+		"out result = b;",
 		"flow 'read b'.result to notify.recipient;",
 	} {
 		wantLine(t, r.Notation, line)

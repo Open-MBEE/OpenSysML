@@ -62,7 +62,7 @@ part def Plant {
         }
         first mine then 'count run';
         action 'count run' {
-            assign this.runs := this.runs + 1;
+            assign runs := runs + 1;
         }
         first 'count run' then 'note level';
         action 'note level' {

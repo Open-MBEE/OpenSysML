@@ -218,7 +218,20 @@ func (m *migration) respellThis(expr string, e *sysmlv1.Element) string {
 		return m.thisName(e)
 	}
 	if strings.HasPrefix(expr, "this.") {
-		return m.selfPrefix(e) + strings.TrimPrefix(expr, "this.")
+		rest := strings.TrimPrefix(expr, "this.")
+		if c := m.selfContext(e); c != nil {
+			return m.contextSpelling(c, e) + "." + rest
+		}
+		if owner := m.contextClassifier(e); owner != nil {
+			// Inside a usage the feature resolves bare — unless a nearer
+			// declaration hides it, when the path goes through the owning def.
+			first, _, _ := strings.Cut(rest, ".")
+			visible, _ := m.visibleFrom(e)
+			if members, _ := m.membersOf(owner, memberAny); members[first] != nil && members[first] != visible[first] {
+				return m.ref(owner, e) + "::" + rest
+			}
+		}
+		return rest
 	}
 	return expr
 }
@@ -228,9 +241,23 @@ func (m *migration) respellThis(expr string, e *sysmlv1.Element) string {
 // written: through the context parameter inside a def, bare inside a usage.
 func (m *migration) anchorExpr(expr string, e *sysmlv1.Element) string {
 	if expr == "this" || strings.HasPrefix(expr, "this.") {
-		return m.respellThis(expr, e)
+		root := m.respellThis(expr, e)
+		if root == "this" && m.selfContext(e) == nil {
+			// Inside a usage `this` is the usage's own occurrence; as the root
+			// of a member path the object has no name — spell the member bare.
+			return ""
+		}
+		return root
 	}
 	return m.selfPrefix(e) + expr
+}
+
+// joinDot joins a member path's root and step, keeping a lone root or step.
+func joinDot(root, step string) string {
+	if root == "" {
+		return step
+	}
+	return root + "." + step
 }
 
 // callBodyExpr respells an expression written for e's body so it still reads
@@ -255,10 +282,8 @@ func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 	}
 	if owner := m.contextClassifier(e); owner != nil {
 		if visible, _ := m.membersOf(owner, memberAny); visible[first] != nil {
-			if d := m.enclosingDef(e); d == nil || m.asUsage[d] {
-				// Inside a usage the enclosing this names the object.
-				return "this." + expr
-			}
+			// Inside a usage's call body a bare name is the call's own; the
+			// object's feature is spelled qualified through its def.
 			return m.ref(owner, e) + "::" + expr
 		}
 	}

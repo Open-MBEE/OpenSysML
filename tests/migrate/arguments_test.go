@@ -266,7 +266,7 @@ func TestResultsTheCalleeNeverProducesAreNotFlowedOn(t *testing.T) {
 		"in image : ScalarValues::Integer[0..1];",
 		"in value[0..1];",
 		"if value->SequenceFunctions::notEmpty() {",
-		"assign this.seen := value;",
+		"assign seen := value;",
 		"bind 'set seen'.value = image;",
 		"perform action apply ::> 'use';",
 		"/* flow fetch.image to apply.image not written: nothing in the called Cache::Fetch gives its parameter image a value */",
@@ -492,8 +492,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 		"/* not migrated: SendSignalAction 'warn' — the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing */",
 		"send new Alert(code, level);",
 		"/* not migrated: Interaction 'Short' — the message 'warn' binds no argument to the attribute level of Alert, which must hold a value */",
-		"action alarm send new Alert(level = 2, code = 1) to this.s;",
-		"action mixed send new Alert(tag = 7, code = 4, level = 5) to this.s;",
+		"action alarm send new Alert(level = 2, code = 1) to s;",
+		"action mixed send new Alert(tag = 7, code = 4, level = 5) to s;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -501,8 +501,8 @@ func TestSendsOmittingRequiredSignalAttributesAreReported(t *testing.T) {
 	wantNoLine(t, r.Notation, "level = 4")
 	wantNote(t, r, "_sendShort", migrate.Approximated, "the send passes no argument for the attribute level of Alert, which must hold a value; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing")
 	wantNote(t, r, "_short", migrate.Unmapped, "the message 'warn' binds no argument to the attribute level of Alert, which must hold a value")
-	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to this.s")
-	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to this.s")
+	wantNote(t, r, "_mFull", migrate.Mapped, "written as a send to s")
+	wantNote(t, r, "_mMixed", migrate.Mapped, "written as a send to s")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
