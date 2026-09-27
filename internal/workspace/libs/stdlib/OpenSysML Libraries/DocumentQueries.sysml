@@ -18,13 +18,13 @@ library package DocumentQueries {
 	 * maxDepth = null (the default) walks the whole tree. */
 	calc def Descendants {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
 	calc def Ancestors {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -47,7 +47,7 @@ library package DocumentQueries {
 	 * kind selects all, constraint, requirement, satisfaction or verification. */
 	calc def Verdicts {
 		in source : Element[0..*] ordered;
-		in kind : String[1] = "all";
+		in kind : String[1] default "all";
 		return result : Element[0..*] ordered;
 	}
 
@@ -105,10 +105,10 @@ library package DocumentQueries {
 	 * durations or bare numbers of the clock's seconds. Requires a session
 	 * recording a trace. */
 	calc def Events {
-		in source : Element[0..*] ordered = null;
-		in kind : String[1] = "all";
-		in since : ScalarValue[0..1] = null;
-		in before : ScalarValue[0..1] = null;
+		in source : Element[0..*] ordered default null;
+		in kind : String[1] default "all";
+		in since : ScalarValue[0..1] default null;
+		in before : ScalarValue[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -141,7 +141,7 @@ library package DocumentQueries {
 		in relationshipKind : String[1];
 		in direction : String[1];
 		/* maxDepth: how many relationships to follow; null (the default) is unbounded. */
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -211,8 +211,8 @@ library package DocumentQueries {
 
 	calc def Project {
 		in source : Element[0..*] ordered;
-		in properties : String[0..*] ordered = null;
-		in columns : ColumnSpec[0..*] ordered = null;
+		in properties : String[0..*] ordered default null;
+		in columns : ColumnSpec[0..*] ordered default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -334,9 +334,9 @@ library package DocumentQueries {
 		in name : String[1];
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[0..1] = null;
-		in aggregate : String[1] = "list";
-		in targets : Element[0..*] ordered = null;
+		in maxDepth : Integer[0..1] default null;
+		in aggregate : String[1] default "list";
+		in targets : Element[0..*] ordered default null;
 		return result : ColumnSpec[1];
 	}
 
@@ -347,8 +347,8 @@ library package DocumentQueries {
 		in source : Element[0..*] ordered;
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[0..1] = null;
-		in exists : Boolean[1] = true;
+		in maxDepth : Integer[0..1] default null;
+		in exists : Boolean[1] default true;
 		return result : Element[0..*] ordered;
 	}
 
