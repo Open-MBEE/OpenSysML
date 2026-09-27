@@ -379,3 +379,22 @@ package Q { filter @Safety; }`,
 		})
 	}
 }
+
+// An unnamed annotation written at the document root, outside any symbol, has
+// its body values judged like one written in a definition's body.
+func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
+	const invalid = `part def Acme;
+	metadata def Org { ref owner; }
+	@Org { owner = Acme; }`
+	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", invalid)
+	if w8cCount(msgs, msgReferentIsFeature) != 1 {
+		t.Errorf("want one %q, got %v", msgReferentIsFeature, msgs)
+	}
+	const clean = `part def Acme;
+	part acme : Acme;
+	metadata def Org { ref owner; ref kind; }
+	@Org { owner = acme; kind = Acme meta SysML::PartDefinition; }`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
+		t.Errorf("want a clean analysis, got %v", errs)
+	}
+}

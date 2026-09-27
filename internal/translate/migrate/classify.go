@@ -100,10 +100,11 @@ func (c category) keyword() string {
 }
 
 // metaclass is the qualified name of the SysML metaclass a definition of
-// category c is an instance of; "" for a category that is not a definition.
+// category c is an instance of; "" for a category that is not a definition
+// (an individual's follows its classifier: migration.metaclassOf).
 func (c category) metaclass() string {
 	switch c {
-	case catPartDef, catIndividualDef:
+	case catPartDef:
 		return "SysML::PartDefinition"
 	case catPortDef:
 		return "SysML::PortDefinition"

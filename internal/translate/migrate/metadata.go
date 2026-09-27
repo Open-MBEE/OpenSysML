@@ -240,10 +240,26 @@ func (m *migration) tagReference(id string) (string, string) {
 		return "", "refers to " + qualifiedName(target) + ", which is not written"
 	}
 	ref := m.ref(target, m.scope)
-	if cat, _ := m.classify(target); cat.metaclass() != "" {
-		return ref + " meta " + cat.metaclass(), ""
+	if mc := m.metaclassOf(target); mc != "" {
+		return ref + " meta " + mc, ""
 	}
 	return ref, ""
+}
+
+// metaclassOf is the SysML metaclass the definition e is written as, "" for
+// an element written as something other than a definition. An individual's is
+// the metaclass of the kind its classifier gives it (`individual part def` is
+// a PartDefinition; a bare `individual def`, an OccurrenceDefinition).
+func (m *migration) metaclassOf(e *sysmlv1.Element) string {
+	cat, _ := m.classify(e)
+	if cat == catIndividualDef {
+		kind, _, _ := m.individualClassifiers(e)
+		if kind == catNone {
+			return "SysML::OccurrenceDefinition"
+		}
+		return kind.metaclass()
+	}
+	return cat.metaclass()
 }
 
 // tagLiteral writes one value of a tag typed by t: a string, number or boolean

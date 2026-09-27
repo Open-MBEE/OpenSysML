@@ -33,6 +33,7 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}}
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
+	c.checkAnnotationBodies(rootScope, root)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
 	return c.diags
 }
