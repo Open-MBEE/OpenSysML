@@ -282,7 +282,6 @@ func TestImplicitSubsettingsRenderRendering(t *testing.T) {
 	}
 }
 
-
 // A `ref step` is a reference, not a composite nested performance, so it must
 // not enter the owner's `subperformances`; a composite `step` does.
 func TestImplicitSubsettingsRefStep(t *testing.T) {
