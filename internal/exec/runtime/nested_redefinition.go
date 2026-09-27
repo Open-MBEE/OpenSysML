@@ -88,13 +88,34 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		}
 	}
 	cloned := false
+	governed := make(map[string]bool)
 	for _, p := range carry {
 		for i := range features {
 			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, features[i].Symbol) {
-				if !cloned {
-					features = slices.Clone(features)
-					cloned = true
+				governed[features[i].Name] = true
+			}
+		}
+	}
+	if len(governed) > 0 {
+		// A bound part's names read one feature value, so the chain governs
+		// the binding under each name its redefinition group gives it.
+		for _, group := range ctx.redefinitionGroups(sym) {
+			marks := false
+			for _, name := range group {
+				marks = marks || governed[name]
+			}
+			if marks {
+				for _, name := range group {
+					governed[name] = true
 				}
+			}
+		}
+		if !cloned {
+			features = slices.Clone(features)
+			cloned = true
+		}
+		for i := range features {
+			if governed[features[i].Name] {
 				features[i].GovernedByChain = true
 			}
 		}
@@ -200,10 +221,10 @@ func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *
 }
 
 // applyPendingToHeld applies the nested redefinitions a type of inst declares
-// below fv's feature to the objects val holds: a composite feature owns the
-// objects it holds however they arrived, so a bound or written object reads
-// the chain a redefining body would give it. A governed feature materialized
-// a fresh object the chain already rode down.
+// below fv's feature to the objects val holds that inst owns through fv: a
+// composite feature owns the objects it holds however they arrived, so a bound
+// or written object reads the chain a redefining body would give it. A
+// governed feature materialized a fresh object the chain already rode down.
 func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Value) error {
 	if fv.Feature == nil || fv.Feature.GovernedByChain || !ctx.ownsHeld(fv.Feature) {
 		return nil
@@ -218,7 +239,10 @@ func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Val
 				continue
 			}
 			child, ok := ctx.instances[id]
-			if !ok {
+			// The chain reaches the objects inst owns through this feature
+			// value, as in refineNestedBelow: one owned through a sibling
+			// feature or another parent keeps its owner's reading.
+			if !ok || child.owner != inst || inst.FeatureValues[child.ownerFeature] != fv {
 				continue
 			}
 			if err := ctx.refineChildBelow(inst, child, p.rest, p.sym); err != nil {

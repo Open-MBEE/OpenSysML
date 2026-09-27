@@ -273,6 +273,40 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 		}
 	})
 
+	// An object another composite owns through its own feature is not b's to
+	// refine: writing it into a feature whose type declares a chain leaves
+	// the owning parent's reading alone.
+	t.Run("chain_below_a_sibling_owned_object_keeps_the_owner", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real default = 1.0; }
+			part def Mid { part leaf : Leaf; }
+			part def Top { part mid : Mid; }
+			part a : Top;
+			part b : Top { attribute :>> mid.leaf.value = 9.0; }
+		}`)
+		a, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::a"))
+		if err != nil {
+			t.Fatalf("Instantiate(a): %v", err)
+		}
+		b, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::b"))
+		if err != nil {
+			t.Fatalf("Instantiate(b): %v", err)
+		}
+		mid := readInstance(t, ctx, a, "mid")
+		if err := b.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: mid.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 1.0 {
+			t.Fatalf("a.mid.leaf.value = %v, want a's own 1.0", got)
+		}
+	})
+
 	// A chain whose last segment resolves to no feature declares no nested
 	// redefinition: the object materializes and the feature below reads its
 	// declared default, no panic and no hang.

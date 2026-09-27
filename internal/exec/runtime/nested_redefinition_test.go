@@ -163,3 +163,54 @@ func TestNestedRedefinitionOverridesAnAliasedLeaf(t *testing.T) {
 		}
 	})
 }
+
+// A valued chain below a bound part governs the inherited binding under every
+// name the part's redefinition group gives it: whichever name is read first
+// materializes a fresh object the chain applies below, and the bound object
+// keeps its own value.
+func TestNestedRedefinitionGovernsAnAliasedBoundPart(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Base { part mid : Mid = existing; }
+		part def Derived :> Base {
+			part renamed :>> mid;
+			attribute :>> mid.leaf.value = 9.0;
+		}
+		part d : Derived;
+	}`
+	for _, first := range []string{"mid", "renamed"} {
+		t.Run(first+"_read_first", func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			d := instantiateQualified(t, ctx, idx, "test::d")
+			second := "renamed"
+			if first == "renamed" {
+				second = "mid"
+			}
+			for _, name := range []string{first, second} {
+				leaf := readInstance(t, ctx, readInstance(t, ctx, d, name), "leaf")
+				fv, err := leaf.GetFeatureValue(ctx, "value")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(%s.leaf.value): %v", name, err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != 9.0 {
+					t.Fatalf("%s.leaf.value = %v, want the chain's 9.0", name, got)
+				}
+			}
+			existing := instantiateQualified(t, ctx, idx, "test::existing")
+			if readInstance(t, ctx, d, "mid") == existing {
+				t.Fatalf("d.mid adopted the bound object, want a fresh one")
+			}
+			leaf := readInstance(t, ctx, existing, "leaf")
+			fv, err := leaf.GetFeatureValue(ctx, "value")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(existing.leaf.value): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 1.0 {
+				t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+			}
+		})
+	}
+}
