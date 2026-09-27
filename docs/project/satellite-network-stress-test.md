@@ -507,6 +507,32 @@ The interactive limit is therefore no longer set by the size of the workspace
 a small file sits beside; it is set by the size of the document being edited,
 and by the documents that import it when that document is a library.
 
+### Holding the closed planes as interface records
+
+A plane file nobody is editing does not need its tree: it can be held as its
+interface record, the scopes and symbols the other files reach with their
+facts attached and its diagnostics stored (`docs/internals/interface-records.md`).
+`BenchmarkPlaneResidency` holds the split constellation with every file loaded
+and with the plane files installed from records, the library and
+`constellation.sysml` loaded and analyzed against them, and
+`TestPlaneResidencyProcess` holds either state in a process of its own for
+an RSS measurement from outside. The figures — reachable heap in both states,
+what installing the records alone adds, a satellite's cost loaded against
+recorded, a plane's record on disk, and the two processes' live heap, peak
+RSS and wall time — are in `docs/internals/performance.md`, "What a closed
+document holds as its interface record", with the machine beside them.
+
+What changed for the constellation: the loaded cost of a satellite is its
+syntax tree, its resolver frames and its analysis memos; the recorded cost is
+its members alone, each a symbol with the facts its readers need, kept because
+a qualified name from another document can name any of them and the diagnostic
+it gets depends on which it finds. The remainder of the recorded workspace is
+`constellation.sysml`, which states every satellite's ground link and is
+loaded; it is the largest document of the split and grows with the
+constellation, and what its own analysis holds is later work, as are the
+write points and hydration that would let an editor open the split model
+against a warm cache.
+
 ## Where the time goes
 
 A CPU profile of `sysml -validate` at 1 600 satellites (299 137 elements,

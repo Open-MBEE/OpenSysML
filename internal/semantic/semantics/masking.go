@@ -39,6 +39,9 @@ func (m *Model) RedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	}()
 
 	var out []*symbols.Symbol
+	if sym.Recorded() {
+		out = m.recordedElements(sym, sym.Facts.Redefines)
+	}
 	seen := make(map[*symbols.Symbol]bool)
 	add := func(target *symbols.Symbol) {
 		if target == nil || target == sym || seen[target] {

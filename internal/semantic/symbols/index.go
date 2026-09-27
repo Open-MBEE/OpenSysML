@@ -55,8 +55,9 @@ type Index struct {
 	docRoots      *layer[string, *Scope]      // document name -> root scope
 	docOfRoot     *layer[*Scope, string]      // root scope -> document name
 	docKinds      *layer[string, source.Kind] // document name -> explicit language
-	fqn           *layer[string, []*Symbol]   // fully-qualified name -> symbols
-	contributions *layer[string, []fqnEntry]  // document name -> entries it added
+	gathered      *layer[string, *GatheredRelationships]
+	fqn           *layer[string, []*Symbol]  // fully-qualified name -> symbols
+	contributions *layer[string, []fqnEntry] // document name -> entries it added
 
 	// wildcardMeta holds the wildcard imports of a namespace per document that
 	// declares it, so removing a document stops its imports from being expanded
@@ -200,6 +201,7 @@ func NewIndex() *Index {
 		docRoots:             newLayer[string, *Scope](gen),
 		docOfRoot:            newLayer[*Scope, string](gen),
 		docKinds:             newLayer[string, source.Kind](gen),
+		gathered:             newLayer[string, *GatheredRelationships](gen),
 		fqn:                  newLayer[string, []*Symbol](gen),
 		contributions:        newLayer[string, []fqnEntry](gen),
 		wildcardMeta:         newLayer[string, map[string][]WildcardImport](gen),
@@ -323,6 +325,7 @@ func NewOverlay(base *Index) *Index {
 		docRoots:             overLayer(base.docRoots, gen),
 		docOfRoot:            overLayer(base.docOfRoot, gen),
 		docKinds:             overLayer(base.docKinds, gen),
+		gathered:             overLayer(base.gathered, gen),
 		fqn:                  overLayer(base.fqn, gen),
 		contributions:        overLayer(base.contributions, gen),
 		wildcardMeta:         overLayer(base.wildcardMeta, gen),
@@ -391,10 +394,21 @@ func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, k
 
 	// Extract wildcard imports and filters from the root namespace itself
 	// (root is not a symbol, so indexScope won't process its members)
-	if wildcards := extractWildcardImports(root, rs); len(wildcards) > 0 {
+	if wildcards := wildcardImportsIn(rs); len(wildcards) > 0 {
 		idx.setWildcardImports("", name, wildcards)
 	}
-	idx.SetNamespaceFilters("", name, extractNamespaceFilters(root, rs))
+	idx.SetNamespaceFilters("", name, NamespaceFiltersIn(rs))
+}
+
+// AddRecordedDocument installs a document from its interface record: the
+// tree-less scope tree BuildRecorded made, indexed as a parsed one is, and the
+// relationships its record gathered from its body. The caller expands wildcard
+// imports afterwards, as after AddDocument.
+func (idx *Index) AddRecordedDocument(name string, kind source.Kind, rs *Scope, gathered *GatheredRelationships) {
+	idx.addDocument(name, nil, rs, kind, true)
+	if !gathered.Empty() {
+		idx.gathered.set(name, gathered)
+	}
 }
 
 // setWildcardImports records the wildcard imports doc states through the
@@ -851,6 +865,7 @@ func (idx *Index) removeDocument(name string, expand bool) {
 	}
 	idx.libraryDocs.del(name)
 	idx.docKinds.del(name)
+	idx.gathered.del(name)
 	idx.contributions.del(name)
 	if root, ok := idx.docRoots.get(name); ok {
 		idx.docOfRoot.del(root)
@@ -1422,10 +1437,10 @@ func (idx *Index) indexScope(doc string, scope *Scope, prefix string) {
 
 		// Extract wildcard imports and filters from packages/namespaces
 		if sym.Kind == SymbolPackage || sym.Kind == SymbolNamespace {
-			if wildcards := extractWildcardImports(sym.Decl, sym.Scope); len(wildcards) > 0 {
+			if wildcards := wildcardImportsIn(sym.Scope); len(wildcards) > 0 {
 				idx.setWildcardImports(fqn, doc, wildcards)
 			}
-			idx.SetNamespaceFilters(fqn, doc, extractNamespaceFilters(sym.Decl, sym.Scope))
+			idx.SetNamespaceFilters(fqn, doc, NamespaceFiltersIn(sym.Scope))
 		}
 
 		if sym.Scope != nil {
@@ -1447,14 +1462,13 @@ func joinFQN(prefix, name string) string {
 	return prefix + "::" + name
 }
 
-// extractWildcardImports extracts the wildcard imports of a Package, Namespace,
-// or RootNamespace AST node: the raw qualified name text (e.g. "ISQBase") and
-// declared visibility of each `import <name>::*` statement.
-func extractWildcardImports(decl ast.Node, scope *Scope) []WildcardImport {
+// wildcardImportsIn extracts the wildcard imports the namespace owning scope
+// states: the raw qualified name text (e.g. "ISQBase") and declared visibility
+// of each `import <name>::*` statement.
+func wildcardImportsIn(scope *Scope) []WildcardImport {
 	var out []WildcardImport
-	for _, m := range namespaceMembers(decl) {
-		imp, ok := m.(*ast.Import)
-		if !ok || imp.Kind != ast.ImportNamespace || imp.Imported == nil {
+	for _, imp := range scope.Imports() {
+		if imp.Kind != ast.ImportNamespace || imp.Imported == nil {
 			continue
 		}
 		wi := WildcardImport{

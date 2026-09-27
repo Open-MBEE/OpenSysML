@@ -70,6 +70,9 @@ func (w *Workspace) heldTextLocked() source.Lookup {
 // version standing in for a bundled file displaces it there as well.
 func (w *Workspace) privateIndexLocked() (*symbols.Index, error) {
 	for _, name := range w.sortedDocNamesLocked() {
+		if w.docs[name].Recorded() {
+			return nil, &symbols.NeedsHydration{Doc: name, Question: "a runtime over the workspace"}
+		}
 		if w.docs[name].AST == nil {
 			return nil, fmt.Errorf("%s: document has no parse tree", name)
 		}

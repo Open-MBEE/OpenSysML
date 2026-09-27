@@ -16,21 +16,27 @@ const strictConformanceKey = "strictConformance"
 const settingsSection = "sysml"
 
 // applyConformanceSettings switches the workspace's conformance mode to what a
-// settings payload asks for, and reports whether it said anything: a payload
-// without the setting leaves the mode alone rather than resetting it.
-func (s *Server) applyConformanceSettings(payload any) bool {
+// settings payload asks for, and reports whether the mode changed: a payload
+// without the setting leaves the mode alone rather than resetting it, and a
+// workspace that cannot answer the new mode says why to the client.
+func (s *Server) applyConformanceSettings(ctx context.Context, payload any) bool {
 	strict, ok := strictConformanceSetting(payload)
 	if !ok {
 		return false
 	}
-	s.ws.SetConformanceMode(diag.ConformanceModeOf(strict))
+	if err := s.ws.SetConformanceMode(diag.ConformanceModeOf(strict)); err != nil {
+		if s.client != nil {
+			_ = s.client.ShowMessage(ctx, &protocol.ShowMessageParams{Type: protocol.MessageTypeError, Message: err.Error()})
+		}
+		return false
+	}
 	return true
 }
 
 // DidChangeConfiguration applies the settings the client pushed. Only the
 // conformance mode is read; a payload that does not mention it changes nothing.
 func (s *Server) DidChangeConfiguration(ctx context.Context, params *protocol.DidChangeConfigurationParams) error {
-	if params == nil || !s.applyConformanceSettings(params.Settings) {
+	if params == nil || !s.applyConformanceSettings(ctx, params.Settings) {
 		return nil
 	}
 	s.republishOpenDiagnostics(ctx)

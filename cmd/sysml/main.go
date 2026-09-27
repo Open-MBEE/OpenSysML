@@ -770,7 +770,11 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
-	sess.SetConformanceMode(diag.ConformanceModeOf(strictMode))
+	if err := sess.SetConformanceMode(diag.ConformanceModeOf(strictMode)); err != nil {
+		// Unreachable: a session that has loaded nothing holds no recorded document.
+		fmt.Fprintln(os.Stderr, errPrefix, err)
+		os.Exit(2)
+	}
 	sess.SetRenderWidth(terminalWidth())
 	return sess
 }

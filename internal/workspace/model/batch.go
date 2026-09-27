@@ -107,10 +107,13 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 	var pending []string
 	queued := map[string]bool{}
 	for i, name := range names {
-		if w.docs[name] == nil {
+		doc := w.docs[name]
+		if doc == nil {
 			continue
 		}
-		if cached, ok := w.diagCache[name]; ok {
+		if doc.Recorded() {
+			out[i] = doc.recorded.diagnostics
+		} else if cached, ok := w.diagCache[name]; ok {
 			out[i] = cached
 		} else if !queued[name] {
 			queued[name] = true
@@ -128,7 +131,7 @@ func (w *Workspace) DiagnosticsAll(names []string) [][]diag.Diagnostic {
 		w.batched[name] = true
 	}
 	for i, name := range names {
-		if out[i] == nil && w.docs[name] != nil {
+		if doc := w.docs[name]; out[i] == nil && doc != nil && !doc.Recorded() {
 			out[i] = w.diagCache[name]
 		}
 	}

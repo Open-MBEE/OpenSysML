@@ -497,6 +497,9 @@ func (r *Resolver) resolveTrigger(scope *symbols.Scope, trigger ast.Node) {
 // is not modelled and not distinguishable from an ordinary feature here, so the
 // conflict rule skips such a body entirely.
 func ParameterizedByName(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModParameterizedByName)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
 		switch decl.Kind {
@@ -755,7 +758,7 @@ func (r *Resolver) headerHasName(scope *symbols.Scope, name string, kind ast.Rel
 	if _, ok := scope.LookupLocal(name); ok {
 		return true
 	}
-	for _, imp := range r.importsOf(scope.Node()) {
+	for _, imp := range r.scopeImports(scope) {
 		if !r.importPrefixAvailable(scope, imp, name) {
 			continue
 		}
@@ -937,7 +940,7 @@ func (r *Resolver) searchFeatureOf(sym *symbols.Symbol, name string, walk featur
 // importedFeatureOf finds name among the memberships sym imports publicly or
 // protectedly, which its specializations inherit like its own (KerML 8.2.3.5).
 func (r *Resolver) importedFeatureOf(sym *symbols.Symbol, name string) (*symbols.Symbol, bool) {
-	for _, imp := range r.importsOf(sym.Scope.Node()) {
+	for _, imp := range r.scopeImports(sym.Scope) {
 		if !inheritedThroughSpecialization(imp) || !r.importPrefixAvailable(sym.Scope, imp, name) {
 			continue
 		}
