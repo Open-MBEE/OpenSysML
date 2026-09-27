@@ -16,4 +16,12 @@ standard library package MigrationMetadata {
              * state accepts it. Written as `@DeferredEvent { ref :>> signal : Sig; }`. */
         ref signal : Base::Anything[1];
     }
+
+    metadata def LibraryNameAvoided {
+        doc /* The annotated top-level package was named, in the source model,
+             * like a standard library package, which a qualified name starting
+             * with it would resolve to; the migration renamed it and recorded
+             * the source name here and in its report. */
+        attribute sourceName : ScalarValues::String;
+    }
 }
