@@ -99,9 +99,10 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 			}
 		}
 	}
-	if len(overrides) > 0 && !cloned {
-		features = slices.Clone(features)
-		cloned = true
+	if len(overrides) > 0 {
+		if !cloned {
+			features = slices.Clone(features)
+		}
 		for i := range features {
 			redefining, ok := overrides[features[i].Name]
 			if !ok {
@@ -143,6 +144,17 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 	if fv == nil {
 		return nil
 	}
+	// A valued chain reaching a bound member governs its inherited binding as a
+	// redefining body does when the chain's context specializes the binding's:
+	// mark the feature and reinstall it so the next read materializes a fresh
+	// object the chain applies below, not the bound one.
+	if len(chain) > 1 && fv.Feature != nil && fv.Feature.DefaultValue != nil && !fv.Feature.GovernedByChain &&
+		valuedChain(pendingRedefinition{rest: chain, sym: sym}) && ctx.chainGovernsValue(sym, fv.Feature.Symbol) {
+		feat := *fv.Feature
+		feat.GovernedByChain = true
+		feat.DefaultValue = nil
+		return ctx.installFeatureValue(inst, fv, &feat)
+	}
 	for _, el := range elementsOf(fv.HeldValue()) {
 		id, ok := el.Object()
 		if !ok {
@@ -161,9 +173,9 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 				continue
 			}
 			// A redefinition declared by the chain's context or a type
-			// specializing it wins over the chain; anything else yields, as with
-			// the nested-body form.
-			if ctx.blocksChain(cfv.Feature.Symbol, sym) {
+			// specializing it wins over the chain; a plain feature is no
+			// redefinition and yields, as with the nested-body form.
+			if hasRedefines(cfv.Feature.Symbol) && ctx.blocksChain(cfv.Feature.Symbol, sym) {
 				continue
 			}
 			feat := ctx.effectiveFeature(rest[0], sym, child.Type)

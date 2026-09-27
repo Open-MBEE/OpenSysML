@@ -139,6 +139,54 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 		}
 	})
 
+	// A governed bound feature and a one-segment override can land on one
+	// object: marking the first must not drop the second.
+	t.Run("governed_and_overridden_features_on_one_object", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real default = 1.0; }
+			part def Mid { part leaf : Leaf; }
+			part existing : Mid;
+			part def Top { part mid : Mid = existing; attribute x : Real default = 0.0; }
+			part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+			part def Outer { part s : Sport; }
+			part o : Outer { attribute :>> s.x = 7.0; }
+		}`)
+		obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::o"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		s := readInstance(t, ctx, obj, "s")
+		x, err := s.GetFeatureValue(ctx, "x")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(x): %v", err)
+		}
+		if got := realValue(t, x.HeldValue()); got != 7.0 {
+			t.Fatalf("o.s.x = %v, want the override's 7.0", got)
+		}
+		mid := readInstance(t, ctx, s, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 99.0 {
+			t.Fatalf("o.s.mid.leaf.value = %v, want the governing chain's 99.0", got)
+		}
+		existing, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::existing"))
+		if err != nil {
+			t.Fatalf("Instantiate(existing): %v", err)
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	})
+
 	// A chain whose last segment resolves to no feature declares no nested
 	// redefinition: the object materializes and the feature below reads its
 	// declared default, no panic and no hang.
