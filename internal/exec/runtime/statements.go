@@ -364,23 +364,31 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		if s.Chain != nil {
 			return flowNext, e.host.assignChain(e.evalIn(s.Scope), s, value)
 		}
-		// A qualified target (`Scope::azimuth`) names the feature on the object
-		// performing the body: a name shadowed by a nearer declaration still
-		// reaches it, as an unchained `a.b` assign does not.
+		// A qualified target names the feature on the object its qualifier denotes:
+		// the performance running that def (`Probe::count` is the Probe run's own
+		// count), else the performing object (`Scope::azimuth` on a Scope), as a
+		// name shadowed by a nearer declaration still reaches it.
 		if s.Qualified {
-			target := e.evalIn(s.Scope).self
-			if target == nil {
-				return flowNext, fmt.Errorf("%s: assignment to %s names no object to write on", e.host.describe(), s.Target)
-			}
-			if _, ok := target.FeatureValues[s.Target]; !ok {
-				return flowNext, fmt.Errorf("%s: object #%d (%s) has no feature %s",
-					ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
-			}
-			if err := target.SetFeatureValue(e.ctx, s.Target, value); err != nil {
+			ec := e.evalIn(s.Scope)
+			if written, err := ec.writeFrameFeature(s.Owner, s.Feature, value); err != nil {
 				return flowNext, err
+			} else if written {
+				return flowNext, nil
 			}
-			e.ctx.noteObjectWrite(target, s.Target, value)
-			return flowNext, nil
+			target := ec.self
+			if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
+				if _, ok := target.FeatureValues[s.Target]; !ok {
+					return flowNext, fmt.Errorf("%s: object #%d (%s) has no feature %s",
+						ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
+				}
+				if err := target.SetFeatureValue(e.ctx, s.Target, value); err != nil {
+					return flowNext, err
+				}
+				e.ctx.noteObjectWrite(target, s.Target, value)
+				return flowNext, nil
+			}
+			return flowNext, fmt.Errorf("%s: assignment to %s::%s names no object typed by %s to write on",
+				e.host.describe(), s.Owner.Name, s.Target, s.Owner.Name)
 		}
 		// An output is bound by the host even when the body's data holds it, so a
 		// second binding is reported; a block-local of the name shadows it.

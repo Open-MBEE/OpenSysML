@@ -924,6 +924,40 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 	return Value{}, false
 }
 
+// writeFrameFeature is frameFeatureValue for a write: value goes into the innermost
+// frame whose run or owner qualifies by qualifier, under the name it binds sym by,
+// and into the run's occurrence when one is already materialized, so `this.x` and
+// `Run::x` keep landing on the same storage.
+func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value Value) (bool, error) {
+	for i := len(ec.frames) - 1; i >= 0; i-- {
+		f := ec.frames[i]
+		if f.owner != nil {
+			if !f.owner.qualifiedBy(ec.ctx, qualifier) {
+				continue
+			}
+			name, ok := f.owner.memberName(ec.ctx, sym)
+			if !ok {
+				continue
+			}
+			f.set(name, value)
+			return true, nil
+		}
+		// A frame of an action or state performance qualifies by the behavior it
+		// runs, as it does for reads.
+		if !f.runs(ec.ctx, qualifier) {
+			continue
+		}
+		f.set(sym.Name, value)
+		if oc := ec.occurrence; oc != nil && ec.ctx.isOrSpecializes(oc.Type, qualifier) {
+			if err := oc.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
+				return true, err
+			}
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
 // resolvedWithoutValue reads a name that resolves to sym but no value: undetermined
 // at model level, uninitialized (not unresolved) when an object features it.
 func (ec *EvalContext) resolvedWithoutValue(sym *symbols.Symbol, qn *ast.QualifiedName) (Value, error) {

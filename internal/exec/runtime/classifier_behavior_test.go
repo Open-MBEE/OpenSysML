@@ -2380,6 +2380,65 @@ func TestExecuteActionPerformedByDefReadsThis(t *testing.T) {
 	}
 }
 
+// qualifiedAssignFixture is an action def writing its own attribute through its
+// qualified name while another object performs it: `Probe::count` is the Probe
+// run's count, not the performer Host's same-named feature.
+const qualifiedAssignFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Host {
+			attribute count : Integer default = 7;
+		}
+		action def Probe {
+			attribute count : Integer default = 1;
+			out seen : Integer;
+			action step {
+				assign Probe::count := 3;
+				assign seen := this.count;
+			}
+			first step;
+		}
+		action def Stray {
+			action step { assign Other::count := 3; }
+			first step;
+		}
+		part def Other {
+			attribute count : Integer default = 5;
+		}
+	}
+`
+
+// A qualified assignment writes the object its qualifier names: the run of the
+// def itself, not the performer; a qualifier matching neither errors.
+func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedAssignFixture))
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	probe := oneSymbol(t, idx, "test::Probe")
+	results, err := ctx.ExecuteActionPerformedBy(probe, inst, nil)
+	if err != nil {
+		t.Fatalf("run Probe on Host: %v", err)
+	}
+	if got := results["seen"]; got.Const.Int != 3 {
+		t.Errorf("seen = %v, want 3: Probe::count wrote the Probe run's own count", got)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 7 {
+		t.Errorf("Host.count = %v, want 7: the qualifier's object, not the performer, took the write", got)
+	}
+
+	stray := oneSymbol(t, idx, "test::Stray")
+	if _, err := ctx.ExecuteActionPerformedBy(stray, inst, nil); err == nil {
+		t.Error("Stray on Host: want a typed error — Other names no run or performer here")
+	} else if !strings.Contains(err.Error(), "Other") {
+		t.Errorf("Stray on Host: error %q names no qualifier", err)
+	}
+}
+
 // defRunStateFixture is a state definition started without an exhibiting
 // usage: the entry action's `this` denotes the machine's own occurrence.
 const defRunStateFixture = `

@@ -1255,24 +1255,29 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 			continue
 		}
 		if end.OtherFeature != "" {
-			// A qualified path (`Bench::level`) names a feature of the object the
-			// binding joins: write it on that object, as `this.level` writes it.
-			target := e.bindingEndContext(end).self
-			switch {
-			case target == nil:
-			case target.FeatureValues[end.OtherFeature] == nil:
-				if end.FromValue {
-					continue
-				}
+			// A qualified path (`Bench::level`, `Probe::count`) names a feature on
+			// the object its qualifier denotes: the performance running that def,
+			// else the object the binding joins.
+			ec := e.bindingEndContext(end)
+			if written, err := ec.writeFrameFeature(end.OtherOwner, end.OtherFeatureSym, value); err != nil {
 				return fmt.Errorf("%w: %s is bound to %s: %w",
-					ErrBindingEnd, end.pinText(), bindingEndText(end.Other),
-					fmt.Errorf("object #%d (%s) has no feature %s", target.ID, symbolText(target.Type), end.OtherFeature))
-			default:
+					ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+			} else if written {
+				continue
+			}
+			target := ec.self
+			switch {
+			case target != nil && ec.ctx.isOrSpecializes(target.Type, end.OtherOwner) && target.FeatureValues[end.OtherFeature] != nil:
 				if err := target.SetFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
 					return fmt.Errorf("%w: %s is bound to %s: %w",
 						ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
 				}
 				e.ctx.noteObjectWrite(target, end.OtherFeature, value)
+			case end.FromValue:
+			default:
+				return fmt.Errorf("%w: %s is bound to %s: %w",
+					ErrBindingEnd, end.pinText(), bindingEndText(end.Other),
+					fmt.Errorf("names no object typed by %s to write on", end.OtherOwner.Name))
 			}
 			continue
 		}
