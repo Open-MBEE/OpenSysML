@@ -145,7 +145,7 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 	return nil
 }
 
-// clonePending copies the pending tails of a nested redefinition by value, for
+// clonePendingRedefinitions copies the pending tails of a nested redefinition by value, for
 // an image to hold and a materialization to restore.
 func clonePendingRedefinitions(pending []pendingRedefinition) []pendingRedefinition {
 	out := slices.Clone(pending)
