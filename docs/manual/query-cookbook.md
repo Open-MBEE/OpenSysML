@@ -575,7 +575,11 @@ $ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"
 ```
 
 A cell for a property the element lacks is empty (`(none)` in the CLI's row
-listing, an empty table cell in a document).
+listing, an empty table cell in a document). A feature whose declared value
+names an element of the model — an enumeration literal, a part, a unit — holds
+that element, printed by name like `general`, whether the value is written on
+the feature or bound by a redefinition (`attribute :>> beam = Beam::'650mm';`);
+a name the model does not resolve stays the text as written.
 
 ### Quantity cells
 

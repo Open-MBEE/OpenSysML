@@ -455,6 +455,38 @@ calc def Things :> Query {
 		if got := cellTexts(t, result, column); !slices.Equal(got, []string{want}) {
 			t.Errorf("%s = %v, want %q", result.Columns()[column].Name(), got, want)
 		}
+		values := result.Rows()[0].Cells()[column].Values()
+		if _, ok := values[0].Element(); column >= 4 && !ok {
+			t.Errorf("%s is a %v, want the element itself", result.Columns()[column].Name(), values[0].Kind())
+		}
+	}
+}
+
+// TestExecuteRedefinedReferenceValueIsTheElement: a redefinition binding a
+// feature to an element written by qualified name — an individual's slot holding
+// an enumeration literal — puts that element in the cell, not the name as written.
+func TestExecuteRedefinedReferenceValueIsTheElement(t *testing.T) {
+	fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+}
+calc def Entries :> Query {
+	in root : Element;
+	Project(
+		source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+		properties = ("name", "beam")
+	)
+}
+`)
+	result := quantityRows(t, fixture, "Entries", "Bench")
+	if got := cellTexts(t, result, 1); !slices.Equal(got, []string{"Observatory::Bench::Beam::650mm"}) {
+		t.Fatalf("beam = %v", got)
+	}
+	values := result.Rows()[0].Cells()[1].Values()
+	if element, ok := values[0].Element(); !ok || element.Name != "650mm" {
+		t.Errorf("beam is a %v, want the literal 650mm", values[0].Kind())
 	}
 }
 

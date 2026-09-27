@@ -409,7 +409,7 @@ func (e *executor) reflectiveFeatureValues(
 	}
 	result := make([]Value, 0, len(values))
 	for _, value := range values {
-		converted, ok := filterValue(value, sym)
+		converted, ok := e.filterValue(value, sym)
 		if !ok {
 			return nil, e.featureError(expression, property, ElementValue(sym))
 		}

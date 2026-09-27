@@ -34,7 +34,7 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 				continue
 			}
 			for _, value := range bound.Values {
-				converted, ok := e.annotationValue(value, sym)
+				converted, ok := e.filterValue(value, sym)
 				if !ok {
 					if value.Kind == symbols.FilterValueEmpty {
 						continue
@@ -46,17 +46,6 @@ func (e *executor) annotationFeatureValues(sym *symbols.Symbol, declaring, featu
 		}
 	}
 	return result, present, nil
-}
-
-// annotationValue converts one bound value to a cell value: a reference to an
-// element of the model becomes that element, so the cell prints its name.
-func (e *executor) annotationValue(value symbols.FilterValue, sym *symbols.Symbol) (Value, bool) {
-	if value.Kind == symbols.FilterValueRef {
-		if targets := e.context.Index.LookupQualified(value.RefFQN); len(targets) > 0 {
-			return valueAt(ElementValue(targets[0]), ElementValue(sym).Origin()), true
-		}
-	}
-	return filterValue(value, sym)
 }
 
 // metadataConforms reports whether the metadata type named actual is the one

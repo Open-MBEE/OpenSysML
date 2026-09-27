@@ -162,15 +162,17 @@ func (e *executor) typedNesting(
 	return parents, nil
 }
 
-// individualParts are the individual definitions typing the features an
-// individual definition declares: the individuals its parts are.
+// individualParts are the individual definitions typing the part and item
+// usages an individual definition declares: the individuals it is composed
+// of. A reference usage names an individual without containing it.
 func (e *executor) individualParts(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
 	for _, member := range sym.Scope.AllMembers() {
-		if !member.IsFeature() {
+		usage, ok := member.Decl.(*ast.Usage)
+		if !ok || usage.IsReference || (usage.Kind != ast.UsagePart && usage.Kind != ast.UsageItem) {
 			continue
 		}
 		for _, typ := range e.context.Model.FeatureTypeSet(member) {

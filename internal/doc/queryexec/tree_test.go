@@ -112,6 +112,34 @@ func TestExecuteTreeNestsRowsByContainment(t *testing.T) {
 	}
 }
 
+// An individual nests under the individual whose part it types, not under one
+// that merely refers to it: a reference does not contain its target.
+func TestExecuteTreeNestsIndividualsByCompositionOnly(t *testing.T) {
+	const body = `
+package Plant {
+	individual part def Inspector;
+	individual part def Pump {
+		ref inspector : Inspector;
+		ref part spare : Gauge;
+		attribute serial : ScalarValues::String;
+		individual part gauge : Gauge;
+	}
+	individual part def Gauge;
+}
+`
+	fixture := loadExecutionFixture(t, body+treeQueries)
+	root := Bindings{"root": {ElementValue(fixture.symbol(t, "Plant"))}}
+
+	rows, err := fixture.execute(t, "Individuals", root, Options{})
+	if err != nil {
+		t.Fatalf("Individuals: %v", err)
+	}
+	want := "0:Inspector 0:Pump 1:Gauge"
+	if got := treeOutline(rows); got != want {
+		t.Fatalf("Individuals = %q, want %q", got, want)
+	}
+}
+
 // The depth survives projection, ordering and subtraction, and a flat query
 // reports every row at depth 0.
 func TestExecuteTreeDepthSurvivesLaterOperations(t *testing.T) {
