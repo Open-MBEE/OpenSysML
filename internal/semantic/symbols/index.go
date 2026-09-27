@@ -732,8 +732,12 @@ func (idx *Index) link(fqn string, sym *Symbol) {
 // settleSegments merges the names registered since the last call into
 // bySegment, each segment's in one pass over its sorted names: at the end of
 // an expansion, so a batch of documents costs each segment once, and before
-// any read or removal of a segment's names.
+// any read or removal of a segment's names. A settled index is left untouched,
+// so concurrent readers of one share it without writing.
 func (idx *Index) settleSegments() {
+	if idx.pendingSegments == nil {
+		return
+	}
 	for last, names := range idx.pendingSegments {
 		have := idx.bySegment.at(last)
 		if merged := mergeSorted(have, names); len(merged) != len(have) {
