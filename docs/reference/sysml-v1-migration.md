@@ -868,7 +868,9 @@ writes as `package RequirementsModel`), any other name gains `" Model"`, and a t
 annotated `metadata MigrationMetadata::LibraryNameAvoided about <written> { sourceName = "<source>"; }`
 once per renamed root at the document's top level, and its report entry is approximated with the
 note `written as <written> since a root package named <source> would be hidden by the standard
-library's <source>`. A nested package keeps its name: only a top-level declaration hides the
+library's <source>`. An opaque expression copied verbatim has its references through the
+renamed root rewritten to the new name too, wherever a nearer element does not take the source
+name. A nested package keeps its name: only a top-level declaration hides the
 library root.
 
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when

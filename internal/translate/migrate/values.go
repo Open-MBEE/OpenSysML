@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -196,6 +197,8 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	if problem := m.invisible(refs, scope); problem != "" {
 		return "", false, "opaque expression " + problem + langNote(lang)
 	}
+	visible, _ := m.visibleFrom(scope)
+	body = m.renamedRoots(body, refs, visible)
 	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
@@ -357,8 +360,10 @@ type reference struct {
 	local  string
 	typed  int
 	steps  []step
-	// start is the offset of the first step in the expression text.
-	start int
+	// start is the offset of the first step in the expression text,
+	// firstLen its byte length as the text spells it.
+	start    int
+	firstLen int
 }
 
 type step struct {
@@ -731,7 +736,7 @@ func qualifiedRef(q *ast.QualifiedName) (reference, bool) {
 	if q == nil || len(q.Parts) == 0 {
 		return reference{}, false
 	}
-	r := reference{global: q.Global, start: q.Parts[0].Span.Offset}
+	r := reference{global: q.Global, start: q.Parts[0].Span.Offset, firstLen: q.Parts[0].Span.Len}
 	for _, p := range q.Parts {
 		r.steps = append(r.steps, step{name: p.Text})
 	}
@@ -782,6 +787,38 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 	return ""
 }
 
+// renamedRoots rewrites, in text, each reference whose first step spells the
+// source name of a root avoidLibraryRoots renamed, to the name it is written
+// as. A nearer element answering to the name keeps the spelling; the library
+// package it collides with does not count — that is what hid the root.
+func (m *migration) renamedRoots(text string, refs []reference, visible map[string]*sysmlv1.Element) string {
+	type replacement struct {
+		start, end int
+		name       string
+	}
+	var reps []replacement
+	for _, r := range refs {
+		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
+			continue
+		}
+		name := r.steps[0].name
+		if !r.global && visible[name] != nil {
+			continue
+		}
+		if r.global && m.rootMember(name) != nil {
+			continue
+		}
+		if e := m.clashBySource[name]; e != nil && m.written(e) {
+			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[e])})
+		}
+	}
+	sort.Slice(reps, func(i, j int) bool { return reps[i].start > reps[j].start })
+	for _, rp := range reps {
+		text = text[:rp.start] + rp.name + text[rp.end:]
+	}
+	return text
+}
+
 // notAValue names the kind of declaration e becomes when an expression cannot
 // read it: an operation or behavior written as an action or state def.
 func (m *migration) notAValue(e *sysmlv1.Element) string {
@@ -828,6 +865,11 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Ele
 		if next == nil && private != nil && hidden != nil {
 			next = private
 			reached = append(reached, private)
+		}
+		if next == nil && i == 0 && !s.chain {
+			if ce := m.clashBySource[s.name]; ce != nil && m.written(ce) {
+				next = ce
+			}
 		}
 		if next == nil && i == 0 && !s.chain && m.libraryPackage(s.name) {
 			lib = s.name

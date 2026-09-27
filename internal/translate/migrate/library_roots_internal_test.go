@@ -97,6 +97,80 @@ func TestLibraryRootSourceNameEscaped(t *testing.T) {
 	}
 }
 
+// TestLibraryRootOpaqueRefRewritten covers an opaque expression copied
+// verbatim that refers through the renamed root by its source name: the copy
+// resolves through the clash and the text names the written root, local and
+// global spellings alike.
+func TestLibraryRootOpaqueRefRewritten(t *testing.T) {
+	r, err := Migrate("opaque.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views">
+      <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+        <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blk" name="Blk">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_local" name="local">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv_local">
+          <body>Views::Mode::on</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_p_global" name="global">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv_global">
+          <body>$::Views::Mode::on</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+    </packagedElement>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	for _, want := range []string{"ViewsModel::Mode::on", "$::ViewsModel::Mode::on"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("notation lacks %q:\n%s", want, got)
+		}
+	}
+	for _, e := range r.Report.Entries {
+		if (e.ID == "_p_local" || e.ID == "_p_global") && e.Verdict == Unmapped {
+			t.Errorf("property %s unmapped:\n%s", e.ID, got)
+		}
+	}
+}
+
+// TestLibraryRootOpaqueRefNearerScope covers the same spelling resolving to a
+// nearer element: a nested package itself named Views keeps the reference's
+// spelling, since nearer names win over the renamed root.
+func TestLibraryRootOpaqueRefNearerScope(t *testing.T) {
+	r, err := Migrate("nearer.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views"/>
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="P">
+      <packagedElement xmi:type="uml:Package" xmi:id="_inner" name="Views">
+        <packagedElement xmi:type="uml:Enumeration" xmi:id="_mode" name="Mode">
+          <ownedLiteral xmi:type="uml:EnumerationLiteral" xmi:id="_on" name="on"/>
+        </packagedElement>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk" name="Blk">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop" name="mode">
+          <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
+            <body>Views::Mode::on</body>
+            <language>SysML</language>
+          </defaultValue>
+        </ownedAttribute>
+      </packagedElement>
+    </packagedElement>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	if !strings.Contains(got, "Views::Mode::on") {
+		t.Errorf("nearer-scope reference not kept verbatim:\n%s", got)
+	}
+	if strings.Contains(got, "ViewsModel::Mode::on") {
+		t.Errorf("nearer-scope reference rewritten to the renamed root:\n%s", got)
+	}
+}
+
 // TestLibraryRootNestedUnchanged covers a nested package named like a library
 // root package: only top-level declarations hide the library, so it keeps its
 // name and draws no metadata line.
