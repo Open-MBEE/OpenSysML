@@ -16,4 +16,12 @@ standard library package MigrationMetadata {
              * the source name here and in its report. */
         attribute sourceName : ScalarValues::String;
     }
+
+    metadata def DeferredEvent {
+        doc /* The annotated state deferred the signal that types signal in
+             * the source: an occurrence while the state is active is kept and
+             * dispatched once the state exits, unless a transition out of the
+             * state accepts it. Written as `@DeferredEvent { ref :>> signal : Sig; }`. */
+        ref signal : Base::Anything[1];
+    }
 }
