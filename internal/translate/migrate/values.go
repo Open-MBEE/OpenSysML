@@ -789,34 +789,41 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 
 // viaRenamedRoot returns the root avoidLibraryRoots renamed whose source name
 // r's first step spells, when nothing nearer answers to it and the rest of r
-// resolves through that root; nil otherwise, leaving the name to the library.
-func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) *sysmlv1.Element {
+// resolves through that root. missing spells the prefix through the step that
+// fails when a source child of the failing element claims the name but is
+// itself unwritten — the path is then the user's, not the library's.
+func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) (root *sysmlv1.Element, missing string) {
 	if r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
-		return nil
+		return nil, ""
 	}
 	name := r.steps[0].name
 	if !r.global && visible[name] != nil {
-		return nil
+		return nil, ""
 	}
 	if r.global && m.rootMember(name) != nil {
-		return nil
+		return nil, ""
 	}
 	ce := m.clashBySource[name]
 	if ce == nil || !m.written(ce) {
-		return nil
+		return nil, ""
 	}
 	e := ce
-	for _, s := range r.steps[1:] {
+	for i, s := range r.steps[1:] {
 		next, private := m.memberNamed(e, s.name, chainKind(s.chain))
 		if next == nil && private != nil && hidden != nil {
 			next = private
 		}
 		if next == nil {
-			return nil
+			for _, c := range e.Children {
+				if c.Name == s.name {
+					return nil, r.text(i + 2)
+				}
+			}
+			return nil, ""
 		}
 		e = next
 	}
-	return ce
+	return ce, ""
 }
 
 // renamedRoots rewrites, in text, each reference whose first step spells the
@@ -833,7 +840,7 @@ func (m *migration) renamedRoots(text string, refs []reference, visible, hidden 
 		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
 			continue
 		}
-		if ce := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+		if ce, _ := m.viaRenamedRoot(r, visible, hidden); ce != nil {
 			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[ce])})
 		}
 	}
@@ -870,9 +877,11 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Ele
 	}
 	var lib string
 	start := 0
-	if ce := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+	if ce, miss := m.viaRenamedRoot(r, visible, hidden); ce != nil {
 		e = ce
 		start = 1
+	} else if miss != "" {
+		return nil, nil, miss
 	}
 	for i := start; i < len(r.steps); i++ {
 		s := r.steps[i]

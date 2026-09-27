@@ -170,6 +170,49 @@ func TestLibraryRootLibraryMemberKept(t *testing.T) {
 	}
 }
 
+// TestLibraryRootUnwrittenMemberRefused covers a verbatim reference through a
+// renamed root to a member the model has but does not write: the member
+// claims the path, so the reference is refused rather than resolved against
+// the library's like-named member.
+func TestLibraryRootUnwrittenMemberRefused(t *testing.T) {
+	r, err := Migrate("unwritten.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views">
+      <packagedElement xmi:type="uml:Artifact" xmi:id="_art" name="asTreeDiagram"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blk" name="Blk">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_prop" name="rendering">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
+          <body>Views::asTreeDiagram</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+    </packagedElement>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	for _, bad := range []string{"= Views::asTreeDiagram", "= ViewsModel::asTreeDiagram", ": ViewsModel::asTreeDiagram"} {
+		if strings.Contains(got, bad) {
+			t.Errorf("refused reference written as a default:\n%s", got)
+		}
+	}
+	var prop, artifact *Entry
+	for i := range r.Report.Entries {
+		switch r.Report.Entries[i].ID {
+		case "_prop":
+			prop = &r.Report.Entries[i]
+		case "_art":
+			artifact = &r.Report.Entries[i]
+		}
+	}
+	if artifact == nil || artifact.Verdict != Unmapped {
+		t.Errorf("artifact verdict = %v, want Unmapped", artifact)
+	}
+	if prop == nil || prop.Verdict == Mapped {
+		t.Errorf("property verdict = %v, want it refused, not mapped", prop)
+	}
+}
+
 // TestLibraryRootOpaqueRefNearerScope covers the same spelling resolving to a
 // nearer element: a nested package itself named Views keeps the reference's
 // spelling, since nearer names win over the renamed root.
