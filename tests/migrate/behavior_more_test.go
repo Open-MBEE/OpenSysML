@@ -580,7 +580,7 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Site")
-	meta(t, s, "%action Console::Issue #1.console")
+	meta(t, s, "%action Console::issue #1.console")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	meta(t, s, "%state Unit::Duty #1.unit")
