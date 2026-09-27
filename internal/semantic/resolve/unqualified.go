@@ -483,13 +483,22 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 	if r.resolvingImports[imp] {
 		return
 	}
-	r.resolvingImports[imp] = true
 	// Resolved aside: a miss here may only mean sibling imports were suspended
 	// for cycle safety, so it must not be memoized or reported as unresolved.
+	// A hit is memoized (importTargets).
 	var target *symbols.Symbol
 	var ok bool
-	r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
-	delete(r.resolvingImports, imp)
+	if res, done := r.importTargets[imp]; done {
+		target, ok = res.sym, res.ok
+	} else {
+		r.resolvingImports[imp] = true
+		r.aside(func() { target, ok = r.resolveImportTarget(scope, imp) })
+		delete(r.resolvingImports, imp)
+		if ok {
+			journalNew(r, r.importTargets, imp, imp)
+			r.importTargets[imp] = resolution{sym: target, ok: true}
+		}
+	}
 	if !ok {
 		return
 	}
