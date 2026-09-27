@@ -62,9 +62,9 @@ library package Simulation {
 		 * fresh subject and reads observed, the value the specializing case binds:
 		 *
 		 *   analysis def 'Timer Analysis Monte Carlo' :> MonteCarlo {
-		 *       subject timer : 'Timer Analysis';
-		 *       perform action run ::> timer.tick;
-		 *       attribute :>> observed : Real = timer.t;
+		 *       subject analysed : 'Timer Analysis';
+		 *       perform action run ::> analysed.tick;
+		 *       attribute :>> observed : Real = analysed.t;
 		 *       return Mean : Real = mean;
 		 *   }
 		 *
@@ -81,6 +81,7 @@ library package Simulation {
 		 * carries one specializing case per block of that pattern; the migration
 		 * reference documents which statistic of the tool each attribute records.
 		 */
+		subject analysed;
 		attribute observed[0..1];
 		out attribute runs : Natural[0..1];
 		out attribute mean[0..1];
