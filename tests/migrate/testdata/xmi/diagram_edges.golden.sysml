@@ -36,9 +36,9 @@ package Structure {
             binding 'set speed.value = target' bind 'set speed'.value = target;
             metadata MigrationMetadata::SynthesizedName about 'start to gain', final, 'gain.result to set speed.value', 'set speed.value = target';
         }
-        satisfy requirement 'satisfy Mass Limit' : Requirements::'Mass Limit';
-        satisfy requirement : Requirements::'Speed Limit';
-        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
+        satisfy requirement 'satisfy Mass Limit' : RequirementsModel::'Mass Limit';
+        satisfy requirement : RequirementsModel::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' : RequirementsModel::'Speed Limit';
         view 'Vehicle Internals' {
             expose engine;
             expose wheel;
@@ -53,7 +53,7 @@ package Structure {
         metadata MigrationMetadata::SynthesizedName about 'engine to wheel', 'engine to wheel 2', 'mass = limit', 'satisfy Mass Limit', 'satisfy Speed Limit';
     }
     part def Engine :> Component {
-        satisfy requirement 'satisfy Speed Limit' : Requirements::'Speed Limit';
+        satisfy requirement 'satisfy Speed Limit' : RequirementsModel::'Speed Limit';
         metadata MigrationMetadata::SynthesizedName about 'satisfy Speed Limit';
     }
     part def Wheel;
@@ -100,7 +100,7 @@ package Behavior {
         metadata MigrationMetadata::SynthesizedName about 'Idle accept Go then Running', 'Halted accept Go then Running', 'Halted accept Resume then Running';
     }
 }
-package Requirements {
+package RequirementsModel {
     requirement def <R1> 'Mass Limit' {
         doc /* The vehicle shall weigh less than 1500 kg. */
     }
@@ -119,7 +119,7 @@ package Requirements {
         expose Structure::Vehicle;
         expose 'Mass Test';
         expose Structure::Vehicle::'satisfy Mass Limit';
-        expose Requirements::'Mass Test'::'objective'::'verify Mass Limit';
+        expose RequirementsModel::'Mass Test'::'objective'::'verify Mass Limit';
         expose Structure::Vehicle::'satisfy Speed Limit';
         expose Structure::Engine::'satisfy Speed Limit';
         render Views::asTreeDiagram;
@@ -140,3 +140,4 @@ package Usage {
         render Views::asTextualNotation;
     }
 }
+metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }

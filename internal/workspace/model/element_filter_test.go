@@ -440,7 +440,7 @@ func TestFilterMemberOfADefinitionBodyRestrictsItsImports(t *testing.T) {
 			part keylessEntry;
 		}
 	}
-	package Views {
+	package ViewDefs {
 		view safetyView {
 			expose Vehicles::vehicle::*;
 			filter @Meta::Safety;

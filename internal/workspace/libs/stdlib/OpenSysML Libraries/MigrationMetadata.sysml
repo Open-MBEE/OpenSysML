@@ -8,4 +8,12 @@ standard library package MigrationMetadata {
              * migration named it so the notation could declare and refer to
              * it. The name keys the element but is not one a picture shows. */
     }
+
+    metadata def LibraryNameAvoided {
+        doc /* The annotated top-level package was named, in the source model,
+             * like a standard library package, which a qualified name starting
+             * with it would resolve to; the migration renamed it and recorded
+             * the source name here and in its report. */
+        attribute sourceName : ScalarValues::String;
+    }
 }

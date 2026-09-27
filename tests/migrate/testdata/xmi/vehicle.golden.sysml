@@ -60,8 +60,8 @@ package 'Vehicle Design' {
         part def Chassis {
             attribute mass : 'Vehicle Design'::'Value Types'::Mass;
         }
-        satisfy requirement : Requirements::'Mass Requirement';
-        satisfy requirement : Requirements::'Engine Mass Requirement' by engine;
+        satisfy requirement : RequirementsModel::'Mass Requirement';
+        satisfy requirement : RequirementsModel::'Engine Mass Requirement' by engine;
         /* «Block» tags with no v2 form: isEncapsulated = true */
     }
     abstract part def System;
@@ -102,7 +102,7 @@ package 'Vehicle Design' {
     }
     action def Drive;
 }
-package Requirements {
+package RequirementsModel {
     requirement def <R1> 'Mass Requirement' {
         doc /* The vehicle shall have a mass of less than 1500 kg. */
         requirement def <'R1.1'> 'Chassis Mass' {
@@ -134,6 +134,7 @@ package Requirements {
     }
 }
 package 'Empty Package';
+metadata MigrationMetadata::LibraryNameAvoided about RequirementsModel { sourceName = "Requirements"; }
 view 'Vehicle BDD' {
     render Views::asTextualNotation;
 }

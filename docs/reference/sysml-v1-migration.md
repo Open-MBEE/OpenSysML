@@ -857,6 +857,17 @@ label — and every other name as it is. `MigrationMetadata` is a bundled OpenSy
 standard one; a v1 name is never marked, however it was spelled, and a model whose bodies hold
 no made-up name gains no line.
 
+A top-level declaration named like a standard library root package — `Requirements`, `Views`,
+`ScalarValues`, and the rest — is renamed, since a qualified name starting with that name would
+resolve to the library package instead: a bare identifier becomes `<name>Model` (`Requirements`
+writes as `package RequirementsModel`), any other name gains `" Model"`, and a taken result adds
+` 2`, ` 3`, … until it is free. References into the package follow the rename, the declaration is
+annotated `metadata MigrationMetadata::LibraryNameAvoided about <written> { sourceName = "<source>"; }`
+once per renamed root at the document's top level, and its report entry is approximated with the
+note `written as <written> since a root package named <source> would be hidden by the standard
+library's <source>`. A nested package keeps its name: only a top-level declaration hides the
+library root.
+
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
 call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins

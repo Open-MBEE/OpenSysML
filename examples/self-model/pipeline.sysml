@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 58;
+        attribute passCount : Integer = 59;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -286,6 +286,7 @@ package OpenSysMLPipeline {
         part redefinitionConformance : ConstraintCheck { attribute :>> goType = "RedefinitionConformancePass"; }
         part shortNameDistinguishability : NameResolutionCheck { attribute :>> goType = "W9CShortNameDistinguishabilityPass"; }
         part userStandardLibrary : NameResolutionCheck { attribute :>> goType = "W9CUserStandardLibraryPass"; }
+        part libraryRootName : NameResolutionCheck { attribute :>> goType = "LibraryRootNamePass"; }
         part inheritedNameConflicts : TypeCheck { attribute :>> goType = "W9CInheritedNameConflictPass"; }
         part boundFeatureTypes : TypeCheck { attribute :>> goType = "W9CBoundFeatureTypesPass"; }
         part usageTyping : TypeCheck { attribute :>> goType = "W11AUsageTypingPass"; }
