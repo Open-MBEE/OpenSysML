@@ -3811,6 +3811,7 @@ func (s declShape) noun() string {
 // enforcing the order the grammars give them.
 type relClauseState struct {
 	spec       bool // specialization part (a `:>`/`specializes` list or conjugation) stated
+	conj       bool // conjugation stated
 	typeRel    bool // `disjoint from`/`unions`/`intersects`/`differences` stated
 	featureRel bool // a FeatureRelationshipPart (the type-relationship clauses, `chains`, `inverse of`, `featured by`) stated
 }
@@ -3865,6 +3866,24 @@ func (p *Parser) checkRelationshipClause(shape declShape, tok lexer.Token, kind 
 		case seen.featureRel:
 			p.error(tok.Span, fmt.Sprintf("`%s` is a specialization: specializations precede the `disjoint from`, `chains`, `inverse of` and `featured by` clauses of a feature declaration",
 				relationshipClauseSpelling(kind, conjugated)))
+			if conjugated {
+				seen.conj = true
+			} else {
+				seen.spec = true
+			}
+		case conjugated && seen.spec:
+			p.error(tok.Span, "`conjugates` is the alternative to a specialization list: a feature declaration admits one or the other")
+			seen.conj = true
+		case !conjugated && seen.conj:
+			p.error(tok.Span, fmt.Sprintf("`%s` is a specialization: a feature declaration conjugates a type or specializes features, not both",
+				relationshipClauseSpelling(kind, conjugated)))
+			seen.spec = true
+		case conjugated:
+			// A second `~` on a feature is not a parse error:
+			// passes/conjugator.go's at-most-one-conjugator check owns it.
+			seen.conj = true
+		default:
+			seen.spec = true
 		}
 		return
 	}

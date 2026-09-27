@@ -106,6 +106,21 @@ func TestFeatureSpecializationAfterRelationshipClause(t *testing.T) {
 	wantRelationshipError(t, "a.kerml", "feature x inverse of a ::> b;", "is a specialization")
 }
 
+// On a feature, conjugation and a specialization list are alternatives
+// (KerML.xtext:549 FeatureDeclaration: (FeatureSpecializationPart |
+// FeatureConjugationPart)?) — stating both is an error in either order.
+func TestFeatureConjugationOrSpecialization(t *testing.T) {
+	wantRelationshipError(t, "a.kerml", "feature f ~ g :> h;", "conjugates a type or specializes features, not both")
+	wantRelationshipError(t, "a.kerml", "feature f ~ g : T;", "conjugates a type or specializes features, not both")
+	wantRelationshipError(t, "a.kerml", "feature f :> h ~ g;", "the alternative to a specialization list")
+	wantRelationshipError(t, "a.kerml", "feature f :> h conjugates g;", "the alternative to a specialization list")
+	// A conjugation after a feature-relationship clause keeps the ordering error.
+	wantRelationshipError(t, "a.kerml", "feature f disjoint from k ~ g;", "specializations precede")
+	// Repeated conjugation is not a parse error: the at-most-one-conjugator
+	// semantic check owns it.
+	wantRelationshipClean(t, "a.kerml", "feature c ~A ~B;")
+}
+
 // A MultiplicityPart admits `ordered` and `nonunique` once each, in either
 // order (KerML.xtext:685).
 func TestFeatureMultiplicityDuplicateModifier(t *testing.T) {
@@ -174,6 +189,10 @@ func TestRelationshipClauseShapesAccepted(t *testing.T) {
 		// A feature repeats specializations freely.
 		{"a.sysml", "part x :> a :> b;"},
 		{"a.kerml", "feature x :> a [2] :> b;"},
+		{"a.kerml", "feature f :> h, k;"},
+		// Or conjugates — never both — and the relationship clauses may follow.
+		{"a.kerml", "feature f ~ g;"},
+		{"a.kerml", "feature f ~ g disjoint from k;"},
 		{"a.sysml", "part x : A : B;"},
 		{"a.sysml", "part x : A [2] :> b;"},
 		{"a.kerml", "feature x [1] : A;"},
