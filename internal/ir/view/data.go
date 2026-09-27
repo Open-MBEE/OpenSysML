@@ -93,7 +93,8 @@ func (r *Rendering) Data() Data {
 		out.Nodes = appendNodeData(out.Nodes, root, "")
 	}
 	for _, edge := range r.Edges {
-		out.Edges = append(out.Edges, EdgeData(edge))
+		out.Edges = append(out.Edges, EdgeData{From: edge.From, To: edge.To, FromPort: edge.FromPort, ToPort: edge.ToPort,
+			Label: edge.Label, Name: edge.Name, Kind: edge.Kind, Origin: edge.Origin, Route: edge.Route, Style: edge.Style})
 	}
 	for i, cells := range r.Rows {
 		var origin Origin

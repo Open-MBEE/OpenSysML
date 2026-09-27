@@ -74,12 +74,12 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 			w.compound = true
 		}
 	}
-	edges := r.Edges
+	edges := w.edges
 	switch {
 	case w.placement.partial():
-		edges = w.settleUnplaced(r.Roots, r.Edges, options.Unplaced)
+		edges = w.settleUnplaced(r.Roots, edges, options.Unplaced)
 	case w.placement.picturedOnly():
-		w.stripUnplaced(r.Roots, r.Edges)
+		w.stripUnplaced(r.Roots, edges)
 		w.notices = append(w.notices, fmt.Sprintf("%d node(s) without a position, drawn in a strip below the picture(s)", w.placement.unplaced()))
 	}
 	edges = w.drawnEdges(edges)
@@ -235,8 +235,9 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w.labels = labelsOf(r.Roots, skin.cameo || w.placement.positioned(), w.omitted)
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
+	w.edges = w.ledEdges(r.Edges)
 	w.collectPorts(r.Roots)
-	w.placeAllPorts(r.Roots, r.Edges)
+	w.placeAllPorts(r.Roots, w.edges)
 	w.notes = w.drawnNotes(r.Notes)
 	w.placeNotes(w.notes)
 	w.shareNotes()
@@ -420,6 +421,7 @@ type dotWriter struct {
 	ported    map[string]*Node    // port ID -> the node it is a port of
 	stated    map[string]bool     // node IDs the drawing itself boxes, once a strip adds boxes of its own
 	omitted   map[string]bool     // node IDs left undrawn for want of a box
+	edges     []Edge              // the rendering's edges, each route led on to the ends it stopped short of
 	routed    int                 // edges with a route to write
 	notices   []string            // geometry the form cannot draw
 	fills     familyFills         // the palette fills, by keyword family
@@ -605,20 +607,76 @@ func (b nodeBox) encloses(other nodeBox) bool {
 		other.high.X <= b.high.X && other.high.Y <= b.high.Y
 }
 
-// routeEnd is where a route meets a node, and the waypoint it goes on to.
+// routeEnd is where a route ends at a node, and the waypoint it goes on to;
+// open when the route stops short of the node, at an elided node's place.
 type routeEnd struct {
+	node     string
 	at, next Point
+	open     bool
+}
+
+// routeEnds is where the edge's route ends at each of its ends; none for an
+// edge without a route.
+func (e Edge) routeEnds() []routeEnd {
+	n := len(e.Route)
+	if n < 2 {
+		return nil
+	}
+	return []routeEnd{
+		{node: e.From, at: e.Route[0], next: e.Route[1], open: e.openFrom},
+		{node: e.To, at: e.Route[n-1], next: e.Route[n-2], open: e.openTo},
+	}
+}
+
+// reachingEnds is the ends of the routes that reach a node, out of ends; the
+// ends that stop short of it when none reaches it, as the place it has.
+func reachingEnds(ends []routeEnd) []routeEnd {
+	var reaching []routeEnd
+	for _, end := range ends {
+		if !end.open {
+			reaching = append(reaching, end)
+		}
+	}
+	if len(reaching) == 0 {
+		return ends
+	}
+	return reaching
+}
+
+// ledEdges is edges with every route that stops short of an end led on to it,
+// from the point of the end's box's border facing where the route stops, when
+// that is not the point itself; an end with no box is left short.
+func (w *dotWriter) ledEdges(edges []Edge) []Edge {
+	led := make([]Edge, 0, len(edges))
+	for _, edge := range edges {
+		if box, ok := w.boxes[edge.From]; ok && edge.openFrom {
+			at := edge.Route[0]
+			if lead := box.faces(at, at); lead != at {
+				edge.Route = append([]Point{lead}, edge.Route...)
+			}
+			edge.openFrom = false
+		}
+		if box, ok := w.boxes[edge.To]; ok && edge.openTo {
+			at := edge.Route[len(edge.Route)-1]
+			if lead := box.faces(at, at); lead != at {
+				edge.Route = append(slices.Clone(edge.Route), lead)
+			}
+			edge.openTo = false
+		}
+		led = append(led, edge)
+	}
+	return led
 }
 
 // placeNodes finds the box of every node that has one: the one its Layout
 // states; for a cluster with none, the one round its placed members; else the
-// one the routes of its edges meet. Only a node with none of these is unplaced.
+// one the routes of its edges meet — those that reach it, or failing any, those
+// that stop short of it. Only a node with none of these is unplaced.
 func (w *dotWriter) placeNodes(roots []*Node, edges []Edge) {
 	ends := map[string][]routeEnd{}
 	for _, edge := range edges {
-		if n := len(edge.Route); n > 1 {
-			ends[edge.From] = append(ends[edge.From], routeEnd{at: edge.Route[0], next: edge.Route[1]})
-			ends[edge.To] = append(ends[edge.To], routeEnd{at: edge.Route[n-1], next: edge.Route[n-2]})
+		for _, end := range edge.routeEnds() {
+			ends[end.node] = append(ends[end.node], end)
 		}
 	}
 	var derived []*Node
@@ -676,7 +734,7 @@ func (w *dotWriter) placeNode(node *Node, ends map[string][]routeEnd, derived *[
 	case cluster && w.membersBox(node) != nil:
 		w.boxes[node.ID] = *w.membersBox(node)
 	default:
-		w.boxes[node.ID] = w.routedBox(node, ends[node.ID])
+		w.boxes[node.ID] = w.routedBox(node, reachingEnds(ends[node.ID]))
 	}
 }
 

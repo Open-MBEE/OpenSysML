@@ -2,6 +2,7 @@ package view
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 )
@@ -61,7 +62,7 @@ func TestElideNodeMovesNotesOntoJoinedEdges(t *testing.T) {
 		Notes: []Note{{Text: "in", EdgeFrom: "a", EdgeTo: "w"}, {Text: "out", EdgeFrom: "w", EdgeTo: "c"},
 			{Text: "on", Anchor: "w"}, {Text: "apart", EdgeFrom: "a", EdgeTo: "b"}},
 	}
-	elideNode(out, "w", collectPlaces(out))
+	elideNode(out, "w")
 	var got []string
 	for _, note := range out.Notes {
 		got = append(got, note.Text+":"+note.Anchor+note.EdgeFrom+"->"+note.EdgeTo)
@@ -85,7 +86,7 @@ func TestJoinEdgesKeepsBothRoutesWaypoints(t *testing.T) {
 		{"meeting", []Point{{X: 10, Y: 20}, {X: 10, Y: 50}}, "0,20 10,20 10,50"},
 		{"apart", []Point{{X: 30, Y: 20}, {X: 30, Y: 50}}, "0,20 10,20 30,20 30,50"},
 	} {
-		joined, ok := joinEdges(in, Edge{From: "w", To: "c", Route: tc.out}, map[string]place{})
+		joined, ok := joinEdges(in, Edge{From: "w", To: "c", Route: tc.out})
 		if got := routeText(joined.Route); !ok || got != tc.want {
 			t.Errorf("%s: joined route = %v, %v; want %q, true", tc.name, got, ok, tc.want)
 		}
@@ -102,34 +103,88 @@ func routeText(route []Point) string {
 }
 
 // A route joined through an elided node on one side only is led on to the
-// other end wherever the drawing has that node: on the border of the box its
-// Layout states, at the point the routes of its other edges meet it when it
-// states none, and left as it is for a node nothing positions.
-func TestJoinEdgesReachesEndsPlacedByRoutes(t *testing.T) {
-	out := &Rendering{
-		Roots: []*Node{{ID: "a"}, {ID: "b", Geometry: &Geometry{X: 0, Y: 200, Width: 40, Height: 20, HasSize: true}},
-			{ID: "c"}, {ID: "d"}, {ID: "w", Kind: "join", StandIn: true}},
+// other end from the border of the box the drawing gives that end: the one its
+// Layout states, or the one the routes of its other edges meet — which those
+// routes place without the half-route's own end counting, and whose border the
+// route leaves even where the routes meet it on opposite sides, so their ends
+// average to a point inside it.
+func TestDOTLeadsHalfRoutedJoinsOutOfTheDrawnBox(t *testing.T) {
+	r := &Rendering{View: "V", Kind: KindAction,
+		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"},
+			{ID: "b", Kind: "action", Name: "b", Geometry: &Geometry{X: 0, Y: 200, Width: 40, Height: 20, HasSize: true}},
+			{ID: "c", Kind: "action", Name: "c"}, {ID: "d", Kind: "action", Name: "d"}, {ID: "e", Kind: "action", Name: "e"},
+			{ID: "w", Kind: "join", StandIn: true}},
 		Edges: []Edge{
-			{From: "d", To: "a", Route: []Point{{X: 20, Y: 0}, {X: 20, Y: 20}}},
+			{From: "d", To: "a", Route: []Point{{X: -100, Y: 50}, {X: 0, Y: 50}}},
+			{From: "a", To: "e", Route: []Point{{X: 100, Y: 50}, {X: 200, Y: 50}}},
 			{From: "a", To: "w"}, {From: "b", To: "w"},
-			{From: "w", To: "c", Route: []Point{{X: 100, Y: 100}, {X: 200, Y: 100}}},
-			{From: "w", To: "d"},
+			{From: "w", To: "c", Route: []Point{{X: 50, Y: 150}, {X: 50, Y: 250}}},
 		},
 	}
-	elideNode(out, "w", collectPlaces(out))
-	want := map[string]string{
-		"d->a": "20,0 20,20",
-		"a->c": "20,20 100,100 200,100",
-		"b->c": "27.5,200 100,100 200,100",
+	out := withoutStandIns(r)
+	w := newDOTWriter(out, Options{Style: StyleCameo})
+	box := w.boxes["a"]
+	if c := box.centre(); c != (Point{X: 50, Y: 50}) || box.low.X <= 0 || box.high.X >= 100 {
+		t.Fatalf("a is not boxed between the ends of its own routes: %+v", box)
 	}
-	if len(out.Edges) != len(want) {
-		t.Errorf("edges after eliding w = %d, want %d: %+v", len(out.Edges), len(want), out.Edges)
-	}
-	for _, edge := range out.Edges {
-		key := edge.From + "->" + edge.To
-		if got := routeText(edge.Route); got != want[key] {
-			t.Errorf("%s route = %q, want %q", key, got, want[key])
+	routes := map[string]string{}
+	for _, edge := range w.edges {
+		if edge.openFrom || edge.openTo {
+			t.Errorf("%s->%s is left open at a boxed end", edge.From, edge.To)
 		}
+		routes[edge.From+"->"+edge.To] = routeText(edge.Route)
+	}
+	foot := Point{X: 50, Y: halfPixel(box.high.Y)}
+	if math.Abs(foot.Y-box.high.Y) > 0.5 || box.high.Y <= 50 {
+		t.Fatalf("a's bottom border %g is not where its route out is led from", box.high.Y)
+	}
+	want := map[string]string{
+		"d->a": "-100,50 0,50",
+		"a->e": "100,50 200,50",
+		"a->c": routeText([]Point{foot, {X: 50, Y: 150}, {X: 50, Y: 250}}),
+		"b->c": "25,200 50,150 50,250",
+	}
+	if len(routes) != len(want) {
+		t.Errorf("edges after eliding w = %v, want %v", routes, want)
+	}
+	for key, route := range want {
+		if routes[key] != route {
+			t.Errorf("%s route = %q, want %q", key, routes[key], route)
+		}
+	}
+	if _, err := out.DOTWith(Options{Style: StyleCameo}); err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+}
+
+// An end nothing else positions takes its box from the half-route that stops
+// short of it, as from any route: its border at the point the route stops, so
+// the route is left as it is, meeting the border.
+func TestHalfRoutedJoinPlacesAnEndNothingElseDoes(t *testing.T) {
+	r := &Rendering{View: "V", Kind: KindAction,
+		Roots: []*Node{{ID: "a", Kind: "action", Name: "a"},
+			{ID: "c", Kind: "action", Name: "c", Geometry: &Geometry{X: 0, Y: 200, Width: 40, Height: 20, HasSize: true}},
+			{ID: "w", Kind: "join", StandIn: true}},
+		Edges: []Edge{{From: "a", To: "w", Kind: EdgeSuccession}, {From: "w", To: "c", Kind: EdgeSuccession, Route: []Point{{X: 20, Y: 100}, {X: 20, Y: 200}}}},
+	}
+	out := withoutStandIns(r)
+	if len(out.Edges) != 1 || !out.Edges[0].openFrom || out.Edges[0].openTo {
+		t.Fatalf("joined edges = %+v, want a->c open at a", out.Edges)
+	}
+	w := newDOTWriter(out, Options{Style: StyleCameo})
+	box, ok := w.boxes["a"]
+	if !ok || math.Abs(box.high.Y-100) > 1e-9 || box.low.X >= 20 || box.high.X <= 20 || box.low.Y >= box.high.Y-1 {
+		t.Fatalf("a's box = %+v, %v; want one with its bottom border through (20, 100)", box, ok)
+	}
+	if got := routeText(w.edges[0].Route); got != "20,100 20,200" || w.edges[0].openFrom {
+		t.Errorf("a->c route = %q, open %v; want left as it is, meeting a's border", got, w.edges[0].openFrom)
+	}
+	source, err := out.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	if !strings.Contains(source, `"a" -> "c" [pos="e,20,-200 20,-100 20,-100 20,-190 20,-190"]`) {
+		t.Errorf("a->c not drawn along its route:\n%s", source)
 	}
 }
 
