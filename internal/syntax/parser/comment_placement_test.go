@@ -47,6 +47,12 @@ func TestCommentPlacement(t *testing.T) {
 		{"inside_expression", `part def P { attribute x = 1 /* c */ + 2; }`, 1},
 		{"file_ending_comment", `part a; /* c */`, 0},
 		{"empty_body_comment", `part def P { /* c */ }`, 0},
+		{"after_doc_body", `package P { doc /* body */ /* note */ }`, 0},
+		{"after_comment_body", `package P { comment /* a */ /* b */ }`, 0},
+		{"body_expr_param_start", `part def P { attribute y = xs.?{ /* c */ in x; x }; }`, 0},
+		{"body_expr_result_start", `part def P { attribute y = xs.?{ in x; /* c */ x }; }`, 0},
+		{"body_expr_result_end", `part def P { attribute y = xs.?{ in x; x /* c */ }; }`, 1},
+		{"after_nested_body_result", `calc def F { { 1 } /* c */ }`, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			warnings, errs := commentWarnings(t, tc.input)

@@ -2614,6 +2614,7 @@ func (p *Parser) parseCaseBody() []ast.Node {
 		}
 		if p.atResultExpression() {
 			body.add(p.ParseExpression())
+			p.resultEnd()
 			continue
 		}
 		body.add(p.parseBodyMember())

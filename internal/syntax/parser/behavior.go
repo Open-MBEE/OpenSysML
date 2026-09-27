@@ -68,6 +68,7 @@ func (p *Parser) parseCalcBody() []ast.Node {
 					body.add(p.parseConstraintMember())
 				} else {
 					body.add(p.ParseExpression())
+					p.resultEnd()
 				}
 			} else {
 				// Parse as generic body member (parameters, etc.)
