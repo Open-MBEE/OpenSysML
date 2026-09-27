@@ -239,6 +239,7 @@ func oosemFindings(diags []diag.Diagnostic) int {
 }
 
 func TestInterfaceRecordDifferential(t *testing.T) {
+	t.Parallel()
 	for set, files := range fixtureSets(t) {
 		for lang, docs := range languageSets(files) {
 			if len(docs) < 2 {
@@ -253,8 +254,10 @@ func TestInterfaceRecordDifferential(t *testing.T) {
 }
 
 func TestInterfaceRecordDifferentialCorpora(t *testing.T) {
+	t.Parallel()
 	for _, root := range corpusRoots {
 		t.Run(filepath.Base(root.dir), func(t *testing.T) {
+			t.Parallel()
 			if _, err := os.Stat(root.dir); os.IsNotExist(err) {
 				if os.Getenv(root.requireEnv) != "" {
 					t.Fatalf("%s is set but %s is missing (run %s)", root.requireEnv, root.dir, root.fetch)
