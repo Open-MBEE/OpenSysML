@@ -40,6 +40,9 @@ type annotation struct {
 	scope *symbols.Scope
 	// about marks an annotation stated elsewhere with an `about` clause.
 	about bool
+	// recorded marks an annotation read from an interface record: it has no
+	// node, its document being held without its tree.
+	recorded bool
 }
 
 // annotationsOf returns the metadata annotating sym, memoized: an element filter
@@ -96,7 +99,7 @@ func (m *Model) annotationFromFacts(facts symbols.AnnotationFacts, scope *symbol
 	for _, v := range facts.Values {
 		bound[v.Feature] = v.Values
 	}
-	return annotation{typ: typ, bound: bound, scope: scope}, true
+	return annotation{typ: typ, bound: bound, scope: scope, recorded: true}, true
 }
 
 // DeclaredAnnotationFactsOf is AnnotationFactsOf over the annotations sym's own
@@ -189,8 +192,9 @@ type AnnotationSite struct {
 
 // AnnotationSitesOf returns the metadata annotating sym with the nodes stating
 // it, inline annotations first and `about`-form ones after, each in
-// declaration order. An annotation a recorded symbol's own declaration stated
-// has no node: its record carries the type and values, not the tree.
+// declaration order. An annotation a recorded document states, on its own
+// declaration or `about` an element elsewhere, has no node: its record carries
+// the type and values, not the tree.
 func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	var out []AnnotationSite
 	for _, a := range m.annotationsOf(sym) {
@@ -198,7 +202,7 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		if a.typ != nil {
 			typFQN = m.fqnOf(a.typ)
 		}
-		if typFQN == "" || (a.node == nil && !sym.Recorded()) {
+		if typFQN == "" || (a.node == nil && !a.recorded) {
 			continue
 		}
 		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Scope: a.scope, About: a.about}

@@ -207,6 +207,9 @@ func (f LibraryFacts) Clone() LibraryFacts {
 func (a AnnotationFacts) Clone() AnnotationFacts {
 	a.Type = a.Type.Clone()
 	a.Values = slices.Clone(a.Values)
+	for i := range a.Values {
+		a.Values[i].Values = slices.Clone(a.Values[i].Values)
+	}
 	return a
 }
 

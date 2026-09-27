@@ -165,6 +165,38 @@ func TestInterfaceRecordWorkspaceAudits(t *testing.T) {
 			t.Fatalf("%d of 2 documents recorded", recorded)
 		}
 	})
+	// An identity a recorded document declares `about` a loaded element is
+	// the element's, as if its own declaration stated it.
+	t.Run("identity about", func(t *testing.T) {
+		docs := map[string][]byte{
+			"goods.sysml": []byte(`package Goods {
+	@IdentityMetadata::ProjectRef { projectId = "proj"; }
+	part def A;
+	part def B { @IdentityMetadata::ElementId { id = "shared"; } }
+}
+`),
+			"tags.sysml": []byte(`package Tags {
+	metadata aid : IdentityMetadata::ElementId about Goods::A { id = "shared"; }
+}
+`),
+		}
+		ws := model.NewWorkspace()
+		ws.OpenAll([]model.Input{{Name: "goods.sysml", Content: docs["goods.sysml"], Version: 1}, {Name: "tags.sysml", Content: docs["tags.sysml"], Version: 1}})
+		var collisions int
+		for _, name := range []string{"goods.sysml", "tags.sysml"} {
+			for _, d := range ws.Diagnostics(name) {
+				if d.Code == "identity-duplicate-id" {
+					collisions++
+				}
+			}
+		}
+		if collisions == 0 {
+			t.Fatal("no identity collision between the id tags.sysml declares about A and B's own (the fixture is vacuous otherwise)")
+		}
+		if recorded := recordDifferential(t, docs); recorded != 2 {
+			t.Fatalf("%d of 2 documents recorded", recorded)
+		}
+	})
 	t.Run("oosem", func(t *testing.T) {
 		docs := map[string][]byte{
 			"reqs.sysml": []byte(`package Reqs {

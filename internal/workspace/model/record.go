@@ -63,9 +63,11 @@ func (w *Workspace) InterfaceRecord(name string) (*libs.InterfaceRecord, error) 
 // scopes and symbols carrying the record's facts, reporting the diagnostics
 // stored with it against content, whose positions they hold. Content is
 // checked against the record's digest, ErrRecordMismatch when it differs.
-// Dependents are invalidated as by any replacement. The workspace keeps what
-// it built, not rec: a recorded document costs its text, scopes, symbols and
-// diagnostics.
+// Dependents are invalidated as by any replacement. A recorded document is a
+// closed file: any open buffer of its name is dropped, and content is what the
+// file holds on disk, so a later change to the file reindexes it. The workspace
+// keeps what it built, not rec: a recorded document costs its text, scopes,
+// symbols and diagnostics.
 func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) error {
 	content = bytes.Clone(content)
 	digest := digestOf(content)
@@ -90,6 +92,8 @@ func (w *Workspace) OpenRecorded(rec *libs.InterfaceRecord, content []byte) erro
 		recorded: &recordedDiagnostics{diagnostics: diag.Clone(rec.Diagnostics)},
 	}
 	w.docs[rec.Name] = doc
+	delete(w.open, rec.Name)
+	w.onDisk[rec.Name] = content
 	w.changes[rec.Name]++
 	w.displaceLocked(rec.Name)
 	w.releaseStandInLocked(rec.Name)

@@ -61,6 +61,14 @@ func TestLibraryFactsCloneOwnsEveryPath(t *testing.T) {
 	}
 }
 
+func TestAnnotationFactsCloneOwnsItsValues(t *testing.T) {
+	facts := AnnotationFacts{Values: []AnnotationValueFacts{{Feature: "f", Values: []FilterValue{{}, {}}}}}
+	clone := facts.Clone()
+	if &clone.Values[0] == &facts.Values[0] || &clone.Values[0].Values[0] == &facts.Values[0].Values[0] {
+		t.Fatal("the clone shares a value sequence with the original")
+	}
+}
+
 func TestGatheredRelationshipsCloneOwnsEveryPath(t *testing.T) {
 	ref := func(fqn string) ElementRef { return ElementRef{FQN: fqn, Path: []int32{1}, Doc: "a.sysml"} }
 	g := &GatheredRelationships{

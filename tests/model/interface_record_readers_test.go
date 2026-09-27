@@ -645,6 +645,40 @@ func TestInterfaceRecordMetaclassFilters(t *testing.T) {
 	}
 }
 
+// A recorded document is a closed file: it has no open buffer, and a change to
+// the file on disk reindexes it from the changed text.
+func TestInterfaceRecordIsAClosedFile(t *testing.T) {
+	t.Parallel()
+	content := []byte("package A { part def X; }\n")
+	loaded := model.NewWorkspace()
+	loaded.OpenAll([]model.Input{{Name: "a.sysml", Content: content, Version: 1}})
+	rec, err := loaded.InterfaceRecord("a.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := model.NewWorkspace()
+	ws.Open("a.sysml", content, 1)
+	if !ws.IsOpen("a.sysml") {
+		t.Fatal("precondition: a.sysml is not open")
+	}
+	if err := ws.OpenRecorded(rec, content); err != nil {
+		t.Fatal(err)
+	}
+	if ws.IsOpen("a.sysml") {
+		t.Fatal("a recorded document has an open buffer")
+	}
+	if !ws.Document("a.sysml").Recorded() {
+		t.Fatal("a.sysml is not recorded")
+	}
+	ws.SetOnDisk("a.sysml", []byte("package A { part def X :> Missing; }\n"))
+	if ws.Document("a.sysml").Recorded() {
+		t.Fatal("a.sysml stays recorded after its file changed")
+	}
+	if diags := ws.Diagnostics("a.sysml"); len(diags) == 0 {
+		t.Fatal("the changed file reports nothing for its unresolved general")
+	}
+}
+
 // A document query reads a recorded document through facts: the individuals
 // a tree descends, and the sequence a metadata feature defaults to.
 func TestInterfaceRecordDocumentQueriesMatchLoaded(t *testing.T) {

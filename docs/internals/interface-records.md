@@ -181,6 +181,12 @@ is a dependent under §3's invalidation relation, and the workspace hydrates it
 (a later change) rather than keeping its record; until that lands, a record is
 installed only into the workspace it was written from.
 
+A recorded document is a closed file. Installing its record drops any open
+buffer of its name, and the content the record was written from is taken as
+what the file holds on disk: a later change to the file (`SetOnDisk`) reindexes
+the document from the changed text as for any closed file, and deleting the
+file removes it.
+
 ## Readers of the tree
 
 A recorded symbol has `Decl == nil`, `Facts != nil` and `Facts.Recorded`. Every
