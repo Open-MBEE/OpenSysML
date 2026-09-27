@@ -215,7 +215,8 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 			`"n5" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
 			`"n3" -> "n4" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
 			`"n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,134!", pin=true];`,
-			`"n1.0" -> "n3.0" [style=dashed, pos="e,110,160 110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 120,160 120,160"];`,
+			`"n3.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,106!", pin=true];`,
+			`"n1.0" -> "n3.0" [style=dashed, pos="e,113.5,112 113.5,128 113.5,128 140,80 140,80 140,80 140,160 140,160 140,160 118.5,121 118.5,121"];`,
 		},
 		"Behavior::Modes::Modes": {
 			`"n1" -> "n2" [label="accept Go", pos="e,110,110 200,110 200,110 120,110 120,110", lp="155,98"];`,

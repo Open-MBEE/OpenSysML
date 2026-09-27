@@ -266,9 +266,12 @@ type Edge struct {
 	FromPort string
 	ToPort   string
 	// Label is what the edge carries: a connector's name, a transition's
-	// trigger, guard and effect, a succession's guard. It may be empty.
+	// trigger, guard and effect, a succession's guard, a flow's pins. It may be empty.
 	Label string
-	Kind  EdgeKind
+	// Name is the edge's own name, for a writer whose drawing shows the rest
+	// of its Label another way; empty for one anonymous or named by a migration.
+	Name string
+	Kind EdgeKind
 	// Origin is where the connection, transition, succession or flow was
 	// declared, the zero Origin for one with no locatable declaration.
 	Origin Origin

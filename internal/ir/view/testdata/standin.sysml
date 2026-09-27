@@ -44,6 +44,7 @@ package StandIns {
 		flow 'emit to left' from emit.value to left.value;
 		flow 'emit to right' from emit.value to right.value;
 		flow 'emit to loose' from emit.value to loose.value;
+		metadata MigrationMetadata::SynthesizedName about 'emit to right';
 	}
 }
 

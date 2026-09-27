@@ -58,8 +58,10 @@ type EdgeData struct {
 	FromPort string
 	ToPort   string
 	Label    string
-	Kind     EdgeKind
-	Origin   Origin
+	// Name is the edge's own name, "" for one anonymous or named by a migration.
+	Name   string
+	Kind   EdgeKind
+	Origin Origin
 	// Route is the waypoints the edge follows, empty when no Route gives any.
 	Route []Point
 	// Style is how the edge is drawn, nil when no Style colours it.

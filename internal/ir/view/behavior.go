@@ -481,7 +481,6 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 			out.Roots = append(out.Roots, node)
 		}
 	}
-	elideStandIns(out)
 }
 
 // actionSubject is the action being rendered and the naming context it is
@@ -535,7 +534,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		}
 		r.declaredDress(subject.view, subject.elem, node, child, out)
 		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))
-		if child.NameSynthesized {
+		if child.NameSynthesized || child.Name == "" {
 			child.Text = r.actionText(graph, node, nodeDoc)
 		}
 		nodes[node] = child
@@ -586,8 +585,8 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 					nameText(behaviorNodeName(src)), name))
 				continue
 			}
-			label := flowLabel(flow, r.declaredNameSynthesized(subject.elem, flow.Decl))
-			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: label,
+			synthesized := r.declaredNameSynthesized(subject.elem, flow.Decl)
+			out.Edges = append(out.Edges, Edge{From: nodes[src].ID, To: to.ID, Label: flowLabel(flow, synthesized), Name: edgeName(flow.Name, synthesized),
 				FromPort: portNamed(nodes[src], flow.SourcePin, PortOut), ToPort: portNamed(to, flow.TargetPin, PortIn),
 				Kind: EdgeFlow, Origin: nodeOrigin(docOf(graph, flow.Decl, doc), flow.Decl), Route: r.declaredRouteOf(subject.view, subject.elem, flow.Decl, out),
 				Style: r.declaredEdgeDress(subject.view, subject.elem, flow.Decl, nodes[src].ID, to.ID, out)})
@@ -597,13 +596,22 @@ func (r *Renderer) actionEdges(subject actionSubject, graph *lower.ActionGraph, 
 
 // flowLabel is what an object flow carries: the pins it joins; a flow naming no
 // pins is labelled by its name, unless synthesized. A writer drawing the pins
-// themselves names them there instead.
+// themselves names them there instead, and labels the flow by its Name.
 func flowLabel(flow lower.ObjectFlow, synthesized bool) string {
 	label := flow.SourcePin
 	if flow.TargetPin != "" {
 		label = strings.TrimPrefix(label+" to "+flow.TargetPin, " to ")
 	}
 	return edgeLabel(flow.Name, label, synthesized)
+}
+
+// edgeName is the name an edge was declared with, "" for one declared anonymous
+// or named by a migration (synthesized), which stands for an unnamed edge.
+func edgeName(name string, synthesized bool) string {
+	if synthesized {
+		return ""
+	}
+	return nameText(name)
 }
 
 // actionPorts are the pins an action node declares itself: its parameters, and

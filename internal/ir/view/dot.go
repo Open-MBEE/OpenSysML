@@ -48,7 +48,8 @@ func (r *Rendering) DOT() (string, error) {
 // direction, as `rankdir` (the empty direction leaves the engine's default and
 // writes no `rankdir`), filled from the stated palette by keyword family (the
 // empty palette draws in black and white), and with the nodes a positioned
-// drawing leaves unplaced undrawn or set in a strip below it. The layout is
+// drawing leaves unplaced undrawn or set in a strip below it; left undrawn, the
+// control nodes a migration made up are elided (withoutStandIns). The layout is
 // the same whatever the palette: it changes fills and borders alone.
 func (r *Rendering) DOTWith(options Options) (string, error) {
 	if !r.Kind.SupportsForm(FormDot) {
@@ -64,6 +65,9 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return "", err
 	}
 	direction := options.Direction
+	if options.Unplaced != UnplacedStrip {
+		r = withoutStandIns(r)
+	}
 	w := newDOTWriter(r, options)
 	for _, note := range w.notes {
 		if note.Anchor != "" && w.draws(note.Anchor) && w.clipped(note.Anchor, "") {
@@ -1625,7 +1629,7 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 	}
 	attrs = append(attrs, dotStyleAttributes(edge.Style, false)...)
 	if len(edge.Route) > 1 {
-		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(edge.Route, dotArrowtailed(attrs), dotArrowheaded(attrs))))
+		attrs = append(attrs, "pos="+dotQuote(w.dotSpline(w.pinnedRoute(edge), dotArrowtailed(attrs), dotArrowheaded(attrs))))
 		if label != "" {
 			attrs = append(attrs, "lp="+dotQuote(w.dotPoint(w.dotLabelPoint(edge))))
 		}
@@ -1761,17 +1765,19 @@ func (b nodeBox) overlap(o nodeBox) float64 {
 	return w * h
 }
 
-// edgeText is the label an edge is drawn with: none for a pin-to-pin flow, whose
-// pins name it; under Cameo's look a transition reads `trigger [guard] / effect`
-// with the `accept` keyword off and every name bare, as Cameo writes it.
+// edgeText is the label an edge is drawn with: a flow at a pin is labelled by
+// its own name alone, the drawn pins naming what it carries; under Cameo's look
+// a transition reads `trigger [guard] / effect` with the `accept` keyword off
+// and every name bare, as Cameo writes it.
 func (w *dotWriter) edgeText(edge Edge) string {
+	label := edge.Label
 	if edge.FromPort != "" || edge.ToPort != "" {
-		return ""
+		label = edge.Name
 	}
 	if !w.skin.cameo {
-		return edge.Label
+		return label
 	}
-	label := bareNames(edge.Label)
+	label = bareNames(label)
 	if edge.Kind == EdgeTransition {
 		label = strings.TrimPrefix(label, "accept ")
 	}

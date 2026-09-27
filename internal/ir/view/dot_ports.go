@@ -3,6 +3,7 @@ package view
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -40,6 +41,42 @@ func dotPortEnds(edges []Edge) map[string]Point {
 		ends[port] = Point{X: sum.X / n, Y: sum.Y / n}
 	}
 	return ends
+}
+
+// pinnedRoute is an edge's route with each end at a drawn pin brought onto the
+// pin: an end the pin's box holds stays, one off it — as of a pin several
+// routes meet at different points — moves to where the pin's border faces the
+// next waypoint, so every route touches the one square.
+func (w *dotWriter) pinnedRoute(edge Edge) []Point {
+	route := edge.Route
+	if pin, ok := w.pins[edge.FromPort]; ok && edge.FromPort != "" {
+		route = append([]Point{pin.faces(route[0], route[1])}, route[1:]...)
+	}
+	if pin, ok := w.pins[edge.ToPort]; ok && edge.ToPort != "" {
+		n := len(route)
+		route = append(slices.Clone(route[:n-1]), pin.faces(route[n-1], route[n-2]))
+	}
+	return route
+}
+
+// faces is end when the box holds it, else the point of the box's border on
+// the way from its centre toward next; the centre when next is the centre.
+func (b nodeBox) faces(end, next Point) Point {
+	if b.holds(end) {
+		return end
+	}
+	c := b.centre()
+	dx, dy := next.X-c.X, next.Y-c.Y
+	if b.holds(next) || dx == 0 && dy == 0 {
+		return c
+	}
+	t := math.Min((b.high.X-b.low.X)/2/math.Abs(dx), (b.high.Y-b.low.Y)/2/math.Abs(dy))
+	return Point{X: halfPixel(c.X + dx*t), Y: halfPixel(c.Y + dy*t)}
+}
+
+// holds reports whether p lies in the box, its border included.
+func (b nodeBox) holds(p Point) bool {
+	return p.X >= b.low.X && p.X <= b.high.X && p.Y >= b.low.Y && p.Y <= b.high.Y
 }
 
 // placePorts finds the box of every port of a boxed node, under it: a port a

@@ -20,15 +20,16 @@ func standInDOT(t *testing.T, view string, options Options) (*Rendering, string)
 }
 
 // A join the migration marks as standing for no source node, which no diagram
-// positions, is elided from a positioned view: the edge into it and the edge
-// out of it are drawn as one along their routes, and a pair without a route is
-// left undrawn.
+// positions, stays in the rendering but is elided from a positioned drawing
+// that leaves unplaced nodes undrawn: the edge into it and the edge out of it
+// are drawn as one along their routes, and a pair without a route is left
+// undrawn. Where only the route out of the join is given, the joined edge
+// starts on its source's border rather than at the join's old position.
 func TestDOTElidesMigrationStandIns(t *testing.T) {
 	rendering, source := standInDOT(t, "StandInViews::threadedView", Options{})
-	for _, root := range rendering.Roots {
-		if found := findStandIn(root.Children); found != nil {
-			t.Errorf("stand-in %s survives elision", found.Name)
-		}
+	wait := findStandIn(rendering.Roots[0].Children)
+	if wait == nil || wait.Name != "wait" || wait.ID != "n4" {
+		t.Fatalf("the rendering does not keep the stand-in join: %+v", wait)
 	}
 	for _, node := range allNodes(rendering.Roots) {
 		if node.Kind == "metadata" {
@@ -38,14 +39,34 @@ func TestDOTElidesMigrationStandIns(t *testing.T) {
 	if !strings.Contains(source, "// not represented: 1 control node(s) a migration made up, which no diagram positions, elided\n") {
 		t.Errorf("elision unaccounted for:\n%s", source)
 	}
-	if strings.Contains(source, "fillcolor=black") {
-		t.Errorf("a bar is drawn for the stand-in:\n%s", source)
+	if dotLine(source, `"n4"`) != "" || strings.Contains(source, "fillcolor=black") {
+		t.Errorf("the stand-in is drawn:\n%s", source)
 	}
 	if line := dotLine(source, `"n1" -> "n3"`); !strings.Contains(line, `pos="e,60,100 60,240`) {
 		t.Errorf("a to c is not drawn along both routes: %q\n%s", line, source)
 	}
-	if line := dotLine(source, `"n2" -> "n3"`); !strings.Contains(line, `pos="e,60,100 60,180`) {
-		t.Errorf("b to c is not drawn along the route out of the join: %q\n%s", line, source)
+	if line := dotLine(source, `"n2" -> "n3"`); !strings.Contains(line, `pos="e,60,100 165,240 165,240 60,180`) {
+		t.Errorf("b to c does not leave b's border for the route out of the join: %q\n%s", line, source)
+	}
+}
+
+// The same join is kept, and drawn as a bar in the strip with all three of its
+// edges, when the drawing sets unplaced nodes in a strip: there it has a place.
+func TestDOTStripKeepsMigrationStandIns(t *testing.T) {
+	_, source := standInDOT(t, "StandInViews::threadedView", Options{Unplaced: UnplacedStrip})
+	if strings.Contains(source, "elided") {
+		t.Errorf("the stand-in is elided from a strip drawing:\n%s", source)
+	}
+	if line := dotLine(source, `"n4"`); !strings.Contains(line, `fillcolor=black`) || !strings.Contains(line, `pos="`) {
+		t.Errorf("the stand-in is not drawn as a placed bar: %q\n%s", line, source)
+	}
+	for _, edge := range []string{`"n1" -> "n4"`, `"n2" -> "n4"`, `"n4" -> "n3"`} {
+		if !strings.Contains(source, "\n  "+edge) {
+			t.Errorf("no edge %s through the stand-in:\n%s", edge, source)
+		}
+	}
+	if strings.Contains(source, `"n2" -> "n3"`) {
+		t.Errorf("b to c is drawn past the stand-in:\n%s", source)
 	}
 }
 
@@ -83,18 +104,82 @@ func TestDOTKeepsUnnamedControlNodesOfTheSource(t *testing.T) {
 }
 
 // A pin several routed flows leave sits at the mean of where their routes
-// start, on the action's border, while each flow keeps its own route.
+// start, on the action's border; each flow keeps its route but for its first
+// point, brought onto the pin's border so the spline touches the one square.
 func TestDOTSharedPinSitsBetweenItsRoutes(t *testing.T) {
 	_, source := standInDOT(t, "StandInViews::sharedView", Options{})
 	if line := dotLine(source, `"n1.0"`); !strings.Contains(line, `pos="70,134!"`) {
 		t.Errorf("shared pin is not between its routes' starts at x=50 and x=90: %q\n%s", line, source)
 	}
 	for edge, start := range map[string]string{
-		`"n1.0" -> "n2.0"`: `pos="e,50,80 50,134`,
-		`"n1.0" -> "n3.0"`: `pos="e,270,80 90,134`,
+		`"n1.0" -> "n2.0"`: `pos="e,50,80 68,128 68,128 `,
+		`"n1.0" -> "n3.0"`: `pos="e,270,80 75,128 75,128 90,110 `,
 	} {
 		if line := dotLine(source, edge); !strings.Contains(line, start) {
-			t.Errorf("%s does not keep its own route: %q\n%s", edge, line, source)
+			t.Errorf("%s does not start on the pin (64..76 x 128..140) and follow its own route: %q\n%s", edge, line, source)
+		}
+	}
+}
+
+// A flow drawn at a pin has no label of its own — the pin says what flows —
+// unless it has a name of its own; a name the migration made up is none. That
+// holds of a flow drawn at a pin at one end alone as well as at both.
+func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
+	rendering, source := standInDOT(t, "StandInViews::sharedView", Options{})
+	for edge, label := range map[string]string{
+		`"n1.0" -> "n2.0"`: `label="emit to left"`,
+		`"n1.0" -> "n3.0"`: ``,
+	} {
+		line := dotLine(source, edge)
+		if line == "" {
+			t.Errorf("no edge %s:\n%s", edge, source)
+		} else if label == "" && strings.Contains(line, "label=") {
+			t.Errorf("%s, named by the migration, is labelled: %q", edge, line)
+		} else if !strings.Contains(line, label) {
+			t.Errorf("%s lacks %s: %q", edge, label, line)
+		}
+	}
+	w := newDOTWriter(rendering, Options{Style: StyleCameo})
+	for _, edge := range []Edge{
+		{Label: "value to value", Name: "feed", FromPort: "n1.0", Kind: EdgeFlow},
+		{Label: "value to value", Name: "feed", ToPort: "n2.0", Kind: EdgeFlow},
+	} {
+		if got := w.edgeText(edge); got != "feed" {
+			t.Errorf("edgeText(%+v) = %q, want the flow's own name", edge, got)
+		}
+		edge.Name = ""
+		if got := w.edgeText(edge); got != "" {
+			t.Errorf("edgeText(%+v) = %q, want none: the pin names what flows", edge, got)
+		}
+	}
+}
+
+// An action written without a name, made-up or otherwise, is labelled by what
+// it does like one whose name the migration made up; a named one is not.
+func TestActionTextOfAnonymousActions(t *testing.T) {
+	rendering := render(t, "anonymous-actions.sysml", "AnonymousViews::countedView")
+	texts := map[string]string{}
+	for _, node := range allNodes(rendering.Roots) {
+		if node.Kind == "action" {
+			if node.NameSynthesized {
+				t.Errorf("%s %q is taken for named by a migration", node.ID, node.Name)
+			}
+			texts[node.ID] = node.Name + "|" + node.Text
+		}
+	}
+	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true"}
+	for id, text := range want {
+		if texts[id] != text {
+			t.Errorf("%s name|text = %q, want %q", id, texts[id], text)
+		}
+	}
+	source, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	for id, label := range map[string]string{"n2": "n := n + 1", "n3": "Go", "n4": "true"} {
+		if line := dotLine(source, `"`+id+`"`); !strings.Contains(line, label) || strings.Contains(line, "action") {
+			t.Errorf("%s is not labelled by what it does alone: %q", id, line)
 		}
 	}
 }
