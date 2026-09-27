@@ -420,13 +420,13 @@ const handshakeApplications = `
 func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	r := migrateDocument(t, handshakeInteraction, handshakeApplications)
 	for _, line := range []string{
-		"action def Handshake {",
+		"action handshake {",
 		"/* duration constraint on request not migrated — the duration constraint has no interval */",
-		"action request send new Request(n = 7) to context.b;",
+		"action request send new Request(n = 7) to this.b;",
 		"first start then request;",
 		"action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];",
 		"first request then wait;",
-		"action reply send new Reply() to context.a;",
+		"action reply send new Reply() to this.a;",
 		"first wait then reply;",
 		"first reply then done;",
 	} {
@@ -436,8 +436,8 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 		t.Errorf("an interaction carrying a call was written as a scenario:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
-	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to context.b")
-	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for context.a, which the steps address")
+	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to this.b")
+	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for this.a, which the steps address")
 	wantNote(t, r, "_hsDur", migrate.Approximated, "the time from request, written as the wait wait before reply")
 	wantNote(t, r, "_hsDur2", migrate.Unmapped, "the duration constraint has no interval")
 	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
@@ -445,7 +445,7 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
 	meta(t, s, "%seed 1")
-	meta(t, s, "%action Net::Handshake #1")
+	meta(t, s, "%action Net::handshake #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the scenario did not run to completion:\n%s", out)
 	}
@@ -526,7 +526,7 @@ const timedApplications = `
 func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 	r := migrateDocument(t, timedInteraction, timedApplications)
 	for _, line := range []string{
-		"action request send new Request() to context.b;",
+		"action request send new Request() to this.b;",
 		"first start then request;",
 		"fork timing;",
 		"first request then timing;",
@@ -534,12 +534,12 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 		"first timing then wait;",
 		"action wait2 accept after 4.0 [SI::s];",
 		"first timing then wait2;",
-		"action probe send new Probe() to context.b;",
+		"action probe send new Probe() to this.b;",
 		"first wait2 then probe;",
 		"join waitEnd;",
 		"first probe then waitEnd;",
 		"first wait then waitEnd;",
-		"action reply send new Reply() to context.a;",
+		"action reply send new Reply() to this.a;",
 		"first waitEnd then reply;",
 		"first reply then done;",
 		"/* duration constraint on reply not migrated — the time it measures from request to reply is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other */",
@@ -552,7 +552,7 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::Timed #1")
+	meta(t, s, "%action Net::timed #1")
 	if out := meta(t, s, "%advance 9.9"); strings.Contains(out, "completed") {
 		t.Errorf("the scenario completed before the 10 s the reply must come after the request:\n%s", out)
 	}
@@ -749,31 +749,31 @@ const nestedApplications = `
 func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	r := migrateDocument(t, nestedCalls, nestedApplications)
 	for _, line := range []string{
-		"perform action outer : Motor::Spin ::> context.motor.spin { in rpm = 30.0; }",
-		"perform action inner : Motor::Spin ::> context.motor.spin { in rpm = 40.0; }",
-		"assign context.ctrl.got := inner.result;",
-		"assign context.ctrl.'first' := outer.result;",
-		"action def Either {",
-		"if context.mode == 1 {",
-		"assign context.ctrl.got := spin.result;",
+		"perform action outer ::> motor.spin { in rpm = 30.0; }",
+		"perform action inner ::> motor.spin { in rpm = 40.0; }",
+		"assign this.ctrl.got := inner.result;",
+		"assign this.ctrl.'first' := outer.result;",
+		"action either {",
+		"if mode == 1 {",
+		"assign this.ctrl.got := spin.result;",
 		"else {",
-		"assign context.ctrl.'first' := spin.result;",
+		"assign this.ctrl.'first' := spin.result;",
 		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
 		"/* not migrated: Interaction 'Crossed' — the combined fragment (_xpar) the message 'beside' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to context.ctrl")
-	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to context.ctrl")
-	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to context.ctrl")
-	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to context.ctrl")
+	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to this.ctrl")
+	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to this.ctrl")
+	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
+	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
 	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
 	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
 	wantNote(t, r, "_crossed", migrate.Unmapped, "the message 'beside' answers no call of Spin between its lifelines before it")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Rig::Nested #1")
+	meta(t, s, "%action Rig::nested #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the scenario did not complete:\n%s", out)
 	}
@@ -783,7 +783,7 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	if out := meta(t, s, "%eval in #1 : ctrl.'first'"); !strings.Contains(out, "= 30.0") {
 		t.Errorf("the outer reply did not store the outer call's result:\n%s", out)
 	}
-	meta(t, s, "%action Rig::Either #1")
+	meta(t, s, "%action Rig::either #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the alternative scenario did not complete:\n%s", out)
 	}
@@ -917,7 +917,7 @@ const inoutApplications = `
 // value the callee gives the parameter is written back to what the argument named.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump : Counter::Bump ::> context.counter.bump { inout level = Raise::context.level; }")
+	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = this.level; }")
 	wantNoLine(t, r.Notation, "{ in level = this.level; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -925,7 +925,7 @@ func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Bench")
-	meta(t, s, "%action Bench::Raise #1")
+	meta(t, s, "%action Bench::raise #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the scenario did not complete:\n%s", out)
 	}

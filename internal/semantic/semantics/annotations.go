@@ -36,10 +36,15 @@ type annotation struct {
 	defaults map[string][]symbols.FilterValue
 	// node states the annotation: the prefix-metadata node or metadata usage.
 	node ast.Node
+	// span locates node, or the node a recorded annotation was written from.
+	span source.Span
 	// scope is where the annotating node is declared.
 	scope *symbols.Scope
 	// about marks an annotation stated elsewhere with an `about` clause.
 	about bool
+	// recorded marks an annotation read from an interface record: it has no
+	// node, its document being held without its tree.
+	recorded bool
 }
 
 // annotationsOf returns the metadata annotating sym, memoized: an element filter
@@ -58,12 +63,87 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 	m.annotations[sym] = nil
 
 	var out []annotation
-	if sym.Decl != nil {
+	if sym.Recorded() {
+		out = append(out, m.recordedAnnotations(sym)...)
+		out = append(out, m.aboutAnnotations(sym)...)
+	} else if sym.Decl != nil {
 		out = append(out, m.declaredAnnotations(sym)...)
 		out = append(out, m.aboutAnnotations(sym)...)
 	}
 	m.annotations[sym] = out
 	return out
+}
+
+// recordedAnnotations restores the annotations a recorded symbol's own
+// declaration stated, from the facts its record carries.
+func (m *Model) recordedAnnotations(sym *symbols.Symbol) []annotation {
+	var out []annotation
+	for _, facts := range sym.Facts.Annotations {
+		a, ok := m.annotationFromFacts(facts, sym.OwnerScope)
+		if ok {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// annotationFromFacts is the annotation a fact states; the values it carries
+// are the ones the declaration bound or its type defaulted, already evaluated.
+func (m *Model) annotationFromFacts(facts symbols.AnnotationFacts, scope *symbols.Scope) (annotation, bool) {
+	if facts.Type.IsZero() {
+		return annotation{}, false
+	}
+	typ := m.recordedElement(facts.Type)
+	if typ == nil {
+		return annotation{}, false
+	}
+	bound := make(map[string][]symbols.FilterValue, len(facts.Values))
+	for _, v := range facts.Values {
+		bound[v.Feature] = v.Values
+	}
+	return annotation{typ: typ, bound: bound, span: facts.Span, scope: scope, recorded: true}, true
+}
+
+// DeclaredAnnotationFactsOf is AnnotationFactsOf over the annotations sym's own
+// declaration states — what its interface record carries; an `about` annotation
+// stated elsewhere travels with the document stating it.
+func (m *Model) DeclaredAnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	if sym == nil || sym.Decl == nil {
+		return nil
+	}
+	return annotationFacts(m, m.declaredAnnotations(sym))
+}
+
+// AboutAnnotationFactsOf is the annotation a metadata usage with an `about`
+// clause states on the elements it names — its type and bound values — as an
+// interface record keeps it; nil for any other symbol.
+func (m *Model) AboutAnnotationFactsOf(sym *symbols.Symbol) *symbols.AnnotationFacts {
+	if sym == nil || sym.Kind != symbols.SymbolMetadataUsage {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || !annotatesOthers(usage) {
+		return nil
+	}
+	a, ok := m.usageAnnotation(sym.OwnerScope, usage)
+	if !ok {
+		return nil
+	}
+	facts := annotationFacts(m, []annotation{a})
+	if len(facts) == 0 {
+		return nil
+	}
+	return &facts[0]
+}
+
+// AnnotatedElementsOf returns the elements a metadata usage annotates through
+// its `about` clause, resolved; nil for any other symbol.
+func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(usage) {
+		return nil
+	}
+	return m.annotatedElements(sym.OwnerScope, usage)
 }
 
 // AnnotationFactsOf states the metadata annotating sym as names and constants,
@@ -72,8 +152,14 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 // constant is reported with an unknown value, which a condition reading it
 // reports as unevaluable rather than silently treating as absent.
 func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts {
+	return annotationFacts(m, m.annotationsOf(sym))
+}
+
+// annotationFacts states annotations as names and constants. Type is the
+// reference that restores the metadata type, zero when none reaches it.
+func annotationFacts(m *Model, annots []annotation) []symbols.AnnotationFacts {
 	var out []symbols.AnnotationFacts
-	for _, a := range m.annotationsOf(sym) {
+	for _, a := range annots {
 		var typFQN string
 		if a.typ != nil {
 			typFQN = m.fqnOf(a.typ)
@@ -81,7 +167,10 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 		if typFQN == "" {
 			continue
 		}
-		facts := symbols.AnnotationFacts{TypeFQN: typFQN}
+		facts := symbols.AnnotationFacts{TypeFQN: typFQN, Span: a.span}
+		if m.resolver != nil && m.resolver.Index() != nil {
+			facts.Type, _ = m.resolver.Index().RefTo(a.typ)
+		}
 		for _, feature := range a.featureNames() {
 			facts.Values = append(facts.Values, a.valueFacts(feature))
 		}
@@ -96,6 +185,9 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 type AnnotationSite struct {
 	TypeFQN string
 	Node    ast.Node
+	// Span locates the node stating the annotation, also when the annotation
+	// comes from a record and Node is nil.
+	Span source.Span
 	// Scope is where the annotating node is declared; for an `about`-form
 	// annotation that may be another document than the annotated element's.
 	Scope  *symbols.Scope
@@ -105,7 +197,9 @@ type AnnotationSite struct {
 
 // AnnotationSitesOf returns the metadata annotating sym with the nodes stating
 // it, inline annotations first and `about`-form ones after, each in
-// declaration order.
+// declaration order. An annotation a recorded document states, on its own
+// declaration or `about` an element elsewhere, has no node: its record carries
+// the type, values and span, not the tree.
 func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 	var out []AnnotationSite
 	for _, a := range m.annotationsOf(sym) {
@@ -113,10 +207,10 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		if a.typ != nil {
 			typFQN = m.fqnOf(a.typ)
 		}
-		if typFQN == "" || a.node == nil {
+		if typFQN == "" || (a.node == nil && !a.recorded) {
 			continue
 		}
-		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Scope: a.scope, About: a.about}
+		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Span: a.span, Scope: a.scope, About: a.about}
 		for _, feature := range a.featureNames() {
 			site.Values = append(site.Values, a.valueFacts(feature))
 		}
@@ -349,6 +443,7 @@ func (m *Model) prefixAnnotation(scope *symbols.Scope, p *ast.PrefixMetadata) (a
 	}
 	a := m.annotationOfType(typ, scope, p.Body)
 	a.node = p
+	a.span = p.Span()
 	a.scope = scope
 	return a, true
 }
@@ -375,6 +470,7 @@ func (m *Model) usageAnnotation(scope *symbols.Scope, u *ast.Usage) (annotation,
 		}
 		a := m.annotationOfType(typ, bodyScope(u, scope), u.Members)
 		a.node = u
+		a.span = u.Span()
 		a.scope = scope
 		return a, true
 	}
@@ -402,8 +498,8 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterVal
 	m.metadataDefaults[typ] = nil
 	var values map[string][]symbols.FilterValue
 	for _, member := range m.MembersOf(typ) {
-		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || usage.Value == nil {
+		value, ok := m.declaredDefault(member)
+		if !ok {
 			continue
 		}
 		name := simpleSymbolName(member)
@@ -416,10 +512,49 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterVal
 		if values == nil {
 			values = make(map[string][]symbols.FilterValue)
 		}
-		values[name] = m.annotationSequence(member.OwnerScope, usage.Value)
+		values[name] = value
 	}
 	m.metadataDefaults[typ] = values
 	return values
+}
+
+// declaredDefault returns the value member's declaration binds it to, read
+// from its record when its document is recorded.
+func (m *Model) declaredDefault(member *symbols.Symbol) ([]symbols.FilterValue, bool) {
+	if member.Recorded() {
+		if member.Facts.Default == nil && !member.Facts.Modifiers.Has(symbols.ModValued) {
+			return nil, false
+		}
+		return member.Facts.Default, true
+	}
+	usage, ok := member.Decl.(*ast.Usage)
+	if !ok || usage.Value == nil {
+		return nil, false
+	}
+	return m.annotationSequence(member.OwnerScope, usage.Value), true
+}
+
+// MetadataDefaultOf returns the default a feature of a metadata definition or
+// usage declares, one value per element of a sequence expression, as an
+// annotation of that type reads it when it leaves the feature unbound; false
+// for any other symbol.
+func (m *Model) MetadataDefaultOf(sym *symbols.Symbol) ([]symbols.FilterValue, bool) {
+	if m == nil || sym == nil || sym.OwnerScope == nil || !metadataTyped(sym.OwnerScope.Owner()) {
+		return nil, false
+	}
+	return m.declaredDefault(sym)
+}
+
+// metadataTyped reports whether sym is a metadata definition or usage.
+func metadataTyped(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if kind, ok := sym.DefinitionKind(); ok {
+		return kind == ast.DefMetadata
+	}
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageMetadata
 }
 
 // bodyScope is the scope a metadata usage's body resolves names against. The
@@ -513,6 +648,10 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
+	if sym.Recorded() {
+		m.indexRecordedAboutUsage(sym)
+		return
+	}
 	usage, ok := sym.Decl.(*ast.Usage)
 	if !ok || !annotatesOthers(usage) {
 		return
@@ -522,7 +661,26 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 		return
 	}
 	a.about = true
-	for _, target := range m.annotatedElements(sym.OwnerScope, usage) {
+	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, usage))
+}
+
+// indexRecordedAboutUsage indexes an `about` metadata usage a record carries:
+// its one annotation, on the elements the record names.
+func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
+	if sym.Facts.Annotation == nil || len(sym.Facts.About) == 0 {
+		return
+	}
+	a, ok := m.annotationFromFacts(*sym.Facts.Annotation, sym.OwnerScope)
+	if !ok {
+		return
+	}
+	a.about = true
+	m.indexAbout(a, m.recordedElements(nil, sym.Facts.About))
+}
+
+// indexAbout files a as an annotation of each target.
+func (m *Model) indexAbout(a annotation, targets []*symbols.Symbol) {
+	for _, target := range targets {
 		if _, known := m.aboutAnnots[target]; !known {
 			m.aboutOrder = append(m.aboutOrder, target)
 		}
@@ -651,49 +809,60 @@ func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.Fi
 	return symbols.FilterValue{}
 }
 
-// ConstantFeatureValues returns a feature's ordered constant values.
-func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool) {
+// ConstantFeatureValues returns a feature's ordered constant values. The error
+// is a symbols.NeedsHydration when the value is written in a recorded document.
+func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool, error) {
 	if m == nil || sym == nil || feature == "" {
-		return nil, false
+		return nil, false, nil
 	}
 	if values, ok := m.ReflectiveFeatureValues(sym, feature); ok {
-		return values, true
+		return values, true, nil
 	}
 	member, ok := m.LookupMember(sym, feature)
 	if !ok || member == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
 // DeclaredFeatureValues returns a declared member feature's ordered constant
-// values, never answering reflective metaclass features of the same name.
-func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool) {
+// values, never answering reflective metaclass features of the same name. The
+// error is a symbols.NeedsHydration when the value is written in a recorded document.
+func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool, error) {
 	if m == nil || sym == nil || feature == "" {
-		return nil, false
+		return nil, false, nil
 	}
 	member, ok := m.LookupMember(sym, feature)
 	if !ok || member == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
-func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.Symbol]bool) ([]symbols.FilterValue, bool) {
+// constantFeatureValues reads the values member's declaration writes, or those
+// of the features it redefines when it writes none. A recorded feature's record
+// says whether it writes a value but not what: that reading needs its tree.
+func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.Symbol]bool) ([]symbols.FilterValue, bool, error) {
 	if member == nil || seen[member] {
-		return nil, false
+		return nil, false, nil
 	}
 	seen[member] = true
 	defer delete(seen, member)
-	usage, ok := member.Decl.(*ast.Usage)
-	if !ok {
-		return []symbols.FilterValue{{}}, true
+	if !member.DeclaresUsage() {
+		return []symbols.FilterValue{{}}, true, nil
 	}
-	if usage.Value == nil {
+	if member.Recorded() && member.Facts.Modifiers.Has(symbols.ModValued) {
+		return nil, false, &symbols.NeedsHydration{Doc: member.DocName, Question: "the value " + symbols.FQNOf(member) + " declares"}
+	}
+	usage, _ := member.Decl.(*ast.Usage)
+	if usage == nil || usage.Value == nil {
 		var values []symbols.FilterValue
 		found := false
 		for _, redefined := range m.RedefinedFeatures(member) {
-			inherited, ok := m.constantFeatureValues(redefined, seen)
+			inherited, ok, err := m.constantFeatureValues(redefined, seen)
+			if err != nil {
+				return nil, false, err
+			}
 			if !ok {
 				continue
 			}
@@ -701,9 +870,9 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			values = append(values, inherited...)
 		}
 		if found {
-			return values, true
+			return values, true, nil
 		}
-		return nil, true
+		return nil, true, nil
 	}
 	if sequence, ok := usage.Value.(*ast.SequenceExpr); ok {
 		values := make([]symbols.FilterValue, 0, len(sequence.Elements))
@@ -713,12 +882,12 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			}
 			values = append(values, m.declaredValue(member.OwnerScope, element))
 		}
-		return values, true
+		return values, true, nil
 	}
 	if _, empty := usage.Value.(*ast.NullExpr); empty {
-		return nil, true
+		return nil, true, nil
 	}
-	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true
+	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true, nil
 }
 
 // declaredValue is annotationValue for a feature's own value, where a reference
@@ -756,7 +925,7 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
-	if rel, ok := sym.Decl.(*ast.RelationshipMember); ok {
+	if rel, ok := sym.RelationshipDecl(); ok {
 		if meta := m.kermlMetaclass(relationshipMetaclassName(rel)); meta != nil {
 			return meta
 		}
@@ -795,11 +964,11 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case symbols.SymbolConnectorEnd:
 		return ConnectorEndMetaclassName(sym)
 	case symbols.SymbolUnknown:
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			return usageMetaclassNames[usage.Kind]
+		if kind, ok := sym.UsageKind(); ok {
+			return usageMetaclassNames[kind]
 		}
 	case symbols.SymbolActionUsage:
-		if _, ok := sym.Decl.(*ast.TransitionMember); ok {
+		if sym.DeclaresTransition() {
 			return usageMetaclassNames[ast.UsageTransition]
 		}
 	}
@@ -810,7 +979,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 // PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
 func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
 	if sym.OwnerScope != nil {
-		if usage, ok := sym.OwnerScope.Node().(*ast.Usage); ok && usage.Kind == ast.UsageInterface {
+		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
 		}
 	}
@@ -827,8 +996,8 @@ var usageMetaclassNames = map[ast.UsageKind]string{
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
 // at any depth, other than a metadata feature annotating the body's owner.
 func isMetadataBodyFeature(sym *symbols.Symbol) bool {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind == ast.UsageMetadata {
+	kind, ok := sym.UsageKind()
+	if !ok || kind == ast.UsageMetadata {
 		return false
 	}
 	for scope := sym.OwnerScope; scope != nil; {
@@ -843,7 +1012,7 @@ func isMetadataBodyFeature(sym *symbols.Symbol) bool {
 		if owner.Kind == symbols.SymbolMetadataUsage {
 			return true
 		}
-		if _, feature := owner.Decl.(*ast.Usage); !feature {
+		if !owner.DeclaresUsage() {
 			return false
 		}
 		scope = owner.OwnerScope
@@ -889,9 +1058,21 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 	return nil
 }
 
+// connectorKind is the usage kind of the connector whose scope owns an end,
+// from the scope's node or, for a recorded connector, its owner's record.
+func connectorKind(scope *symbols.Scope) (ast.UsageKind, bool) {
+	if usage, ok := scope.Node().(*ast.Usage); ok {
+		return usage.Kind, true
+	}
+	if owner := scope.Owner(); owner != nil && owner.Recorded() {
+		return owner.UsageKind()
+	}
+	return 0, false
+}
+
 // relationshipMetaclassName is the metaclass of a keyword-first relationship,
 // which conjugation writes as a form of its own (KerML §7.2).
-func relationshipMetaclassName(rel *ast.RelationshipMember) string {
+func relationshipMetaclassName(rel symbols.RelationshipDecl) string {
 	if rel.Conjugated {
 		return "Conjugation"
 	}
@@ -901,6 +1082,13 @@ func relationshipMetaclassName(rel *ast.RelationshipMember) string {
 // MultiplicityMetaclassName is the metaclass of a named multiplicity: a range
 // (`multiplicity m [1..2]`) is a MultiplicityRange, a subset a Multiplicity.
 func MultiplicityMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() {
+		// A multiplicity member's record carries bounds exactly when it declared a range.
+		if sym.Facts.Multiplicity != nil {
+			return "MultiplicityRange"
+		}
+		return "Multiplicity"
+	}
 	if mult, ok := sym.Decl.(*ast.MultiplicityDecl); ok && mult.Range != nil {
 		return "MultiplicityRange"
 	}
@@ -964,6 +1152,17 @@ var kermlMetaclassNames = map[string]string{
 // which is classified by its symbol kind instead.
 func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
+		return ""
+	}
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeDefinition, symbols.NodeUsage:
+			return kermlMetaclassNames[sym.Facts.Keyword]
+		case symbols.NodePrefixMetadata:
+			return kermlMetaclassNames["metadata"]
+		case symbols.NodeConnectorEnd, symbols.NodeCrossFeature:
+			return kermlMetaclassNames["feature"]
+		}
 		return ""
 	}
 	switch d := sym.Decl.(type) {

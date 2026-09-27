@@ -31,8 +31,8 @@ Package	Requirements	_pkg_reqs	-> Requirements
 «DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> Requirements::'Derive Engine Mass Requirement'
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> Requirements::'Mass Test'
 «Refine» Abstraction	Requirements::<Abstraction>	_dep_refine
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate	-> Requirements::'Drive to Engine'
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks	-> Requirements::'Motor to Engine'
 Dependency	Requirements::<Dependency>	_dep_plain
 «Requirement» Class	Requirements::Engine Mass Requirement	_req_derived	-> Requirements::'Engine Mass Requirement'
 «Requirement» Class	Requirements::Mass Requirement	_req_mass	-> Requirements::'Mass Requirement'

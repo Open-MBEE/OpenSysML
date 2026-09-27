@@ -174,7 +174,9 @@ func TestNotationCoversTheFixture(t *testing.T) {
 		":> RequirementDerivation::Derivation {",
 		"end #RequirementDerivation::derive derivedRequirement : 'Engine Mass Requirement';",
 		"verify requirement : 'Mass Requirement';",
-		"allocate 'Vehicle Design'::Motor to 'Vehicle Design'::Engine;",
+		"allocation def 'Motor to Engine' {",
+		"end motor : 'Vehicle Design'::Motor;",
+		"end engine : 'Vehicle Design'::Engine;",
 		"state def 'Vehicle States' {",
 		"abstract action def start {",
 		"action def Drive;",
@@ -350,6 +352,7 @@ var constructFixtures = []string{
 	"type_modifiers",
 	"table_homonyms",
 	"relation_subtypes",
+	"decision_else",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

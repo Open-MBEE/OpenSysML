@@ -3,8 +3,8 @@ part def Motor {
     attribute speed : ScalarValues::Real default = 0.0;
     port cmd : MotorCmd;
     action def Spin {
-        in rpm : ScalarValues::Real;
         in ref context : Motor;
+        in rpm : ScalarValues::Real;
         first start then 'set speed';
         action 'set speed' {
             in value;
@@ -12,7 +12,7 @@ part def Motor {
         }
         bind 'set speed'.value = rpm;
     }
-    action spin : Spin { in rpm; in ref :>> context = this; }
+    action spin : Spin;
 }
 part def Drive {
     port p : MotorCmd;
@@ -23,17 +23,16 @@ part def Drive {
     bind p = motor.cmd;
     bind split = motor.cmd;
     bind split = spare.cmd;
-    action def Run {
-        in ref context : Drive;
+    action run {
         first start then thirty;
         action thirty {
             out result = 30.0;
         }
         first thirty then 'spin over p';
-        perform action 'spin over p' ::> context.motor.spin;
+        perform action 'spin over p' ::> motor.spin;
         first 'spin over p' then 'read motor';
         action 'read motor' {
-            out result = context.motor;
+            out result = this.motor;
         }
         first 'read motor' then 'fork';
         fork 'fork';
@@ -45,15 +44,14 @@ part def Drive {
         first forty then 'join';
         join 'join';
         first 'join' then 'spin over cmd';
-        perform action 'spin over cmd' ::> context.motor.spin;
+        perform action 'spin over cmd' ::> motor.spin;
         first 'spin over cmd' then final;
         action final terminate;
         flow thirty.result to 'spin over p'.rpm;
         flow forty.result to 'spin over cmd'.rpm;
         metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
     }
-    action def Stray {
-        in ref context : Drive;
+    action stray {
         first start then 'fork';
         fork 'fork';
         first 'fork' then five;

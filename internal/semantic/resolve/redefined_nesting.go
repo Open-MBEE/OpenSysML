@@ -22,7 +22,7 @@ func (r *Resolver) nestedInRedefined(scope *symbols.Scope, name string, hide *re
 	}
 	for s := scope; s != nil; s = s.Parent() {
 		owner := s.Owner()
-		if owner == nil || !isFeatureDecl(owner.Decl) {
+		if owner == nil || !isFeature(owner) {
 			continue
 		}
 		for _, redefined := range r.redefinedFeatures(owner) {
@@ -44,6 +44,11 @@ func (r *Resolver) redefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journalNew(r, r.redefined, sym, sym.Decl)
 	r.redefined[sym] = nil
+	if sym.Recorded() {
+		out := r.recordedElements(sym.Facts.Redefines)
+		r.redefined[sym] = out
+		return out
+	}
 	out := r.explicitRedefinitions(sym)
 	if model, ok := r.model.(endRedefinitionLookup); ok {
 		for _, end := range model.ImplicitEndRedefinitions(sym) {
@@ -139,6 +144,19 @@ func redefinesRelationships(decl ast.Node) []*ast.Relationship {
 		}
 	}
 	return out
+}
+
+// isFeature reports whether sym declares a feature rather than a type, from its
+// tree or, when it is recorded, its recorded node kind; only a feature redefines.
+func isFeature(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeUsage, symbols.NodeSubject, symbols.NodeCrossFeature, symbols.NodeAssume, symbols.NodeRequire:
+			return true
+		}
+		return false
+	}
+	return isFeatureDecl(sym.Decl)
 }
 
 // isFeatureDecl reports whether decl declares a feature rather than a type.

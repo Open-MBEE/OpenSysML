@@ -4,14 +4,13 @@ part def Rig {
     part probe : Probe;
     part logger : Logger;
     attribute last : ScalarValues::Real;
-    action def Record {
+    action record {
         in value : ScalarValues::Real[0..1];
-        in ref context : Rig;
         first start then 'set last';
         action 'set last' {
             in value[0..1];
             if value->SequenceFunctions::notEmpty() {
-                assign context.last := value;
+                assign this.last := value;
             }
         }
         first 'set last' then final;
@@ -19,9 +18,8 @@ part def Rig {
         bind 'set last'.value = value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Sampling {
+    action sampling {
         out sample : ScalarValues::Real[0..1];
-        in ref context : Rig;
         first start then gain;
         action gain {
             out result = 2.5;
@@ -46,7 +44,7 @@ part def Rig {
         first measure then join2;
         join join2;
         first join2 then record;
-        action record : Record { in value; in ref :>> context = Sampling::context; }
+        perform action record ::> Rig::record;
         first record then final;
         action final terminate;
         flow gain.result to measure.gain;
@@ -55,5 +53,5 @@ part def Rig {
         metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
     }
 }
-allocate Rig::Sampling::measure to Rig::probe;
-allocate Rig::Sampling::record to Rig::logger;
+dependency Rig::sampling::measure to Rig::probe;
+dependency Rig::sampling::record to Rig::logger;

@@ -78,7 +78,7 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 		"in target;",
 		"send new Ping() to target;",
 		"bind ping.target = recipient;",
-		"out result = context.b;",
+		"out result = this.b;",
 		"flow 'read b'.result to notify.recipient;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -89,11 +89,11 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 	for _, id := range []string{"_send", "_of1", "_kof1", "_readB"} {
 		wantNote(t, r, id, migrate.Mapped, "")
 	}
-	wantNote(t, r, "_call", migrate.Approximated, "the behavior acts on a Net through its parameter context, which is bound to Kick::context")
+	wantNote(t, r, "_call", migrate.Mapped, "")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::Kick #1")
+	meta(t, s, "%action Net::kick #1")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1 : b.hits"); !strings.Contains(out, "= 1") {

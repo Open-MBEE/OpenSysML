@@ -1,6 +1,11 @@
 package passes
 
-import "github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+import (
+	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+)
 
 // Gathers holds workspace-wide audit state.
 type Gathers = kit.Gathers
@@ -20,4 +25,20 @@ func mosaUnionOf(ctx *Context) *mosaUnion {
 	return ctx.Gathers().UnionOf(ctx, "mosa", func() kit.Regatherer {
 		return newMOSAUnion()
 	}).(*mosaUnion)
+}
+
+// Contributors names the workspace documents the shared state called name is
+// built from — a table of the model's or an audit union's, built on first use
+// — and false when name is none of theirs (see kit.Contributing).
+func Contributors(ctx *Context, name string) ([]string, bool) {
+	if docs, ok := ctx.Model().Contributors(name); ok {
+		return docs, true
+	}
+	switch {
+	case strings.HasPrefix(name, "\x00oosem/"):
+		return oosemUnionOf(ctx).Contributors(name)
+	case strings.HasPrefix(name, "\x00mosa/"):
+		return mosaUnionOf(ctx).Contributors(name)
+	}
+	return identity.Contributors(ctx, name)
 }

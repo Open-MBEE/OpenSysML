@@ -11,7 +11,7 @@ package Structure {
         connect engine to wheel;
         connection drive connect engine to wheel;
         binding 'mass = limit' bind mass = limit;
-        action def Drive {
+        action Drive {
             view Driving : StandardViewDefinitions::ActionFlowView {
                 expose Drive;
                 expose 'set speed.value = target';
@@ -21,7 +21,6 @@ package Structure {
                 render Views::asTextualNotation;
             }
             in target : ScalarValues::Real;
-            in ref context : Vehicle;
             succession 'start to gain' first start then gain;
             action gain {
                 out result = 2.5;
@@ -29,7 +28,7 @@ package Structure {
             first gain then 'set speed';
             action 'set speed' {
                 in value;
-                assign context.speed := value;
+                assign this.speed := value;
             }
             succession finish first 'set speed' then final;
             action final terminate;

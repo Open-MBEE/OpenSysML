@@ -45,11 +45,18 @@ const (
 )
 
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
-	if b == nil {
+	if b == nil || m.asUsage[b] {
 		return nil
 	}
 	if c, settled := m.contexts[b]; settled {
 		return c
+	}
+	for cur := b; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+			// Under a usage's body the object's features resolve on this.
+			m.contexts[b] = nil
+			return nil
+		}
 	}
 	if b.Type != "Activity" {
 		c := m.ownerContext(b)
@@ -67,6 +74,12 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	return m.contexts[b]
 }
 
+// contextThroughPorts reports whether c is a context reached through ports: an
+// object other than the def's owner, which a usage's this cannot stand for.
+func contextThroughPorts(c *behaviorContext) bool {
+	return c != nil && !c.owner
+}
+
 // ownerContext is the context a def takes for the object its body acts on: its
 // own classifier, whose features the body reads through the parameter since
 // the def's `this` is its own occurrence; nil when e is no def or in no
@@ -74,6 +87,12 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	if e == nil || !defScope(e) {
 		return nil
+	}
+	for cur := e; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] {
+			// Inside a usage's body the object's features resolve on this.
+			return nil
+		}
 	}
 	owner := classifierOf(e)
 	if owner == nil {
@@ -229,13 +248,17 @@ func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 		}
 	}
 	first, _, _ := strings.Cut(expr, ".")
-	if d := m.enclosingDef(e); d != nil {
+	if d := m.enclosingDef(e); d != nil && !m.asUsage[d] {
 		if visible, _ := m.membersOf(d, memberAny); visible[first] != nil {
 			return m.ref(d, e) + "::" + expr
 		}
 	}
 	if owner := m.contextClassifier(e); owner != nil {
 		if visible, _ := m.membersOf(owner, memberAny); visible[first] != nil {
+			if d := m.enclosingDef(e); d == nil || m.asUsage[d] {
+				// Inside a usage the enclosing this names the object.
+				return "this." + expr
+			}
 			return m.ref(owner, e) + "::" + expr
 		}
 	}
@@ -546,7 +569,7 @@ func (m *migration) runningClassifiers(b *sysmlv1.Element, seen map[*sysmlv1.Ele
 func (m *migration) invoke(e *sysmlv1.Element, roles ...string) {
 	for _, role := range roles {
 		for _, b := range m.model.Refs(e, role) {
-			if b.Parent != e && isBehavior(b) {
+			if b.Parent != e && (isBehavior(b) || b.Type == "Operation") {
 				m.invokers[b] = append(m.invokers[b], e)
 			}
 		}
@@ -680,6 +703,54 @@ func (a *activity) on(obj, member string) string {
 	return strings.TrimPrefix(obj, "this.") + "." + member
 }
 
+// performUsage writes a call of a behavior written as an action usage of its
+// owner: the call performs that usage of the one object of the owner in
+// reach; when there is none, an empty step stands where the call was.
+func (a *activity) performUsage(name string, b *sysmlv1.Element) string {
+	owner := b.Parent
+	obj, why := a.m.objectOf(owner, a.selfType(), a.self())
+	if obj == "" {
+		a.m.w.line(actionKw + name + ";")
+		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call"
+	}
+	usage := a.on(obj, writeName(a.m.nameOf(b)))
+	a.m.w.line("perform action " + name + " ::> " + a.unshadowed(usage) + ";")
+	if obj == a.self() {
+		return ""
+	}
+	return "performed on " + obj + why + ", as its usage " + usage
+}
+
+// unshadowed writes the path to a feature of the object the activity acts on so
+// that a member of the body named like its first step does not capture it: the
+// step is qualified by the object's type when a member of the body bears its name.
+func (a *activity) unshadowed(path string) string {
+	head, rest, name := path, "", path
+	if strings.HasPrefix(path, "'") {
+		if end := strings.Index(path[1:], "'"); end >= 0 {
+			head, name = path[:end+2], path[1:end+1]
+			rest = strings.TrimPrefix(path[end+2:], ".")
+		}
+	} else {
+		head, rest, _ = strings.Cut(path, ".")
+		name = head
+	}
+	shadowed := a.used[name] || a.m.taken[a.def][name]
+	for _, n := range a.nodes {
+		shadowed = shadowed || a.m.nameOf(n) == name
+	}
+	if !shadowed || a.ctx != nil && name == a.ctx.name {
+		return path
+	}
+	if t := a.selfType(); t != nil {
+		head = a.m.ref(t, a.act) + "::" + head
+	}
+	if rest == "" {
+		return head
+	}
+	return head + "." + rest
+}
+
 // viaPrefix is what an accept's via path starts with to name a port of the object
 // the activity acts on: nothing for this, whose ports the action's scope sees.
 func (a *activity) viaPrefix() string {
@@ -715,28 +786,39 @@ func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, no
 // one, else its one part that is.
 func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
+	expr, why := m.objectOf(c.classifier, selfType, self)
+	if expr == "" {
+		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: " + why
+	}
+	return expr, actsOn + kind + throughParam + c.name + ", which is bound to " + expr + why
+}
+
+// objectOf finds, from an activity acting on self of selfType, the one object
+// of classifier c in reach: self itself, or self's one part that is a c. The
+// second result completes a sentence: how the object was found, or why none was.
+func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, why string) {
+	kind := qualifiedName(c)
 	switch {
 	case selfType == nil:
-		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: the caller acts on no object"
-	case selfType == c.classifier || m.inherits(selfType, c.classifier):
-		return self, actsOn + kind + throughParam + c.name + ", which is bound to " + self
+		return "", "the caller acts on no object"
+	case selfType == c || m.inherits(selfType, c):
+		return self, ""
 	}
 	var parts []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {
 		if f.Type != "Property" || !m.written(f) {
 			continue
 		}
-		if t := m.model.Ref(f, "type"); t != nil && (t == c.classifier || m.inherits(t, c.classifier)) {
+		if t := m.model.Ref(f, "type"); t != nil && (t == c || m.inherits(t, c)) {
 			parts = append(parts, f)
 		}
 	}
 	if len(parts) == 1 {
-		part := self + "." + writeName(m.nameFor(parts[0]))
-		return part, actsOn + kind + throughParam + c.name + ", which is bound to " + part + ", the caller's one part that is one"
+		return self + "." + writeName(m.nameFor(parts[0])), ", the caller's one part that is one"
 	}
-	why := "has no part that is one"
+	why = "has no part that is one"
 	if len(parts) > 1 {
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
 	}
-	return "", actsOn + kind + throughParam + c.name + ", which is left unbound: the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

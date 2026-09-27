@@ -86,7 +86,10 @@ func declaredValue(t *testing.T, m *semantics.Model, idx *symbols.Index, fqn, pr
 	if len(matches) != 1 {
 		t.Fatalf("%s matched %d symbols, want 1", fqn, len(matches))
 	}
-	values, present := m.DeclaredFeatureValues(matches[0], property)
+	values, present, err := m.DeclaredFeatureValues(matches[0], property)
+	if err != nil {
+		t.Fatalf("%s.%s: %v", fqn, property, err)
+	}
 	if !present {
 		t.Fatalf("%s has no declared value for %s", fqn, property)
 	}

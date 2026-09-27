@@ -26,6 +26,22 @@ func TestW8DConnectorEndMustBeAccessible(t *testing.T) {
 	w8dWantLines(t, src, "connector-type-featuring", 9, 9, 13, 16)
 }
 
+// A connector's end names a feature; a definition is a type, which the
+// reference reports as no feature at all (Couldn't resolve reference to Feature).
+func TestW8DConnectorEndMustBeAFeature(t *testing.T) {
+	const src = `package P {
+		part def A;
+		action def B;
+		part a : A;
+		action b : B;
+		allocate A to B;
+		allocate a to b;
+		connect A to a;
+		allocation def AB { end x : A; end y : B; }
+	}`
+	w8dWantLines(t, src, "connector-end-referent", 6, 6, 8)
+}
+
 func TestW8DBindingEndMustBeAccessible(t *testing.T) {
 	const src = `package P {
 		port def P0 {

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <xmi:Documentation exporter="Example UML Tool" exporterVersion="1.0"/>
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <!-- Recover: a decision with a guarded branch and an [else] branch, and a
+         comment of its own. The else branch is a target succession of the
+         member before it, so it must be written right after the decide, ahead
+         of the decision's comment and its guarded successions. -->
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Recovery">
+      <packagedElement xmi:type="uml:Class" xmi:id="_blk_retrier" name="Retrier" classifierBehavior="_act_recover">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_attempts" name="attempts">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+          <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_attempts0" value="0"/>
+        </ownedAttribute>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_act_recover" name="Recover">
+          <node xmi:type="uml:InitialNode" xmi:id="_de_init"/>
+          <node xmi:type="uml:DecisionNode" xmi:id="_de_decide" name="decide">
+            <ownedComment xmi:type="uml:Comment" xmi:id="_de_cmt" body="Retries until the budget is spent."/>
+          </node>
+          <node xmi:type="uml:OpaqueAction" xmi:id="_de_retry" name="retry"/>
+          <node xmi:type="uml:MergeNode" xmi:id="_de_merge" name="merge"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_de_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_de_e1" source="_de_init" target="_de_decide"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_de_e2" source="_de_decide" target="_de_retry">
+            <guard xmi:type="uml:OpaqueExpression" xmi:id="_de_g2"><body>attempts &lt; 3</body></guard>
+          </edge>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_de_e3" source="_de_decide" target="_de_merge">
+            <guard xmi:type="uml:OpaqueExpression" xmi:id="_de_g3"><body>else</body></guard>
+          </edge>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_de_e4" source="_de_retry" target="_de_merge"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_de_e5" source="_de_merge" target="_de_final"/>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s_retrier" base_Class="_blk_retrier"/>
+</xmi:XMI>

@@ -880,6 +880,9 @@ func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *sysmlv1.Element) {
 	if a.starved[n] != nil {
+		if n.Type == "DecisionNode" {
+			a.m.writeComments(n, false)
+		}
 		a.starvation(n)
 		for _, e := range a.succ[n] {
 			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
@@ -957,6 +960,14 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		weights = a.arbitraryChoice(n, outs, tos, guards, elseAt)
 		elseAt = -1
 	}
+	if elseAt >= 0 {
+		// A target succession of the member before it: right after the decide,
+		// before the comments and named successions.
+		a.m.w.line("else " + tos[elseAt] + ";")
+		a.m.wroteNoMember(outs[elseAt])
+		a.m.add(outs[elseAt], Mapped, "", "")
+	}
+	a.m.writeComments(n, false)
 	for i, e := range outs {
 		to := tos[i]
 		if to == "" {
@@ -975,12 +986,6 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		if guards[i].ok {
 			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
-	}
-	if elseAt >= 0 {
-		// An else branch is a target succession of the decision, not a member of its own.
-		a.m.w.line("else " + tos[elseAt] + ";")
-		a.m.wroteNoMember(outs[elseAt])
-		a.m.add(outs[elseAt], Mapped, "", "")
 	}
 }
 
@@ -1374,6 +1379,7 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
+		return // successions writes the comments, after the else branch
 	case "MergeNode":
 		a.m.w.line("merge " + name + ";")
 		a.m.add(n, Mapped, name, "")
@@ -1836,14 +1842,31 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
 			note = joinNotes(why, note)
+		} else if a.m.asUsage[b] {
+			note = joinNotes(why, a.performUsage(name, b))
 		} else {
 			ins := ""
+			var bindExpr string
 			if c != nil {
 				expr, cnote := a.callContext(n, c)
-				if expr != "" {
-					ins = "in ref :>> " + writeName(c.name) + " = " + expr
+				switch {
+				case expr == "":
+					note = joinNotes(note, cnote)
+				case c.owner && c.evaluated && !c.used && !c.bound:
+					// The def is already written and declared no parameter.
+				case strings.Contains(expr, "::"):
+					// A bind's ends must be features of the connector's scope; a
+					// qualified member of a def is not one, so the usage redefines.
 					c.bound = true
-					note = cnote
+					ins = "in ref :>> " + writeName(c.name) + " = " + expr
+					note = joinNotes(note, cnote)
+				default:
+					c.bound = true
+					bindExpr = expr
+					// Bound to the caller's own object, `this` needs no note.
+					if expr != "this" {
+						note = joinNotes(note, cnote)
+					}
 				}
 			}
 			line := actionKw + name + " : " + a.m.ref(b, a.def)
@@ -1852,9 +1875,13 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			} else {
 				a.m.w.line(line + ";")
 			}
+			if bindExpr != "" {
+				a.m.w.line("bind " + name + "." + writeName(c.name) + " = " + bindExpr + ";")
+			}
 			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
 				note = joinNotes(note, "the behavior belongs to "+qualifiedName(owner)+" and runs here in the caller's context")
 			}
+			note = joinNotes(why, note)
 		}
 		a.pins(n, b)
 		note = joinNotes(note, a.absentArguments(inputPins(n), b))
@@ -1955,6 +1982,12 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op] && t == nil:
+		note = joinNotes(note, a.performUsage(name, op))
+	case a.m.asUsage[op]:
+		a.m.w.line(actionKw + name + ";")
+		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
 	case port != nil && t == nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + withIns())
 	case t != nil:
@@ -2089,7 +2122,6 @@ func (a *activity) valueAction(n *sysmlv1.Element, name string) {
 // and so on down); typ is that object's classifier, nil when it is not known.
 func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
 	if a.selfFed[pin] {
-		a.markSelf()
 		return a.self(), a.selfType(), true
 	}
 	srcs := a.sources[pin]
@@ -2112,7 +2144,6 @@ func (a *activity) objectOf(pin *sysmlv1.Element) (expr string, typ *sysmlv1.Ele
 // its object pin holds, or this when the pin is absent or nothing feeds it.
 func (a *activity) readObject(obj *sysmlv1.Element) (expr string, typ *sysmlv1.Element, ok bool) {
 	if obj == nil || len(a.sources[obj]) == 0 && !a.selfFed[obj] {
-		a.markSelf()
 		return a.self(), a.selfType(), true
 	}
 	return a.objectOf(obj)
@@ -2253,7 +2284,6 @@ func (a *activity) sendSignal(n *sysmlv1.Element, name string) {
 			case !a.m.written(port):
 				note = "the port " + qualifiedName(port) + " has no v2 declaration; the signal is sent to the sender"
 			case a.hasPort(port):
-				a.markSelf()
 				line += " via " + a.self() + "." + writeName(a.m.nameOf(port))
 			default:
 				note = "the port " + qualifiedName(port) + " is no port of the object the sender acts on; the signal is sent to the sender"

@@ -1059,6 +1059,16 @@ func inheritedStateNamesSet() map[string]bool {
 	return used
 }
 
+// aside writes a note where the grammar admits a comment: in place, or before
+// the declaration being written when one has claimed the notes.
+func (m *migration) aside(text string) {
+	if m.asides != nil {
+		*m.asides = append(*m.asides, commentLines(text)...)
+		return
+	}
+	m.w.lines(commentLines(text))
+}
+
 // inlineBehavior writes a behavior a state or transition owns as the action
 // kw of the current body, and reports whether anything was written.
 func (m *migration) inlineBehavior(kw string, b, owner *sysmlv1.Element) bool {
@@ -1144,7 +1154,7 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 		}
 		return true
 	}
-	m.w.lines(commentLines(kw + " " + describe(b) + isA + b.Type + ", which has no action form"))
+	m.aside(kw + " " + describe(b) + isA + b.Type + ", which has no action form")
 	m.add(b, Unmapped, "", "a "+b.Type+" has no action form")
 	return false
 }
@@ -1153,13 +1163,13 @@ func (m *migration) writeInlineBody(kw string, b, owner *sysmlv1.Element, header
 // its context and signal-carried parameters where it can and reporting why not.
 func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) bool {
 	if !m.written(b) {
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " has no v2 declaration"))
+		m.aside(kw + " " + qualifiedName(b) + " has no v2 declaration")
 		m.add(b, Unmapped, "", "the behavior is not written; "+describe(owner)+" names it as its "+kw)
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it has no v2 declaration")
 		return false
 	}
 	if cat, _ := m.classify(b); cat != catActionDef {
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs"))
+		m.aside(kw + " " + qualifiedName(b) + " is written as a " + cat.keyword() + ", which no state runs")
 		m.downgrade(b, describe(owner)+" names it as its "+kw+", which a "+cat.keyword()+" cannot be")
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+"it is written as a "+cat.keyword())
 		return false
@@ -1170,7 +1180,7 @@ func (m *migration) referencedBehavior(kw string, b, owner *sysmlv1.Element) boo
 	if c := m.contextOf(b); c != nil {
 		in, cnote := m.contextIns(c, owner)
 		if in == "" && cnote != "" {
-			m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + cnote))
+			m.aside(kw + " " + qualifiedName(b) + notRun + cnote)
 			m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+cnote)
 			m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+cnote)
 			return false
@@ -1217,7 +1227,7 @@ func (m *migration) parameterIns(kw string, b, owner *sysmlv1.Element, params []
 	case slices.IndexFunc(params, requiresValue) >= 0:
 		p := params[slices.IndexFunc(params, requiresValue)]
 		why = "its parameter " + m.nameFor(p) + " must hold a value that nothing supplies: " + why
-		m.w.lines(commentLines(kw + " " + qualifiedName(b) + notRun + why))
+		m.aside(kw + " " + qualifiedName(b) + notRun + why)
 		m.downgrade(b, "not run as the "+kw+" of "+describe(owner)+": "+why)
 		m.add(owner, Approximated, "", "its "+kw+" "+qualifiedName(b)+notRun+why)
 		return ins, note, false
@@ -1697,16 +1707,21 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	if i > 0 && eff != nil {
 		s.m.downgrade(eff, "run by each of the transitions written for it")
 	}
-	s.m.w.line(line)
-	s.m.w.indented(func() {
+	var notes []string
+	effect := s.m.w.capture(func() {
 		if eff == nil {
 			s.m.w.braced(doAction, func() { s.m.w.line(accept.keeping) })
-		} else {
-			saved, savedKeep := s.m.bound, s.m.keeping
-			s.m.bound, s.m.keeping = accept.bound, accept.keeping
-			s.m.inlineBehavior(doAction, eff, t)
-			s.m.bound, s.m.keeping = saved, savedKeep
+			return
 		}
+		saved, savedKeep, savedAsides := s.m.bound, s.m.keeping, s.m.asides
+		s.m.bound, s.m.keeping, s.m.asides = accept.bound, accept.keeping, &notes
+		s.m.inlineBehavior(doAction, eff, t)
+		s.m.bound, s.m.keeping, s.m.asides = saved, savedKeep, savedAsides
+	})
+	s.m.w.lines(notes)
+	s.m.w.line(line)
+	s.m.w.indented(func() {
+		_, _ = s.m.w.buf().WriteString(effect) // already rendered one level deeper by capture
 		s.m.w.line("then " + to + ";")
 	})
 }

@@ -7,52 +7,52 @@ Parameter	Heater::SetLevel::extra	_rpExtra	(the parameter extra matches no attri
 
 ## approximated (10)
 AddStructuralFeatureValueAction	Heater::Apply Level::set level	_set	-> 'set level'	(no edge leads to the node, so it starts with the activity)
-Reception	Heater::Boost	_rcvBoost	-> Heater::Boost	(written as an action def accepting Boost, which its owner performs as boost from creation, accepting the signal again after each; the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
+Reception	Heater::Boost	_rcvBoost	-> Heater::boost	(written as an action usage accepting Boost, which its owner performs as boost from creation, accepting the signal again after each; the method Heater::Boosting's parameter amount must hold a value that no attribute of the signal supplies; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
 AddStructuralFeatureValueAction	Heater::Boosting::set level	_bset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
 AddStructuralFeatureValueAction	Heater::Leveling::set level	_lset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
 AddStructuralFeatureValueAction	Heater::Naming::set level	_nset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
 AddStructuralFeatureValueAction	Heater::Nudging::set level	_ngset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
 Reception	Heater::Reset	_rcvReset	-> Heater::Reset	(written as an action def accepting Reset, which its owner performs as reset from creation, accepting the signal again after each; the method Heater::Resetting has no action def to perform; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
-Reception	Heater::SetLevels	_rcvLevels	-> Heater::SetLevels	(written as an action def accepting SetLevels, which its owner performs as setLevels from creation, accepting the signal again after each; the signal's attribute values has multiplicity 0..*, which does not lie within the 1 of the method Heater::Leveling's parameter values; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
-Reception	Heater::SetName	_rcvName	-> Heater::SetName	(written as an action def accepting SetName, which its owner performs as setName from creation, accepting the signal again after each; the signal's attribute name is typed by String, which does not conform to the type Integer of the method Heater::Naming's parameter name; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
-Reception	Heater::Stop	_rcvStop	-> Heater::Stop	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence; written as an action def accepting Stop, which its owner performs as stop from creation, accepting the signal again after each; the reception has no method, so it only accepts the signal; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted)
+Reception	Heater::SetLevels	_rcvLevels	-> Heater::setLevels	(written as an action usage accepting SetLevels, which its owner performs as setLevels from creation, accepting the signal again after each; the signal's attribute values has multiplicity 0..*, which does not lie within the 1 of the method Heater::Leveling's parameter values; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
+Reception	Heater::SetName	_rcvName	-> Heater::setName	(written as an action usage accepting SetName, which its owner performs as setName from creation, accepting the signal again after each; the signal's attribute name is typed by String, which does not conform to the type Integer of the method Heater::Naming's parameter name; the reception only accepts the signal; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
+Reception	Heater::Stop	_rcvStop	-> Heater::stop	(written as an action usage accepting Stop, which its owner performs as stop from creation, accepting the signal again after each; the reception has no method, so it only accepts the signal; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted)
 
 ## mapped (69)
 «Block» Class	Heater	_heater	-> Heater
-Activity	Heater::Apply Level	_apply	-> Heater::'Apply Level'	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Heater::Apply Level	_apply	-> Heater::'apply Level'	(written as an action usage of Heater, which a call on an object performs, so its body runs on the object and reaches its features)
 ObjectFlow	Heater::Apply Level::<ObjectFlow>	_of
-Parameter	Heater::Apply Level::gain	_apGain	-> Heater::'Apply Level'::gain
-InputPin	Heater::Apply Level::set level::value	_setVal	-> Heater::'Apply Level'::'set level'.value
-Parameter	Heater::Apply Level::slack	_apSlack	-> Heater::'Apply Level'::slack
-Parameter	Heater::Apply Level::value	_apValue	-> Heater::'Apply Level'::value
-ActivityParameterNode	Heater::Apply Level::value	_apnValue	-> Heater::'Apply Level'::value	(the flows to and from the node name the parameter value)
-Activity	Heater::Boosting	_boosting	-> Heater::Boosting	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence)
+Parameter	Heater::Apply Level::gain	_apGain	-> Heater::'apply Level'::gain
+InputPin	Heater::Apply Level::set level::value	_setVal	-> Heater::'apply Level'::'set level'.value
+Parameter	Heater::Apply Level::slack	_apSlack	-> Heater::'apply Level'::slack
+Parameter	Heater::Apply Level::value	_apValue	-> Heater::'apply Level'::value
+ActivityParameterNode	Heater::Apply Level::value	_apnValue	-> Heater::'apply Level'::value	(the flows to and from the node name the parameter value)
+Activity	Heater::Boosting	_boosting	-> Heater::boosting	(written as an action usage of Heater, which a call on an object performs, so its body runs on the object and reaches its features)
 ObjectFlow	Heater::Boosting::<ObjectFlow>	_bof
-Parameter	Heater::Boosting::amount	_bpAmount	-> Heater::Boosting::amount
-ActivityParameterNode	Heater::Boosting::amount	_bpnAmount	-> Heater::Boosting::amount	(the flows to and from the node name the parameter amount)
-InputPin	Heater::Boosting::set level::value	_bsetVal	-> Heater::Boosting::'set level'.value
-Activity	Heater::Leveling	_leveling	-> Heater::Leveling	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence)
+Parameter	Heater::Boosting::amount	_bpAmount	-> Heater::boosting::amount
+ActivityParameterNode	Heater::Boosting::amount	_bpnAmount	-> Heater::boosting::amount	(the flows to and from the node name the parameter amount)
+InputPin	Heater::Boosting::set level::value	_bsetVal	-> Heater::boosting::'set level'.value
+Activity	Heater::Leveling	_leveling	-> Heater::leveling	(written as an action usage of Heater, which a call on an object performs, so its body runs on the object and reaches its features)
 ObjectFlow	Heater::Leveling::<ObjectFlow>	_lof
-InputPin	Heater::Leveling::set level::value	_lsetVal	-> Heater::Leveling::'set level'.value
-Parameter	Heater::Leveling::values	_lpValues	-> Heater::Leveling::values
-ActivityParameterNode	Heater::Leveling::values	_lpnValues	-> Heater::Leveling::values	(the flows to and from the node name the parameter values)
-Activity	Heater::Naming	_naming	-> Heater::Naming	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence)
+InputPin	Heater::Leveling::set level::value	_lsetVal	-> Heater::leveling::'set level'.value
+Parameter	Heater::Leveling::values	_lpValues	-> Heater::leveling::values
+ActivityParameterNode	Heater::Leveling::values	_lpnValues	-> Heater::leveling::values	(the flows to and from the node name the parameter values)
+Activity	Heater::Naming	_naming	-> Heater::naming	(written as an action usage of Heater, which a call on an object performs, so its body runs on the object and reaches its features)
 ObjectFlow	Heater::Naming::<ObjectFlow>	_nof
-Parameter	Heater::Naming::name	_npName	-> Heater::Naming::name
-ActivityParameterNode	Heater::Naming::name	_npnName	-> Heater::Naming::name	(the flows to and from the node name the parameter name)
-InputPin	Heater::Naming::set level::value	_nsetVal	-> Heater::Naming::'set level'.value
-Operation	Heater::Nudge	_opNudge	-> Heater::Nudge	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage nudge performs it, as a call on an object does)
-Parameter	Heater::Nudge::delta	_onDelta	-> Heater::Nudge::delta
-Activity	Heater::Nudging	_nudging	-> Heater::Nudge	(written as the body of the operation Heater::Nudge, whose method it is)
+Parameter	Heater::Naming::name	_npName	-> Heater::naming::name
+ActivityParameterNode	Heater::Naming::name	_npnName	-> Heater::naming::name	(the flows to and from the node name the parameter name)
+InputPin	Heater::Naming::set level::value	_nsetVal	-> Heater::naming::'set level'.value
+Operation	Heater::Nudge	_opNudge	-> Heater::nudge	(written as an action usage of Heater, which a call on an object performs, so its body runs on the object and reaches its features)
+Parameter	Heater::Nudge::delta	_onDelta	-> Heater::nudge::delta
+Activity	Heater::Nudging	_nudging	-> Heater::nudge	(written as the body of the operation Heater::Nudge, whose method it is)
 ObjectFlow	Heater::Nudging::<ObjectFlow>	_ngof
-Parameter	Heater::Nudging::d	_ngDelta	-> Heater::Nudge::delta	(stands for the operation's parameter delta at the same position, which is written once)
-ActivityParameterNode	Heater::Nudging::d	_ngnDelta	-> Heater::Nudge::delta	(the flows to and from the node name the parameter delta)
-InputPin	Heater::Nudging::set level::value	_ngsetVal	-> Heater::Nudge::'set level'.value
-Reception	Heater::OnNudge	_rcvNudge	-> Heater::OnNudge	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence; written as an action def accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
+Parameter	Heater::Nudging::d	_ngDelta	-> Heater::nudge::delta	(stands for the operation's parameter delta at the same position, which is written once)
+ActivityParameterNode	Heater::Nudging::d	_ngnDelta	-> Heater::nudge::delta	(the flows to and from the node name the parameter delta)
+InputPin	Heater::Nudging::set level::value	_ngsetVal	-> Heater::nudge::'set level'.value
+Reception	Heater::OnNudge	_rcvNudge	-> Heater::onNudge	(written as an action usage accepting Nudge and performing its method Heater::Nudging as the operation Heater::Nudge, whose body it is, which its owner performs as onNudge from creation, accepting the signal again after each; nothing in the document declares or sends a signal to the ports rx, aux, so one arriving there is not accepted)
 StateMachine	Heater::Resetting	_resetting	-> Heater::Resetting
 Region	Heater::Resetting::<Region>	_rr	(the one region is written as the body of its owner)
 State	Heater::Resetting::<Region>::Idle	_idle	-> Idle
-Reception	Heater::SetLevel	_rcvSet	-> Heater::SetLevel	(acts on its owner Heater, which it takes as its parameter context, since its this is the def's own occurrence; written as an action def accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted)
+Reception	Heater::SetLevel	_rcvSet	-> Heater::setLevel	(written as an action usage accepting SetLevel and performing its method Heater::Apply Level, which its owner performs as setLevel from creation, accepting the signal again after each; the signal arrives at the port rx over the document's connectors or declarations, so the reception is also written accepting via each; nothing in the document declares or sends a signal to the port aux, so one arriving there is not accepted)
 Parameter	Heater::SetLevel::value	_rpValue	-> Signals::SetLevel::value	(stands for the signal's attribute value, which the accepted payload carries)
 Port	Heater::aux	_aux	-> Heater::aux
 Property	Heater::level	_level	-> Heater::level
@@ -75,15 +75,15 @@ Signal	Signals::SetName	_setName	-> Signals::SetName
 Property	Signals::SetName::name	_snName	-> Signals::SetName::name
 Signal	Signals::Stop	_stop	-> Signals::Stop
 «Block» Class	Thermostat	_thermostat	-> Thermostat
-Activity	Thermostat::Turn Up	_turnUp	-> Thermostat::'Turn Up'	(acts on its owner Thermostat, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Thermostat::Turn Up	_turnUp	-> Thermostat::'turn Up'	(written as an action usage of Thermostat, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Thermostat::Turn Up::<ActivityFinalNode>	_tuFinal	-> final
 ControlFlow	Thermostat::Turn Up::<ControlFlow>	_tuE2
 ControlFlow	Thermostat::Turn Up::<ControlFlow>	_tuE3
 InitialNode	Thermostat::Turn Up::<InitialNode>	_tuInit	-> start
 ObjectFlow	Thermostat::Turn Up::<ObjectFlow>	_tuOf
 SendSignalAction	Thermostat::Turn Up::send level	_tuSend	-> 'send level'
-InputPin	Thermostat::Turn Up::send level::value	_tuSendValue	-> Thermostat::'Turn Up'::'send level'.value
+InputPin	Thermostat::Turn Up::send level::value	_tuSendValue	-> Thermostat::'turn Up'::'send level'.value
 SendSignalAction	Thermostat::Turn Up::send stop	_tuStop	-> 'send stop'
 ValueSpecificationAction	Thermostat::Turn Up::seven	_tuSeven	-> seven
-OutputPin	Thermostat::Turn Up::seven::result	_tuSevenOut	-> Thermostat::'Turn Up'::seven.result
+OutputPin	Thermostat::Turn Up::seven::result	_tuSevenOut	-> Thermostat::'turn Up'::seven.result
 Port	Thermostat::tx	_tx	-> Thermostat::tx

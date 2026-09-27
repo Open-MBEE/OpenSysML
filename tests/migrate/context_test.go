@@ -86,13 +86,14 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	for _, line := range []string{
 		"in ref context : Host;",
 		"action 'take ack' accept Ack via context.rx;",
-		"action await : Await { in ref :>> context = Run::context; }",
+		"action await : Await;",
+		"bind await.context = this;",
 		"do action : Await { in ref :>> context = Life::context; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_takeTr", migrate.Approximated, "the signal arrives at the port rx over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
-	wantNote(t, r, "_callAwait", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Run::context")
+	wantNote(t, r, "_callAwait", migrate.Mapped, "")
 	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to Life::context")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -100,9 +101,9 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
-	meta(t, s, "%action Host::Run #1.h")
+	meta(t, s, "%action Host::run #1.h")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1.h : seen"); !strings.Contains(out, "= 1") {
 		t.Errorf("the hosted activity did not take the signal sent to its host's port: %s", out)
@@ -111,7 +112,7 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	s = session(t, r)
 	meta(t, s, "%instantiate Rig")
 	meta(t, s, "%state Host::Life #1.h")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: done2") {
@@ -309,7 +310,7 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Console")
-	meta(t, s, "%action Console::Drive #1")
+	meta(t, s, "%action Console::drive #1")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1 : ran"); !strings.Contains(out, "= 1") {
 		t.Errorf("the placeholder did not pass the token on: %s", out)

@@ -1,0 +1,22 @@
+# SysML v1 to v2 migration report: decision_else.xmi
+# exported by Example UML Tool
+# migrated 15 element(s): 13 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+Activity	Recovery::Retrier::Recover	_act_recover	-> Recovery::Retrier::Recover	(acts on its owner Recovery::Retrier, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Recovery::Retrier as its usage recover)
+OpaqueAction	Recovery::Retrier::Recover::retry	_de_retry	-> retry	(the body is kept as a comment: the body is empty)
+
+## mapped (13)
+Model	Model	_m	(the root model's members are written at the top level)
+Package	Recovery	_pkg	-> Recovery
+«Block» Class	Recovery::Retrier	_blk_retrier	-> Recovery::Retrier
+ActivityFinalNode	Recovery::Retrier::Recover::<ActivityFinalNode>	_de_final	-> final
+ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e3
+ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e2
+ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e4
+ControlFlow	Recovery::Retrier::Recover::<ControlFlow>	_de_e5
+InitialNode	Recovery::Retrier::Recover::<InitialNode>	_de_init	-> start
+DecisionNode	Recovery::Retrier::Recover::decide	_de_decide	-> 'decide'
+Comment	Recovery::Retrier::Recover::decide::<Comment>	_de_cmt
+MergeNode	Recovery::Retrier::Recover::merge	_de_merge	-> 'merge'
+Property	Recovery::Retrier::attempts	_attempts	-> Recovery::Retrier::attempts
