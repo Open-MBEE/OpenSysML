@@ -287,7 +287,7 @@ func TestWeightedDecisionReadsOnlyTheSysMLProfilesProbability(t *testing.T) {
 	wantNote(t, r, "_eReject", migrate.Approximated, "the edge carries no «Probability»: it is weighted 1.0 - (bias + 0.3)")
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Sorter::Route"))
+	wantVerdict(t, s.RunAction("Sorter::route"))
 }
 
 // weightedChooser is a block whose value properties hold the probabilities the
@@ -352,7 +352,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		}
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 	})
 	t.Run("the object performing the action supplies the weight", func(t *testing.T) {
 		r := migrateDocument(t, weightedChooser, `
@@ -364,14 +364,14 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		s := session(t, r)
 		meta(t, s, "%seed 1")
 		// Chooser's own pA is 0.25: the branches sum to 0.25, which a run refuses.
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "sum to 0.25") {
-			t.Errorf("a run of Chooser::Choose with pA = 0.25 and 0.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
+			t.Errorf("a run of Chooser::choose with pA = 0.25 and 0.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
 		// The object sure fixes pA at 1.0, so its run holds and always takes a.
 		meta(t, s, "%instantiate sure")
-		wantVerdict(t, s.RunAction("Chooser::Choose", "sure"))
-		runs := s.RunRuns("Chooser::Choose", []string{"sure"}, 5, seedOf(1), nil)
+		wantVerdict(t, s.RunAction("Chooser::choose", "sure"))
+		runs := s.RunRuns("Chooser::choose", []string{"sure"}, 5, seedOf(1), nil)
 		if lines := strings.Join(runs.Lines, "\n"); !runs.Holds() || !strings.Contains(lines, "5 run(s)") {
 			t.Errorf("Monte Carlo runs on the object sure = %s:\n%s", runs.Status, lines)
 		}
@@ -386,7 +386,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		wantNote(t, r, "_eb", migrate.Mapped, "the probability reads the property pB")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "invalid branch weights") {
 			t.Errorf("a run with pB unset = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
@@ -400,7 +400,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		wantNote(t, r, "_eb", migrate.Approximated, "read when the decision is reached")
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 	})
 	t.Run("not a number, not visible", func(t *testing.T) {
 		r := migrateDocument(t, weightedChooser, `
@@ -439,7 +439,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 		}
 		s := session(t, r)
 		meta(t, s, "%seed 1")
-		wantVerdict(t, s.RunAction("Chooser::Choose"))
+		wantVerdict(t, s.RunAction("Chooser::choose"))
 		// A value the type admits but no probability is: refused at the decision.
 		r = migrateDocument(t, strings.Replace(widerChooser, `value="0.0"`, `value="2.0"`, 1), `
   <sysml:Block xmi:id="_s1" base_Class="_chooser"/>
@@ -447,7 +447,7 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
   <sysml:Probability xmi:id="_p2" base_ActivityEdge="_eb" probability="count"/>`)
 		s = session(t, r)
 		meta(t, s, "%seed 1")
-		v := s.RunAction("Chooser::Choose")
+		v := s.RunAction("Chooser::choose")
 		if v.Holds() || !strings.Contains(strings.Join(v.Lines, "\n"), "not a probability in [0, 1]") {
 			t.Errorf("a run with count = 2.0 = %s:\n%s", v.Status, strings.Join(v.Lines, "\n"))
 		}
@@ -782,7 +782,7 @@ const stationApplications = `
 func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	r := migrateDocument(t, stationActivity, stationApplications)
 	for _, line := range []string{
-		"action def Point {",
+		"action point {",
 		"in az : ScalarValues::Real;",
 		"action 'set azimuth' {",
 		"assign this.azimuth := value;",
@@ -798,7 +798,6 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"send new Go() to this.tel;",
 		"action 'wait Ack' accept Ack;",
 		"out result = 90.0;",
-		"action point : Point;",
 		"action park : Park;",
 		"perform action point ::> tel.point;",
 		"* var t = java.lang.System.currentTimeMillis();",
@@ -821,13 +820,13 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 	wantNote(t, r, "_rcv", migrate.Approximated, "the reception has no method, so it only accepts the signal")
 	wantNote(t, r, "_js", migrate.Approximated, "the body is kept as a comment")
 	wantNote(t, r, "_log", migrate.Approximated, "the pin 't' it passes for the parameter t of Station::Logging receives none: 'compute', which feeds it, produces no value; v1 runs the callee without the value, so the parameter is declared admitting none")
-	wantNote(t, r, "_point", migrate.Mapped, "its owner's usage point performs it")
+	wantNote(t, r, "_point", migrate.Mapped, "written as an action usage of Telescope, which a call on an object performs, so its body runs on the object and reaches its features")
 	wantNote(t, r, "_callTgt", migrate.Mapped, "the call performs the usage point of the target this.tel")
 	wantNote(t, r, "_call", migrate.Approximated, "several edges lead to the node, which waits for all of them through the join 'join'")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Station")
-	meta(t, s, "%action Station::Observe #1")
+	meta(t, s, "%action Station::observe #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "waiting since step 4 for a message of type Ack") {
 		t.Errorf("the action did not wait at the accept:\n%s", out)
 	}

@@ -66,6 +66,7 @@ const (
 	typeFlowUsage       = "FlowUsage"
 	typeSatisfyUsage    = "SatisfyRequirementUsage"
 	typeAllocationUsage = "AllocationUsage"
+	typeAllocationDef   = "AllocationDefinition"
 	typeDependency      = "Dependency"
 	typeComment         = "Comment"
 	typePackage         = "Package"
@@ -177,7 +178,7 @@ var stereotypeTypes = map[string]v2Types{
 	"Viewpoint":           {types: []string{typeViewpointUsage}},
 	"TestCase":            {types: []string{typeVerificationDef}},
 	"Satisfy":             {types: []string{typeSatisfyUsage}},
-	"Allocate":            {types: []string{typeAllocationUsage}},
+	"Allocate":            {types: []string{typeAllocationUsage, typeAllocationDef}},
 	"Refine":              {types: []string{typeDependency}, note: "every dependency is listed, not only refinements"},
 	"Trace":               {types: []string{typeDependency}, note: "every dependency is listed, not only traces"},
 	"Copy":                {types: []string{typeDependency}, note: "every dependency is listed, not only copies"},

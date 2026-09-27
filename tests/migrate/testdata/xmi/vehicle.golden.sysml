@@ -124,14 +124,21 @@ package Requirements {
         @ModelingMetadata::Refinement;
     }
     dependency 'Speed Requirement' to 'Vehicle Design'::Engine; /* «Trace» */
-    allocate 'Vehicle Design'::Drive to 'Vehicle Design'::Engine;
-    allocate 'Vehicle Design'::Motor to 'Vehicle Design'::Engine;
+    allocation def 'Drive to Engine' {
+        end drive : 'Vehicle Design'::Drive;
+        end engine : 'Vehicle Design'::Engine;
+    }
+    allocation def 'Motor to Engine' {
+        end motor : 'Vehicle Design'::Motor;
+        end engine : 'Vehicle Design'::Engine;
+    }
     dependency 'Vehicle Design'::Wheel to 'Vehicle Design'::Engine;
     verification def 'Mass Test' {
         objective {
             verify requirement : 'Mass Requirement';
         }
     }
+    metadata MigrationMetadata::SynthesizedName about 'Drive to Engine', 'Motor to Engine';
 }
 package 'Empty Package';
 view 'Vehicle BDD' {

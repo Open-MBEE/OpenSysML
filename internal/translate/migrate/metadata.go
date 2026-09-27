@@ -229,7 +229,8 @@ func (m *migration) tagValue(p *sysmlv1.Element, raw []string) (string, string) 
 }
 
 // tagReference writes a reference-valued tag's value: the written element it
-// names, by the shortest name resolving in the current scope.
+// names, by the shortest name resolving in the current scope. A definition is
+// not a value, so one is referred to as an element, cast to its metaclass.
 func (m *migration) tagReference(id string) (string, string) {
 	target := m.model.Lookup(id)
 	switch {
@@ -238,7 +239,34 @@ func (m *migration) tagReference(id string) (string, string) {
 	case !m.written(target):
 		return "", "refers to " + qualifiedName(target) + ", which is not written"
 	}
-	return m.ref(target, m.scope), ""
+	ref := m.ref(target, m.scope)
+	if mc := m.metaclassOf(target); mc != "" {
+		return ref + " meta " + mc, ""
+	}
+	return ref, ""
+}
+
+// metaclassOf is the SysML metaclass e is written as — a definition's, or the
+// action usage's of a block behavior written so — and "" for
+// an element written as something other than a definition. An individual's is
+// the metaclass of the kind its classifier gives it (`individual part def` is
+// a PartDefinition; a bare `individual def`, an OccurrenceDefinition).
+func (m *migration) metaclassOf(e *sysmlv1.Element) string {
+	if m.asUsage[e] {
+		if m.performed(e) {
+			return "SysML::PerformActionUsage"
+		}
+		return "SysML::ActionUsage"
+	}
+	cat, _ := m.classify(e)
+	if cat == catIndividualDef {
+		kind, _, _ := m.individualClassifiers(e)
+		if kind == catNone {
+			return "SysML::OccurrenceDefinition"
+		}
+		return kind.metaclass()
+	}
+	return cat.metaclass()
 }
 
 // tagLiteral writes one value of a tag typed by t: a string, number or boolean

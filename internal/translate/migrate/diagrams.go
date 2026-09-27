@@ -233,7 +233,11 @@ func (m *migration) hostName(host *sysmlv1.Element) string {
 		return "the top level"
 	}
 	cat, _ := m.classify(host)
-	return cat.keyword() + " " + m.v2Name(host)
+	kw := cat.keyword()
+	if m.asUsage[host] {
+		kw = "action"
+	}
+	return kw + " " + m.v2Name(host)
 }
 
 // writtenIn says where a view is written, for a note.

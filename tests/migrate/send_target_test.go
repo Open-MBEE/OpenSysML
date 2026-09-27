@@ -92,7 +92,7 @@ func TestSendTargetFedByParameterReachesTheObjectItHolds(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Net")
-	meta(t, s, "%action Net::Kick #1")
+	meta(t, s, "%action Net::kick #1")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1 : b.hits"); !strings.Contains(out, "= 1") {
