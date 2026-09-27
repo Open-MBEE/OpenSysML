@@ -6,8 +6,8 @@ Which part of the rover satisfies each requirement.
 
 | shortName | documentation | satisfiedBy | satisfied |
 | --- | --- | --- | --- |
-| RV-1 | The rover shall travel at least 20 km on one charge. | RoverBasic::rover::battery | true |
-| RV-2 | The rover shall carry a 15 kg science payload. | RoverBasic::rover::chassis | true |
+| RV-1 | The rover shall travel at least 20 km on one charge. | battery | true |
+| RV-2 | The rover shall carry a 15 kg science payload. | chassis | true |
 | RV-3 | The rover shall accept commands from the lander at 2 kbps. |  | false |
 
 Requirements no part satisfies:

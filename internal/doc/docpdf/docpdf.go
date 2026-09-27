@@ -64,6 +64,43 @@ type Options struct {
 	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
 	// when empty.
 	Style view.DrawingStyle
+
+	// TableColumns is the most columns one table is set with on a page: a
+	// table projecting more is split into continuation tables, each repeating
+	// the first column ahead of its share of the rest. 0 is DefaultTableColumns;
+	// 1 is refused, as nothing would fit beside the repeated column.
+	TableColumns int
+
+	// TableMeasure is the characters of heading type one landscape table line
+	// holds: a table whose headings need more is split into continuation
+	// tables whose headings each set unbroken. 0 is DefaultTableMeasure.
+	TableMeasure int
+}
+
+// DefaultTableColumns is the widest table one landscape page sets legibly at
+// the print stylesheet's dense-table size before the column set is split.
+const DefaultTableColumns = 12
+
+// DefaultTableMeasure is the characters of bold dense-table type (8pt), the
+// type every part of a split table is set in, across the text width of a
+// landscape page at the print stylesheet's margins: 667pt on letter, 717pt
+// on A4, at about 4.8pt a character of a camel-cased heading.
+const DefaultTableMeasure = 140
+
+// tableColumns is the split an Options states, or the default.
+func tableColumns(opts Options) int {
+	if opts.TableColumns > 0 {
+		return opts.TableColumns
+	}
+	return DefaultTableColumns
+}
+
+// tableMeasure is the line an Options states, or the default.
+func tableMeasure(opts Options) int {
+	if opts.TableMeasure > 0 {
+		return opts.TableMeasure
+	}
+	return DefaultTableMeasure
 }
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
@@ -128,7 +165,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	case InputMarkdown:
 		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
 			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
-			OutputDir: base, NumberFigures: opts.NumberFigures,
+			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts), TableMeasure: tableMeasure(opts),
 		})
 		if err != nil {
 			return nil, err
@@ -161,6 +198,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 // the HTML backend's stylesheet choices for a converter reading Markdown,
 // whose HTML carries none of the backend's classes.
 func checkOptions(converter Converter, opts Options) error {
+	if opts.TableColumns < 0 || opts.TableColumns == 1 {
+		return &Error{Kind: ErrorTableColumns, Columns: opts.TableColumns}
+	}
 	for _, sheet := range opts.Stylesheets {
 		if err := sheet.Check(); err != nil {
 			return err
@@ -217,6 +257,8 @@ func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []
 		DiagramImages:       images,
 		Math:                math.html,
 		OutputDir:           base,
+		TableColumns:        tableColumns(opts),
+		TableMeasure:        tableMeasure(opts),
 	}, nil
 }
 

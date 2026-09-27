@@ -26,6 +26,9 @@ const (
 	// ErrorSurplusDiagramImages is more diagram images than the document has
 	// graph-shaped diagrams to write them for.
 	ErrorSurplusDiagramImages ErrorKind = "surplus-diagram-images"
+	// ErrorTableColumns is a table-column limit no continuation table keeps:
+	// one leaves no room beside the repeated first column.
+	ErrorTableColumns ErrorKind = "table-columns"
 )
 
 // Error is a typed document-rendering failure.
@@ -77,6 +80,8 @@ func (e *Error) Error() string {
 		return "stylesheet content closes the style element it would be inlined in; link it by URL instead"
 	case ErrorUnknownTheme:
 		return fmt.Sprintf("no bundled theme is named %q; the themes are %s", e.Actual, strings.Join(Themes(), ", "))
+	case ErrorTableColumns:
+		return fmt.Sprintf("a table cannot be written with at most %d columns: a continuation table repeats the first column ahead of the rest, so the limit is 0 (every table whole) or at least 2", e.Count)
 	case ErrorSurplusDiagramImages:
 		return fmt.Sprintf("%s diagram images were drawn for a document with %d graph-shaped diagrams", e.Actual, e.Count)
 	default:
