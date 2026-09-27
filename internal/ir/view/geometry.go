@@ -252,6 +252,13 @@ func (r *Renderer) declaredNameSynthesized(elem *symbols.Symbol, decl ast.Node) 
 	return ok && r.model.NameSynthesized(sym)
 }
 
+// declaredStandIn reports whether a migration made up the element decl
+// declares under elem for no element of its source.
+func (r *Renderer) declaredStandIn(elem *symbols.Symbol, decl ast.Node) bool {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	return ok && r.model.StandIn(sym)
+}
+
 // declaredSymbol is the element decl declares under elem, nil when it declares none.
 func (r *Renderer) declaredSymbol(elem *symbols.Symbol, decl ast.Node) *symbols.Symbol {
 	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)

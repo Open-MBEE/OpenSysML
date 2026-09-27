@@ -3,12 +3,12 @@ package view
 import "fmt"
 
 // elideStandIns takes out of a positioned rendering the control nodes a
-// migration made up — a fork, join or merge with a synthesized name that
-// nothing positions — since no diagram symbol stands at one. Each edge into
-// such a node meets each edge out of it: the pair is redrawn as one edge
-// between the nodes the stand-in was written between, along whichever route
-// the two had, and a pair with no route is left undrawn, as the migration's
-// own wiring rather than the diagram's.
+// migration made up — a fork, join or merge it marked as standing for no
+// source element, which nothing positions — since no diagram symbol stands at
+// one. Each edge into such a node meets each edge out of it: the pair is
+// redrawn as one edge between the nodes the stand-in was written between,
+// along whichever route the two had, and a pair with no route is left undrawn,
+// as the migration's own wiring rather than the diagram's.
 func elideStandIns(out *Rendering) {
 	if !positionedRendering(out) {
 		return
@@ -52,10 +52,12 @@ func positionedRendering(r *Rendering) bool {
 	return positioned(r.Roots)
 }
 
-// findStandIn is the first made-up control node under nodes, nil for none.
+// findStandIn is the first made-up control node under nodes, nil for none: one
+// the model marks as a stand-in, not merely one whose name was made up, since
+// a source's own unnamed fork is named the same way yet has a symbol.
 func findStandIn(nodes []*Node) *Node {
 	for _, node := range nodes {
-		if standInKind(node.Kind) && node.NameSynthesized && node.Geometry == nil && len(node.Children) == 0 {
+		if standInKind(node.Kind) && node.StandIn && node.Geometry == nil && len(node.Children) == 0 {
 			return node
 		}
 		if found := findStandIn(node.Children); found != nil {

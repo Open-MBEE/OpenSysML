@@ -8,4 +8,11 @@ standard library package MigrationMetadata {
              * migration named it so the notation could declare and refer to
              * it. The name keys the element but is not one a picture shows. */
     }
+
+    metadata def StandIn {
+        doc /* The annotated element stands for no element of the source: the
+             * migration made it up to write what the source left implicit,
+             * such as the join several edges into one node wait through. No
+             * diagram symbol stands at it. */
+    }
 }

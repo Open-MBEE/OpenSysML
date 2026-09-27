@@ -289,10 +289,11 @@ func (a *activity) edgeFresh(e *sysmlv1.Element, base string) string {
 }
 
 // madeUp records a made-up member name, written, for the body's SynthesizedName
-// marker; the member stands in for no v1 node.
+// and StandIn markers; the member stands in for no v1 node.
 func (a *activity) madeUp(written string) {
 	a.standIns[written] = true
 	a.m.w.madeUp(written)
+	a.m.w.standIn(written)
 }
 
 // fresh returns base, or base with a number, not yet used in the body.

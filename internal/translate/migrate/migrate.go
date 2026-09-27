@@ -199,6 +199,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		routeKinds:   routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
+	m.w.standInMarker = m.standInNames
 	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
@@ -887,7 +888,7 @@ func (m *migration) body(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	m.members(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
@@ -1659,7 +1660,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	}
 	m.views(e)
 	m.stereotypeAnnotations(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
@@ -1730,7 +1731,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 		}
 		m.views(e)
 		m.stereotypeAnnotations(e)
-		m.w.markMadeUp(m.synthesizedNames)
+		m.w.markMadeUp()
 		m.scope = saved
 	})
 	m.madeUp(e, writeName(name))
@@ -1992,7 +1993,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 			extra()
 		}
 		m.stereotypeAnnotations(p)
-		m.w.markMadeUp(m.synthesizedNames)
+		m.w.markMadeUp()
 		m.scope = saved
 	})
 	if name != "" {

@@ -856,7 +856,12 @@ tell them from names the source gave: the [graphical renderings](../project/view
 draw such an element as its source did, unnamed — a bare control-node symbol, an edge with no
 label — and every other name as it is. `MigrationMetadata` is a bundled OpenSysML library, not a
 standard one; a v1 name is never marked, however it was spelled, and a model whose bodies hold
-no made-up name gains no line.
+no made-up name gains no line. A member the migration made up that stands for no v1 element at
+all — the join several edges into one node wait through, the fork several edges leave one node
+by — is marked besides as `metadata MigrationMetadata::StandIn about wait;`, so a rendering can
+tell it from a v1 node the source merely left unnamed: no diagram symbol stands at a stand-in,
+and a positioned rendering draws the edges through it as one, where an unnamed v1 fork is drawn
+as its bar.
 
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A

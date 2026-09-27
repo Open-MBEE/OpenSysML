@@ -97,7 +97,7 @@ func TestWriterMarksMadeUpNamesPerBlock(t *testing.T) {
 	w.block("part def D", func() {
 		w.line("part q;")
 		w.madeUp("q")
-		w.markMadeUp(marker)
+		w.markMadeUp()
 		w.line("part r;")
 	})
 	w.line("part top;")
@@ -111,6 +111,39 @@ func TestWriterMarksMadeUpNamesPerBlock(t *testing.T) {
 		"part def D {\n    part q;\n    metadata M about q;\n    part r;\n}\n" +
 		"part top;\nmetadata M about top;\n"
 	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+}
+
+// A block's stand-ins are marked after its made-up names, per block, and only
+// by a writer given a stand-in marker.
+func TestWriterMarksStandInsAfterMadeUpNames(t *testing.T) {
+	w := &writer{
+		marker:        func(names []string) string { return "metadata M about " + strings.Join(names, ", ") + ";" },
+		standInMarker: func(names []string) string { return "metadata S about " + strings.Join(names, ", ") + ";" },
+	}
+	w.block("action def A", func() {
+		w.line("action final;")
+		w.madeUp("final")
+		w.line("join j;")
+		w.madeUp("j")
+		w.standIn("j")
+		w.block("action def B", func() {
+			w.line("fork f;")
+			w.madeUp("f")
+			w.standIn("f")
+		})
+	})
+	want := "action def A {\n" +
+		"    action final;\n    join j;\n" +
+		"    action def B {\n        fork f;\n        metadata M about f;\n        metadata S about f;\n    }\n" +
+		"    metadata M about final, j;\n    metadata S about j;\n}\n"
+	if got := w.String(); got != want {
+		t.Errorf("got\n%s\nwant\n%s", got, want)
+	}
+	unmarked := &writer{marker: w.marker}
+	unmarked.block("action def A", func() { unmarked.line("join j;"); unmarked.madeUp("j"); unmarked.standIn("j") })
+	if got, want := unmarked.String(), "action def A {\n    join j;\n    metadata M about j;\n}\n"; got != want {
 		t.Errorf("got\n%s\nwant\n%s", got, want)
 	}
 }

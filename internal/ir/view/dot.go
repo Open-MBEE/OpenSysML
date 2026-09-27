@@ -232,9 +232,7 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 	w.labels.skin = skin
 	w.placeNodes(r.Roots, r.Edges)
 	w.collectPorts(r.Roots)
-	for _, root := range r.Roots {
-		w.placePorts(root, dotPortEnds(r.Edges))
-	}
+	w.placeAllPorts(r.Roots, r.Edges)
 	w.notes = w.drawnNotes(r.Notes)
 	w.placeNotes(w.notes)
 	w.shareNotes()
@@ -245,6 +243,15 @@ func newDOTWriter(r *Rendering, options Options) *dotWriter {
 		w.fills.collect(root)
 	}
 	return w
+}
+
+// placeAllPorts finds the box of every port of every boxed node under roots;
+// it is run again once a strip boxes the nodes the drawing left unplaced.
+func (w *dotWriter) placeAllPorts(roots []*Node, edges []Edge) {
+	ends := dotPortEnds(edges)
+	for _, root := range roots {
+		w.placePorts(root, ends)
+	}
 }
 
 // drawnNotes drops the notes anchored to a node or edge end the drawing
@@ -306,6 +313,7 @@ func (w *dotWriter) stripUnplaced(roots []*Node, edges []Edge) {
 	extent := w.extent(edges)
 	corner := Point{X: extent.low.X, Y: extent.high.Y + dotStripGap}
 	w.packRows(w.unplacedTops(roots), corner, extent.high.X-extent.low.X)
+	w.placeAllPorts(roots, edges)
 }
 
 // extent is the box round everything placed: the sized canvas, every box and

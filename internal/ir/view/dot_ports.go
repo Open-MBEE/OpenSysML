@@ -15,18 +15,29 @@ const dotPinSize = 12
 const dotPinPts = 8
 
 // dotPortEnds is where the routes of the edges meet each port, by port ID: a
-// route's first waypoint at its source port, its last at its target port.
+// route's first waypoint at its source port, its last at its target port, and
+// the mean of those ends for a port several routes meet, since they all touch
+// the one pin.
 func dotPortEnds(edges []Edge) map[string]Point {
-	ends := map[string]Point{}
+	sums := map[string]Point{}
+	counts := map[string]int{}
+	meet := func(port string, p Point) {
+		if port == "" {
+			return
+		}
+		sums[port] = Point{X: sums[port].X + p.X, Y: sums[port].Y + p.Y}
+		counts[port]++
+	}
 	for _, edge := range edges {
 		if n := len(edge.Route); n > 1 {
-			if edge.FromPort != "" {
-				ends[edge.FromPort] = edge.Route[0]
-			}
-			if edge.ToPort != "" {
-				ends[edge.ToPort] = edge.Route[n-1]
-			}
+			meet(edge.FromPort, edge.Route[0])
+			meet(edge.ToPort, edge.Route[n-1])
 		}
+	}
+	ends := make(map[string]Point, len(sums))
+	for port, sum := range sums {
+		n := float64(counts[port])
+		ends[port] = Point{X: sum.X / n, Y: sum.Y / n}
 	}
 	return ends
 }

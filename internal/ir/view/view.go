@@ -184,6 +184,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// StandIn marks a node a migration made up that stands for no element of its
+	// source, so no diagram symbol is at it: a join it wrote several edges through.
+	StandIn bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string

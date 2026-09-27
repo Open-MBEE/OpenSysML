@@ -29,11 +29,12 @@ whether a prefix `@Layout` or a `metadata Layout about …` member, wherever it 
 `render` members a view holds (`render asTreeDiagram;`, `render rendering r : AsTree;`). Both say
 how a picture is drawn, not what the model is, so a tree over a package of migrated views draws
 those views without the `metadata` and `render` nodes their annotations would add. The
-`MigrationMetadata::SynthesizedName` marker a migration leaves in a body is left out the same way:
-it records what the migration did, not what the model holds. Every other metadata usage — a
-user's `metadata Approved about errorCBE { by = "review"; }`, an annotation typed by any
-definition outside `DiagramLayout` and `MigrationMetadata` — is drawn as before, and a rendering
-usage owned by anything but a view (a `rendering` under a package) stays a node.
+`MigrationMetadata::SynthesizedName` and `MigrationMetadata::StandIn` markers a migration leaves
+in a body are left out the same way: they record what the migration did, not what the model
+holds. Every other metadata usage — a user's `metadata Approved about errorCBE { by = "review"; }`,
+an annotation typed by any definition outside `DiagramLayout` and `MigrationMetadata` — is drawn
+as before, and a rendering usage owned by anything but a view (a `rendering` under a package)
+stays a node.
 
 A **form** is a writer over that tree (`internal/ir/view/form.go`):
 
@@ -249,12 +250,14 @@ digraph "VehicleViews::vehicleView" {
   `"n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.1667, height=0.1667,
   fixedsize=true, pos="…!"]`, 12 px squares set on the node's border with the name in small type
   beside them (`writePins` in `dot_ports.go`): a pin a route meets sits where the route's end
-  waypoint leaves or reaches the box, outside the border and touching it; the rest are spread
-  along the top edge (inputs) and the bottom edge (outputs). A flow between pins is written
-  between the pin nodes, `"n1.0" -> "n5.0"`, and carries no `out to in` text. An unplaced
-  plain node draws its pins as cells of an HTML-like table label instead, a row of squares above
-  the head for the inputs and below it for the outputs, and a flow ends at the cell
-  (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
+  waypoint leaves or reaches the box, outside the border and touching it — a pin several routes
+  meet, at the mean of their ends, each route keeping its own; the rest are spread along the top
+  edge (inputs) and the bottom edge (outputs). The pins are placed once every node has its box,
+  so a node drawn in the `UnplacedStrip` has its pins on the box the strip gives it. A flow
+  between pins is written between the pin nodes, `"n1.0" -> "n5.0"`, and carries no `out to in`
+  text. An unplaced plain node draws its pins as cells of an HTML-like table label instead, a
+  row of squares above the head for the inputs and below it for the outputs, and a flow ends at
+  the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
   of the rendering, so a pin is never a detached `note` and never a node a flow ends beside.
 - **Edges.** The `EdgeKind` styles parallel the Mermaid arrows so the two forms read alike:
@@ -541,16 +544,18 @@ digraph "PlantViews::placedView" {
   laid out by the tool that draws them, and say so. So the three forms draw one node set and one
   edge set of a positioned view, and a view exposing a package its layout does not place does not
   become a chart of the package's whole contents in Mermaid.
-- **Stand-in control nodes.** A fork, join or merge with a synthesized name that nothing
-  positions and no children — a node a migration made up to thread several edges through, at
-  which no diagram symbol stands — is elided from a positioned rendering before the placement is
-  read (`elideStandIns` in `standin.go`, for every form): each edge into it meets each edge out
+- **Stand-in control nodes.** A fork, join or merge the migration marks with
+  `MigrationMetadata::StandIn` (`Node.StandIn`), which nothing positions and which has no
+  children — a node it made up to thread several edges through, at which no diagram symbol
+  stands — is elided from a positioned rendering before the placement is read (`elideStandIns`
+  in `standin.go`, for every form): each edge into it meets each edge out
   of it, and the pair is redrawn as one edge between the nodes it was written between, along
   whichever route the two had; a pair with no route is left undrawn, as the migration's wiring
   rather than the diagram's. The notice counts the nodes elided and the routeless pairs dropped
   (`2 control node(s) a migration made up, which no diagram positions, elided, and 1 edge(s)
-  through them without a route`). A positioned stand-in, or one the model named, is drawn as
-  any control node is.
+  through them without a route`). A positioned stand-in is drawn as any control node is, and so
+  is a control node the source had but left unnamed: its name is synthesized too, yet it is no
+  stand-in, and it takes its place where its routes meet.
 - **Engine.** The `// layout:` header names the command that honours what is written:
   `neato -n2` when any edge is routed (the pinned nodes and the written routes are taken as
   given, the other edges are drawn), `neato -n` when no edge is routed, `dot` when no node is

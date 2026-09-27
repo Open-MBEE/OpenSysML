@@ -186,7 +186,7 @@ func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 
 // contentKind reports whether a member is model content a rendering shows, as
 // against what only describes a picture of it or its migration: a view's `render`
-// members, the DiagramLayout annotations and the SynthesizedName markers.
+// members, the DiagramLayout annotations and the migration's markers.
 // Ordinary metadata on an element is content.
 func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 	if !containedKind(sym) {
@@ -197,7 +197,7 @@ func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 			return false
 		}
 	}
-	return !r.model.IsLayoutAnnotation(sym) && !r.model.IsSynthesizedNameAnnotation(sym)
+	return !r.model.IsLayoutAnnotation(sym) && !r.model.IsMigrationAnnotation(sym)
 }
 
 // containedKind reports whether a member is an element of the model a rendering

@@ -528,8 +528,8 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
-			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node),
-			Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), StandIn: r.declaredStandIn(subject.elem, node),
+			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node), Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
 		if languageNamed(node) {
 			child.Geometry = r.memberGeometryOf(subject.view, r.declaredSymbol(subject.elem, decl), behaviorNodeName(node), out)
 		}

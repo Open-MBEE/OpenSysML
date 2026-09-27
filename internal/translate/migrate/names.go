@@ -65,14 +65,30 @@ func (m *migration) madeUp(e *sysmlv1.Element, written string) {
 // synthesizedNameFQN names the library metadata marking a made-up name.
 const synthesizedNameFQN = "MigrationMetadata::SynthesizedName"
 
+// standInFQN names the library metadata marking a member that stands for no
+// source element.
+const standInFQN = "MigrationMetadata::StandIn"
+
 // synthesizedNames is the metadata usage marking the members of the current
 // scope written under made-up names, each as the notation wrote it.
 func (m *migration) synthesizedNames(written []string) string {
+	return m.migrationMarker(synthesizedNameFQN, written)
+}
+
+// standInNames is the metadata usage marking the members of the current scope
+// that stand for no source element, each as the notation wrote it.
+func (m *migration) standInNames(written []string) string {
+	return m.migrationMarker(standInFQN, written)
+}
+
+// migrationMarker is the metadata usage of the MigrationMetadata definition
+// fqn about the written names, qualified past a member shadowing the library.
+func (m *migration) migrationMarker(fqn string, written []string) string {
 	prefix := ""
 	if m.shadowsLibrary("MigrationMetadata", m.scope) {
 		prefix = "$::"
 	}
-	return "metadata " + prefix + synthesizedNameFQN + " about " + strings.Join(written, ", ") + ";"
+	return "metadata " + prefix + fqn + " about " + strings.Join(written, ", ") + ";"
 }
 
 // writtenName returns the name e's v2 declaration bears, as a query reads it back:
