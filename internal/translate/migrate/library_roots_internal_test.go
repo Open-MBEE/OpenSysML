@@ -3,6 +3,8 @@ package migrate
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // TestLibraryRootRenamed covers top-level packages named like a standard
@@ -73,6 +75,25 @@ func TestLibraryRootUnmappedUnannotated(t *testing.T) {
 		if e.ID == "_art" && e.Verdict != Unmapped {
 			t.Errorf("artifact verdict = %v, want Unmapped", e.Verdict)
 		}
+	}
+}
+
+// TestLibraryRootSourceNameEscaped asserts the recorded source name is written
+// as a string literal that source.StringValue reads back: library root names
+// hold no escapable characters today, so the check pins the mechanism.
+func TestLibraryRootSourceNameEscaped(t *testing.T) {
+	r, err := Migrate("escaped.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views"/>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	src := "Views"
+	if !strings.Contains(got, "sourceName = "+source.StringText(src)) {
+		t.Errorf("sourceName not written as a string literal:\n%s", got)
+	}
+	if back := source.StringValue(source.StringText(src)); back != src {
+		t.Errorf("StringValue(StringText(%q)) = %q", src, back)
 	}
 }
 

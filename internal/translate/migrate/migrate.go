@@ -790,7 +790,7 @@ func (m *migration) libraryNameNotes() {
 	}
 	for _, r := range list {
 		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
-			" { sourceName = \"" + strings.ReplaceAll(r.src, "\"", "\\\"") + "\"; }")
+			" { sourceName = " + stringLiteral(r.src) + "; }")
 	}
 }
 
