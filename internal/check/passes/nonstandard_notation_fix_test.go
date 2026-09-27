@@ -152,6 +152,9 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 		}
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
+	if n := strings.Count(fixed, "private import StateMachines::*;"); n != 1 {
+		t.Fatalf("fixed text carries the StateMachines import %d times:\n%s", n, fixed)
+	}
 
 	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
 	if len(fixedDiags) != 0 {
@@ -168,6 +171,41 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 		if oldShape[i] != newShape[i] {
 			t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
 		}
+	}
+}
+
+// TestNotationFixSkipsExistingImport: when an enclosing body already imports
+// `StateMachines::*` the fix is the member replacement alone, one edit.
+func TestNotationFixSkipsExistingImport(t *testing.T) {
+	src := `package Probe {
+	private import StateMachines::*;
+	item def Ev;
+	state def M {
+		entry; then done;
+		choice pick;
+		state done;
+	}
+}`
+
+	_, sf, diags := notationDiagnostics(t, "a.sysml", src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics %+v, want 1", len(diags), diags)
+	}
+	fix := diags[0].Fixes
+	if len(fix) != 1 || len(fix[0].Edits) != 1 {
+		t.Fatalf("fix should carry the replacement edit alone: %+v", fix)
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+	if n := strings.Count(fixed, "import StateMachines"); n != 1 {
+		t.Fatalf("a second StateMachines import was inserted:\n%s", fixed)
+	}
+	if !strings.Contains(fixed, "#choice state pick;") {
+		t.Fatalf("fixed text lacks the metadata spelling:\n%s", fixed)
+	}
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
 	}
 }
 

@@ -469,7 +469,7 @@ func (w *notationWalker) stateMachinesImport(metadata string) (diag.Edit, bool) 
 				continue
 			}
 			target := qualifiedNameText(imp.Imported)
-			if target == "StateMachines" && (imp.IsAll || imp.IsRecursive) ||
+			if target == "StateMachines" && (imp.Kind == ast.ImportNamespace || imp.IsRecursive) ||
 				target == "StateMachines::"+metadata {
 				return diag.Edit{}, false
 			}
