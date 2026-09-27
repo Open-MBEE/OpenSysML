@@ -524,7 +524,10 @@ func (s *Session) featureCompletions(shape objectShape, prefix, partial string) 
 	features := s.rtCtx.FeaturesOf(shape.typ)
 	for i := range features {
 		feat := &features[i]
-		if feat.Name == "" || s.impliedCollection(shape, feat.Name) || !s.holdsObjects(shape, feat) {
+		// An implied collection is offered only once materialized, when its
+		// elements — possibly written into it directly — are resolvable.
+		impliedUnread := s.impliedCollection(shape, feat.Name) && heldFeatureValue(shape.inst, feat.Name) == nil
+		if feat.Name == "" || impliedUnread || !s.holdsObjects(shape, feat) {
 			continue
 		}
 		name := prefix + source.NameText(feat.Name)

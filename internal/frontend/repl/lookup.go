@@ -459,12 +459,24 @@ func nestedObjects(ctx *runtime.Context, of carrier, read func(string) (*runtime
 			h.segment, h.indexed = segment, false
 		}
 	}
+	// A collection populated only through subsetting implied by nesting is not a
+	// path of its own while unmaterialized: reading it would manufacture objects
+	// another feature already lists. A materialized one may hold objects a write
+	// placed there directly, so its values are reached last, under their own
+	// labels only where no declared feature already carried them.
+	var declared, implied []string
 	for _, name := range fvs {
-		// A collection populated only through subsetting implied by nesting
-		// holds objects another feature already lists; it is not a path of its own.
+		fv := of.inst.FeatureValues[name]
 		if ctx.ImpliedCollection(of.inst, name) {
+			if fv != nil && fv.Materialized {
+				implied = append(implied, name)
+			}
 			continue
 		}
+		declared = append(declared, name)
+	}
+	fvs = append(declared, implied...)
+	for _, name := range fvs {
 		fv, ok := read(name)
 		if !ok {
 			continue
