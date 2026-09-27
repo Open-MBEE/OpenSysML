@@ -1597,7 +1597,7 @@ func (s *stateRegion) writeTransitionEffect(t, eff *sysmlv1.Element, accept acce
 	s.m.w.lines(notes)
 	s.m.w.line(line)
 	s.m.w.indented(func() {
-		s.m.w.buf().WriteString(effect) // already rendered one level deeper by capture
+		_, _ = s.m.w.buf().WriteString(effect) // already rendered one level deeper by capture
 		s.m.w.line("then " + to + ";")
 	})
 }
