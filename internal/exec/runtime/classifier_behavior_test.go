@@ -2654,3 +2654,39 @@ func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
 		t.Fatalf("join with the binding the performance stored: %v", err)
 	}
 }
+
+// calcDefOutputThisFixture binds `this` in an output feature's default: the
+// binding reads the occurrence of the invocation evaluating it, as a `return`
+// body's does.
+const calcDefOutputThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		calc def Same { out result : Boolean = this == this; }
+		calc same : Same;
+	}
+`
+
+// An output binding of a calc definition evaluates `this` against the
+// invocation's own occurrence, for the def itself and for a usage of it.
+func TestInvokeCalcDefOutputBindingReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcDefOutputThisFixture))
+	root := idx.DocumentRoot("<test>")
+
+	same, sameScope := calcByName(t, root, "test", "Same")
+	got, err := ctx.InvokeCalc(same, nil, sameScope)
+	if err != nil {
+		t.Fatalf("Same(): %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("Same() = %s, want true: the output binding's this denoted the invocation's occurrence", FormatTraceValue(got))
+	}
+
+	usage, usageScope := calcByName(t, root, "test", "same")
+	got, err = ctx.CalcUsageOutput(usage, "result", usageScope, nil)
+	if err != nil {
+		t.Fatalf("same.result: %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("same.result = %s, want true: the usage's run shared the occurrence", FormatTraceValue(got))
+	}
+}

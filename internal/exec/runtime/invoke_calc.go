@@ -855,7 +855,7 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// naming itself is a cycle rather than an evaluation, so it is evaluated
 	// through the same run bookkeeping a calc usage's outputs use.
 	run := newCalcRun(shape, callerScope, self, frame.locals())
-	run.activation, run.perf = activation, frame.host.performance()
+	run.activation, run.perf, run.occurrence = activation, frame.host.performance(), occurrence
 	if len(enclosing) > 0 {
 		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
 	}

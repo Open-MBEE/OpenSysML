@@ -1546,3 +1546,16 @@ func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_extra_params")
 	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = this; }")
 }
+
+// testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the
+// block and its part bind the callee's context through the calling def's own
+// context parameter, qualified so it is not read as the call's redefinition.
+func TestSwimlaneCallContextQualifiesThroughTheDef(t *testing.T) {
+	r := migrateFixtureFile(t, "swimlane_context_calls")
+	for _, line := range []string{
+		"action hit : Hit { in ref :>> context = Run::context; }",
+		"action tune : Engine::Tune { in ref :>> context = Run::context.engine; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+}

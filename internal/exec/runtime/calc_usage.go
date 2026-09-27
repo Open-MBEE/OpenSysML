@@ -455,6 +455,10 @@ type calcRun struct {
 	perf *actionFrame
 	// boundInputs are the values the run's input parameters were bound to.
 	boundInputs []InputBinding
+	// occurrence is the performance instance a definition invocation's `this`
+	// denotes, shared with the invocation so its output bindings see the one
+	// made there; nil for a usage, which materializes none.
+	occurrence *calcOccurrence
 }
 
 // boundInputs are the values each non-subject input parameter of shape was
@@ -594,6 +598,9 @@ type calcUsageStart struct {
 	env                frame
 	host               *calcStmtHost
 	engine             *stmtEngine
+	// occurrence is the box the run and host share with `this`: the occurrence
+	// the usage itself is, materialized on the first read of it.
+	occurrence *calcOccurrence
 	// deferResults leaves the results ending the steps unrun, for a Monte Carlo to
 	// evaluate over its sample once the run's observation is in.
 	deferResults bool
@@ -657,7 +664,21 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 		return nil, err
 	}
 	start.inputs = boundInputs(shape, start.env)
-	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self}
+	// `this` in the usage's bindings denotes the occurrence the usage itself is,
+	// made on the first read of it as every other usage's occurrence is.
+	start.occurrence = &calcOccurrence{}
+	start.occurrence.materialize = func() (*Instance, error) {
+		if start.occurrence.inst != nil {
+			return start.occurrence.inst, nil
+		}
+		inst, err := ctx.occurrenceOf(start.key.sym)
+		if err != nil {
+			return nil, err
+		}
+		start.occurrence.inst = inst
+		return inst, nil
+	}
+	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self, occ: start.occurrence}
 	// A usage nested in a behavior body computes over that body's bindings, as
 	// an invocation of it does.
 	var enclosing []frame
@@ -890,7 +911,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	}
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer = nested
-	run.activation, run.perf, run.boundInputs = engine.activation, host.performance(), start.inputs
+	run.activation, run.perf, run.boundInputs, run.occurrence = engine.activation, host.performance(), start.inputs, start.occurrence
 
 	// A tool-computed calc runs no body: the tool's answers are its outputs, the
 	// result parameter's answer its result, and reading an unanswered one is the
@@ -1059,6 +1080,9 @@ func (run *calcRun) bindingEnv(ctx *Context, owner *symbols.Symbol) *EvalContext
 	ec.activation = run.activation
 	if run.outer != nil && owner == run.shape.Sym {
 		ec = run.outer.nestedEnv(scope)
+	}
+	if run.occurrence != nil {
+		ec.occurrence, ec.thisOccurrence = run.occurrence.inst, run.occurrence.materializeOccurrence
 	}
 	ec.pushFrame(run.env)
 	if run.perf != nil {

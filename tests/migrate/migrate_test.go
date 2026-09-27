@@ -309,6 +309,7 @@ var constructFixtures = []string{
 	"station_points",
 	"submachine_params",
 	"operation_extra_params",
+	"swimlane_context_calls",
 	"rig_interactions",
 	"heater_receptions",
 	"ported_calls",

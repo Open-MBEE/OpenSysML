@@ -705,7 +705,7 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 // swimlane names as the performer when there is one, else the caller's.
 func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, note string) {
 	if l, _, _ := a.m.lanePerformer(n); l != nil {
-		return a.m.contextBinding(c, l.typ, a.m.respellThis(l.expr, a.def))
+		return a.m.contextBinding(c, l.typ, a.m.callBodyExpr(a.m.respellThis(l.expr, a.def), a.def))
 	}
 	return a.contextArgument(c)
 }
