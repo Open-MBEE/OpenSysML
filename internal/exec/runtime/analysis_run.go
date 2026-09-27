@@ -318,6 +318,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	outputs, err := run.outputValues(ctx)
 	result.Outputs = outputs
 	if err != nil {
+		run.endOccurrence(ctx)
 		err = ctx.monteCarloUnconcluded(sym, err)
 		result.Verdicts = ctx.undecidedVerdicts(sym, scope, err)
 		result.Evaluations = log.evaluations(Value{}, false)

@@ -2823,6 +2823,10 @@ package test {
 		out who = this;
 		return : Integer = this.n;
 	}
+	analysis def Failing {
+		out who = this;
+		out bad : Real = 1.0 / 0.0;
+	}
 }
 `
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
@@ -2862,6 +2866,26 @@ package test {
 		if life, ok := ctx.OccurrenceLife(selfID); !ok || life.Alive() {
 			t.Errorf("OccurrenceLife(#%d) = %v, %v; want the run's occurrence ended", selfID, life, ok)
 		}
+	}
+
+	// A case whose outputs error still ends its occurrence: the outputs read
+	// before the failure — `who` carrying this — stay reported and name it.
+	failing, failingScope := calcByName(t, root, "test", "Failing")
+	result, err := ctx.RunAnalysis(failing, AnalysisArgs{}, failingScope, nil)
+	if err == nil {
+		t.Fatal("Failing(): want an output evaluation error")
+	}
+	var failID int64
+	for _, out := range result.Outputs {
+		if out.Name == "who" {
+			failID = out.Value.Instance
+		}
+	}
+	if failID == 0 {
+		t.Fatal("Failing(): no `who` output carrying this")
+	}
+	if life, ok := ctx.OccurrenceLife(failID); !ok || life.Alive() {
+		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the failed run's occurrence ended", failID, life, ok)
 	}
 }
 
