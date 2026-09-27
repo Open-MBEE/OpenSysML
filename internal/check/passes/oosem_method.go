@@ -175,7 +175,7 @@ func (a *oosemAudit) kindOf(sym *symbols.Symbol) oosemKind {
 	var types []*symbols.Symbol
 	if sym.IsFeature() {
 		types = a.model.FeatureTypeSet(sym)
-	} else if _, ok := sym.Decl.(*ast.Definition); ok {
+	} else if sym.DeclaresDefinition() {
 		types = []*symbols.Symbol{sym}
 	}
 	kind := oosemNone
@@ -210,31 +210,46 @@ search:
 // satisfaction and allocation relationships it states.
 func (a *oosemAudit) gather(root *symbols.Scope) {
 	kit.WalkSymbols(a.ctx, root, func(sym *symbols.Symbol) {
-		usage, isUsage := sym.Decl.(*ast.Usage)
 		if kind := a.kindOf(sym); kind != oosemNone {
 			a.facts.present[kind] = true
 		}
+		usage, isUsage := sym.Decl.(*ast.Usage)
 		if !isUsage {
 			return
 		}
 		switch {
 		case usage.Kind == ast.UsageConnection:
-			a.gatherDerivation(sym)
+			if originals, derived, ok := a.derivationEnds(sym); ok {
+				a.noteDerivation(originals, derived)
+			}
 		case usage.Kind == ast.UsageAllocation:
-			a.gatherAllocation(sym, usage)
+			if source, destination, ok := a.allocationEnds(sym, usage); ok {
+				a.noteAllocation(source, destination)
+			}
 		case usage.Kind == ast.UsageSatisfy && usage.Keyword != "verify":
-			a.gatherSatisfaction(sym, usage)
+			a.noteSatisfaction(a.satisfied(sym, usage))
 		}
 	})
+	// A recorded document's body is gone; its record kept what it stated.
+	if rec := a.ctx.Index.Gathered(root.DocName()); rec != nil {
+		for _, d := range rec.Derivations {
+			a.noteDerivation(a.ctx.Index.Elements(d.Sources), a.ctx.Index.Elements(d.Targets))
+		}
+		for _, al := range rec.Allocations {
+			a.noteAllocation(a.ctx.Index.Elements(al.Sources), a.ctx.Index.Elements(al.Targets))
+		}
+		for _, s := range rec.Satisfactions {
+			a.noteSatisfaction(a.ctx.Index.Elements(s.Requirements))
+		}
+	}
 }
 
-// gatherDerivation records, for each requirement at a `#derive` end of a
-// `#derivation` connection, the kinds of the requirements at its `#original` ends.
-func (a *oosemAudit) gatherDerivation(sym *symbols.Symbol) {
+// derivationEnds reads the referents of a `#derivation` connection's
+// `#original` and `#derive` ends; ok is false for any other connection.
+func (a *oosemAudit) derivationEnds(sym *symbols.Symbol) (originals, derived []*symbols.Symbol, ok bool) {
 	if !a.annotatedWith(sym, derivationMetadataFQN) {
-		return
+		return nil, nil, false
 	}
-	var originals, derived []*symbols.Symbol
 	for _, end := range a.bodyEnds(sym) {
 		u, ok := end.Decl.(*ast.Usage)
 		if !ok {
@@ -247,6 +262,12 @@ func (a *oosemAudit) gatherDerivation(sym *symbols.Symbol) {
 			derived = append(derived, a.referents(end, u)...)
 		}
 	}
+	return originals, derived, true
+}
+
+// noteDerivation records, for each requirement at a `#derive` end, the kinds
+// of the requirements at the `#original` ends of the same `#derivation`.
+func (a *oosemAudit) noteDerivation(originals, derived []*symbols.Symbol) {
 	for _, d := range derived {
 		key := symbols.KeyOf(d)
 		for _, o := range originals {
@@ -255,15 +276,13 @@ func (a *oosemAudit) gatherDerivation(sym *symbols.Symbol) {
 	}
 }
 
-// gatherAllocation records the source of an allocation whose destination is a
-// node or physical component: the ends of its `allocate x to y` clause, else
-// the first two `end`s its body declares.
-func (a *oosemAudit) gatherAllocation(sym *symbols.Symbol, usage *ast.Usage) {
-	var source, destination []*symbols.Symbol
+// allocationEnds reads what an allocation allocates and where to: the ends of
+// its `allocate x to y` clause, else the first two `end`s its body declares.
+func (a *oosemAudit) allocationEnds(sym *symbols.Symbol, usage *ast.Usage) (source, destination []*symbols.Symbol, ok bool) {
 	if len(usage.ConnectorEnds) > 0 {
 		attachments := a.model.ConnectorEndAttachments(sym)
 		if len(attachments) < 2 || attachments[0].Attachment == nil || attachments[1].Attachment == nil {
-			return
+			return nil, nil, false
 		}
 		if s, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, attachments[0].Attachment); ok && s != nil {
 			source = append(source, s)
@@ -271,18 +290,24 @@ func (a *oosemAudit) gatherAllocation(sym *symbols.Symbol, usage *ast.Usage) {
 		if d, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, attachments[1].Attachment); ok && d != nil {
 			destination = append(destination, d)
 		}
-	} else {
-		ends := a.bodyEnds(sym)
-		if len(ends) < 2 {
-			return
-		}
-		if u, ok := ends[0].Decl.(*ast.Usage); ok {
-			source = a.referents(ends[0], u)
-		}
-		if u, ok := ends[1].Decl.(*ast.Usage); ok {
-			destination = a.referents(ends[1], u)
-		}
+		return source, destination, true
 	}
+	ends := a.bodyEnds(sym)
+	if len(ends) < 2 {
+		return nil, nil, false
+	}
+	if u, ok := ends[0].Decl.(*ast.Usage); ok {
+		source = a.referents(ends[0], u)
+	}
+	if u, ok := ends[1].Decl.(*ast.Usage); ok {
+		destination = a.referents(ends[1], u)
+	}
+	return source, destination, true
+}
+
+// noteAllocation records the source of an allocation whose destination is a
+// node or physical component.
+func (a *oosemAudit) noteAllocation(source, destination []*symbols.Symbol) {
 	if !a.realises(destination) {
 		return
 	}
@@ -316,32 +341,42 @@ func (a *oosemAudit) bodyEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	return ends
 }
 
-// gatherSatisfaction records the requirement a `satisfy` names, or the
-// satisfy itself when it declares its requirement. A negated satisfy and a
-// satisfy naming a viewpoint state no requirement satisfied.
-func (a *oosemAudit) gatherSatisfaction(sym *symbols.Symbol, usage *ast.Usage) {
+// satisfied reads the requirements a `satisfy` names, or the satisfy itself
+// when it declares its requirement; a negated satisfy names none.
+func (a *oosemAudit) satisfied(sym *symbols.Symbol, usage *ast.Usage) []*symbols.Symbol {
 	if usage.IsNegated {
-		return
+		return nil
 	}
 	if usage.DeclaresRequirement {
-		a.facts.satisfies[true] = true
-		a.facts.satisfied[symbols.KeyOf(sym)] = true
-		return
+		return []*symbols.Symbol{sym}
 	}
+	var out []*symbols.Symbol
 	for _, rel := range usage.Relationships {
 		if rel == nil || rel.Target == nil || rel.Kind != ast.RelSubsets {
 			continue
 		}
-		target, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, rel.Target)
-		if !ok || target == nil || isViewpoint(target) {
+		if target, ok := a.ctx.Resolver().ResolveTarget(sym.OwnerScope, rel.Target); ok && target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
+// noteSatisfaction records the requirements satisfied; a viewpoint is not one.
+func (a *oosemAudit) noteSatisfaction(requirements []*symbols.Symbol) {
+	for _, r := range requirements {
+		if isViewpoint(r) {
 			continue
 		}
 		a.facts.satisfies[true] = true
-		a.facts.satisfied[symbols.KeyOf(target)] = true
+		a.facts.satisfied[symbols.KeyOf(r)] = true
 	}
 }
 
 func isViewpoint(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.DefKind == ast.DefViewpoint || sym.Facts.UsageKind == ast.UsageViewpoint
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
 		return d.Kind == ast.DefViewpoint

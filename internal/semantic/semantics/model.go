@@ -300,7 +300,7 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	m.directSupers[sym] = nil
 	m.computingSupers[sym] = m.resolver.Enter()
 	defer delete(m.computingSupers, sym)
-	if sym.Facts != nil && sym.Facts.Supers != nil {
+	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
 		out := m.recordedSupertypes(sym)
 		m.directSupers[sym] = out
 		m.resolver.Leave()
@@ -522,28 +522,55 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
+// RecordedRelationshipTargets restores what the relationships of one kind a
+// recorded symbol's declaration wrote resolved to, dropping those that resolved
+// to nothing.
+func (m *Model) RecordedRelationshipTargets(sym *symbols.Symbol, kind ast.RelationshipKind) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, ref := range sym.RecordedRelationships(kind) {
+		if target := m.recordedElement(ref); target != nil {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // recordedSupertypes resolves the supertype edges installed for a library
 // symbol, which the same derivation over its declaration produced when they were
 // recorded. An edge naming nothing in this index is dropped, as an unresolved
 // declared target is.
 func (m *Model) recordedSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.recordedElements(sym, sym.Facts.Supers)
+}
+
+// recordedElements restores the elements a fact names by fully-qualified name,
+// resolving aliases through and dropping sym itself and duplicates.
+func (m *Model) recordedElements(sym *symbols.Symbol, refs []symbols.ElementRef) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
-	for _, fqn := range sym.Facts.Supers {
-		for _, target := range m.resolver.Index().LookupQualified(fqn) {
-			if target == nil {
-				continue
-			}
-			resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
-			if !aliasOK || resolved == sym || seen[resolved] {
-				break
-			}
-			seen[resolved] = true
-			out = append(out, resolved)
-			break
+	for _, ref := range refs {
+		target := m.recordedElement(ref)
+		if target == nil || target == sym || seen[target] {
+			continue
 		}
+		seen[target] = true
+		out = append(out, target)
 	}
 	return out
+}
+
+// recordedElement restores the element a fact names, or nil when the name no
+// longer declares one.
+func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
+	target := m.resolver.Index().Element(ref)
+	if target == nil {
+		return nil
+	}
+	resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
+	if !aliasOK {
+		return nil
+	}
+	return resolved
 }
 
 // SupertypesProvisional reports whether sym's supertypes were last derived while
@@ -951,6 +978,17 @@ func (m *Model) composedOperands(
 
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
+	if sym.Recorded() {
+		for _, target := range m.RecordedRelationshipTargets(sym, kind) {
+			if target == sym || seen[target] {
+				continue
+			}
+			seen[target] = true
+			out = append(out, target)
+		}
+		m.composed[key] = out
+		return out
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil || rel.Kind != kind {
 			continue

@@ -142,7 +142,7 @@ func (m *migration) methodBehavior(e, op *sysmlv1.Element) {
 // a class names as its classifier behavior, so an object of it runs it.
 func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	b, name, cat := m.classifierBehaviorUsage(c)
-	if b == nil {
+	if b == nil || m.asUsage[b] {
 		return
 	}
 	switch cat {
@@ -958,7 +958,10 @@ func (m *migration) reception(r *sysmlv1.Element) {
 		performed = op
 	}
 	route := receptionRoute{owner: owner, sig: sig, method: performed, used: map[string]bool{"start": true, "done": true}}
-	m.w.block("action def "+writeName(name), func() {
+	if performed != nil && m.asUsage[performed] {
+		route.used[m.nameFor(performed)] = true
+	}
+	body := func() {
 		from := "start"
 		if len(ports) > 0 {
 			from = freshIn(route.used, "spread")
@@ -969,10 +972,18 @@ func (m *migration) reception(r *sysmlv1.Element) {
 		for _, p := range ports {
 			m.receptionLoop(r, &route, from, p)
 		}
-	})
-	m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
-	m.receptionParameters(r, sig)
+	}
 	desc := "written as an action def accepting " + m.nameFor(sig)
+	if m.blockOwner(owner) && (len(ports) > 0 || performed != nil && m.asUsage[performed]) {
+		// The loop reaches the object's ports or usages, which only a usage of the block does.
+		m.names[r], m.asUsage[r] = usage, true
+		m.w.block("perform action "+writeName(usage), body)
+		desc = "written as an action usage accepting " + m.nameFor(sig)
+	} else {
+		m.w.block("action def "+writeName(name), body)
+		m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+	}
+	m.receptionParameters(r, sig)
 	if route.performed {
 		desc += " and performing its method " + qualifiedName(method)
 		if performed != method {
@@ -1015,7 +1026,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
 		route.note = methodNote + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 	default:
-		args, refusal := m.receptionArguments(method, route.sig, payload)
+		args, refusal := m.receptionArguments(method, route.sig, trig+"."+payload)
 		if refusal != "" {
 			route.note = refusal + "; the reception only accepts the signal"
 			break
@@ -1024,6 +1035,9 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 		last, route.performed = run, true
 		m.w.line(firstKw + trig + thenKw + run + ";")
 		decl := actionKw + run + " : " + m.ref(method, route.owner)
+		if m.asUsage[method] {
+			decl = "perform " + actionKw + run + " ::> " + m.ref(method, route.owner)
+		}
 		if len(args) == 0 {
 			m.w.line(decl + ";")
 		} else {

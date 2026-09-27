@@ -79,6 +79,16 @@ func (idx *Index) SetReadRecorder(r ReadRecorder) {
 	idx.reads = r
 }
 
+// Recording returns a view of the index whose reads report to r: the same
+// tables, caches and change log as idx, so a batch worker reading the index
+// beside others records what its analysis read without one recorder for all.
+// The view is for reading only; a write to it is a write to idx.
+func (idx *Index) Recording(r ReadRecorder) *Index {
+	view := *idx
+	view.reads = r
+	return &view
+}
+
 func (idx *Index) readName(fqn string) {
 	if idx.reads != nil {
 		idx.reads.ReadName(fqn)

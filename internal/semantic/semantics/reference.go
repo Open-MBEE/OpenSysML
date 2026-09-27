@@ -34,7 +34,11 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 	defer delete(m.resolvingRef, sym)
 
 	var out *symbols.Symbol
-	if node := referenceSubsettingTarget(sym); node != nil {
+	if sym.Recorded() {
+		if !sym.Facts.References.IsZero() {
+			out = m.recordedElement(sym.Facts.References)
+		}
+	} else if node := referenceSubsettingTarget(sym); node != nil {
 		if target, ok := m.resolver.ResolveReferenceTarget(referenceScope(sym), sym.Decl, node); ok && target != sym {
 			out = target
 		}
