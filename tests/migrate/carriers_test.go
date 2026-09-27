@@ -154,7 +154,7 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"do action Run {",
 		"in level : ScalarValues::Real = setPoint.level;",
 		"in hold : ScalarValues::Boolean = setPoint.hold;",
-		"action warm : Warm;",
+		"action warm : Warm { in l; in h; in ref :>> context = Ctl::context; }",
 		"bind warm.l = level;",
 		"bind warm.h = hold;",
 	} {

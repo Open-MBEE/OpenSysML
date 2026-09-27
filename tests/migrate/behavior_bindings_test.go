@@ -139,7 +139,7 @@ func TestTransitionEffectsTakeTheAcceptedSignal(t *testing.T) {
 		"then done;",
 		"do action Spin {",
 		"in speed : ScalarValues::Real;",
-		"action take : Sample;",
+		"action take : Sample { in v; in ref :>> context = Cooling::context; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}

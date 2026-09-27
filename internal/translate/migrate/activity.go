@@ -1838,7 +1838,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			note = joinNotes(why, note)
 		} else {
 			ins := ""
-			if c != nil && !a.m.insideStateUsage(n) {
+			if c != nil {
 				expr, cnote := a.callContext(n, c)
 				if expr != "" {
 					ins = "in ref :>> " + writeName(c.name) + " = " + expr

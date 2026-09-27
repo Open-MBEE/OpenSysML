@@ -98,21 +98,6 @@ func defScope(e *sysmlv1.Element) bool {
 	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception"
 }
 
-// insideStateUsage reports whether e's body is written inside a state usage
-// nested in a def: a scope shading the def's own, where a call binds no
-// context parameter to a spelling that would not resolve there.
-func (m *migration) insideStateUsage(e *sysmlv1.Element) bool {
-	for cur := e.Parent; cur != nil; cur = cur.Parent {
-		if cur.Type == "State" {
-			return true
-		}
-		if defScope(cur) || m.contextClassifier(cur) == cur {
-			return false
-		}
-	}
-	return false
-}
-
 // enclosingDef is the def e's body is written inside: the innermost enclosing
 // element declared as a member; nil in a usage of the object or a bare member
 // of the classifier, where the object's features resolve bare.
