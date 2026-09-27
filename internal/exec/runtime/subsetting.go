@@ -38,14 +38,14 @@ func (ctx *Context) relatedFeatures(sym, owner *symbols.Symbol, kind ast.Relatio
 			if !ctx.inheritsDeclaration(owner, resolved) {
 				continue
 			}
-			if own, declared := ctx.ownDeclarationNamed(owner, sym, qn.Parts[len(qn.Parts)-1].Text, resolved.Name, resolved.ShortName); declared && !ctx.redefinesTransitively(own, sym) {
+			if own, declared := ctx.ownDeclarationNamed(owner, sym, relationshipTargetLastName(rel.Target), resolved.Name, resolved.ShortName); declared && !ctx.redefinesTransitively(own, sym) {
 				features = append(features, own)
 			} else {
 				features = append(features, resolved)
 			}
 			continue
 		}
-		if len(qn.Parts) != 1 {
+		if qn == nil || len(qn.Parts) != 1 {
 			continue
 		}
 		if member, found := ctx.model.semantics.LookupMember(owner, qn.Parts[0].Text); found && member != nil && member != sym {
@@ -107,9 +107,38 @@ func relationshipsOfKind(sym *symbols.Symbol, kind ast.RelationshipKind) []*ast.
 		}
 		if qn := ast.AsQualifiedName(rel.Target); qn != nil && len(qn.Parts) > 0 {
 			rels = append(rels, rel)
+			continue
+		}
+		// A feature-chain target names a feature too: its last segment, which
+		// RelationshipTarget resolves — the semantics layer decides whether it does.
+		if _, ok := rel.Target.(*ast.FeatureChainExpr); ok {
+			rels = append(rels, rel)
 		}
 	}
 	return rels
+}
+
+// relationshipTargetLastName returns the final feature name a relationship
+// target spells: a qualified name's last part, or a feature chain's member's.
+func relationshipTargetLastName(target ast.Node) string {
+	if fr, ok := target.(*ast.FeatureReference); ok {
+		target = fr.Name
+	}
+	for {
+		switch node := target.(type) {
+		case *ast.FeatureReference:
+			target = node.Name
+		case *ast.FeatureChainExpr:
+			target = node.Member
+		case *ast.QualifiedName:
+			if len(node.Parts) == 0 {
+				return ""
+			}
+			return node.Parts[len(node.Parts)-1].Text
+		default:
+			return ""
+		}
+	}
 }
 
 // isFeatureOf reports whether owner carries feature under its name, as its own
@@ -139,15 +168,30 @@ func (ctx *Context) relatedFeatureNames(sym, owner *symbols.Symbol, kind ast.Rel
 // aliasRedefinedFeatureValuesOf makes every name a redefinition chain gives one feature read one
 // feature value (the most specific valued declaration's); two valued names of it is an error.
 // A value carried under one of the names is kept, refined by that declaration.
-func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool) error {
-	features := ctx.FeaturesOf(typ)
+func (ctx *Context) aliasRedefinedFeatureValuesOf(inst *Instance, typ *symbols.Symbol, carried map[string]bool, features []EffectiveFeature) error {
 	byName := make(map[string]*EffectiveFeature, len(features))
 	for i := range features {
 		byName[features[i].Name] = &features[i]
 	}
 
+	// A name whose effective feature a nested chain replaced leads its group:
+	// the chain's declaration is the most specific statement of the feature.
+	var overridden map[string]bool
+	canonical := ctx.FeaturesOf(typ)
+	canonicalByName := make(map[string]*EffectiveFeature, len(canonical))
+	for i := range canonical {
+		canonicalByName[canonical[i].Name] = &canonical[i]
+		feat, ok := byName[canonical[i].Name]
+		if ok && feat.Symbol != nil && feat.Symbol != canonical[i].Symbol {
+			if overridden == nil {
+				overridden = make(map[string]bool)
+			}
+			overridden[canonical[i].Name] = true
+		}
+	}
+
 	for _, names := range ctx.redefinitionGroups(typ) {
-		chosen, err := ctx.sharedRedefinitionName(inst, byName, names)
+		chosen, err := ctx.sharedRedefinitionName(inst, byName, canonicalByName, names, overridden)
 		if err != nil {
 			return err
 		}
@@ -249,21 +293,48 @@ func (ctx *Context) redefinitionAliases(typ *symbols.Symbol, name string) map[st
 // whose own declaration values it — by a value, or by a body valuing the features
 // of the value it inherits — and otherwise the most specific name.
 // Two names valued by one declaration are ErrConflictingRedefinition.
-func (ctx *Context) sharedRedefinitionName(inst *Instance, byName map[string]*EffectiveFeature, names []string) (string, error) {
+func (ctx *Context) sharedRedefinitionName(inst *Instance, byName, canonicalByName map[string]*EffectiveFeature, names []string, overridden map[string]bool) (string, error) {
+	ordered := names
+	if len(overridden) > 0 {
+		ordered = make([]string, 0, 2*len(names))
+		for _, name := range names {
+			if overridden[name] {
+				ordered = append(ordered, name)
+			}
+		}
+		for _, name := range names {
+			if !overridden[name] {
+				ordered = append(ordered, name)
+			}
+		}
+	}
 	valued := ""
 	var valuedBy *symbols.Scope
-	for _, name := range names {
+	for _, name := range ordered {
 		feat, ok := byName[name]
-		if !ok || feat.Symbol == nil || !ctx.declarationValues(feat) {
+		if !ok || feat.Symbol == nil {
 			continue
 		}
-		if valued == "" {
-			valued, valuedBy = name, feat.Symbol.OwnerScope
-			continue
+		// The declaration a chain replaced still counts its value: two names
+		// one body values conflict however specifically each reads.
+		candidates := []*EffectiveFeature{feat}
+		if overridden[name] {
+			if canon := canonicalByName[name]; canon != nil && canon.Symbol != feat.Symbol {
+				candidates = []*EffectiveFeature{canon, feat}
+			}
 		}
-		if feat.Symbol.OwnerScope == valuedBy {
-			return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
-				ErrConflictingRedefinition, inst.Type.Name, valued, name)
+		for _, cand := range candidates {
+			if !ctx.declarationValues(cand) {
+				continue
+			}
+			if valued == "" {
+				valued, valuedBy = name, cand.Symbol.OwnerScope
+				continue
+			}
+			if cand.Symbol.OwnerScope == valuedBy {
+				return "", fmt.Errorf("%w: %s values %s and %s, which redefinition makes one feature",
+					ErrConflictingRedefinition, inst.Type.Name, valued, name)
+			}
 		}
 	}
 	if valued != "" {

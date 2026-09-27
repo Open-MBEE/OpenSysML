@@ -378,7 +378,7 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 
 	// A redefining feature declares the feature it redefines again, so the two
 	// names read one feature value.
-	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil); err != nil {
+	if err := ctx.aliasRedefinedFeatureValuesOf(inst, sym, nil, features); err != nil {
 		return nil, err
 	}
 
