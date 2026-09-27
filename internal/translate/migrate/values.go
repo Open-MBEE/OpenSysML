@@ -198,7 +198,7 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 		return "", false, "opaque expression " + problem + langNote(lang)
 	}
 	visible, _ := m.visibleFrom(scope)
-	body = m.renamedRoots(body, refs, visible)
+	body = m.renamedRoots(body, refs, visible, nil)
 	return body, true, "opaque expression copied verbatim" + langNote(lang)
 }
 
@@ -787,11 +787,43 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 	return ""
 }
 
+// viaRenamedRoot returns the root avoidLibraryRoots renamed whose source name
+// r's first step spells, when nothing nearer answers to it and the rest of r
+// resolves through that root; nil otherwise, leaving the name to the library.
+func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) *sysmlv1.Element {
+	if r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+		return nil
+	}
+	name := r.steps[0].name
+	if !r.global && visible[name] != nil {
+		return nil
+	}
+	if r.global && m.rootMember(name) != nil {
+		return nil
+	}
+	ce := m.clashBySource[name]
+	if ce == nil || !m.written(ce) {
+		return nil
+	}
+	e := ce
+	for _, s := range r.steps[1:] {
+		next, private := m.memberNamed(e, s.name, chainKind(s.chain))
+		if next == nil && private != nil && hidden != nil {
+			next = private
+		}
+		if next == nil {
+			return nil
+		}
+		e = next
+	}
+	return ce
+}
+
 // renamedRoots rewrites, in text, each reference whose first step spells the
 // source name of a root avoidLibraryRoots renamed, to the name it is written
-// as. A nearer element answering to the name keeps the spelling; the library
-// package it collides with does not count — that is what hid the root.
-func (m *migration) renamedRoots(text string, refs []reference, visible map[string]*sysmlv1.Element) string {
+// as. A nearer element answering to the name keeps the spelling, and so does
+// a reference that resolves only through the library package the root hides.
+func (m *migration) renamedRoots(text string, refs []reference, visible, hidden map[string]*sysmlv1.Element) string {
 	type replacement struct {
 		start, end int
 		name       string
@@ -801,15 +833,8 @@ func (m *migration) renamedRoots(text string, refs []reference, visible map[stri
 		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
 			continue
 		}
-		name := r.steps[0].name
-		if !r.global && visible[name] != nil {
-			continue
-		}
-		if r.global && m.rootMember(name) != nil {
-			continue
-		}
-		if e := m.clashBySource[name]; e != nil && m.written(e) {
-			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[e])})
+		if ce := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[ce])})
 		}
 	}
 	sort.Slice(reps, func(i, j int) bool { return reps[i].start > reps[j].start })
@@ -844,7 +869,13 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Ele
 		return nil, nil, r.text(len(r.steps))
 	}
 	var lib string
-	for i, s := range r.steps {
+	start := 0
+	if ce := m.viaRenamedRoot(r, visible, hidden); ce != nil {
+		e = ce
+		start = 1
+	}
+	for i := start; i < len(r.steps); i++ {
+		s := r.steps[i]
 		var next *sysmlv1.Element
 		var private *sysmlv1.Element
 		switch {
@@ -865,11 +896,6 @@ func (m *migration) resolve(r reference, visible, hidden map[string]*sysmlv1.Ele
 		if next == nil && private != nil && hidden != nil {
 			next = private
 			reached = append(reached, private)
-		}
-		if next == nil && i == 0 && !s.chain {
-			if ce := m.clashBySource[s.name]; ce != nil && m.written(ce) {
-				next = ce
-			}
 		}
 		if next == nil && i == 0 && !s.chain && m.libraryPackage(s.name) {
 			lib = s.name

@@ -138,6 +138,38 @@ func TestLibraryRootOpaqueRefRewritten(t *testing.T) {
 	}
 }
 
+// TestLibraryRootLibraryMemberKept covers a verbatim expression reaching a
+// member of the library's own root: the renamed root wins only when the rest
+// of the reference resolves through it, so Views::asTreeDiagram keeps its
+// spelling and the expression is still copied.
+func TestLibraryRootLibraryMemberKept(t *testing.T) {
+	r, err := Migrate("libref.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_views" name="Views"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blk" name="Blk">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_prop" name="rendering">
+        <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_dv">
+          <body>Views::asTreeDiagram</body>
+          <language>SysML</language>
+        </defaultValue>
+      </ownedAttribute>
+    </packagedElement>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	if !strings.Contains(got, "Views::asTreeDiagram") {
+		t.Errorf("library reference not kept verbatim:\n%s", got)
+	}
+	if strings.Contains(got, "ViewsModel::asTreeDiagram") {
+		t.Errorf("library reference rewritten through the renamed root:\n%s", got)
+	}
+	for _, e := range r.Report.Entries {
+		if e.ID == "_prop" && e.Verdict == Unmapped {
+			t.Errorf("property unmapped:\n%s", got)
+		}
+	}
+}
+
 // TestLibraryRootOpaqueRefNearerScope covers the same spelling resolving to a
 // nearer element: a nested package itself named Views keeps the reference's
 // spelling, since nearer names win over the renamed root.
