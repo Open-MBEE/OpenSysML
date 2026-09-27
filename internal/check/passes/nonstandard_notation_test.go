@@ -88,6 +88,20 @@ func TestFeaturedByInKerMLIsSilent(t *testing.T) {
 	wantSilent(t, "a.kerml", "package P { class A; class B; feature x featured by A, B; }")
 }
 
+// The remaining KerML relationship clauses — `disjoint from`, `unions`,
+// `intersects`, `differences`, `chains`, `inverse of` — appear nowhere in
+// SysML.xtext either, so a SysML file carrying one is warned the same way.
+func TestKerMLRelationshipClausesInSysML(t *testing.T) {
+	wantNotation(t, "a.sysml", "package P { part y; part x disjoint from y; }",
+		CodeKerMLNotation, "`disjoint from` is KerML notation: the SysML v2 grammar has no disjoining clause")
+	wantNotation(t, "a.sysml", "package P { part def A; part def X unions A; }",
+		CodeKerMLNotation, "`unions` is KerML notation: the SysML v2 grammar has no unioning clause")
+}
+
+func TestKerMLRelationshipClausesInKerMLAreSilent(t *testing.T) {
+	wantSilent(t, "a.kerml", "package P { class A; class X disjoint from A unions A; feature x chains a.b; }")
+}
+
 // The state notation with no production of its own is reported, one warning per
 // construct.
 func TestStateExtensionsAreReported(t *testing.T) {
