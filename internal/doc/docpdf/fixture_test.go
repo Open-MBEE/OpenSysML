@@ -403,3 +403,65 @@ func tallFlowDocument(t *testing.T) *docir.Document {
 }
 `, "Tall::Report")
 }
+
+// twentyColumnColumns are the value columns of the twenty-column results
+// table: long camel-case names, as an instance table's slots carry.
+var twentyColumnColumns = []string{
+	"postSegXchgTimeLimit", "tFinal", "tCoarseTiltAlign", "tCoarseTipAlign", "tFineAlignment",
+	"tGuideStarAcquire", "tSegmentPhasing", "tSettling", "tSlewToTarget", "tWavefrontSense",
+	"tOpenLoopCorrect", "tClosedLoopCorrect", "tCalibration", "tHandover", "tReadout",
+	"tTransfer", "tVerification", "tReporting", "tAcquisition",
+}
+
+// wideResultsDocument is a report whose one section holds a sized table of
+// rows named like instances over twenty columns: the row name and nineteen
+// integer results, with the name's stated width ahead of narrow value widths.
+func wideResultsDocument(t *testing.T, rows int) *docir.Document {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString(`package Results {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+
+	part def Result {
+`)
+	for _, column := range twentyColumnColumns {
+		fmt.Fprintf(&b, "\t\tattribute %s : Integer;\n", column)
+	}
+	b.WriteString("\t}\n\n\tpart results {\n")
+	for i := 0; i < rows; i++ {
+		fmt.Fprintf(&b, "\t\tpart 'Alignment Scenario %02d' : Result {\n", i+1)
+		for j, column := range twentyColumnColumns {
+			fmt.Fprintf(&b, "\t\t\tattribute redefines %s = %d;\n", column, 1000*(j+1)+i)
+		}
+		b.WriteString("\t\t}\n")
+	}
+	b.WriteString(`	}
+
+	calc def Cells :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "PartUsage"),
+			properties = ("name", "` + strings.Join(twentyColumnColumns, `", "`) + `")
+		)
+	}
+
+	part def Report :> Document {
+		attribute redefines title = "Results Report";
+		part intro : Paragraph {
+			part lead : Span { attribute redefines text = "An opening paragraph."; }
+		}
+		part timing : Section {
+			attribute redefines title = "Timing";
+			part cells : Table {
+				attribute redefines caption = "Alignment timing results";
+				attribute redefines columnWidths = (774, ` + strings.TrimSuffix(strings.Repeat("100, ", len(twentyColumnColumns)), ", ") + `);
+				calc rows : Cells { in root = results; }
+			}
+		}
+	}
+}
+`)
+	return sourceDocument(t, "results.sysml", b.String(), "Results::Report")
+}

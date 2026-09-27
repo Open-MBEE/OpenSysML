@@ -36,12 +36,14 @@ var builtins = map[string]builtin{
 	"DocumentQueries::WhereType":       {OperationWhereType},
 	"DocumentQueries::WhereMetadata":   {OperationWhereMetadata},
 	"DocumentQueries::WhereName":       {OperationWhereName},
+	"DocumentQueries::WhereText":       {OperationWhereText},
 	"DocumentQueries::WhereFeature":    {OperationWhereFeature},
 	"DocumentQueries::OrderBy":         {OperationOrderBy},
 	"DocumentQueries::Project":         {OperationProject},
 	"DocumentQueries::WhereRelated":    {OperationWhereRelated},
 	"DocumentQueries::Except":          {OperationExcept},
 	"DocumentQueries::Union":           {OperationUnion},
+	"DocumentQueries::Tree":            {OperationTree},
 }
 
 // typedExpression pairs a compiled expression with what planning knows of its

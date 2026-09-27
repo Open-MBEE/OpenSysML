@@ -59,17 +59,21 @@ tr {
   page-break-inside: avoid;
 }
 
+/* A cell wraps at word boundaries and breaks only a token that fits no line on its own. */
 th, td {
   border: 0.5pt solid #666666;
   padding: 0.3em 0.6em;
   text-align: left;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 th {
   background: #eeeeee;
   overflow-wrap: normal;
 }
+
+/* The header repeats on every page a table continues onto. */
+thead { display: table-header-group; }
 
 /* A caption and the paragraph leading into a table stay with what follows. */
 p:has(.caption) { break-after: avoid; page-break-after: avoid; }
@@ -78,7 +82,13 @@ p:has(+ table) { break-after: avoid; page-break-after: avoid; }
 /* A table of seven or more columns goes on a landscape page in smaller type with
    the heading, caption and group key ahead of it; :has() nests since cssselect2 misreads "+ p + table". */
 @page wide { size: A4 landscape; }
-table:has(thead > tr > th:nth-child(7)) { page: wide; font-size: 9pt; }
+table:has(thead > tr > th:nth-child(7)) { page: wide; font-size: 9pt; table-layout: fixed; }
+
+/* A wide table's first column, naming each row, keeps a readable width however
+   many columns follow; eleven or more step the type down once more before the
+   backend splits the column set into continuation tables. */
+table:has(thead > tr > th:nth-child(7)) thead > tr > th:first-child { width: 22%; }
+table:has(thead > tr > th:nth-child(11)) { font-size: 8pt; }
 p:has(+ table:has(thead > tr > th:nth-child(7))),
 p:has(.caption):has(+ p:has(+ table:has(thead > tr > th:nth-child(7)))),
 :is(h1, h2, h3, h4, h5, h6):has(+ table:has(thead > tr > th:nth-child(7))),
