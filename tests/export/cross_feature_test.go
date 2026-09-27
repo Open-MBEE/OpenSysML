@@ -89,7 +89,7 @@ func TestCrossFeaturesComeBackFromTheGraphAlone(t *testing.T) {
 	kerml := `package Crossing {
     class A;
     class B;
-    class Sub1 subsets A;
+    class Sub1 specializes A;
     assoc C {
         end [0..*] feature x : A;
         end [0..1] feature cart : A[1];
