@@ -444,6 +444,158 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	}
 }
 
+// portDeferringMachine is a unit whose state machine defers, while Waiting, a
+// command that a connector delivers to its inbox port and a ping its trigger
+// takes at the side port only, and leaves Waiting on the command only once
+// armed; a console issues the command over the connector.
+const portDeferringMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmd" name="Cmd"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_arm" name="Arm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdEv" signal="_cmd"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_armEv" signal="_arm"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_unit" name="Unit" classifierBehavior="_duty">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_inbox" name="inbox" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_side" name="side" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_armed" name="armed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_armed0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_got" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_got0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_duty" name="Duty">
+        <region xmi:type="uml:Region" xmi:id="_dr0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_dinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_uwait" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dCmd" event="_cmdEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dPing" event="_pingEv" port="_side"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_uwork" name="Working">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_workEntry">
+              <language>JavaScript</language>
+              <body>got = got + 1;</body>
+            </entry>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_td0" source="_dinit" target="_uwait"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tArm" source="_uwait" target="_uwait">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trArm" event="_armEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_armEff">
+              <language>JavaScript</language>
+              <body>armed = true;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tArmed" source="_uwait" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv"/>
+            <guard xmi:type="uml:Constraint" xmi:id="_gArmed">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gArmedX"><body>armed</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAgain" source="_uwork" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAgain" event="_cmdEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPinged" source="_uwork" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPinged" event="_pingEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_console" name="Console">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_out" name="out" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_issue" name="Issue">
+        <node xmi:type="uml:InitialNode" xmi:id="_isInit"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_isSend" name="send cmd" signal="_cmd" onPort="_out"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_isFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_isE1" source="_isInit" target="_isSend"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_isE2" source="_isSend" target="_isFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_siteC" name="console" type="_console" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_siteU" name="unit" type="_unit" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_siteLink">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_siteLink1" role="_out" partWithPort="_siteC"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_siteLink2" role="_inbox" partWithPort="_siteU"/>
+      </ownedConnector>
+    </packagedElement>`
+
+const portDeferringApplications = `
+  <sysml:Block xmi:id="_pb1" base_Class="_unit"/>
+  <sysml:Block xmi:id="_pb2" base_Class="_console"/>
+  <sysml:Block xmi:id="_pb3" base_Class="_site"/>`
+
+// Under -strict, a deferred signal is kept by whichever route it reaches the
+// object: from the object itself and via each port a connector delivers it to,
+// or via the ports the deferrable trigger names alone. A transition out of the
+// state accepting the same signal under a guard does not stop the deferral:
+// the signal is kept while the guard is false and taken by the transition once
+// it holds. The result runs: a command sent over the connector while unarmed
+// is kept at the inbox port, and replayed once Waiting exits it takes the
+// transition that its guard now lets fire.
+func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
+	r := migrateDocumentOptions(t, portDeferringMachine, portDeferringApplications, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Cmd;")
+	wantNoLine(t, r.Notation, "defer Ping;")
+	for _, line := range []string{
+		"state Waiting {",
+		"item deferredCmd : Cmd[*] ordered;",
+		"item deferredPing : Ping[*] ordered;",
+		"do action buffer {",
+		"first start then split;",
+		"fork split;",
+		"then receiveCmd;",
+		"then 'receiveCmd via inbox';",
+		"then 'receivePing via side';",
+		"action receiveCmd accept keptCmd : Cmd;",
+		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
+		"then receiveCmd;",
+		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via inbox;",
+		"then action 'keepCmd via inbox' { assign deferredCmd := SequenceFunctions::including(deferredCmd, 'receiveCmd via inbox'.'keptCmd via inbox'); }",
+		"then 'receiveCmd via inbox';",
+		"action 'receivePing via side' accept 'keptPing via side' : Ping via side;",
+		"then action 'keepPing via side' { assign deferredPing := SequenceFunctions::including(deferredPing, 'receivePing via side'.'keptPing via side'); }",
+		"then 'receivePing via side';",
+		"exit action flush {",
+		"for keptCmd in deferredCmd { send keptCmd to self; }",
+		"then action clearCmd { assign deferredCmd := (); }",
+		"then for keptPing in deferredPing { send keptPing to self; }",
+		"then action clearPing { assign deferredPing := (); }",
+		"transition first Waiting accept Cmd if this.armed then Working;",
+		"transition first Waiting accept Cmd via inbox if this.armed then Working;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action receivePing accept keptPing : Ping;")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "kept in the item deferredCmd by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the signal arrives at the port inbox over the document's connectors or declarations")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the transition (_tArmed) out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds")
+	wantNote(t, r, "_dPing", migrate.Approximated, "the trigger accepts via the port side it names")
+	wantClean(t, "portDeferring", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Site")
+	meta(t, s, "%action Console::Issue #1.console")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredCmd = [Instance") {
+		t.Fatalf("the Cmd sent over the connector while unarmed was not kept at the inbox:\n%s", out)
+	}
+	if out := meta(t, s, "%send Arm to #1.unit"); !strings.Contains(out, "transition Waiting -> Waiting fires on it") {
+		t.Errorf("%%send Arm while Waiting: %s", out)
+	}
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+		t.Errorf("the kept Cmd, replayed once armed, did not take the guarded transition:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 1") {
+		t.Errorf("Working was not entered once by the replayed Cmd: %s", out)
+	}
+}
+
 // pipelineActivity is a package-owned activity taking a parameter, which it
 // hands to a called activity's parameter through object flows; the called
 // activity doubles it through a function behavior, returns it, and the

@@ -999,8 +999,23 @@ func (m *migration) invariant(inv *sysmlv1.Element) {
 // deferral is a deferrable trigger a state keeps, with the members a strict
 // migration encodes it through: its buffer item and its accept loop.
 type deferral struct {
-	trigger, event, sig                   *sysmlv1.Element
-	buffer, receive, keep, payload, clear string
+	trigger, event, sig *sysmlv1.Element
+	// loops accept the signal by every route it reaches the object through;
+	// item is the flush loop's variable.
+	loops               []*deferralLoop
+	buffer, item, clear string
+	// guarded is a transition out of the state whose guard alone decides
+	// whether it, rather than the deferral, takes the signal.
+	guarded *sysmlv1.Element
+	// info and note say which routes the loops accept by, and which they skip.
+	info, note string
+}
+
+// deferralLoop is one accept loop of a deferral: from the object itself when
+// port is nil, via port otherwise.
+type deferralLoop struct {
+	port                   *sysmlv1.Element
+	receive, keep, payload string
 }
 
 // deferrals is what a state defers and how it is written: `defer Sig;` lines by
@@ -1043,12 +1058,15 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			s.m.add(ev, Unmapped, "", note)
 			continue
 		}
+		k := &deferral{trigger: d, event: ev, sig: sig}
 		if s.m.strict {
-			if t := s.m.acceptsOutOf(v, sig); t != nil {
+			t, guarded := s.m.acceptsOutOf(v, sig)
+			if t != nil && !guarded {
 				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it"
 				s.m.add(d, Approximated, "", note)
 				continue
 			}
+			k.guarded = t
 			if t := s.m.completionOutOf(v); t != nil {
 				note := "the completion transition " + describe(t) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
 				s.m.add(d, Unmapped, "", note)
@@ -1056,7 +1074,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 				continue
 			}
 		}
-		out.kept = append(out.kept, &deferral{trigger: d, event: ev, sig: sig})
+		out.kept = append(out.kept, k)
 	}
 	if len(out.kept) == 0 {
 		return out
@@ -1071,9 +1089,14 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		return out
 	}
+	s.routeDeferrals(v, out)
 	s.nameDeferrals(v, do, exit, out)
 	for _, k := range out.kept {
 		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
+		note = joinNotes(joinNotes(note, k.info), k.note)
+		if k.guarded != nil {
+			note = joinNotes(note, "the transition "+describe(k.guarded)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
+		}
 		s.m.add(k.trigger, Approximated, "", note)
 		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
 	}
@@ -1105,7 +1128,7 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 	if exit != nil {
 		d.exitRun = s.m.nestedBehaviorName(exit, v, outer, "run", d.flush)
 	}
-	if do != nil || len(d.kept) > 1 {
+	if do != nil || d.loopCount() > 1 {
 		d.split = freshIn(inner, "split")
 	}
 	for _, k := range d.kept {
@@ -1113,11 +1136,47 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 		if len(d.kept) > 1 {
 			suffix = identifierSuffix(s.m.nameFor(k.sig))
 		}
-		k.receive = freshIn(inner, "receive"+suffix)
-		k.keep = freshIn(inner, "keep"+suffix)
-		k.payload = freshIn(inner, deferredPayload+suffix)
+		for _, l := range k.loops {
+			via := suffix
+			if l.port != nil {
+				via += " via " + s.m.nameFor(l.port)
+			}
+			l.receive = freshIn(inner, "receive"+via)
+			l.keep = freshIn(inner, "keep"+via)
+			l.payload = freshIn(inner, deferredPayload+via)
+		}
+		k.item = freshIn(outer, deferredPayload+suffix)
 		k.clear = freshIn(outer, "clear"+suffix)
 	}
+}
+
+// routeDeferrals gives each deferral its accept loops, one per route the
+// signal reaches the object by: the ports the trigger names, or else the
+// object itself and every port a connector delivers the signal to, as a
+// transition's trigger would accept it.
+func (s *stateRegion) routeDeferrals(v *sysmlv1.Element, d *deferrals) {
+	for _, k := range d.kept {
+		ports, direct, info, note := s.m.portRoutes(k.trigger, classifierOf(k.trigger), k.sig)
+		if direct {
+			k.loops = append(k.loops, &deferralLoop{})
+		}
+		for _, p := range ports {
+			k.loops = append(k.loops, &deferralLoop{port: p})
+		}
+		if len(ports) > 0 {
+			info = joinNotes(info, "an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts")
+		}
+		k.info, k.note = info, note
+	}
+}
+
+// loopCount is how many accept loops the encoding writes in all.
+func (d *deferrals) loopCount() int {
+	n := 0
+	for _, k := range d.kept {
+		n += len(k.loops)
+	}
+	return n
 }
 
 // nestedBehaviorName names the action a state's behavior becomes in the body
@@ -1145,30 +1204,37 @@ func (m *migration) nestedBehaviorName(b, owner *sysmlv1.Element, used map[strin
 }
 
 // acceptsOutOf returns a transition out of state v, or out of a vertex within
-// it, that a trigger referring to signal sig fires; nil when none does.
-func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) *sysmlv1.Element {
-	var found *sysmlv1.Element
+// it, that a trigger referring to signal sig fires, preferring one no guard
+// conditions; nil when none does. guarded reports that every such transition
+// has a guard other than true, so the signal is deferred while none holds.
+func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Element, guarded bool) {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
 			for _, tr := range t.Owned("trigger") {
 				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.model.Ref(ev, "signal") == sig {
-					found = t
-					return
+					g := m.guardOf(t)
+					if g == nil || trueLiteral(firstOwned(g, "specification")) {
+						found, guarded = t, false
+						return
+					}
+					if found == nil {
+						found, guarded = t, true
+					}
 				}
 			}
 		}
 		for _, r := range e.Owned("region") {
 			for _, sub := range r.Owned("subvertex") {
 				walk(sub)
-				if found != nil {
+				if found != nil && !guarded {
 					return
 				}
 			}
 		}
 	}
 	walk(v)
-	return found
+	return found, guarded
 }
 
 // completionOutOf returns a transition out of state v that no trigger fires,
@@ -1220,10 +1286,12 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 				s.m.w.line("then " + writeName(d.run) + ";")
 			}
 			for _, k := range d.kept {
-				s.m.w.line("then " + k.receive + ";")
+				for _, l := range k.loops {
+					s.m.w.line("then " + writeName(l.receive) + ";")
+				}
 			}
 		} else {
-			s.m.w.line("first start then " + d.kept[0].receive + ";")
+			s.m.w.line("first start then " + writeName(d.kept[0].loops[0].receive) + ";")
 		}
 		if do != nil {
 			if s.m.inlineBehaviorHeaded(doAction, "action "+writeName(d.run), do, v) {
@@ -1232,11 +1300,18 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 		}
 		for _, k := range d.kept {
 			sig := s.m.ref(k.sig, v)
-			s.m.w.line("action " + k.receive + " accept " + k.payload + " : " + sig + ";")
-			s.m.w.line("then action " + k.keep + " { assign " + writeName(k.buffer) + " := SequenceFunctions::including(" + writeName(k.buffer) + ", " + k.receive + "." + k.payload + "); }")
-			s.m.w.line("then " + k.receive + ";")
-			s.m.w.madeUp(k.receive)
-			s.m.w.madeUp(k.keep)
+			for _, l := range k.loops {
+				via := ""
+				if l.port != nil {
+					via = " via " + writeName(s.m.nameFor(l.port))
+				}
+				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
+				s.m.w.line("action " + receive + " accept " + payload + " : " + sig + via + ";")
+				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := SequenceFunctions::including(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
+				s.m.w.line("then " + receive + ";")
+				s.m.w.madeUp(receive)
+				s.m.w.madeUp(keep)
+			}
 		}
 	})
 	s.m.w.madeUp(d.buffer)
@@ -1253,7 +1328,7 @@ func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
 			prefix = "then "
 		}
 		for _, k := range d.kept {
-			s.m.w.line(prefix + "for " + k.payload + " in " + writeName(k.buffer) + " { send " + k.payload + " to self; }")
+			s.m.w.line(prefix + "for " + writeName(k.item) + " in " + writeName(k.buffer) + " { send " + writeName(k.item) + " to self; }")
 			s.m.w.line("then action " + k.clear + " { assign " + writeName(k.buffer) + " := (); }")
 			s.m.w.madeUp(k.clear)
 			prefix = "then "
