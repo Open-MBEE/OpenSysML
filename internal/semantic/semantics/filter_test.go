@@ -246,3 +246,21 @@ func TestCompilingADeclaredFilterMember(t *testing.T) {
 		t.Fatalf("the declared filter should select seatBelt, got %v err=%v", got, err)
 	}
 }
+
+// A chain rooted in an unfeatured feature evaluates through every hop, and the
+// read feature's value evaluates where it is written, so a value computed from
+// its siblings answers too ([KerML, 8.3.4.8.4; 8.3.4.8.5]).
+func TestFilterChainThroughNestedFeatures(t *testing.T) {
+	const src = `
+		attribute root {
+			attribute n = 1;
+			attribute m = n + 1;
+			attribute inner { attribute k = 3; }
+		}
+		part seatBelt;
+	`
+	want(t, "root.inner.k == 3", selects(t, src, "root.inner.k == 3", "seatBelt"), true)
+	want(t, "root.inner.k == 4", selects(t, src, "root.inner.k == 4", "seatBelt"), false)
+	want(t, "(root.inner).k == 3", selects(t, src, "(root.inner).k == 3", "seatBelt"), true)
+	want(t, "root.m == 2", selects(t, src, "root.m == 2", "seatBelt"), true)
+}

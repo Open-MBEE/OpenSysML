@@ -85,6 +85,63 @@ func TestF22FeatureChainMessageNamesLimitation(t *testing.T) {
 	}
 }
 
+// A chain rooted in an unfeatured feature evaluates through any number of
+// hops, parenthesised or not.
+func TestFilterChainThroughNestedFeaturesIsEvaluable(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; }
+	package E {
+		private import ScalarValues::*;
+		attribute root { attribute inner { attribute k : Integer = 3; } }
+		package Q { filter E::root.inner.k > 0; }
+		package R { filter (E::root.inner).k > 0; }
+	}`
+	if diags := only(filterDiags(t, src), "filter-not-evaluable"); len(diags) != 0 {
+		t.Fatalf("`E::root.inner.k > 0` is model-level evaluable, got %v", diags)
+	}
+}
+
+// The read feature's value evaluates where it is written, so a sibling
+// reference in it resolves.
+func TestFilterChainDerivedValueIsEvaluable(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; }
+	package E {
+		private import ScalarValues::*;
+		attribute root { attribute n : Integer = 1; attribute m : Integer = n + 1; }
+		package Q { filter E::root.m > 1; }
+	}`
+	if diags := only(filterDiags(t, src), "filter-not-evaluable"); len(diags) != 0 {
+		t.Fatalf("`E::root.m > 1` is model-level evaluable, got %v", diags)
+	}
+}
+
+// A valued feature before the last hop redirects the chain's evaluation, which
+// is not followed: the condition reports that it is not evaluated.
+func TestFilterChainThroughValuedHopReportsLimitation(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; }
+	package E {
+		private import ScalarValues::*;
+		attribute other { attribute k : Integer = 1; }
+		attribute root { attribute inner = other; }
+		package Q { filter E::root.inner.k > 0; }
+	}`
+	if diags := only(filterDiags(t, src), "filter-not-evaluated"); len(diags) != 1 {
+		t.Fatalf("expected one not-evaluated diagnostic, got %v", diags)
+	}
+}
+
+// A read feature whose value is not a number or boolean reports the same.
+func TestFilterChainNonNumericValueReportsLimitation(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; attribute def String; }
+	package E {
+		private import ScalarValues::*;
+		attribute root { attribute s : String = "x"; }
+		package Q { filter E::root.s == "x"; }
+	}`
+	if diags := only(filterDiags(t, src), "filter-not-evaluated"); len(diags) != 1 {
+		t.Fatalf("expected one not-evaluated diagnostic, got %v", diags)
+	}
+}
+
 func TestF23BehavioralTargetsRemainInvocable(t *testing.T) {
 	const src = `package C {
 		calc def Twice {
