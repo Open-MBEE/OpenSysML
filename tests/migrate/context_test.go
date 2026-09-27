@@ -101,9 +101,9 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
-	meta(t, s, "%action Host::Run #1.h")
+	meta(t, s, "%action Host::run #1.h")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1.h : seen"); !strings.Contains(out, "= 1") {
 		t.Errorf("the hosted activity did not take the signal sent to its host's port: %s", out)
@@ -112,7 +112,7 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	s = session(t, r)
 	meta(t, s, "%instantiate Rig")
 	meta(t, s, "%state Host::Life #1.h")
-	meta(t, s, "%action Sender::Fire #1.s")
+	meta(t, s, "%action Sender::fire #1.s")
 	meta(t, s, "%continue")
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: done2") {
@@ -312,7 +312,7 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Console")
-	meta(t, s, "%action Console::Drive #1")
+	meta(t, s, "%action Console::drive #1")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1 : ran"); !strings.Contains(out, "= 1") {
 		t.Errorf("the placeholder did not pass the token on: %s", out)

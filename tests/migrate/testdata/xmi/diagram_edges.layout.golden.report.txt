@@ -30,7 +30,7 @@ OpaqueBehavior	Behavior::Modes::<Region>::Running::spin	_st_running_do	-> Behavi
 «TestCase» Activity	Requirements::Mass Test	_tc_mass	-> Requirements::'Mass Test'	(the test case's behavior is not migrated; only its verified requirements are)
 Dependency	Structure::<Dependency>	_dep_pairs	(written as 2 relationships, one per client–supplier pair)
 Diagram	Structure::Structure	_diag_bdd	-> Structure::Structure	(a SysML Block Definition Diagram written as a view rendered asTreeDiagram; 1 of 7 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 4 of 4 shown elements positioned, 0 of 3 connectors routed (2 not drawn, 1 no v2 member))
-Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action def Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; 1 of 9 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 3 of 4 shown elements positioned (1 not exposed), 3 of 5 connectors routed (1 not drawn, 1 unnamed))
+Diagram	Structure::Vehicle::Drive::Driving	_diag_act	-> Structure::Vehicle::Drive::Driving	(a SysML Activity Diagram written as a view rendered asInterconnectionDiagram of ActionFlowView; the view exposes action Structure::Vehicle::Drive, whose graph the rendering draws with the 7 shown nodes and edges of it; 1 of 9 shown elements are not written and not exposed; laid out from diagram_edges.layout.xml: 3 of 4 shown elements positioned (1 not exposed), 3 of 5 connectors routed (1 not drawn, 1 unnamed))
 Diagram	Structure::Vehicle::Drive::Driving Sketch	_diag_act_empty	-> Structure::Vehicle::Drive::'Driving Sketch'	(a SysML Activity Diagram written as a view rendered asTextualNotation; the diagram shows nothing; the view exposes nothing)
 
 ## mapped (69)
@@ -74,7 +74,7 @@ Connector	Structure::Vehicle::<Connector>	_conn_shown	-> Structure::Vehicle::'en
 Connector	Structure::Vehicle::<Connector>	_conn_twin	-> Structure::Vehicle::'engine to wheel 2'
 Connector	Structure::Vehicle::<Connector>	_conn_hidden
 «BindingConnector» Connector	Structure::Vehicle::<Connector>	_conn_bind	-> Structure::Vehicle::'mass = limit'
-Activity	Structure::Vehicle::Drive	_act_drive	-> Structure::Vehicle::Drive
+Activity	Structure::Vehicle::Drive	_act_drive	-> Structure::Vehicle::Drive	(written as an action usage of Structure::Vehicle, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Structure::Vehicle::Drive::<ActivityFinalNode>	_final	-> final
 ControlFlow	Structure::Vehicle::Drive::<ControlFlow>	_cf_hidden
 InitialNode	Structure::Vehicle::Drive::<InitialNode>	_init	-> start

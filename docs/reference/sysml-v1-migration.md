@@ -156,7 +156,8 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
+| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named, in the body whose features both ends are: a package's, or a `part def`'s, whose `allocate` reaches its attributes, ports and parts and the actions of its `perform action` (`allocate sampling.measure to probe;`), a nested one by dot notation; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two | mapped |
+| «Allocate» between a definition and a usage, or with an end no `allocate` reaches — a node of an `action def` (`Ctl::Run::measure`), or of a composite `action` usage of a part, which is a constant feature where the part's `allocate` is a variable one | `dependency a to b` (`dependency name from a to b` when named) in the package, an «Allocate» being an `allocation` in the report | approximated — the note says why no `allocate` could be written |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
@@ -196,6 +197,7 @@ returned over the service yet.
 | «Viewpoint» Class | package-level `viewpoint <Name>` usage: `purpose`, `language`, `method` and `presentation` tags in a `doc`; each `stakeholder` tag a `stakeholder x : <Stakeholder>` usage; each `concern` tag and each `concernList` comment a `frame concern { doc /* … */ }`; a stakeholder or concern id that is not in the document is named in the report | mapped / approximated |
 | «Stakeholder» Class | `part def`; the OMG standard library bundled here defines no `Stakeholder` base definition, so nothing is specialized; the `concern` tag stays a comment | approximated |
 | Activity | `action def` (see [Behaviors](#behaviors)); a block's `classifierBehavior` is also performed by a `perform action` usage of the `part def` | mapped |
+| Activity a block owns whose body reads or writes a feature of the block — an attribute, port or part, a «Probability» property, a port a signal arrives at, an operation of a part it calls, or another such activity — where every call of it reaches a usage of the block | an `action` usage of the `part def` carrying the body, named as a usage (`Run` → `run`), so the body runs on the object and reaches its features, which a definition nested in the block cannot; the classifier behavior `perform action run { … }`; a call from another behavior of the block `perform action x ::> run;` (`::> part.run` from a swimlane's part), a reception's method `perform action run ::> 'apply Level' { in value = receive.setLevel.value; }`; the report names the usage (see [Behaviors](#behaviors)) | mapped |
 | Parameter, ActivityParameterNode | `in`/`out`/`inout` parameter of the `action def`; a `return` parameter is `out`; the parameter node's flows bind the parameter | mapped (return: approximated) |
 | InitialNode, ActivityFinalNode, FlowFinalNode | `first start then …`; `action x terminate;`; the token ends where a flow final does | mapped |
 | ForkNode, JoinNode, DecisionNode, MergeNode | `fork`, `join`, `decide`, `merge`; a node several edges leave or reach without a control node gets one written for it | mapped (implicit fork/join: approximated) |
@@ -278,9 +280,10 @@ returned over the service yet.
 | Interaction with no message | comment naming what it records (state invariants under time constraints: a timing trace); DurationConstraint, TimeConstraint, observation on an interaction | **unmapped** — no scenario step performs it |
 | OpaqueBehavior, FunctionBehavior | `calc def` with its parameters when its one body is a v2 expression whose names resolve or a JavaScript expression of the [subset](#the-opaque-language-subset) (`Math.max(a, b)` → `RealFunctions::max(a, b)`) of the type of its one return or output parameter — a behavior with several has no one result and is written as an `action def`; an `action def` whose body is the translated `assign` sequence when the script is statements; otherwise `action def` keeping the body as a comment and the report naming the token refused | mapped / approximated |
 | Member a behavior owns that its body has no place for: a constraint, attribute, nested classifier, operation or nested behavior of an OpaqueBehavior, FunctionBehavior or Interaction, a port of an Activity or StateMachine | comment; a diagram showing it does not expose it | **unmapped** — the reason names the behavior kind and its body |
-| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does | mapped |
+| Operation | `action def <Op>` owned by the owner, with its parameters; the `method` behavior is written as its body (an Activity as the flow, an OpaqueBehavior as expression or comment), its parameters standing for the operation's at the same position, direction and type under the operation's names; a method parameter matching none is declared and reported, since a call binds only the operation's; no method: `abstract action def`; an `action <op> : <Op>;` usage of the owner performs it, as a call on an object does; an operation whose method reads the owner's features, and whose every call reaches a usage of the owner, is the usage `action <op> { … }` alone, carrying the body and the parameters, as an [Activity](#mapping) so read is | mapped |
 | Operation `precondition`, `postcondition`, `bodyCondition` | `assert constraint { <expr> }` in the action def when the expression parses and resolves; otherwise a comment | mapped / approximated |
 | Reception with a `signal` and an Activity `method` | `action def <Sig> { action receive accept sig : Sig; action run : <Method> { in p = sig.p; } first run then receive; }` on the `part def`, plus `perform action sig : <Sig>;`, so every object of the block runs it from creation and accepts the signal again after each: the signal's attributes bind the method's `in` parameters of the same name whose type they conform to and whose multiplicity holds theirs, defaulted and optional parameters stay unbound; a parameter that must hold a value no attribute supplies, or whose type or multiplicity the same-named attribute does not fit, leaves the method unrun, with the reason. Where the signal arrives at ports of the block over the document's connectors or declarations, a `fork` after `start` adds one such loop per port, `accept … : Sig via <port>;` | mapped (a required parameter unsupplied, or an attribute not fitting its parameter: approximated, the signal is only accepted) |
+| Reception whose signal arrives at a port, or whose method is written as a usage of the block | `perform action sig { … }`, the loop on the usage itself, since `via <port>` and the method's usage are features of the block a nested `action def` does not reach | mapped |
 | Reception without a method, or whose method is not an Activity | the same performed `action def`, accepting the signal and accepting again; the method is named in the report | approximated |
 | Reception whose signal is not written | comment | **unmapped** — the reason names the signal |
 | «Unit», «QuantityKind» instance specifications | comment placeholder | **unmapped** — use the `SI`/`ISQ` libraries |
@@ -867,6 +870,31 @@ script is read statement by statement through the [opaque-language subset](#the-
 `i = 1; GS_Found = false;` becomes two `assign` statements, `i += 1` an
 `assign this.tcs.i := this.tcs.i + 1;`, and the body is kept as a comment naming its language
 and the token refused when any statement is outside the subset or names something unwritten.
+
+**Activities of a block.** A v1 activity a block owns is an `action def` nested in the
+`part def`, and a call of it `action call : Def;`, when its body reads nothing of the block: a
+definition nested in a type is not a feature of it, so v2 gives it no access to the block's
+features, and the pilot implementation rejects `accept sig via rx`, `perform action x ::>
+motor.spin` or `p = bias` written in one. An activity whose body does read or write a feature of
+the block — an attribute it assigns, a port a signal arrives at, an operation of a part it calls,
+a `«Probability»` property, or another activity of the block already written so — is written
+instead as an `action` usage of the `part def` carrying the body, `action run { … }` (`perform
+action run { … }` for the classifier behavior, which every object runs from creation), named in
+lower case as a usage is (`Run` → `run`; `Drive` stays when a part `drive` already exists); its body
+runs on the object and reaches its features by their bare names. What names the activity then
+names the usage: a call from another behavior of the block is `perform action x ::> run;` (`::>
+tcs.run` from a swimlane representing the part `tcs`, `::> obj.op` for an operation of the
+object a call's target pin holds), an interaction step `perform action x ::> part.op { in p =
+arg; }`, a simulation configuration `perform action run ::> target.run;`; a call whose target is
+not an object reached from `this` — a parameter, an object the activity creates — or one from a
+state's `entry`, `do` or `exit`, whose `state def` reaches no feature of the block, is one no
+usage of the block can stand for, so such an activity stays an `action def` with `action x :
+Def;` calls. A reception whose
+signal arrives at a port, or whose method is such a usage, is likewise `perform action sig
+{ action receive accept sig : Sig via rx; perform action run ::> apply { in value =
+receive.sig.value; } first run then receive; }`, the payload of a sibling accept reached by dot
+notation. The report notes each: "written as an action usage of `Block`, which a call on an
+object performs, so its body runs on the object and reaches its features".
 
 **Swimlanes.** An `ActivityPartition` that `represents` a property of the activity's context
 block names the object whose features the nodes inside it read and write: a body `i = 1` in

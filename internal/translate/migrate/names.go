@@ -145,6 +145,14 @@ func lowerFirst(s string) string {
 	return string(unicode.ToLower(r)) + s[n:]
 }
 
+func upperFirst(s string) string {
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
+}
+
 // segments returns the v2 qualified-name segments of an element: the names
 // from the top-level declaration down, the root Model not being written. A
 // lone region is its owner's body; one of several is a sub-state of a parallel state.

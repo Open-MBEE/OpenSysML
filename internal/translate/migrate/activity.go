@@ -1830,6 +1830,8 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			usage := strings.TrimPrefix(l.expr, "this.") + "." + writeName(a.m.behaviorUsage(b))
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
+		} else if a.m.asUsage[b] {
+			note = joinNotes(why, a.performUsage(name, b))
 		} else {
 			a.m.w.line(actionKw + name + " : " + a.m.ref(b, a.def) + ";")
 			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
@@ -1935,6 +1937,11 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op]:
+		note = joinNotes(note, a.performUsage(name, op))
+		if t != nil {
+			a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this, so the call performs the usage of the object the caller acts on")
+		}
 	case port != nil && t == nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	case t != nil:

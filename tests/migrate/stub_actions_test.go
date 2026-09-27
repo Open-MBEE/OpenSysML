@@ -44,22 +44,28 @@ const methodStubApplications = `
   <sysml:Block xmi:id="_b2" base_Class="_cam"/>
   <sysml:Allocate xmi:id="_s1" base_Dependency="_alloc"/>`
 
+// mixedEndsNote explains an «Allocate» written as a plain dependency because an
+// end is an action of an action def, which no allocate reaches: an allocate in a
+// package relates package-level features and one in a definition its own.
+const mixedEndsNote = "an allocation written in a package relates features of no definition, and one written in a definition relates its features; the ends are neither, so a plain dependency stands for it"
+
 // A pin-bearing call naming no behavior in an operation's method is declared with
 // its pins as parameters, an untyped pin left untyped and a [0..*] pin kept so, and
-// the «Allocate» Dependency names it under the operation the method is the body of.
+// the «Allocate» Dependency names it under the operation the method is the body of,
+// as a plain dependency: an action of an action def is a feature no allocate reaches.
 func TestStubActionsInMethodsKeepTheirPinsAndAllocation(t *testing.T) {
 	r := migrateDocument(t, methodStubs, methodStubApplications)
 	wantNote(t, r, "_sweep", migrate.Approximated, "a step with no behavior and no duration, which passes the token on; its pins are declared as its parameters, but the action computes nothing, so its output 'frames' holds no value; its «Allocate» to Cam::glass says where it runs, not what it does")
 	wantNote(t, r, "_sweepOut", migrate.Approximated, "it is declared admitting no value: the action calls no behavior, so nothing computes it")
 	wantNote(t, r, "_sweepRate", migrate.Mapped, "")
 	wantNote(t, r, "_sweepMode", migrate.Mapped, "")
-	wantNote(t, r, "_alloc", migrate.Mapped, "")
+	wantNote(t, r, "_alloc", migrate.Approximated, mixedEndsNote)
 	for _, line := range []string{
 		"action sweep {",
 		"in rate : ScalarValues::Real;",
 		"in mode;",
 		"out frames : ScalarValues::Integer[0..*];",
-		"allocate Cam::Scan::sweep to Cam::glass;",
+		"dependency Cam::Scan::sweep to Cam::glass;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -141,7 +147,7 @@ const earlyAllocationApplications = `
 // the sibling that would otherwise take it, so the allocation names the right node.
 func TestNodeNamedAheadOfItsWriterKeepsSiblingsDistinct(t *testing.T) {
 	r := migrateDocument(t, earlyAllocation, earlyAllocationApplications)
-	wantLine(t, r.Notation, "allocate Rig::Run::call to Rig::probe;")
+	wantLine(t, r.Notation, "dependency Rig::Run::call to Rig::probe;")
 	wantLine(t, r.Notation, "first call2 then call;")
 	wantLine(t, r.Notation, "action call2;")
 	wantLine(t, r.Notation, "action call;")
@@ -189,12 +195,12 @@ const mixedAllocationApplications = `
 func TestPlaceholderEndFailsOnlyItsOwnPair(t *testing.T) {
 	r := migrateDocument(t, mixedAllocation, mixedAllocationApplications)
 	wantNote(t, r, "_make", migrate.Unmapped, "no v2 form for a UML CreateObjectAction")
-	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
+	wantNote(t, r, "_alloc", migrate.Approximated, "1 of 2 relationships written; "+mixedEndsNote+"; pair 2 is named wire 2 so the pairs stay distinct; its end Rig::Run::make is written only as a placeholder of a node that is not migrated")
 	if e := entriesFor(r, "_alloc"); len(e) != 1 || e[0].Target != "wire" {
 		t.Errorf("mixed allocation: got %+v, want target wire", e)
 	}
-	wantLine(t, r.Notation, "allocation wire allocate Rig::probe to Rig::Run::scan;")
-	wantLine(t, r.Notation, "allocation 'wire 2' allocate Rig::probe to Rig::Run::make;")
+	wantLine(t, r.Notation, "dependency wire from Rig::probe to Rig::Run::scan;")
+	wantLine(t, r.Notation, "dependency 'wire 2' from Rig::probe to Rig::Run::make;")
 	wantClean(t, "t.sysml", r)
 
 	only := strings.Replace(mixedAllocation, `<supplier xmi:idref="_scan"/>`, "", 1)
@@ -219,7 +225,7 @@ func TestIncompletelySerializedCallsAreRefusedNotStubbed(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantLine(t, r.Notation, "allocate Ctl::Run::lost to Ctl::eye;")
+	wantLine(t, r.Notation, "dependency Ctl::Run::lost to Ctl::eye;")
 	wantNoLine(t, r.Notation, "flow odd.reading")
 	if entries := entriesFor(r, "_of1"); len(entries) != 1 || entries[0].Verdict != migrate.Unmapped {
 		t.Errorf("flow to a missing pin: got %+v, want one unmapped entry", entries)
