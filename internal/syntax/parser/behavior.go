@@ -3012,7 +3012,7 @@ func (p *Parser) parseDeferMember(start int) ast.Node {
 	p.expectSemicolon("deferred events")
 
 	node := &ast.DeferMember{Triggers: triggers}
-	node.NodeSpan = p.spanFrom(start)
+	node.NodeSpan = source.Span{Offset: start, Len: p.lastEnd() - start}
 	return node
 }
 
@@ -3034,7 +3034,7 @@ func (p *Parser) parsePseudostate(start int, keyword string, kind ast.Pseudostat
 		Name:    seg.Text,
 		Keyword: keyword,
 	}
-	ps.NodeSpan = p.spanFrom(start)
+	ps.NodeSpan = source.Span{Offset: start, Len: p.lastEnd() - start}
 	return ps
 }
 

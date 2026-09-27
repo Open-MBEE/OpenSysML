@@ -130,7 +130,7 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 		state a {
 			defer Ping, setSpeed(v);
 		}
-		choice pick;
+		choice pick; // the pick point
 		junction j;
 		state comp {
 			entry; then inner;
@@ -158,7 +158,7 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 	// The rewrite ends at the member's `;`: the next member keeps its line
 	// and indentation rather than being swallowed into the replacement.
 	for _, want := range []string{
-		"#choice state pick;\n\t\t#junction state j;",
+		"#choice state pick; // the pick point\n\t\t#junction state j;",
 		"#junction state j;\n\t\tstate comp {",
 		"#deferred ref : setSpeed;\n\t\t}",
 		"#shallowHistory state sh;\n\t\t#deepHistory state dh;\n\t}",
