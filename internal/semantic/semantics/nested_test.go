@@ -259,3 +259,26 @@ func TestReflectiveNestedUsagesOfMemberForms(t *testing.T) {
 		t.Errorf("nestedTransition on machine = %v, %v, want [t]", fqns(elems), ok)
 	}
 }
+
+// A `render rendering child;` declares a composite rendering, so it follows
+// the rendering rules — `subrenderings` under a rendering, the part rules
+// under a view — while `render r;` only references a rendering and subsets
+// nothing.
+func TestImplicitSubsettingsRenderRendering(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		rendering def AsTree;
+		view v {
+			render asTree;
+			render rendering child : AsTree;
+		}
+	}`)
+
+	got := m.ImplicitSubsettings(nestedSym(t, root, "P::v::child"))
+	if len(got) != 1 || symbols.FQNOf(got[0]) != "Items::Item::subparts" {
+		t.Errorf("ImplicitSubsettings(child) = %v, want [Items::Item::subparts]", fqns(got))
+	}
+	if got := m.ImplicitSubsettings(nestedSym(t, root, "P::v::asTree")); len(got) != 0 {
+		t.Errorf("ImplicitSubsettings(asTree) = %v, want none for a render reference", fqns(got))
+	}
+}
+

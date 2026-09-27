@@ -85,7 +85,7 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 			return "Items::Item::subitems"
 		}
 		return m.occurrenceNestedFQN(owner, composite, portion, false)
-	case ast.UsageRendering:
+	case ast.UsageRendering, ast.UsageViewRendering:
 		if composite && ownerInRenderingFamily(owner) {
 			return "Views::Rendering::subrenderings"
 		}
