@@ -896,7 +896,7 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
-	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers.kept) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
+	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers.kept) == 0 && len(defers.lines) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
 		s.m.w.line(head + ";")
 		s.m.statePoints(v)
 		return
@@ -1004,9 +1004,10 @@ type deferral struct {
 	// item is the flush loop's variable.
 	loops               []*deferralLoop
 	buffer, item, clear string
-	// guarded is a transition out of the state whose guard alone decides
-	// whether it, rather than the deferral, takes the signal.
-	guarded *sysmlv1.Element
+	// contested is a transition out of the state, or out of a substate, that
+	// takes the signal from the deferral only while its guard holds or its
+	// substate is active.
+	contested *sysmlv1.Element
 	// info and note say which routes the loops accept by, and which they skip.
 	info, note string
 }
@@ -1060,15 +1061,16 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		k := &deferral{trigger: d, event: ev, sig: sig}
 		if s.m.strict {
-			t, guarded := s.m.acceptsOutOf(v, sig)
-			if t != nil && !guarded {
+			t, always := s.m.acceptsOutOf(v, sig)
+			if always {
 				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it"
 				s.m.add(d, Approximated, "", note)
 				continue
 			}
-			k.guarded = t
+			k.contested = t
 			if t := s.m.completionOutOf(v); t != nil {
 				note := "the completion transition " + describe(t) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
+				out.lines = append(out.lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
 				s.m.add(d, Unmapped, "", note)
 				s.m.add(ev, Unmapped, "", note)
 				continue
@@ -1094,8 +1096,12 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	for _, k := range out.kept {
 		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
 		note = joinNotes(joinNotes(note, k.info), k.note)
-		if k.guarded != nil {
-			note = joinNotes(note, "the transition "+describe(k.guarded)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
+		if t := k.contested; t != nil {
+			if s.m.model.Ref(t, "source") != v {
+				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
+			} else {
+				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
+			}
 		}
 		s.m.add(k.trigger, Approximated, "", note)
 		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
@@ -1204,22 +1210,24 @@ func (m *migration) nestedBehaviorName(b, owner *sysmlv1.Element, used map[strin
 }
 
 // acceptsOutOf returns a transition out of state v, or out of a vertex within
-// it, that a trigger referring to signal sig fires, preferring one no guard
-// conditions; nil when none does. guarded reports that every such transition
-// has a guard other than true, so the signal is deferred while none holds.
-func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Element, guarded bool) {
+// it, that a trigger referring to signal sig fires, preferring one that always
+// takes the signal from the deferral: out of v itself, under no guard or a true
+// one. always reports that; otherwise the returned transition takes the signal
+// only while its guard holds or while the vertex it leaves is active, so the
+// state keeps the signal the rest of the time. nil when no transition accepts.
+func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Element, always bool) {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
 			for _, tr := range t.Owned("trigger") {
 				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.model.Ref(ev, "signal") == sig {
 					g := m.guardOf(t)
-					if g == nil || trueLiteral(firstOwned(g, "specification")) {
-						found, guarded = t, false
+					if e == v && (g == nil || trueLiteral(firstOwned(g, "specification"))) {
+						found, always = t, true
 						return
 					}
 					if found == nil {
-						found, guarded = t, true
+						found = t
 					}
 				}
 			}
@@ -1227,14 +1235,11 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Elemen
 		for _, r := range e.Owned("region") {
 			for _, sub := range r.Owned("subvertex") {
 				walk(sub)
-				if found != nil && !guarded {
-					return
-				}
 			}
 		}
 	}
 	walk(v)
-	return found, guarded
+	return found, always
 }
 
 // completionOutOf returns a transition out of state v that no trigger fires,

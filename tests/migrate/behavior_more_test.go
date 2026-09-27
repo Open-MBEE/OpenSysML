@@ -345,10 +345,12 @@ const deferringApplications = `
 // visit to Waiting replays only what that visit kept.
 func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	r := migrateDocumentOptions(t, deferringMachine, deferringApplications, migrate.Options{Strict: true})
-	wantNoLine(t, r.Notation, "defer Alarm;")
-	wantNoLine(t, r.Notation, "defer Beep;")
-	wantNoLine(t, r.Notation, "defer Go;")
+	for _, stmt := range []string{"defer Alarm;", "defer Beep;", "defer Go;"} {
+		wantNoStatement(t, r.Notation, stmt)
+	}
 	for _, line := range []string{
+		"state Prep {",
+		"/* not migrated: defer Alarm; — the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped */",
 		"state Waiting {",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Beep; }",
@@ -593,6 +595,89 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 	}
 	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 1") {
 		t.Errorf("Working was not entered once by the replayed Cmd: %s", out)
+	}
+}
+
+// Under -strict, a transition accepting the signal out of a substate does not
+// stop the composite state deferring it: v1 lets the transition win only while
+// that substate is active, so the composite keeps the signal the rest of the
+// time. The result runs: a Door sent while the sibling without the transition
+// is active is kept, and replayed once the composite exits.
+func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+            <region xmi:type="uml:Region" xmi:id="_rb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_binit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_heat" name="Heating"/>
+              <subvertex xmi:type="uml:State" xmi:id="_cool" name="Cooling"/>
+              <subvertex xmi:type="uml:State" xmi:id="_open" name="Opened"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tb0" source="_binit" target="_heat"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_heat" target="_cool">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tDoor" source="_heat" target="_open">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trDoor" event="_doorEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"state Busy {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Heating accept Door then Opened;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active")
+	wantClean(t, "deferralInactiveSubstate", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Go")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Cooling"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Cooling") {
+		t.Fatalf("Go did not reach Cooling:\n%s", out)
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Cooling") || !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Errorf("the Door sent while Cooling was not kept by Busy:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Busy exited:\n%s", out)
 	}
 }
 
