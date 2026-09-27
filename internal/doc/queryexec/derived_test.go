@@ -449,11 +449,80 @@ calc def Things :> Query {
 	if got := integerTexts(t, result, 1); !slices.Equal(got, []int64{2}) {
 		t.Errorf("engines = %v, want 2", got)
 	}
-	// A literal of a scalar-valued enumeration is the literal in a cell, as a plain one is.
+	// A literal of a scalar-valued enumeration is the literal element in a cell, as a plain one is.
 	for column, want := range map[int]string{2: "5 [kg]", 3: "10 [kg]", 4: "Observatory::Thing::engine", 5: "Observatory::Color::red", 6: "SI::kilogram",
 		7: "Observatory::Level::high", 8: "Observatory::Level::high"} {
 		if got := cellTexts(t, result, column); !slices.Equal(got, []string{want}) {
 			t.Errorf("%s = %v, want %q", result.Columns()[column].Name(), got, want)
+		}
+		values := result.Rows()[0].Cells()[column].Values()
+		if _, ok := values[0].Element(); column >= 4 && !ok {
+			t.Errorf("%s is a %v, want the element itself", result.Columns()[column].Name(), values[0].Kind())
+		}
+	}
+}
+
+// TestExecuteRedefinedReferenceValueIsTheElement: a redefinition binding a
+// feature to an element written by qualified name — an individual's slot holding
+// an enumeration literal — puts that element in the cell, not the name as written.
+func TestExecuteRedefinedReferenceValueIsTheElement(t *testing.T) {
+	fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+}
+calc def Entries :> Query {
+	in root : Element;
+	Project(
+		source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+		properties = ("name", "beam")
+	)
+}
+`)
+	result := quantityRows(t, fixture, "Entries", "Bench")
+	if got := cellTexts(t, result, 1); !slices.Equal(got, []string{"Observatory::Bench::Beam::650mm"}) {
+		t.Fatalf("beam = %v", got)
+	}
+	values := result.Rows()[0].Cells()[1].Values()
+	if element, ok := values[0].Element(); !ok || element.Name != "650mm" {
+		t.Errorf("beam is a %v, want the literal 650mm", values[0].Kind())
+	}
+}
+
+// TestExecuteWhereFeatureMatchesElementValuesByName: an element-valued
+// attribute compares as the name its cell prints, and as its qualified name
+// against a qualified value.
+func TestExecuteWhereFeatureMatchesElementValuesByName(t *testing.T) {
+	for _, tc := range []struct {
+		operator, value string
+		want            []string
+	}{
+		{"=", "650mm", []string{"entry001"}},
+		{"=", "700mm", []string{"entry002"}},
+		{"endsWith", "Beam::650mm", []string{"entry001"}},
+		{"=", "Bench::Beam::650mm", nil},
+		{"!=", "650mm", []string{"entry002"}},
+	} {
+		fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+	individual part def entry002 :> Entry { attribute :>> beam = Bench::Beam::'700mm'; }
+}
+calc def Entries :> Query {
+	in root : Element;
+	Project(
+		source = WhereFeature(
+			source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+			feature = "beam", operator = "`+tc.operator+`", value = "`+tc.value+`"),
+		properties = ("name", "beam")
+	)
+}
+`)
+		if got := cellTexts(t, quantityRows(t, fixture, "Entries", "Bench"), 0); !slices.Equal(got, tc.want) {
+			t.Errorf("beam %s %q keeps %v, want %v", tc.operator, tc.value, got, tc.want)
 		}
 	}
 }

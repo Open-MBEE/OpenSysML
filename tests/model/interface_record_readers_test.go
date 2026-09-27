@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -641,5 +642,129 @@ func TestInterfaceRecordMetaclassFilters(t *testing.T) {
 	}
 	if recorded := recordDifferential(t, docs); recorded != len(docs) {
 		t.Fatalf("%d of %d documents recorded", recorded, len(docs))
+	}
+}
+
+// A document query reads a recorded document through facts: the individuals
+// a tree descends, and the sequence a metadata feature defaults to.
+func TestInterfaceRecordDocumentQueriesMatchLoaded(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		recorded, name string
+		content        []byte
+		report         []byte
+		wants          []string
+	}{
+		"individual tree": {
+			recorded: "site.sysml",
+			content: []byte(`package Site {
+	part def Station { part pumps : Pump[*]; }
+	part def Pump;
+	part plant {
+		individual part def Run1 :> Station { individual part :>> pumps : Run1Pump; }
+		individual part def Run1Pump :> Pump { individual part seal : Run1Seal; }
+		individual part def Run1Seal;
+		individual part def Run2Pump :> Pump;
+	}
+}
+`),
+			report: []byte(`package Report {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	calc def Individuals :> Query {
+		in root : Element;
+		Project(
+			source = Tree(source = WhereFeature(
+				source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
+				'feature' = "isIndividual", operator = "=", value = "true")),
+			properties = ("name"))
+	}
+	part def Runs :> Document {
+		attribute redefines title = "Runs";
+		part runs : Table {
+			attribute redefines caption = "Runs";
+			calc rows : Individuals { in root = Site::plant; }
+		}
+	}
+}
+`),
+			name:  "Report::Runs",
+			wants: []string{"Run1Pump", "Run1Seal", "Run2Pump"},
+		},
+		"metadata sequence default": {
+			recorded: "meta.sysml",
+			content: []byte(`package Meta {
+	private import ScalarValues::*;
+	metadata def Tagged { attribute tags : String[0..*] ordered = ("alpha", "beta"); }
+}
+`),
+			report: []byte(`package Report {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import Meta::*;
+	part items { #Tagged part def Marked; }
+	calc def Tags :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
+			properties = ("name"),
+			columns = (Column(name = "Tags", expression = Meta::Tagged::tags ?? "")))
+	}
+	part def Tagging :> Document {
+		attribute redefines title = "Tags";
+		part tags : Table {
+			attribute redefines caption = "Tags";
+			calc rows : Tags { in root = items; }
+		}
+	}
+}
+`),
+			name:  "Report::Tagging",
+			wants: []string{"alpha", "beta"},
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			inputs := []model.Input{
+				{Name: tc.recorded, Content: tc.content, Version: 1},
+				{Name: "report.sysml", Content: tc.report, Version: 1},
+			}
+			loaded := model.NewWorkspace()
+			loaded.OpenAll(inputs)
+			for _, in := range inputs {
+				if diags := loaded.Diagnostics(in.Name); len(diags) != 0 {
+					t.Fatalf("%s loaded: %v", in.Name, diags)
+				}
+			}
+			want, err := loaded.RenderDocumentMarkdown(tc.name, docrender.MarkdownOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, w := range tc.wants {
+				if !strings.Contains(want, w) {
+					t.Fatalf("loaded render lacks %q:\n%s", w, want)
+				}
+			}
+			rec, err := loaded.InterfaceRecord(tc.recorded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := model.NewWorkspace()
+			ws.OpenAll(inputs[1:])
+			if err := ws.OpenRecorded(rec, tc.content); err != nil {
+				t.Fatal(err)
+			}
+			if diags := ws.Diagnostics("report.sysml"); len(diags) != 0 {
+				t.Fatalf("report.sysml over the recorded %s: %v", tc.recorded, diags)
+			}
+			got, err := ws.RenderDocumentMarkdown(tc.name, docrender.MarkdownOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != want {
+				t.Fatalf("render over the recorded %s differs from loaded:\n%s\n--- loaded ---\n%s", tc.recorded, got, want)
+			}
+		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -18,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 8
+const interfaceFormatVersion = 9
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -121,11 +122,14 @@ func (w *interfaceWriter) checkAnnotation(sym *symbols.Symbol, a symbols.Annotat
 		w.fail(sym, fmt.Sprintf("metadata type %s of an annotation", a.TypeFQN))
 	}
 	for _, v := range a.Values {
-		if v.Value.Quantity != nil {
+		if v.Value.Quantity != nil || slices.ContainsFunc(v.Values, isQuantity) {
 			w.fail(sym, "quantity-valued annotation")
 		}
 	}
 }
+
+// isQuantity reports a value only the runtime evaluates, which no record carries.
+func isQuantity(v symbols.FilterValue) bool { return v.Quantity != nil }
 
 // ref is the reference a fact restores sym by, failing when none reaches it.
 func (w *interfaceWriter) ref(of *symbols.Symbol, sym *symbols.Symbol, what string) symbols.ElementRef {
@@ -190,11 +194,11 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			}
 		}
 	}
-	if value, ok := m.MetadataDefaultOf(sym); ok {
-		if value.Quantity != nil {
+	if values, ok := m.MetadataDefaultOf(sym); ok {
+		if slices.ContainsFunc(values, isQuantity) {
 			w.fail(sym, "quantity-valued metadata default")
 		}
-		facts.Default = &value
+		facts.Default = values
 	}
 	facts.Direction, facts.Modifiers = declaredTraits(sym.Decl)
 	facts.Modifiers |= w.r.DeclarationTraits(sym)

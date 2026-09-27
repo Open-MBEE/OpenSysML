@@ -98,9 +98,10 @@ type LibraryFacts struct {
 	// BaseType is the fully-qualified name of the type a metadata definition's
 	// own body binds `baseType` to, "" for none (see ModBindsBaseType).
 	BaseType ElementRef
-	// Default is the value a feature of a metadata definition declares, which
-	// an annotation of the type that leaves the feature unbound takes.
-	Default *FilterValue
+	// Default is the values a feature of a metadata definition declares, one
+	// per element of a sequence expression, which an annotation of the type that
+	// leaves the feature unbound takes; nil for none.
+	Default []FilterValue
 }
 
 // NodeKind classifies the declaring node of a recorded symbol.
@@ -194,10 +195,7 @@ func (f LibraryFacts) Clone() LibraryFacts {
 		m := *f.Multiplicity
 		f.Multiplicity = &m
 	}
-	if f.Default != nil {
-		v := *f.Default
-		f.Default = &v
-	}
+	f.Default = slices.Clone(f.Default)
 	if f.Relationship != nil {
 		r := *f.Relationship
 		f.Relationship = &r
