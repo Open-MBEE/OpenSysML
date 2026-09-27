@@ -158,9 +158,11 @@ package Results {
             source = DocumentQueries::OrderBy(
                 source = DocumentQueries::WhereFeature(
                     source = DocumentQueries::WhereType(
-                        source = DocumentQueries::Descendants(
-                            source = DocumentQueries::Named(qualifiedName = ("Results"))),
-                        type = ("Timer Analysis")),
+                        source = DocumentQueries::WhereType(
+                            source = DocumentQueries::Descendants(
+                                source = DocumentQueries::Named(qualifiedName = ("Results"))),
+                            type = ("Timer Analysis")),
+                        type = ("Definition")),
                     'feature' = "isIndividual",
                     operator = "=",
                     value = "true"),

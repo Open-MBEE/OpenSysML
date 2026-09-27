@@ -589,7 +589,7 @@ func imageBaseURLMisuse(from convert.Format) error {
 // options; none were given when the flag was not passed.
 func migrationOptions() (migrate.Options, error) {
 	if layoutPath == "" {
-		return migrate.Options{ImageBaseURL: imageBaseURL}, nil
+		return migrate.Options{ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
 	}
 	data, err := os.ReadFile(layoutPath)
 	if err != nil {
@@ -599,7 +599,7 @@ func migrationOptions() (migrate.Options, error) {
 	if err != nil {
 		return migrate.Options{}, fmt.Errorf("%s: %w", layoutPath, err)
 	}
-	return migrate.Options{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL}, nil
+	return migrate.Options{Layout: layout, LayoutSource: layoutPath, ImageBaseURL: imageBaseURL, Strict: strictMode}, nil
 }
 
 // layoutMisuse reports why -layout augments nothing: a v2 input has no

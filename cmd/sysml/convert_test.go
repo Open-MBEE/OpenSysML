@@ -748,3 +748,19 @@ func TestConvertImageFailureKeepsModel(t *testing.T) {
 		t.Errorf("staged files were left behind in %s: %v", outDir, entries)
 	}
 }
+
+// TestStrictConvertWritesNoExtensionNotation runs a strict migration through
+// the command line: no OpenSysML extension statement is written.
+func TestStrictConvertWritesNoExtensionNotation(t *testing.T) {
+	binary := buildCLI(t)
+	xmi := filepath.Join("..", "..", "tests", "migrate", "testdata", "xmi", "plant_states.xmi")
+	out := run(t, binary, xmi, "-strict", "-convert", "sysml", "-from", "xmi")
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		for _, kw := range []string{"defer ", "choice ", "junction ", "history ", "deep history "} {
+			if strings.HasPrefix(trimmed, kw) {
+				t.Fatalf("strict conversion wrote an extension statement %q:\n%s", trimmed, out)
+			}
+		}
+	}
+}

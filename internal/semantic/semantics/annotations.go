@@ -29,10 +29,11 @@ import (
 // annotating it and the values its body binds that type's features to.
 type annotation struct {
 	typ *symbols.Symbol
-	// bound is what the body binds; defaults is typ's declared values, one map
-	// shared by every annotation of typ, read for what the body leaves unbound.
-	bound    map[string]symbols.FilterValue
-	defaults map[string]symbols.FilterValue
+	// bound is what the body binds, each feature to the sequence of values its
+	// expression lists; defaults is typ's declared values, one map shared by
+	// every annotation of typ, read for what the body leaves unbound.
+	bound    map[string][]symbols.FilterValue
+	defaults map[string][]symbols.FilterValue
 	// node states the annotation: the prefix-metadata node or metadata usage.
 	node ast.Node
 	// scope is where the annotating node is declared.
@@ -82,11 +83,7 @@ func (m *Model) AnnotationFactsOf(sym *symbols.Symbol) []symbols.AnnotationFacts
 		}
 		facts := symbols.AnnotationFacts{TypeFQN: typFQN}
 		for _, feature := range a.featureNames() {
-			value, _ := a.value(feature)
-			facts.Values = append(facts.Values, symbols.AnnotationValueFacts{
-				Feature: feature,
-				Value:   value,
-			})
+			facts.Values = append(facts.Values, a.valueFacts(feature))
 		}
 		out = append(out, facts)
 	}
@@ -121,11 +118,7 @@ func (m *Model) AnnotationSitesOf(sym *symbols.Symbol) []AnnotationSite {
 		}
 		site := AnnotationSite{TypeFQN: typFQN, Node: a.node, Scope: a.scope, About: a.about}
 		for _, feature := range a.featureNames() {
-			value, _ := a.value(feature)
-			site.Values = append(site.Values, symbols.AnnotationValueFacts{
-				Feature: feature,
-				Value:   value,
-			})
+			site.Values = append(site.Values, a.valueFacts(feature))
 		}
 		out = append(out, site)
 	}
@@ -245,13 +238,35 @@ func metadataBindings(scope *symbols.Scope, body []ast.Node) []MetadataBinding {
 	return out
 }
 
-// value is what the annotation binds feature to: by its body, else by its type's default.
-func (a annotation) value(feature string) (symbols.FilterValue, bool) {
+// values is what the annotation binds feature to: by its body, else by its
+// type's default; a sequence expression binds each of its elements.
+func (a annotation) values(feature string) ([]symbols.FilterValue, bool) {
 	if v, ok := a.bound[feature]; ok {
 		return v, true
 	}
 	v, ok := a.defaults[feature]
 	return v, ok
+}
+
+// value is the one constant the annotation binds feature to; a sequence of
+// several is not one constant and reads as unknown.
+func (a annotation) value(feature string) (symbols.FilterValue, bool) {
+	values, ok := a.values(feature)
+	if !ok {
+		return symbols.FilterValue{}, false
+	}
+	if len(values) != 1 {
+		return symbols.FilterValue{}, true
+	}
+	return values[0], true
+}
+
+// valueFacts states what the annotation binds feature to, as one constant and
+// as the sequence.
+func (a annotation) valueFacts(feature string) symbols.AnnotationValueFacts {
+	value, _ := a.value(feature)
+	values, _ := a.values(feature)
+	return symbols.AnnotationValueFacts{Feature: feature, Value: value, Values: append([]symbols.FilterValue(nil), values...)}
 }
 
 // featureNames orders the annotation's valued features by name, so that what
@@ -375,7 +390,7 @@ func (m *Model) annotationOfType(typ *symbols.Symbol, scope *symbols.Scope, body
 // typeDefaults is the value a metadata type declares for each of its features,
 // memoized per type: an annotation inherits its type's values, and a workspace
 // may annotate thousands of elements with one type.
-func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue {
+func (m *Model) typeDefaults(typ *symbols.Symbol) map[string][]symbols.FilterValue {
 	if typ == nil {
 		return nil
 	}
@@ -385,7 +400,7 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 	}
 	journal(m, m.metadataDefaults, typ, typ.Decl)
 	m.metadataDefaults[typ] = nil
-	var values map[string]symbols.FilterValue
+	var values map[string][]symbols.FilterValue
 	for _, member := range m.MembersOf(typ) {
 		usage, ok := member.Decl.(*ast.Usage)
 		if !ok || usage.Value == nil {
@@ -399,9 +414,9 @@ func (m *Model) typeDefaults(typ *symbols.Symbol) map[string]symbols.FilterValue
 			continue
 		}
 		if values == nil {
-			values = make(map[string]symbols.FilterValue)
+			values = make(map[string][]symbols.FilterValue)
 		}
-		values[name] = m.annotationValue(member.OwnerScope, usage.Value)
+		values[name] = m.annotationSequence(member.OwnerScope, usage.Value)
 	}
 	m.metadataDefaults[typ] = values
 	return values
@@ -545,8 +560,8 @@ func annotatesOthers(u *ast.Usage) bool { return symbols.UsageAnnotatesOthers(u)
 // `@Safety{isMandatory = true;}`. A binding whose value is not a constant or an
 // element reference is recorded with an unknown value, which a condition reading
 // it reports as unevaluable rather than treating as absent.
-func (m *Model) annotationValues(scope *symbols.Scope, body []ast.Node) map[string]symbols.FilterValue {
-	var values map[string]symbols.FilterValue
+func (m *Model) annotationValues(scope *symbols.Scope, body []ast.Node) map[string][]symbols.FilterValue {
+	var values map[string][]symbols.FilterValue
 	for _, member := range body {
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
@@ -560,11 +575,24 @@ func (m *Model) annotationValues(scope *symbols.Scope, body []ast.Node) map[stri
 			continue
 		}
 		if values == nil {
-			values = make(map[string]symbols.FilterValue)
+			values = make(map[string][]symbols.FilterValue)
 		}
-		values[name] = m.annotationValue(scope, usage.Value)
+		values[name] = m.annotationSequence(scope, usage.Value)
 	}
 	return values
+}
+
+// annotationSequence evaluates the values an annotation binds a feature to: one
+// per element of a sequence expression, else the one value the expression has.
+func (m *Model) annotationSequence(scope *symbols.Scope, value ast.Node) []symbols.FilterValue {
+	if seq, ok := value.(*ast.SequenceExpr); ok {
+		out := make([]symbols.FilterValue, 0, len(seq.Elements))
+		for _, element := range seq.Elements {
+			out = append(out, m.annotationValue(scope, element))
+		}
+		return out
+	}
+	return []symbols.FilterValue{m.annotationValue(scope, value)}
 }
 
 // boundFeatureName is the annotation feature a body member binds: the name it
@@ -949,6 +977,18 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 		return kermlMetaclassNames["feature"]
 	}
 	return ""
+}
+
+// Metaclass is the library element declaring the SysML or KerML metaclass of
+// the simple name, or nil where the loaded libraries declare none.
+func (m *Model) Metaclass(name string) *symbols.Symbol {
+	if m == nil || name == "" {
+		return nil
+	}
+	if meta := m.symbolByFQN(sysmlMetaclassPrefix + name); meta != nil {
+		return meta
+	}
+	return m.kermlMetaclass(name)
 }
 
 // MetaclassOf is the reflective metaclass classifying sym's declaration — the

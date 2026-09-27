@@ -59,6 +59,11 @@ type Options struct {
 	// ImageBaseURL resolves a comment's relative <img src> to the server
 	// serving it; "" leaves such images out.
 	ImageBaseURL string
+	// Strict writes only notation a pinned SysML v2 production admits: a
+	// construct whose only v2 form is an OpenSysML extension (a deferred
+	// event, a choice, junction or history pseudostate) is reported unmapped
+	// instead of written.
+	Strict bool
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -188,6 +193,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
+		strict:       opts.Strict,
 		layout:       opts.Layout,
 		layoutSource: opts.LayoutSource,
 		layoutByID:   map[string]*mtip.Diagram{},
@@ -294,6 +300,9 @@ func (m *migration) extensions() {
 type migration struct {
 	model  *sysmlv1.Model
 	report *Report
+	// strict writes only notation a pinned SysML v2 production admits; see
+	// Options.Strict.
+	strict bool
 	// results index the run configurations' result snapshots.
 	results *simresults.Results
 	w       *writer
