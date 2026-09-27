@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -499,9 +500,10 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		// Loop: no Layout, boxed a margin round pump and tank, its anchor at the centre.
 		"    bb=\"292,692,628,768\";\n    \"n0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"460,730!\", pin=true];\n",
 		"  graph [fontname=\"Helvetica\", layout=neato, inputscale=72, dpi=72];\n  node [shape=box, style=filled, fillcolor=white, color=\"#181818\", fontname=\"Helvetica\", fontsize=14, penwidth=0.5];\n  edge [color=\"#181818\", fontname=\"Helvetica\", fontsize=13, penwidth=1];\n  \"canvas:0\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"0,800!\", pin=true];\n  \"canvas:1\" [shape=point, style=invis, width=0, height=0, label=\"\", pos=\"1200,0!\", pin=true];\n  subgraph",
-		// pump: top-left (300, 40), no size, so the centre of a 109x37 box fitted
-		// to eleven 14pt glyphs over a 10pt keyword line, stated but not fixed, collapsed.
-		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];`,
+		// pump: top-left (300, 40), no size, so the centre of a 96x36 box fitted to
+		// eleven glyphs at its Style's 11pt over a 10pt keyword line, stated but not
+		// fixed, collapsed.
+		`"n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];`,
 		// tank: top-left (500, 40), 120x60, so centre (560, 70) -> y 730 from a canvas 800 high.
 		`"n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];`,
 		// Headless, so no `e,` point; the label sits up and right of the first leg.
@@ -555,7 +557,7 @@ func TestDOTWritesTheGeometry(t *testing.T) {
 		`"n3" [shape=point, fillcolor=black, label="", pos="37.5,21.8!", pin=true];`,
 		`bb="-8,-148,88,31.6";`,
 		`"n3" -> "n1";`,
-		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="77.5,-50"];`,
+		`"n1" -> "n2" [label="off_on", color="#FF0000", pos="e,50,-90 50,-10 50,-10 50,-80 50,-80", lp="22.5,-70"];`,
 		`"n2" -> "n1" [pos="e,30,-10 30,-90 30,-90 30,-20 30,-20"];`,
 	} {
 		if !strings.Contains(machine, want) {
@@ -1052,12 +1054,14 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			}
 			clusters[tokens[i+1].text] = true
 			i++
-		case tok.quoted && i+1 < len(tokens) && tokens[i+1].text == "->":
-			if i+2 >= len(tokens) || !tokens[i+2].quoted {
+		case tok.quoted && i+1 < len(tokens) && (tokens[i+1].text == "->" || tokens[i+1].text == ":"):
+			from, next := dotEdgeEnd(tokens, i)
+			if next >= len(tokens) || tokens[next].text != "->" || next+1 >= len(tokens) || !tokens[next+1].quoted {
 				t.Fatalf("edge to an unquoted end at token %d:\n%s", i, dot)
 			}
-			edges = append(edges, edge{tok.text, tokens[i+2].text})
-			i += 2
+			to, next := dotEdgeEnd(tokens, next+1)
+			edges = append(edges, edge{from, to})
+			i = next - 1
 			if i+1 < len(tokens) && tokens[i+1].text == "[" {
 				i = checkDOTAttributes(t, tokens, i, dot, &clipped)
 			}
@@ -1102,6 +1106,16 @@ func checkDOTSyntax(t *testing.T, dot string) {
 			t.Errorf("edge is clipped at %q, which no subgraph declares:\n%s", cluster, dot)
 		}
 	}
+}
+
+// dotEdgeEnd reads an edge end at tokens[i]: a quoted node, or `node:port` with
+// a quoted port; it returns the node and the index after the end.
+func dotEdgeEnd(tokens []dotToken, i int) (string, int) {
+	node := tokens[i].text
+	if i+2 < len(tokens) && tokens[i+1].text == ":" && !tokens[i+1].quoted && tokens[i+2].quoted {
+		return node, i + 3
+	}
+	return node, i + 1
 }
 
 // checkDOTAttributes checks the attribute list opening after tokens[i] and
@@ -1164,7 +1178,7 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 			i += end
 			switch {
 			case tag == "br/" || tag == "hr/":
-			case tag == "b" || tag == "i" || tag == "tr" || tag == "td" || tag == `td align="left"` ||
+			case tag == "b" || tag == "i" || tag == "tr" || dotTableCellTag(tag) ||
 				tag == `table border="0" cellborder="0" cellspacing="0" cellpadding="2"` ||
 				strings.HasPrefix(tag, `font point-size="`) && strings.HasSuffix(tag, `"`):
 				open = append(open, strings.Fields(tag)[0])
@@ -1193,6 +1207,23 @@ func checkDOTHTMLLabel(t *testing.T, label, dot string) {
 	if len(open) > 0 {
 		t.Fatalf("HTML label %q leaves <%s> open:\n%s", label, open[len(open)-1], dot)
 	}
+}
+
+// dotTableCellTag reports whether tag is a `td` with only the cell attributes
+// the writer sets, each with a quoted value.
+func dotTableCellTag(tag string) bool {
+	fields := strings.Fields(tag)
+	if len(fields) == 0 || fields[0] != "td" {
+		return false
+	}
+	for _, attr := range fields[1:] {
+		name, value, ok := strings.Cut(attr, "=")
+		if !ok || !slices.Contains([]string{"align", "port", "border", "fixedsize", "width", "height", "colspan"}, name) ||
+			len(value) < 2 || value[0] != '"' || value[len(value)-1] != '"' {
+			return false
+		}
+	}
+	return true
 }
 
 // checkDOTGeometry checks a geometry attribute's value as Graphviz reads it: a
@@ -1290,7 +1321,7 @@ func tokenizeDOT(dot string) ([]dotToken, error) {
 		case c == '-' && i+1 < len(dot) && dot[i+1] == '>':
 			tokens = append(tokens, dotToken{text: "->"})
 			i++
-		case strings.ContainsRune("{}[];,=", rune(c)):
+		case strings.ContainsRune("{}[];,=:", rune(c)):
 			tokens = append(tokens, dotToken{text: string(c)})
 		case c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.':
 			start := i

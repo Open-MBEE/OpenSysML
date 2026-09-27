@@ -172,9 +172,13 @@ func (p *placement) keep(nodes []*Node, hoisted *[]*Node) []*Node {
 }
 
 // settleUnplaced is what a form that lays nodes out itself draws of a
-// positioned rendering: the placed nodes alone by default, every node under
+// positioned rendering: the placed nodes alone by default — the stand-ins a
+// migration made up elided first, as DOT elides them — every node under
 // UnplacedStrip, each noticed. A rendering placing all or none is drawn whole.
 func (r *Rendering) settleUnplaced(unplaced Unplaced, form Form) *Rendering {
+	if unplaced != UnplacedStrip {
+		r = withoutStandIns(r)
+	}
 	p := placeRendering(r)
 	if !p.partial() {
 		return r

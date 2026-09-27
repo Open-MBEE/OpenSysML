@@ -40,6 +40,9 @@ type annotation struct {
 	scope *symbols.Scope
 	// about marks an annotation stated elsewhere with an `about` clause.
 	about bool
+	// via is the namespace an `about` clause named the element through
+	// (`about Acquire::start` names start via Acquire); nil for an unqualified one.
+	via *symbols.Symbol
 }
 
 // annotationsOf returns the metadata annotating sym, memoized: an element filter
@@ -523,20 +526,27 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 	}
 	a.about = true
 	for _, target := range m.annotatedElements(sym.OwnerScope, usage) {
-		if _, known := m.aboutAnnots[target]; !known {
-			m.aboutOrder = append(m.aboutOrder, target)
+		a.via = target.via
+		if _, known := m.aboutAnnots[target.sym]; !known {
+			m.aboutOrder = append(m.aboutOrder, target.sym)
 		}
-		m.aboutAnnots[target] = append(m.aboutAnnots[target], a)
-		if target.Decl != nil {
-			m.aboutByDecl[target.Decl] = append(m.aboutByDecl[target.Decl], a)
+		m.aboutAnnots[target.sym] = append(m.aboutAnnots[target.sym], a)
+		if target.sym.Decl != nil {
+			m.aboutByDecl[target.sym.Decl] = append(m.aboutByDecl[target.sym.Decl], a)
 		}
 	}
 }
 
+// aboutTarget is one element an `about` clause names, with the namespace the
+// clause reached it through when the name was qualified.
+type aboutTarget struct {
+	sym, via *symbols.Symbol
+}
+
 // annotatedElements resolves the elements a metadata usage's `about` clause
 // names.
-func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []*symbols.Symbol {
-	var out []*symbols.Symbol
+func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []aboutTarget {
+	var out []aboutTarget
 	for _, rel := range u.Relationships {
 		if rel == nil || rel.Kind != ast.RelAnnotates {
 			continue
@@ -545,9 +555,15 @@ func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []*symbols
 		if !ok {
 			continue
 		}
-		if target, ok := m.resolver.ResolveQualified(scope, qn); ok && target != nil {
-			out = append(out, target)
+		target, ok := m.resolver.ResolveQualified(scope, qn)
+		if !ok || target == nil {
+			continue
 		}
+		var via *symbols.Symbol
+		if n := len(qn.Parts); n > 1 {
+			via, _ = m.resolver.PartSymbol(qn, n-2)
+		}
+		out = append(out, aboutTarget{sym: target, via: via})
 	}
 	return out
 }

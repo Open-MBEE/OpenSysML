@@ -184,6 +184,9 @@ type Node struct {
 	// NameSynthesized marks a name the model did not give: a migration made it up, or
 	// it is the language's `start`/`done`. A name to key by, not one a picture shows.
 	NameSynthesized bool
+	// StandIn marks a node a migration made up that stands for no element of its
+	// source, so no diagram symbol is at it: a join it wrote several edges through.
+	StandIn bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
@@ -193,8 +196,15 @@ type Node struct {
 	// Detail is what else the rendering says about the node, such as a state's
 	// "initial" or "already shown". It is empty when there is nothing to add.
 	Detail string
+	// Text is what heads a node whose name is not shown, in place of its kind:
+	// the literal a value specification's result is bound to, the event an
+	// accept waits for, the message a send sends. Empty when its kind heads it.
+	Text string
 	// Children are the nodes nested in this one.
 	Children []*Node
+	// Ports are the features drawn on the node's border, an action's pins, which
+	// an edge may end at instead of the node itself.
+	Ports []Port
 	// Origin is where the element was declared, the zero Origin for one with no
 	// locatable declaration.
 	Origin Origin
@@ -209,15 +219,59 @@ type Node struct {
 	Style *Style
 }
 
+// Port is a feature drawn on a node's border: an input or output pin of an
+// action, which an object flow ends at.
+type Port struct {
+	// ID identifies the port within its rendering, and is what an edge names.
+	ID string
+	// Name is the pin's name, as the notation writes it.
+	Name string
+	// Direction is the pin's direction: `in`, `out` or `inout`.
+	Direction PortDirection
+	// Origin is where the pin was declared, the zero Origin for one with no
+	// locatable declaration.
+	Origin Origin
+}
+
+// PortDirection is which way a port's values flow.
+type PortDirection int
+
+const (
+	// PortIn takes values in.
+	PortIn PortDirection = iota
+	// PortOut gives values out.
+	PortOut
+	// PortInOut does both.
+	PortInOut
+)
+
+// String writes a port direction as the notation does.
+func (d PortDirection) String() string {
+	switch d {
+	case PortOut:
+		return "out"
+	case PortInOut:
+		return "inout"
+	}
+	return "in"
+}
+
 // Edge joins two nodes of a rendering.
 type Edge struct {
 	// From and To are node IDs.
 	From string
 	To   string
+	// FromPort and ToPort are the IDs of the ports of From and To the edge ends
+	// at, empty where it ends at the node itself.
+	FromPort string
+	ToPort   string
 	// Label is what the edge carries: a connector's name, a transition's
-	// trigger, guard and effect, a succession's guard. It may be empty.
+	// trigger, guard and effect, a succession's guard, a flow's pins. It may be empty.
 	Label string
-	Kind  EdgeKind
+	// Name is the edge's own name, for a writer whose drawing shows the rest
+	// of its Label another way; empty for one anonymous or named by a migration.
+	Name string
+	Kind EdgeKind
 	// Origin is where the connection, transition, succession or flow was
 	// declared, the zero Origin for one with no locatable declaration.
 	Origin Origin
