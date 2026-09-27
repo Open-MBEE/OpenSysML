@@ -3052,6 +3052,9 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	if has(d, "Allocate") && m.definitionEnd(client) && m.definitionEnd(supplier) {
+		return m.allocationDef(d, name, client, supplier), true, ""
+	}
 	if name == "" {
 		if base := m.edgeName(d, spoken(from)+" to "+spoken(to)); base != "" {
 			name = m.freshName(m.scope, base)
@@ -3205,6 +3208,44 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 		return m.v2Name(client), note, true
 	}
 	return m.qualified(append(append(m.segments(client), nest...), name)), note, true
+}
+
+// definitionEnd reports whether e is written as a v2 definition, which an
+// allocation usage cannot take as an end: only a feature is a usage end.
+func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
+	switch c, _ := m.classify(e); c {
+	case catView, catViewpoint, catValue:
+		return false
+	}
+	return m.isDefinition(e)
+}
+
+// allocationDef writes an allocation between two definitions as an allocation def
+// whose ends are typed by them, since an allocate takes only usages as ends;
+// it returns the v2 name written.
+func (m *migration) allocationDef(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) string {
+	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	if name == "" {
+		name = m.freshName(m.scope, spoken(from)+" to "+spoken(to))
+		m.synthesized[d] = true
+	} else {
+		m.take(m.scope, name)
+	}
+	m.wroteEdgeAlso(d, m.scope, "allocation def", nil, name)
+	m.madeUp(d, writeName(name))
+	used := map[string]bool{}
+	source := freshIn(used, lowerFirst(spoken(from)))
+	target := freshIn(used, lowerFirst(spoken(to)))
+	m.w.block("allocation def "+writeName(name), func() {
+		m.w.line("end " + writeName(source) + " : " + m.ref(client, d) + ";")
+		m.w.line("end " + writeName(target) + " : " + m.ref(supplier, d) + ";")
+		m.metadataUsages(d)
+	})
+	segs := append(m.segments(m.scope), name)
+	if m.scope == nil {
+		segs = []string{name}
+	}
+	return m.qualified(segs)
 }
 
 // derive writes a requirement derivation as a connection def specializing the

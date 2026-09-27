@@ -64,7 +64,19 @@ func (W8DConnectorFeaturingPass) Run(ctx *Context, name string, root *ast.RootNa
 				continue
 			}
 			target, ok := cc.resolver.ResolveQualified(scope, qn)
-			if !ok || target == nil || target == sym || !isUsageKind(target.Kind) {
+			if !ok || target == nil || target == sym {
+				continue
+			}
+			// A connector relates features; a definition named as an end is
+			// a type, which no end can be.
+			if !isUsageKind(target.Kind) {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.SeverityError,
+					Span:     end.Span(),
+					Message:  msgReferentIsFeature,
+					Code:     "connector-end-referent",
+					Source:   "constraint",
+				})
 				continue
 			}
 			// A package-level feature and an enumeration literal have no

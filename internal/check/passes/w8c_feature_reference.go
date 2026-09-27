@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -93,6 +94,22 @@ func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	case *ast.Definition:
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
+	}
+	c.checkAnnotationBodies(semantics.AnnotationScope(sym), sym.Decl)
+}
+
+// checkAnnotationBodies visits what an unnamed annotation written on decl
+// declares in its body, at any depth: no symbol owns such a body, so the
+// symbol walk does not reach the values it binds.
+func (c *featureReferenceChecker) checkAnnotationBodies(scope *symbols.Scope, decl ast.Node) {
+	if scope == nil {
+		return
+	}
+	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
+		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
+			c.checkAnnotationBodies(body, a.Node)
+			kit.ForEachBodySymbol(body, c.checkSymbol)
+		}
 	}
 }
 

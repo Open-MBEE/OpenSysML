@@ -99,6 +99,42 @@ func (c category) keyword() string {
 	return ""
 }
 
+// metaclass is the qualified name of the SysML metaclass a definition of
+// category c is an instance of; "" for a category that is not a definition.
+func (c category) metaclass() string {
+	switch c {
+	case catPartDef, catIndividualDef:
+		return "SysML::PartDefinition"
+	case catPortDef:
+		return "SysML::PortDefinition"
+	case catAttributeDef:
+		return "SysML::AttributeDefinition"
+	case catEnumDef:
+		return "SysML::EnumerationDefinition"
+	case catConstraintDef:
+		return "SysML::ConstraintDefinition"
+	case catRequirementDef:
+		return "SysML::RequirementDefinition"
+	case catConnectionDef:
+		return "SysML::ConnectionDefinition"
+	case catVerificationDef:
+		return "SysML::VerificationCaseDefinition"
+	case catItemDef:
+		return "SysML::ItemDefinition"
+	case catActionDef, catSimConfig:
+		return "SysML::ActionDefinition"
+	case catCalcDef:
+		return "SysML::CalculationDefinition"
+	case catStateDef:
+		return "SysML::StateDefinition"
+	case catUseCaseDef:
+		return "SysML::UseCaseDefinition"
+	case catMetadataDef:
+		return "SysML::MetadataDefinition"
+	}
+	return ""
+}
+
 // requirementStereotypes are the SysML profile's requirement stereotypes.
 var requirementStereotypes = []string{"Requirement", "AbstractRequirement"}
 

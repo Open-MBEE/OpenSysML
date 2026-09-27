@@ -229,7 +229,8 @@ func (m *migration) tagValue(p *sysmlv1.Element, raw []string) (string, string) 
 }
 
 // tagReference writes a reference-valued tag's value: the written element it
-// names, by the shortest name resolving in the current scope.
+// names, by the shortest name resolving in the current scope. A definition is
+// not a value, so one is referred to as an element, cast to its metaclass.
 func (m *migration) tagReference(id string) (string, string) {
 	target := m.model.Lookup(id)
 	switch {
@@ -238,7 +239,11 @@ func (m *migration) tagReference(id string) (string, string) {
 	case !m.written(target):
 		return "", "refers to " + qualifiedName(target) + ", which is not written"
 	}
-	return m.ref(target, m.scope), ""
+	ref := m.ref(target, m.scope)
+	if cat, _ := m.classify(target); cat.metaclass() != "" {
+		return ref + " meta " + cat.metaclass(), ""
+	}
+	return ref, ""
 }
 
 // tagLiteral writes one value of a tag typed by t: a string, number or boolean

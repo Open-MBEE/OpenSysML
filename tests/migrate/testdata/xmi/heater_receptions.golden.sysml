@@ -25,12 +25,12 @@ part def Heater {
         first spread then receive;
         action receive accept setLevel : Signals::SetLevel;
         first receive then run;
-        action run : 'Apply Level' { in value = setLevel.value; }
+        action run : 'Apply Level' { in value = receive.setLevel.value; }
         first run then receive;
         first spread then 'receive via rx';
         action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;
         first 'receive via rx' then 'run via rx';
-        action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }
+        action 'run via rx' : 'Apply Level' { in value = 'receive via rx'.'setLevel via rx'.value; }
         first 'run via rx' then 'receive via rx';
     }
     perform action setLevel : SetLevel;
@@ -73,7 +73,7 @@ part def Heater {
         first start then receive;
         action receive accept nudge : Signals::Nudge;
         first receive then run;
-        action run : Nudge { in delta = nudge.delta; }
+        action run : Nudge { in delta = receive.nudge.delta; }
         first run then receive;
     }
     perform action onNudge : OnNudge;

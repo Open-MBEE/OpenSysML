@@ -1015,7 +1015,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	case !m.written(method) || !(method.Type == "Operation" || hasActionForm(method)):
 		route.note = methodNote + qualifiedName(method) + " has no action def to perform; the reception only accepts the signal"
 	default:
-		args, refusal := m.receptionArguments(method, route.sig, payload)
+		args, refusal := m.receptionArguments(method, route.sig, trig+"."+payload)
 		if refusal != "" {
 			route.note = refusal + "; the reception only accepts the signal"
 			break

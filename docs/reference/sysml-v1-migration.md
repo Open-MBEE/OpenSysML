@@ -155,7 +155,7 @@ returned over the service yet.
 | «Satisfy» | `satisfy requirement … by …` in the satisfying usage's owner | mapped |
 | «Verify» from a test case | `verify` in the verification def | mapped |
 | «DeriveReqt» | `connection … :> RequirementDerivation::Derivation` | mapped |
-| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
+| «Allocate» | `allocate a to b`, or `allocation name allocate a to b` when named; between two definitions (a block and an activity, neither a usage) an allocation has no feature to end on, so it is written as `allocation def 'A to B' { end a : A; end b : B; }`, its ends typed by the two; an end that is an activity node is named under the `action def` the activity is written as (the operation, for a method), so an allocation to a call action written as a declared stub is written too | mapped |
 | «Allocate», or another dependency, whose end is an activity node written only as a placeholder (a call that is not migrated) | the relationship is written to the placeholder; the pair ending there counts as failed when its end is not migrated, so the note gives the final tally of pairs written and names the end | approximated when another pair is written, **unmapped** when none is |
 | «Refine» | `dependency` carrying `@ModelingMetadata::Refinement` | mapped |
 | «Trace», «Copy», other stereotyped dependencies | plain `dependency` with the stereotype as a comment; named relationships keep their name | approximated |
@@ -163,7 +163,7 @@ returned over the service yet.
 | Comment, Documentation | `doc` (first) / `comment`, HTML tags stripped | mapped |
 | User profile | `package` holding its stereotypes and the enumerations and value types they use | mapped |
 | User stereotype | `metadata def`, `:>` the defs of the user stereotypes it specializes; tag definitions `attribute name : String|Integer|Real|Boolean|<enum def>` or `ref name` for element-typed ones, with the v1 multiplicity; `base_*` extension ends and the `Extension`s written as nothing | mapped (a general outside the document, or closing a cycle: approximated) |
-| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name, HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
+| User stereotype application, on an element, property or relationship the document defines the stereotype of | `@Profile::Name { tag = value; }` in the element's body (`@Profile::Name;` without tags); strings, numbers and booleans as literals, enumeration literals by name, element references by the written element's name — a definition cast to its metaclass, `owner = Acme meta SysML::PartDefinition;`, since a type is not a value a feature can hold — HTML-bodied text as plain text; a tag the stereotype does not define, or a value not of the tag's type, a comment | mapped (a value kept as a comment: approximated) |
 | Stereotype applied from a profile the document does not define (a used project not in the archive, an unknown namespace) | preserved as `/* applied stereotype «Name»: tag = value */`; the report names the namespace | mapped, noted |
 | MagicDraw's property-kind markers — «ValueProperty», «PartProperty», «SharedProperty», «ReferenceProperty», «ConstraintProperty» on a UML Property, and «ConstraintParameter» on a constraint block's parameter — recognised by the provenance of their profile (`magicdraw.com` or `nomagic.com`, under `/spec/Customization/`), carrying no tag, on a property whose usage keyword (`attribute`, `part`, `ref part`, `constraint`, `in …`) already says the kind | nothing: the declaration stays one line. A same-named stereotype from any other profile, a marker carrying a tag, or one on a property written as another kind (a «ValueProperty» on a block-typed part) is kept as above | mapped |
 | SysML stereotype tags without a v2 form (`Block.isEncapsulated`, `ValueType.unit`, …) | preserved as `/* «Name» tags with no v2 form: tag = value */` | approximated |
@@ -1145,8 +1145,9 @@ the block, the steps addressing the parts through it.
 
 **Receptions.** A block's reception is an `action def` of the block that accepts its signal,
 `action receive accept setLevel : Signals::SetLevel;`, and runs the method as a nested typed
-action whose `in` parameters read the accepted signal's attributes of the same name,
-`action run : 'Apply Level' { in value = setLevel.value; }`, then returns to the accept,
+action whose `in` parameters read the accepted signal's attributes of the same name through the
+accept that holds the payload, `action run : 'Apply Level' { in value = receive.setLevel.value; }`
+(a feature of a sibling action is reachable only by dot notation), then returns to the accept,
 `first run then receive;`; a method that is also the method of an operation of the block is
 written once, as that operation's body, so the reception runs the operation's `action def`,
 binding the parameters it declares. The block performs it, `perform action setLevel : SetLevel;`, so
