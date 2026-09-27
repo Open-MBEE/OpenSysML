@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ownedUsageMetaclasses maps the suffix of SysML's Usage::nested* and
@@ -28,10 +27,10 @@ var ownedUsageMetaclasses = map[string]string{
 // Usage/Definition derived properties).
 func (m *Model) reflectiveOwnedUsages(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
 	var prefix string
-	switch sym.Decl.(type) {
-	case *ast.Usage:
+	switch {
+	case sym.DeclaresUsage():
 		prefix = "nested"
-	case *ast.Definition:
+	case sym.DeclaresDefinition():
 		prefix = "owned"
 	default:
 		return nil, false

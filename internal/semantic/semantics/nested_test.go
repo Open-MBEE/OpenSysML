@@ -195,3 +195,67 @@ func TestReflectiveOwnedUsagesRejects(t *testing.T) {
 		t.Errorf("ownedPart on Vehicle = %v, %v, want [wheel]", fqns(elems), ok)
 	}
 }
+
+// A recorded (frozen-library) symbol declares no AST node, yet `owned*` still
+// derives from it: the prefix is its recorded declaration kind.
+func TestReflectiveOwnedUsagesOnARecordedDefinition(t *testing.T) {
+	src := symbols.NewIndex()
+	addTestDoc(t, src, "lib.sysml", `part def Vehicle { port p; part wheel; }
+		package SysML { package Systems { part def PortUsage; part def PartUsage; } }`)
+	rec, err := symbols.RecordScope(src.DocumentRoot("lib.sysml"), func(*symbols.Symbol) bool { return true }, func(sym *symbols.Symbol) symbols.LibraryFacts {
+		return symbols.LibraryFacts{Node: symbols.NodeKindOf(sym.Decl)}
+	})
+	if err != nil {
+		t.Fatalf("RecordScope: %v", err)
+	}
+	recorded, err := symbols.BuildRecorded(rec, "lib.sysml")
+	if err != nil {
+		t.Fatalf("BuildRecorded: %v", err)
+	}
+	idx := symbols.NewIndex()
+	idx.AddRecordedDocument("lib.sysml", source.KindSysML, recorded, nil)
+	res := resolve.New(idx)
+	m := NewModel(res)
+	res.SetModel(m)
+	vehicle := sym(t, idx.DocumentRoot("lib.sysml"), "Vehicle")
+	if !vehicle.Recorded() {
+		t.Fatal("vehicle is not a recorded symbol")
+	}
+
+	elems, ok := m.reflectiveOwnedUsages(vehicle, "ownedPort")
+	if !ok || len(elems) != 1 || elems[0].Name != "p" {
+		t.Errorf("ownedPort on recorded Vehicle = %v, %v, want [p]", fqns(elems), ok)
+	}
+	elems, ok = m.reflectiveOwnedUsages(vehicle, "ownedPart")
+	if !ok || len(elems) != 1 || elems[0].Name != "wheel" {
+		t.Errorf("ownedPart on recorded Vehicle = %v, %v, want [wheel]", fqns(elems), ok)
+	}
+}
+
+// `state idle` nested in `state running` is a SubstateMember — still a
+// StateUsage the owner's `nested*` properties derive (SysML v2 §8.3), as a
+// transition member is a TransitionUsage.
+func TestReflectiveNestedUsagesOfMemberForms(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		state machine {
+			state running { state idle; }
+			transition t first running accept after 1 [SI::s] then running;
+		}
+	}`)
+	running := nestedSym(t, root, "P::machine::running")
+
+	elems, ok := m.reflectiveOwnedUsages(running, "nestedState")
+	if !ok || len(elems) != 1 || elems[0].Name != "idle" {
+		t.Errorf("nestedState on running = %v, %v, want [idle]", fqns(elems), ok)
+	}
+	elems, ok = m.reflectiveOwnedUsages(running, "nestedUsage")
+	if !ok || len(elems) != 1 || elems[0].Name != "idle" {
+		t.Errorf("nestedUsage on running = %v, %v, want [idle]", fqns(elems), ok)
+	}
+
+	machine := nestedSym(t, root, "P::machine")
+	elems, ok = m.reflectiveOwnedUsages(machine, "nestedTransition")
+	if !ok || len(elems) != 1 || elems[0].Name != "t" {
+		t.Errorf("nestedTransition on machine = %v, %v, want [t]", fqns(elems), ok)
+	}
+}
