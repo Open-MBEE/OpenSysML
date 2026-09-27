@@ -137,8 +137,14 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // walk reports the extension notation in a member list and descends into the
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
+	var previous ast.Node
 	for _, member := range members {
-		switch n := kit.UnwrapMembership(member).(type) {
+		unwrapped := kit.UnwrapMembership(member)
+		w.targetSuccession(unwrapped, previous)
+		if !isMemberAttachedSuccession(unwrapped) {
+			previous = unwrapped
+		}
+		switch n := unwrapped.(type) {
 		case *ast.Namespace:
 			w.kermlNamespace(n)
 			w.keywordAsName(n.Ident)
@@ -270,6 +276,93 @@ func admitsActionBodyItems(node ast.Node) bool {
 		case ast.UsageTransition, ast.UsagePredicate, ast.UsageBehavior:
 			return true
 		}
+	}
+	return false
+}
+
+// targetSuccession reports a one-name `then <target>;`, `if <guard> then
+// <target>;` or `else <target>;` whose preceding member the grammar admits no
+// target succession after. ActionBodyItem (SysML.xtext:1367) hangs
+// TargetSuccessionMember off an ActionNodeMember, a BehaviorUsageMember or an
+// InitialNodeMember alone, so after a `succession`, a comment or a structural
+// usage the pilot has no production for it and its source is unstated.
+func (w *notationWalker) targetSuccession(n, previous ast.Node) {
+	keyword := targetSuccessionKeyword(n)
+	if keyword == "" || !w.sysml || previous == nil || admitsTargetSuccession(previous) {
+		return
+	}
+	notation := "`" + keyword + " <target>;`"
+	if keyword == "if" {
+		notation = "`if <guard> then <target>;`"
+	}
+	w.extension(keywordSpan(n, keyword), notation+" after a member that is not an action node",
+		"a target succession sequences from the member written right before it, so only an action node, "+
+			"a behavior usage, a one-ended `first <node>;` or another target succession may precede it")
+}
+
+// isMemberAttachedSuccession reports the edge a member-attached `then` (`then
+// action a;`) desugars to, which is no member the author wrote between the two
+// it sequences.
+func isMemberAttachedSuccession(n ast.Node) bool {
+	edge, ok := n.(*ast.SuccessionEdge)
+	return ok && edge.SourceImplied && edge.TargetImplied
+}
+
+// targetSuccessionKeyword is the keyword that opens a one-name target succession,
+// "" for any other member: an edge naming both ends, or the edge a
+// member-attached `then` desugars to, states its own source.
+func targetSuccessionKeyword(n ast.Node) string {
+	switch edge := n.(type) {
+	case *ast.SuccessionEdge:
+		if edge.TargetImplied || !(edge.SourceImplied || edge.SourceMember != nil) {
+			return ""
+		}
+		return "then"
+	case *ast.ControlFlowEdge:
+		if edge.TargetImplied || !(edge.SourceImplied || edge.SourceMember != nil) {
+			return ""
+		}
+		if edge.IsElse {
+			return "else"
+		}
+		return "if"
+	}
+	return ""
+}
+
+// admitsTargetSuccession reports whether the grammar admits a target succession
+// right after the member: an action node, a behavior usage, a one-ended
+// `first <node>;` or a target succession continuing the same chain.
+func admitsTargetSuccession(previous ast.Node) bool {
+	switch n := previous.(type) {
+	case *ast.InitialNode:
+		return n.Successor == nil
+	case *ast.SuccessionEdge, *ast.ControlFlowEdge:
+		return targetSuccessionKeyword(n) != ""
+	case *ast.TransitionMember:
+		// A sourceless transition is a TargetTransitionUsage or an entry
+		// transition, which chains like a target succession.
+		return n.Source == nil
+	case *ast.Usage:
+		return isBehaviorUsage(n.Kind)
+	case *ast.ForkNode, *ast.JoinNode, *ast.MergeNode, *ast.DecisionNode, *ast.ActionExecutionNode,
+		*ast.AssignmentActionNode, *ast.PerformActionNode, *ast.WhileLoopActionNode, *ast.IfActionNode,
+		*ast.SendStatement, *ast.TerminateStatement, *ast.AcceptActionUsage,
+		*ast.StateNode, *ast.SubstateMember, *ast.EntryMember, *ast.DoMember, *ast.ExitMember, *ast.PseudostateNode:
+		return true
+	}
+	return false
+}
+
+// isBehaviorUsage reports whether a usage of the kind is a BehaviorUsageElement
+// (SysML.xtext:679), the usages an action body sequences by position.
+func isBehaviorUsage(kind ast.UsageKind) bool {
+	switch kind {
+	case ast.UsageAction, ast.UsageCalc, ast.UsageState, ast.UsageConstraint, ast.UsageRequirement,
+		ast.UsageConcern, ast.UsageFramedConcern, ast.UsageViewpoint, ast.UsageSatisfy, ast.UsageObjective,
+		ast.UsageCase, ast.UsageAnalysisCase, ast.UsageVerificationCase, ast.UsageUseCase,
+		ast.UsageStep, ast.UsageExpr, ast.UsageBehavior, ast.UsagePredicate, ast.UsageBool:
+		return true
 	}
 	return false
 }

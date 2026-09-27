@@ -234,6 +234,39 @@ func TestOneEndedFirstInsideAnActionBodyIsSilent(t *testing.T) {
 	wantSilent(t, "a.sysml", "part def P { action a { action b; first b; } }")
 }
 
+// ActionBodyItem hangs a target succession off an action node, a behavior usage
+// or a one-ended `first` alone, so one written after a `succession`, a comment,
+// a two-ended `first a then b;` or a structural usage is ours.
+func TestTargetSuccessionAfterANonActionMemberIsAnExtension(t *testing.T) {
+	const after = "after a member that is not an action node"
+	wantNotation(t, "a.sysml", "action def A { action a; decide d; succession s first d if true then a; else a; }",
+		CodeNonstandardNotation, "`else <target>;` "+after)
+	wantNotation(t, "a.sysml", "action def A { action a; merge m; succession first m then a; then a; }",
+		CodeNonstandardNotation, "`then <target>;` "+after)
+	wantNotation(t, "a.sysml", "action def A { action a; comment /* c */ if true then a; }",
+		CodeNonstandardNotation, "`if <guard> then <target>;` "+after)
+	wantNotation(t, "a.sysml", "action def A { action a; action b; first a then b; then a; }",
+		CodeNonstandardNotation, "`then <target>;` "+after)
+	wantNotation(t, "a.sysml", "action def A { action a; part p; then a; }",
+		CodeNonstandardNotation, "`then <target>;` "+after)
+	wantNotation(t, "a.sysml", "action def A { action a; doc /* d */ then a; }",
+		CodeNonstandardNotation, "`then <target>;` "+after)
+
+	wantSilent(t, "a.sysml", "action def A { action a; decide d; else a; succession s first d if true then a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; first a; then a; then a; if true then a; else a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; merge m { } then a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; then decide; if true then a; else a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; then action b; then a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; action b; first a then b; then action c; else b; }")
+	wantSilent(t, "a.sysml", "action def A { action a; send 1 to a; then a; }")
+	wantSilent(t, "a.sysml", "action def A { action a; assign a := 1; then a; }")
+	wantSilent(t, "a.sysml", "state def S { attribute c : Boolean; entry; if c then a; if not c then b; then a; state a; state b; }")
+	wantSilent(t, "a.sysml", "state def S { entry action w { } then a; state a; }")
+	wantSilent(t, "a.sysml", "part def V { exhibit state vs { entry; then on; state on; then off; state off; } }")
+	wantSilent(t, "a.sysml", "part def P { action a; action b; first a then b; }")
+	wantSilent(t, "a.kerml", "behavior A { step a; then a; }")
+}
+
 // RequirementConstraintMember belongs to a RequirementBody; anywhere else the
 // parser rejects `assume`/`require` outright (see the negative parser tests).
 func TestRequirementConstraintInsideARequirementBodyIsSilent(t *testing.T) {

@@ -349,6 +349,7 @@ var constructFixtures = []string{
 	"type_modifiers",
 	"table_homonyms",
 	"relation_subtypes",
+	"decision_else",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

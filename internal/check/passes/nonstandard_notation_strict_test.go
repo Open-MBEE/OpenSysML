@@ -18,6 +18,9 @@ var extensionInventory = []string{
 	"state def S { state a { defer e; } }",
 	"package P { view def V { expose P::*; } }",
 	"action def A { action x; action y; transition first x then y; }",
+	"action def A { action a; decide d; succession s first d if true then a; else a; }",
+	"action def A { action a; merge m; succession first m then a; then a; }",
+	"action def A { action a; comment /* c */ if true then a; }",
 }
 
 // notationDiags runs the pass over a document in the named mode.
