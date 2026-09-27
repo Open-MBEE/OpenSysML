@@ -21,5 +21,5 @@ part def Plant {
         state Cold;
         transition first Cold then done;
     }
-    exhibit state line : Line { in ref :>> context = this; }
+    exhibit state line : Line;
 }

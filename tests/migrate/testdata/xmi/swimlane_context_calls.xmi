@@ -36,5 +36,12 @@
         <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_callTune" target="_callCheck"/>
       </ownedBehavior>
     </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_else" name="Else">
+      <node xmi:type="uml:InitialNode" xmi:id="_elseI"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRun" name="run" behavior="_run"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callTune2" name="tune" behavior="_tuning"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_elseE1" source="_elseI" target="_callRun"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_elseE2" source="_callRun" target="_callTune2"/>
+    </packagedElement>
   </uml:Model>
 </xmi:XMI>

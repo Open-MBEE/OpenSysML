@@ -54,8 +54,7 @@ part def Meter {
     attribute top : ScalarValues::Real {
         /* default value not migrated: {JavaScript} cells.reading — the types at "cells.reading" disagree: the expression is a collection, not the one value wanted */
     }
-    action def Measure {
-        in ref context : Meter;
+    action measure {
         first start then sense;
         action sense {
             in x : ScalarValues::Real = 1.5;
@@ -65,34 +64,34 @@ part def Meter {
         first sense then record;
         action record {
             in v : ScalarValues::Real;
-            assign context.total := v + 1;
-            assign context.peak := v;
+            assign total := v + 1;
+            assign peak := v;
         }
         first record then split;
         action split {
-            assign context.half := OpenSysMLMathFunctions::quotient(context.ticks, 2);
-            assign context.ratio := context.total / 2;
-            assign context.floored := RealFunctions::floor(context.total) / 8;
-            assign context.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(context.total + 0.5), 8);
+            assign half := OpenSysMLMathFunctions::quotient(ticks, 2);
+            assign ratio := total / 2;
+            assign floored := RealFunctions::floor(total) / 8;
+            assign rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(total + 0.5), 8);
         }
         first split then quarterly;
         action quarterly {
-            assign context.quarter := OpenSysMLMathFunctions::quotient(context.ticks, 4);
+            assign quarter := OpenSysMLMathFunctions::quotient(ticks, 4);
         }
         first quarterly then cc;
         action cc {
-            assign context.eighth := context.ticks / 8;
+            assign eighth := this.ticks / 8;
         }
         first cc then judge;
         action judge {
             in ok : ScalarValues::Boolean;
-            in n : ScalarValues::Integer = RealFunctions::floor(context.total);
+            in n : ScalarValues::Integer = RealFunctions::floor(total);
             in m : ScalarValues::Integer = 2;
-            assign context.count := n + m;
+            assign count := n + m;
         }
         first judge then log;
         action log {
-            assign context.ticks := context.ticks + 1;
+            assign ticks := ticks + 1;
         }
         first log then shout;
         action shout;
@@ -101,17 +100,16 @@ part def Meter {
         flow sense.y to record.v;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Skip {
-        in ref context : Meter;
+    action skip {
         first start then idle;
         action idle {
             out z : ScalarValues::Real;
-            assign context.total := context.total * 1;
+            assign total := total * 1;
         }
         first idle then sink;
         action sink {
             in w : ScalarValues::Real[0..1];
-            if w->SequenceFunctions::notEmpty() { assign context.total := w; }
+            if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first sink then dark;
         action dark {
@@ -123,7 +121,7 @@ part def Meter {
         first dark then drain;
         action drain {
             in w : ScalarValues::Real[0..1];
-            if w->SequenceFunctions::notEmpty() { assign context.total := w; }
+            if w->SequenceFunctions::notEmpty() { assign total := w; }
         }
         first drain then final;
         action final terminate;
@@ -131,8 +129,7 @@ part def Meter {
         /* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Flip {
-        in ref context : Meter;
+    action flip {
         first start then bump;
         action bump {
             /* body not migrated (the types at "+" disagree: an operand is a Mode, not a number) {JavaScript}:
@@ -153,7 +150,7 @@ part def Meter {
         }
         first match then widen;
         action widen {
-            assign context.dial := context.hand;
+            assign dial := hand;
         }
         first widen then narrow;
         action narrow {
@@ -169,12 +166,12 @@ part def Meter {
         }
         first huge then smile;
         action smile {
-            assign context.label := "😀";
-            assign context.count := 9007199254740991;
+            assign label := "😀";
+            assign count := 9007199254740991;
         }
         first smile then same;
         action same {
-            assign context.lit := context.label == "😀";
+            assign lit := label == "😀";
         }
         first same then 'alias';
         action 'alias' {
@@ -186,12 +183,11 @@ part def Meter {
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Arm {
+    action arm {
         in armed : ScalarValues::Boolean {
             /* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */
         }
-        in limit : ScalarValues::Integer default = context.count + 1;
-        in ref context : Meter;
+        in limit : ScalarValues::Integer default = count + 1;
         first start then fuse;
         action fuse {
             /* body not migrated (the text "and" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:
@@ -201,14 +197,13 @@ part def Meter {
         /* guard not migrated: [{JavaScript} ready and enabled] — the text "and" is not expression syntax: text follows the expression */
         first fuse then latch;
         action latch {
-            assign context.flag := context.ready and context.enabled;
+            assign flag := ready and enabled;
         }
         first latch then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    action def Sweep {
-        in ref context : Meter;
+    action sweep {
         first start then spread;
         action spread {
             /* body not migrated (the types at "+" disagree: an operand is a collection, not a number) {JavaScript}:
@@ -217,13 +212,13 @@ part def Meter {
         }
         first spread then reset;
         action reset {
-            /* body not migrated (the construct "cells.reading" is outside the translated subset: context.cells is a collection, so the assignment would write through several objects) {JavaScript}:
+            /* body not migrated (the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects) {JavaScript}:
              * cells.reading = 1;
              */
         }
         first reset then peak;
         action peak {
-            assign context.total := context.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
+            assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
         }
         first peak then calib;
         action calib {
@@ -238,9 +233,7 @@ part def Meter {
              */
         }
         first span then ticking;
-        action ticking {
-            /* not migrated: CallBehaviorAction 'ticking' — the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; v1 runs Gauge::Tick on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */
-        }
+        action ticking : Gauge::Tick;
         first ticking then tally;
         action tally {
             /* body not migrated (the construct "banks.level" is outside the translated subset: the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told) {JavaScript}:

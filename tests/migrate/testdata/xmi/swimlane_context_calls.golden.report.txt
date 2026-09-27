@@ -1,28 +1,33 @@
 # SysML v1 to v2 migration report: swimlane_context_calls.xmi
-# migrated 22 element(s): 13 mapped, 9 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 27 element(s): 19 mapped, 8 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (9)
+## approximated (8)
+CallBehaviorAction	Else::tune	_callTune2	-> tune	(performed on context.engine, the caller's one part that is one, as its usage context.engine.tune)
 Class	Engine	_engine	-> Engine	(a plain UML class without «Block» is written as a part def)
 AddStructuralFeatureValueAction	Engine::Tuning::set rpm	_trset	-> 'set rpm'	(the action never fires: its input pin 'value' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever)
 Class	Host	_host	-> Host	(a plain UML class without «Block» is written as a part def)
 AddStructuralFeatureValueAction	Host::Hit::mark hit	_hset	-> 'mark hit'	(the action never fires: its input pin 'value' must hold a value, but no object flow feeds it and it holds no value; no succession leads to it or leaves it, where v1 would wait on it forever)
-CallBehaviorAction	Host::Run::check	_callCheck	-> check	(the behavior acts on a Host through its parameter context, which is bound to Run::context)
 ActivityPartition	Host::Run::engine	_partLane	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context's engine, read as this.engine, but nothing in it names the object's features)
-CallBehaviorAction	Host::Run::hit	_callHit	-> hit	(the behavior acts on a Host through its parameter context, which is bound to Run::context)
 ActivityPartition	Host::Run::host	_selfLane	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context object itself, a Host, but nothing in it names the object's features)
-CallBehaviorAction	Host::Run::tune	_callTune	-> tune	(the behavior acts on a Engine through its parameter context, which is bound to Run::context.engine, the caller's one part that is one; the behavior belongs to Engine and runs here in the caller's context)
+CallBehaviorAction	Host::Run::tune	_callTune	-> tune	(performed on this.engine, the caller's one part that is one, as its usage engine.tune)
 
-## mapped (13)
-Operation	Engine::Tune	_opTune	-> Engine::Tune	(acts on its owner Engine, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage tune performs it, as a call on an object does)
-Activity	Engine::Tuning	_tuning	-> Engine::Tune	(written as the body of the operation Engine::Tune, whose method it is)
-InputPin	Engine::Tuning::set rpm::value	_trv	-> Engine::Tune::'set rpm'.value
+## mapped (19)
+Activity	Else	_else	-> Else	(acts on a Host through its ports, which it takes as its parameter context)
+ControlFlow	Else::<ControlFlow>	_elseE2
+InitialNode	Else::<InitialNode>	_elseI	-> start
+CallBehaviorAction	Else::run	_callRun	-> run
+Operation	Engine::Tune	_opTune	-> Engine::tune	(written as an action usage of Engine, which a call on an object performs, so its body runs on the object and reaches its features)
+Activity	Engine::Tuning	_tuning	-> Engine::tune	(written as the body of the operation Engine::Tune, whose method it is)
+InputPin	Engine::Tuning::set rpm::value	_trv	-> Engine::tune::'set rpm'.value
 Property	Engine::rpm	_rpm	-> Engine::rpm
-Activity	Host::Hit	_hit	-> Host::Hit	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
-InputPin	Host::Hit::mark hit::value	_hv	-> Host::Hit::'mark hit'.value
-Activity	Host::Run	_run	-> Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Host::Hit	_hit	-> Host::hit	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
+InputPin	Host::Hit::mark hit::value	_hv	-> Host::hit::'mark hit'.value
+Activity	Host::Run	_run	-> Host::run	(written as an action usage of Host, which a call on an object performs, so its body runs on the object and reaches its features)
 ControlFlow	Host::Run::<ControlFlow>	_e2
 ControlFlow	Host::Run::<ControlFlow>	_e3
 InitialNode	Host::Run::<InitialNode>	_init	-> start
+CallBehaviorAction	Host::Run::check	_callCheck	-> check
+CallBehaviorAction	Host::Run::hit	_callHit	-> hit
 Property	Host::engine	_pengine	-> Host::engine
 Property	Host::hits	_hits	-> Host::hits
 Model	Model	_m	(the root model's members are written at the top level)

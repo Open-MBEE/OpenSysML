@@ -30,15 +30,14 @@ part def Plant {
     part pump : Pump;
     attribute level : ScalarValues::Real default = 0.0;
     attribute runs : ScalarValues::Integer default = 0;
-    action def Fill {
-        in ref context : $::Plant;
+    action fill {
         first start then 'open valve';
         action 'open valve' {
-            assign context.tank.valve.open := true;
+            assign tank.valve.open := true;
         }
         first 'open valve' then 'fill tank';
         action 'fill tank' {
-            assign context.tank.volume := context.tank.volume * 2 + (if context.tank.valve.open ? 1 else 0);
+            assign tank.volume := tank.volume * 2 + (if tank.valve.open ? 1 else 0);
         }
         first 'fill tank' then torn;
         action torn {
@@ -49,11 +48,11 @@ part def Plant {
         /* guard not migrated: [{JavaScript} on] — the name "on" resolves to nothing readable: nothing visible from Plant::Fill::<ControlFlow> is called on; its source 'torn' is in the partitions 'Tank' (this.tank) and 'Pump' (this.pump), which represent different objects, so names resolve through no partition */
         first torn then prime;
         action prime {
-            assign context.pump.on := true;
+            assign pump.on := true;
         }
         first prime then twice;
         action twice {
-            assign context.tank.volume := context.tank.volume + 1;
+            assign tank.volume := tank.volume + 1;
         }
         first twice then mine;
         action mine {
@@ -63,27 +62,27 @@ part def Plant {
         }
         first mine then 'count run';
         action 'count run' {
-            assign context.runs := context.runs + 1;
+            assign this.runs := this.runs + 1;
         }
         first 'count run' then 'note level';
         action 'note level' {
-            assign context.level := context.tank.volume;
+            assign level := tank.volume;
         }
         first 'note level' then lost;
         action lost {
-            assign context.level := context.level + 1;
+            assign level := level + 1;
         }
         first lost then free;
         action free {
-            assign context.level := context.level + context.tank.volume;
+            assign level := level + tank.volume;
         }
         first free then arm;
         action arm {
-            assign context.site.control.rack.controller.status := true;
+            assign site.control.rack.controller.status := true;
         }
         first arm then light;
         action light {
-            assign context.site.control.rack.controller.led.lit := true;
+            assign site.control.rack.controller.led.lit := true;
         }
         first light then final;
         action final terminate;

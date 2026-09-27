@@ -78,7 +78,7 @@ func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdic
 	default:
 		return theBehavior + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
 	}
-	if c := a.m.contextOf(b); c != nil {
+	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {
 		if expr, cnote := a.callContext(n, c); expr == "" {
 			return a.uncontexted(b, cnote), Approximated, true
 		}

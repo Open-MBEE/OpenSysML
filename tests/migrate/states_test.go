@@ -1544,7 +1544,7 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 // operation's redeclares that parameter too, before the context redefinition.
 func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_extra_params")
-	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = this; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = Drive::context; }")
 }
 
 // testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the
@@ -1553,8 +1553,8 @@ func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 func TestSwimlaneCallContextQualifiesThroughTheDef(t *testing.T) {
 	r := migrateFixtureFile(t, "swimlane_context_calls")
 	for _, line := range []string{
-		"action hit : Hit { in ref :>> context = Run::context; }",
-		"action tune : Engine::Tune { in ref :>> context = Run::context.engine; }",
+		"perform action hit ::> Host::hit;",
+		"perform action tune ::> Host::engine.tune;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

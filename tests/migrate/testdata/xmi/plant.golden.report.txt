@@ -19,7 +19,7 @@ Property	Controller::status	_status	-> Controller::status
 Property	Led::lit	_lit	-> Led::lit
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Plant	_plant	-> Plant
-Activity	Plant::Fill	_fill	-> Plant::Fill	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+Activity	Plant::Fill	_fill	-> Plant::fill	(written as an action usage of Plant, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Plant::Fill::<ActivityFinalNode>	_final	-> final
 ControlFlow	Plant::Fill::<ControlFlow>	_f2
 ControlFlow	Plant::Fill::<ControlFlow>	_f3

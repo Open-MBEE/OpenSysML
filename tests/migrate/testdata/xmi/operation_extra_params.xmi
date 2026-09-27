@@ -25,6 +25,18 @@
         </node>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_ajof" source="_ajnD" target="_ajsetVal"/>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_drive" name="Drive">
+        <node xmi:type="uml:InitialNode" xmi:id="_drI"/>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_drCall" name="adjust" operation="_opAdjust">
+          <target xmi:type="uml:InputPin" xmi:id="_drTgt" name="target"/>
+        </node>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_drE" source="_drI" target="_drCall"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_reach" name="Reach">
+      <node xmi:type="uml:InitialNode" xmi:id="_rI"/>
+      <node xmi:type="uml:CallOperationAction" xmi:id="_rCall" name="adjust" operation="_opAdjust"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_rE" source="_rI" target="_rCall"/>
     </packagedElement>
   </uml:Model>
 </xmi:XMI>
