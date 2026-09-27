@@ -1780,13 +1780,17 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 		conflicts := 0
 		for name, value := range inputs {
 			implicit := false
-			if value.Kind == ValInstance && value.Instance == self.ID {
-				for _, param := range ctx.actionParametersOf(action) {
-					if param.Name == name && param.IsReference {
-						implicit = true
-						break
-					}
+			for _, param := range ctx.actionParametersOf(action) {
+				if param.Name != name || !param.IsReference {
+					continue
 				}
+				root := performed[0].Action.root
+				if bound, held := root.data[root.key(name)]; held {
+					implicit = bound.Kind == value.Kind && (value.Kind != ValInstance || bound.Instance == value.Instance)
+				} else {
+					implicit = value.Kind == ValInstance && value.Instance == self.ID
+				}
+				break
 			}
 			if !implicit {
 				conflicts++

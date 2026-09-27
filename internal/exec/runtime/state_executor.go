@@ -298,6 +298,7 @@ func (e *StateExecutor) initializeAttributes() error {
 	evalDefaults := func() *EvalContext {
 		if ec == nil {
 			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
+			ec.occurrence = e.occurrence
 			ec.pushFrame(e.dataFrame())
 			endStep = ec.beginStep()
 		}
@@ -391,6 +392,7 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				scope = e.graph.Scope
 			}
 			ec := NewEvalContextIn(e.ctx, scope, e.self)
+			ec.occurrence = e.occurrence
 			ec.pushFrame(e.dataFrame())
 			end := ec.beginStep()
 			value, err := ec.Eval(attr.Value)

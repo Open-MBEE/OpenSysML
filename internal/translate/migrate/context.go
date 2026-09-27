@@ -254,13 +254,13 @@ func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element)
 // of all of callee's parameters in order, which a body holding only the
 // redefinition would leave invisible to flows and references naming them, and
 // whose positions the redefinition would otherwise be read as redeclaring.
-func (m *migration) contextBody(callee *sysmlv1.Element, ins string) string {
+func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
 	var members []string
 	for _, p := range callee.Owned("ownedParameter") {
 		dir, _ := parameterDirection(p)
 		members = append(members, dir+" "+writeName(m.nameOf(p)))
 	}
-	return strings.Join(append(members, ins), "; ")
+	return append(members, ins)
 }
 
 // contextIns writes the redefinition by which a usage of a behavior taking a

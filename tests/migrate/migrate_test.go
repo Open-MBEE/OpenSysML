@@ -307,6 +307,7 @@ func TestRejectsNonXMI(t *testing.T) {
 var constructFixtures = []string{
 	"plant_states",
 	"station_points",
+	"submachine_params",
 	"rig_interactions",
 	"heater_receptions",
 	"ported_calls",

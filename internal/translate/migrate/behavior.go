@@ -154,7 +154,7 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 		return
 	}
 	if ins, _ := m.contextIns(m.contextOf(b), c); ins != "" {
-		m.w.line(head + " { " + m.contextBody(b, ins) + "; }")
+		m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
 	} else {
 		m.w.line(head + ";")
 	}
@@ -205,7 +205,7 @@ func (m *migration) operationFeature(op *sysmlv1.Element) {
 	}
 	line := kw + writeName(usage) + " : " + m.ref(op, op.Parent)
 	if ins, _ := m.contextIns(m.contextOf(op), op.Parent); ins != "" {
-		m.w.line(line + " { " + m.contextBody(op, ins) + "; }")
+		m.w.line(line + " { " + strings.Join(m.contextBody(op, ins), "; ") + "; }")
 	} else {
 		m.w.line(line + ";")
 	}
@@ -996,7 +996,7 @@ func (m *migration) reception(r *sysmlv1.Element) {
 	})
 	line := "perform action " + writeName(usage) + " : " + writeName(name)
 	if ins, _ := m.contextIns(m.ownerContext(r), owner); ins != "" {
-		m.w.line(line + " { " + m.contextBody(r, ins) + "; }")
+		m.w.line(line + " { " + strings.Join(m.contextBody(r, ins), "; ") + "; }")
 	} else {
 		m.w.line(line + ";")
 	}

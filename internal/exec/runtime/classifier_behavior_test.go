@@ -2138,6 +2138,64 @@ func TestPerformedActionJoinReadsOnlyTheImplicitBinding(t *testing.T) {
 	}
 }
 
+// performedJoinBoundFixture performs Nudge bound to the host's member `other`,
+// so the running performance's stored context binding is that member, not the
+// object that performs.
+const performedJoinBoundFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute level : Integer = 0;
+		}
+		part def Host {
+			part other : Heater;
+			action def Nudge {
+				in delta : Integer = 1;
+				in ref context : Heater;
+				first apply;
+				action apply { assign context.level := context.level + delta; }
+				first apply then done;
+			}
+			perform action nudge : Nudge { in ref :>> context = other; }
+		}
+	}
+`
+
+// The implicit-binding check compares the offered input against the binding the
+// running performance actually stored, not against the performer: when the
+// declaration binds context to `other`, offering the performer is an argument
+// and the join is refused, while offering `other` reads as the implicit binding
+// and joins.
+func TestPerformedActionJoinReadsTheStoredBinding(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinBoundFixture))
+	nudge := oneSymbol(t, idx, "test::Host::Nudge")
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "other")
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
+	other := fv.HeldValue()
+
+	_, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": {Kind: ValInstance, Instance: inst.ID},
+	})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join offering the performer where `other` is bound: %v, want ErrPerformedInputs", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(nudge, inst, map[string]Value{
+		"context": other,
+	}); err != nil {
+		t.Fatalf("join with the binding the performance stored: %v", err)
+	}
+}
+
 // invokeContextFixture owns an operation whose trailing `in ref` parameter a
 // migrated action declares, read through `context.` in its body.
 const invokeContextFixture = `

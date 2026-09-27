@@ -189,6 +189,30 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 // 21 Deep→Fast, 22 Fast→Out, 23 Start→Run, 24 Run→Leave, 25 Out→Prep, 31 Sync entry,
 // 32 Sync exit, 33/34 A1 entry/exit, 35/36 B1 entry/exit, 37 A1→Gather, 38 B1→Gather,
 // 41 Idle→Start, 42 Idle→Deep, 43 Leave→Idle, 44 Work→Idle, 46 Gather→Idle.
+
+// testdata/xmi/submachine_params.xmi: a submachine state whose body holds an
+// entry action redeclares the submachine's parameters each on its own line
+// before the context redefinition, so positionally they keep their declared
+// order.
+func TestSubmachineStateBlockRedeclaresParameters(t *testing.T) {
+	r := migrateFixtureFile(t, "submachine_params")
+	for _, line := range []string{
+		"state Cell : CellMachine {",
+		"in x;",
+		"in ref :>> context = Line::context;",
+		"entry action tally {",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	notation := string(r.Notation)
+	in := strings.Index(notation, "in x;")
+	ref := strings.Index(notation, "in ref :>> context = Line::context;")
+	entry := strings.Index(notation, "entry action tally")
+	if !(in >= 0 && in < ref && ref < entry) {
+		t.Errorf("the redeclared parameter must precede the context redefinition and the entry:\n%s", notation)
+	}
+}
+
 func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	r := migrateFixtureFile(t, "station_points")
 	for _, line := range []string{

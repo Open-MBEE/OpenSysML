@@ -904,7 +904,7 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	}
 	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
 		if ins != "" {
-			s.m.w.line(head + " { " + s.m.contextBody(sub, ins) + "; }")
+			s.m.w.line(head + " { " + strings.Join(s.m.contextBody(sub, ins), "; ") + "; }")
 		} else {
 			s.m.w.line(head + ";")
 		}
@@ -914,7 +914,9 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	s.m.w.block(head, func() {
 		s.m.writeComments(v, false)
 		if ins != "" {
-			s.m.w.line(ins + ";")
+			for _, member := range s.m.contextBody(sub, ins) {
+				s.m.w.line(member + ";")
+			}
 		}
 		s.m.w.lines(defers)
 		if inv != nil {

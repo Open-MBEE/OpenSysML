@@ -1848,7 +1848,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			}
 			line := actionKw + name + " : " + a.m.ref(b, a.def)
 			if ins != "" {
-				a.m.w.line(line + " { " + a.m.contextBody(b, ins) + "; }")
+				a.m.w.line(line + " { " + strings.Join(a.m.contextBody(b, ins), "; ") + "; }")
 			} else {
 				a.m.w.line(line + ";")
 			}
@@ -1941,7 +1941,7 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 	}
 	withIns := func() string {
 		if ins, _ := a.m.contextIns(a.m.contextOf(op), a.def); ins != "" {
-			return " { " + a.m.contextBody(op, ins) + "; }"
+			return " { " + strings.Join(a.m.contextBody(op, ins), "; ") + "; }"
 		}
 		return ";"
 	}
