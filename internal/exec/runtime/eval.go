@@ -1157,13 +1157,9 @@ func (ec *EvalContext) thisValue() (Value, error) {
 		return Value{}, fmt.Errorf("%w: this names the performance itself, which no object owns",
 			ErrThisNotAnObject)
 	}
-	if ec.self == nil {
-		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
-			ErrThisNotAnObject, symbolText(object))
-	}
 	// `this` inside a behavior definition denotes that definition's own
 	// occurrence — the performance instance the run was materialized as — not
-	// the performer itself.
+	// the performer itself, and a run outside any object still has one.
 	if isBehaviorDefKind(object.Kind) {
 		if ec.occurrence == nil && ec.thisOccurrence != nil {
 			occurrence, err := ec.thisOccurrence()
@@ -1177,6 +1173,10 @@ func (ec *EvalContext) thisValue() (Value, error) {
 				ErrThisNotAnObject, symbolText(object))
 		}
 		return Value{Kind: ValInstance, Instance: ec.occurrence.ID}, nil
+	}
+	if ec.self == nil {
+		return Value{}, fmt.Errorf("%w: no object of %s performs this body",
+			ErrThisNotAnObject, symbolText(object))
 	}
 	// A value declared in a nested usage — the redefined feature of an exhibited
 	// or performed occurrence — evaluates `this` against that occurrence's own

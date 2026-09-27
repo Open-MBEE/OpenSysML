@@ -1174,6 +1174,9 @@ func (e *ActionExecutor) initializeAttributes() error {
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
+		}
 		e.root.data[e.root.key(attr.Name)] = value
 		if err := e.streamInitialOutput(attr.Name, value); err != nil {
 			return err
@@ -1204,7 +1207,11 @@ func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
 	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
-	e.root.data[e.root.key(attr.Name)] = Value{Kind: ValInstance, Instance: e.self.ID}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.root.data[e.root.key(attr.Name)] = value
 	return true
 }
 
@@ -1277,21 +1284,35 @@ func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 // endsOwn allows a terminate to end the action's own performance.
 func (e *ActionExecutor) endsOwn() bool { return true }
 
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write, the path every store to a declared feature takes once the occurrence
+// exists; with none, or a name it does not declare, it leaves value untouched.
+func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
+}
+
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
-		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
-			return fmt.Errorf("%w: write %s of object #%d: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+		if value, err = e.mirrorOccurrence(name, value); err != nil {
+			return err
 		}
-		fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
-		if err != nil {
-			return fmt.Errorf("%w: read %s of object #%d after write: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
-		}
-		value = fv.HeldValue()
 	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.

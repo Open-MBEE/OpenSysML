@@ -626,7 +626,18 @@ func (cl *closure) emitObject(o *objectDef, names map[string]bool, spelled map[*
 		b.WriteString(text)
 	}
 	if o.classifier != nil {
-		fmt.Fprintf(&b, "\t\taction %s : %s { in ref :>> context = this; }\n", startMember, quote(o.behaviorName(o.classifier)))
+		// The usage body's members redeclare the behavior's parameters
+		// positionally, so the context redefinition goes last.
+		var members []string
+		for _, p := range o.classifier.Parameters {
+			dir := string(p.Direction)
+			if p.Direction == Return {
+				dir = "out"
+			}
+			members = append(members, dir+" "+quote(spelled[p]))
+		}
+		members = append(members, "in ref :>> context = this")
+		fmt.Fprintf(&b, "\t\taction %s : %s { %s; }\n", startMember, quote(o.behaviorName(o.classifier)), strings.Join(members, "; "))
 	}
 	b.WriteString("\t}\n")
 	return b.String(), nil

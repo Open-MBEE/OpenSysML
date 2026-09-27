@@ -335,6 +335,9 @@ func (e *StateExecutor) initializeAttributes() error {
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
 		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
+		}
 		e.stateData[attr.Name] = value
 	}
 
@@ -360,7 +363,11 @@ func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
 	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
 		return false
 	}
-	e.stateData[attr.Name] = Value{Kind: ValInstance, Instance: e.self.ID}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.stateData[attr.Name] = value
 	return true
 }
 
@@ -480,6 +487,25 @@ func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
 	e.occurrence = inst
 	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
 	return inst, nil
+}
+
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write; with none, or a name it does not declare, it leaves value untouched.
+func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
 }
 
 func (e *StateExecutor) assignAttribute(name string, value Value) error {

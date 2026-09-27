@@ -750,7 +750,7 @@ func TestEmitReadSelf(t *testing.T) {
 	em := emitted(t, s, "Awakener")
 	wantLines(t, em,
 		"\tpart def Holder {\n\t\tattribute n : Integer;\n\t\taction def Reflect {\n\t\t\tout me : Holder;\n\t\t\tin ref context : Holder;\n\t\t\taction ReadSelf { out result : Holder = context; }\n",
-		"\t\t}\n\t\taction classifierBehavior : Reflect { in ref :>> context = this; }\n\t}\n",
+		"\t\t}\n\t\taction classifierBehavior : Reflect { out me; in ref :>> context = this; }\n\t}\n",
 		"action 'Create(Holder)' { out result : Holder = new Holder(); }",
 		"action 'Start(Holder)' { in object : Holder; perform object.classifierBehavior.start; }",
 		"flow 'Create(Holder)'.result to 'Start(Holder)'.object;")
@@ -768,7 +768,7 @@ func TestEmitActivityAsObject(t *testing.T) {
 	wantLines(t, em,
 		"\tpart def Reader {\n\t\taction def 'behavior' {\n\t\t\tin given : Item;\n\t\t\tout n : Integer;\n\t\t\tout xs : Integer[0..*] ordered nonunique = ();\n\t\t\tin ref context : Reader;\n",
 		"\t\t\taction 'Read(n)' { in object : Item; out result : Integer[0..1] = object.n; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in ref :>> context = this; }\n\t}\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in given; out n; out xs; in ref :>> context = this; }\n\t}\n",
 		"action 'Create(Reader)' { out result : Reader = new Reader(); }")
 	if strings.Contains(em.Text, "\n\taction def Reader") {
 		t.Errorf("Reader declared as an action def as well:\n%s", em.Text)
@@ -1422,7 +1422,7 @@ func TestEmitActivityNamesakeOfPrimitive(t *testing.T) {
 	wantLines(t, em,
 		"\tpart def Integer {\n\t\tattribute tally : ScalarValues::Integer;\n\t\taction def 'behavior' {\n\t\t\tout n : ScalarValues::Integer;\n\t\t\tin ref context : Integer;\n",
 		"\t\t\taction 'Value(4)' { out result : ScalarValues::Integer = 4; }\n",
-		"\t\t}\n\t\taction classifierBehavior : 'behavior' { in ref :>> context = this; }\n\t}\n",
+		"\t\t}\n\t\taction classifierBehavior : 'behavior' { out n; in ref :>> context = this; }\n\t}\n",
 		"out made : Integer;",
 		"out count : ScalarValues::Integer;",
 		"action 'Create(Integer)' { out result : Integer = new Integer(); }",

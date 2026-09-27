@@ -2419,3 +2419,96 @@ func TestExecuteStateDefReadsThis(t *testing.T) {
 		t.Errorf("flag = %v, want true: this denoted the machine's own occurrence", got)
 	}
 }
+
+// defRunNoPerformerFixture is a definition run outside any object: `this` in
+// its body still denotes the run's own occurrence, which resolves before the
+// missing performer is asked for.
+const defRunNoPerformerFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Touch {
+			out result : Boolean;
+			first touch;
+			action touch { assign result := this == this; }
+			first touch then done;
+		}
+		state def Vivid {
+			out same : Boolean;
+			entry; then work;
+			state work {
+				entry action check { assign same := this == this; }
+			}
+		}
+	}
+`
+
+// A behavior definition run outside any object still denotes `this` as its own
+// occurrence: the check runs before the absent performer is reached.
+func TestExecuteDefWithoutPerformerReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunNoPerformerFixture))
+	touch := oneSymbol(t, idx, "test::Touch")
+	results, err := ctx.ExecuteAction(touch)
+	if err != nil {
+		t.Fatalf("run %s without performer: %v", touch.Name, err)
+	}
+	if got := results["result"]; !got.Const.Bool {
+		t.Errorf("result = %v, want true: this denoted the run's own occurrence", got)
+	}
+	life := oneSymbol(t, idx, "test::Vivid")
+	outputs, _, err := ctx.ExecuteStatePerformedBy(life, nil, nil)
+	if err != nil {
+		t.Fatalf("run %s without performer: %v", life.Name, err)
+	}
+	if got := outputs["same"]; !got.Const.Bool {
+		t.Errorf("same = %v, want true: this denoted the machine's own occurrence", got)
+	}
+}
+
+// defRunMirrorFixture defaults `early` to a `this` read before `later` is
+// evaluated: materializing mid-loop makes the occurrence authoritative, so the
+// later default mirrors into it and `this.later` reads it back.
+const defRunMirrorFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Probe {
+			attribute early : Boolean = this == this;
+			attribute later : Integer = 7;
+			out result : Integer;
+			first probe;
+			action probe { assign result := this.later; }
+			first probe then done;
+		}
+		state def Vivid {
+			attribute early : Boolean = this == this;
+			attribute later : Integer = 7;
+			out result : Integer;
+			entry; then work;
+			state work {
+				entry action check { assign result := this.later; }
+			}
+		}
+	}
+`
+
+// An occurrence materialized by an early `this` default stays authoritative for
+// the defaults evaluated after it: they mirror into it, so a body reading
+// `this.<attr>` sees the value the loop stored later.
+func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunMirrorFixture))
+	probe := oneSymbol(t, idx, "test::Probe")
+	results, err := ctx.ExecuteAction(probe)
+	if err != nil {
+		t.Fatalf("run %s: %v", probe.Name, err)
+	}
+	if got := results["result"]; got.Const.Int != 7 {
+		t.Errorf("result = %v, want 7: the later default mirrored into the occurrence", got)
+	}
+	vivid := oneSymbol(t, idx, "test::Vivid")
+	outputs, _, err := ctx.ExecuteStatePerformedBy(vivid, nil, nil)
+	if err != nil {
+		t.Fatalf("run %s: %v", vivid.Name, err)
+	}
+	if got := outputs["result"]; got.Const.Int != 7 {
+		t.Errorf("result = %v, want 7: the later default mirrored into the occurrence", got)
+	}
+}
