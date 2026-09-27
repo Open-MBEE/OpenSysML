@@ -45,6 +45,12 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   choice-point budget and the alignment row on firing granularity; and the designs, not yet
   implemented, of a do step against a dispatch and of a completion's firing inside the entry
   front
+- **[Observing a run](observing-a-run.md)** — a proposal: the trace recorder as one event
+  stream and the executors' configuration as one snapshot shape, a wire session over them
+  (`OpenSession`, unary commands, one server-streamed subscription) the REPL debuggers become
+  an implementation of, client callbacks and `@Observation::Listener` metadata by which a model
+  names a co-simulation or visualization hook, what a listener may do to the run without
+  becoming a scheduler, and why translating to SCXML is not the route
 - **[Orthogonal regions](orthogonal-regions.md)** — concurrent substates, in the standard
   `parallel` notation; the bundled libraries give them no performance, so UML 2.5.1 supplies
   the semantics
