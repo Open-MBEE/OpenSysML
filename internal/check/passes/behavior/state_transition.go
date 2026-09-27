@@ -51,10 +51,6 @@ const CodeEntryTransitionShape = "entry-transition-shape"
 // target is a vertex but not a state the body can start in (SysML v2 §7.18.3).
 const CodeEntryTransitionTarget = "entry-transition-target"
 
-// CodeFirstNamesNoTarget marks a one-ended `first <node>;` in a state body, where
-// a succession orders two vertices, `first <source> then <target>` (SysML v2 §7.18.3).
-const CodeFirstNamesNoTarget = "first-names-no-target"
-
 // StateTransitionPass checks that every transition names one source and one
 // target vertex of its own machine (UML 2.5.1 §14.2.3.9), and that a routing
 // pseudostate is left by one (§15.7.18).
@@ -92,7 +88,16 @@ type machine struct {
 	vertices   map[ast.Node]bool
 	sources    map[ast.Node]bool
 	unresolved map[string]bool
-	routing    []*ast.PseudostateNode
+	routing    []routingDecl
+}
+
+// routingDecl is a routing pseudostate as declared: a PseudostateNode of the
+// extension notation, or a state usage a StateMachines metadata annotation
+// declares one through.
+type routingDecl struct {
+	decl ast.Node
+	kind ast.PseudostateKind
+	name string
 }
 
 // findMachines walks the document for state machine declarations. A state inside
@@ -129,7 +134,7 @@ func (c *transitionChecker) findMachines(scope *symbols.Scope, members []ast.Nod
 func (c *transitionChecker) checkMachine(decl ast.Node, scope *symbols.Scope) {
 	// A machine whose vertices do not collect is one lowering reports about, and
 	// checking endpoints against a partial set would report legal ones.
-	vertices, err := lower.VertexDecls(decl, scope)
+	vertices, err := lower.VertexDeclsResolving(decl, scope, c.resolver)
 	if err != nil {
 		return
 	}
@@ -141,12 +146,12 @@ func (c *transitionChecker) checkMachine(decl ast.Node, scope *symbols.Scope) {
 	c.walkBody(m, scope, ast.DeclMembers(decl), decl)
 
 	for _, ps := range m.routing {
-		if m.sources[ps] || m.unresolved[ps.Name] {
+		if m.sources[ps.decl] || m.unresolved[ps.name] {
 			continue
 		}
-		c.report(ps.Span(), CodeNoOutgoingTransition, fmt.Sprintf(
+		c.report(ps.decl.Span(), CodeNoOutgoingTransition, fmt.Sprintf(
 			"%s %s has no outgoing transition, so a transition reaching it terminates nowhere",
-			ps.Kind, ps.Name))
+			ps.kind, ps.name))
 	}
 }
 
@@ -325,13 +330,9 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		case *ast.TransitionEdge:
 			m.markLeft(c.checkEndpoint(m, scope, n.Source, false, nil), n.Source)
 			c.checkEndpoint(m, scope, n.Target, true, nil)
-		case *ast.InitialNode:
-			// A state body has no token flow for a one-ended `first` to start.
-			c.report(n.Span(), CodeFirstNamesNoTarget, fmt.Sprintf(
-				"`first %s;` names no target: a state body orders two vertices, `first %s then <target>`", n.Name(), n.Name()))
 		case *ast.PseudostateNode:
 			if routingPseudostate(n.Kind) {
-				m.routing = append(m.routing, n)
+				m.routing = append(m.routing, routingDecl{decl: n, kind: n.Kind, name: n.Name})
 			}
 		case *ast.StateNode:
 			c.walkBody(m, kit.BodyScope(scope, n), n.Substates, n)
@@ -341,6 +342,15 @@ func (c *transitionChecker) walkBody(m *machine, scope *symbols.Scope, members [
 		case *ast.StateRegion:
 			c.walkBody(m, kit.BodyScope(scope, n), n.States, nil)
 		case *ast.Usage:
+			// `#choice state pick;` and its siblings declare a routing
+			// pseudostate as a metadata annotation, not a substate.
+			if kind, ok := lower.PseudostateMetadata(c.resolver, scope, n); ok {
+				if routingPseudostate(kind) {
+					name, _ := ast.EffectiveName(n)
+					m.routing = append(m.routing, routingDecl{decl: n, kind: kind, name: name})
+				}
+				continue
+			}
 			switch n.Kind {
 			case ast.UsageState:
 				c.walkBody(m, kit.BodyScope(scope, n), n.Members, n)
@@ -419,6 +429,11 @@ func (c *transitionChecker) startsOf(
 	}
 	if _, pseudostate := decl.(*ast.PseudostateNode); pseudostate {
 		return nil
+	}
+	if usage, ok := decl.(*ast.Usage); ok {
+		if _, annotated := lower.PseudostateMetadata(c.resolver, scope, usage); annotated {
+			return nil
+		}
 	}
 	return starts
 }

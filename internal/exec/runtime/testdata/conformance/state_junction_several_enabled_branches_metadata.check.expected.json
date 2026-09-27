@@ -1,0 +1,4 @@
+{
+	"verdict": "divergent",
+	"divergent": {"finalState": ["left", "right"], "route": ["1", "2"]}
+}

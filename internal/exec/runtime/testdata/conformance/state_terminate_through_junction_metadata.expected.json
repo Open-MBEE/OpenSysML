@@ -1,0 +1,20 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"events": [
+		{
+			"signal": "Check"
+		}
+	],
+	"terminated": true,
+	"stateVisits": [
+		"idle"
+	],
+	"outputs": {
+		"log": {
+			"type": "String",
+			"value": "idle(exit);check;relay;"
+		}
+	}
+}

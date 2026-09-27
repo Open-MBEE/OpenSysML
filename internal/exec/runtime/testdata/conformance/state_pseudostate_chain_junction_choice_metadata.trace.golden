@@ -1,0 +1,22 @@
+  eval feature x -> 0
+  eval literal 0 -> 0
+eval operator == -> true
+exit: idle
+stmt assign x
+  eval literal 1 -> 1
+stmt assign y
+    eval feature y -> 0
+    eval literal 1 -> 1
+  eval operator + -> 1
+  eval feature x -> 1
+  eval literal 1 -> 1
+eval operator == -> true
+stmt assign y
+    eval feature y -> 1
+    eval literal 10 -> 10
+  eval operator + -> 11
+enter: seen
+transition: idle -> seen
+exit: seen
+enter: done
+transition: seen -> done

@@ -1,0 +1,17 @@
+{
+	"type": "state",
+	"libraries": true,
+	"finalState": "done",
+	"stateVisits": [
+		"work",
+		"idle",
+		"running",
+		"done"
+	],
+	"outputs": {
+		"log": {
+			"type": "Integer",
+			"value": 123
+		}
+	}
+}

@@ -107,6 +107,13 @@ func (p *Parser) atNamedCalcMember() bool {
 // declarations and behavioral statements. Expects '{' already consumed.
 // Syntax: { in item x; action nested {...}; first nested then ...; flow ...; }
 func (p *Parser) parseActionBodyMixed() []ast.Node {
+	defer p.pushBodyContext(bodyAction)()
+	return p.parseMixedBody()
+}
+
+// parseMixedBody parses the member list the action-, state- and node-body
+// productions share; the caller's bodyContext says which members it admits.
+func (p *Parser) parseMixedBody() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
@@ -208,10 +215,17 @@ func (p *Parser) parseActionBodyMixed() []ast.Node {
 // node that ends in one reads it here, so a body is taken wherever the notation
 // allows one.
 func (p *Parser) parseNodeBody(start int, what string) ([]ast.Node, bool) {
+	return p.parseNodeBodyContext(start, what, bodyAction)
+}
+
+// parseNodeBodyContext reads the body under the context the production
+// carries: an ActionBody for an action node, a RelationshipBody for an
+// initial node's `first a { … }`.
+func (p *Parser) parseNodeBodyContext(start int, what string, ctx bodyContext) ([]ast.Node, bool) {
 	if p.at(lexer.LBrace) {
 		p.advance() // consume '{'
-		defer p.pushBodyContext(bodyAction)()
-		return p.parseActionBodyMixed(), true
+		defer p.pushBodyContext(ctx)()
+		return p.parseMixedBody(), true
 	}
 	if !p.accept2(lexer.Semicolon) && !p.atEffectStatementEnd(start) {
 		p.missingTerminator("expected ';' or '{' after "+what, "missing ';' at end of "+what, p.insertSemicolonFix())
@@ -557,8 +571,9 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 	}
 
 	// The succession a `first … then …` states ends in a body of its own
-	// (SysML.xtext ActionTargetSuccession, which ends in UsageBody).
-	members, hasBody := p.parseNodeBody(start, "initial node")
+	// (SysML.xtext ActionTargetSuccession, which ends in UsageBody); a
+	// one-ended `first a { … }` ends in a RelationshipBody, no ActionBody.
+	members, hasBody := p.parseNodeBodyContext(start, "initial node", bodyOther)
 
 	node := &ast.InitialNode{
 		First:     first,
@@ -568,6 +583,17 @@ func (p *Parser) parseInitialNode(tok lexer.Token) ast.Node {
 		HasBody:   hasBody,
 	}
 	node.NodeSpan = p.spanFrom(start)
+
+	// InitialNodeMember is an ActionBodyItem production alone
+	// (SysML.xtext:1376): anywhere else a `first` names both ends of a
+	// succession, `first <source> then <target>`.
+	if successor == nil && !p.bodyContext().carriesActions() {
+		msg := "a one-ended `first <node>;` is only admitted by an action body; elsewhere a succession names both ends, `first <source> then <target>`"
+		p.error(tok.Span, msg)
+		en := &ast.ErrorNode{Message: msg}
+		en.NodeSpan = node.NodeSpan
+		return en
+	}
 	return node
 }
 
@@ -889,8 +915,8 @@ func (p *Parser) parseSuccessionEdge(tok lexer.Token, allowBody bool) ast.Node {
 	hasBody := false
 	if allowBody && p.accept2(lexer.LBrace) {
 		hasBody = true
-		leave := p.pushBodyContext(bodyAction)
-		members = p.parseActionBodyMixed()
+		leave := p.pushBodyContext(bodyOther)
+		members = p.parseMixedBody()
 		leave()
 	} else {
 		p.expectSemicolon("succession edge")

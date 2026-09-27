@@ -44,7 +44,6 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 	w := &notationWalker{
 		sysml:       ctx.Kind != source.KindKerML,
 		severity:    notationSeverity(ctx.Options.Conformance),
-		parsedClean: !hasParseError(ctx.ParseDiagnostics),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 	}
 	w.walk(root.Members)
@@ -67,18 +66,14 @@ func notationSeverity(mode diag.ConformanceMode) diag.Severity {
 type notationWalker struct {
 	sysml bool
 	// severity applies to mode-sensitive extension findings.
-	severity          diag.Severity
-	diags             []diag.Diagnostic
-	inRequirementBody bool
+	severity diag.Severity
+	diags    []diag.Diagnostic
 	// inActionBody records that the body being walked admits ActionBodyItem
 	// members (SysML.xtext:1367).
 	inActionBody bool
 	// inViewDefBody records that the body being walked is a ViewDefinitionBody
 	// (SysML.xtext ViewDefinitionBodyItem), which admits no Expose.
 	inViewDefBody bool
-	// parsedClean records that the document parsed without an error, which a
-	// finding needs when recovery can shape the tree it reads (see initialNode).
-	parsedClean bool
 	// keywordName holds the offsets where the parser recovered a keyword written as
 	// a name, the only spans keywordAsName escalates.
 	keywordName map[int]bool
@@ -130,7 +125,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			}
 			w.sysmlDeclaration(n, n.Keyword)
 			w.keywordAsName(n.Ident)
-			w.requirementConstraint(n)
 			w.walkDeclaration(n.Members, n)
 		case *ast.Import:
 			w.expose(n)
@@ -157,7 +151,6 @@ func (w *notationWalker) walk(members []ast.Node) {
 			w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
 				"no notation states a deferred event")
 		case *ast.InitialNode:
-			w.initialNode(n)
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
 		case *ast.DecisionNode:
@@ -190,12 +183,11 @@ func (w *notationWalker) walk(members []ast.Node) {
 // walkDeclaration walks the body of a declaration under the body kind that
 // declaration opens.
 func (w *notationWalker) walkDeclaration(members []ast.Node, declaration ast.Node) {
-	requirement, action, viewDef := w.inRequirementBody, w.inActionBody, w.inViewDefBody
-	w.inRequirementBody = isRequirementBodyDeclaration(declaration)
+	action, viewDef := w.inActionBody, w.inViewDefBody
 	w.inActionBody = admitsActionBodyItems(declaration)
 	w.inViewDefBody = isViewDefinition(declaration)
 	w.walk(members)
-	w.inRequirementBody, w.inActionBody, w.inViewDefBody = requirement, action, viewDef
+	w.inActionBody, w.inViewDefBody = action, viewDef
 }
 
 // walkActionBody walks the body of an action node, which is an ActionBody
@@ -213,26 +205,6 @@ func (w *notationWalker) walkActionBody(members []ast.Node) {
 func isViewDefinition(node ast.Node) bool {
 	def, ok := node.(*ast.Definition)
 	return ok && def.Kind == ast.DefView
-}
-
-func isRequirementBodyDeclaration(node ast.Node) bool {
-	switch n := node.(type) {
-	case *ast.Definition:
-		switch n.Kind {
-		case ast.DefRequirement:
-			return true
-		case ast.DefConcern, ast.DefViewpoint:
-			return true
-		}
-	case *ast.Usage:
-		switch n.Kind {
-		case ast.UsageRequirement, ast.UsageSatisfy:
-			return true
-		case ast.UsageConcern, ast.UsageViewpoint, ast.UsageFramedConcern, ast.UsageObjective:
-			return true
-		}
-	}
-	return false
 }
 
 // admitsActionBodyItems reports whether the body a declaration opens is an
@@ -258,35 +230,6 @@ func admitsActionBodyItems(node ast.Node) bool {
 		}
 	}
 	return false
-}
-
-// initialNode reports a one-ended `first <node>;` outside an action body:
-// InitialNodeMember is reachable from ActionBodyItem alone (SysML.xtext:1376),
-// never from DefinitionBodyItem (:516).
-func (w *notationWalker) initialNode(n *ast.InitialNode) {
-	// A recovered `first <source> then <target>` reads as a one-ended node, so
-	// only a document that parsed cleanly is judged here.
-	if !w.inActionBody && n.Successor == nil && w.parsedClean {
-		w.extension(keywordSpan(n, "first"), "a one-ended `first <node>;` outside an action body",
-			"only an action body admits it; elsewhere a succession names both ends, `first <source> then <target>`")
-	}
-}
-
-// requirementConstraint reports an `assume`/`require` member outside a requirement
-// body, where RequirementConstraintMember alone admits it (SysML.xtext:2039).
-func (w *notationWalker) requirementConstraint(n *ast.Usage) {
-	if w.inRequirementBody || n.Kind != ast.UsageConstraint {
-		return
-	}
-	keyword := n.PrefixKeyword
-	if keyword != "assume" && keyword != "require" {
-		keyword = n.Keyword
-	}
-	if keyword != "assume" && keyword != "require" {
-		return
-	}
-	w.extension(keywordSpan(n, keyword), fmt.Sprintf("`%s` outside a requirement body", keyword),
-		"only a requirement, concern, viewpoint or objective body admits it")
 }
 
 // expose reports an `expose` in a view def body: Expose is a ViewBodyItem alone

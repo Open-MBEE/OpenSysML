@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -10,12 +11,19 @@ import (
 // collected by, so a checker reads the same ownership the executor does.
 // scope is the scope the machine's body was declared in.
 func VertexDecls(stateMachineDecl ast.Node, scope *symbols.Scope) (map[ast.Node]bool, error) {
+	return VertexDeclsResolving(stateMachineDecl, scope, nil)
+}
+
+// VertexDeclsResolving is VertexDecls with the resolver the annotations on its
+// members resolve through; nil reads no metadata-declared vertices.
+func VertexDeclsResolving(stateMachineDecl ast.Node, scope *symbols.Scope, resolver *resolve.Resolver) (map[ast.Node]bool, error) {
 	members, err := machineMembers(stateMachineDecl)
 	if err != nil {
 		return nil, err
 	}
 	// Collecting vertices resolves no endpoint, so the graph needs none.
 	graph := newStateGraph(scope, nil)
+	graph.resolver = resolver
 	inherited, owners, err := graph.inheritedContent(stateMachineDecl, outerScope(scope, stateMachineDecl))
 	if err != nil {
 		return nil, err

@@ -506,31 +506,8 @@ func TestJunctionLeftBySuccessionIsLegal(t *testing.T) {
 }`)
 }
 
-// A one-ended `first marker;` is a marker, not a vertex, and UML 2.5.1 §15.7.18
-// gives the initial pseudostate it stands for no incoming transition — so this
-// reports at check time rather than at executor construction.
-func TestTransitionToFirstMarkerIsIllegal(t *testing.T) {
-	got := transitionDiags(t, `package test {
-	state def M {
-		entry; then i;
-		state i;
-		state busy;
-		state other;
-		first marker;
-		succession first i then busy;
-		transition first busy then marker;
-	}
-}`)
-	if len(got) != 2 {
-		t.Fatalf("got %+v, want the marker and the transition to it reported", got)
-	}
-	if got[0].Code != behavior.CodeFirstNamesNoTarget || !strings.Contains(got[0].Message, "`first marker;` names no target") {
-		t.Errorf("got %+v, want the one-ended `first` reported as naming no target", got[0])
-	}
-	if got[1].Code != behavior.CodeEndpointNotOfMachine || !strings.Contains(got[1].Message, "marker") {
-		t.Errorf("got %+v, want the transition to the marker reported", got[1])
-	}
-}
+// A one-ended `first marker;` is a marker, not a vertex, and the parser now
+// rejects one outside an action body outright (see the negative parser tests).
 
 // In a state body `first X then Y;` is the succession X -> Y that `succession
 // first X then Y;` spells with its keyword, so its ends are checked as vertices
@@ -563,27 +540,8 @@ func TestStateBodyFirstIsASuccession(t *testing.T) {
 }
 
 // A one-ended `first X;` orders nothing in a state body, whose members are
-// vertices rather than a token flow, so it is reported rather than ignored.
-func TestOneEndedFirstInAStateBodyIsReported(t *testing.T) {
-	wantOneError(t, `package test {
-	state def M {
-		entry; then a;
-		state a;
-		state b;
-		first b;
-		succession first a then b;
-	}
-}`, behavior.CodeFirstNamesNoTarget, "`first b;` names no target: a state body orders two vertices, `first b then <target>`")
-	wantOneError(t, `package test {
-	state def M {
-		entry; then a;
-		state a {
-			state a1;
-			first a1;
-		}
-	}
-}`, behavior.CodeFirstNamesNoTarget, "`first a1;` names no target")
-}
+// vertices rather than a token flow, so the parser rejects it outright (see
+// the negative parser tests).
 
 // A final state is a vertex, so a transition to one is legal.
 func TestTransitionToFinalStateIsLegal(t *testing.T) {

@@ -283,6 +283,11 @@ func (g *StateGraph) newInstance(state *ast.StateNode, members []inheritedMember
 			decl = node
 		}
 		inst.vertexOf[decl] = replacement
+		if origin, ok := g.copiedFrom[dropped]; ok {
+			// An inherited transition names the usage a pseudostate was
+			// synthesized from, not the synthesized node.
+			inst.vertexOf[origin] = replacement
+		}
 		if node, ok := replacement.(*ast.StateNode); ok {
 			inst.stateByDecl[decl] = node
 		}
@@ -368,7 +373,14 @@ func (g *StateGraph) addMember(content *stateContent, member ast.Node, parallel 
 		g.scopeOf[child] = childScope(scope, m)
 		state.Substates = append(state.Substates, child)
 	case *ast.Usage:
+		pseudostateKind, isPseudostate := g.pseudostateKindOf(m, scope)
 		switch {
+		case g.deferredRefOf(m, scope):
+			state.Defer = append(state.Defer, g.deferredTrigger(m, scope))
+		case isPseudostate:
+			ps := pseudostateFromUsage(m, pseudostateKind)
+			g.copyInherited(ps, m, scope)
+			state.Substates = append(state.Substates, ps)
 		case IsTerminateUsage(m):
 			if !copied {
 				state.Substates = append(state.Substates, m)
@@ -460,7 +472,14 @@ func cloneStateNode(g *StateGraph, node *ast.StateNode, scope *symbols.Scope) *a
 			clone.Substates = append(clone.Substates, cloneStateNode(g, child, g.scopeOf[clone]))
 		case *ast.PseudostateNode:
 			ps := *child
-			g.copyInherited(&ps, child, g.scopeOf[clone])
+			decl := ast.Node(child)
+			if origin, ok := g.copiedFrom[child]; ok {
+				// A pseudostate synthesized from a metadata-annotated usage keeps
+				// the usage as its declaration, so an endpoint naming it reaches
+				// this copy.
+				decl = origin
+			}
+			g.copyInherited(&ps, decl, g.scopeOf[clone])
 			clone.Substates = append(clone.Substates, &ps)
 		case *ast.Usage:
 			if !IsTerminateUsage(child) {

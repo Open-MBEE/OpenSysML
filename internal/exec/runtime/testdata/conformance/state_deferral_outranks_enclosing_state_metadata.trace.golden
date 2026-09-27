@@ -1,0 +1,7 @@
+exit: waiting
+enter: open
+transition: waiting -> open (event: accept Go)
+exit: open
+exit: outer
+enter: pinged
+transition: open -> pinged (event: accept Ping)

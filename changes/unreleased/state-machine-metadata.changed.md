@@ -1,0 +1,1 @@
+- **Two positional allowances are parse errors rather than `nonstandard-notation` warnings.** An `assume`/`require` member outside a requirement or case body, and a one-ended `first <node>;` outside an action body, now produce a syntax diagnostic with an `ErrorNode` in the tree, matching how the other removed extension spellings report.

@@ -38,6 +38,16 @@ func TestNegative(t *testing.T) {
 		{"action_dangling_fork", "action a { fork }"},
 		{"transition_then_only", "transition first then"},
 		{"named_final_node", "action a { done finish; }"},
+		// InitialNodeMember is an ActionBodyItem production alone (SysML.xtext:1376):
+		// a one-ended `first` outside an action body names no target.
+		{"one_ended_first_in_part_body", "part def P { part a; first a; }"},
+		{"one_ended_first_in_state_body", "state def M { state a; first a; }"},
+		{"one_ended_first_in_succession_body", "action def A { action p; action s; first p then s { action o; first o; } }"},
+		{"one_ended_first_in_initial_node_body", "action def A { action a; action b; first a { first b; } }"},
+		// RequirementConstraintMember belongs to a RequirementBody (SysML.xtext:2039):
+		// `assume`/`require` declare nothing anywhere else.
+		{"require_outside_requirement_body", "part def P { attribute size; require constraint { size >= 1 } }"},
+		{"assume_outside_requirement_body", "part def P { attribute size; assume constraint { size >= 1 } }"},
 		{"named_final_keyword", "action a { final finish; }"},
 		{"two_ended_then", "action a { action start; action finish; then start finish; }"},
 		{"state_member_then", "state s { state start; state finish; start then finish; }"},

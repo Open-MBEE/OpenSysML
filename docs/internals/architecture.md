@@ -662,7 +662,7 @@ See [the guide](../guide/) for VS Code configuration.
 | Standard library bundling | ✅ Complete |
 | LSP server implementation | ✅ Complete |
 
-**Parser coverage:** 106/106 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 12 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml` and `MigrationMetadata.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
+**Parser coverage:** 107/107 bundled library files parse cleanly — the 94 official SysML v2 standard library files and the 13 non-normative OpenSysML extensions: `OpenSysML Libraries/OpenSysMLMathFunctions.kerml`, `DocumentQueries.sysml`, `IdentityMetadata.sysml`, `OOSEM.sysml`, `DiagramLayout.sysml`, `MOSA.sysml`, `RandomFunctions.kerml`, `Simulation.sysml`, `StateSpaceIntegration.sysml`, `Stochastic.sysml`, `AnalysisRecords.sysml`, `StateMachines.sysml` and `MigrationMetadata.sysml`. Conformance verified by [stdlib_conformance_test.go](../../internal/workspace/libs/stdlib_conformance_test.go). Grammar reference available at [OMG Xtext grammar](https://github.com/Systems-Modeling/SysML-v2-Pilot-Implementation/tree/master/org.omg.kerml.xtext/src/org/omg/kerml/xtext).
 
 ---
 

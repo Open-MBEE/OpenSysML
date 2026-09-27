@@ -1,0 +1,17 @@
+{
+	"type": "state",
+	"libraries": true,
+	"trace": true,
+	"finalState": "done",
+	"stateVisits": [
+		"idle",
+		"seen",
+		"done"
+	],
+	"outputs": {
+		"x": {
+			"type": "Integer",
+			"value": 2
+		}
+	}
+}

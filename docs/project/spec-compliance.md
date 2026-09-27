@@ -114,8 +114,8 @@ what cannot be checked by anything is in
 - Dangling transition detection (a transition names one source and one target vertex of its own machine; a routing pseudostate with no transition out of it reports)
 - State visits tracking
 - Multi-region event broadcasting
-- History pseudostates: shallow and deep restoration (`history` / `shallow history` / `deep history <name>;`)
-- Deferred events: retention and recall across hierarchy and orthogonal regions (`defer <event>[, <event>]*;`)
+- History pseudostates: shallow and deep restoration (`history` / `shallow history` / `deep history <name>;`, or the `StateMachines` library's `#shallowHistory state` / `#deepHistory state` metadata spellings)
+- Deferred events: retention and recall across hierarchy and orthogonal regions (`defer <event>[, <event>]*;`, or `#deferred ref : <event>;`)
 
 **Expression Evaluation:**
 - Binary operators (+, -, *, /, <, >, ==, and, or)
