@@ -231,6 +231,7 @@ func newActionExecutorOn(
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	exec.performances.thisOccurrence = exec.materializeOccurrence
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
@@ -1231,6 +1232,36 @@ func (e *ActionExecutor) declaresAttribute(name string) bool {
 // assignAround holds nothing: an action's performance is the outermost its nodes reach.
 func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 	return false, nil
+}
+
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a definition run directly denotes it, seeding it with the
+// values the performance's own features already hold so it is authoritative
+// from then on; a run of a usage, whose occurrence the usage materializes or
+// none, has none of its own to make.
+func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.action.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.action, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.features {
+		if value, held := e.root.data[e.root.key(attr.Name)]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.performances.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
 }
 
 // returnAround holds nothing either.

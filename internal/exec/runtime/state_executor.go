@@ -299,6 +299,7 @@ func (e *StateExecutor) initializeAttributes() error {
 		if ec == nil {
 			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
 			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
 			ec.pushFrame(e.dataFrame())
 			endStep = ec.beginStep()
 		}
@@ -388,6 +389,7 @@ func (e *StateExecutor) initializeStateAttributes() error {
 			}
 			ec := NewEvalContextIn(e.ctx, scope, e.self)
 			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
 			ec.pushFrame(e.dataFrame())
 			end := ec.beginStep()
 			value, err := ec.Eval(attr.Value)
@@ -452,6 +454,34 @@ func (e *StateExecutor) declaresAttribute(name string) bool {
 	return false
 }
 
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a machine definition run directly denotes it, seeding it with
+// the values the machine's own attributes already hold; a run of a usage has
+// none of its own to make.
+func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.stateMachine.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.graph.Attributes {
+		if value, held := e.stateData[attr.Name]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
+}
+
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	if e.occurrence != nil {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
@@ -502,6 +532,7 @@ func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
 func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
+	ec.thisOccurrence = e.materializeOccurrence
 	ec.pushFrame(frame{vars: e.stateData, firing: f})
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
@@ -4611,6 +4642,7 @@ func (e *StateExecutor) triggerSignalMatches(accept *ast.AcceptEvent, scope *sym
 func (e *StateExecutor) triggerEval(scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
+	ec.thisOccurrence = e.materializeOccurrence
 	ec.Push(e.stateData)
 	return ec
 }

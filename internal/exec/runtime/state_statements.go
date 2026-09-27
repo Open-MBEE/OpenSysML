@@ -382,6 +382,11 @@ func (h *stateStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// materializeOccurrence defers to the executor's.
+func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
+	return h.exec.materializeOccurrence()
+}
+
 // acceptReturn rejects a `return`: a state behavior computes no result.
 func (h *stateStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())

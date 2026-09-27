@@ -2328,3 +2328,94 @@ func TestInvokeOperationPositionalSeedsOnlyTheConformingDefaultlessRef(t *testin
 		t.Errorf("flag = %v, want true: the sensor binding came from the declared default, not the performer", got)
 	}
 }
+
+// defRunThisFixture is the Warm-style action definition run directly: `this`
+// inside its body denotes the run's own occurrence, materialized when first
+// denoted — and the occurrence is authoritative, so `this.delta` reads the
+// value the run was seeded with.
+const defRunThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute flag : Boolean = false;
+			attribute same : Boolean = false;
+			action def Warm {
+				in ref context : Heater;
+				in delta : Integer = 3;
+				first apply;
+				action apply {
+					assign context.flag := this.delta == delta;
+					assign context.same := this == this;
+				}
+				first apply then done;
+			}
+		}
+	}
+`
+
+// Running a behavior definition directly gives the run an occurrence `this`
+// denotes even though no performed usage materialized one: the occurrence is
+// made on first use, seeded with the performance's own features, and `this`
+// compares to itself — so both reads run and land on the performer through
+// the context binding.
+func TestExecuteActionPerformedByDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunThisFixture))
+	warm := oneSymbol(t, idx, "test::Heater::Warm")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(warm, inst, nil); err != nil {
+		t.Fatalf("run %s directly: %v", warm.Name, err)
+	}
+	for _, name := range []string{"flag", "same"} {
+		fv, err := inst.GetFeatureValue(ctx, name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if got := fv.HeldValue(); !got.Const.Bool {
+			t.Errorf("%s = %v, want true", name, got)
+		}
+	}
+}
+
+// defRunStateFixture is a state definition started without an exhibiting
+// usage: the entry action's `this` denotes the machine's own occurrence.
+const defRunStateFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Heater {
+			attribute flag : Boolean = false;
+			state def Life {
+				in ref context : Heater;
+				entry; then work;
+				state work {
+					entry action check { assign context.flag := this == this; }
+				}
+			}
+		}
+	}
+`
+
+// A state machine definition run directly materializes its occurrence on the
+// first `this` as a directly run action definition does.
+func TestExecuteStateDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, defRunStateFixture))
+	life := oneSymbol(t, idx, "test::Heater::Life")
+	heater := findSymbolByName(idx.DocumentRoot("<test>"), "Heater", ast.DefPart)
+	inst, err := ctx.Instantiate(heater)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+		t.Fatalf("run %s directly: %v", life.Name, err)
+	}
+	fv, err := inst.GetFeatureValue(ctx, "flag")
+	if err != nil {
+		t.Fatalf("read flag: %v", err)
+	}
+	if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: this denoted the machine's own occurrence", got)
+	}
+}

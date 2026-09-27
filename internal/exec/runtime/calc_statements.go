@@ -141,6 +141,11 @@ func (h *calcStmtHost) occurrence() *Instance {
 	return nil
 }
 
+// materializeOccurrence is nil for the same reason.
+func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
+	return nil, nil
+}
+
 // effect performs the action a `perform` in a case body names, its outputs
 // returning to the body's values; a calculation states no effect at all.
 func (h *calcStmtHost) effect(_ *stmtEngine, s lower.Effect) error {

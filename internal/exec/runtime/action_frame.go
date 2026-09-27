@@ -28,6 +28,9 @@ type performances struct {
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
+	// thisOccurrence materializes the performance occurrence `this` denotes the
+	// first time a directly run definition denotes it; nil where none can be.
+	thisOccurrence func() (*Instance, error)
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
@@ -1027,6 +1030,7 @@ func lookupEnclosing(perf *actionFrame, name string) (Value, bool) {
 func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	for _, f := range perf.lexicalFrames() {
 		ec.pushFrame(f)
 	}
@@ -1040,6 +1044,7 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	ec.inBehaviorBody = true
 	if perf.parent != nil {
 		for _, f := range perf.parent.lexicalFrames() {

@@ -85,6 +85,15 @@ func (h *actionStmtHost) occurrence() *Instance {
 	return h.exec.occurrence
 }
 
+// materializeOccurrence defers to the performance's lazy hook, set on the
+// executor that runs it.
+func (h *actionStmtHost) materializeOccurrence() (*Instance, error) {
+	if h.exec.thisOccurrence == nil {
+		return nil, nil
+	}
+	return h.exec.thisOccurrence()
+}
+
 // acceptReturn rejects a `return`: an action node computes no result to return.
 func (h *actionStmtHost) acceptReturn(Value, lower.Return) error {
 	return fmt.Errorf("%w: %s", ErrReturnOutsideCalc, h.describe())

@@ -175,6 +175,10 @@ type stmtHost interface {
 	// occurrence is the performance instance `this` denotes in a def body; nil
 	// when none is materialized.
 	occurrence() *Instance
+	// materializeOccurrence materializes the performance occurrence `this`
+	// denotes the first time a directly run definition denotes it; nil where
+	// none can be.
+	materializeOccurrence() (*Instance, error)
 }
 
 // stmtEngine runs lowered body statements for a host: declarations,
@@ -239,6 +243,7 @@ func (e *stmtEngine) evalIn(scope *symbols.Scope) *EvalContext {
 		scope:          scope,
 		self:           e.host.performer(),
 		occurrence:     e.host.occurrence(),
+		thisOccurrence: e.host.materializeOccurrence,
 		frames:         frames,
 		trace:          e.ctx.trace,
 		inBehaviorBody: true,

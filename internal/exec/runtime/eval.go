@@ -24,8 +24,11 @@ type EvalContext struct {
 	// occurrence is the performance instance `this` denotes where this evaluation
 	// is written inside a behavior definition: the def's own occurrence.
 	occurrence *Instance
-	frames     []frame        // stack of local bindings (innermost = frames[len-1])
-	trace      *TraceRecorder // evaluation trace recorder, nil when not tracing
+	// thisOccurrence materializes the occurrence a directly run definition's
+	// `this` denotes the first time it is denoted, nil where none can be.
+	thisOccurrence func() (*Instance, error)
+	frames         []frame        // stack of local bindings (innermost = frames[len-1])
+	trace          *TraceRecorder // evaluation trace recorder, nil when not tracing
 
 	// features are the features of the element being evaluated — a requirement's
 	// or constraint's own, inherited and rebound features — which its conditions
@@ -98,6 +101,7 @@ func (ec *EvalContext) evalIn(scope *symbols.Scope) *EvalContext {
 	}
 	return &EvalContext{
 		ctx: ec.ctx, scope: scope, self: ec.self, frames: ec.frames, trace: ec.trace,
+		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
 	}
@@ -194,6 +198,7 @@ func snapshotFrames(frames []frame) []frame {
 func (ec *EvalContext) over(scope *symbols.Scope, frames []frame) *EvalContext {
 	return &EvalContext{
 		ctx: ec.ctx, scope: scope, self: ec.self, frames: frames, trace: ec.trace,
+		occurrence: ec.occurrence, thisOccurrence: ec.thisOccurrence,
 		features: ec.features, resolving: ec.resolving, calcRun: ec.calcRun,
 		activation: ec.activation, inBehaviorBody: ec.inBehaviorBody, valuing: ec.valuing,
 	}
@@ -1160,6 +1165,13 @@ func (ec *EvalContext) thisValue() (Value, error) {
 	// occurrence — the performance instance the run was materialized as — not
 	// the performer itself.
 	if isBehaviorDefKind(object.Kind) {
+		if ec.occurrence == nil && ec.thisOccurrence != nil {
+			occurrence, err := ec.thisOccurrence()
+			if err != nil {
+				return Value{}, fmt.Errorf("%w: %v", ErrThisNotAnObject, err)
+			}
+			ec.occurrence = occurrence
+		}
 		if ec.occurrence == nil {
 			return Value{}, fmt.Errorf("%w: no occurrence of %s materialized here",
 				ErrThisNotAnObject, symbolText(object))
