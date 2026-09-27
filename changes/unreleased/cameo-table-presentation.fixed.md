@@ -21,7 +21,9 @@
   cell — a `general`, a tag value, a feature whose declared value names an element of the model
   such as an enumeration literal, which was printed as the qualified name it was written with —
   is that element, printed by its effective name, the one the `name` property reads, as Cameo
-  prints a classifier or a tag value; HTML carries the qualified name in `data-element`. A user profile
+  prints a classifier or a tag value; HTML carries the qualified name in `data-element`, and
+  `WhereFeature` compares such a cell as the name it prints, or as its qualified name against a
+  qualified value. A user profile
   marked «auxiliaryResource» is migrated like any other user profile, since its stereotypes'
   applications carry the user's data. The report row states each setting applied and each still
   refused.
@@ -37,6 +39,8 @@
   is written on it as continuation tables that repeat the first column, at no less than its
   readable width, ahead of the columns that head unbroken beside it, under the caption marked
   "(continued)", in HTML and in the Markdown the pandoc engine converts alike; an unsized wide
-  table's columns share the width evenly, none narrower than its heading. `DocumentQueries` gains `Tree`, `WhereText`, `Table.columnWidths`
+  table's columns share the width evenly, none narrower than its heading, and headings that
+  need more than the line between them share it in proportion rather than overrunning the page; a
+  table without a caption continues without one. `DocumentQueries` gains `Tree`, `WhereText`, `Table.columnWidths`
   and `Table.columnLabels`; rows carry a nesting depth that Markdown marks with `↳` and HTML with
   `data-depth`.

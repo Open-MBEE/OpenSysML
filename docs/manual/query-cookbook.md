@@ -392,8 +392,9 @@ a typed error naming it.
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
 operators above, and an element-valued feature — a verdict's `assertion`, a
-`RelatedColumn` list — as the name it prints by, with the text
-operators. An element without the attribute simply does not match; a
+`RelatedColumn` list, an attribute whose value names an enumeration literal or
+a part — as the name it prints by, with the text operators, or as its qualified
+name when the value written is qualified (holds `::`). An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
 ```sysml
@@ -1398,9 +1399,11 @@ verification declared first comes first.
 
 Related columns join the projection like computed ones: `OrderBy` sorts by
 them, a table's `groupBy` groups by them, and `WhereFeature` filters on them.
-A list cell's elements compare and sort as their qualified names, so
+A list cell's elements sort as their qualified names and compare as the name
+they print by, or as their qualified names against a qualified value, so
 `WhereFeature(feature = "satisfiedBy", operator = "endsWith", value = "::gimbal")`
-keeps the requirements the gimbal satisfies and `OrderBy(property =
+and `WhereFeature(feature = "satisfiedBy", operator = "=", value = "gimbal")`
+both keep the requirements the gimbal satisfies and `OrderBy(property =
 "satisfiedBy", multiple = "first")` sorts by each row's first satisfier.
 Uncovered requirements are the rows whose count is zero:
 

@@ -410,7 +410,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 		known = known || present
 		for _, actual := range values {
-			match, compareErr := compareValue(actual, operator, expected)
+			match, compareErr := e.compareValue(actual, operator, expected)
 			if compareErr != nil {
 				if compareErr != errComparison {
 					return sequence{}, e.invalidArgument(expression, "value", expected)
@@ -880,6 +880,16 @@ type comparisonError struct{}
 
 func (*comparisonError) Error() string { return "unsupported comparison" }
 
+// compareValue compares one value as WhereFeature does: an element by the name
+// a cell prints it by, or by its qualified name when the value written is
+// qualified.
+func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
+	if _, ok := actual.Element(); ok && !strings.Contains(expected, "::") {
+		return compareText(e.valueText(actual), operator, expected)
+	}
+	return compareValue(actual, operator, expected)
+}
+
 func compareValue(actual Value, operator, expected string) (bool, error) {
 	switch actual.Kind() {
 	case ValueString:
@@ -910,7 +920,6 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 		magnitude, _ := actual.Magnitude()
 		return compareValue(magnitude, operator, expected)
 	case ValueElement:
-		// An element compares as the qualified name a cell prints it by.
 		sym, _ := actual.Element()
 		return compareText(symbols.FQNOf(sym), operator, expected)
 	default:

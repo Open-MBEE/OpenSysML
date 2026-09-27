@@ -97,4 +97,11 @@ package Observatory {
 			calc rows : Wide { in root = sensors; }
 		}
 	}
+
+	part def UncaptionedReport :> Document {
+		attribute redefines title = "Uncaptioned Report";
+		part readings : Table {
+			calc rows : Wide { in root = sensors; }
+		}
+	}
 }

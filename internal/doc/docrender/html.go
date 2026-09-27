@@ -564,7 +564,9 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 			if id != "" {
 				partID = id + "-" + strconv.Itoa(i+1)
 			}
-			partCaption.text = strings.TrimSpace(c.text + " " + continuedSuffix)
+			if c.text != "" {
+				partCaption.text = c.text + " " + continuedSuffix
+			}
 		}
 		w.writeTablePart(node, partID, partCaption, columns, part,
 			tablePartKind{wide: layout.wide, split: len(layout.parts) > 1, continued: i > 0})
@@ -826,13 +828,10 @@ func evenShares(columns []queryexec.Column, measure int) []float64 {
 // held to the first column's least share and the headings' needs on a line
 // of measure characters (when positive).
 func widthShares(columns []queryexec.Column, widths []float64, measure int) []float64 {
-	sum := 0.0
-	for _, width := range widths {
-		sum += width
-	}
+	total := sum(widths)
 	shares := make([]float64, len(columns))
 	for i, width := range widths {
-		shares[i] = width / sum
+		shares[i] = width / total
 	}
 	if len(shares) > 1 && shares[0] < firstColumnMinShare {
 		scale := (1 - firstColumnMinShare) / (1 - shares[0])
@@ -857,9 +856,16 @@ func widthShares(columns []queryexec.Column, widths []float64, measure int) []fl
 // fitShares sets the shares of a unit line so that none falls below its
 // minimum: a share that would is pinned at its minimum and the rest split
 // what the pinned ones leave in their proportions, until every share fits.
-// Minima summing past one leave every share at its minimum.
+// Minima summing past one share the line in their proportions instead, and
+// the headings break.
 func fitShares(shares, minima []float64) []float64 {
 	out := make([]float64, len(shares))
+	if need := sum(minima); need > 1 {
+		for i, minimum := range minima {
+			out[i] = minimum / need
+		}
+		return out
+	}
 	pinned := make([]bool, len(shares))
 	for {
 		free, weight := 1.0, 0.0
@@ -885,6 +891,14 @@ func fitShares(shares, minima []float64) []float64 {
 			return out
 		}
 	}
+}
+
+func sum(values []float64) float64 {
+	total := 0.0
+	for _, value := range values {
+		total += value
+	}
+	return total
 }
 
 // writeColumnGroup writes one <col> per column of a sized table, its stated

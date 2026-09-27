@@ -377,7 +377,8 @@ that line, or more than twelve columns, are written as continuation tables on
 it, each repeating the first column ahead of as many of the following columns
 as head unbroken beside it (at most eleven), under the table's caption with
 "(continued)" appended and no number of its own; a heading longer than the
-line itself still sets beside the repeated column, broken. A table of few
+line itself still sets beside the repeated column, the two sharing the line in
+proportion to their needs and the heading breaking. A table of few
 wide-headed columns therefore goes landscape or splits sooner than one of many
 short-headed ones, and a table that fits its own line is never moved or split. The `weasyprint` and `prince`
 engines split the HTML table; the `pandoc` engine gets the same split in the

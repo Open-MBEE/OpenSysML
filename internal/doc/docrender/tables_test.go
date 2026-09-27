@@ -118,6 +118,52 @@ func TestHTMLTableContinuation(t *testing.T) {
 	}
 }
 
+// TestTableContinuationUncaptioned locks that the continuations of a table
+// without a caption print no caption of their own in HTML or Markdown.
+func TestTableContinuationUncaptioned(t *testing.T) {
+	const uncaptioned = "Observatory::UncaptionedReport"
+	got := renderFixtureHTML(t, sizedReportPath(), uncaptioned, HTMLOptions{Fragment: true, TableColumns: 8})
+	if n := strings.Count(got, "sysml-table-continued"); n != 2 {
+		t.Fatalf("continuation tables = %d, want 2:\n%s", n, got)
+	}
+	if strings.Contains(got, "continued)") || strings.Contains(got, "<caption") {
+		t.Fatalf("an uncaptioned table's continuations were captioned:\n%s", got)
+	}
+	md, err := Markdown(fixtureDocument(t, sizedReportPath(), uncaptioned), MarkdownOptions{TableColumns: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := strings.Count(md, "| name |"); n != 3 {
+		t.Fatalf("Markdown readings parts = %d, want 3:\n%s", n, md)
+	}
+	if strings.Contains(md, "continued") || strings.Contains(md, "*Table") {
+		t.Fatalf("an uncaptioned table's Markdown continuations were captioned:\n%s", md)
+	}
+}
+
+// TestWidthSharesOverlongHeadings locks that headings needing more than the
+// line between them share it in proportion to their needs, summing to one.
+func TestWidthSharesOverlongHeadings(t *testing.T) {
+	columns := []queryexec.Column{queryexec.Column{}.WithLabel("name"), queryexec.Column{}.WithLabel("postSegmentExchangeTimeLimit")}
+	const measure = 20
+	minima := []float64{
+		max(float64(headingNeed(columns[0]))/measure, firstColumnMinShare),
+		float64(headingNeed(columns[1])) / measure,
+	}
+	for _, widths := range [][]float64{{1, 1}, {774, 105}} {
+		shares := widthShares(columns, widths, measure)
+		if total := sum(shares); math.Abs(total-1) > 1e-9 {
+			t.Fatalf("shares %v of widths %v sum to %v", shares, widths, total)
+		}
+		if math.Abs(shares[0]-minima[0]/(minima[0]+minima[1])) > 1e-9 {
+			t.Fatalf("shares of widths %v = %v, want the headings' needs in proportion", widths, shares)
+		}
+	}
+	if got := fitShares([]float64{0.5, 0.5}, []float64{0.2, 0.2}); !reflect.DeepEqual(got, []float64{0.5, 0.5}) {
+		t.Fatalf("fitting shares changed to %v", got)
+	}
+}
+
 // TestHTMLTableMeasureSplit locks the split by measure: the readings table's
 // single-letter headings all fit a line of 320 characters — the three-column
 // parts table has half of it — a line of 40 takes as many as head unbroken,
@@ -200,7 +246,8 @@ func TestTablePartsByMeasure(t *testing.T) {
 	}
 	// Ten value headings of 7 characters need 100 of 120; the first column
 	// keeps its least share of 18 % rather than the 20 characters left, so a
-	// part holds the nine that fit beside it and the shares stay at their minima.
+	// part holds the nine that fit beside it, and the eleven together share
+	// the line in proportion to their needs.
 	dense := []queryexec.Column{queryexec.Column{}.WithLabel("name").WithWidth(774)}
 	for i := 0; i < 10; i++ {
 		dense = append(dense, queryexec.Column{}.WithLabel("abcdefg").WithWidth(105))
@@ -208,8 +255,8 @@ func TestTablePartsByMeasure(t *testing.T) {
 	if got := tableParts(dense, 0, 120).parts; !reflect.DeepEqual(got, [][]int{{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, {0, 10}}) {
 		t.Fatalf("dense parts = %v", got)
 	}
-	if shares := columnShares(dense, 120); math.Abs(shares[0]-firstColumnMinShare) > 0.001 {
-		t.Fatalf("dense first share = %v, want the least share", shares[0])
+	if shares := columnShares(dense, 120); math.Abs(shares[0]-firstColumnMinShare/(firstColumnMinShare+10.0/12)) > 0.001 || math.Abs(sum(shares)-1) > 1e-9 {
+		t.Fatalf("dense shares = %v, want the needs scaled to the line", shares)
 	}
 	// An unsized wide table shares its width evenly, held to the headings:
 	// eight columns take an eighth each on a line of 112, but a heading of 18

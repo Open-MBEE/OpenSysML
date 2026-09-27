@@ -490,6 +490,43 @@ calc def Entries :> Query {
 	}
 }
 
+// TestExecuteWhereFeatureMatchesElementValuesByName: an element-valued
+// attribute compares as the name its cell prints, and as its qualified name
+// against a qualified value.
+func TestExecuteWhereFeatureMatchesElementValuesByName(t *testing.T) {
+	for _, tc := range []struct {
+		operator, value string
+		want            []string
+	}{
+		{"=", "650mm", []string{"entry001"}},
+		{"=", "700mm", []string{"entry002"}},
+		{"endsWith", "Beam::650mm", []string{"entry001"}},
+		{"=", "Bench::Beam::650mm", nil},
+		{"!=", "650mm", []string{"entry002"}},
+	} {
+		fixture := derivedFixture(t, `
+package Bench {
+	enum def Beam { '650mm'; '700mm'; }
+	part def Entry { attribute beam : Beam; }
+	individual part def entry001 :> Entry { attribute :>> beam = Bench::Beam::'650mm'; }
+	individual part def entry002 :> Entry { attribute :>> beam = Bench::Beam::'700mm'; }
+}
+calc def Entries :> Query {
+	in root : Element;
+	Project(
+		source = WhereFeature(
+			source = WhereName(source = Descendants(source = root), operator = "startsWith", value = "entry"),
+			feature = "beam", operator = "`+tc.operator+`", value = "`+tc.value+`"),
+		properties = ("name", "beam")
+	)
+}
+`)
+		if got := cellTexts(t, quantityRows(t, fixture, "Entries", "Bench"), 0); !slices.Equal(got, tc.want) {
+			t.Errorf("beam %s %q keeps %v, want %v", tc.operator, tc.value, got, tc.want)
+		}
+	}
+}
+
 // TestExecuteRollsUpDerivedValuesOverSubsettedParts: `mass + sum(subcomponents.totalMass)`
 // recurses through parts subsetting a multiplicity-many part, each level reading
 // its own carrier, and `->collect`/`size` see the same collection.
