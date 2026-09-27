@@ -137,9 +137,10 @@ about (see the [pilot differential](../../project/pilot-differential.md)).
 
 Rules of the reading, in detail:
 
-- The shorthand and the nested-body form are interchangeable: a chain whose
-  segments reach a feature the nested-body form also redefines loses to it — a
-  redefinition the object's own type declares wins over the chain's.
+- The shorthand ranks exactly as the nested-body form written in the same
+  body does: a nested-body redefinition declared by the chain's owner or
+  something specializing it wins; the child's type's own redefinition and
+  bodies in types the owner specializes lose.
 - Each chain applies below every object of the declaring type, including every
   element of a multi-valued intermediate (`part wheels : Wheel[2];` then
   `attribute :>> wheels.radius = 0.4;` redefines `radius` on each wheel).

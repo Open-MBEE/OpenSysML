@@ -324,6 +324,14 @@ func (ctx *Context) refineFeatureValue(inst *Instance, fv *FeatureValue, feat *E
 		(!ctx.modelConforms(typ, have.OwnerType) || slices.Contains(ctx.redefinedFeatures(have.Symbol, have.OwnerType), feat.Symbol)) {
 		return nil
 	}
+	return ctx.installFeatureValue(inst, fv, feat)
+}
+
+// installFeatureValue puts the classifier's declaration on a carried feature
+// value without asking whether it outranks the one read: the caller has
+// decided it does (see refineFeatureValue and refineNestedBelow).
+func (ctx *Context) installFeatureValue(inst *Instance, fv *FeatureValue, feat *EffectiveFeature) error {
+	have := fv.Feature
 	ctx.noteProbeWrite(fv)
 	if !fv.Materialized || (!fv.Written && feat.DefaultValue != have.DefaultValue) {
 		ctx.invalidateDependents(fv)

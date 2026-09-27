@@ -75,9 +75,15 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 		if overrides == nil {
 			overrides = make(map[string]*symbols.Symbol)
 		}
-		// The first chain reaching a feature wins: the tails carried down are
-		// listed first, then each type's own before its member sources'.
-		if _, taken := overrides[p.rest[0]]; !taken {
+		taken, ok := overrides[p.rest[0]]
+		if !ok {
+			overrides[p.rest[0]] = p.sym
+			continue
+		}
+		// A chain declared by a type specializing the earlier chain's context
+		// outranks it, as a nested redefining body in the subtype does; equal
+		// and unrelated contexts keep the first, the tails carried down first.
+		if next, prior := ctx.redefinitionContext(p.sym), ctx.redefinitionContext(taken); next != prior && ctx.modelConforms(next, prior) {
 			overrides[p.rest[0]] = p.sym
 		}
 	}
@@ -88,9 +94,9 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 			if !ok {
 				continue
 			}
-			// A standard redefinition the object's own type declares wins over a
-			// chain reaching the same feature from above.
-			if ctx.ownBodyRedefinition(sym, features[i].Symbol) {
+			// A redefinition declared by the chain's context or a type
+			// specializing it wins over the chain, as the nested-body form does.
+			if hasRedefines(features[i].Symbol) && ctx.blocksChain(features[i].Symbol, redefining) {
 				continue
 			}
 			features[i] = ctx.effectiveFeature(features[i].Name, redefining, sym)
@@ -130,7 +136,9 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 			continue
 		}
 		child, ok := ctx.instances[id]
-		if !ok {
+		// A reference, port or subject holds an object it does not own: the
+		// chain stays within owned objects.
+		if !ok || child.owner != inst {
 			continue
 		}
 		rest := chain[1:]
@@ -139,13 +147,14 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 			if cfv == nil || cfv.Feature == nil {
 				continue
 			}
-			// A standard redefinition the child's own type declares wins over a
-			// chain reaching the feature from above, as it does on materialize.
-			if ctx.ownBodyRedefinition(child.Type, cfv.Feature.Symbol) {
+			// A redefinition declared by the chain's context or a type
+			// specializing it wins over the chain; anything else yields, as with
+			// the nested-body form.
+			if ctx.blocksChain(cfv.Feature.Symbol, sym) {
 				continue
 			}
 			feat := ctx.effectiveFeature(rest[0], sym, child.Type)
-			if err := ctx.refineFeatureValue(child, cfv, &feat, child.Type); err != nil {
+			if err := ctx.installFeatureValue(child, cfv, &feat); err != nil {
 				return err
 			}
 			continue
@@ -169,13 +178,28 @@ func clonePendingRedefinitions(pending []pendingRedefinition) []pendingRedefinit
 	return out
 }
 
-// ownBodyRedefinition reports whether member is a redefinition declared by
-// sym's own body, which a nested redefinition reaching the same feature does
-// not override.
-func (ctx *Context) ownBodyRedefinition(sym, member *symbols.Symbol) bool {
-	if member == nil || ctx.findOwnerType(member) != sym {
-		return false
+// redefinitionContext answers the type or usage whose body member's
+// redefinition is written in: the first definition up the owner chain, or the
+// topmost usage when no definition encloses it (a chain declared on
+// `part top : Derived { attribute :>> mid.leaf.value = 99.0; }` counts as
+// declared by top).
+func (ctx *Context) redefinitionContext(member *symbols.Symbol) *symbols.Symbol {
+	owner := ctx.findOwnerType(member)
+	for owner != nil && !isDefinitionSymbol(owner) && ctx.findOwnerType(owner) != nil {
+		owner = ctx.findOwnerType(owner)
 	}
+	return owner
+}
+
+// blocksChain reports whether existing, the redefinition standing on a
+// feature, outranks a chain reaching it: it does when the body declaring it
+// conforms to the chain's context — the same body, or a subtype of it.
+func (ctx *Context) blocksChain(existing, chain *symbols.Symbol) bool {
+	return ctx.modelConforms(ctx.redefinitionContext(existing), ctx.redefinitionContext(chain))
+}
+
+// hasRedefines reports whether member redefines another feature.
+func hasRedefines(member *symbols.Symbol) bool {
 	for _, rel := range semantics.RelationshipsOf(member) {
 		if rel != nil && rel.Kind == ast.RelRedefines {
 			return true
