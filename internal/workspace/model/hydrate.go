@@ -152,28 +152,44 @@ func (w *Workspace) demoteLocked(name string, doc *Document) bool {
 
 // holdOnDiskLocked holds the closed document name with the content its file
 // has: as the record cache's record of that content, where the workspace has
-// one whose provenance holds, else parsed. Caller holds the write lock.
+// one whose provenance holds once the record is among the documents held (a
+// record's reads are answered by its own document too), else parsed. Caller
+// holds the write lock.
 func (w *Workspace) holdOnDiskLocked(name string, content []byte) {
-	if rec := w.cachedRecordLocked(name, content); rec != nil {
+	if rec := w.acceptedRecordLocked(name, content); rec != nil {
 		if scope, err := symbols.BuildRecorded(rec.Scope, rec.Name); err == nil {
 			w.installRecordedLocked(rec, scope, content, 0)
 			w.index.ExpandWildcardImports()
 			w.invalidateLocked(name)
-			return
+			if rec.Provenance.Valid(w.sourcesLocked()) {
+				return
+			}
 		}
 	}
 	w.reindexLocked(name, content, 0)
+}
+
+// acceptedRecordLocked is the record cache's record of the named content, when
+// the workspace has a cache and the record answers its question; whether its
+// provenance holds is the caller's to check among the documents it holds it
+// with. Caller holds the write lock.
+func (w *Workspace) acceptedRecordLocked(name string, content []byte) *libs.InterfaceRecord {
+	if w.records == nil {
+		return nil
+	}
+	rec, ok := w.records.LoadInterface(w.recordKeyLocked(name, content))
+	if !ok || w.recordAcceptedLocked(rec) != nil {
+		return nil
+	}
+	return rec
 }
 
 // cachedRecordLocked is the record cache's record of the named content, when
 // the workspace has a cache, the record answers its question and its
 // provenance holds among the documents held. Caller holds the write lock.
 func (w *Workspace) cachedRecordLocked(name string, content []byte) *libs.InterfaceRecord {
-	if w.records == nil {
-		return nil
-	}
-	rec, ok := w.records.LoadInterface(w.recordKeyLocked(name, content))
-	if !ok || w.recordAcceptedLocked(rec) != nil || !rec.Provenance.Valid(w.sourcesLocked()) {
+	rec := w.acceptedRecordLocked(name, content)
+	if rec == nil || !rec.Provenance.Valid(w.sourcesLocked()) {
 		return nil
 	}
 	return rec

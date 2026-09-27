@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.lsp.dev/protocol"
@@ -91,5 +92,74 @@ func TestDidSaveWritesRecordAndCloseDemotes(t *testing.T) {
 	}
 	if got := diagnosticsFor(fc, main); len(got) != len(want) {
 		t.Fatalf("reopened main.sysml published %v, want %v", got, want)
+	}
+}
+
+// Hover over a reference into a document held as its record shows the
+// declaration's documentation as it does over a loaded one: the hover hydrates
+// the recorded document and reads the comment from its tree.
+func TestHoverIntoARecordedDocumentShowsItsDocumentation(t *testing.T) {
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	lib := filepath.Join(dir, "lib.sysml")
+	main := filepath.Join(dir, "main.sysml")
+	const libSource = "package Lib {\n\t/* The bus every satellite rides on. */\n\tpart def Bus;\n}\n"
+	const mainSource = "package Main { private import Lib::*; part sat : Bus; }\n"
+	for path, text := range map[string]string{lib: libSource, main: mainSource} {
+		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ws := model.NewWorkspace(model.WithRecordCache(cache))
+	s := NewServer(ws)
+	s.client = &fakeClient{}
+	ctx := context.Background()
+	if _, err := s.Initialize(ctx, &protocol.InitializeParams{
+		WorkspaceFolders: []protocol.WorkspaceFolder{{URI: string(uri.File(dir)), Name: "records"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Initialized(ctx, &protocol.InitializedParams{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{lib, main} {
+		text := libSource
+		if path == main {
+			text = mainSource
+		}
+		if err := s.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{
+			URI: uri.File(path), LanguageID: "sysml", Version: 1, Text: text,
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.DidSave(ctx, &protocol.DidSaveTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(lib)}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DidClose(ctx, &protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(lib)}}); err != nil {
+		t.Fatal(err)
+	}
+	if !ws.Recorded(lib) {
+		t.Fatal("lib.sysml closed unchanged is not held as its record: the fixture is vacuous")
+	}
+	off := strings.Index(mainSource, ": Bus") + len(": ")
+	res, err := s.Hover(ctx, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(main)},
+			Position:     offsetToPosition([]byte(mainSource), off),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res == nil || !strings.Contains(res.Contents.Value, "part def Bus") ||
+		!strings.Contains(res.Contents.Value, "The bus every satellite rides on.") {
+		t.Fatalf("hover over Bus = %+v, want its declaration with its documentation", res)
+	}
+	if ws.Recorded(lib) {
+		t.Fatal("hover read documentation from lib.sysml without hydrating it")
 	}
 }

@@ -108,7 +108,10 @@ document is never analyzed again; `Workspace.Diagnostics` and
 - **Constraint and requirement text.** The constraint's result expression is
   an expression.
 - **Comments and documentation.** Documentation is read from the tree by
-  hover and the document renderer, which hydrate. The record keeps only the
+  hover and the document renderer, which hydrate (the language server's hover
+  over a reference into a recorded document hydrates it first); completion
+  lists a recorded declaration without its documentation rather than parse
+  every closed file a candidate comes from. The record keeps only the
   document's top-level member list (`InterfaceRecord.Members`, a
   `libs.TopMember` per member: its keyword, name, import target and span),
   which is what a session lists of a file it loaded (`✓ package P`,
@@ -221,10 +224,16 @@ and rename), and the REPL's `%print`, queries and private symbol index.
 Demotion is the reverse. `Close` of a document whose buffer equals the file on
 disk, whose record the cache holds for that content and whose provenance is
 valid, installs the record in place of the tree (`demoteLocked`) and
-invalidates the name; a close of a changed buffer, or with no record, reindexes
-from disk as before. `SetOnDisk` of a closed file, and `OpenAll` for each
+invalidates the name; a close of a changed buffer holds the disk bytes instead,
+as a closed file is held. `SetOnDisk` of a closed file, and `OpenAll` for each
 input, take the record for the content when the cache holds a valid one and
-parse otherwise (`holdOnDiskLocked`, `cachedRecords`).
+parse otherwise (`holdOnDiskLocked`, `cachedRecords`). A record's reads are
+answered by its own document too (its identity judgment, its own names), so
+both install the record first and check its provenance among the documents
+then held, parsing it in place where that does not hold; a file set from disk
+before the siblings its analysis read (a batch installs them together; the
+language server's folder scan holds them one at a time) is parsed, and a later
+sibling does not demote it.
 
 Records are written where a document has just been fully analyzed: the batch
 path (`DiagnosticsAll`, so `sysml -validate` and `-satisfy` and the REPL's

@@ -131,7 +131,7 @@ func TestHydrateIsAnInvalidation(t *testing.T) {
 }
 
 // Closing a document clean on disk demotes it to its record; closing one whose
-// buffer differs from the disk reindexes the disk bytes loaded.
+// buffer differs from the disk holds the disk bytes, as their record too.
 func TestCloseDemotesACleanDocument(t *testing.T) {
 	cache, want := recordCache(t)
 	ws := NewWorkspace(WithRecordCache(cache))
@@ -152,12 +152,18 @@ func TestCloseDemotesACleanDocument(t *testing.T) {
 		t.Fatal("an open buffer is held as a record")
 	}
 	ws.Update("user.sysml", []byte("package Craft { part def Edited; }"), 3)
-	ws.Close("user.sysml")
-	if ws.Recorded("user.sysml") {
-		t.Fatal("a buffer closed dirty was demoted rather than reindexed from disk")
+	if len(ws.index.LookupQualified("Craft::Sat")) != 0 {
+		t.Fatal("the edited buffer still declares Craft::Sat")
 	}
-	if syms := ws.index.LookupQualified("Craft::Sat"); len(syms) != 1 || syms[0].Decl == nil {
+	ws.Close("user.sysml")
+	if !ws.Recorded("user.sysml") {
+		t.Fatal("a buffer closed dirty is not held as the record of the disk bytes")
+	}
+	if syms := ws.index.LookupQualified("Craft::Sat"); len(syms) != 1 || !syms[0].Recorded() {
 		t.Fatalf("closed user.sysml resolves Craft::Sat to %d symbols", len(syms))
+	}
+	if got := messagesOf(ws.Diagnostics("user.sysml")); !reflect.DeepEqual(got, want[1]) {
+		t.Fatalf("user.sysml closed dirty reports %v, want %v", got, want[1])
 	}
 }
 
@@ -238,5 +244,25 @@ func TestNewSiblingHydratesRecordedDependents(t *testing.T) {
 	want := messagesOf(loaded.Diagnostics("user.sysml"))
 	if got := messagesOf(ws.Diagnostics("user.sysml")); !reflect.DeepEqual(got, want) {
 		t.Fatalf("hydrated user.sysml reports %v, loaded beside the same documents %v", got, want)
+	}
+}
+
+// A closed file set from disk is held as its record once the documents its
+// analysis read are held — itself among them, since a record's reads are
+// answered by its own document; a record installed alone before its siblings
+// does not hold and is parsed.
+func TestSetOnDiskTakesTheRecordAmongHeldSiblings(t *testing.T) {
+	cache, want := recordCache(t)
+	ws := NewWorkspace(WithRecordCache(cache))
+	ws.SetOnDisk("base.sysml", hydrateBase)
+	ws.SetOnDisk("user.sysml", hydrateUser)
+	if !ws.Recorded("user.sysml") {
+		t.Fatal("user.sysml set from disk beside its held sibling is not held as its record")
+	}
+	if got := messagesOf(ws.Diagnostics("user.sysml")); !reflect.DeepEqual(got, want[1]) {
+		t.Fatalf("recorded diagnostics %v, loaded %v", got, want[1])
+	}
+	if ws.Document("base.sysml").AST == nil {
+		t.Fatal("base.sysml, set from disk before the sibling its analysis read, holds no tree")
 	}
 }
