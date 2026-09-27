@@ -342,9 +342,7 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	}
 	// A nested usage also subsets the feature of its owner its kind nests under
 	// (SysML v2 §8.3): a part in an item one of its `subparts`.
-	for _, name := range ctx.implicitSubsettingNames(sym, owner) {
-		names = append(names, name)
-	}
+	names = append(names, ctx.implicitSubsettingNames(sym, owner)...)
 	ctx.model.subsetted[key] = names
 	return names
 }
