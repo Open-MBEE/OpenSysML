@@ -24,6 +24,9 @@ type Scope struct {
 	bodyLocal        bool                                // declarations live only inside the owning body
 	annotated        ast.Node                            // for a metadata body, the declaration the annotation is written on
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
+	recorded         bool                                // rebuilt from an interface record: no node, imports and filters held here
+	imports          []*ast.Import                       // a recorded scope's import declarations
+	filters          []ElementFilter                     // a recorded scope's `filter` conditions
 }
 
 // scopeIndexes holds the lookup maps a larger scope builds on demand; a nil map is
@@ -61,6 +64,31 @@ func (s *Scope) SetOwner(sym *Symbol) { s.owner = sym }
 
 // Node returns the AST node that owns this scope, or nil for synthetic scopes.
 func (s *Scope) Node() ast.Node { return s.node }
+
+// Recorded reports whether this scope was rebuilt from an interface record and
+// so has no node: its imports and filters are read from the record.
+func (s *Scope) Recorded() bool { return s.recorded }
+
+// Imports returns the import declarations the namespace owning this scope
+// states, in declaration order, whether read from its node or its record.
+func (s *Scope) Imports() []*ast.Import {
+	if s == nil {
+		return nil
+	}
+	if s.recorded {
+		return s.imports
+	}
+	var out []*ast.Import
+	for _, m := range namespaceMembers(s.node) {
+		if mem, ok := m.(*ast.Membership); ok {
+			m = mem.Member
+		}
+		if imp, ok := m.(*ast.Import); ok {
+			out = append(out, imp)
+		}
+	}
+	return out
+}
 
 // BodyLocal reports whether this scope's names exist only inside the body that
 // declares them, so a subtree search such as a recursive import must skip it.

@@ -1,0 +1,5 @@
+{
+  "toolName": "greeter",
+  "executable": "echo",
+  "variables": []
+}

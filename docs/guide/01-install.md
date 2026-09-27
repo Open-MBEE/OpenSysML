@@ -332,6 +332,20 @@ so `man sysml` and `man sysml-lsp` work after
 Python client rather than in the bundle, so its page comes from a source
 install.
 
+## WebAssembly builds (optional)
+
+No release ships a WebAssembly artifact, but the same source builds for both of
+Go's WebAssembly targets, for a host that runs modules rather than executables:
+
+```bash
+make build-wasm
+```
+
+They run under a WASI preview 1 runtime or through the toolchain's `wasm_exec`.
+What works there, what a WebAssembly host refuses and the reason it gives, and
+the constraints a Node run has are in
+[WebAssembly builds](../reference/wasm.md).
+
 ---
 
 Next: [2. Your first model](02-first-model.md).

@@ -49,6 +49,16 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 	if err != nil {
 		return []string{errPrefix + err.Error()}, false, nil
 	}
+	if sym != nil && sym.Recorded() {
+		// The body is printed from the tree: a document held as its record is
+		// hydrated, and the name looked up again among the tree-backed symbols.
+		if err := s.ws.Hydrate(sym.DocName); err != nil {
+			return []string{errPrefix + err.Error()}, false, nil
+		}
+		if sym, fqn, err = s.lookupSymbol(name); err != nil {
+			return []string{errPrefix + err.Error()}, false, nil
+		}
+	}
 	shown := notationName(fqn)
 	if shown == "" {
 		shown = name

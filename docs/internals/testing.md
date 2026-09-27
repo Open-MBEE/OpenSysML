@@ -10,6 +10,9 @@ tests/
 │   ├── golden_test.go              # Golden AST snapshots
 │   ├── negative_test.go            # Malformed input handling
 │   └── testdata/parse/             # Test fixtures + goldens
+├── wasm/
+│   ├── wasm_build_test.go          # Both WebAssembly targets compile, vet and link
+│   └── wasm_run_test.go            # The linked modules run and do real work
 internal/
 ├── exec/
 │   └── runtime/
@@ -188,6 +191,10 @@ go test -v -run TestRuntimeRobustness -timeout 60s ./internal/exec/runtime
 - **Integration tests:** End-to-end workspace/REPL scenarios (internal/workspace/model/)
 - **Test fixtures:** `testdata/*.sysml`, `testdata/*.kerml`
 - **Golden files:** Expected parse/resolve/diagnostic outputs
+- **WebAssembly gate:** `tests/wasm` compiles and vets the whole tree for both WebAssembly
+  targets, links each command and runs it under Node — `make wasm-check`, where
+  `OPENSYSML_REQUIRE_WASM=1` (which both CI systems set) turns an absent runtime into a failure
+  rather than a skip
 
 **Run all tests:**
 ```bash

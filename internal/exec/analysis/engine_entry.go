@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis/modelform"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 )
 
 // ProtocolVersions are the versions of the engine message set this build serves.
@@ -337,6 +338,12 @@ func (e EngineEntry) Present() error {
 	program := e.Program()
 	if program == "" {
 		return nil
+	}
+	// The program is an external process: on a host that starts none, that is why the
+	// entry cannot run here, reported before the file it would be run from, whose own
+	// findings would say only that the file exists.
+	if err := hostcap.CheckSpawn(program); err != nil {
+		return err
 	}
 	info, err := os.Stat(program)
 	switch {

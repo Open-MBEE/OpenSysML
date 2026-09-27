@@ -4,6 +4,8 @@
 package diag
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -45,6 +47,18 @@ type Diagnostic struct {
 	// Notation marks a finding about how the model is written rather than about
 	// what it means: the document still reads, so it does not gate higher tiers.
 	Notation bool
+}
+
+// Clone returns a copy of ds sharing no slice with it.
+func Clone(ds []Diagnostic) []Diagnostic {
+	out := slices.Clone(ds)
+	for i := range out {
+		out[i].Fixes = slices.Clone(out[i].Fixes)
+		for j := range out[i].Fixes {
+			out[i].Fixes[j].Edits = slices.Clone(out[i].Fixes[j].Edits)
+		}
+	}
+	return out
 }
 
 // Blocking reports whether the finding stops what depends on the model being

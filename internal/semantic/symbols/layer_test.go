@@ -79,3 +79,22 @@ func TestLastSeparatorMatchesStringsLastIndex(t *testing.T) {
 		}
 	}
 }
+
+// Merging registrations into a segment's names keeps them sorted and
+// duplicate-free, and leaves the slice alone when nothing is new.
+func TestMergeSortedIsTheSortedUnion(t *testing.T) {
+	have := []string{"A::x", "C::x"}
+	got := mergeSorted(have, []string{"D::x", "B::x", "A::x", "B::x"})
+	if want := []string{"A::x", "B::x", "C::x", "D::x"}; !slices.Equal(got, want) {
+		t.Fatalf("mergeSorted = %v, want %v", got, want)
+	}
+	if !slices.Equal(have, []string{"A::x", "C::x"}) {
+		t.Fatalf("mergeSorted wrote into its input: %v", have)
+	}
+	if same := mergeSorted(have, []string{"C::x", "A::x"}); &same[0] != &have[0] {
+		t.Fatal("mergeSorted copied a slice nothing was added to")
+	}
+	if got := mergeSorted(nil, []string{"b", "a"}); !slices.Equal(got, []string{"a", "b"}) {
+		t.Fatalf("mergeSorted over nothing = %v", got)
+	}
+}

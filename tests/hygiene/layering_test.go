@@ -78,6 +78,7 @@ var packageLayer = map[string]string{
 	"internal/exec/analysis/modelform":  "exec",
 	"internal/exec/analysis/record":     "exec",
 	"internal/exec/engines":             "exec",
+	"internal/exec/hostcap":             "exec",
 	"internal/exec/objref":              "exec",
 
 	"internal/translate/rdf":              "translate",
