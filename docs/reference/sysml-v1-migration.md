@@ -1705,6 +1705,7 @@ state Off {
     }
     exit action flush {
         for kept in deferred { send kept to self; }
+        then action clear { assign deferred := (); }
     }
 }
 ```
@@ -1712,7 +1713,8 @@ state Off {
 The do action's accept loop keeps each occurrence in the `item` buffer for as long as the
 state is active — a do action runs for the whole activation, substates included, which is
 exactly when v1 defers — and the exit action sends the kept occurrences back to the object in
-order, so the state entered next takes them as if they had just arrived. With several
+order, so the state entered next takes them as if they had just arrived, then empties the
+buffer so a later visit to the state replays only what that visit kept. With several
 deferred signals the state has one buffer and one accept loop per signal, the loops forked
 beside each other in the one do action, and the one exit action flushes every buffer. A do
 behavior of the state's own runs as one more branch of that fork; an exit behavior of its own

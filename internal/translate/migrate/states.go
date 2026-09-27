@@ -999,8 +999,8 @@ func (m *migration) invariant(inv *sysmlv1.Element) {
 // deferral is a deferrable trigger a state keeps, with the members a strict
 // migration encodes it through: its buffer item and its accept loop.
 type deferral struct {
-	trigger, event, sig            *sysmlv1.Element
-	buffer, receive, keep, payload string
+	trigger, event, sig                   *sysmlv1.Element
+	buffer, receive, keep, payload, clear string
 }
 
 // deferrals is what a state defers and how it is written: `defer Sig;` lines by
@@ -1101,8 +1101,9 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 	if do != nil {
 		d.run = s.m.nestedBehaviorName(do, v, inner, "run", d.buffer)
 	}
+	outer := inheritedActionNamesSet()
 	if exit != nil {
-		d.exitRun = s.m.nestedBehaviorName(exit, v, inheritedActionNamesSet(), "run", d.flush)
+		d.exitRun = s.m.nestedBehaviorName(exit, v, outer, "run", d.flush)
 	}
 	if do != nil || len(d.kept) > 1 {
 		d.split = freshIn(inner, "split")
@@ -1115,6 +1116,7 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 		k.receive = freshIn(inner, "receive"+suffix)
 		k.keep = freshIn(inner, "keep"+suffix)
 		k.payload = freshIn(inner, deferredPayload+suffix)
+		k.clear = freshIn(outer, "clear"+suffix)
 	}
 }
 
@@ -1241,7 +1243,8 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 }
 
 // deferredExit writes the exit action that sends each kept occurrence to the
-// state's own object once the state exits, after the state's own exit behavior.
+// state's own object once the state exits, after the state's own exit behavior,
+// and empties each buffer so a later visit replays only what it kept.
 func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
 	s.m.w.block(exitAction+" "+writeName(d.flush), func() {
 		prefix := ""
@@ -1251,6 +1254,8 @@ func (s *stateRegion) deferredExit(v, exit *sysmlv1.Element, d *deferrals) {
 		}
 		for _, k := range d.kept {
 			s.m.w.line(prefix + "for " + k.payload + " in " + writeName(k.buffer) + " { send " + k.payload + " to self; }")
+			s.m.w.line("then action " + k.clear + " { assign " + writeName(k.buffer) + " := (); }")
+			s.m.w.madeUp(k.clear)
 			prefix = "then "
 		}
 	})

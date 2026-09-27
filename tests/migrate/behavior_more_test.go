@@ -187,6 +187,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"metadata MigrationMetadata::SynthesizedName about receive, keep;",
 		"exit action flush {",
 		"for kept in deferred { send kept to self; }",
+		"then action clear { assign deferred := (); }",
 		"metadata MigrationMetadata::SynthesizedName about deferred, buffer, flush;",
 	} {
 		wantLine(t, strict.Notation, line)
@@ -269,6 +270,8 @@ const deferringMachine = `
     <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm"/>
     <packagedElement xmi:type="uml:Signal" xmi:id="_beep" name="Beep"/>
     <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_back" name="Back"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_backEv" signal="_back"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_beepEv" signal="_beep"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
@@ -324,6 +327,9 @@ const deferringMachine = `
           <transition xmi:type="uml:Transition" xmi:id="_tBeep" source="_work" target="_done">
             <trigger xmi:type="uml:Trigger" xmi:id="_trBeep" event="_beepEv"/>
           </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tBack" source="_done" target="_wait">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trBack" event="_backEv"/>
+          </transition>
         </region>
       </ownedBehavior>
     </packagedElement>`
@@ -335,7 +341,8 @@ const deferringApplications = `
 // beside the state's own do behavior, and sent back to self after its own exit
 // behavior; a signal a transition out of the state accepts is not kept, and a
 // state a completion transition leaves keeps none. The result runs: signals
-// sent while Waiting are dispatched, in order, once it exits.
+// sent while Waiting are dispatched, in order, once it exits, and a later
+// visit to Waiting replays only what that visit kept.
 func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	r := migrateDocumentOptions(t, deferringMachine, deferringApplications, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Alarm;")
@@ -366,7 +373,10 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 		"action leave {",
 		"assign this.exits := this.exits + 1;",
 		"then for keptAlarm in deferredAlarm { send keptAlarm to self; }",
+		"then action clearAlarm { assign deferredAlarm := (); }",
 		"then for keptBeep in deferredBeep { send keptBeep to self; }",
+		"then action clearBeep { assign deferredBeep := (); }",
+		"metadata MigrationMetadata::SynthesizedName about clearAlarm, clearBeep;",
 		"metadata MigrationMetadata::SynthesizedName about deferredAlarm, deferredBeep, buffer, flush;",
 		"transition first Waiting accept Go then Working;",
 		"transition first Busy accept Alarm then Alarmed;",
@@ -417,6 +427,20 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	}
 	if out := meta(t, s, "%eval in #1 : exits"); !strings.Contains(out, "= 1") {
 		t.Errorf("Waiting's own exit behavior did not run before the flush: %s", out)
+	}
+	meta(t, s, "%send Back")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Waiting"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredAlarm = null") || !strings.Contains(out, "Waiting.deferredBeep = null") {
+		t.Errorf("Waiting's buffers were not emptied by its first exit:\n%s", out)
+	}
+	meta(t, s, "%send Go")
+	for i := 0; i < 6; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Busy") || strings.Contains(out, "Alarmed") {
+		t.Errorf("the Alarm and Beep of the first visit were replayed again by the second:\n%s", out)
 	}
 }
 
