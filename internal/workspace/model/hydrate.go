@@ -177,7 +177,11 @@ func (w *Workspace) acceptedRecordLocked(name string, content []byte) *libs.Inte
 	if w.records == nil {
 		return nil
 	}
-	rec, ok := w.records.LoadInterface(w.recordKeyLocked(name, content))
+	key, ok := w.recordKeyLocked(name, content)
+	if !ok {
+		return nil
+	}
+	rec, ok := w.records.LoadInterface(key)
 	if !ok || w.recordAcceptedLocked(rec) != nil {
 		return nil
 	}
@@ -198,19 +202,25 @@ func (w *Workspace) cachedRecordLocked(name string, content []byte) *libs.Interf
 // storeRecordLocked writes rec to the record cache, when the workspace has one.
 // A cache that cannot be written is no cache: the record is held in memory only.
 func (w *Workspace) storeRecordLocked(rec *libs.InterfaceRecord, content []byte) {
-	if w.records == nil {
-		return
+	if key, ok := w.recordKeyLocked(rec.Name, content); ok {
+		_ = w.records.StoreInterface(key, rec)
 	}
-	_ = w.records.StoreInterface(w.recordKeyLocked(rec.Name, content), rec)
 }
 
 // recordKeyLocked is the record cache's key for the named content in this
-// workspace: its library and conformance mode are the key's.
-func (w *Workspace) recordKeyLocked(name string, content []byte) string {
-	if w.libDigest == "" {
-		w.libDigest = libs.SourceDigest(w.libSource)
+// workspace: the identity of the library its index holds and its conformance
+// mode are the key's. There is none without a cache, or while the index's
+// library identity is unknown (a library document stating no text digest may
+// hold anything, so no record can be filed under it).
+func (w *Workspace) recordKeyLocked(name string, content []byte) (string, bool) {
+	if w.records == nil {
+		return "", false
 	}
-	return w.records.InterfaceKey(name, content, w.libDigest, w.analysis.Conformance)
+	identity, ok := w.index.LibraryIdentity()
+	if !ok {
+		return "", false
+	}
+	return w.records.InterfaceKey(name, content, identity, w.analysis.Conformance), true
 }
 
 // WriteRecord writes the named loaded document's interface record to the

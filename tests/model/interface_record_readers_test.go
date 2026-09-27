@@ -310,7 +310,7 @@ func TestInterfaceRecordKeyNamesTheDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := libs.SourceDigest(libs.DefaultSource())
+	digest := libraryIdentity(t)
 	keyA := cache.InterfaceKey("a.sysml", content, digest, diag.ConformanceDefault)
 	keyB := cache.InterfaceKey("b.sysml", content, digest, diag.ConformanceDefault)
 	if keyA == keyB {

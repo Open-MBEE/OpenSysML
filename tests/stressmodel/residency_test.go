@@ -32,7 +32,7 @@ func BenchmarkPlaneResidency(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	digest := libs.SourceDigest(libs.DefaultSource())
+	digest := libraryIdentity(b)
 	for _, n := range residencyNetworks {
 		files, stats := n.Split()
 		b.Run(fmt.Sprintf("satellites=%d/files=%d", stats.Satellites, len(files)), func(b *testing.B) {
@@ -158,7 +158,7 @@ func TestPlaneResidencyProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := libs.SourceDigest(libs.DefaultSource())
+	digest := libraryIdentity(t)
 	files, _ := residencyNetworks[len(residencyNetworks)-1].Split()
 	inputs := make([]model.Input, len(files))
 	names := make([]string, len(files))
@@ -210,4 +210,16 @@ func TestPlaneResidencyProcess(t *testing.T) {
 	runtime.ReadMemStats(&ms)
 	t.Logf("%s: live heap %d MiB", state, ms.HeapAlloc>>20)
 	runtime.KeepAlive(ws)
+}
+
+// libraryIdentity is the library half of a record's key in a workspace over the
+// bundled standard library.
+func libraryIdentity(tb testing.TB) string {
+	tb.Helper()
+	base, _ := libs.SharedLibrary()
+	identity, ok := base.LibraryIdentity()
+	if !ok {
+		tb.Fatal("the bundled library's identity is unknown")
+	}
+	return identity
 }

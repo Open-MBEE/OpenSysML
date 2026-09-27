@@ -76,7 +76,7 @@ func recordDifferential(t *testing.T, docs map[string][]byte) (recorded int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := libs.SourceDigest(libs.DefaultSource())
+	digest := libraryIdentity(t)
 
 	ws := model.NewWorkspace()
 	ws.OpenAll(inputs)
@@ -382,4 +382,16 @@ func TestInterfaceRecordDocumentQueryNeedsHydration(t *testing.T) {
 	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "parts.sysml" {
 		t.Fatalf("rendering over a recorded value: got %v, want a NeedsHydration for parts.sysml", err)
 	}
+}
+
+// libraryIdentity is the library half of a record's key in a workspace over the
+// bundled standard library.
+func libraryIdentity(t *testing.T) string {
+	t.Helper()
+	base, _ := libs.SharedLibrary()
+	identity, ok := base.LibraryIdentity()
+	if !ok {
+		t.Fatal("the bundled library's identity is unknown")
+	}
+	return identity
 }

@@ -5,7 +5,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -264,5 +267,53 @@ func TestSetOnDiskTakesTheRecordAmongHeldSiblings(t *testing.T) {
 	}
 	if ws.Document("base.sysml").AST == nil {
 		t.Fatal("base.sysml, set from disk before the sibling its analysis read, holds no tree")
+	}
+}
+
+// A record is filed under the identity of the library the workspace's index
+// holds: two workspaces over different libraries never share one, and an index
+// whose library identity is unknown holds every document loaded.
+func TestRecordKeyFollowsTheIndexLibrary(t *testing.T) {
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const name = "Lib.sysml"
+	library := func(text string, digest bool) *symbols.Index {
+		idx := symbols.NewIndex()
+		idx.AddDocument(name, parser.New(source.New(name, []byte(text))).ParseFile())
+		doc := symbols.LibraryDocument{Tier: symbols.TierDomain}
+		if digest {
+			doc.Digest = symbols.TextDigest([]byte(text))
+		}
+		idx.MarkLibraryDocument(name, doc)
+		return idx
+	}
+	inputs := []Input{{Name: "m.sysml", Content: []byte("package M { private import Lib::*; part t : T; }"), Version: 1}}
+	analyze := func(idx *symbols.Index) *Workspace {
+		ws := NewWorkspaceWithIndex(idx, WithRecordCache(cache))
+		ws.OpenAll(inputs)
+		ws.DiagnosticsAll([]string{"m.sysml"})
+		return ws
+	}
+	const overA = "package Lib { part def A; part def B; part def T :> A; }"
+	const overB = "package Lib { part def A; part def B; part def T :> B; }"
+
+	analyze(library(overA, true))
+	if !analyze(library(overA, true)).Recorded("m.sysml") {
+		t.Fatal("m.sysml is not held as its record over the library it was analyzed against")
+	}
+	if analyze(library(overB, true)).Recorded("m.sysml") {
+		t.Fatal("m.sysml is held as a record written over another library")
+	}
+	analyze(library(overA, false))
+	if analyze(library(overA, false)).Recorded("m.sysml") {
+		t.Fatal("m.sysml is held as a record over an index whose library identity is unknown")
+	}
+}
+
+func TestRecordedOfAnUnknownDocumentIsFalse(t *testing.T) {
+	if NewWorkspace().Recorded("nowhere.sysml") {
+		t.Fatal("an unknown document is reported recorded")
 	}
 }

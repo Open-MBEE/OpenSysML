@@ -104,7 +104,7 @@ func (w *Workspace) cachedRecords(inputs []Input) []*libs.InterfaceRecord {
 	keys := make([]string, len(inputs))
 	for i, in := range inputs {
 		if !in.Transient {
-			keys[i] = w.recordKeyLocked(in.Name, in.Content)
+			keys[i], _ = w.recordKeyLocked(in.Name, in.Content)
 		}
 	}
 	ParallelFor(w.workers, len(inputs), func(i int) {

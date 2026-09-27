@@ -79,9 +79,8 @@ type Workspace struct {
 	batched map[string]*resolve.Reads
 	// records is the cache the workspace reads closed documents' interface
 	// records from and writes the ones it analyzes to; nil holds every document
-	// loaded. libDigest keys its records to the library, computed on first use.
-	records   *libs.Cache
-	libDigest string
+	// loaded.
+	records *libs.Cache
 }
 
 // libraryFile is a library file as indexed: its parsed root, language and mark.
@@ -108,7 +107,9 @@ func WithLibrarySource(src libs.Source) Option {
 
 // WithRecordCache has the workspace hold closed documents as the interface
 // records cache holds for their content, and write the records of the documents
-// it analyzes to it. Without one, every document is held loaded.
+// it analyzes to it. Records are filed under the identity of the library the
+// index holds (Index.LibraryIdentity); without a cache, or over an index whose
+// library identity is unknown, every document is held loaded.
 func WithRecordCache(cache *libs.Cache) Option {
 	return func(w *Workspace) { w.records = cache }
 }

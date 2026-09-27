@@ -72,12 +72,6 @@ func (c *Cache) StoreInterface(key string, rec *InterfaceRecord) error {
 	return c.store(key, rec)
 }
 
-// SourceDigest is the digest of a library source's files, the library half of
-// an interface record's key.
-func SourceDigest(src Source) string {
-	return NewLoader(src, nil).setDigest()
-}
-
 // WriteInterface writes the interface record of the named document from the
 // analysis that just ran over it: its scope tree in idx, the resolver and model
 // that analysis read through, the relationships the workspace-wide audits
