@@ -22,7 +22,7 @@ part def Drive {
     bind p = motor.cmd;
     bind split = motor.cmd;
     bind split = spare.cmd;
-    action def Run {
+    action run {
         first start then thirty;
         action thirty {
             out result = 30.0;
@@ -51,7 +51,7 @@ part def Drive {
         metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
         metadata MigrationMetadata::StandIn about 'fork', 'join';
     }
-    action def Stray {
+    action stray {
         first start then 'fork';
         fork 'fork';
         first 'fork' then five;

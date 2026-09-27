@@ -8,6 +8,7 @@ executors:
     docker:
       # The -node variant of the same image: the WebAssembly gate runs the wasm
       # binaries under Node, and an absent runtime would make it skip.
+      # It carries Node LTS, 24 or later, which the gate needs.
       - image: cimg/go:1.25-node
     resource_class: medium
   

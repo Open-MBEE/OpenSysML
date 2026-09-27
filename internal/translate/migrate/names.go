@@ -161,6 +161,14 @@ func lowerFirst(s string) string {
 	return string(unicode.ToLower(r)) + s[n:]
 }
 
+func upperFirst(s string) string {
+	r, n := utf8.DecodeRuneInString(s)
+	if n == 0 {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[n:]
+}
+
 // segments returns the v2 qualified-name segments of an element: the names
 // from the top-level declaration down, the root Model not being written. A
 // lone region is its owner's body; one of several is a sub-state of a parallel state.
@@ -214,11 +222,15 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 }
 
 // isUsage says whether e is written as a usage whose members are features of
-// it: a view or viewpoint, or a property. A feature owned by one is reached by
-// a feature chain, not a qualified name.
+// it: a view or viewpoint, a property, or a behavior written as its block's
+// action usage. A feature owned by one is reached by a feature chain, not a
+// qualified name.
 func (m *migration) isUsage(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "Property", "Port":
+		return true
+	}
+	if m.asUsage[e] {
 		return true
 	}
 	cat, _ := m.classify(e)

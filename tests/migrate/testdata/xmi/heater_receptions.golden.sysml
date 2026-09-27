@@ -19,22 +19,21 @@ part def Heater {
     attribute level : ScalarValues::Real default = 0.0;
     port rx;
     port aux;
-    action def SetLevel {
+    perform action setLevel {
         first start then spread;
         fork spread;
         first spread then receive;
         action receive accept setLevel : Signals::SetLevel;
         first receive then run;
-        action run : 'Apply Level' { in value = setLevel.value; }
+        perform action run ::> 'apply Level' { in value = receive.setLevel.value; }
         first run then receive;
         first spread then 'receive via rx';
         action 'receive via rx' accept 'setLevel via rx' : Signals::SetLevel via rx;
         first 'receive via rx' then 'run via rx';
-        action 'run via rx' : 'Apply Level' { in value = 'setLevel via rx'.value; }
+        perform action 'run via rx' ::> 'apply Level' { in value = 'receive via rx'.'setLevel via rx'.value; }
         first 'run via rx' then 'receive via rx';
     }
-    perform action setLevel : SetLevel;
-    action def Stop {
+    perform action stop {
         first start then spread;
         fork spread;
         first spread then receive;
@@ -44,41 +43,36 @@ part def Heater {
         action 'receive via rx' accept 'stop via rx' : Signals::Stop via rx;
         first 'receive via rx' then 'receive via rx';
     }
-    perform action stop : Stop;
     action def Reset {
         first start then receive;
         action receive accept reset : Signals::Reset;
         first receive then receive;
     }
     perform action reset : Reset;
-    action def Boost {
+    perform action boost {
         first start then receive;
         action receive accept boost : Signals::Boost;
         first receive then receive;
     }
-    perform action boost : Boost;
-    action def SetName {
+    perform action setName {
         first start then receive;
         action receive accept setName : Signals::SetName;
         first receive then receive;
     }
-    perform action setName : SetName;
-    action def SetLevels {
+    perform action setLevels {
         first start then receive;
         action receive accept setLevels : Signals::SetLevels;
         first receive then receive;
     }
-    perform action setLevels : SetLevels;
-    action def OnNudge {
+    perform action onNudge {
         first start then receive;
-        action receive accept nudge : Signals::Nudge;
+        action receive accept nudge2 : Signals::Nudge;
         first receive then run;
-        action run : Nudge { in delta = nudge.delta; }
+        perform action run ::> nudge { in delta = receive.nudge2.delta; }
         first run then receive;
     }
-    perform action onNudge : OnNudge;
     comment /* reception 'Away' */
-    action def Nudge {
+    action nudge {
         in delta : ScalarValues::Real;
         first start then 'set level';
         action 'set level' {
@@ -87,8 +81,7 @@ part def Heater {
         }
         bind 'set level'.value = delta;
     }
-    action nudge : Nudge;
-    action def 'Apply Level' {
+    action 'apply Level' {
         in value : ScalarValues::Real;
         in gain : ScalarValues::Real default = 1.0;
         in slack : ScalarValues::Real[0..1];
@@ -99,7 +92,7 @@ part def Heater {
         }
         bind 'set level'.value = value;
     }
-    action def Boosting {
+    action boosting {
         in amount : ScalarValues::Real;
         first start then 'set level';
         action 'set level' {
@@ -108,7 +101,7 @@ part def Heater {
         }
         bind 'set level'.value = amount;
     }
-    action def Naming {
+    action naming {
         in name : ScalarValues::Integer;
         first start then 'set level';
         action 'set level' {
@@ -117,7 +110,7 @@ part def Heater {
         }
         bind 'set level'.value = name;
     }
-    action def Leveling {
+    action leveling {
         in values : ScalarValues::Real;
         first start then 'set level';
         action 'set level' {
@@ -133,7 +126,7 @@ part def Heater {
 }
 part def Thermostat {
     port tx;
-    action def 'Turn Up' {
+    action 'turn Up' {
         first start then seven;
         action seven {
             out result = 7.25;

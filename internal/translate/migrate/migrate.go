@@ -184,6 +184,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		lanes:        map[*sysmlv1.Element]*lanes{},
 		routes:       map[[2]*sysmlv1.Element]partRoute{},
 		usageOf:      map[*sysmlv1.Element]string{},
+		asUsage:      map[*sysmlv1.Element]bool{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
 		viewOf:       map[*sysmlv1.Diagram]*view{},
@@ -361,6 +362,9 @@ type migration struct {
 	realizes map[*sysmlv1.Element]*sysmlv1.Element
 	// opUsage names, for each operation, the action usage of its owner that performs it.
 	opUsage map[*sysmlv1.Element]string
+	// asides, when set, collects the notes a declaration's writer emits, so it
+	// can place them where the grammar admits a comment: before the declaration.
+	asides *[]string
 	// deciding holds each opaque behavior whose body is being checked for names
 	// it can see, which is written whichever declaration the check picks.
 	deciding map[*sysmlv1.Element]bool
@@ -437,6 +441,11 @@ type migration struct {
 	// usageOf names, for each activity a lane's object performs, the action
 	// usage of the activity's owner that performs it.
 	usageOf map[*sysmlv1.Element]string
+	// asUsage marks the block-owned behaviors written as action usages of the
+	// block, whose bodies run on its objects; see planUsages.
+	asUsage map[*sysmlv1.Element]bool
+	// allocations are the Allocate dependencies, placed once usages are planned.
+	allocations []*sysmlv1.Element
 	// pins records how each declared pin is written, for the bodies that name it.
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
@@ -515,7 +524,7 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 			v = Approximated
 		}
 	}
-	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil {
+	if n, ok := m.names[e]; ok && e.Name != "" && n != e.Name && m.realizes[e] == nil && !m.asUsage[e] {
 		if v == Mapped {
 			v = Approximated
 		}
@@ -562,7 +571,7 @@ func weaker(a, b Verdict) bool {
 // features the connectors and slots that will be written reach.
 func (m *migration) prepare() {
 	m.planEdges()
-	var reachers, configs, laned, associations []*sysmlv1.Element
+	var reachers, configs, laned, associations, behaviors []*sysmlv1.Element
 	var links []*actorLink
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
@@ -630,14 +639,21 @@ func (m *migration) prepare() {
 					m.allocated[c] = append(m.allocated[c], m.model.Refs(e, "supplier")...)
 				}
 			}
+			if has(e, "Allocate") {
+				m.allocations = append(m.allocations, e)
+			}
 			m.placeDependency(e)
 		case "Operation":
+			behaviors = append(behaviors, e)
 			if method := m.model.Ref(e, "method"); method != nil && method.Parent == e.Parent {
 				m.methodOf[method] = e
 				m.realizeParameters(e, method)
 			}
 		case "Activity":
 			laned = append(laned, e)
+			behaviors = append(behaviors, e)
+		case "OpaqueBehavior", "FunctionBehavior", "Interaction":
+			behaviors = append(behaviors, e)
 		case "DurationConstraint":
 			for _, c := range m.model.Refs(e, "constrainedElement") {
 				m.bounded[c] = append(m.bounded[c], e)
@@ -648,6 +664,8 @@ func (m *migration) prepare() {
 			}
 		case "CallBehaviorAction":
 			m.invoke(e, "behavior")
+		case "CallOperationAction":
+			m.invoke(e, "operation")
 		case "State":
 			m.invoke(e, "entry", "doActivity", "exit")
 		case "Transition":
@@ -680,6 +698,10 @@ func (m *migration) prepare() {
 		m.prepareLanes(act)
 	}
 	m.admitAbsent(laned)
+	m.planUsages(behaviors)
+	for _, d := range m.allocations {
+		m.placeAllocation(d)
+	}
 	m.planViews()
 	for _, a := range associations {
 		m.nameEnds(a)
@@ -1023,6 +1045,10 @@ func (m *migration) classifier(e *sysmlv1.Element) {
 		verdict = Approximated
 	}
 	header, n := m.classifierHeader(e, cat, name)
+	if m.asUsage[e] {
+		header, n = m.usageHeader(e, cat, name)
+		note = joinNotes(note, m.usageNote(e))
+	}
 	if n != "" {
 		verdict = Approximated
 		note = joinNotes(note, n)
@@ -1122,7 +1148,7 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	}
 	if behaviorCategory(cat) {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
-		if e.Type == "Operation" {
+		if e.Type == "Operation" && !m.asUsage[e] {
 			m.operationFeature(e)
 		}
 		return
@@ -1168,6 +1194,12 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 		}
 		if tc, _ := m.classify(target); tc != cat {
 			notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it becomes a "+tc.keyword()+", not a "+cat.keyword())
+			continue
+		}
+		if m.asUsage[target] {
+			if !m.asUsage[e] {
+				notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it is written as an action usage, which no definition specializes")
+			}
 			continue
 		}
 		refs = append(refs, m.ref(target, m.scope))
@@ -2872,6 +2904,9 @@ type placement struct {
 	failed    int
 	notes     []string
 	nodePairs []nodePair
+	// pending are the pairs placed nowhere ahead of writing, written where
+	// the relationship stands.
+	pending []pair
 }
 
 // nodePair is a written pair with the activity nodes among its ends.
@@ -2955,20 +2990,28 @@ func (m *migration) dependency(d *sysmlv1.Element) {
 		m.relationship(d, m.unplaced[d])
 		return
 	}
-	pairs, failed, note := m.dependencyPairs(d)
-	if len(pairs) == 0 {
-		m.unmapped(d, note)
+	pl, pairs := m.unplaced[d], []pair(nil)
+	if pl != nil {
+		pairs = pl.pending
+	} else {
+		var failed int
+		var note string
+		pairs, failed, note = m.dependencyPairs(d)
+		pl = &placement{failed: failed}
+		if note != "" {
+			pl.notes = append(pl.notes, note)
+		}
+	}
+	if len(pairs) == 0 && len(pl.targets) == 0 {
+		m.relationship(d, pl)
 		return
 	}
-	pl := &placement{failed: failed}
-	if note != "" {
-		pl.notes = append(pl.notes, note)
-	}
+	placed := len(pl.targets)
 	for i, p := range pairs {
 		name := m.nameOf(d)
-		if name != "" && i > 0 {
+		if name != "" && i+placed > 0 {
 			name = m.freshName(m.scope, name)
-			pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+1, name))
+			pl.notes = append(pl.notes, fmt.Sprintf("pair %d is named %s so the pairs stay distinct", i+placed+1, name))
 		}
 		target, written, note := m.dependencyPair(d, pl, name, p.client, p.supplier)
 		if written {
@@ -3062,6 +3105,9 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 		}
 	}
 	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	if has(d, "Allocate") && m.definitionEnd(client) && m.definitionEnd(supplier) {
+		return m.allocationDef(d, name, client, supplier), true, ""
+	}
 	if name == "" {
 		if base := m.edgeName(d, spoken(from)+" to "+spoken(to)); base != "" {
 			name = m.freshName(m.scope, base)
@@ -3092,6 +3138,12 @@ func (m *migration) dependencyPair(d *sysmlv1.Element, pl *placement, name strin
 			m.metadataUsages(d)
 		})
 		return target, true, ""
+	case has(d, "Allocate") && (m.definitionEnd(client) || m.definitionEnd(supplier)):
+		m.w.block(decl, func() { m.metadataUsages(d) })
+		return target, true, "an allocation's ends are usages; between a definition and a usage none can be written, so a plain dependency stands for it"
+	case has(d, "Allocate") && !(m.packageFeature(client) && m.packageFeature(supplier)):
+		m.w.block(decl, func() { m.metadataUsages(d) })
+		return target, true, "an allocation written in a package relates features of no definition, and one written in a definition relates its features; the ends are neither, so a plain dependency stands for it"
 	case has(d, "Allocate"):
 		alloc := "allocate " + from + " to " + to
 		if name != "" {
@@ -3215,6 +3267,47 @@ func (m *migration) verify(d, client, req *sysmlv1.Element, name string) (string
 		return m.v2Name(client), note, true
 	}
 	return m.qualified(append(append(m.segments(client), nest...), name)), note, true
+}
+
+// definitionEnd reports whether e is written as a v2 definition, which an
+// allocation usage cannot take as an end: only a feature is a usage end.
+func (m *migration) definitionEnd(e *sysmlv1.Element) bool {
+	if m.asUsage[e] {
+		return false
+	}
+	switch c, _ := m.classify(e); c {
+	case catView, catViewpoint, catValue:
+		return false
+	}
+	return m.isDefinition(e)
+}
+
+// allocationDef writes an allocation between two definitions as an allocation def
+// whose ends are typed by them, since an allocate takes only usages as ends;
+// it returns the v2 name written.
+func (m *migration) allocationDef(d *sysmlv1.Element, name string, client, supplier *sysmlv1.Element) string {
+	from, to := m.ref(client, m.scope), m.ref(supplier, m.scope)
+	if name == "" {
+		name = m.freshName(m.scope, spoken(from)+" to "+spoken(to))
+		m.synthesized[d] = true
+	} else {
+		m.take(m.scope, name)
+	}
+	m.wroteEdgeAlso(d, m.scope, "allocation def", nil, name)
+	m.madeUp(d, writeName(name))
+	used := map[string]bool{}
+	source := freshIn(used, lowerFirst(spoken(from)))
+	target := freshIn(used, lowerFirst(spoken(to)))
+	m.w.block("allocation def "+writeName(name), func() {
+		m.w.line("end " + writeName(source) + " : " + m.ref(client, d) + ";")
+		m.w.line("end " + writeName(target) + " : " + m.ref(supplier, d) + ";")
+		m.metadataUsages(d)
+	})
+	segs := append(m.segments(m.scope), name)
+	if m.scope == nil {
+		segs = []string{name}
+	}
+	return m.qualified(segs)
 }
 
 // derive writes a requirement derivation as a connection def specializing the
