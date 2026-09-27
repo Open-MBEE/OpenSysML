@@ -568,6 +568,19 @@ func (ctx *Context) performerSeedsRef(param actionParameter, performer *Instance
 	return param.Symbol == nil || ctx.performerSeedsRefParam(param.Symbol, performer)
 }
 
+// performerSuppliesRef reports whether a `::>` performance fills a `ref` input
+// without the caller's like-named binding: the performer seeds it, or a
+// declared default — such as the usage's `in ref :>> context = this` — resolves
+// once it runs on the performer. A ref neither supplies keeps the caller's.
+func (ctx *Context) performerSuppliesRef(param actionParameter, performer *Instance) bool {
+	if param.Symbol != nil {
+		if value, _ := ctx.model.semantics.ParameterDefault(param.Symbol); value != nil {
+			return true
+		}
+	}
+	return ctx.performerSeedsRef(param, performer)
+}
+
 // performerSeedsRefParam is performerSeedsRef on the parameter's own symbol.
 func (ctx *Context) performerSeedsRefParam(param *symbols.Symbol, performer *Instance) bool {
 	if value, _ := ctx.model.semantics.ParameterDefault(param); value != nil {

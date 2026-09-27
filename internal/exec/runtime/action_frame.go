@@ -1548,14 +1548,23 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			inputs[name] = value
 		}
 	}
+	performer := e.self
+	if inv.chain != nil {
+		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
+		defer ec.beginStep()()
+		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
+			return nil, err
+		}
+	}
 	if inv.expr == nil {
 		// A `::>` performance binds its `ref` inputs to the object it is
-		// performed on; a like-named feature of the caller, such as its own
-		// context parameter, is never the argument.
+		// performed on or to a default resolved on it; a like-named feature
+		// of the caller is the argument only for a `ref` input the performer
+		// cannot supply.
 		refInputs := make(map[string]bool)
 		if inv.chain != nil {
 			for _, param := range params {
-				if param.IsReference {
+				if param.IsReference && e.ctx.performerSuppliesRef(param, performer) {
 					refInputs[param.Name] = true
 				}
 			}
@@ -1569,13 +1578,7 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			}
 		}
 	}
-	performer := e.self
 	if inv.chain != nil {
-		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
-		defer ec.beginStep()()
-		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
-			return nil, err
-		}
 		// A `::>` performance binds its `ref` inputs to the performer, which
 		// bindContextDefault resolves once it runs on that object — but only
 		// the ones the performer may supply: a declared default binds instead.

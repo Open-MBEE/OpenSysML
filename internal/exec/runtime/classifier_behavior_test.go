@@ -2273,6 +2273,69 @@ const performerSeedFixture = `
 	}
 `
 
+// performerUnseedableFixture performs Read on the member motor through `::>`:
+// Read's `in ref sensor : Sensor` is a ref the Motor performer cannot supply,
+// so it keeps the caller's own like-named binding instead.
+const performerUnseedableFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Sensor;
+		part def Motor {
+			attribute got : Boolean = false;
+			action def Read {
+				in ref sensor : Sensor;
+				in ref context : Motor;
+				first step;
+				action step { assign context.got := sensor == sensor; }
+				first step then done;
+			}
+			action read : Read;
+		}
+		part def Rig {
+			part motor : Motor;
+			part s : Sensor;
+			action def Go {
+				in ref context : Rig;
+				in ref sensor : Sensor = context.s;
+				first read;
+				perform action read : Motor::Read ::> context.motor.read;
+				first read then done;
+			}
+			perform action go : Go { in ref :>> context = this; }
+		}
+	}
+`
+
+// A `ref` input the performer cannot supply keeps the caller's like-named
+// enclosing binding: Read's `sensor` takes the Rig's own Sensor, not the
+// Motor — only a binding where one exists lets `sensor == sensor` hold.
+func TestPerformerLeavesAnUnsuppliableRefToTheCaller(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performerUnseedableFixture))
+	rig := findSymbolByName(idx.DocumentRoot("<test>"), "Rig", ast.DefPart)
+	inst, err := ctx.Instantiate(rig)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	if err = ctx.drainObjectBehaviors(); err != nil {
+		t.Fatalf("run behaviors: %v", err)
+	}
+	motor, err := inst.GetFeatureValue(ctx, "motor")
+	if err != nil {
+		t.Fatalf("read motor: %v", err)
+	}
+	motorID, _ := motor.HeldValue().Object()
+	fv, err := ctx.instances[motorID].GetFeatureValue(ctx, "got")
+	if err != nil {
+		t.Fatalf("read got: %v", err)
+	}
+	if fv.HeldValue().Kind != ValConst || !fv.HeldValue().Const.Bool {
+		t.Errorf("got = %v, want true: Read's sensor took the caller's Sensor, which the Motor performer cannot supply", fv.HeldValue())
+	}
+}
+
 // A `::>` performance seeds the performer's `in ref` parameters only where the
 // performer may supply them: a ref declaring a default keeps it (and the type
 // check never sees the performer), while a defaultless conforming ref takes
