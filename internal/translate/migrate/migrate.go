@@ -165,6 +165,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		carrierOf:    map[*sysmlv1.Element]*carrier{},
 		carrierNotes: map[*sysmlv1.Element]string{},
 		indexed:      map[string]int{},
+		verdicts:     map[*sysmlv1.Element]Verdict{},
 		userProfiles: map[*sysmlv1.Element]bool{},
 		defsWritten:  map[*sysmlv1.Element]bool{},
 		files:        map[string][]byte{},
@@ -410,6 +411,9 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// verdicts is each reported element's verdict, kept per element: indexed
+	// cannot hold two elements sharing an id, an empty one included.
+	verdicts map[*sysmlv1.Element]Verdict
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
 	// files are the images written beside the notation by relative path;
@@ -532,12 +536,14 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if !strings.Contains(en.Note, note) {
 			en.Note = joinNotes(en.Note, note)
 		}
+		m.verdicts[e] = en.Verdict
 		return
 	}
 	m.indexed[e.ID] = len(m.report.Entries)
 	m.report.Entries = append(m.report.Entries, Entry{
 		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: note,
 	})
+	m.verdicts[e] = v
 }
 
 // weaker reports whether verdict a says less was migrated than b.
@@ -738,6 +744,12 @@ func (m *migration) libraryNameNotes() {
 	}
 	var list []renamed
 	for e, src := range m.libraryClash {
+		switch v, ok := m.verdicts[e]; {
+		case !ok, v == Unmapped, v == Skipped:
+			// renamed but never written as a declaration: the fresh
+			// name would resolve to nothing.
+			continue
+		}
 		list = append(list, renamed{fresh: m.names[e], src: src})
 	}
 	sort.Slice(list, func(i, j int) bool { return list[i].fresh < list[j].fresh })

@@ -52,6 +52,30 @@ func TestLibraryRootRenamed(t *testing.T) {
 	}
 }
 
+// TestLibraryRootUnmappedUnannotated covers a colliding root the migration
+// never writes as a declaration: renamed anyway, it still draws no
+// LibraryNameAvoided line, which would name a declaration that does not exist.
+func TestLibraryRootUnmappedUnannotated(t *testing.T) {
+	r, err := Migrate("unmapped.xmi", []byte(diagramModel(`
+    <packagedElement xmi:type="uml:Package" xmi:id="_reqs" name="Requirements"/>
+    <packagedElement xmi:type="uml:Artifact" xmi:id="_art" name="Views"/>`, "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(r.Notation)
+	if !strings.Contains(got, "about RequirementsModel") {
+		t.Errorf("notation lacks the RequirementsModel metadata line:\n%s", got)
+	}
+	if strings.Contains(got, "ViewsModel") {
+		t.Errorf("unmapped root annotated:\n%s", got)
+	}
+	for _, e := range r.Report.Entries {
+		if e.ID == "_art" && e.Verdict != Unmapped {
+			t.Errorf("artifact verdict = %v, want Unmapped", e.Verdict)
+		}
+	}
+}
+
 // TestLibraryRootNestedUnchanged covers a nested package named like a library
 // root package: only top-level declarations hide the library, so it keeps its
 // name and draws no metadata line.
