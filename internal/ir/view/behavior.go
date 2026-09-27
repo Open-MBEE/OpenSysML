@@ -346,10 +346,8 @@ func (r *Renderer) behaviorText(doc string, behavior lower.StateBehavior) string
 			body = block.Statements
 		}
 	}
-	for _, statement := range body {
-		if send, ok := statement.(*lower.Send); ok {
-			return r.messageText(doc, send.Message)
-		}
+	if text := r.sendText(doc, body); text != "" {
+		return text
 	}
 	return r.assignmentText(doc, body)
 }
@@ -694,10 +692,8 @@ func (r *Renderer) actionText(graph *lower.ActionGraph, node ast.Node, doc strin
 	if accept, ok := graph.Accepts[node]; ok {
 		return r.acceptText(doc, accept)
 	}
-	for _, statement := range graph.Bodies[node] {
-		if send, ok := statement.(*lower.Send); ok {
-			return r.messageText(doc, send.Message)
-		}
+	if text := r.sendText(doc, graph.Bodies[node]); text != "" {
+		return text
 	}
 	if nodeType(node) != "" {
 		return ""
@@ -718,6 +714,19 @@ func (r *Renderer) acceptText(doc string, accept lower.Accept) string {
 		return endName(accept.SignalType)
 	}
 	return strings.TrimPrefix(r.triggerLabel(doc, accept.Trigger), "accept ")
+}
+
+// sendText is the message a body sends when the send is all the body does, and
+// "" for a body doing anything else.
+func (r *Renderer) sendText(doc string, body []lower.Statement) string {
+	if len(body) != 1 {
+		return ""
+	}
+	send, ok := body[0].(lower.Send)
+	if !ok {
+		return ""
+	}
+	return r.messageText(doc, send.Message)
 }
 
 // messageText is the message a send sends: the type it constructs by the name it

@@ -109,6 +109,34 @@ func TestGoldenDOTCameo(t *testing.T) {
 	}
 }
 
+// The root the Cameo frame's header names is not titled again in its cluster,
+// but keeps what the header does not show: its type and its detail lines.
+func TestDOTCameoFramedRootKeepsTypeAndDetail(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		root *Node
+		want string
+	}{
+		{"name only", &Node{ID: "n0", Kind: "state def", Name: "M"}, `label="";`},
+		{"typed", &Node{ID: "n0", Kind: "state", Name: "m", Type: "Machines::M"}, `label=<: M>;`},
+		{"detailed", &Node{ID: "n0", Kind: "state def", Name: "M", Detail: "already shown"}, `label=<already shown>;`},
+		{"typed and detailed", &Node{ID: "n0", Kind: "state", Name: "m", Type: "M", Detail: "already shown"},
+			`label=<: M<br/>already shown>;`},
+	} {
+		tc.root.Children = []*Node{{ID: "n1", Kind: "state", Name: "off"}}
+		rendering := &Rendering{View: "V", Kind: KindState, Roots: []*Node{tc.root}}
+		source, err := rendering.DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", tc.name, err)
+		}
+		cluster := source[strings.Index(source, `subgraph "cluster_n0"`):]
+		label := strings.TrimSpace(strings.SplitN(cluster, "\n", 3)[1])
+		if label != tc.want {
+			t.Errorf("%s: root cluster label = %s, want %s", tc.name, label, tc.want)
+		}
+	}
+}
+
 // The Cameo state and action looks: a state's `do` compartment under a rule, a
 // composite state as a rounded gradient container, the initial dot, the final
 // bullseye, fork and join bars, the decision diamond, and open arrowheads.

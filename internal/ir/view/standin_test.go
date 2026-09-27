@@ -155,7 +155,8 @@ func TestDOTPinnedFlowLabelsAreTheirOwnNames(t *testing.T) {
 }
 
 // An action written without a name, made-up or otherwise, is labelled by what
-// it does like one whose name the migration made up; a named one is not.
+// it does like one whose name the migration made up; a named one is not. A body
+// that sends and does more besides is not labelled by the send alone.
 func TestActionTextOfAnonymousActions(t *testing.T) {
 	rendering := render(t, "anonymous-actions.sysml", "AnonymousViews::countedView")
 	texts := map[string]string{}
@@ -167,7 +168,7 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 			texts[node.ID] = node.Name + "|" + node.Text
 		}
 	}
-	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true"}
+	want := map[string]string{"n1": "tally|", "n2": "|n := n + 1", "n3": "|Go", "n4": "|true", "n6": "|Go", "n7": "|"}
 	for id, text := range want {
 		if texts[id] != text {
 			t.Errorf("%s name|text = %q, want %q", id, texts[id], text)
@@ -177,10 +178,13 @@ func TestActionTextOfAnonymousActions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DOTWith: %v", err)
 	}
-	for id, label := range map[string]string{"n2": "n := n + 1", "n3": "Go", "n4": "true"} {
+	for id, label := range map[string]string{"n2": "n := n + 1", "n3": "Go", "n4": "true", "n6": "Go"} {
 		if line := dotLine(source, `"`+id+`"`); !strings.Contains(line, label) || strings.Contains(line, "action") {
 			t.Errorf("%s is not labelled by what it does alone: %q", id, line)
 		}
+	}
+	if line := dotLine(source, `"n7"`); !strings.Contains(line, "<b>action</b>") || strings.Contains(line, "Go") {
+		t.Errorf("n7, sending and assigning, is not headed by its kind: %q", line)
 	}
 }
 

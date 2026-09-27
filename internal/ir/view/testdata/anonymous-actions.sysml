@@ -14,6 +14,8 @@ package Anonymous {
 		then action { assign n := n + 1; }
 		then accept Go via inPort;
 		then action { out result : Boolean = true; }
+		then action { send Go() via inPort; }
+		then action { send Go() via inPort; assign n := n + 1; }
 		then done;
 	}
 }

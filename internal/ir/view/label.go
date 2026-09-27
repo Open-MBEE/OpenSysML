@@ -217,12 +217,17 @@ func (l labeller) head(node *Node) string {
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
-		return ": " + l.text(source.ReferenceEndNames(typ))
+		return l.typeText(node)
 	case typ == "":
 		return l.text(l.name(node))
 	default:
 		return l.text(l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
+}
+
+// typeText is a node's type as its label writes it, `: Type`, by the name it ends in.
+func (l labeller) typeText(node *Node) string {
+	return ": " + l.text(source.ReferenceEndNames(node.Type))
 }
 
 // text is notation text as a label shows it: escapes decoded, and in Cameo's

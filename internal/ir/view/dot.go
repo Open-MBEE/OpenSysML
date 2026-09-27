@@ -1514,7 +1514,7 @@ func (w *dotWriter) dotClusterAttributes(node *Node) []string {
 	label := w.labels.dotLabel(node)
 	switch g := node.Geometry; {
 	case node.ID == w.frameRoot:
-		label = `label=""`
+		label = w.labels.dotFramedLabel(node)
 	case g != nil && g.HasSize:
 		height, _ := w.headroom(node)
 		label = w.labels.dotFittedLabel(node, g.Width, math.Max(height, dotFitFloor*dotLineEm))
@@ -2051,6 +2051,27 @@ func (l labeller) dotLabel(node *Node) string {
 		parts.details = append(parts.details, dotEscape(line))
 	}
 	return dotLabelAttribute(l.assemble(parts))
+}
+
+// dotFramedLabel is the cluster label of the root a Cameo frame's header names:
+// the header shows its kind and name, so the cluster keeps only its type and
+// detail lines, and is unlabelled when it has none.
+func (l labeller) dotFramedLabel(node *Node) string {
+	var lines []string
+	if node.Type != "" {
+		lines = append(lines, dotEscape(l.typeText(node)))
+	}
+	rest := l.lines(node)[len(l.headLines(node)):]
+	if l.keyworded(node) {
+		rest = rest[1:]
+	}
+	for _, line := range rest {
+		lines = append(lines, dotEscape(line))
+	}
+	if len(lines) == 0 {
+		return `label=""`
+	}
+	return dotLabelAttribute("<" + strings.Join(lines, "<br/>") + ">")
 }
 
 // dotLabelAttribute is the `label=` attribute holding a quoted or HTML-like label.
