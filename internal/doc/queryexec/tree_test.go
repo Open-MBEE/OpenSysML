@@ -112,6 +112,28 @@ func TestExecuteTreeNestsRowsByContainment(t *testing.T) {
 	}
 }
 
+// Ancestors join a tree of unprojected rows only: a projected source has cells
+// an ancestor row could not fill, so the query is refused.
+func TestExecuteTreeRefusesAncestorsOverProjectedRows(t *testing.T) {
+	const query = `
+calc def ProjectedComplete :> Query {
+	in root : Element;
+	Tree(
+		source = Project(
+			source = WhereType(source = Descendants(source = root), type = "PartDefinition"),
+			properties = ("name")),
+		ancestors = Descendants(source = root))
+}
+`
+	fixture := loadExecutionFixture(t, treeBody+query)
+	root := Bindings{"root": {ElementValue(fixture.symbol(t, "Site"))}}
+	_, err := fixture.execute(t, "ProjectedComplete", root, Options{})
+	refused := executionError(t, err, ErrorProjectedAncestors)
+	if !strings.Contains(refused.Error(), "takes ancestors over unprojected rows") {
+		t.Fatalf("message = %q", refused.Error())
+	}
+}
+
 // An individual nests under the individual whose part it types, not under one
 // that merely refers to it: a reference does not contain its target.
 func TestExecuteTreeNestsIndividualsByCompositionOnly(t *testing.T) {

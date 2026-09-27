@@ -175,8 +175,8 @@ func (m *migration) textFiltered(rows qx, f *sysmlv1.RowFilter, p *projection, l
 	case len(columns) > 0:
 		applied += " whose column " + strings.Join(columns, " or ") + " matches"
 	case len(f.Columns) > 0:
-		l.note("the saved row filter names the column " + strings.Join(unread, ", ") + ", which the query does not read; every column is searched")
-		applied += " one of whose columns matches"
+		l.note("the saved row filter " + strconv.Quote(f.Text) + " names only the column " + strings.Join(unread, ", ") + ", which the query does not read, and is dropped: the selection is not read as every column")
+		return rows
 	default:
 		applied += " one of whose columns matches"
 	}

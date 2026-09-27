@@ -1319,7 +1319,9 @@ one that is, so a filtered tree stays compact. A row the source repeats is
 kept, each occurrence nesting where the first does. `ancestors` adds rows for the
 elements containing the source rows — `Descendants` of a scope, or the scope
 itself as the root — as intermediate levels wherever a source row nests under
-them, and nowhere else. `Project`, the filters, `Except` and `Union` carry the
+them, and nowhere else — over unprojected rows only, since an ancestor has no
+cells to show: `Tree(source = Project(…), ancestors = …)` is refused with the
+typed error `projected-ancestors`. `Project`, the filters, `Except` and `Union` carry the
 depths through; `OrderBy` keeps each row's depth but not the pre-order, so sort
 before nesting.
 

@@ -20,8 +20,9 @@ type treeNode struct {
 // each row nests under the nearest row containing it — the nearest owner
 // among the rows, or the individual whose part is typed by it — and rows
 // nobody contains are top-level. Rows of `ancestors` join the tree as
-// intermediate levels where a source row nests under them. A row repeated in
-// the source is kept, nesting where its first occurrence does.
+// intermediate levels where a source row nests under them, which projected
+// rows refuse: an ancestor has no cells to show. A row repeated in the source
+// is kept, nesting where its first occurrence does.
 func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, error) {
 	source, err := e.ownershipArgument(expression, "source")
 	if err != nil {
@@ -29,6 +30,9 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 	}
 	var ancestors sequence
 	if hasArgument(expression, "ancestors") {
+		if len(source.columns) > 0 {
+			return sequence{}, e.errorAt(ErrorProjectedAncestors, expression)
+		}
 		if ancestors, err = e.ownershipArgument(expression, "ancestors"); err != nil {
 			return sequence{}, err
 		}
@@ -52,7 +56,7 @@ func (e *executor) evaluateTree(expression queryplan.Expression) (sequence, erro
 			continue
 		}
 		index[key] = len(nodes)
-		nodes = append(nodes, &treeNode{value: value, parent: -1, cells: emptyCells(len(source.columns))})
+		nodes = append(nodes, &treeNode{value: value, parent: -1})
 	}
 	typed, err := e.typedNesting(expression, nodes, index)
 	if err != nil {
@@ -213,12 +217,4 @@ func holdsSource(nodes []*treeNode, i int) bool {
 		}
 	}
 	return false
-}
-
-// emptyCells are the cells of a row the projection never saw.
-func emptyCells(columns int) []Cell {
-	if columns == 0 {
-		return nil
-	}
-	return make([]Cell, columns)
 }

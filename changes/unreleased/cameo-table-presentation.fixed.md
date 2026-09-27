@@ -12,7 +12,8 @@
   definition's, a user stereotype's tag reads
   the metadata def feature it became (every value of a multi-valued tag), widths become
   `Table.columnWidths`, and the saved filter becomes `WhereText` over the projected columns its
-  `ChoiceProperty` value selects — every column when the selection is empty. The rows a table
+  `ChoiceProperty` value selects — every column when the selection is empty, and no filter when the
+  query reads none of the selected columns. The rows a table
   lists explicitly lead the scope's other elements in the order the tool listed them, so an
   unsorted table and each level of a tree keep that order. Each column is headed as the tool
   headed it — `Id`, `Text`, `classifier`, a tag's name over both of two columns reading the same
