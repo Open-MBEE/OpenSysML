@@ -108,7 +108,12 @@ document is never analyzed again; `Workspace.Diagnostics` and
 - **Constraint and requirement text.** The constraint's result expression is
   an expression.
 - **Comments and documentation.** Documentation is read from the tree by
-  hover and the document renderer, which hydrate.
+  hover and the document renderer, which hydrate. The record keeps only the
+  document's top-level member list (`InterfaceRecord.Members`, a
+  `libs.TopMember` per member: its keyword, name, import target and span),
+  which is what a session lists of a file it loaded (`✓ package P`,
+  `✓ comment`) and what the prompt's scope is found from; a recorded file is
+  listed as a loaded one is without being hydrated for it.
 - **Anything the resolver memoized.** The record holds facts, not the memo
   tables; a recorded document owns no resolver frame.
 
@@ -169,17 +174,67 @@ workspace's, as the key never finds one. The stored diagnostics cannot be
 re-asked under a different mode without the tree, so while a workspace holds a
 recorded document `SetConformanceMode` leaves the mode where it is and returns
 a `symbols.NeedsHydration` naming that document; the REPL's `%strict` reports
-it and the language server shows it to the client. Hydrating the document (a
-later change) lifts the restriction.
+it and the language server shows it to the client. Hydrating the document
+lifts the restriction.
 
 The key says nothing about the other documents of the workspace. A record's
 references are restored against the live index when read, so a target that
 another document renamed or removed is simply not found; but the diagnostics
 stored with the record, and facts the analysis derived from its siblings, are
-those of the analysis that wrote it. A recorded document whose siblings change
-is a dependent under §3's invalidation relation, and the workspace hydrates it
-(a later change) rather than keeping its record; until that lands, a record is
-installed only into the workspace it was written from.
+those of the analysis that wrote it. So the record also carries where that
+analysis got its answers: its **provenance** (`libs.Provenance`,
+`internal/workspace/libs/provenance.go`) is the read set of the analysis —
+the names, namespaces, short-name segments and documents its resolver frame
+and dependents read (`resolve.Reads`, `Resolver.ReadsOf`), the same
+dimensions §3's `symbols.Changes` invalidates a live frame by — and, per read,
+the workspace documents that took part in the answer (`Index.Answerers`,
+`NamespaceAnswerers`, `SegmentAnswerers`; for a read of shared audit state,
+`passes.Contributors`) with their content digests. Library documents are left
+out: the key already names the library as a whole. A record installs
+(`Provenance.Valid`) only where every read is still answered by the same
+documents with the same content; anywhere else the file is parsed in its
+place (`model.ErrRecordStale` from `OpenRecorded`; `OpenAll` and the on-disk
+paths parse silently). In-process, a change to a sibling that a recorded
+document's reads name is judged the same way: if the changed documents still
+answer those reads as they did, the record stands, otherwise the document is
+hydrated as a live frame would have been dropped (`hydrateStaleLocked`, run
+from `invalidateLocked`). A record is thus valid across processes and edits
+that do not touch what it read, and never serves a diagnostic its siblings no
+longer justify.
+
+## Hydration and demotion
+
+Hydration is an invalidation. `Workspace.Hydrate(name)` parses a recorded
+document's text, installs its tree-backed scopes and symbols in place of the
+recorded ones, expands imports and runs `invalidateLocked` for the name, so
+its dependents drop their entries through `Index.TakeChanges` and
+`Resolver.Invalidate` exactly as after an edit; `HydrateAll` does it for
+every recorded document at once, parsing on the workers. Every public
+operation that needs a body hydrates before answering rather than returning
+`NeedsHydration`: opening a document in the editor (`Open`), building a
+runtime or debugger (`NewRuntime` and the debugger's private index hydrate
+everything recorded, since the runtime's model retains symbols and must never
+evaluate against a record), the reverse-reference index (`ReferencesTo`,
+`NameReferencesTo`, `RenameConflict`, and so the language server's references
+and rename), and the REPL's `%print`, queries and private symbol index.
+
+Demotion is the reverse. `Close` of a document whose buffer equals the file on
+disk, whose record the cache holds for that content and whose provenance is
+valid, installs the record in place of the tree (`demoteLocked`) and
+invalidates the name; a close of a changed buffer, or with no record, reindexes
+from disk as before. `SetOnDisk` of a closed file, and `OpenAll` for each
+input, take the record for the content when the cache holds a valid one and
+parse otherwise (`holdOnDiskLocked`, `cachedRecords`).
+
+Records are written where a document has just been fully analyzed: the batch
+path (`DiagnosticsAll`, so `sysml -validate` and `-satisfy` and the REPL's
+file load) and the language server's `didSave` (`WriteRecord`). The REPL's typed
+transcript is a transient input and is never recorded. A batch records what
+each analysis read (`passes.Batch.Record`, a recording resolver per worker)
+only when the workspace has a cache to write to. `-no-record-cache` on
+either command, or `OPENSYSML_RECORD_CACHE=0`, gives a workspace no cache: it
+reads and writes no record, holds every file loaded, and analyzes as it did
+before records, recording nothing.
 
 A recorded document is a closed file. Installing its record drops any open
 buffer of its name, and the content the record was written from is taken as
@@ -214,14 +269,17 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    feature is valued, `ModValued`, not what its expression is), and building
    a runtime over the workspace return
    `symbols.ErrNeedsHydration` (`symbols.NeedsTree`, `symbols.NeedsHydration`
-   with the document and the question) for a recorded document; the frontend
-   that receives it hydrates (a later change) or reports it. `Workspace.NewRuntime`
-   refuses a workspace holding a recorded document, so the runtime never
-   evaluates against a record. The reverse-reference index is built from the
-   references a document's body writes, which its record does not carry, so
-   `ReferencesTo`, `NameReferencesTo` and `RenameConflict` answer with a
-   `NeedsHydration` for the first recorded document rather than a list that
-   omits it; the language server's references and rename report that.
+   with the document and the question) for a recorded document at the level
+   that has no tree, and the workspace operation above them hydrates
+   (previous section): `Workspace.NewRuntime` hydrates every recorded
+   document before its model is built, so the runtime never evaluates against
+   a record; the reverse-reference index is built from the references a
+   document's body writes, which its record does not carry, so
+   `ReferencesTo`, `NameReferencesTo` and `RenameConflict` hydrate the
+   recorded documents first and answer as over a loaded workspace. Only a
+   record-level question with no operation to hydrate for — a document
+   query's `Project` over a recorded value — still reports the
+   `NeedsHydration` to its caller.
 
 ## What the record costs
 
@@ -230,5 +288,9 @@ constellation split one file per plane with the planes loaded and with them
 recorded, and reports the reachable heap in both states, what installing the
 records alone added, and a plane's record size on disk;
 `TestPlaneResidencyProcess` holds either state in a process of its own for an
-external RSS measurement. The figures are in `docs/internals/performance.md`
-and `docs/project/satellite-network-stress-test.md`.
+external RSS measurement. `BenchmarkOpenSplit` opens the split constellation
+cold and from a warm cache, and `BenchmarkHydratePlane` hydrates one plane
+file and re-answers the constellation file that read it. The figures, with
+`sysml -validate` over the 10 000- and 1 600-satellite splits with no cache,
+a cold one and a warm one, are in `docs/internals/performance.md` and
+`docs/project/satellite-network-stress-test.md`.

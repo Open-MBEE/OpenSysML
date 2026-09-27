@@ -19,7 +19,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 10
+const interfaceFormatVersion = 12
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -37,6 +37,12 @@ type InterfaceRecord struct {
 	Scope       *symbols.DocumentRecord
 	Diagnostics []diag.Diagnostic
 	Mode        diag.ConformanceMode // the diagnostics answer this mode's question
+	// Provenance is where the analysis got its answers (see Provenance); the
+	// record holds only where it is valid.
+	Provenance *Provenance
+	// Members are the document's top-level members as written, which a session
+	// lists of a file it loaded.
+	Members []TopMember
 }
 
 // InterfaceKey derives the cache key of a document's interface record from its

@@ -69,7 +69,7 @@ func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocu
 }
 
 // DidSave refreshes diagnostics for every open document, since an edit to one
-// file changes what the others resolve.
+// file changes what the others resolve, and writes the saved document's record.
 func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocumentParams) error {
 	if isLibraryURI(params.TextDocument.URI) {
 		return nil
@@ -77,5 +77,10 @@ func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocume
 	name := uriToName(params.TextDocument.URI)
 	s.publishDiagnostics(ctx, name)
 	s.refreshOpenDiagnostics(ctx, name)
+	// The saved document is analyzed: its record is written for the next
+	// workspace to hold it closed as.
+	if err := s.ws.WriteRecord(name); err != nil {
+		_ = s.client.LogMessage(ctx, &protocol.LogMessageParams{Type: protocol.MessageTypeLog, Message: err.Error()})
+	}
 	return nil
 }

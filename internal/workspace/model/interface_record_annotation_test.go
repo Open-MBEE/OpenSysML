@@ -27,12 +27,8 @@ func TestInterfaceRecordAnnotationKeepsItsMetadataType(t *testing.T) {
 		t.Fatal("the record states no annotation: the fixture is vacuous")
 	}
 
-	other := []byte("package Meta { metadata def Flag { attribute on : ScalarValues::Boolean = false; } }")
 	ws := NewWorkspace()
-	ws.OpenAll([]Input{
-		{Name: "a-meta.sysml", Content: other, Version: 1},
-		{Name: "meta.sysml", Content: meta, Version: 1},
-	})
+	ws.OpenAll([]Input{{Name: "meta.sysml", Content: meta, Version: 1}})
 	if err := ws.OpenRecorded(rec, goods); err != nil {
 		t.Fatal(err)
 	}
@@ -44,5 +40,17 @@ func TestInterfaceRecordAnnotationKeepsItsMetadataType(t *testing.T) {
 	facts := ws.model.AnnotationFactsOf(marked[0])
 	if len(facts) != 1 || facts[0].Type.Doc != "meta.sysml" {
 		t.Fatalf("recorded Marked's annotation restored as %+v, want Meta::Flag of meta.sysml", facts)
+	}
+
+	// A second declaration of the name changes what Meta::Flag answers: the
+	// record's analysis read it, so the record no longer holds and goods is
+	// hydrated as a dependent of the change.
+	other := []byte("package Meta { metadata def Flag { attribute on : ScalarValues::Boolean = false; } }")
+	ws.Open("a-meta.sysml", other, 1)
+	if ws.Recorded("goods.sysml") {
+		t.Fatal("goods.sysml stays recorded beside a second Meta::Flag its record's analysis did not see")
+	}
+	if marked := ws.index.LookupQualified("Goods::Marked"); len(marked) != 1 || marked[0].Decl == nil {
+		t.Fatalf("hydrated Goods::Marked resolves to %d symbols without a tree", len(marked))
 	}
 }

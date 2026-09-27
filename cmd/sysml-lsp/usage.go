@@ -10,10 +10,11 @@ const lspCommand = "sysml-lsp"
 
 // options is what the command line resolves to.
 type options struct {
-	strict      bool
-	showVersion bool
-	showHelp    bool
-	showMan     bool
+	strict        bool
+	noRecordCache bool
+	showVersion   bool
+	showHelp      bool
+	showMan       bool
 }
 
 // registerFlags declares the server's flags on fs, so a run, the help and the
@@ -25,6 +26,8 @@ func registerFlags(fs *flag.FlagSet) *options {
 	var o options
 	fs.BoolVar(&o.strict, "strict", false,
 		"Serve strict conformance from the start: notation no pinned SysML v2 production admits is an error (a client may also set the strictConformance setting)")
+	fs.BoolVar(&o.noRecordCache, "no-record-cache", false,
+		"Parse every document and hold it loaded, reading no interface record from the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0")
 	fs.Bool("stdio", false, "Serve over stdin/stdout (the only transport; accepted for clients that name it)")
 	fs.BoolVar(&o.showVersion, "version", false, "Show version information")
 	fs.BoolVar(&o.showVersion, "v", false, "Show version (shorthand)")

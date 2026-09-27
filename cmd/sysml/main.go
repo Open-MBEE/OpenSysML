@@ -20,6 +20,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // errPrefix names the tool in the messages it writes to stderr.
@@ -149,6 +150,7 @@ var (
 	htmlMath         string
 	htmlTheme        string
 	strictMode       bool
+	noRecordCache    bool
 	modelChecks      checks
 	compileCalc      string
 	compileTarget    string
@@ -775,6 +777,11 @@ func newSession() *repl.Session {
 		fmt.Fprintln(os.Stderr, errPrefix, err)
 		os.Exit(2)
 	}
+	cache, err := libs.OpenRecordCache(noRecordCache)
+	if err != nil && !quietMode {
+		fmt.Fprintf(os.Stderr, "%s record cache unavailable, holding every file loaded: %v\n", errPrefix, err)
+	}
+	sess.SetRecordCache(cache)
 	sess.SetRenderWidth(terminalWidth())
 	return sess
 }

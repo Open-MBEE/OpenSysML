@@ -3,6 +3,7 @@ package model_test
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -318,9 +319,9 @@ func TestInterfaceRecordKeyNamesTheDocument(t *testing.T) {
 	if recorded := recordDifferential(t, docs); recorded != 2 {
 		t.Fatalf("%d of 2 documents recorded", recorded)
 	}
+	inputs := []model.Input{{Name: "a.sysml", Content: content, Version: 1}, {Name: "b.sysml", Content: content, Version: 1}}
 	loaded := model.NewWorkspace()
-	loaded.OpenAll([]model.Input{{Name: "a.sysml", Content: content, Version: 1}, {Name: "b.sysml", Content: content, Version: 1}})
-	ws := model.NewWorkspace()
+	loaded.OpenAll(inputs)
 	for name, key := range map[string]string{"a.sysml": keyA, "b.sysml": keyB} {
 		rec, err := loaded.InterfaceRecord(name)
 		if err != nil {
@@ -333,8 +334,14 @@ func TestInterfaceRecordKeyNamesTheDocument(t *testing.T) {
 		if !ok || read.Name != name {
 			t.Fatalf("%s: read back %v (%v)", name, read, ok)
 		}
-		if err := ws.OpenRecorded(read, content); err != nil {
-			t.Fatal(err)
+	}
+	// Each record read the other document (its identities), so the two install
+	// together, as a workspace over the cache opens them.
+	ws := model.NewWorkspace(model.WithRecordCache(cache))
+	ws.OpenAll(inputs)
+	for _, name := range []string{"a.sysml", "b.sysml"} {
+		if !ws.Recorded(name) {
+			t.Fatalf("%s is not held as its record", name)
 		}
 	}
 	for _, name := range []string{"a.sysml", "b.sysml"} {
@@ -386,15 +393,27 @@ func TestInterfaceRecordKeepsContentAndRefusesBodyQuestions(t *testing.T) {
 	if len(p) != 1 {
 		t.Fatalf("A::P: %d symbols", len(p))
 	}
-	var needs *symbols.NeedsHydration
-	if _, err := ws.ReferencesTo(p[0]); !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "a.sysml" {
-		t.Fatalf("ReferencesTo over a recorded document: got %v, want a NeedsHydration for a.sysml", err)
+	// The references a document writes are in its body: asking for them
+	// hydrates the recorded document, and the answer is the loaded one's.
+	refs, err := ws.ReferencesTo(p[0])
+	if err != nil {
+		t.Fatalf("ReferencesTo over a recorded document: %v", err)
 	}
-	if _, err := ws.NameReferencesTo(p[0], "P"); !errors.Is(err, symbols.ErrNeedsHydration) {
-		t.Fatalf("NameReferencesTo over a recorded document: got %v", err)
+	if ws.Recorded("a.sysml") {
+		t.Fatal("a.sysml is still recorded after its references were asked for")
 	}
-	if _, err := ws.RenameConflict(p[0], "P", "R"); !errors.Is(err, symbols.ErrNeedsHydration) {
-		t.Fatalf("RenameConflict over a recorded document: got %v", err)
+	want, err := loaded.ReferencesTo(loaded.LookupQualified("A::P")[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(refs, want) {
+		t.Fatalf("references to A::P: recorded then hydrated %+v, loaded %+v", refs, want)
+	}
+	if _, err := ws.NameReferencesTo(p[0], "P"); err != nil {
+		t.Fatalf("NameReferencesTo after hydration: %v", err)
+	}
+	if _, err := ws.RenameConflict(p[0], "P", "R"); err != nil {
+		t.Fatalf("RenameConflict after hydration: %v", err)
 	}
 }
 
