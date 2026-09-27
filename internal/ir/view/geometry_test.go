@@ -454,6 +454,21 @@ func TestViewLocalStyleOverridesTheInlineOne(t *testing.T) {
 	}
 }
 
+// statedNotes is notes without their Origins, each checked to locate the Note
+// annotation in doc.
+func statedNotes(t *testing.T, notes []Note, doc string) []Note {
+	t.Helper()
+	out := make([]Note, len(notes))
+	for i, note := range notes {
+		if !note.Origin.Located() || note.Origin.Doc != doc {
+			t.Errorf("note %q origin = %+v, want one located in %s", note.Text, note.Origin, doc)
+		}
+		note.Origin = Origin{}
+		out[i] = note
+	}
+	return out
+}
+
 // Notes reach the rendering anchored to the node they annotate, the inline one
 // with the view's own, a Note about a connection anchored to its edge by its
 // ends, and a Note about the view itself is free on the canvas.
@@ -467,8 +482,8 @@ func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
 		{Text: "check pressure", EdgeFrom: pump.ID, EdgeTo: tank.ID, X: 420, Y: 140},
 		{Text: "free", X: 0, Y: 700},
 	}
-	if !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if got := statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 	dot, err := rendering.DOT()
 	if err != nil {
@@ -492,8 +507,8 @@ func TestInlineStyleIsTheFallbackInAnotherView(t *testing.T) {
 	if want := (&Style{Fill: "#FFFFDC"}); !reflect.DeepEqual(pump.Style, want) {
 		t.Errorf("pump style = %+v, want the inline %+v", pump.Style, want)
 	}
-	if want := []Note{{Text: "always", Anchor: pump.ID, X: 10, Y: 90}}; !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if want, got := []Note{{Text: "always", Anchor: pump.ID, X: 10, Y: 90}}, statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 }
 
@@ -506,9 +521,9 @@ func TestStateStyleAndNoteReachTheStateRendering(t *testing.T) {
 		t.Errorf("on style = %+v, want %+v", on.Style, want)
 	}
 	off := findNode(t, rendering.Roots, "off")
-	if want := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100},
-		{Text: "on demand", EdgeFrom: off.ID, EdgeTo: on.ID, X: 70, Y: 40}}; !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if want, got := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100},
+		{Text: "on demand", EdgeFrom: off.ID, EdgeTo: on.ID, X: 70, Y: 40}}, statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 	var styled []Edge
 	for _, edge := range rendering.Edges {

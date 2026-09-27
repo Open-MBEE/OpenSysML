@@ -339,7 +339,8 @@ sections — a sequence rendering has no DOT form; a note is drawn only where th
 `DiagramLayout::Note`, as `shape=note` with a dashed, headless anchor edge — to the node it is
 about, or for a note about a connection or transition to an invisible point pinned at the middle
 of the edge's longest routed segment (to the edge's tail node when the edge has no route, since
-Graphviz cannot end an edge on an edge). The Pilot's
+Graphviz cannot end an edge on an edge). A `Note about A, B` is one box with an anchor to each;
+two Notes stated apart are two boxes even when their text and box coincide. The Pilot's
 `-[thickness=5]-` binding connectors are `EdgeBinding`, drawn as a plain undirected line: thinner
 than a connection, not heavier, so a binding reads as the equation it is rather than a channel.
 

@@ -48,6 +48,8 @@ type Style struct {
 // Note is a note box drawn on the canvas, from a DiagramLayout::Note: its text,
 // the node it is anchored to (or the edge, by its end nodes; neither for one
 // free on the surface), the top-left corner of its box and its size when HasSize.
+// Origin is where the Note annotation is stated: one annotation `about` several
+// elements yields a Note per element, all of one Origin, drawn as one box.
 type Note struct {
 	Text          string
 	Anchor        string
@@ -56,6 +58,7 @@ type Note struct {
 	X, Y          float64
 	Width, Height float64
 	HasSize       bool
+	Origin        Origin
 }
 
 // Picture is a DiagramLayout::Picture drawn on the canvas: its file as the view
@@ -132,7 +135,7 @@ func (r *Renderer) notesOf(view, elem *symbols.Symbol, anchor string, out *Rende
 			continue
 		}
 		n := site.Note
-		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize})
+		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
 	}
 }
 

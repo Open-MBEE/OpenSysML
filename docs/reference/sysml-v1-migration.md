@@ -450,8 +450,9 @@ the route is drawn where Cameo drew it and not into a node no symbol stands for.
 A note the diagram shows is written as `metadata DiagramLayout::Note about <ref> { text; x; y;
 width; height; }` — a `Note` symbol whatever it names, a comment's symbol, or a free text box
 saying something of its own — with the comment's body when it stands for a comment and the
-symbol's own text otherwise, `about` each element an anchor line joins it to once (a note the
-view anchors to nothing is a free `@Note`). A text symbol nested inside an element's symbol is
+symbol's own text otherwise, one `Note` `about` every element an anchor line joins it to, each
+named once, so the renderer draws one box with an anchor to each (a note the view anchors to
+nothing is a free `@Note`). A text symbol nested inside an element's symbol is
 the element's own label (its name, stereotype or multiplicity as the tool draws it), not a note,
 so it is neither written nor counted as one.
 

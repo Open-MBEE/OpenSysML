@@ -408,9 +408,7 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf fu
 				continue
 			}
 			anchored++
-			for _, ref := range refs {
-				dress.lines = append(dress.lines, "metadata "+prefix+"Note about "+ref+" "+body)
-			}
+			dress.lines = append(dress.lines, "metadata "+prefix+"Note about "+strings.Join(refs, ", ")+" "+body)
 		case sym.Free():
 			if sym.Class != "NoteAnchor" && sym.Parent == nil {
 				dropped[sym.Class]++

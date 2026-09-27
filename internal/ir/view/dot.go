@@ -1833,22 +1833,21 @@ func (w *dotWriter) placeNotes(notes []Note) {
 	}
 }
 
-// shareNotes draws one note for the positioned notes stating the same text at
-// the same box, as one comment anchored to several elements comes out: each
-// twin keeps its anchor and shares the first's node.
+// shareNotes draws one note for the notes of one Origin, as one Note annotation
+// `about` several elements comes out: each keeps its anchor and shares the
+// first's node. Notes stated separately stay separate, alike or not.
 func (w *dotWriter) shareNotes() {
 	w.noteShown = make([]int, len(w.notes))
+	first := map[Origin]int{}
 	for i, note := range w.notes {
 		w.noteShown[i] = i
-		if w.noteBoxes == nil || !note.HasSize {
+		if !note.Origin.Located() {
 			continue
 		}
-		for j := 0; j < i; j++ {
-			twin := w.notes[j]
-			if w.noteShown[j] == j && twin.HasSize && twin.Text == note.Text && w.noteBoxes[j] == w.noteBoxes[i] {
-				w.noteShown[i] = j
-				break
-			}
+		if j, seen := first[note.Origin]; seen {
+			w.noteShown[i] = j
+		} else {
+			first[note.Origin] = i
 		}
 	}
 }
