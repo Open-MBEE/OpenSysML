@@ -289,18 +289,20 @@ const hostlessCallerApplications = `
   <sysml:Block xmi:id="_b5" base_Class="_console"/>`
 
 // A call from an object that is not, and holds no part that is, what the callee
-// acts on is still written, its context parameter left unbound with the reason,
-// while a state's do behavior in that position is not run.
+// acts on is written as a placeholder that passes the token on, and a state's do
+// behavior in that position is not run: v1 ran both on an object lacking the ports.
 func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 	r := migrateDocument(t, borrowedContext+hostlessCaller, borrowedContextApplications+hostlessCallerApplications)
 	why := "the behavior acts on a Host through its parameter context, which is left unbound: the caller is a Console, which is no Host and has no part that is one"
 	for _, line := range []string{
-		"action relay : Controller::Relay;",
+		"action relay {",
+		"/* not migrated: CallBehaviorAction 'relay' — " + why + "; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */",
 		"/* do action Hit is not run: " + why + " */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_callRelay2", migrate.Approximated, why+"; the behavior belongs to Controller and runs here in the caller's context")
+	wantNoLine(t, r.Notation, "action relay : Controller::Relay;\n        first relay then one;\n        action one")
+	wantNote(t, r, "_callRelay2", migrate.Approximated, why+"; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing")
 	wantNote(t, r, "_hitting", migrate.Approximated, "its do action Hit is not run: "+why)
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -310,10 +312,8 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 	meta(t, s, "%instantiate Console")
 	meta(t, s, "%action Console::drive #1")
 	meta(t, s, "%continue")
-	// The call is written and performed, so its unbound context keeps the token:
-	// relay never completes, one and set never run, and ran stays 0.
-	if out := meta(t, s, "%eval in #1 : ran"); !strings.Contains(out, "= 0") {
-		t.Errorf("the written call's unbound context did not hold the token: %s", out)
+	if out := meta(t, s, "%eval in #1 : ran"); !strings.Contains(out, "= 1") {
+		t.Errorf("the placeholder did not pass the token on: %s", out)
 	}
 	s = session(t, r)
 	meta(t, s, "%instantiate Console")
