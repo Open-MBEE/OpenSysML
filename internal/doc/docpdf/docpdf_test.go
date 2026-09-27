@@ -423,9 +423,11 @@ func TestPrintStylesheetContract(t *testing.T) {
 }
 
 // TestPrintStylesheetKeepsTablesWithinThePage checks the page handed to the
-// engines sizes a table to the text width and wraps a cell's long unbreakable
-// tokens, so a list of qualified names cannot push columns off the page, and
-// keeps each row, but not a whole table, on one page.
+// engines sizes a table to the text width, wraps a cell at word boundaries and
+// breaks only a token that fits no line, so a list of qualified names cannot
+// push columns off the page while the columns keep their word widths, repeats
+// the header on every page, and keeps each row, but not a whole table, on one
+// page.
 func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
@@ -434,7 +436,8 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	for _, want := range []string{
 		"--sysml-table-width: 100%;",
 		"width: var(--sysml-table-width);",
-		".sysml-document .sysml-table th,\n  .sysml-document .sysml-table td {\n    overflow-wrap: anywhere;",
+		".sysml-document .sysml-table th,\n  .sysml-document .sysml-table td {\n    overflow-wrap: break-word;",
+		".sysml-document .sysml-table thead {\n    display: table-header-group;",
 		".sysml-document .sysml-table tr,",
 	} {
 		if !strings.Contains(page, want) {
@@ -454,23 +457,29 @@ func TestPrintStylesheetKeepsTablesWithinThePage(t *testing.T) {
 
 // TestPrintStylesheetSetsWideTablesLandscape checks the page handed to the
 // engines sets a table of seven or more columns on a landscape page with the
-// heading and lead-in paragraph ahead of it, keeps a header's words whole, and
+// heading and lead-in paragraph ahead of it, at a fixed layout whose first
+// column keeps a readable width, steps the type down once more at eleven, and
 // keeps a heading's and lead-in's keep-with-next apart from any :has() rule.
 func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 	page, err := docrender.HTML(plainDocument(t), pageOptions(t, Options{}, t.TempDir(), nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	wide := ".sysml-table:has(thead > tr > th:nth-child(7))"
+	wide := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7)))"
+	dense := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(11)))"
 	for _, want := range []string{
 		"@page wide {\n    size: var(--sysml-page-size) landscape;",
 		"page: main;",
 		"--sysml-wide-table-font-size: 9pt;",
-		".sysml-document " + wide + " {\n    page: wide;\n    font-size: var(--sysml-wide-table-font-size);",
+		"--sysml-dense-table-font-size: 8pt;",
+		"--sysml-wide-table-layout: fixed;",
+		".sysml-document " + wide + " {\n    page: wide;\n    table-layout: var(--sysml-wide-table-layout);\n    width: var(--sysml-table-width);",
+		".sysml-document " + wide + ",\n  .sysml-document " + wide + " :is(th, td) {\n    font-size: var(--sysml-wide-table-font-size);",
+		".sysml-document " + wide + " thead > tr > th:first-child {\n    width: var(--sysml-first-column-width);",
+		".sysml-document " + dense + ",\n  .sysml-document " + dense + " :is(th, td) {\n    font-size: var(--sysml-dense-table-font-size);",
 		".sysml-document p:has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ " + wide + ")) {\n    page: wide;",
-		".sysml-document .sysml-table th {\n    overflow-wrap: normal;",
 		".sysml-document h6 {\n    font-family: var(--sysml-font-heading);\n    line-height: 1.2;\n    break-after: avoid;",
 		".sysml-document p:has(+ .sysml-table) {\n    break-after: avoid;",
 	} {
@@ -493,7 +502,9 @@ func TestPandocStylesheetSetsWideTablesLandscape(t *testing.T) {
 	for _, want := range []string{
 		"@page wide { size: A4 landscape; }",
 		"body {\n  font-family: \"Times New Roman\", Times, \"Liberation Serif\", \"Nimbus Roman\", serif;\n  font-size: 11pt;\n  line-height: 1.45;\n  page: main;\n}",
-		wide + " { page: wide; font-size: 9pt; }",
+		wide + " { page: wide; font-size: 9pt; table-layout: fixed; }",
+		wide + " thead > tr > th:first-child { width: 22%; }",
+		"table:has(thead > tr > th:nth-child(11)) { font-size: 8pt; }",
 		"p:has(+ " + wide + "),",
 		"p:has(.caption):has(+ p:has(+ " + wide + ")),",
 		":is(h1, h2, h3, h4, h5, h6):has(+ p:has(.caption):has(+ p:has(+ " + wide + "))) { page: wide; }",
@@ -519,7 +530,8 @@ func TestPandocStylesheetKeepsTablesWithinThePage(t *testing.T) {
 	for _, want := range []string{
 		"table {\n  border-collapse: collapse;\n  margin: 0.8em 0;\n  width: 100%;\n}",
 		"tr {\n  break-inside: avoid;\n  page-break-inside: avoid;\n}",
-		"th, td {\n  border: 0.5pt solid #666666;\n  padding: 0.3em 0.6em;\n  text-align: left;\n  overflow-wrap: anywhere;\n}",
+		"th, td {\n  border: 0.5pt solid #666666;\n  padding: 0.3em 0.6em;\n  text-align: left;\n  overflow-wrap: break-word;\n}",
+		"thead { display: table-header-group; }",
 	} {
 		if !strings.Contains(css, want) {
 			t.Fatalf("pandoc stylesheet lacks %q: a wide cell would run off the page or a row split across pages", want)
@@ -891,10 +903,7 @@ func TestRenderStateReportPage(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	page, _ := readCapture(t, capture)
-	want, err := docrender.HTML(document, docrender.HTMLOptions{
-		TOC:         true,
-		Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet(PrintStylesheet)},
-	})
+	want, err := docrender.HTML(document, pageOptions(t, Options{TOC: true}, dir, nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -921,9 +930,31 @@ func TestRenderStateReportPage(t *testing.T) {
 			t.Errorf("state report markup missing from the page: %q\n%s", want, page)
 		}
 	}
+	// Column groups carry their shares as style; nothing else on the page may.
+	unsized := regexp.MustCompile(`<col [^>]*>`).ReplaceAllString(page, "")
 	for _, stray := range []string{`\[`, "<!-- caption -->", `class="caption"`, " style=\""} {
-		if strings.Contains(page, stray) {
+		if strings.Contains(unsized, stray) {
 			t.Errorf("page leaks %q:\n%s", stray, page)
+		}
+	}
+}
+
+// TestRenderTableColumnsOfOneRefused checks a table-column limit no
+// continuation table keeps — one, or a negative number — is refused for every
+// engine before any tool is looked for.
+func TestRenderTableColumnsOfOneRefused(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	document := plainDocument(t)
+	for _, columns := range []int{1, -3} {
+		for _, engine := range Engines() {
+			_, err := Render(document, engine, Options{TableColumns: columns})
+			var docErr *Error
+			if !errors.As(err, &docErr) || docErr.Kind != ErrorTableColumns || docErr.Columns != columns {
+				t.Fatalf("engine %s, %d columns: got %v, want ErrorTableColumns", engine, columns, err)
+			}
+			if !strings.Contains(err.Error(), "at least 2") || !strings.Contains(err.Error(), "12, the default") {
+				t.Fatalf("engine %s: message %q", engine, err.Error())
+			}
 		}
 	}
 }

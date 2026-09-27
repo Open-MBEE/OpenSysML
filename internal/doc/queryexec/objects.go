@@ -268,7 +268,7 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 		}
 		result := make([]Value, 0, len(values))
 		for _, value := range values {
-			result = append(result, valueAt(typedPropertyValue(property, value, decl), origin))
+			result = append(result, valueAt(e.typedPropertyValue(property, value, decl), origin))
 		}
 		return result, true, nil
 	}
