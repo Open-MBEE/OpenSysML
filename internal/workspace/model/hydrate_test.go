@@ -307,8 +307,16 @@ func TestRecordKeyFollowsTheIndexLibrary(t *testing.T) {
 		t.Fatal("m.sysml is held as a record written over another library")
 	}
 	analyze(library(overA, false))
-	if analyze(library(overA, false)).Recorded("m.sysml") {
+	unknown := analyze(library(overA, false))
+	if unknown.Recorded("m.sysml") {
 		t.Fatal("m.sysml is held as a record over an index whose library identity is unknown")
+	}
+	unknown.SetOnDisk("m.sysml", inputs[0].Content)
+	unknown.Open("m.sysml", inputs[0].Content, 2)
+	unknown.Diagnostics("m.sysml")
+	unknown.Close("m.sysml")
+	if unknown.Recorded("m.sysml") || unknown.Document("m.sysml") == nil {
+		t.Fatal("closing clean m.sysml over an index whose library identity is unknown demoted or dropped it")
 	}
 }
 

@@ -131,6 +131,9 @@ func (w *Workspace) demoteLocked(name string, doc *Document) bool {
 	}
 	rec := w.cachedRecordLocked(name, doc.Content)
 	if rec == nil {
+		if _, ok := w.recordKeyLocked(name, doc.Content); !ok {
+			return false
+		}
 		if _, analyzed := w.diagCache[name]; !analyzed {
 			return false
 		}
