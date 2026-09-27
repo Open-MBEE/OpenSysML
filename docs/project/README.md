@@ -19,6 +19,9 @@ within these records and means nothing outside this repository.
   suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
   pilot implementation, advisory
+- **[Spec-vs-pilot gap register](spec-pilot-gap-register.md)** — places where OpenSysML's
+  behaviour rests on the pilot or on no clause, ranked by modeler impact, with the question each
+  puts to the specification authors
 - **[Pilot execution referee](pilot-execution-referee.md)** — how far the pinned pilot's
   execution surface reaches, and which behavior rows it can adjudicate
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule

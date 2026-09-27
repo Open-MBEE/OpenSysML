@@ -233,5 +233,6 @@ nav:
       - Bitwise complement: project/bitwise-complement.md
       - Exception handlers: project/exception-handlers.md
       - Pilot differential: project/pilot-differential.md
+      - Spec-vs-pilot gap register: project/spec-pilot-gap-register.md
       - Roadmap: project/roadmap.md
       - Nightly snapshots: project/nightly.md
