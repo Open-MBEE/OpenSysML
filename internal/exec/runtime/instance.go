@@ -345,6 +345,16 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	// feature below it: what applies on this object overrides its shape now, and
 	// what applies below carries on it (see nested_redefinition.go).
 	pending := ctx.pendingNestedRedefinitions(owner, feature)
+	// The chains the object's own type and what it specializes declare reach
+	// its members the same way, so a valued one governs an inherited bound
+	// value (GovernedByChain) before the member materializes.
+	for _, src := range append([]*symbols.Symbol{sym}, ctx.model.semantics.MemberSources(sym)...) {
+		for _, nr := range ctx.model.semantics.NestedRedefinitionsOf(src) {
+			if len(nr.Path) > 1 {
+				pending = append(pending, pendingRedefinition{rest: nr.Path, sym: nr.Feature})
+			}
+		}
+	}
 
 	// Create instance
 	inst := &Instance{
@@ -1215,6 +1225,9 @@ func (ctx *Context) valueBinds(feat *EffectiveFeature) bool {
 // bodyGovernsInheritedValue reports whether a feature's own body values what the value
 // it inherits from the declaration it redefines would supply, superseding that value.
 func (ctx *Context) bodyGovernsInheritedValue(feat *EffectiveFeature) bool {
+	if feat.GovernedByChain {
+		return true
+	}
 	if feat.Symbol == nil || feat.DefaultDecl == nil || feat.DefaultDecl == feat.Symbol {
 		return false
 	}
@@ -1248,7 +1261,7 @@ func (ctx *Context) restatedByNestedChain(inst *Instance, name string, feat *Eff
 		return ""
 	}
 	for _, p := range ctx.pendingNestedRedefinitions(inst, name) {
-		if len(p.rest) > 0 {
+		if len(p.rest) > 0 && valuedChain(p) && !ctx.chainGovernsValue(p.sym, feat.Symbol) {
 			return p.rest[0]
 		}
 	}

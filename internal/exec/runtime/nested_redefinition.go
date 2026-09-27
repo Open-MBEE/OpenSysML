@@ -87,8 +87,21 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 			overrides[p.rest[0]] = p.sym
 		}
 	}
-	if len(overrides) > 0 {
+	cloned := false
+	for _, p := range carry {
+		for i := range features {
+			if features[i].Name == p.rest[0] && features[i].DefaultValue != nil && valuedChain(p) && ctx.chainGovernsValue(p.sym, features[i].Symbol) {
+				if !cloned {
+					features = slices.Clone(features)
+					cloned = true
+				}
+				features[i].GovernedByChain = true
+			}
+		}
+	}
+	if len(overrides) > 0 && !cloned {
 		features = slices.Clone(features)
+		cloned = true
 		for i := range features {
 			redefining, ok := overrides[features[i].Name]
 			if !ok {
@@ -185,10 +198,39 @@ func clonePendingRedefinitions(pending []pendingRedefinition) []pendingRedefinit
 // declared by top).
 func (ctx *Context) redefinitionContext(member *symbols.Symbol) *symbols.Symbol {
 	owner := ctx.findOwnerType(member)
-	for owner != nil && !isDefinitionSymbol(owner) && ctx.findOwnerType(owner) != nil {
-		owner = ctx.findOwnerType(owner)
+	for owner != nil && !isDefinitionSymbol(owner) {
+		next := ctx.findOwnerType(owner)
+		if next == nil || (!isDefinitionSymbol(next) && !isUsageSymbol(next)) {
+			break
+		}
+		owner = next
 	}
 	return owner
+}
+
+// isUsageSymbol reports whether sym is declared by a usage.
+func isUsageSymbol(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	_, ok := sym.Decl.(*ast.Usage)
+	return ok
+}
+
+// valuedChain reports whether a pending chain member states a value: its own,
+// or one its body states at any depth. A chain declaring only a type or
+// multiplicity conflicts with nothing.
+func valuedChain(p pendingRedefinition) bool {
+	usage, ok := p.sym.Decl.(*ast.Usage)
+	return ok && valuesAFeature(usage)
+}
+
+// chainGovernsValue reports whether a chain's context strictly specializes the
+// context the valued feature is declared in — the more specific body governs
+// the inherited binding, as a redefining body does.
+func (ctx *Context) chainGovernsValue(chain, valued *symbols.Symbol) bool {
+	chainCtx, valuedCtx := ctx.redefinitionContext(chain), ctx.redefinitionContext(valued)
+	return chainCtx != valuedCtx && ctx.modelConforms(chainCtx, valuedCtx)
 }
 
 // blocksChain reports whether existing, the redefinition standing on a
