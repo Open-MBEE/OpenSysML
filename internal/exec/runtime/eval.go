@@ -1233,10 +1233,12 @@ func (ec *EvalContext) thisValue() (Value, error) {
 }
 
 // isBehaviorDefKind reports whether kind is a behavior definition — an action,
-// state or calc def — whose `this` is the def's own occurrence.
+// state, calc or case def — whose `this` is the def's own occurrence.
 func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
+		symbols.SymbolCaseDef, symbols.SymbolAnalysisCaseDef,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolUseCaseDef:
 		return true
 	}
 	return false

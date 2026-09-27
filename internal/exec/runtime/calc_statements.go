@@ -270,7 +270,7 @@ func (h *calcStmtHost) setFeature(name string, value Value) error {
 // of the body: an output the case declares, or a parameter or local it holds.
 func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 	if h.env.assignLocal(name, value) {
-		return true, h.mirrorOccurrence(name, value)
+		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
 		if err := h.ctx.checkNamedWrite(h.shape.bodyScope(), h.describe(), name, &value); err != nil {

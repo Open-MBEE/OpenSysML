@@ -2742,6 +2742,16 @@ const calcDefThisFixture = `
 			assign n := 5;
 			return : Integer = this.n;
 		}
+		action def Step { out n : Integer = 5; }
+		analysis def Shadow {
+			attribute early : Boolean = this == this;
+			attribute n : Integer = 0;
+			if true {
+				attribute n : Integer = 1;
+				action step : Step;
+			}
+			return : Integer = this.n;
+		}
 	}
 `
 
@@ -2789,6 +2799,17 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 	if got.Const.Int != 5 {
 		t.Errorf("SetBack() = %s, want 5: the assign mirrored into the occurrence", FormatTraceValue(got))
+	}
+
+	// A step's returned output lands in the shadowing block-local `n`, not in
+	// the occurrence's feature, or this.n reads 5 instead of the declared 0.
+	shadow, shadowScope := calcByName(t, root, "test", "Shadow")
+	result, err := ctx.RunAnalysis(shadow, AnalysisArgs{}, shadowScope, nil)
+	if err != nil {
+		t.Fatalf("Shadow(): %v", err)
+	}
+	if len(result.Outputs) != 1 || result.Outputs[0].Value.Const.Int != 0 {
+		t.Errorf("Shadow() = %+v, want 0: the block-local write stayed out of the occurrence", result.Outputs)
 	}
 }
 

@@ -68,7 +68,9 @@ func isObjectKind(kind symbols.SymbolKind) bool {
 // occurrence its `this` denotes.
 func isBehaviorDefKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolCalcDef,
+		symbols.SymbolCaseDef, symbols.SymbolAnalysisCaseDef,
+		symbols.SymbolVerificationCaseDef, symbols.SymbolUseCaseDef:
 		return true
 	}
 	return false
