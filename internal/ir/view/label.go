@@ -323,14 +323,24 @@ func (l labeller) lines(node *Node) []string {
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one
-// per behaviour, and drops the `initial` marker the initial dot already draws
-// and the `defers` marker, as Cameo's state box shows no deferrable triggers.
+// per behaviour and one per deferred trigger, `Ping / defer` as UML writes it,
+// and drops the `initial` marker the initial dot already draws.
 func cameoStateDetails(detail string) []string {
 	var lines []string
+	deferring := false
 	for _, part := range strings.Split(detail, ", ") {
+		keyword := stateDetailKeyword(part)
+		if keyword {
+			deferring = false
+		}
 		switch {
-		case part == "initial", part == "defers":
-		case len(lines) > 0 && !stateDetailKeyword(part):
+		case part == "initial":
+		case strings.HasPrefix(part, "defers "):
+			deferring = true
+			lines = append(lines, strings.TrimPrefix(part, "defers ")+" / defer")
+		case deferring:
+			lines = append(lines, part+" / defer")
+		case len(lines) > 0 && !keyword:
 			lines[len(lines)-1] += ", " + part
 		default:
 			lines = append(lines, part)

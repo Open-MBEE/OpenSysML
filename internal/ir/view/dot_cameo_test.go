@@ -167,9 +167,10 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 
 // A state's compartment names each behaviour, `do / initialize`, by the
 // behaviour's own name or else its type's, and by its kind alone when it has
-// neither, in both styles; the Cameo compartment sets each behaviour on its own
-// line and leaves the initial marker to the dot, in 11pt Arial; the Pilot's
-// 14pt Helvetica and keyword line are untouched.
+// neither, and names the triggers it defers, in both styles; the Cameo
+// compartment sets each behaviour on its own line, each deferred trigger as
+// UML's `Reset / defer`, and leaves the initial marker to the dot, in 11pt
+// Arial; the Pilot's 14pt Helvetica and keyword line are untouched.
 func TestDOTStateBehaviourNames(t *testing.T) {
 	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
 	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
@@ -181,7 +182,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		t.Fatalf("pilot DOT: %v", err)
 	}
 	for _, want := range []string{
-		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
+		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap, defers Reset, Halt", "do / InitializePEAS",
 	} {
 		if !strings.Contains(pilot, want) {
 			t.Errorf("pilot DOT lacks %q:\n%s", want, pilot)
@@ -191,7 +192,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		`fontname="Arial", fontsize=11,`,
 		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">do / initialize</td></tr>`,
 		`<hr/><tr><td align="left">entry / Warm<br/>do<br/>exit / cool</td></tr>`,
-		`<hr/><tr><td align="left">do<br/>exit / wrap</td></tr>`,
+		`<hr/><tr><td align="left">do<br/>exit / wrap<br/>Reset / defer<br/>Halt / defer</td></tr>`,
 		`<tr><td><b>Booting</b></td></tr><hr/><tr><td align="left">do / InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(cameo, want) {

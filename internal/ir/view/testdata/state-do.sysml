@@ -3,9 +3,11 @@ package Instruments {
 	action def Warm;
 	action def Cool;
 	attribute def Reset;
+	attribute def Halt;
 
 	// A state's behaviours are named by their own name, their type's when they
-	// have none, and by their kind alone when they have neither.
+	// have none, and by their kind alone when they have neither; the triggers it
+	// defers are named too.
 	state def PEAS {
 		entry; then Init;
 
@@ -20,6 +22,7 @@ package Instruments {
 		state Idle {
 			do action;
 			exit action wrap { }
+			defer Reset, Halt;
 		}
 		state Booting {
 			do action : InitializePEAS;

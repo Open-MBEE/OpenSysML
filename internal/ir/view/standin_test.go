@@ -249,3 +249,18 @@ func TestDOTStripPlacesPinsOfUnplacedActions(t *testing.T) {
 		t.Errorf("the flow to the strip-drawn pin is undrawn:\n%s", source)
 	}
 }
+
+// The rendering's data marks the join a migration made up as a stand-in, as
+// the tree does, and no authored node.
+func TestDataKeepsStandInMarker(t *testing.T) {
+	rendering := render(t, "standin.sysml", "StandInViews::threadedView")
+	standIns := map[string]bool{}
+	for _, node := range rendering.Data().Nodes {
+		if node.StandIn {
+			standIns[node.ID] = true
+		}
+	}
+	if len(standIns) != 1 || !standIns["n4"] {
+		t.Errorf("stand-ins in the data = %v, want n4 alone", standIns)
+	}
+}

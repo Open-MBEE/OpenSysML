@@ -244,12 +244,14 @@ func (w *dotWriter) dotPortRow(ports []Port) string {
 }
 
 // portEnd is the DOT endpoint of an edge at a node's port: the pin node when the
-// port is written as one, else the node's label cell; "" for no port.
+// port is written as one, else the node's label cell; "" for no port, and for a
+// port of a node the DOT declares none for, whose pins and cells it writes neither.
 func (w *dotWriter) portEnd(node, port string) string {
-	if port == "" {
+	owner, ok := w.ported[port]
+	if port == "" || !ok || !w.draws(owner.ID) {
 		return ""
 	}
-	if owner, ok := w.ported[port]; ok && w.pinNode(owner) {
+	if w.pinNode(owner) {
 		return dotQuote(port)
 	}
 	return dotQuote(node) + ":" + dotQuote(port)

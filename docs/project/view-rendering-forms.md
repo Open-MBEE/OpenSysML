@@ -87,7 +87,8 @@ A state's compartment lines name its behaviours (`stateBehaviorLabel`, `behavior
 `behavior.go`): `entry / prime`, `do / Initialize`, `exit / Settle`, each behaviour by its name,
 else by the activity its type performs (`do action : Initialize` reads `Initialize`), else by
 what its anonymous body does — the message it sends or the one assignment it makes — and the
-keyword alone when none of that names it. A state deferring events adds `defers`.
+keyword alone when none of that names it. A state deferring events adds `defers Reset, Halt`, each
+trigger by the name a transition would accept it under (`deferredLabel`).
 
 The name and type a node carries (`Node.Name`, `Node.Type`, the JSON's `name` and `type`) stay
 as the walk spells them — a root's name qualified, a nested member's simple, a type as the
@@ -362,7 +363,7 @@ horizontal gradient, sampled at the left and right of a box. The constants live 
 | --- | --- |
 | Diagram frame: a thin grey rectangle round the drawing with a header tab reading `stm [State Machine] Owner [ Diagram Name ]`, the kind abbreviation bold, the rest plain | `subgraph cluster_frame` with `label=<<b>stm</b> [State Machine] Owner [ Name ]>`, `labeljust=l`, `labelloc=t`, `color="#5B5B59"`, `penwidth=1`, `margin=8`; `bb` is the canvas when one is stated. The kind is `bdd` for a tree, `ibd` for an interconnection, `stm` for a state machine, `act` for an activity; the bracketed type is the context element's definition keyword, title-cased (`State Machine`, `Activity`, `Block`) |
 | Text: Arial, 11 px for names and body text, ~9 px for the `«stereotype»` line and edge labels, in `#424242` | `graph`, `node` and `edge` default `fontname="Arial"`, `fontcolor="#424242"`; `fontsize=11` on nodes and the frame, `fontsize=9` on edges and the keyword line |
-| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned, the `defers` marker left off as Cameo's box shows no deferrable triggers. No `«state»` or `«action»` line: Cameo prints a keyword only for a stereotyped state or action; every name in a head or a detail is bare, its quotes off (`Setup APS`, not `'Setup APS'`) |
+| Name header: bold name; a state's `do / Activity` compartment separated from the name by a rule | the name line is `<b>…</b>`; a state with behaviours is an HTML table with `<hr/>` between the name and its `entry / …`, `do / …`, `exit / …` lines, each naming the behaviour (`do / InitializePEAS`), left-aligned, then one line per deferred trigger in UML's form (`Reset / defer`). No `«state»` or `«action»` line: Cameo prints a keyword only for a stereotyped state or action; every name in a head or a detail is bare, its quotes off (`Setup APS`, not `'Setup APS'`) |
 | State fill: pale yellow `#FFFFCC` at the left fading to `#FFFFF2` at the right; border `#5B5B59`, rounded corners | `style="rounded,filled"`, `fillcolor="#FFFFCC:#FFFFF2"`, `gradientangle=0`, `color="#5B5B59"`, `penwidth=1` on every `state` kind; a composite state or region is a cluster with the same fill and rounding, a region `style="rounded,dashed"` |
 | Action fill: pale green-grey `#E1E1C3` to `#F7F7EF`; border `#424242`, rounded corners | `fillcolor="#E1E1C3:#F7F7EF"`, `color="#424242"` on the `action` and `flow` families and the control nodes |
 | Block fill: orange `#FFCC99` to cream `#FFFAD4`; border `#99795C`, square corners | node default `fillcolor="#FFCC99:#FFFAD4"`, `color="#99795C"` — every kind not a state or action, `part def` and `part` alike |
@@ -565,7 +566,7 @@ digraph "PlantViews::placedView" {
   edge set of a positioned view, and a view exposing a package its layout does not place does not
   become a chart of the package's whole contents in Mermaid.
 - **Stand-in control nodes.** A fork, join or merge the migration marks with
-  `MigrationMetadata::StandIn` (`Node.StandIn`), which nothing positions and which has no
+  `MigrationMetadata::StandIn` (`Node.StandIn`, `NodeData.StandIn`), which nothing positions and which has no
   children — a node it made up to thread several edges through, at which no diagram symbol
   stands — stays in the rendering but is elided from a positioned drawing that leaves unplaced
   nodes undrawn, before the placement is read (`withoutStandIns` in `standin.go`, for every
