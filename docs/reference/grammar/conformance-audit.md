@@ -147,6 +147,11 @@ Rules of the reading, in detail:
 - A value the redefining member declares is evaluated in the declaring body's
   scope, so `= factor * 2.0` reads the outer feature exactly as the nested-body
   form does.
+- A chain below a feature bound to an existing object
+  (`part :>> mid = existing; attribute :>> mid.leaf.value = 99.0;`) is rejected
+  as a restating body is (`feature both valued and restated in a body`): the
+  bound value supplies the feature's own features, so the chain would state a
+  second one.
 - A chain walking through a reference — a `ref` usage, a port or a `subject` —
   owns no object below the reference for the redefinition to land on. OpenSysML
   reports `nested redefinition through reference <segment> has no owned object

@@ -37,6 +37,39 @@ func TestRuntimeRobustnessNestedRedefinition(t *testing.T) {
 		}
 	})
 
+	// A chain below a feature bound to an existing object states two values for
+	// the feature below it, like a restating body does: the read errors with
+	// ErrValuedFeatureRestated and the bound object keeps its own value.
+	t.Run("chain_below_a_value_bound_feature_is_rejected", func(t *testing.T) {
+		ctx := contextOver(t, `package test {
+			private import ScalarValues::Real;
+			part def Leaf { attribute value : Real default = 1.0; }
+			part def Mid { part leaf : Leaf; }
+			part def Top { part mid : Mid; }
+			part existing : Mid;
+			part a : Top { part :>> mid = existing; attribute :>> mid.leaf.value = 99.0; }
+		}`)
+		obj, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::a"))
+		if err != nil {
+			t.Fatalf("Instantiate: %v", err)
+		}
+		if _, err := obj.GetFeatureValue(ctx, "mid"); !errors.Is(err, ErrValuedFeatureRestated) {
+			t.Fatalf("GetFeatureValue(mid) = %v, want ErrValuedFeatureRestated", err)
+		}
+		existing, err := ctx.Instantiate(lookupOne(t, ctx.model.resolver.Index(), "test::existing"))
+		if err != nil {
+			t.Fatalf("Instantiate(existing): %v", err)
+		}
+		leaf := readInstance(t, ctx, existing, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	})
+
 	// A chain whose last segment resolves to no feature declares no nested
 	// redefinition: the object materializes and the feature below reads its
 	// declared default, no panic and no hang.

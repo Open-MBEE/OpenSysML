@@ -833,6 +833,9 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	if restated := ctx.restatedInValuedBody(fv.Feature); restated != "" {
 		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
 	}
+	if restated := ctx.restatedByNestedChain(inst, name, fv.Feature); restated != "" {
+		return nil, fmt.Errorf("feature value %s.%s: %w: %s", inst.Type.Name, name, ErrValuedFeatureRestated, restated)
+	}
 
 	// A `default` applies only where nothing else populates the feature: the
 	// members subsetting it do (KerML 1.0 §7.3.4.5).
@@ -1230,6 +1233,26 @@ func (ctx *Context) restatedInValuedBody(feat *EffectiveFeature) string {
 		return ""
 	}
 	return ctx.restatedValueInBody(feat.Symbol, feat.Type)
+}
+
+// restatedByNestedChain returns the next segment of a nested redefinition a
+// type of inst applies below the value-bound feature name — a bound value
+// supplies the feature's own features, so a chain redefining one below it
+// states two values as a restating body would — or "" when none does.
+func (ctx *Context) restatedByNestedChain(inst *Instance, name string, feat *EffectiveFeature) string {
+	if feat.Symbol == nil {
+		return ""
+	}
+	decl, ok := feat.Symbol.Decl.(*ast.Usage)
+	if !ok || decl.Value == nil {
+		return ""
+	}
+	for _, p := range ctx.pendingNestedRedefinitions(inst, name) {
+		if len(p.rest) > 0 {
+			return p.rest[0]
+		}
+	}
+	return ""
 }
 
 // restatedValueInBody returns the name of a feature the body of sym values
