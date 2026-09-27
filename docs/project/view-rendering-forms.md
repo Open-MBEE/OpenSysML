@@ -501,7 +501,9 @@ digraph "PlantViews::placedView" {
   font is DejaVu Sans, plain or bold — what an installation without Helvetica sets the skins'
   Helvetica in, and the widest of its usual substitutes, so a box fitted by it holds its lines
   where Graphviz has a narrower font too — so nothing here is particular to the tool that
-  stated the box. A Cameo-style label with detail lines is set in
+  stated the box. A glyph beyond DejaVu's table is measured by its Unicode width class: an East
+  Asian wide or fullwidth glyph takes an em, the square a CJK font sets it in; a combining mark
+  takes nothing; anything else the 0.6 em (0.66 em bold) average. A Cameo-style label with detail lines is set in
   the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
   before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
   (`compartmented`); when no detail line fits in what is left, the table is dropped and the title

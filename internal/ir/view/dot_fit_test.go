@@ -534,6 +534,50 @@ func TestDOTFittedLabelStartsFromTheStyledSize(t *testing.T) {
 	}
 }
 
+// A glyph the metric tables lack is measured by its width class: an East Asian
+// wide or fullwidth glyph an em, a combining mark nothing, so a stated box of
+// such text is fitted at the width Graphviz sets it, not the Latin average. The
+// Graphviz check needs a font holding the glyphs: without one Pango draws hex
+// boxes of a size that is no glyph's, so it is skipped where fontconfig has none.
+func TestDOTMeasuresWideGlyphsAnEm(t *testing.T) {
+	if got, want := dotTextWidth("日本語", 14, false), dotTextWidth("mmm", 14, false); got < want {
+		t.Errorf("three wide glyphs measure %gpt, narrower than three m's %gpt", got, want)
+	}
+	if got, want := dotTextWidth("ＡＢＣ", 14, true), 3*14.0; got < want {
+		t.Errorf("three fullwidth glyphs measure %gpt, want at least %gpt", got, want)
+	}
+	if got, want := dotTextWidth("e\u0301", 14, false), dotTextWidth("e", 14, false); got != want {
+		t.Errorf("a combining mark widens e from %gpt to %gpt", want, got)
+	}
+	// Seven wide glyphs take 98pt at 14pt: a 70pt box holds them only wrapped.
+	node := stated(&Node{ID: "n", Kind: "action", Name: "日本語テキスト"}, 70, 60)
+	source, err := (&Rendering{View: "V", Kind: KindAction, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, source)
+	if strings.Contains(source, `label=<<b>日本語テキスト</b>>`) {
+		t.Errorf("seven wide glyphs are written on one 14pt line of a 70pt box:\n%s", source)
+	}
+	dot := os.Getenv("OPENSYSML_DOT")
+	if dot == "" {
+		t.Skip("OPENSYSML_DOT not set")
+	}
+	if fonts, err := exec.Command("fc-list", ":charset=65e5", "family").Output(); err != nil || len(bytes.TrimSpace(fonts)) == 0 {
+		t.Skip("no installed font holds U+65E5")
+	}
+	cmd := exec.Command(dot, "-Kneato", "-n2", "-Tplain")
+	cmd.Stdin = strings.NewReader(source)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if _, err := cmd.Output(); err != nil {
+		t.Fatalf("dot: %v\n%s", err, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("dot warned: %s\n%s", stderr.String(), source)
+	}
+}
+
 // A note's label is its text; in a stated box it is composed to fit as a node's
 // is, in plain glyphs at the label size or shrunk — `margin=0` so the whole box
 // is the label's — and a box holding no line even at the floor sets the text
