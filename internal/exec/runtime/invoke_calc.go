@@ -728,7 +728,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
 		if ec.trace != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -799,6 +799,7 @@ func (ctx *Context) bindCalcParameters(
 	callerScope *symbols.Scope,
 	bindings frame,
 	nested *EvalContext,
+	occurrence *calcOccurrence,
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -823,6 +824,14 @@ func (ctx *Context) bindCalcParameters(
 			return err
 		}
 		bindings.bindParam(i, param.Name, value)
+		if occurrence != nil && occurrence.inst != nil {
+			// A parameter default read `this` earlier, so the occurrence exists
+			// and needs this binding like a run's later defaults do.
+			if err := occurrence.inst.SetFeatureValue(ctx, param.Name, value); err != nil {
+				return fmt.Errorf("%w: bind %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
+			}
+		}
 		if ec.trace != nil {
 			ec.trace.RecordCalcBind(param.Name, value, source)
 		}
@@ -1247,7 +1256,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
 		return Value{}, err
 	}
 

@@ -659,11 +659,6 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 	}
 	defer leave()
 	start := &calcUsageStart{shape: shape, key: key, reader: reader}
-	start.ec, start.nested, start.env, err = ctx.bindCalcUsage(shape, reader, args)
-	if err != nil {
-		return nil, err
-	}
-	start.inputs = boundInputs(shape, start.env)
 	// `this` in the usage's bindings denotes the occurrence the usage itself is,
 	// made on the first read of it as every other usage's occurrence is.
 	start.occurrence = &calcOccurrence{}
@@ -678,6 +673,11 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 		start.occurrence.inst = inst
 		return inst, nil
 	}
+	start.ec, start.nested, start.env, err = ctx.bindCalcUsage(shape, reader, args, start.occurrence)
+	if err != nil {
+		return nil, err
+	}
+	start.inputs = boundInputs(shape, start.env)
 	start.host = &calcStmtHost{ctx: ctx, shape: shape, self: reader.self, occ: start.occurrence}
 	// A usage nested in a behavior body computes over that body's bindings, as
 	// an invocation of it does.
@@ -778,7 +778,7 @@ func (ctx *Context) forgetCalcUsage(activation int64, sym *symbols.Symbol) {
 // bindCalcUsage binds a calc usage's inputs from args and its own declarations,
 // answering with the environment the usage's body runs in, the environment
 // reading it (null unless it is nested in a calc), and the bindings themselves.
-func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args calcArgs) (*EvalContext, *EvalContext, frame, error) {
+func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args calcArgs, occurrence *calcOccurrence) (*EvalContext, *EvalContext, frame, error) {
 	ec := NewEvalContextIn(ctx, ctx.calcScope(shape.BodyOwner, shape.Sym, reader.scope), reader.self)
 	if ec.trace != nil {
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
@@ -798,7 +798,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 
 	// Read as a feature, a usage passes no arguments: every input binds from the
 	// value the usage or its definition declares for it.
-	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, reader.scope, env, nested, occurrence); err != nil {
 		if ec.trace != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}

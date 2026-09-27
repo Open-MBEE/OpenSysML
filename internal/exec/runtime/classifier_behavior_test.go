@@ -2520,6 +2520,11 @@ const calcDefThisFixture = `
 		private import ScalarValues::*;
 		calc def Identity { return : Boolean = this == this; }
 		calc def Echo { in x : Integer; return : Integer = this.x; }
+		calc def EchoLate {
+			in early : Boolean = this == this;
+			in x : Integer = 4;
+			return : Integer = this.x;
+		}
 	}
 `
 
@@ -2545,6 +2550,17 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 	if got.Const.Int != 5 {
 		t.Errorf("Echo(5) = %s, want 5: this.x read the bound parameter", FormatTraceValue(got))
+	}
+
+	// early's `this` materializes the occurrence before x binds; x's binding
+	// must still mirror into it, or this.x reads the declared default 4.
+	late, lateScope := calcByName(t, root, "test", "EchoLate")
+	got, err = ctx.InvokeCalcNamed(late, map[string]Value{"x": constInt(9)}, lateScope)
+	if err != nil {
+		t.Fatalf("EchoLate(9): %v", err)
+	}
+	if got.Const.Int != 9 {
+		t.Errorf("EchoLate(9) = %s, want 9: x mirrored into the early occurrence", FormatTraceValue(got))
 	}
 }
 

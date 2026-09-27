@@ -256,7 +256,7 @@ func (e *StateExecutor) callInputs(member *symbols.Symbol, operation string, arg
 		}
 		bound := mapFrame(make(map[string]Value, len(shape.Params)))
 		ec.frames = []frame{bound}
-		if err := ctx.bindCalcParameters(shape, ec, calcArgs{named: inputs}, scope, bound, nil); err != nil {
+		if err := ctx.bindCalcParameters(shape, ec, calcArgs{named: inputs}, scope, bound, nil, nil); err != nil {
 			return nil, err
 		}
 		return bound.vars, nil
