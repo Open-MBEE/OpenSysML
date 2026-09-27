@@ -55,8 +55,8 @@ func (a *activity) valueActionRefusal(n *sysmlv1.Element) (why string, v Verdict
 }
 
 // behaviorCallRefusal reports whether a call behavior action names a behavior
-// no action can call, with unbound arguments or no context to bind. One naming
-// none is a step, bare or declaring its pins; one naming a behavior the model lacks is refused.
+// no action can call. One naming none is a step, bare or declaring its pins;
+// one naming a behavior the model lacks is refused.
 func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdict, refused bool) {
 	b := a.m.model.Ref(n, "behavior")
 	if b == nil {
@@ -75,11 +75,6 @@ func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdic
 	case catCalcDef, catActionDef:
 	default:
 		return theBehavior + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
-	}
-	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {
-		if expr, cnote := a.callContext(n, c); expr == "" {
-			return a.uncontexted(b, cnote), Approximated, true
-		}
 	}
 	return "", Mapped, false
 }
@@ -420,10 +415,4 @@ func (a *activity) misfit(pin, attr *sysmlv1.Element) (pt, at *sysmlv1.Element) 
 // required signal attribute holds a type the attribute cannot take.
 func (a *activity) misfitArgument(pin, sig, attr, pt, at *sysmlv1.Element) string {
 	return thePin + describe(pin) + " it passes for the attribute " + a.m.nameFor(attr) + " of " + qualifiedName(sig) + ", which must hold a value, is a " + qualifiedName(pt) + ", which " + a.m.nameFor(attr) + " : " + qualifiedName(at) + " cannot take; v1 sends the signal without it, which v2 does not admit, so the action carries the token and performs nothing"
-}
-
-// uncontexted says why a call is a placeholder: the caller holds no object the
-// callee acts on, where v1 would run it on the caller's object, whose ports it lacks.
-func (a *activity) uncontexted(callee *sysmlv1.Element, why string) string {
-	return why + "; v1 runs " + qualifiedName(callee) + " on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing"
 }
