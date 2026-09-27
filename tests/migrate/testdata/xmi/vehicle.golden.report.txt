@@ -31,8 +31,8 @@ Model	Model	_model	(the root model's members are written at the top level)
 «DeriveReqt» Abstraction	Requirements::<Abstraction>	_dep_derive	-> RequirementsModel::'Derive Engine Mass Requirement'
 «Verify» Abstraction	Requirements::<Abstraction>	_dep_verify	-> RequirementsModel::'Mass Test'
 «Refine» Abstraction	Requirements::<Abstraction>	_dep_refine
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate
-«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate	-> Requirements::'Drive to Engine'
+«Allocate» Abstraction	Requirements::<Abstraction>	_dep_allocate_blocks	-> Requirements::'Motor to Engine'
 Dependency	Requirements::<Dependency>	_dep_plain
 «Requirement» Class	Requirements::Engine Mass Requirement	_req_derived	-> RequirementsModel::'Engine Mass Requirement'
 «Requirement» Class	Requirements::Mass Requirement	_req_mass	-> RequirementsModel::'Mass Requirement'

@@ -11,7 +11,7 @@ package Structure {
         connect engine to wheel;
         connection drive connect engine to wheel;
         binding 'mass = limit' bind mass = limit;
-        action def Drive {
+        action Drive {
             view Driving : StandardViewDefinitions::ActionFlowView {
                 expose Drive;
                 expose 'set speed.value = target';

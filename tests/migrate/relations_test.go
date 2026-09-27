@@ -141,7 +141,8 @@ func TestMultiEndedDependenciesWriteEveryPair(t *testing.T) {
   <sysml:Satisfy xmi:id="_s9" base_Abstraction="_sat_half"/>`
 	r := migrateDocument(t, members, applications)
 	for _, line := range []string{
-		"allocate A to C;", "allocate A to D;", "allocate B to C;", "allocate B to D;",
+		"allocation def 'A to C' {", "allocation def 'A to D' {", "allocation def 'B to C' {", "allocation def 'B to D' {",
+		"end a : A;", "end c : C;", "end d : D;", "end b : B;",
 		"satisfy requirement : R1;", "satisfy requirement : R2;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -1370,7 +1371,9 @@ func TestNamedRelationshipsKeepTheirNames(t *testing.T) {
 	wantLine(t, r.Notation, "satisfy requirement sat : Req by piece;")
 	wantLine(t, r.Notation, "verify requirement ver : Req;")
 	wantLine(t, r.Notation, "dependency 'ref' from Thing to Req {")
-	wantLine(t, r.Notation, "allocation alloc allocate Thing to Piece;")
+	wantLine(t, r.Notation, "allocation def alloc {")
+	wantLine(t, r.Notation, "end thing : Thing;")
+	wantLine(t, r.Notation, "end piece : Piece;")
 	wantLine(t, r.Notation, "dependency trace from Thing to Req; /* «Trace» */")
 	wantLine(t, r.Notation, "dependency copy from Req2 to Req; /* «Copy» */")
 	for id, want := range map[string]struct {
