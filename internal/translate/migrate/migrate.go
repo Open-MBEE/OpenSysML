@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -181,6 +182,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		usageOf:      map[*sysmlv1.Element]string{},
 		pins:         map[*sysmlv1.Element]pinDecl{},
 		opaque:       map[*sysmlv1.Element]*opaqueResult{},
+		libraryClash: map[*sysmlv1.Element]string{},
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
 		tableOf:      map[*sysmlv1.Table]*tableDoc{},
@@ -230,6 +232,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	for _, root := range model.Roots {
 		m.root(root)
 	}
+	m.libraryNameNotes()
 	for _, extra := range m.extras[nil] {
 		extra()
 	}
@@ -431,6 +434,9 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// libraryClash holds the source name of a top-level declaration renamed
+	// because it collided with a standard library root package.
+	libraryClash map[*sysmlv1.Element]string
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// mcRecorded lazily lists the written individuals that record an analysis;
@@ -509,7 +515,11 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if v == Mapped {
 			v = Approximated
 		}
-		note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
+		if src, clash := m.libraryClash[e]; clash {
+			note = joinNotes(note, "written as "+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
+		} else {
+			note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
+		}
 	}
 	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
 		en := &m.report.Entries[i]
@@ -673,6 +683,70 @@ func (m *migration) prepare() {
 	m.planViews()
 	for _, a := range associations {
 		m.nameEnds(a)
+	}
+	m.avoidLibraryRoots()
+}
+
+// avoidLibraryRoots renames a top-level declaration named like a standard
+// library root package: a qualified name starting with that name resolves to
+// the library package, which the standard loads first, so a reference into the
+// written one would fail. The source name is kept for the report and for the
+// LibraryNameAvoided metadata line.
+func (m *migration) avoidLibraryRoots() {
+	for _, r := range m.model.Roots {
+		var decls []*sysmlv1.Element
+		if m.flattened(r) {
+			for _, c := range r.Children {
+				if !ownerWritten(c.Role) {
+					decls = append(decls, c)
+				}
+			}
+		} else if !m.isLibrary(r) {
+			decls = append(decls, r)
+		}
+		for _, e := range decls {
+			if m.isLibrary(e) {
+				continue
+			}
+			src := m.nameOf(e)
+			if src == "" || !m.libraryPackage(src) {
+				continue
+			}
+			base := src + " Model"
+			if source.IsIdentifier(src) && !source.IsKeyword(src) {
+				base = src + "Model"
+			}
+			fresh := base
+			for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
+				fresh = fmt.Sprintf("%s %d", base, i)
+			}
+			m.names[e], m.libraryClash[e] = fresh, src
+		}
+	}
+}
+
+// libraryNameNotes writes, at the document's top level, one
+// LibraryNameAvoided metadata usage per declaration avoidLibraryRoots renamed,
+// naming the written declaration and recording the name its source model gave.
+func (m *migration) libraryNameNotes() {
+	if len(m.libraryClash) == 0 {
+		return
+	}
+	type renamed struct {
+		fresh, src string
+	}
+	var list []renamed
+	for e, src := range m.libraryClash {
+		list = append(list, renamed{fresh: m.names[e], src: src})
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].fresh < list[j].fresh })
+	prefix := ""
+	if m.shadowsLibrary("MigrationMetadata", nil) {
+		prefix = "$::"
+	}
+	for _, r := range list {
+		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
+			" { sourceName = \"" + strings.ReplaceAll(r.src, "\"", "\\\"") + "\"; }")
 	}
 }
 
