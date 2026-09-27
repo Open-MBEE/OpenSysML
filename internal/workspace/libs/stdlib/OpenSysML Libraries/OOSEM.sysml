@@ -331,7 +331,7 @@ library package OOSEM {
 
 	view def EnterpriseModelView :> BrowserView {
 		doc /* Tree of the enterprise, its stakeholders, enterprise use cases and causal analyses. */
-		satisfy EnterpriseViewpoint;
+		satisfy requirement enterpriseViewpoint : EnterpriseViewpoint;
 		filter @EnterpriseMetadata or @StakeholderMetadata or @EnterpriseUseCaseMetadata or @CausalAnalysisMetadata;
 		render asTreeDiagram;
 	}
@@ -339,48 +339,48 @@ library package OOSEM {
 	view def SystemContextView :> InterconnectionView {
 		doc /* Interconnection diagram of the system context: the system of interest, external systems,
 		 * users and environment, with the connections between them. */
-		satisfy SystemContextViewpoint;
+		satisfy requirement systemContextViewpoint : SystemContextViewpoint;
 		filter @SystemContextMetadata or @SystemOfInterestMetadata or @ExternalSystemMetadata or @UserMetadata or @EnvironmentMetadata;
 		render asInterconnectionDiagram;
 	}
 
 	view def SystemUseCaseView :> BrowserView {
 		doc /* Tree of the system use cases and the entities that cross the system boundary. */
-		satisfy SystemContextViewpoint;
+		satisfy requirement systemContextViewpoint : SystemContextViewpoint;
 		filter @SystemUseCaseMetadata or @IOEntityMetadata or @StoreMetadata;
 		render asTreeDiagram;
 	}
 
 	view def RequirementsView :> GridView {
 		doc /* Table of the stakeholder needs and mission, system and component requirements. */
-		satisfy RequirementsViewpoint;
+		satisfy requirement requirementsViewpoint : RequirementsViewpoint;
 		filter @StakeholderNeedMetadata or @MissionRequirementMetadata or @SystemRequirementMetadata or @ComponentRequirementMetadata;
 		render asElementTable;
 	}
 
 	view def MeasuresView :> GridView {
 		doc /* Table of the measures of effectiveness and performance. */
-		satisfy RequirementsViewpoint;
+		satisfy requirement requirementsViewpoint : RequirementsViewpoint;
 		filter @MeasureOfEffectiveness or @MeasureOfPerformance;
 		render asElementTable;
 	}
 
 	view def LogicalArchitectureView :> BrowserView {
 		doc /* Tree of the logical components and the nodes they are distributed to. */
-		satisfy LogicalArchitectureViewpoint;
+		satisfy requirement logicalArchitectureViewpoint : LogicalArchitectureViewpoint;
 		filter @LogicalComponentMetadata or @NodeMetadata;
 		render asTreeDiagram;
 	}
 
 	view def LogicalScenarioView :> ActionFlowView {
 		doc /* Action flow diagram of the logical scenarios. */
-		satisfy LogicalArchitectureViewpoint;
+		satisfy requirement logicalArchitectureViewpoint : LogicalArchitectureViewpoint;
 		filter @LogicalScenarioMetadata;
 	}
 
 	view def PhysicalArchitectureView :> BrowserView {
 		doc /* Tree of the nodes and the hardware, software, data and procedures they hold. */
-		satisfy PhysicalArchitectureViewpoint;
+		satisfy requirement physicalArchitectureViewpoint : PhysicalArchitectureViewpoint;
 		filter @NodeMetadata or @PhysicalComponentMetadata or @HardwareComponentMetadata or @SoftwareComponentMetadata or @OperationalProcedureMetadata or @DataComponentMetadata;
 		render asTreeDiagram;
 	}

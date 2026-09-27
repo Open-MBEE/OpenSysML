@@ -59,7 +59,6 @@ func TestReturnParameterInFunctionIsClean(t *testing.T) {
 		calc d { in x : Integer; return : Integer = x + 1; }
 		constraint def K { in x : Integer; return : Boolean = x > 0; }
 		constraint k : K { return :>> result; }
-		requirement def R { return : Boolean; }
 		analysis def An { return v : Integer; }
 		verification def V { return : Boolean; }
 		case def Cs { return : Integer; }

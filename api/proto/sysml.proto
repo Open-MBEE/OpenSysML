@@ -844,6 +844,7 @@ message EditOperation {
     AddConnectionEdit add_connection = 6;
     AddSatisfyEdit add_satisfy = 7;
     AddRequirementConstraintEdit add_requirement_constraint = 8;
+    AddTransitionEdit add_transition = 9;
   }
 }
 
@@ -873,9 +874,9 @@ message AddMemberEdit {
   string direction = 11;
 }
 
-// AddSatisfyEdit inserts a satisfy usage into a body that admits behavior usages.
+// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 message AddSatisfyEdit {
-  // Namespace FQN receiving the usage.
+  // Body receiving the usage.
   string owner = 1;
   // Requirement feature reference.
   string requirement = 2;
@@ -897,6 +898,26 @@ message AddRequirementConstraintEdit {
   string expression = 3;
   // Optional declared name.
   string name = 4;
+}
+
+// AddTransitionEdit inserts a transition usage, or an entry transition, into a state body.
+message AddTransitionEdit {
+  // State body receiving the transition.
+  string owner = 1;
+  // Optional transition name.
+  string name = 2;
+  // Source feature reference; empty only for an entry transition.
+  string source = 3;
+  // Target feature reference.
+  string target = 4;
+  // Optional text after `accept`.
+  string trigger = 5;
+  // Optional boolean expression after `if`.
+  string guard = 6;
+  // Optional effect text after `do`.
+  string effect = 7;
+  // Write `entry; then <target>;` instead of a regular transition.
+  bool initial = 8;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

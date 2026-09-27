@@ -171,6 +171,55 @@
       }
     },
     {
+      "id": "apply_edits/state_transitions_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "transition_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_transition.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_transition": {
+              "owner": "Demo::S",
+              "target": "idle",
+              "initial": true
+            }
+          },
+          {
+            "add_transition": {
+              "owner": "Demo::S",
+              "name": "idle_to_toasting",
+              "source": "idle",
+              "target": "toasting",
+              "trigger": "CycleStart",
+              "guard": "true",
+              "effect": "action cool"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "entry; then idle;",
+            "transition idle_to_toasting first idle accept CycleStart if true do action cool then toasting;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 2
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_requirement_constraint_is_written",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

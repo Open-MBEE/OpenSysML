@@ -427,6 +427,30 @@ func TestBodyKindsForAuthoring(t *testing.T) {
 	}
 }
 
+func TestSubstateUsesStateBodyContext(t *testing.T) {
+	owner := parseOneMember(t, "state def S { state toasting; }").(*ast.Definition)
+	substate := ast.DeclMembers(owner)[0]
+	if membership, ok := substate.(*ast.Membership); ok {
+		substate = membership.Member
+	}
+	if _, ok := substate.(*ast.SubstateMember); !ok {
+		t.Fatalf("state body member = %T, want *ast.SubstateMember", substate)
+	}
+	if got := declarationBodyContext(substate); got != usageBodyContext(ast.UsageState) {
+		t.Errorf("substate body context = %v, want state usage context %v",
+			got, usageBodyContext(ast.UsageState))
+	}
+	if !BodyAdmitsBehaviorUsage(substate) {
+		t.Error("substate body does not admit behavior usages")
+	}
+	if BodyIsCalculation(substate) {
+		t.Error("substate body is classified as a calculation")
+	}
+	if !BodyAdmitsMember(substate, "entry") || !BodyAdmitsMember(substate, "transition") {
+		t.Error("substate body does not admit state members")
+	}
+}
+
 func TestBodyAdmitsBehaviorUsage(t *testing.T) {
 	for _, tc := range []struct {
 		src  string

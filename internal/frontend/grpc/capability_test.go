@@ -111,6 +111,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"transition authoring", CapabilityTransitionAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addTransitionOp("P::S", "", "idle", "idle", "", "", "", false)},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{
