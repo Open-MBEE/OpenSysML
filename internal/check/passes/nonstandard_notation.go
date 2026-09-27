@@ -307,9 +307,21 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	}
 	written := fmt.Sprintf("`%s %s;`", n.Keyword, n.Name)
 	replacement := fmt.Sprintf("#%s state %s;", annotation, n.Name)
+	needsImport := true
+	if n.Name == annotation {
+		// A member named like the annotation would shadow it, so the
+		// metadata is spelled qualified and no import is needed.
+		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, n.Name)
+		needsImport = false
+	}
+	importNote := ""
+	if needsImport {
+		importNote = " (with `private import StateMachines::*;`)"
+	}
 	w.extensionFix(keywordSpan(n, n.Keyword), fmt.Sprintf(
-		"%s is an OpenSysML extension; write `%s` (with `private import StateMachines::*;`)",
-		written, replacement), annotation+"Metadata", diag.Replace(n.Span(), replacement))
+		"%s is an OpenSysML extension; write `%s`%s",
+		written, replacement, importNote), annotation+"Metadata", needsImport,
+		diag.Replace(n.Span(), replacement))
 }
 
 // pseudostateAnnotations names the StateMachines metadata definition a
@@ -326,23 +338,35 @@ var pseudostateAnnotations = map[ast.PseudostateKind]string{
 func (w *notationWalker) deferredMember(n *ast.DeferMember) {
 	refs := make([]string, 0, len(n.Triggers))
 	spelled := make([]string, 0, len(n.Triggers))
+	needsImport := false
 	for _, trigger := range n.Triggers {
 		name := deferredRefTarget(trigger)
 		if name == "" {
 			continue
 		}
 		spelled = append(spelled, triggerText(trigger))
-		refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
+		// A signal named `deferred` resolves ahead of the metadata, so the
+		// annotation is spelled qualified for it and needs no import.
+		if name == "deferred" {
+			refs = append(refs, "`#StateMachines::deferred ref : deferred;`")
+		} else {
+			needsImport = true
+			refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
+		}
 	}
 	if len(refs) == 0 {
 		w.extension(keywordSpan(n, "defer"), "`defer <event>;`",
 			"no notation states a deferred event")
 		return
 	}
+	importNote := ""
+	if needsImport {
+		importNote = " (with `private import StateMachines::*;`)"
+	}
 	w.extensionFix(keywordSpan(n, "defer"), fmt.Sprintf(
-		"`defer %s;` is an OpenSysML extension; write %s (with `private import StateMachines::*;`)",
-		strings.Join(spelled, ", "), strings.Join(refs, " and ")),
-		"DeferredMetadata", diag.Replace(n.Span(), w.deferredRefLines(n, refs)))
+		"`defer %s;` is an OpenSysML extension; write %s%s",
+		strings.Join(spelled, ", "), strings.Join(refs, " and "), importNote),
+		"DeferredMetadata", needsImport, diag.Replace(n.Span(), w.deferredRefLines(n, refs)))
 }
 
 // deferredRefLines spells the `#deferred ref` members a `defer` member rewrites
@@ -412,11 +436,13 @@ func qualifiedNameText(qn *ast.QualifiedName) string {
 
 // extensionFix reports one construct as an OpenSysML extension and attaches the
 // fix rewriting it: the member's own replacement plus the library import when
-// no enclosing body already makes the metadata visible.
-func (w *notationWalker) extensionFix(span source.Span, message, metadata string, replace diag.Edit) {
+// needsImport and no enclosing body already makes the metadata visible.
+func (w *notationWalker) extensionFix(span source.Span, message, metadata string, needsImport bool, replace diag.Edit) {
 	edits := []diag.Edit{replace}
-	if edit, ok := w.stateMachinesImport(metadata); ok {
-		edits = append(edits, edit)
+	if needsImport {
+		if edit, ok := w.stateMachinesImport(metadata); ok {
+			edits = append(edits, edit)
+		}
 	}
 	w.diags = append(w.diags, diag.Diagnostic{
 		Severity: w.severity,

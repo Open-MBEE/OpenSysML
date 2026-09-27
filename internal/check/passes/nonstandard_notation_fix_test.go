@@ -2,6 +2,7 @@ package passes
 
 import (
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
@@ -151,6 +152,64 @@ func TestNotationFixRewritesOldSpellings(t *testing.T) {
 		}
 	}
 	fixed := applyFixes(t, sf.Bytes(), diags)
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+	}
+
+	gOld := stateGraphOf(t, "a.sysml", oldForm, "M")
+	gNew := stateGraphOf(t, "b.sysml", fixed, "M")
+	oldShape, newShape := graphShape(gOld), graphShape(gNew)
+	if len(oldShape) != len(newShape) {
+		t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
+	}
+	for i := range oldShape {
+		if oldShape[i] != newShape[i] {
+			t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
+		}
+	}
+}
+
+// TestNotationFixQualifiesCollidingNames: when the member's name is the
+// annotation's own (`choice choice;`, `junction junction;`) or a deferred
+// signal is literally named `deferred`, the fix spells the metadata qualified
+// and adds no import — the qualified name resolves unshadowed on its own.
+func TestNotationFixQualifiesCollidingNames(t *testing.T) {
+	oldForm := `package P {
+	item def deferred;
+	state def M {
+		entry; then a;
+		state a {
+			defer deferred;
+		}
+		choice choice;
+		junction junction;
+	}
+}`
+
+	_, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
+	if len(diags) != 3 {
+		t.Fatalf("got %d diagnostics %+v, want 3", len(diags), diags)
+	}
+	for _, d := range diags {
+		if len(d.Fixes) != 1 || len(d.Fixes[0].Edits) != 1 {
+			t.Fatalf("colliding fix %q should carry the replacement edit alone: %+v", d.Message, d.Fixes)
+		}
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+	for _, want := range []string{
+		"#StateMachines::deferred ref : deferred;",
+		"#StateMachines::choice state choice;",
+		"#StateMachines::junction state junction;",
+	} {
+		if !strings.Contains(fixed, want) {
+			t.Fatalf("fixed text lacks %q:\n%s", want, fixed)
+		}
+	}
+	if strings.Contains(fixed, "import StateMachines") {
+		t.Fatalf("a qualified fix needs no import:\n%s", fixed)
+	}
 
 	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
 	if len(fixedDiags) != 0 {
