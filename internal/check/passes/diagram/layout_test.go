@@ -414,6 +414,31 @@ func TestDiagramLayoutInheritedMemberJudgedByItsOwner(t *testing.T) {
 		"Layout positions", "start", "action rendering of view P::flow does not draw as a node")
 }
 
+// One action node inherited by several bodies is drawn once per body, so a
+// Layout naming it as each drawn body's is no duplicate of another's, one
+// naming it as the declaring body's is placed by any body drawing it, and one
+// naming it as an undrawn body's is unplaced.
+func TestDiagramLayoutInheritedNodesJudgedPerBody(t *testing.T) {
+	src := layoutModel(`	action def Base { action s; first start then s; }
+	action def A :> Base { action a; first s then a; }
+	action def B :> Base { action b; first s then b; }
+	action def C :> Base { action c; first s then c; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose A; expose B;
+		metadata Layout about A::s { x = 10; y = 10; }
+		metadata Layout about B::s { x = 20; y = 20; }
+		metadata Layout about Base::s { x = 1; y = 1; }
+		metadata Layout about C::s { x = 30; y = 30; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 13,
+		"Layout positions", "P::Base::s", "action rendering of view P::flow does not draw as a node")
+}
+
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {
 	src := layoutModel(`	part def Pump;
 	part def Loop {

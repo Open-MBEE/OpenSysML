@@ -281,6 +281,20 @@ func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node,
 	return r.geometryOf(view, node, out)
 }
 
+// nodeGeometryOf is declaredGeometryOf for a graph node drawn as a member of
+// owner under name: one declaration inherited by several bodies is drawn once
+// per body, each positioned by the Layout naming it as that body's. A node owner
+// has under no such name — anonymous, or shadowed — is positioned by its
+// declaration alone.
+func (r *Renderer) nodeGeometryOf(view, elem, owner *symbols.Symbol, decl ast.Node, name string, out *Rendering) *Geometry {
+	if owner != nil && name != "" {
+		if member, ok := r.model.LookupMember(owner, name); ok && member.Decl == decl {
+			return r.memberGeometryOf(view, owner, name, out)
+		}
+	}
+	return r.declaredGeometryOf(view, elem, decl, out)
+}
+
 // canvasOf is the Canvas view states, nil for a view stating none and for a
 // rendering outside any view.
 func (r *Renderer) canvasOf(view *symbols.Symbol, out *Rendering) *Canvas {

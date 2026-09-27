@@ -169,7 +169,8 @@ func TestMemberLayoutOfFallsBackToInheritedMembersOwnLayout(t *testing.T) {
 // A Layout naming a member through an inheriting body, or stated unqualified in
 // one, positions that body's member alone: neither the declaring body's nor an
 // enclosing body's that inherits the member too. One stated unqualified where no
-// body has the member is the declaring body's.
+// body but the declaring one has the member is the declaring body's, which every
+// inheriting body falls back to.
 func TestMemberLayoutOfKeepsTheDeclaringMemberApartFromInheritors(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
@@ -195,8 +196,8 @@ func TestMemberLayoutOfKeepsTheDeclaringMemberApartFromInheritors(t *testing.T) 
 		{"v", "Base", 0, false},
 		{"v", "A", 0, false},
 		{"w", "Base", 40, true},
-		{"w", "A", 0, false},
-		{"w", "B", 0, false},
+		{"w", "A", 40, true},
+		{"w", "B", 40, true},
 	} {
 		owner := sym(t, p, strings.Split(tc.owner, "::")[0])
 		if rest := strings.Split(tc.owner, "::")[1:]; len(rest) > 0 {

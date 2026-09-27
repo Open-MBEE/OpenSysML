@@ -20,14 +20,15 @@ func (d *Drawn) Node(sym *symbols.Symbol) bool {
 
 // MemberNode reports whether the rendering draws sym as a node of owner's: one
 // element inherited by many bodies is drawn once per body, and a Layout naming
-// it as one owner's positions that body's alone. A member the rendering draws
+// it as one inheriting owner's positions that body's alone. One naming it as
+// the declaring owner's positions every body's, as a member the rendering draws
 // as no owner's in particular is drawn for every owner.
 func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
 	if d == nil || sym == nil {
 		return false
 	}
 	owners, ok := d.members[sym.Decl]
-	if !ok {
+	if !ok || owner != nil && sym.Owner() != nil && sym.Owner().Decl == owner.Decl {
 		return d.Node(sym)
 	}
 	return owner != nil && owners[owner.Decl]

@@ -249,12 +249,13 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 
 // MemberLayoutOf resolves the Layout of the member owner has under name, as
 // drawn in view. A member is one element for every namespace inheriting it —
-// the `start` and `done` every body has come from the library — so the sites
-// resolve among those naming it as owner's: `about Acquire::start`, or `about
-// start` stated where Acquire is the nearest namespace having a start. An
-// inline Layout on the member is the declaring owner's, and what an inheriting
-// owner falls back to; an unqualified `about` stated where no namespace has the
-// member is the declaring owner's alone.
+// the `start` and `done` every body has come from the library, the states a
+// usage has from its definition — so the sites resolve among those naming it as
+// owner's: `about Acquire::start`, or `about start` stated where Acquire is the
+// nearest namespace having a start. An inheriting owner falls back to the
+// declaring owner's sites: an inline Layout on the member, one qualified through
+// the declaring owner, or one stated unqualified where no other namespace has
+// the member. A site naming the member as another inheritor's is not owner's.
 func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
 	member, ok := m.LookupMember(owner, name)
 	if !ok {
@@ -263,22 +264,14 @@ func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*Layou
 	declares := sameElement(member.Owner(), owner)
 	var owners, inherited []*LayoutSite
 	for _, site := range m.LayoutSitesOf(member) {
-		switch {
-		case site.TypeFQN != LayoutFQN:
-		case !site.About:
-			if declares {
-				owners = append(owners, site)
-			} else {
-				inherited = append(inherited, site)
-			}
-		case site.Via != nil:
-			if sameElement(site.Via, owner) {
-				owners = append(owners, site)
-			}
-		default:
-			if via := m.memberReferent(site.Scope, member, name); sameElement(via, owner) || via == nil && declares {
-				owners = append(owners, site)
-			}
+		if site.TypeFQN != LayoutFQN {
+			continue
+		}
+		switch via := m.memberSiteOwner(site, member, name); {
+		case sameElement(via, owner), via == nil && declares:
+			owners = append(owners, site)
+		case via == nil || sameElement(via, member.Owner()):
+			inherited = append(inherited, site)
 		}
 	}
 	return pickSite(view, append(owners, inherited...))
@@ -289,13 +282,21 @@ func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*Layou
 // names it through, the referent of an unqualified one, else the declaring
 // owner. Nil for an inline Layout, which every inheriting owner may fall back to.
 func (m *Model) MemberLayoutOwner(site *LayoutSite, member *symbols.Symbol) *symbols.Symbol {
-	if m == nil || site == nil || member == nil || !site.About {
+	if m == nil || member == nil {
+		return nil
+	}
+	return m.memberSiteOwner(site, member, member.Name)
+}
+
+// memberSiteOwner is MemberLayoutOwner for member as owners have it under name.
+func (m *Model) memberSiteOwner(site *LayoutSite, member *symbols.Symbol, name string) *symbols.Symbol {
+	if site == nil || !site.About {
 		return nil
 	}
 	if site.Via != nil {
 		return site.Via
 	}
-	if via := m.memberReferent(site.Scope, member, member.Name); via != nil {
+	if via := m.memberReferent(site.Scope, member, name); via != nil {
 		return via
 	}
 	return member.Owner()

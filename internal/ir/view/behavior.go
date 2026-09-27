@@ -49,8 +49,8 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	r.dress(view, machine, root, out)
 	nodes := map[ast.Node]*Node{}
 	regions := map[*ast.StateRegion]*Node{}
-	place := func(node *Node, decl ast.Node) *Node {
-		node.Geometry = r.declaredGeometryOf(view, machine, decl, out)
+	place := func(node *Node, owner, decl ast.Node, name string) *Node {
+		node.Geometry = r.nodeGeometryOf(view, machine, r.bodySymbol(machine, graph, owner), decl, name, out)
 		node.NameSynthesized = node.NameSynthesized || r.declaredNameSynthesized(machine, decl)
 		return r.declaredDress(view, machine, decl, node, out)
 	}
@@ -58,17 +58,17 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	// Regions first: a state of an orthogonal region is nested in that region,
 	// and the region order is the order the machine enters and exits them in.
 	for _, region := range graph.TopRegions {
-		regions[region] = place(r.regionNode(region, graph, machine, ids), region)
+		regions[region] = place(r.regionNode(region, graph, machine, ids), nil, region, region.Name)
 		root.Children = append(root.Children, regions[region])
 	}
 	for _, state := range graph.States {
-		node := place(r.stateNode(state, graph, machine, ids), graph.DeclOf(state))
+		node := place(r.stateNode(state, graph, machine, ids), bodyOwning(graph, state), graph.DeclOf(state), state.Name)
 		if graph.Completes(state) {
 			node.Geometry = r.memberGeometryOf(view, r.bodySymbol(machine, graph, bodyOwning(graph, state)), ast.DoneFeature, out)
 		}
 		nodes[state] = node
 		for _, region := range graph.CompositeStates[state] {
-			regions[region] = place(r.regionNode(region, graph, machine, ids), region)
+			regions[region] = place(r.regionNode(region, graph, machine, ids), state, region, region.Name)
 			node.Children = append(node.Children, regions[region])
 		}
 	}
@@ -84,7 +84,7 @@ func (r *Renderer) stateMachineNode(view, machine *symbols.Symbol, graph *lower.
 	}
 	for _, pseudo := range graph.Pseudostates {
 		node := place(&Node{ID: ids.take(), Kind: pseudo.Kind.String(), Name: nameText(pseudo.Name),
-			Origin: nodeOrigin(docOf(graph, pseudo, machine.DocName), pseudo)}, pseudo)
+			Origin: nodeOrigin(docOf(graph, pseudo, machine.DocName), pseudo)}, graph.PseudostateOwner[pseudo], pseudo, pseudo.Name)
 		nodes[pseudo] = node
 		parent := root
 		if owner := graph.PseudostateOwner[pseudo]; owner != nil && nodes[owner] != nil {
@@ -525,13 +525,16 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	}
 	lowered[decl] = true
 	nodes := map[ast.Node]*Node{}
+	owner := r.declaredSymbol(subject.elem, decl)
 	for _, node := range graph.Nodes {
 		nodeDoc := docOf(graph, node, doc)
 		child := &Node{ID: ids.take(), Kind: actionNodeKind(node, graph), Name: nameText(behaviorNodeName(node)),
 			NameSynthesized: languageNamed(node) || r.declaredNameSynthesized(subject.elem, node), StandIn: r.declaredStandIn(subject.elem, node),
-			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node), Geometry: r.declaredGeometryOf(subject.view, subject.elem, node, out)}
+			Type: nodeType(node), Origin: nodeOrigin(nodeDoc, node)}
 		if languageNamed(node) {
-			child.Geometry = r.memberGeometryOf(subject.view, r.declaredSymbol(subject.elem, decl), behaviorNodeName(node), out)
+			child.Geometry = r.memberGeometryOf(subject.view, owner, behaviorNodeName(node), out)
+		} else {
+			child.Geometry = r.nodeGeometryOf(subject.view, subject.elem, owner, node, behaviorNodeName(node), out)
 		}
 		r.declaredDress(subject.view, subject.elem, node, child, out)
 		child.Ports = r.inheritedPorts(subject.elem, node, child.ID, actionPorts(child.ID, graph.Features[node], nodeDoc))

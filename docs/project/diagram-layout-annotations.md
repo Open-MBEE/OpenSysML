@@ -270,6 +270,18 @@ the lowering finds those through the scope tree, so a definition in another docu
 out of its reach, which the rendering reports as a notice rather than drawing a partial
 flow.
 
+An inherited node is one declaration drawn once per body that inherits it — the library's
+`start` and `done` in every action, a definition's states in each usage typed by it — so
+its `Layout` resolves per body (`semantics.MemberLayoutOf`): the sites naming the node as
+that body's member apply first (`about Acquire::start`, or `about start` stated where
+`Acquire` is the nearest namespace having a `start`), then the declaring body's — an inline
+`@Layout` on the node, `about Base::s`, or an unqualified `about s` no other namespace
+resolves — which every inheriting body falls back to. A site naming the node as another
+body's never positions this one. The validation pass judges each site by the body it names
+(`MemberLayoutOwner`): sites for two bodies are no duplicates of each other, and a site is
+placed when the rendering draws the node as that body's — as any body's, for the declaring
+body's sites.
+
 ### Validation (a constraint-tier pass)
 
 `internal/check/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
