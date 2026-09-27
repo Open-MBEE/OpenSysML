@@ -359,3 +359,99 @@ func TestUnfedTargetPinDoesNotPickAPart(t *testing.T) {
 	wantNote(t, r, "_callTgt", migrate.Approximated, "the target pin is not written: it names no object read from this")
 	wantClean(t, "t.sysml", r)
 }
+
+// externalMethodCall is the block Motor of unfedTargetCall, whose operation Spin
+// no call names, and a package activity Bench that calls Spin's method Spinning
+// directly, holding no object of Motor.
+const externalMethodCall = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rpm" name="rpm">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rpm0" value="0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_spin" name="Spin" method="_spinning"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_spinning" name="Spinning" specification="_spin">
+        <node xmi:type="uml:InitialNode" xmi:id="_si"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_ten" name="ten">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_tenV" value="10"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_tenOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_setRpm" name="set rpm" structuralFeature="_rpm" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setRpmVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se1" source="_si" target="_ten"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_sof" source="_tenOut" target="_setRpmVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se2" source="_setRpm" target="_sf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_bench" name="Bench">
+      <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callSpinning" name="spin" behavior="_spinning"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callSpinning"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callSpinning" target="_bf"/>
+    </packagedElement>`
+
+// A caller of an operation's method is a caller of the operation: one that
+// reaches no object of the block keeps the operation a definition the call
+// names, rather than a usage the call could only stand for by an empty step.
+func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
+	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/>`)
+	wantLine(t, r.Notation, "action def Spin {")
+	wantLine(t, r.Notation, "action spin : Motor::Spin;")
+	wantNoLine(t, r.Notation, "action spin;")
+	wantClean(t, "t.sysml", r)
+}
+
+// mixedGenerals is a block Ctl whose activities Active and Run set the block's
+// status, so both are written as its action usages, Run generalized by Active
+// and by the package activity Base, which stays an action def.
+const mixedGenerals = `
+    <packagedElement xmi:type="uml:Activity" xmi:id="_base" name="Base"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_status0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_active" name="Active">
+        <node xmi:type="uml:InitialNode" xmi:id="_ai"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_aone" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_aoneV" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_aoneOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_aset" name="set status" structuralFeature="_status" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_asetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_af"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae1" source="_ai" target="_aone"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_aof" source="_aoneOut" target="_asetVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae2" source="_aset" target="_af"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <generalization xmi:type="uml:Generalization" xmi:id="_g1" general="_base"/>
+        <generalization xmi:type="uml:Generalization" xmi:id="_g2" general="_active"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_two" name="two">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_twoV" value="2"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_twoOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_rset" name="set status" structuralFeature="_status" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_rsetVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_two"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rof" source="_twoOut" target="_rsetVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_rset" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// An action usage's general written as an action def types it, and one written
+// as an action usage is subsetted: each keeps its own relationship.
+func TestUsageGeneralsAreTypedByDefinitionsAndSubsetUsages(t *testing.T) {
+	r := migrateDocument(t, mixedGenerals, `<sysml:Block xmi:id="_b1" base_Class="_ctl"/>`)
+	wantLine(t, r.Notation, "action def Base;")
+	wantLine(t, r.Notation, "action active {")
+	wantLine(t, r.Notation, "action run : Base :> active {")
+	wantClean(t, "t.sysml", r)
+}

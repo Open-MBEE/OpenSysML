@@ -1192,6 +1192,12 @@ func (m *migration) generals(e *sysmlv1.Element, cat category) (string, string) 
 			notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it becomes a "+tc.keyword()+", not a "+cat.keyword())
 			continue
 		}
+		if m.asUsage[target] {
+			if !m.asUsage[e] {
+				notes = append(notes, "generalization of "+qualifiedName(target)+" is not written: it is written as an action usage, which no definition specializes")
+			}
+			continue
+		}
 		refs = append(refs, m.ref(target, m.scope))
 	}
 	refs = append(refs, m.realizedGenerals(e, refs)...)

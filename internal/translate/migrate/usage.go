@@ -88,7 +88,11 @@ func (m *migration) usageCandidate(b *sysmlv1.Element) bool {
 	default:
 		return false
 	}
-	for _, e := range m.invokers[b] {
+	invokers := m.invokers[b]
+	if method := m.bodyMethod(b); method != nil {
+		invokers = append(append([]*sysmlv1.Element{}, invokers...), m.invokers[method]...)
+	}
+	for _, e := range invokers {
 		if !m.reachesUsage(e, b.Parent) {
 			return false
 		}
@@ -298,15 +302,24 @@ func (m *migration) usageHeader(e *sysmlv1.Element, cat category, name string) (
 	b.WriteString(actionKw + writeName(name))
 	gens, n := m.generals(e, cat)
 	if gens != "" {
-		sep := " : "
-		for _, g := range e.Owned("generalization") {
-			if m.asUsage[m.model.Ref(g, "general")] {
-				sep = " :> "
-			}
-		}
-		b.WriteString(sep + gens)
+		b.WriteString(" : " + gens)
+	}
+	if subsets := m.usageGenerals(e); len(subsets) > 0 {
+		b.WriteString(" :> " + strings.Join(subsets, ", "))
 	}
 	return b.String(), n
+}
+
+// usageGenerals are the generals of e written as action usages, which the usage
+// e subsets; a definition general types it (generals).
+func (m *migration) usageGenerals(e *sysmlv1.Element) []string {
+	var refs []string
+	for _, g := range e.Owned("generalization") {
+		if target := m.model.Ref(g, "general"); target != nil && m.asUsage[target] {
+			refs = append(refs, m.ref(target, m.scope))
+		}
+	}
+	return refs
 }
 
 // usageNote explains a behavior written as its owner's usage.
