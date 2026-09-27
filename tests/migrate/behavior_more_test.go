@@ -596,6 +596,51 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 	}
 }
 
+// Under -strict, a deferring state whose do behavior cannot run as an action
+// (here a StateMachine) gets the accept loop alone: the generated do action
+// forks into the behavior only when the behavior is written.
+func TestStrictDeferralWithoutRunnableDoBehavior(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:StateMachine" xmi:id="_aux" name="Aux">
+      <region xmi:type="uml:Region" xmi:id="_ar0">
+        <subvertex xmi:type="uml:State" xmi:id="_aidle" name="AuxIdle"/>
+      </region>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off" doActivity="_aux">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t1" source="_off" target="_on">
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr1" event="_goEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	wantNoLine(t, r.Notation, "fork split;")
+	wantNoLine(t, r.Notation, "then run;")
+	for _, line := range []string{
+		"state Off {",
+		"do action buffer {",
+		"first start then receive;",
+		"/* do action Aux is written as a state def, which no state runs */",
+		"action receive accept kept : Door;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferralWithoutDo", r)
+}
+
 // pipelineActivity is a package-owned activity taking a parameter, which it
 // hands to a called activity's parameter through object flows; the called
 // activity doubles it through a function behavior, returns it, and the

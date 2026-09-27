@@ -1278,11 +1278,19 @@ const deferredPayload = "kept"
 // own do behavior when it has one.
 func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 	s.m.w.block(doAction+" "+writeName(d.buffer), func() {
-		if d.split != "" {
+		// The state's own do behavior is rendered first: only one that is
+		// written as an action gets a branch of the fork.
+		run, ran := "", false
+		if do != nil {
+			run = s.m.w.aside(func() {
+				ran = s.m.inlineBehaviorHeaded(doAction, "action "+writeName(d.run), do, v)
+			})
+		}
+		if ran || d.loopCount() > 1 {
 			s.m.w.line("first start then " + d.split + ";")
 			s.m.w.line("fork " + d.split + ";")
 			s.m.w.madeUp(d.split)
-			if do != nil {
+			if ran {
 				s.m.w.line("then " + writeName(d.run) + ";")
 			}
 			for _, k := range d.kept {
@@ -1293,10 +1301,9 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 		} else {
 			s.m.w.line("first start then " + writeName(d.kept[0].loops[0].receive) + ";")
 		}
-		if do != nil {
-			if s.m.inlineBehaviorHeaded(doAction, "action "+writeName(d.run), do, v) {
-				s.m.madeUp(do, d.run)
-			}
+		_, _ = s.m.w.buf().WriteString(run)
+		if ran {
+			s.m.madeUp(do, d.run)
 		}
 		for _, k := range d.kept {
 			sig := s.m.ref(k.sig, v)
