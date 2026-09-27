@@ -170,6 +170,9 @@ func oneOf(i int, name, doc string, declaring []*symbols.Symbol) (*symbols.Symbo
 			Message:        fmt.Sprintf("no element named %q in this model", name),
 		}
 	case 1:
+		if declaring[0].Recorded() {
+			return nil, symbols.NeedsTree(declaring[0], "editing "+name)
+		}
 		return declaring[0], nil
 	default:
 		return nil, &Error{

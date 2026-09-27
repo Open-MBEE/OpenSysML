@@ -175,8 +175,8 @@ func (e *executor) individualParts(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	var out []*symbols.Symbol
 	for _, member := range sym.Scope.AllMembers() {
-		usage, ok := member.Decl.(*ast.Usage)
-		if !ok || usage.IsReference || (usage.Kind != ast.UsagePart && usage.Kind != ast.UsageItem) {
+		kind, ok := member.UsageKind()
+		if !ok || referenceUsage(member) || (kind != ast.UsagePart && kind != ast.UsageItem) {
 			continue
 		}
 		for _, typ := range e.context.Model.FeatureTypeSet(member) {
@@ -194,8 +194,20 @@ func individualDefinition(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
+	if sym.Recorded() {
+		return sym.DeclaresDefinition() && sym.Facts.Modifiers.Has(symbols.ModIndividual)
+	}
 	definition, ok := sym.Decl.(*ast.Definition)
 	return ok && definition.IsIndividual
+}
+
+// referenceUsage reports whether a usage is declared `ref`, naming without containing.
+func referenceUsage(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModReference)
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return ok && usage.IsReference
 }
 
 // reaches reports whether node from is at or under node to, so linking to

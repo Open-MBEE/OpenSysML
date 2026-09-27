@@ -282,7 +282,11 @@ func workspaceAnswers(ws *model.Workspace, name string) []string {
 	var syms []*symbols.Symbol
 	walkSymbols(doc.Scope, func(sym *symbols.Symbol) { syms = append(syms, sym) })
 	for _, sym := range syms {
-		locs := ws.ReferencesTo(sym)
+		locs, err := ws.ReferencesTo(sym)
+		if err != nil {
+			out = append(out, "references to "+symbolID(sym)+": "+err.Error())
+			continue
+		}
 		if len(locs) == 0 {
 			continue
 		}

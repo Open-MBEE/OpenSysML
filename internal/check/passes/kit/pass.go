@@ -81,6 +81,9 @@ type Batch struct {
 	// Source reads the documents' notation, which comment and documentation
 	// bodies come from; nil leaves every body unreadable, as an editor never is.
 	Source source.Lookup
+	// Record has each analysis record what it read of the index, for the
+	// interface record written from it; off, nothing of a run is kept.
+	Record bool
 }
 
 // Options is the analysis configuration of one run. The zero value is what

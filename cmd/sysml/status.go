@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-
-	"github.com/chzyer/readline"
 )
 
 // Exit statuses of any run: a verdict the model decided false is 1, anything
@@ -27,5 +25,5 @@ func fail(err error) int {
 // atTerminal reports whether lines are being read from a terminal, which is what
 // makes an unusable model a session to fix it in rather than a failed run.
 func atTerminal() bool {
-	return readline.IsTerminal(int(os.Stdin.Fd()))
+	return isTerminal(int(os.Stdin.Fd()))
 }

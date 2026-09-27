@@ -876,6 +876,9 @@ func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *sysmlv1.Element) {
 	if a.starved[n] != nil {
+		if n.Type == "DecisionNode" {
+			a.m.writeComments(n, false)
+		}
 		a.starvation(n)
 		for _, e := range a.succ[n] {
 			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
@@ -953,6 +956,14 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		weights = a.arbitraryChoice(n, outs, tos, guards, elseAt)
 		elseAt = -1
 	}
+	if elseAt >= 0 {
+		// A target succession of the member before it: right after the decide,
+		// before the comments and named successions.
+		a.m.w.line("else " + tos[elseAt] + ";")
+		a.m.wroteNoMember(outs[elseAt])
+		a.m.add(outs[elseAt], Mapped, "", "")
+	}
+	a.m.writeComments(n, false)
 	for i, e := range outs {
 		to := tos[i]
 		if to == "" {
@@ -971,12 +982,6 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		if guards[i].ok {
 			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
-	}
-	if elseAt >= 0 {
-		// An else branch is a target succession of the decision, not a member of its own.
-		a.m.w.line("else " + tos[elseAt] + ";")
-		a.m.wroteNoMember(outs[elseAt])
-		a.m.add(outs[elseAt], Mapped, "", "")
 	}
 }
 
@@ -1369,6 +1374,7 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
+		return // successions writes the comments, after the else branch
 	case "MergeNode":
 		a.m.w.line("merge " + name + ";")
 		a.m.add(n, Mapped, name, "")
@@ -1830,6 +1836,8 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 			usage := strings.TrimPrefix(l.expr, "this.") + "." + writeName(a.m.behaviorUsage(b))
 			a.m.w.line("perform action " + name + " ::> " + usage + ";")
 			a.m.add(n, Mapped, name, "performed by "+l.expr+", the object its swimlane represents, as its usage "+usage)
+		} else if a.m.asUsage[b] {
+			note = joinNotes(why, a.performUsage(name, b))
 		} else {
 			a.m.w.line(actionKw + name + " : " + a.m.ref(b, a.def) + ";")
 			if owner, here := classifierOf(b), a.selfType(); owner != nil && owner != here && (here == nil || !a.m.inherits(here, owner)) {
@@ -1935,6 +1943,12 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
+	case a.m.asUsage[op] && t == nil:
+		note = joinNotes(note, a.performUsage(name, op))
+	case a.m.asUsage[op]:
+		a.m.w.line(actionKw + name + ";")
+		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
 	case port != nil && t == nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	case t != nil:

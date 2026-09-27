@@ -19,6 +19,12 @@ type featureValue struct {
 
 // featureValueOf returns the value part declared on sym, if any.
 func featureValueOf(sym *symbols.Symbol) (featureValue, bool) {
+	if sym.Recorded() {
+		// A recorded feature's value part has no span; its record says whether
+		// there is one and whether it is a default.
+		mods := sym.Facts.Modifiers
+		return featureValue{isDefault: mods.Has(symbols.ModDefault)}, mods.Has(symbols.ModValued)
+	}
 	if oc, ok := ast.OwnedConstraintOf(sym.Decl); ok {
 		if oc.Value == nil {
 			return featureValue{}, false

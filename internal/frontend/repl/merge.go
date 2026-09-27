@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // nsDecl is a namespace declaration with a body, located in the text it was
@@ -279,7 +280,7 @@ func namespaceDeclOf(src string, member ast.Node) (nsDecl, bool) {
 	}
 	d.open = d.start + open
 	d.header = strings.Join(strings.Fields(src[d.start:d.start+open]), " ")
-	d.desc = renderMember(member)
+	d.desc = renderMember(libs.TopMemberOf(member))
 	return d, true
 }
 
@@ -357,7 +358,7 @@ func mergeEdits(oldSrc string, oldDecl nsDecl, newSrc string, newDecl nsDecl, pa
 		// drop the old text and let the new member be added below.
 		start, end := memberCut(oldSrc, om)
 		edits = append(edits, edit{start: start, end: end})
-		replaced = append(replaced, renderMember(om))
+		replaced = append(replaced, renderMember(libs.TopMemberOf(om)))
 		gone = append(gone, path+"::"+name)
 	}
 	var added []string

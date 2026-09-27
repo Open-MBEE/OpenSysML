@@ -142,12 +142,29 @@ func PrepareBatch(idx *symbols.Index, batch *Batch) {
 }
 
 // AnalyzeInBatch validates one document of a prepared batch in a context of its
-// own; the result does not depend on which documents share the batch.
+// own; the result does not depend on which documents share the batch. When the
+// batch records, the context's resolver records what the analysis read of the
+// index and the reads are returned: they are what an interface record of the
+// document carries, so a workspace can tell when the record no longer follows
+// from the documents around it. Otherwise the reads are nil.
 func AnalyzeInBatch(name string, kind source.Kind, root *ast.RootNamespace,
-	parseDiags []diag.Diagnostic, idx *symbols.Index, opts Options, batch *Batch) []diag.Diagnostic {
-	ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)
+	parseDiags []diag.Diagnostic, idx *symbols.Index, opts Options, batch *Batch) ([]diag.Diagnostic, *resolve.Reads) {
+	if !batch.Record {
+		ctx := NewContextWithOptions(name, kind, idx, parseDiags, opts)
+		ctx.InBatch(batch)
+		return analyze(ctx, root), nil
+	}
+	resolver := resolve.NewRecording(idx)
+	model := NewTypedModel(resolver)
+	resolver.SetModel(model)
+	model.SetSourceText(batch.Source)
+	ctx := NewContextWithOptions(name, kind, resolver.Index(), parseDiags, opts)
+	Shared{Resolver: resolver, Model: model, Gathers: batch.Gathers}.Share(ctx)
 	ctx.InBatch(batch)
-	return analyze(ctx, root)
+	var diags []diag.Diagnostic
+	resolver.InDocument(name, func() { diags = analyze(ctx, root) })
+	reads, _ := resolver.ReadsOf(name)
+	return diags, &reads
 }
 
 // AnalyzeShared validates a document over a resolver and model kept across

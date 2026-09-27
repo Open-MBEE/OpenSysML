@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Open-MBEE/OpenSysML/internal/exec/hostcap"
 )
 
 // SolverEnv names the environment variable that overrides solver discovery with
@@ -165,6 +167,12 @@ type Result struct {
 // Discover finds a solver: the OPENSYSML_SMT override first, then z3 and cvc5 on
 // PATH. An absent solver is a typed error, never a fabricated verdict.
 func Discover() (*Solver, error) {
+	// A solver is an external process, so on a host that starts none that — not an
+	// absent binary, whose advice to install one no such host could act on — is why
+	// there is no solver to answer the query.
+	if err := hostcap.CheckSpawn("an SMT solver"); err != nil {
+		return nil, err
+	}
 	if override := strings.TrimSpace(os.Getenv(SolverEnv)); override != "" {
 		path, err := exec.LookPath(override)
 		if err != nil {

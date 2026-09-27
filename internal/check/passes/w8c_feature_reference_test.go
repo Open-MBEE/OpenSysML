@@ -310,6 +310,30 @@ func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	}
 }
 
+// A value an annotation body binds is a feature reference like any usage's
+// value, so a definition bound there is not a valid feature; the definition
+// cast to its metaclass is an element, which the body may bind.
+func TestW8CFeatureReferenceAnnotationBody(t *testing.T) {
+	const invalid = `package P {
+	part def Acme;
+	metadata def Org { ref owner; }
+	part def X { @Org { owner = Acme; } }
+}`
+	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", invalid)
+	if w8cCount(msgs, msgReferentIsFeature) != 1 {
+		t.Errorf("want one %q, got %v", msgReferentIsFeature, msgs)
+	}
+	const clean = `package P {
+	part def Acme;
+	part acme : Acme;
+	metadata def Org { ref owner; ref kind; }
+	part def X { @Org { owner = acme; kind = Acme meta SysML::PartDefinition; } }
+}`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
+		t.Errorf("want a clean analysis, got %v", errs)
+	}
+}
+
 func TestW8CFeatureReferenceFilterConditions(t *testing.T) {
 	t.Run("user feature path is inaccessible", func(t *testing.T) {
 		src := `package R1 {
@@ -353,5 +377,24 @@ package Q { filter @Safety; }`,
 				t.Fatalf("expected no diagnostics, got %v", msgs)
 			}
 		})
+	}
+}
+
+// An unnamed annotation written at the document root, outside any symbol, has
+// its body values judged like one written in a definition's body.
+func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
+	const invalid = `part def Acme;
+	metadata def Org { ref owner; }
+	@Org { owner = Acme; }`
+	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", invalid)
+	if w8cCount(msgs, msgReferentIsFeature) != 1 {
+		t.Errorf("want one %q, got %v", msgReferentIsFeature, msgs)
+	}
+	const clean = `part def Acme;
+	part acme : Acme;
+	metadata def Org { ref owner; ref kind; }
+	@Org { owner = acme; kind = Acme meta SysML::PartDefinition; }`
+	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
+		t.Errorf("want a clean analysis, got %v", errs)
 	}
 }

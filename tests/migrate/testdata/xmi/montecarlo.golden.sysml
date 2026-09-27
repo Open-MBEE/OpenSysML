@@ -2,7 +2,7 @@ part def Timer {
     attribute t : ScalarValues::Real;
     attribute u : ScalarValues::Real;
     attribute p : ScalarValues::Real default = 0.5;
-    action def Tick {
+    perform action tick {
         first start then three;
         action three {
             out result = 3.0;
@@ -17,7 +17,6 @@ part def Timer {
         flow three.result to 'set t'.value;
         metadata MigrationMetadata::SynthesizedName about final;
     }
-    perform action tick : Tick;
 }
 part def 'Timer Analysis' :> Timer;
 analysis def 'Timer Analysis Monte Carlo' :> Simulation::MonteCarlo {

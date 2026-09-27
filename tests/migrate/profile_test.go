@@ -16,7 +16,7 @@ func TestUserStereotypeSpecializingStandardOneClassifies(t *testing.T) {
 	wantLine(t, r.Notation, "doc /* The pump shall deliver 10 l/s. */")
 	wantLine(t, r.Notation, "@'Org Profile'::'Org Requirement' {")
 	wantLine(t, r.Notation, "criticality = 'Org Profile'::Criticality::high;")
-	wantLine(t, r.Notation, "owner = Acme;")
+	wantLine(t, r.Notation, "owner = Acme meta SysML::PartDefinition;")
 	wantLine(t, r.Notation, "weight = 2.0;")
 	wantNoLine(t, r.Notation, "Id = ")
 	wantNoLine(t, r.Notation, "Text = \"The pump")
@@ -80,7 +80,9 @@ func TestInheritedStereotypeSemanticsFollowEveryGeneral(t *testing.T) {
 	wantLine(t, r.Notation, "@ModelingMetadata::Refinement;")
 	wantLine(t, r.Notation, "@Tailoring::'Detailed By';")
 	wantLine(t, r.Notation, "connection def 'Derive Speed Requirement' :> RequirementDerivation::Derivation {")
-	wantLine(t, r.Notation, "allocate Spin to Shaft {")
+	wantLine(t, r.Notation, "allocation def 'Spin to Shaft' {")
+	wantLine(t, r.Notation, "end spin : Spin;")
+	wantLine(t, r.Notation, "end shaft : Shaft;")
 	wantLine(t, r.Notation, "@Tailoring::'Assigned To';")
 	wantNoLine(t, r.Notation, "applied stereotype")
 	for _, id := range []string{"_gear", "_torque", "_req_torque", "_verify", "_refine", "_derive", "_alloc"} {
@@ -154,4 +156,46 @@ func TestToolProfilesAreSkippedByExactPathOnly(t *testing.T) {
 			t.Errorf("%s entries = %+v", id, es)
 		}
 	}
+}
+
+// An element-valued tag naming a definition is written as the element cast to
+// its metaclass — a block to SysML::PartDefinition, an instance of a block,
+// written `individual part def`, to the same, and an instance of an interface
+// block, written a bare `individual def`, to SysML::OccurrenceDefinition.
+func TestReferenceTagToDefinitionIsCastToItsMetaclass(t *testing.T) {
+	const profile = `xmlns:Tags="http://example.com/schemas/Tags.xmi"`
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Profile" xmi:id="_prof" name="Tags" URI="http://example.com/schemas/Tags.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Tracked">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_base" name="base_Class" association="_ext">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_sample" name="sample">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_kind" name="kind">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_plug" name="plug">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext" memberEnd="_st_base _ext_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_end" name="extension_Tracked" type="_st" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_car" name="Car"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_mine" name="mine" classifier="_car"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sock" name="Socket"/>
+    <packagedElement xmi:type="uml:InstanceSpecification" xmi:id="_p1" name="p1" classifier="_sock"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_fleet" name="Fleet"/>`,
+		`<sysml:Block xmi:id="_a_car" base_Class="_car"/><sysml:Block xmi:id="_a_fleet" base_Class="_fleet"/>
+  <sysml:InterfaceBlock xmi:id="_a_sock" base_Class="_sock"/>
+  <Tags:Tracked `+profile+` xmi:id="_a_tr" base_Class="_fleet" sample="_mine" kind="_car" plug="_p1"/>`)
+	wantLine(t, r.Notation, "individual part def mine :> Car;")
+	wantLine(t, r.Notation, "individual def p1 :> Socket;")
+	wantLine(t, r.Notation, "sample = mine meta SysML::PartDefinition;")
+	wantLine(t, r.Notation, "kind = Car meta SysML::PartDefinition;")
+	wantLine(t, r.Notation, "plug = p1 meta SysML::OccurrenceDefinition;")
+	wantClean(t, "tags.sysml", r)
 }
