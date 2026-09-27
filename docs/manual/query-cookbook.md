@@ -283,8 +283,10 @@ The SysML v1 migration roots every table scope this way.
 `WhereType` keeps elements whose *metamodel* type matches — `"PartUsage"`,
 `"ConnectionUsage"`, `"RequirementUsage"`, `"AttributeUsage"`, `"PortUsage"`,
 `"PartDefinition"` and so on — including metaclass conformance, so
-`type = "Usage"` keeps every kind of usage. Several names keep the elements of
-any of them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
+`type = "Usage"` keeps every kind of usage. A metamodel type name means the
+metaclass even when an element of the model bears the same name; qualify the
+element's name to mean the element. Several names keep the elements of any of
+them: `type = ("PartUsage", "PortUsage")`. A name that is neither a
 known metamodel type nor resolvable in the model is a typed
 `unknown-classification` error rather than a silently-empty result.
 
@@ -359,14 +361,40 @@ Text operators: `=`/`==`, `!=`/`<>`, `contains`, `startsWith`, `endsWith`
 (also spelled `starts-with`/`ends-with`), and `matches` with a regular
 expression.
 
+`WhereText` applies the same operators to a projected table's cells — the
+query form of a table's search box:
+
+```sysml
+calc def HeavyMirrorRows :> Query {
+	in root : Element;
+	WhereText(
+		source = MassTable(root = root),
+		columns = ("name", "qualifiedName"),
+		operator = "contains",
+		value = "Mirror"
+	)
+}
+```
+
+A row is kept when one of the named columns — every projected column when
+`columns` is omitted — holds a value whose text satisfies the comparison. A
+value is compared as plain text — an element by its effective name, a number
+in base 10, a boolean as `true`/`false`, a quantity with its unit — each value
+of a multi-valued cell on its own; an empty cell matches nothing. The rows keep
+their projected columns and widths, and their nesting as any filter does: a row
+whose ancestors it dropped nests under the row before it. A column the source does
+not project, or a `matches` pattern that is not a valid regular expression, is
+a typed error naming it.
+
 ## Property filters
 
 `WhereFeature` compares an attribute's constant value. The comparison is
 typed: numbers compare numerically (`<`, `<=`, `>`, `>=` and equality, with
 `*` accepted as infinity), booleans by equality, strings with the text
 operators above, and an element-valued feature — a verdict's `assertion`, a
-`RelatedColumn` list — as the qualified name it prints by, with the text
-operators. An element without the attribute simply does not match; a
+`RelatedColumn` list, an attribute whose value names an enumeration literal or
+a part — as the name it prints by, with the text operators, or as its qualified
+name when the value written is qualified (holds `::`). An element without the attribute simply does not match; a
 property no element in the source has is a typed `unknown-property` error.
 
 ```sysml
@@ -498,6 +526,7 @@ are always projectable:
 | `owner` | The owner's qualified name |
 | `@type` | The metamodel type (`PartUsage`, ...) |
 | `type` | The declared type's qualified name |
+| `general` | The types a definition specializes or a usage is typed by, in declaration order, each the element itself — printed by name and, in HTML, linked and carrying its qualified name in `data-element`; absent when it specializes none |
 | `isAbstract` | Boolean |
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
@@ -547,7 +576,11 @@ $ sysml cookbook.sysml -run-query "Cookbook::MassTable root=Cookbook::telescope"
 ```
 
 A cell for a property the element lacks is empty (`(none)` in the CLI's row
-listing, an empty table cell in a document).
+listing, an empty table cell in a document). A feature whose declared value
+names an element of the model — an enumeration literal, a part, a unit — holds
+that element, printed by name like `general`, whether the value is written on
+the feature or bound by a redefinition (`attribute :>> beam = Beam::'650mm';`);
+a name the model does not resolve stays the text as written.
 
 ### Quantity cells
 
@@ -1262,6 +1295,36 @@ it.
 The [requirements example](examples/requirements.sysml) renders such a tree
 as the last table of its report, [`requirements.md`](examples/requirements.md).
 
+### Nesting rows: `Tree`
+
+Sorting by qualified name puts children under their parents but leaves every
+row at the margin. `Tree` arranges the rows as a containment tree instead:
+each row nests under the nearest row containing it — its nearest owner among
+the rows, or the individual whose part it is — in pre-order, at a depth the
+renderers indent by (Markdown with a `↳` marker, HTML with the row's
+`data-depth`; see [hierarchical rows](outputs.md#hierarchical-rows)):
+
+```sysml
+calc def RequirementOutline :> Query {
+	in root : Element;
+	Project(
+		source = Tree(source = Requirements(root = root)),
+		properties = ("shortName", "name")
+	)
+}
+```
+
+A row whose containing element is not among the rows nests under the nearest
+one that is, so a filtered tree stays compact. A row the source repeats is
+kept, each occurrence nesting where the first does. `ancestors` adds rows for the
+elements containing the source rows — `Descendants` of a scope, or the scope
+itself as the root — as intermediate levels wherever a source row nests under
+them, and nowhere else — over unprojected rows only, since an ancestor has no
+cells to show: `Tree(source = Project(…), ancestors = …)` is refused with the
+typed error `projected-ancestors`. `Project`, the filters, `Except` and `Union` carry the
+depths through; `OrderBy` keeps each row's depth but not the pre-order, so sort
+before nesting.
+
 ## Traceability matrix
 
 `RelatedElements` answers one requirement at a time. To put every requirement
@@ -1338,9 +1401,11 @@ verification declared first comes first.
 
 Related columns join the projection like computed ones: `OrderBy` sorts by
 them, a table's `groupBy` groups by them, and `WhereFeature` filters on them.
-A list cell's elements compare and sort as their qualified names, so
+A list cell's elements sort as their qualified names and compare as the name
+they print by, or as their qualified names against a qualified value, so
 `WhereFeature(feature = "satisfiedBy", operator = "endsWith", value = "::gimbal")`
-keeps the requirements the gimbal satisfies and `OrderBy(property =
+and `WhereFeature(feature = "satisfiedBy", operator = "=", value = "gimbal")`
+both keep the requirements the gimbal satisfies and `OrderBy(property =
 "satisfiedBy", multiple = "first")` sorts by each row's first satisfier.
 Uncovered requirements are the rows whose count is zero:
 

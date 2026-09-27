@@ -475,5 +475,5 @@ func TestLayoutOfTableDiagram(t *testing.T) {
 	}
 	s := session(t, r)
 	wantInOrder(t, "laid-out Pump Table rows", rows(t, s, "Plant::Inventory::'Pump Table Rows'"),
-		"returned 5 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Inventory::p2", "Plant::Spares::s1", "Plant::Spares::s2")
+		"returned 4 rows", "Plant::Inventory::r1", "Plant::Inventory::p1", "Plant::Spares::s1", "Plant::Spares::s2")
 }

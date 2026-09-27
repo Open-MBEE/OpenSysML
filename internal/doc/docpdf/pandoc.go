@@ -159,22 +159,32 @@ local function isCaptioned(blocks, i)
     or (isGroupKey(block) and blocks[i + 1] ~= nil and blocks[i + 1].t == "Table")
 end
 
+-- isCaption reports whether the block is the next caption, or a continuation
+-- table's repeat of the last one, and whether it is a caption of its own.
 local function isCaption(blocks, i)
   local block = blocks[i]
   if not isEmphasized(block) then
-    return false
+    return false, false
   end
   if not isCaptioned(blocks, i + 1) then
-    return false
+    return false, false
+  end
+  local text = words(pandoc.utils.stringify(block))
+  local previous = captions[captioned]
+  if previous ~= nil and text == words(previous .. " (continued)") then
+    return true, false
   end
   local expected = captions[captioned + 1]
-  return expected ~= nil and words(pandoc.utils.stringify(block)) == words(expected)
+  return expected ~= nil and text == words(expected), true
 end
 
 local function markCaptions(blocks)
   for i = 1, #blocks do
-    if isCaption(blocks, i) then
-      captioned = captioned + 1
+    local caption, own = isCaption(blocks, i)
+    if caption then
+      if own then
+        captioned = captioned + 1
+      end
       blocks[i] = pandoc.Para({pandoc.Span(blocks[i].content, {class = "caption"})})
     end
   end
