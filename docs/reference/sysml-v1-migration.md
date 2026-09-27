@@ -1730,7 +1730,10 @@ exactly when v1 defers — and the exit action sends the kept occurrences back t
 order, so the state entered next takes them as if they had just arrived, then empties the
 buffer so a later visit to the state replays only what that visit kept. With several
 deferred signals the state has one buffer and one accept loop per signal, the loops forked
-beside each other in the one do action, and the one exit action flushes every buffer. A do
+beside each other in the one do action, and the one exit action flushes every buffer — one
+signal at a time, each in arrival order, so the order between occurrences of different
+signals is not kept (UML leaves the order of the event pool open, so this is a permitted
+approximation; the note says so). A do
 behavior of the state's own runs as one more branch of that fork; an exit behavior of its own
 runs first in the exit action, the flush following it; a do behavior that has no action
 form (a state machine, say) is left out of the fork and noted. The trigger and its signal event are

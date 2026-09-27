@@ -1096,6 +1096,9 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	for _, k := range out.kept {
 		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
 		note = joinNotes(joinNotes(note, k.info), k.note)
+		if len(out.kept) > 1 {
+			note = joinNotes(note, "the state's deferred signals are flushed one signal at a time, each in arrival order, so the order between occurrences of different signals is not kept; UML leaves the order of the event pool open, so that is a permitted approximation")
+		}
 		if t := k.contested; t != nil {
 			if s.m.model.Ref(t, "source") != v {
 				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")

@@ -390,6 +390,7 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	wantNote(t, r, "_dPrepAlarm", migrate.Unmapped, "the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped")
 	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept in the item deferredAlarm by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
 	wantNote(t, r, "_dBeep", migrate.Approximated, "kept in the item deferredBeep by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dBeep", migrate.Approximated, "the order between occurrences of different signals is not kept; UML leaves the order of the event pool open")
 	wantNote(t, r, "_waitDo", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	wantNote(t, r, "_waitExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
 	for id, target := range map[string]string{"_waitDo": "Panel::Watch::Waiting::buffer::run", "_waitExit": "Panel::Watch::Waiting::flush::leave"} {
