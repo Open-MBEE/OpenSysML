@@ -350,10 +350,12 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	}
 	for _, line := range []string{
 		"state Prep {",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"/* not migrated: defer Alarm; — the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped */",
 		"state Waiting {",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Beep; }",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Go; }",
 		"item deferredAlarm : Alarm[*] ordered;",
 		"item deferredBeep : Beep[*] ordered;",
 		"do action buffer {",
@@ -386,7 +388,8 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_tGo) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it")
+	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_tGo) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @MigrationMetadata::DeferredEvent annotation records the deferral")
+	wantNoLine(t, r.Notation, "item deferredGo : Go[*] ordered;")
 	wantNote(t, r, "_dPrepAlarm", migrate.Unmapped, "the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped")
 	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept in the item deferredAlarm by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
 	wantNote(t, r, "_dBeep", migrate.Approximated, "kept in the item deferredBeep by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")

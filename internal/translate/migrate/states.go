@@ -896,7 +896,7 @@ func (s *stateRegion) state(v *sysmlv1.Element) {
 	inv := firstOwned(v, "stateInvariant")
 	points := s.m.connectionPoints(v)
 	pointRegs := pointRegions(v)
-	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers.kept) == 0 && len(defers.lines) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
+	if entry == nil && do == nil && exit == nil && inv == nil && len(regions) == 0 && len(defers.declared) == 0 && len(defers.lines) == 0 && s.m.writtenPoints(v) == 0 && !hasTransitions(pointRegs) {
 		s.m.w.line(head + ";")
 		s.m.statePoints(v)
 		return
@@ -1022,8 +1022,11 @@ type deferralLoop struct {
 // deferrals is what a state defers and how it is written: `defer Sig;` lines by
 // default, or under -strict the members of the buffering do and flushing exit actions.
 type deferrals struct {
-	kept  []*deferral
-	lines []string
+	// declared is every signal the state's triggers defer, which its
+	// annotations name whether or not the state keeps the signal.
+	declared []*sysmlv1.Element
+	kept     []*deferral
+	lines    []string
 	// split forks the accept loops beside the state's own do behavior, run;
 	// exitRun is the state's own exit behavior inside flush.
 	buffer, split, run, flush, exitRun string
@@ -1060,11 +1063,12 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			continue
 		}
 		k := &deferral{trigger: d, event: ev, sig: sig}
+		out.declared = append(out.declared, sig)
 		if s.m.strict {
 			s.routeDeferral(k)
 			always, contested := s.m.acceptsOutOf(v, sig)
 			if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
-				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it"
+				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
 				s.m.add(d, Approximated, "", note)
 				continue
 			} else if taken != "" {
@@ -1312,8 +1316,8 @@ func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 	if s.m.shadowsLibrary("MigrationMetadata", v) {
 		prefix = "$::"
 	}
-	for _, k := range d.kept {
-		s.m.w.line("@" + prefix + deferredEventFQN + " { ref :>> signal : " + s.m.ref(k.sig, v) + "; }")
+	for _, sig := range d.declared {
+		s.m.w.line("@" + prefix + deferredEventFQN + " { ref :>> signal : " + s.m.ref(sig, v) + "; }")
 	}
 	if !d.encoded() {
 		return
