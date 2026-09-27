@@ -83,7 +83,7 @@ type Model struct {
 	filterTypes    map[string]*symbols.Symbol
 	annotations    map[*symbols.Symbol][]annotation
 	// metadataDefaults memoizes the values each metadata type declares for its features.
-	metadataDefaults map[*symbols.Symbol]map[string]symbols.FilterValue
+	metadataDefaults map[*symbols.Symbol]map[string][]symbols.FilterValue
 	aboutAnnots      map[*symbols.Symbol][]annotation
 	// aboutByDecl keys the same annotations by the declaration of the element
 	// annotated, reaching them from a re-indexed twin of that symbol.
@@ -172,7 +172,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		filterVerdicts:   make(map[filterKey]filterVerdict),
 		filterTypes:      make(map[string]*symbols.Symbol),
 		annotations:      make(map[*symbols.Symbol][]annotation),
-		metadataDefaults: make(map[*symbols.Symbol]map[string]symbols.FilterValue),
+		metadataDefaults: make(map[*symbols.Symbol]map[string][]symbols.FilterValue),
 		layoutSites:      make(map[*symbols.Symbol][]*LayoutSite),
 		declSymbols:      make(map[*symbols.Scope]map[ast.Node]*symbols.Symbol),
 

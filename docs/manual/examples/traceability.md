@@ -18,9 +18,9 @@ Every requirement, what satisfies and verifies it, and whether the spacecraft me
 
 | shortName | name | satisfiedBy | verifiedBy | verifications |
 | --- | --- | --- | --- | --- |
-| SC-1 | massLimit | Traceability::spacecraft::bus | Traceability::massMeasurement | 1 |
-| SC-2 | downlinkGain | Traceability::spacecraft::antenna | Traceability::gainTest, Traceability::gainAnalysis | 2 |
-| SC-3 | heatRejection | Traceability::spacecraft::radiator |  | 0 |
+| SC-1 | massLimit | bus | massMeasurement | 1 |
+| SC-2 | downlinkGain | antenna | gainTest, gainAnalysis | 2 |
+| SC-3 | heatRejection | radiator |  | 0 |
 | SC-4 | passivation |  |  | 0 |
 
 ## Verdicts

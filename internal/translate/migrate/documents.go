@@ -109,9 +109,12 @@ type contentPlan struct {
 	// reported on the comment's own entry rather than as a block of its own.
 	documentation bool
 	// query and rows are the row query's reserved name and expression, for
-	// the query-backed kinds.
-	query string
-	rows  qx
+	// the query-backed kinds; widths and labels are a Table's column widths
+	// and headings.
+	query  string
+	rows   qx
+	widths []int
+	labels []string
 	// location and alt are what an Image block shows and says for it.
 	location string
 	alt      string
@@ -2095,13 +2098,13 @@ func (c *chain) table(s *sysmlv1.DocGenStep) {
 		case why != "":
 			notes = append(notes, "the column «"+c.kind(col)+"» "+qualifiedName(col.Node)+" is not written: "+why)
 		case prop != "":
-			p.property(prop)
+			p.property(prop, c.caption(col, ""), 0)
 		default:
-			p.column(expr.name, qlit(expr.expression))
+			p.column(expr.name, "", qlit(expr.expression), 0)
 		}
 	}
 	if s.Application.Tag("includeDoc") == "true" {
-		p.property("documentation")
+		p.property("documentation", "", 0)
 	}
 	if p.empty() {
 		why := "none of its columns reads what a query can"
@@ -2381,7 +2384,7 @@ func (m *migration) tableFigure(sec *sectionPlan, f figureOf, td *tableDoc) {
 	}
 	cp := m.figureBlock(sec, f, "Table", d)
 	cp.caption = f.title
-	cp.table, cp.query, cp.rows = td, td.query, td.l.rows
+	cp.table, cp.query, cp.rows, cp.widths, cp.labels = td, td.query, td.l.rows, td.l.widths, td.l.labels
 	cp.notes = append(cp.notes, td.l.notes...)
 	sec.content = append(sec.content, cp)
 	if f.text != "" {
@@ -2638,7 +2641,7 @@ func (m *migration) writeBlock(dp *docPlan, cp *contentPlan, path string) []stri
 		if cp.table != nil {
 			rows = m.synthesizedRef(cp.table.v.host, cp.query, dp.host)
 		}
-		m.tablePart(dp.host, cp.name, cp.caption, rows)
+		m.tablePart(dp.host, cp.name, cp.caption, rows, cp.widths, cp.labels)
 	case "List":
 		m.blockPart(dp.host, cp.name, "List", nil, func() {
 			m.w.line("attribute redefines style = " + stringLiteral(cp.style) + ";")
