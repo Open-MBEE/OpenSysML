@@ -5,9 +5,11 @@ import (
 	"errors"
 	"html"
 	"io/fs"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
@@ -218,6 +220,19 @@ type HTMLOptions struct {
 	// OutputDir is the directory the page is written into, when known, so an
 	// image's source-relative location is written relative to it; empty writes it as stated.
 	OutputDir string
+
+	// TableColumns is the most columns one table is written with: a table
+	// projecting more is written as continuation tables, each repeating the
+	// first column ahead of its share of the rest. 0 writes every table whole;
+	// 1 is refused, as nothing would fit beside the repeated column.
+	TableColumns int
+
+	// TableMeasure is the characters of header type one table line holds.
+	// When positive, a table is split into continuation tables so that every
+	// part's headings fit unbroken at their columns' shares of the line, and a
+	// sized part's shares widen to what its headings need. 0 splits by
+	// TableColumns alone.
+	TableMeasure int
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -249,6 +264,9 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 	if document == nil {
 		return "", &Error{Kind: ErrorNilDocument}
 	}
+	if err := checkTableColumns(opts.TableColumns, "HTML"); err != nil {
+		return "", err
+	}
 	for _, sheet := range opts.Stylesheets {
 		if err := sheet.Check(); err != nil {
 			return "", err
@@ -268,7 +286,10 @@ func HTML(document *docir.Document, opts HTMLOptions) (string, error) {
 			return "", err
 		}
 	}
-	w := &htmlWriter{opts: opts, base: base, forms: diagrams, ids: contentIDs(document), captions: captionNumbering{on: opts.NumberFigures}}
+	w := &htmlWriter{
+		opts: opts, base: base, forms: diagrams, ids: contentIDs(document),
+		captions: captionNumbering{on: opts.NumberFigures}, names: document.ElementName,
+	}
 	w.numbers = sectionNumbers(document.Content(), nil, "", map[string]string{})
 	if err := w.writeDocument(document); err != nil {
 		return "", err
@@ -312,6 +333,7 @@ type htmlWriter struct {
 	captions captionNumbering
 	diagrams int
 	mermaid  []string
+	names    namer
 }
 
 // captionMarkup is a caption's inner HTML: its number, when it has one, in a
@@ -534,20 +556,210 @@ func (w *htmlWriter) writeSection(node docir.Content, path []step, id string, le
 // single "element" column, and a grouped table one <tbody> per group.
 func (w *htmlWriter) writeTable(node docir.Content, id string) {
 	columns := node.Columns()
-	names := make([]string, 0, len(columns))
-	for _, column := range columns {
+	c := w.captions.caption(node)
+	layout := tableParts(columns, w.opts.TableColumns, w.opts.TableMeasure)
+	for i, part := range layout.parts {
+		partID, partCaption := id, c
+		if i > 0 {
+			if id != "" {
+				partID = id + "-" + strconv.Itoa(i+1)
+			}
+			if c.text != "" {
+				partCaption.text = c.text + " " + continuedSuffix
+			}
+		}
+		w.writeTablePart(node, partID, partCaption, columns, part,
+			tablePartKind{wide: layout.wide, split: len(layout.parts) > 1, continued: i > 0})
+	}
+}
+
+// continuedSuffix marks the caption of a continuation table.
+const continuedSuffix = "(continued)"
+
+// checkTableColumns refuses a table-column limit no split keeps: a
+// continuation table repeats the first column, so one holds nothing beside
+// it, and a negative limit is no limit at all.
+func checkTableColumns(limit int, form string) error {
+	if limit < 0 || limit == 1 {
+		return &Error{Kind: ErrorTableColumns, Count: limit, Form: form}
+	}
+	return nil
+}
+
+// tablePartKind says how a table part stands among the parts of its table:
+// set on the dense landscape line (wide), one of several (split), and past
+// the first (continued).
+type tablePartKind struct {
+	wide, split, continued bool
+}
+
+// Column counts from which the print stylesheet sets a table on a landscape
+// page in the wide type, and in the dense type; print.css states the same.
+const (
+	wideTableColumns  = 7
+	denseTableColumns = 11
+)
+
+// tableLine is the characters a line of a table of n columns holds when the
+// dense landscape line holds measure: fewer than wideTableColumns set in the
+// ordinary type on a portrait page hold about half, fewer than
+// denseTableColumns in the wide type about four fifths.
+func tableLine(measure, n int) int {
+	switch {
+	case n >= denseTableColumns:
+		return measure
+	case n >= wideTableColumns:
+		return measure * 4 / 5
+	default:
+		return measure / 2
+	}
+}
+
+// tableLayout is how a table's columns are written: the column indexes of
+// each part, and whether the parts take the dense landscape line rather than
+// the line their column count would have.
+type tableLayout struct {
+	parts [][]int
+	wide  bool
+}
+
+// tableParts lays out a table's columns: one part holding every column when
+// they fit the line their count has, that part on the dense landscape line
+// when they fit only there, otherwise parts on that line of the first column
+// followed by consecutive slices of the rest. A part holds at most limit
+// columns (any number when limit is 0) and, when measure is positive, only
+// as many as head unbroken across the line beside the first column at its
+// least share; a column whose heading alone exceeds the line still joins the
+// first column rather than setting nothing.
+// A limit of 1 leaves no room beside the repeated column and is refused by
+// the renderers; here it sets the table whole rather than looping.
+func tableParts(columns []queryexec.Column, limit, measure int) tableLayout {
+	all := make([]int, len(columns))
+	for i := range all {
+		all[i] = i
+	}
+	if limit == 1 || len(columns) < 2 {
+		return tableLayout{parts: [][]int{all}}
+	}
+	fits := func(part []int, line int) bool {
+		if limit > 1 && len(part) > limit {
+			return false
+		}
+		return line <= 0 || headingsFit(partColumns(columns, part), line)
+	}
+	if fits(all, tableLine(measure, len(all))) {
+		return tableLayout{parts: [][]int{all}}
+	}
+	if fits(all, measure) {
+		return tableLayout{parts: [][]int{all}, wide: true}
+	}
+	var parts [][]int
+	part := []int{0}
+	for i := 1; i < len(columns); i++ {
+		if candidate := append(part[:len(part):len(part)], i); len(part) == 1 || fits(candidate, measure) {
+			part = candidate
+			continue
+		}
+		parts = append(parts, part)
+		part = []int{0, i}
+	}
+	return tableLayout{parts: append(parts, part), wide: true}
+}
+
+// partColumns are the columns at the given indexes.
+func partColumns(columns []queryexec.Column, indexes []int) []queryexec.Column {
+	part := make([]queryexec.Column, 0, len(indexes))
+	for _, i := range indexes {
+		part = append(part, columns[i])
+	}
+	return part
+}
+
+// cellPadding is the characters of a line a cell's horizontal padding takes.
+const cellPadding = 3
+
+// headingNeed is the characters a column's heading needs to set unbroken: its
+// longest word and the cell padding.
+func headingNeed(column queryexec.Column) int {
+	longest := 0
+	for _, word := range strings.Fields(column.Label()) {
+		longest = max(longest, utf8.RuneCountInString(word))
+	}
+	return longest + cellPadding
+}
+
+// firstColumnNeed is the characters the first column of a table part takes on
+// a line of measure characters: its heading's need or its least share,
+// whichever is more.
+func firstColumnNeed(column queryexec.Column, measure int) int {
+	return max(headingNeed(column), int(math.Ceil(firstColumnMinShare*float64(measure))))
+}
+
+// headingsFit reports whether every heading of the columns sets unbroken on a
+// line of measure characters: the line holds what the headings need together,
+// the first column counting at least its least share.
+func headingsFit(columns []queryexec.Column, measure int) bool {
+	need := 0
+	for i, column := range columns {
+		if i == 0 {
+			need += firstColumnNeed(column, measure)
+			continue
+		}
+		need += headingNeed(column)
+	}
+	return need <= measure
+}
+
+// writeTablePart writes one table over the columns at the given indexes: its
+// caption, the column group when a column states a width, the header, and the
+// rows — grouped when the table groups.
+func (w *htmlWriter) writeTablePart(
+	node docir.Content,
+	id string,
+	c caption,
+	columns []queryexec.Column,
+	indexes []int,
+	kind tablePartKind,
+) {
+	part := partColumns(columns, indexes)
+	names := make([]string, 0, len(part))
+	labels := make([]string, 0, len(part))
+	for _, column := range part {
 		names = append(names, column.Name())
+		labels = append(labels, column.Label())
 	}
 	if len(names) == 0 {
-		names = []string{elementColumn}
+		names, labels = []string{elementColumn}, []string{elementColumn}
 	}
-	w.b.WriteString("<table class=\"sysml-table\"" + attr("id", id) + " data-content=\"table\"" +
+	class := "sysml-table"
+	if kind.wide {
+		class += " sysml-table-wide"
+	}
+	if kind.split {
+		class += " sysml-table-split"
+	}
+	if kind.continued {
+		class += " sysml-table-continued"
+	}
+	line := w.opts.TableMeasure
+	if !kind.wide {
+		line = tableLine(line, len(part))
+	}
+	shares := columnShares(part, line)
+	if shares == nil && line > 0 && (kind.wide || len(part) >= wideTableColumns) {
+		shares = evenShares(part, line)
+	}
+	if shares != nil {
+		class += " sysml-table-sized"
+	}
+	w.b.WriteString("<table" + attr("class", class) + attr("id", id) + " data-content=\"table\"" +
 		attr(attrName, node.Name()) + attr(attrQuery, node.Query()) +
 		attr("data-group-by", node.GroupBy()) + ">\n")
-	if c := w.captions.caption(node); c.String() != "" {
+	if c.String() != "" {
 		w.b.WriteString("<caption class=\"sysml-caption\">" + captionMarkup(c) + "</caption>\n")
 	}
-	w.writeTableHead(names)
+	w.writeColumnGroup(part, shares)
+	w.writeTableHead(names, labels)
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
 			w.b.WriteString("<tbody class=\"sysml-group\"" + attr("data-group", node.GroupBy()) +
@@ -556,53 +768,214 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 				attr("colspan", strconv.Itoa(len(names))) + ">" +
 				"<span class=\"sysml-group-column\">" + htmlText(node.GroupBy()) + "</span>: " +
 				"<span class=\"sysml-group-key\">" + htmlText(group.Key()) + "</span></th></tr>\n")
-			w.writeRows(group.Rows(), names, len(columns))
+			w.writeRows(group.Rows(), names, indexes, len(columns))
 			w.b.WriteString("</tbody>\n")
 		}
 		w.b.WriteString("</table>\n")
 		return
 	}
 	w.b.WriteString("<tbody>\n")
-	w.writeRows(node.Rows(), names, len(columns))
+	w.writeRows(node.Rows(), names, indexes, len(columns))
 	w.b.WriteString("</tbody>\n</table>\n")
 }
 
-func (w *htmlWriter) writeTableHead(names []string) {
+// firstColumnMinShare is the least share of a sized table's width its first
+// column takes, so the column naming each row stays readable however narrow
+// its stated width is beside many value columns.
+const firstColumnMinShare = 0.18
+
+// columnShares is the share of the table's width each column takes from the
+// stated widths: proportional to them, an automatic column counting as the
+// mean stated width, the first column at least firstColumnMinShare and, on a
+// line of measure characters (when positive), no column narrower than its
+// heading needs, the first keeping its least share however much the other
+// headings need. Nil when no column states a width.
+func columnShares(columns []queryexec.Column, measure int) []float64 {
+	total, stated := 0, 0
+	for _, column := range columns {
+		if column.Width() > 0 {
+			total += column.Width()
+			stated++
+		}
+	}
+	if stated == 0 {
+		return nil
+	}
+	mean := float64(total) / float64(stated)
+	widths := make([]float64, len(columns))
+	for i, column := range columns {
+		widths[i] = mean
+		if column.Width() > 0 {
+			widths[i] = float64(column.Width())
+		}
+	}
+	return widthShares(columns, widths, measure)
+}
+
+// evenShares is the share of the table's width each column of an unsized wide
+// table takes: equal, as a fixed layout would set them, the first column at
+// least firstColumnMinShare and, on a line of measure characters, no column
+// narrower than its heading needs.
+func evenShares(columns []queryexec.Column, measure int) []float64 {
+	widths := make([]float64, len(columns))
+	for i := range widths {
+		widths[i] = 1
+	}
+	return widthShares(columns, widths, measure)
+}
+
+// widthShares turns the columns' widths into shares of the table's width,
+// held to the first column's least share and the headings' needs on a line
+// of measure characters (when positive).
+func widthShares(columns []queryexec.Column, widths []float64, measure int) []float64 {
+	total := sum(widths)
+	shares := make([]float64, len(columns))
+	for i, width := range widths {
+		shares[i] = width / total
+	}
+	if len(shares) > 1 && shares[0] < firstColumnMinShare {
+		scale := (1 - firstColumnMinShare) / (1 - shares[0])
+		for i := 1; i < len(shares); i++ {
+			shares[i] *= scale
+		}
+		shares[0] = firstColumnMinShare
+	}
+	if measure > 0 {
+		minima := make([]float64, len(columns))
+		for i, column := range columns {
+			minima[i] = float64(headingNeed(column)) / float64(measure)
+		}
+		if len(columns) > 1 {
+			minima[0] = max(minima[0], firstColumnMinShare)
+		}
+		shares = fitShares(shares, minima)
+	}
+	return shares
+}
+
+// fitShares sets the shares of a unit line so that none falls below its
+// minimum: a share that would is pinned at its minimum and the rest split
+// what the pinned ones leave in their proportions, until every share fits.
+// Minima summing past one share the line in their proportions instead, and
+// the headings break.
+func fitShares(shares, minima []float64) []float64 {
+	out := make([]float64, len(shares))
+	if need := sum(minima); need > 1 {
+		for i, minimum := range minima {
+			out[i] = minimum / need
+		}
+		return out
+	}
+	pinned := make([]bool, len(shares))
+	for {
+		free, weight := 1.0, 0.0
+		for i := range shares {
+			if pinned[i] {
+				free -= minima[i]
+			} else {
+				weight += shares[i]
+			}
+		}
+		fits := true
+		for i := range shares {
+			if pinned[i] {
+				out[i] = minima[i]
+				continue
+			}
+			out[i] = shares[i] / weight * free
+			if out[i] < minima[i] {
+				pinned[i], fits = true, false
+			}
+		}
+		if fits {
+			return out
+		}
+	}
+}
+
+func sum(values []float64) float64 {
+	total := 0.0
+	for _, value := range values {
+		total += value
+	}
+	return total
+}
+
+// writeColumnGroup writes one <col> per column of a sized table, its stated
+// width (when one is) as data and its share of the table's width as style,
+// so a fixed layout honours the source's proportions.
+func (w *htmlWriter) writeColumnGroup(columns []queryexec.Column, shares []float64) {
+	if shares == nil {
+		return
+	}
+	w.b.WriteString("<colgroup>\n")
+	for i, column := range columns {
+		width := ""
+		if column.Width() > 0 {
+			width = strconv.Itoa(column.Width())
+		}
+		w.b.WriteString("<col" + attr("data-width", width) +
+			attr("style", "width: "+strconv.FormatFloat(shares[i]*100, 'f', 1, 64)+"%") + ">\n")
+	}
+	w.b.WriteString("</colgroup>\n")
+}
+
+// writeTableHead writes the header row: each column's name as data and its
+// label as the heading text.
+func (w *htmlWriter) writeTableHead(names, labels []string) {
 	w.b.WriteString("<thead>\n<tr>\n")
-	for _, name := range names {
-		w.b.WriteString("<th scope=\"col\"" + attr(attrColumn, name) + ">" + htmlText(name) + "</th>\n")
+	for i, name := range names {
+		w.b.WriteString("<th scope=\"col\"" + attr(attrColumn, name) + ">" + htmlText(labels[i]) + "</th>\n")
 	}
 	w.b.WriteString("</tr>\n</thead>\n")
 }
 
 // writeRows writes one row per query row, each carrying the element it selected
 // and its kind. A row of a table without projected columns is its element alone.
-func (w *htmlWriter) writeRows(rows []queryexec.Row, names []string, columns int) {
+func (w *htmlWriter) writeRows(rows []queryexec.Row, names []string, indexes []int, columns int) {
 	for _, row := range rows {
-		w.b.WriteString("<tr class=\"sysml-row\"" + elementAttrs(row.Element()) + ">\n")
+		w.b.WriteString("<tr class=\"sysml-row\"" + elementAttrs(row.Element()) + depthAttrs(row.Depth()) + ">\n")
 		if columns == 0 {
-			w.writeCell([]queryexec.Value{row.Element()}, elementColumn)
+			w.writeCell([]queryexec.Value{row.Element()}, elementColumn, row.Depth())
 			w.b.WriteString(rowEnd)
 			continue
 		}
 		cells := row.Cells()
-		for i := 0; i < columns; i++ {
+		for n, i := range indexes {
 			var values []queryexec.Value
 			if i < len(cells) {
 				values = cells[i].Values()
 			}
-			w.writeCell(values, names[i])
+			depth := int64(0)
+			if n == 0 {
+				depth = row.Depth()
+			}
+			w.writeCell(values, names[n], depth)
 		}
 		w.b.WriteString(rowEnd)
 	}
 }
 
-// writeCell writes one projected cell: every value individually addressable,
+// depthAttrs states a nested row's depth: as data, and as the --sysml-depth
+// property the stylesheet indents the row's first cell by.
+func depthAttrs(depth int64) string {
+	if depth <= 0 {
+		return ""
+	}
+	text := strconv.FormatInt(depth, 10)
+	return attr("data-depth", text) + attr("style", "--sysml-depth: "+text)
+}
+
+// writeCell writes one projected cell, a nested row's first opening with the
+// indent its depth sets: every value individually addressable,
 // with the punctuation joining them an element of its own so a theme can hide
 // or replace it.
-func (w *htmlWriter) writeCell(values []queryexec.Value, column string) {
+func (w *htmlWriter) writeCell(values []queryexec.Value, column string, depth int64) {
 	w.b.WriteString("<td class=\"sysml-cell\"" + attr(attrColumn, column) +
 		attr("data-value-kind", sharedValueKind(values)) + ">")
+	if depth > 0 {
+		w.b.WriteString("<span class=\"sysml-indent\"></span>")
+	}
 	for i, value := range values {
 		if i > 0 {
 			w.b.WriteString("<span class=\"sysml-separator\">, </span>")
@@ -630,18 +1003,18 @@ func (w *htmlWriter) writeValue(value queryexec.Value) {
 		classes += " sysml-event"
 	}
 	w.b.WriteString("<span class=\"" + classes + "\"" + attr("data-value-kind", string(value.Kind())) +
-		elementAttrs(value) + quantityAttrs(value) + ">" + htmlText(valueText(value)) + spanClose)
+		elementAttrs(value) + quantityAttrs(w.names, value) + ">" + htmlText(valueText(w.names, value)) + spanClose)
 }
 
 // quantityAttrs carries a quantity's magnitude and unit apart, so a theme or a
 // script reads them without parsing the cell text.
-func quantityAttrs(value queryexec.Value) string {
+func quantityAttrs(names namer, value queryexec.Value) string {
 	quantity, ok := value.Quantity()
 	if !ok {
 		return ""
 	}
 	magnitude, _ := value.Magnitude()
-	return attr("data-magnitude", valueText(magnitude)) + attr("data-unit", quantity.Unit.String())
+	return attr("data-magnitude", valueText(names, magnitude)) + attr("data-unit", quantity.Unit.String())
 }
 
 // writeList writes one bullet or numbered list, one item per query row, each
@@ -819,7 +1192,7 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 		columns = view.TableColumns()
 	}
 	w.b.WriteString("<table class=\"sysml-table\" data-content=\"table\">\n")
-	w.writeTableHead(columns)
+	w.writeTableHead(columns, columns)
 	w.b.WriteString("<tbody>\n")
 	for _, row := range rendering.Rows {
 		w.b.WriteString("<tr class=\"sysml-row\">\n")

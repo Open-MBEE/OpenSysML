@@ -360,16 +360,18 @@ func TestReplyReadsCSVFailures(t *testing.T) {
 		kind   runtime.ToolErrorKind
 		detail string
 	}{
-		"no header":     {"", runtime.ToolMalformed, "wrote no header record"},
-		"no data":       {"T_max,code,err\n", runtime.ToolMissingOutput, "no data record"},
-		"ragged":        {"T_max,code,err\n1,2,\n3\n", runtime.ToolMalformed, "record 3 has 1 fields, not 3"},
-		"dup header":    {"T_max,T_max,err\n1,2,\n", runtime.ToolMalformed, "names T_max twice"},
-		"name absent":   {"code,err\n1,\n", runtime.ToolMalformed, "column T_max is not in the header"},
-		"empty cell":    {"T_max,code,err\n ,2,\n", runtime.ToolMissingOutput, "an empty cell"},
-		"not a number":  {"T_max,code,err\nn/a,2,\n", runtime.ToolMalformed, "n/a is not a number"},
-		"not integer":   {"T_max,code,err\n1,12.0,\n", runtime.ToolMalformed, "12.0 is not an integer"},
-		"refusal":       {"T_max,code,err\n1,2,failed\n", runtime.ToolRefused, "failed"},
-		"empty refusal": {"T_max,code,err\n1,2, \n", -1, ""},
+		"no header":          {"", runtime.ToolMalformed, "wrote no header record"},
+		"no data":            {"T_max,code,err\n", runtime.ToolMissingOutput, "no data record"},
+		"ragged":             {"T_max,code,err\n1,2,\n3\n", runtime.ToolMalformed, "record 3 has 1 fields, not 3"},
+		"dup header":         {"T_max,T_max,err\n1,2,\n", runtime.ToolMalformed, "names T_max twice"},
+		"name absent":        {"code,err\n1,\n", runtime.ToolMalformed, "column T_max is not in the header"},
+		"empty cell":         {"T_max,code,err\n ,2,\n", runtime.ToolMissingOutput, "an empty cell"},
+		"not a number":       {"T_max,code,err\nn/a,2,\n", runtime.ToolMalformed, "n/a is not a number"},
+		"not integer":        {"T_max,code,err\n1,12.0,\n", runtime.ToolMalformed, "12.0 is not an integer"},
+		"refusal":            {"T_max,code,err\n1,2,failed\n", runtime.ToolRefused, "failed"},
+		"refusal first row":  {"T_max,code,err\n1,2,failed\n3,4,\n", runtime.ToolRefused, "failed"},
+		"refusal middle row": {"T_max,code,err\n1,2,\n3,4,went wrong\n5,6,\n", runtime.ToolRefused, "went wrong"},
+		"empty refusal":      {"T_max,code,err\n1,2, \n", -1, ""},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

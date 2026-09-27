@@ -55,9 +55,9 @@ dedicated `member_modifiers`, `satisfy_authoring`,
 `requirement_constraint_authoring` or `transition_authoring` capability as
 applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
-`return_expression`; that expression is bound to the result parameter rather than
-written as `return <expr>;`. `add_action_def` and `add_action` accept input and
-output pairs.
+`return_expression`; a return expression requires a return type and is bound to
+the result parameter rather than written as `return <expr>;`. `add_action_def`
+and `add_action` accept input and output pairs.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
 

@@ -23,7 +23,12 @@ func document(members, applications string) []byte {
 
 func migrateDocument(t *testing.T, members, applications string) *migrate.Result {
 	t.Helper()
-	r, err := migrate.Migrate("t.xmi", document(members, applications))
+	return migrateDocumentOptions(t, members, applications, migrate.Options{})
+}
+
+func migrateDocumentOptions(t *testing.T, members, applications string, opts migrate.Options) *migrate.Result {
+	t.Helper()
+	r, err := migrate.MigrateOptions("t.xmi", document(members, applications), opts)
 	if err != nil {
 		t.Fatal(err)
 	}

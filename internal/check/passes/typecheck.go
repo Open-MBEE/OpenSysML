@@ -707,9 +707,6 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 			return fmt.Sprintf("%s cannot specialize %s (kind mismatch)", defKind, target)
 		}
 	case ast.RelSubsets, ast.RelRedefines:
-		if isDef {
-			return fmt.Sprintf("a definition may not %s a feature", rel)
-		}
 		if target == symbols.SymbolUnknown {
 			return "" // an unclassified target constrains nothing
 		}
@@ -723,9 +720,6 @@ func compatMessage(decl declKind, rel ast.RelationshipKind, target symbols.Symbo
 			return fmt.Sprintf("%s target must be a usage or definition, found %s", rel, target)
 		}
 	case ast.RelTyping:
-		if isDef {
-			return "" // typing on a definition is not produced by the parser; ignore
-		}
 		// A KerML FeatureTyping's type is any Type, a Feature among them (KerML
 		// 1.0 §8.3.4.4); KerML has no usage-kind taxonomy to check further.
 		if decl.isKerML() {

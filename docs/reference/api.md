@@ -109,9 +109,9 @@ and `type` fields:
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
-Regular transitions always write `first <source>` and may add `accept <trigger>`, `if <guard>` and
-`do <effect>` clauses. An entry transition has no name, source or clauses, and is refused when the
-state already has an entry action.
+Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
+`if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
+clauses, and is refused when the state already has an entry action.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})
@@ -153,9 +153,9 @@ and its typed `add_*` helpers create declarations while preserving untouched
 source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint`, `add_assume_constraint`, `add_transition` and
 `add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
-and `return_expression`; the expression is bound to a result parameter, not
-written as a `return <expr>;` statement. Action helpers accept `inputs` and
-`outputs`, each a list of `(name, type)` string pairs.
+and `return_expression`; a return expression requires a return type and is
+bound to the result parameter, not written as a `return <expr>;` statement.
+Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.
 `Editor.delete(target, cascade=False)` removes declarations transactionally;
 `Editor.move(target, owner)` carries one
 into another namespace of the same document and respells the references the
