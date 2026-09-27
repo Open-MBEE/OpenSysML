@@ -205,7 +205,7 @@ func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, ou
 		return nil
 	}
 	if member, ok := r.model.LookupMember(owner, name); ok {
-		out.drawn.note(member, false)
+		out.drawn.noteMember(owner, member)
 	}
 	site, ok := r.model.MemberLayoutOf(view, owner, name)
 	if !ok {

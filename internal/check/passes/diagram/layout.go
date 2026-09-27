@@ -93,6 +93,9 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 	for _, site := range sites {
 		if site.View != nil && site.TypeFQN != semantics.NoteFQN && site.TypeFQN != semantics.PictureFQN {
 			key := viewKey{view: site.View.Decl, typeFQN: site.TypeFQN}
+			if owner := c.memberOwner(site, sym); owner != nil {
+				key.owner = owner.Decl
+			}
 			if _, dup := firstInView[key]; !dup {
 				firstInView[key] = site
 			} else if c.inDoc(site.Scope) {
@@ -131,11 +134,22 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 	}
 }
 
-// viewKey identifies the annotations of one kind stated in one view's body; the
-// view's declaration stands for it across re-indexed symbols.
+// viewKey identifies the annotations of one kind stated in one view's body about
+// one element, an inherited member as one owner's; declarations stand for the
+// view and the owner across re-indexed symbols.
 type viewKey struct {
 	view    ast.Node
 	typeFQN string
+	owner   ast.Node
+}
+
+// memberOwner is the namespace a Layout positions sym as a member of, nil for
+// an annotation of another kind or one naming no owner.
+func (c *layoutChecker) memberOwner(site *semantics.LayoutSite, sym *symbols.Symbol) *symbols.Symbol {
+	if site.TypeFQN != semantics.LayoutFQN {
+		return nil
+	}
+	return c.model.MemberLayoutOwner(site, sym)
 }
 
 // checkPlaced warns when the rendering a Layout, Route, Style or Note applies
@@ -172,7 +186,11 @@ func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Sym
 	if !ok {
 		return
 	}
-	if !(wantNode && drawn.Node(sym)) && !(wantEdge && drawn.Edge(sym)) {
+	node := drawn.Node(sym)
+	if owner := c.memberOwner(site, sym); owner != nil {
+		node = drawn.MemberNode(owner, sym)
+	}
+	if !(wantNode && node) && !(wantEdge && drawn.Edge(sym)) {
 		c.warnf(site.Node.Span(), layoutUnplacedCode,
 			"%s %s, which the %s rendering of %s does not draw as %s",
 			verb, c.describe(sym), kind, c.describe(site.View), role)

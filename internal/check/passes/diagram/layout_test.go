@@ -388,6 +388,32 @@ func TestDiagramLayoutViewLocalAnnotationsFollowInheritedBehavior(t *testing.T) 
 	}
 }
 
+// Every action body inherits one start from the library; a Layout naming it as
+// one body's positions that body's start alone, so the checker judges it by
+// whether the view draws that body, not by whether it draws any start.
+func TestDiagramLayoutInheritedMemberJudgedByItsOwner(t *testing.T) {
+	src := layoutModel(`	action def Acquire {
+		first start then measure;
+		action measure;
+	}
+	action def Track {
+		first start then follow;
+		action follow;
+	}
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose Track;
+		metadata Layout about Track::start { x = 1; y = 1; }
+		metadata Layout about Acquire::start { x = 2; y = 2; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 15,
+		"Layout positions", "start", "action rendering of view P::flow does not draw as a node")
+}
+
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {
 	src := layoutModel(`	part def Pump;
 	part def Loop {

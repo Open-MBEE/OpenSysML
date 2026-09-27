@@ -284,6 +284,23 @@ func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*Layou
 	return pickSite(view, append(owners, inherited...))
 }
 
+// MemberLayoutOwner is the namespace a Layout site positions member as a member
+// of, by the rule MemberLayoutOf resolves by: the namespace a qualified `about`
+// names it through, the referent of an unqualified one, else the declaring
+// owner. Nil for an inline Layout, which every inheriting owner may fall back to.
+func (m *Model) MemberLayoutOwner(site *LayoutSite, member *symbols.Symbol) *symbols.Symbol {
+	if m == nil || site == nil || member == nil || !site.About {
+		return nil
+	}
+	if site.Via != nil {
+		return site.Via
+	}
+	if via := m.memberReferent(site.Scope, member, member.Name); via != nil {
+		return via
+	}
+	return member.Owner()
+}
+
 // memberReferent is the namespace an unqualified `about name` stated in scope
 // names member through: the nearest one enclosing scope that has member under
 // name, nil when none does.

@@ -6,14 +6,31 @@ import (
 )
 
 // Drawn is what one rendering of a view draws: the elements it positions as
-// nodes and those it steers as edges, by their declarations.
+// nodes and those it steers as edges, by their declarations; a member drawn as
+// an owner's — the start or done a body inherits — by the owner as well.
 type Drawn struct {
 	nodes, edges map[ast.Node]bool
+	members      map[ast.Node]map[ast.Node]bool // member decl -> owner decls it is drawn as a member of
 }
 
 // Node reports whether the rendering draws sym as a node a Layout positions.
 func (d *Drawn) Node(sym *symbols.Symbol) bool {
 	return d != nil && sym != nil && d.nodes[sym.Decl]
+}
+
+// MemberNode reports whether the rendering draws sym as a node of owner's: one
+// element inherited by many bodies is drawn once per body, and a Layout naming
+// it as one owner's positions that body's alone. A member the rendering draws
+// as no owner's in particular is drawn for every owner.
+func (d *Drawn) MemberNode(owner, sym *symbols.Symbol) bool {
+	if d == nil || sym == nil {
+		return false
+	}
+	owners, ok := d.members[sym.Decl]
+	if !ok {
+		return d.Node(sym)
+	}
+	return owner != nil && owners[owner.Decl]
 }
 
 // Edge reports whether the rendering draws sym as an edge a Route steers.
@@ -33,11 +50,25 @@ func (d *Drawn) note(elem *symbols.Symbol, asEdge bool) {
 	}
 }
 
+// noteMember records that the rendering drew member as owner's.
+func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
+	if d == nil || owner == nil || member == nil || owner.Decl == nil || member.Decl == nil {
+		return
+	}
+	d.note(member, false)
+	owners, ok := d.members[member.Decl]
+	if !ok {
+		owners = map[ast.Node]bool{}
+		d.members[member.Decl] = owners
+	}
+	owners[owner.Decl] = true
+}
+
 // DrawnIn renders view and reports what the rendering draws: the elements a
 // Layout or Route stated in the view's body can apply to. A view that does
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
-	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}}
+	drawn := &Drawn{nodes: map[ast.Node]bool{}, edges: map[ast.Node]bool{}, members: map[ast.Node]map[ast.Node]bool{}}
 	if _, err := r.render(view, drawn); err != nil {
 		return nil, err
 	}
