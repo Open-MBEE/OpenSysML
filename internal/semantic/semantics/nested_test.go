@@ -282,3 +282,24 @@ func TestImplicitSubsettingsRenderRendering(t *testing.T) {
 	}
 }
 
+
+// A `ref step` is a reference, not a composite nested performance, so it must
+// not enter the owner's `subperformances`; a composite `step` does.
+func TestImplicitSubsettingsRefStep(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		action outer {
+			step inner;
+			ref step borrowed;
+		}
+	}`)
+
+	inner := nestedSym(t, root, "P::outer::inner")
+	got := m.ImplicitSubsettings(inner)
+	if len(got) != 1 || symbols.FQNOf(got[0]) != "Performances::Performance::subperformances" {
+		t.Errorf("ImplicitSubsettings(inner) = %v, want [Performances::Performance::subperformances]", fqns(got))
+	}
+	borrowed := nestedSym(t, root, "P::outer::borrowed")
+	if got := m.ImplicitSubsettings(borrowed); len(got) != 0 {
+		t.Errorf("ImplicitSubsettings(borrowed) = %v, want none for a ref step", fqns(got))
+	}
+}

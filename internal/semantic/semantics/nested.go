@@ -148,7 +148,10 @@ func (m *Model) implicitSubsettingFQN(sym *symbols.Symbol, usage *ast.Usage, own
 	case ast.UsageOccurrence, ast.UsageIndividual:
 		return m.occurrenceNestedFQN(owner, composite, portion, false)
 	case ast.UsageStep:
-		return m.stepNestedFQN(owner)
+		if composite {
+			return m.stepNestedFQN(owner)
+		}
+		return ""
 	}
 	return ""
 }
