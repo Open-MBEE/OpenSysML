@@ -769,49 +769,60 @@ func (m *Model) annotationValue(scope *symbols.Scope, value ast.Node) symbols.Fi
 	return symbols.FilterValue{}
 }
 
-// ConstantFeatureValues returns a feature's ordered constant values.
-func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool) {
+// ConstantFeatureValues returns a feature's ordered constant values. The error
+// is a symbols.NeedsHydration when the value is written in a recorded document.
+func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool, error) {
 	if m == nil || sym == nil || feature == "" {
-		return nil, false
+		return nil, false, nil
 	}
 	if values, ok := m.ReflectiveFeatureValues(sym, feature); ok {
-		return values, true
+		return values, true, nil
 	}
 	member, ok := m.LookupMember(sym, feature)
 	if !ok || member == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
 // DeclaredFeatureValues returns a declared member feature's ordered constant
-// values, never answering reflective metaclass features of the same name.
-func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool) {
+// values, never answering reflective metaclass features of the same name. The
+// error is a symbols.NeedsHydration when the value is written in a recorded document.
+func (m *Model) DeclaredFeatureValues(sym *symbols.Symbol, feature string) ([]symbols.FilterValue, bool, error) {
 	if m == nil || sym == nil || feature == "" {
-		return nil, false
+		return nil, false, nil
 	}
 	member, ok := m.LookupMember(sym, feature)
 	if !ok || member == nil {
-		return nil, false
+		return nil, false, nil
 	}
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
-func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.Symbol]bool) ([]symbols.FilterValue, bool) {
+// constantFeatureValues reads the values member's declaration writes, or those
+// of the features it redefines when it writes none. A recorded feature's record
+// says whether it writes a value but not what: that reading needs its tree.
+func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.Symbol]bool) ([]symbols.FilterValue, bool, error) {
 	if member == nil || seen[member] {
-		return nil, false
+		return nil, false, nil
 	}
 	seen[member] = true
 	defer delete(seen, member)
-	usage, ok := member.Decl.(*ast.Usage)
-	if !ok {
-		return []symbols.FilterValue{{}}, true
+	if !member.DeclaresUsage() {
+		return []symbols.FilterValue{{}}, true, nil
 	}
-	if usage.Value == nil {
+	if member.Recorded() && member.Facts.Modifiers.Has(symbols.ModValued) {
+		return nil, false, &symbols.NeedsHydration{Doc: member.DocName, Question: "the value " + symbols.FQNOf(member) + " declares"}
+	}
+	usage, _ := member.Decl.(*ast.Usage)
+	if usage == nil || usage.Value == nil {
 		var values []symbols.FilterValue
 		found := false
 		for _, redefined := range m.RedefinedFeatures(member) {
-			inherited, ok := m.constantFeatureValues(redefined, seen)
+			inherited, ok, err := m.constantFeatureValues(redefined, seen)
+			if err != nil {
+				return nil, false, err
+			}
 			if !ok {
 				continue
 			}
@@ -819,9 +830,9 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			values = append(values, inherited...)
 		}
 		if found {
-			return values, true
+			return values, true, nil
 		}
-		return nil, true
+		return nil, true, nil
 	}
 	if sequence, ok := usage.Value.(*ast.SequenceExpr); ok {
 		values := make([]symbols.FilterValue, 0, len(sequence.Elements))
@@ -831,12 +842,12 @@ func (m *Model) constantFeatureValues(member *symbols.Symbol, seen map[*symbols.
 			}
 			values = append(values, m.declaredValue(member.OwnerScope, element))
 		}
-		return values, true
+		return values, true, nil
 	}
 	if _, empty := usage.Value.(*ast.NullExpr); empty {
-		return nil, true
+		return nil, true, nil
 	}
-	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true
+	return []symbols.FilterValue{m.declaredValue(member.OwnerScope, usage.Value)}, true, nil
 }
 
 // declaredValue is annotationValue for a feature's own value, where a reference
@@ -874,7 +885,7 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
-	if rel, ok := sym.Decl.(*ast.RelationshipMember); ok {
+	if rel, ok := sym.RelationshipDecl(); ok {
 		if meta := m.kermlMetaclass(relationshipMetaclassName(rel)); meta != nil {
 			return meta
 		}
@@ -913,11 +924,11 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case symbols.SymbolConnectorEnd:
 		return ConnectorEndMetaclassName(sym)
 	case symbols.SymbolUnknown:
-		if usage, ok := sym.Decl.(*ast.Usage); ok {
-			return usageMetaclassNames[usage.Kind]
+		if kind, ok := sym.UsageKind(); ok {
+			return usageMetaclassNames[kind]
 		}
 	case symbols.SymbolActionUsage:
-		if _, ok := sym.Decl.(*ast.TransitionMember); ok {
+		if sym.DeclaresTransition() {
 			return usageMetaclassNames[ast.UsageTransition]
 		}
 	}
@@ -928,7 +939,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 // PortUsage as an interface's end, a ReferenceUsage otherwise (SysML.xtext).
 func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
 	if sym.OwnerScope != nil {
-		if usage, ok := sym.OwnerScope.Node().(*ast.Usage); ok && usage.Kind == ast.UsageInterface {
+		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
 		}
 	}
@@ -945,8 +956,8 @@ var usageMetaclassNames = map[ast.UsageKind]string{
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
 // at any depth, other than a metadata feature annotating the body's owner.
 func isMetadataBodyFeature(sym *symbols.Symbol) bool {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind == ast.UsageMetadata {
+	kind, ok := sym.UsageKind()
+	if !ok || kind == ast.UsageMetadata {
 		return false
 	}
 	for scope := sym.OwnerScope; scope != nil; {
@@ -961,7 +972,7 @@ func isMetadataBodyFeature(sym *symbols.Symbol) bool {
 		if owner.Kind == symbols.SymbolMetadataUsage {
 			return true
 		}
-		if _, feature := owner.Decl.(*ast.Usage); !feature {
+		if !owner.DeclaresUsage() {
 			return false
 		}
 		scope = owner.OwnerScope
@@ -1007,9 +1018,21 @@ func (m *Model) kermlMetaclass(name string) *symbols.Symbol {
 	return nil
 }
 
+// connectorKind is the usage kind of the connector whose scope owns an end,
+// from the scope's node or, for a recorded connector, its owner's record.
+func connectorKind(scope *symbols.Scope) (ast.UsageKind, bool) {
+	if usage, ok := scope.Node().(*ast.Usage); ok {
+		return usage.Kind, true
+	}
+	if owner := scope.Owner(); owner != nil && owner.Recorded() {
+		return owner.UsageKind()
+	}
+	return 0, false
+}
+
 // relationshipMetaclassName is the metaclass of a keyword-first relationship,
 // which conjugation writes as a form of its own (KerML §7.2).
-func relationshipMetaclassName(rel *ast.RelationshipMember) string {
+func relationshipMetaclassName(rel symbols.RelationshipDecl) string {
 	if rel.Conjugated {
 		return "Conjugation"
 	}
@@ -1019,6 +1042,13 @@ func relationshipMetaclassName(rel *ast.RelationshipMember) string {
 // MultiplicityMetaclassName is the metaclass of a named multiplicity: a range
 // (`multiplicity m [1..2]`) is a MultiplicityRange, a subset a Multiplicity.
 func MultiplicityMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() {
+		// A multiplicity member's record carries bounds exactly when it declared a range.
+		if sym.Facts.Multiplicity != nil {
+			return "MultiplicityRange"
+		}
+		return "Multiplicity"
+	}
 	if mult, ok := sym.Decl.(*ast.MultiplicityDecl); ok && mult.Range != nil {
 		return "MultiplicityRange"
 	}
@@ -1082,6 +1112,17 @@ var kermlMetaclassNames = map[string]string{
 // which is classified by its symbol kind instead.
 func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
+		return ""
+	}
+	if sym.Recorded() {
+		switch sym.Facts.Node {
+		case symbols.NodeDefinition, symbols.NodeUsage:
+			return kermlMetaclassNames[sym.Facts.Keyword]
+		case symbols.NodePrefixMetadata:
+			return kermlMetaclassNames["metadata"]
+		case symbols.NodeConnectorEnd, symbols.NodeCrossFeature:
+			return kermlMetaclassNames["feature"]
+		}
 		return ""
 	}
 	switch d := sym.Decl.(type) {

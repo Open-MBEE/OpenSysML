@@ -65,14 +65,15 @@ Per symbol, the facts (`LibraryFacts`), each with the reader that needs it:
 | `Alias` — the element an alias's own target names, an alias itself in a chain; zero when it names nothing | qualified-name resolution through the alias, an alias to nothing skipped as loaded |
 | `Direction`, `Modifiers` — `in`/`out`/`inout`, `end`, `derived`, `variation`, `variant`, `abstract`, `individual`, `ordered`, `nonunique`, `constant`, `parallel`, `ModResult`, `ModValued` (the declaration binds a value), and the rest of the boolean traits a declaration states | typing, redefinition conformance, variation and individual checks, the parameter list of a behavior — which parameters a call binds, which it may leave unbound, its result |
 | `ModNamesNothing` — a name borrowed from a referenced or redefined feature that resolved to no feature | `Resolver.BindsName`: whether the member is found by that name, and whether a specialization declaring it inherits a duplicate |
-| `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities |
+| `Multiplicity` — the declared bounds, evaluated; a bound written as the name of a feature the declaring scope values carries that value, marked so a reader evaluating without the scope sees it unknown, as it does loaded | multiplicity conformance of a redefinition, end multiplicities; whether a `multiplicity` member is a `MultiplicityRange` under a `@@` filter |
 | `Unit`, `Dimension` — the reduced unit or dimension a library-style declaration denotes | quantity typing, unit conversion |
 | `Annotations`, `About`, `Annotation` — the metadata declared on the element, its type by name and by reference, with its literal values; the elements an `about` usage annotates, and the annotation it states on them | metadata filters on imports, `@`-annotated lookups, the identity-metadata audit |
 | `Ends` — a connector's owned end features by position, a `connect a to b` end without a symbol of its own holding its place | the ends a specializing connector inherits and redefines by position, its end count against a binary link, its related features |
 | `Default` — the value a feature of a metadata definition declares | the value an annotation of that type carries for a feature it leaves unbound, which a filter reads |
 | `BaseType`, `ModBindsBaseType` — the base type a metadata definition binds unconditionally | metadata typing |
 | `Relationships` — the relationship members (dependency, satisfy, allocate, …) with their resolved targets | relationship queries, the OOSEM and MOSA audits |
-| `Node`, `Keyword`, `Notation`, `UsageKind`, `DefKind` — what kind of declaration it was, and the notation that names it in a diagnostic | every reader that used to switch on the declaration's type |
+| `Node`, `Keyword`, `Notation`, `UsageKind`, `DefKind` — what kind of declaration it was, and the notation that names it in a diagnostic | every reader that used to switch on the declaration's type; the reflective metaclass a `@@` filter classifies the element by (a KerML `struct` is a `Structure`, a transition a `TransitionUsage`, an interface's end a `PortUsage`) |
+| `Relationship` — the kind a keyword-first relationship member declares (`specialization S subtype A :> B;`), and whether it is a conjugation | its reflective metaclass (`Specialization`, `Conjugation`) under a `@@` filter |
 | `Abstract`, `ModAcceptPayload` | abstract-type checks, accept-action typing |
 | `Recorded` — true for every recorded symbol | `Symbol.Recorded()`, which tells a reader it holds a record |
 
@@ -202,7 +203,10 @@ production reader of `Symbol.Decl` under `internal/semantic`, `internal/check`,
    recorded symbol answers "none", which is what the foreign document could
    observe anyway.
 4. **Questions the tree alone answers.** Editing, renaming, printing an
-   element's notation, and building a runtime over the workspace return
+   element's notation, reading the value a feature declares (a document
+   query's `Project` over a recorded part's `mass`: the record says the
+   feature is valued, `ModValued`, not what its expression is), and building
+   a runtime over the workspace return
    `symbols.ErrNeedsHydration` (`symbols.NeedsTree`, `symbols.NeedsHydration`
    with the document and the question) for a recorded document; the frontend
    that receives it hydrates (a later change) or reports it. `Workspace.NewRuntime`

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -277,5 +278,67 @@ func TestInterfaceRecordNeedsHydration(t *testing.T) {
 	}
 	if _, err := ws.InterfaceRecord("a.sysml"); !errors.Is(err, model.ErrRecorded) {
 		t.Fatalf("InterfaceRecord of a recorded document: got %v, want ErrRecorded", err)
+	}
+}
+
+// A rendered document reads a feature's declared value through the semantic
+// model; a recorded feature's record says only that it declares one, so the
+// reading names the document to hydrate rather than answering unknown.
+func TestInterfaceRecordDocumentQueryNeedsHydration(t *testing.T) {
+	t.Parallel()
+	parts := []byte(`package Hardware {
+		private import ScalarValues::*;
+		part def Subsystem { attribute mass : Real = 4.25; }
+	}`)
+	report := []byte(`package Observatory {
+		private import DocumentQueries::*;
+		private import KerML::Root::Element;
+		private import Hardware::*;
+		part telescope { part optics : Subsystem; }
+		calc def Rows :> Query {
+			in root : Element;
+			Project(source = Descendants(source = root, maxDepth = 1), properties = ("name", "mass"))
+		}
+		part def MassReport :> Document {
+			attribute redefines title = "Telescope Mass Report";
+			part parts : Table {
+				attribute redefines caption = "Parts";
+				calc rows : Rows { in root = telescope; }
+			}
+		}
+	}`)
+	loaded := model.NewWorkspace()
+	loaded.OpenAll([]model.Input{
+		{Name: "parts.sysml", Content: parts, Version: 1},
+		{Name: "report.sysml", Content: report, Version: 1},
+	})
+	for _, name := range []string{"parts.sysml", "report.sysml"} {
+		if diags := loaded.Diagnostics(name); len(diags) != 0 {
+			t.Fatalf("%s loaded: %v", name, diags)
+		}
+	}
+	markdown, err := loaded.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(markdown, "| optics | 4.25 |") {
+		t.Fatalf("loaded render lacks the optics row with its declared mass:\n%s", markdown)
+	}
+	rec, err := loaded.InterfaceRecord("parts.sysml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := model.NewWorkspace()
+	ws.OpenAll([]model.Input{{Name: "report.sysml", Content: report, Version: 1}})
+	if err := ws.OpenRecorded(rec, parts); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(ws.Diagnostics("report.sysml")); n != 0 {
+		t.Fatalf("report.sysml over the recorded parts.sysml: %d diagnostics", n)
+	}
+	_, err = ws.RenderDocumentMarkdown("Observatory::MassReport", docrender.MarkdownOptions{})
+	var needs *symbols.NeedsHydration
+	if !errors.Is(err, symbols.ErrNeedsHydration) || !errors.As(err, &needs) || needs.Doc != "parts.sysml" {
+		t.Fatalf("rendering over a recorded value: got %v, want a NeedsHydration for parts.sysml", err)
 	}
 }

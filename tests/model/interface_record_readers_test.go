@@ -3,6 +3,8 @@ package model_test
 import (
 	"bytes"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -498,5 +500,142 @@ func TestInterfaceRecordConformanceMode(t *testing.T) {
 	}
 	if err := ws.SetConformanceMode(diag.ConformanceDefault); err != nil {
 		t.Fatalf("SetConformanceMode to the mode held: %v", err)
+	}
+}
+
+// A `@@` filter classifies an imported element by its reflective metaclass,
+// which its symbol kind alone does not always tell: a KerML `struct` from a
+// `datatype`, a transition from an action, an interface's end from a
+// connection's, a specialization from a conjugation, a multiplicity with a
+// range from one without, a metadata body's feature from an attribute.
+// Recorded, each element must pass or fail the filter exactly as it does loaded.
+func TestInterfaceRecordMetaclassFilters(t *testing.T) {
+	t.Parallel()
+	docs := map[string][]byte{
+		"k.kerml": []byte(`package K {
+			struct S;
+			datatype D;
+			class C;
+			classifier B;
+			metaclass Meta;
+			specialization Sp subtype S :> B;
+			conjugation Cj conjugate C ~ B;
+			@ m : Meta;
+			feature f : S;
+			multiplicity mr [1..3];
+			multiplicity mn :> mr;
+			metaclass Body { feature level : ScalarValues::Integer; }
+			metadata body : Body { level = 3; }
+		}`),
+		"u.kerml": []byte(`package U {
+			private import K::*[@@KerML::Kernel::Structure];
+			feature s : S;
+			feature d : D;
+			feature c : C;
+		}
+		package U2 {
+			private import K::*[@@KerML::Core::Specialization];
+			alias asp for Sp;
+			alias acj for Cj;
+		}
+		package U3 {
+			private import K::*[@@KerML::Core::Conjugation];
+			alias asp for Sp;
+			alias acj for Cj;
+		}
+		package U4 {
+			private import K::*[@@KerML::Kernel::MetadataFeature];
+			alias am for m;
+			alias af for f;
+		}
+		package U5 {
+			private import K::*[@@KerML::Kernel::MultiplicityRange];
+			alias amr for mr;
+			alias amn for mn;
+			alias am for m;
+		}
+		package U6 {
+			private import K::*[@@KerML::Core::Multiplicity];
+			alias amr for mr;
+			alias amn for mn;
+			alias am for m;
+		}
+		package U7 {
+			private import K::body::*[@@KerML::Core::Feature];
+			alias al for level;
+		}
+		package U8 {
+			private import K::body::*[@@SysML::Systems::AttributeUsage];
+			alias al for level;
+		}`),
+		"s.sysml": []byte(`package S {
+			part def W;
+			port def P;
+			part def Car {
+				part w : W;
+				port p : P;
+				binding b bind w = w;
+				connection c connect w to w;
+				interface i connect a references p to z references p;
+				state def SD { state a; state z; transition t first a then z; }
+			}
+			metadata def Meta { attribute level : ScalarValues::Integer; }
+			metadata m : Meta { level = 3; }
+		}`),
+		"t.sysml": []byte(`package T {
+			private import S::Car::*[@@SysML::Systems::BindingConnectorAsUsage];
+			alias ab for b;
+			alias ac for c;
+		}
+		package T2 {
+			private import S::Car::SD::*[@@SysML::Systems::TransitionUsage];
+			alias atr for t;
+			alias aa for a;
+		}
+		package T3 {
+			private import S::Car::i::*[@@SysML::Systems::PortUsage];
+			alias aa for a;
+		}
+		package T4 {
+			private import S::Car::c::*[@@SysML::Systems::PortUsage];
+			alias aa for a;
+		}
+		package T5 {
+			private import S::m::*[@@SysML::Systems::ReferenceUsage];
+			alias al for level;
+		}
+		package T6 {
+			private import S::m::*[@@SysML::Systems::AttributeUsage];
+			alias al for level;
+		}`),
+	}
+	// Loaded, the filters admit exactly the elements of the metaclass, which
+	// the references to the others report; the fixture is void otherwise.
+	loaded := model.NewWorkspace()
+	names := []string{"k.kerml", "s.sysml", "t.sysml", "u.kerml"}
+	for _, name := range names {
+		loaded.OpenAll([]model.Input{{Name: name, Content: docs[name], Version: 1}})
+	}
+	want := map[string][]string{
+		"k.kerml": nil,
+		"s.sysml": nil,
+		"u.kerml": {"D", "C", "Cj", "Sp", "f", "mn", "m", "m", "level"},
+		"t.sysml": {"c", "a", "a", "level"},
+	}
+	for _, name := range names {
+		var got []string
+		for _, d := range loaded.Diagnostics(name) {
+			ref, ok := strings.CutPrefix(d.Message, "unresolved reference: ")
+			if !ok {
+				t.Fatalf("%s: unexpected diagnostic %s", name, d.Message)
+			}
+			got = append(got, strings.Fields(ref)[0])
+		}
+		if !slices.Equal(got, want[name]) {
+			t.Fatalf("%s loaded: unresolved %v, want %v", name, got, want[name])
+		}
+	}
+	if recorded := recordDifferential(t, docs); recorded != len(docs) {
+		t.Fatalf("%d of %d documents recorded", recorded, len(docs))
 	}
 }

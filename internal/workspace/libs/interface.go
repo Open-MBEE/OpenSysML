@@ -18,7 +18,7 @@ import (
 // interfaceFormatVersion is the on-disk format version of an interface record.
 // Bump it whenever InterfaceRecord, symbols.DocumentRecord or
 // symbols.LibraryFacts changes shape or meaning.
-const interfaceFormatVersion = 7
+const interfaceFormatVersion = 8
 
 // ErrUnrecordable reports a document whose interface cannot be written without
 // its tree: a fact a reader needs has no name to restore it by. The document is
@@ -203,6 +203,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()
 	facts.DefKind, _ = sym.DefinitionKind()
+	if rel, ok := sym.RelationshipDecl(); ok {
+		facts.Relationship = &rel
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil {
 			continue

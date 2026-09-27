@@ -514,24 +514,24 @@ interface record, the scopes and symbols the other files reach with their
 facts attached and its diagnostics stored (`docs/internals/interface-records.md`).
 `BenchmarkPlaneResidency` holds the split constellation with every file loaded
 and with the plane files installed from records, the library and
-`constellation.sysml` loaded and analyzed against them (Intel Xeon Platinum
-8559C, 8 cores, 31 GiB, go1.25.0 linux/amd64; three runs, unchanged between
-runs):
+`constellation.sysml` loaded and analyzed against them, and
+`TestPlaneResidencyProcess` holds either state in a process of its own for
+an RSS measurement from outside. The figures — reachable heap in both states,
+what installing the records alone adds, a satellite's cost loaded against
+recorded, a plane's record on disk, and the two processes' live heap, peak
+RSS and wall time — are in `docs/internals/performance.md`, "What a closed
+document holds as its interface record", with the machine beside them.
 
-| satellites | planes | all loaded | planes recorded | the records alone | record on disk / plane |
-| ---------- | ------ | ---------- | --------------- | ----------------- | ---------------------- |
-| 128 | 4 | 64.6 MiB | 49.5 MiB | 17.7 MiB | 1 631 KiB |
-| 512 | 4 | 215 MiB | 154 MiB | 39.8 MiB | 6 524 KiB |
-| 1 600 | 32 | 697 MiB | 508 MiB | 164 MiB | 2 551 KiB |
-
-A satellite held in a record costs about **105 KiB** at 1 600 satellites
-against about 446 KiB loaded; the rest of the recorded workspace is
+What changed for the constellation: the loaded cost of a satellite is its
+syntax tree, its resolver frames and its analysis memos; the recorded cost is
+its members alone, each a symbol with the facts its readers need, kept because
+a qualified name from another document can name any of them and the diagnostic
+it gets depends on which it finds. The remainder of the recorded workspace is
 `constellation.sysml`, which states every satellite's ground link and is
-loaded. In a process of its own, reading the records from the cache rather
-than parsing the planes (`TestPlaneResidencyProcess`), the 1 600-satellite
-workspace's peak RSS goes from 2 608 MiB to 1 371 MiB and its live heap from
-733 MiB to 545 MiB. `docs/internals/performance.md` has the full table and
-what the record still holds per satellite.
+loaded; it is the largest document of the split and grows with the
+constellation, and what its own analysis holds is later work, as are the
+write points and hydration that would let an editor open the split model
+against a warm cache.
 
 ## Where the time goes
 

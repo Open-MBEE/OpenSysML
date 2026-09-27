@@ -86,6 +86,10 @@ type LibraryFacts struct {
 	UsageKind ast.UsageKind
 	DefKind   ast.DefinitionKind
 
+	// Relationship is what a keyword-first relationship member declares
+	// (`specialization S subtype A :> B;`), nil for any other declaration.
+	Relationship *RelationshipDecl
+
 	// Relationships are the relationships the declaration writes, in order,
 	// each with the fully-qualified name of what it resolved to, or "" for one
 	// that resolved to nothing.
@@ -114,6 +118,9 @@ const (
 	NodeBodyExpr
 	NodeAlias
 	NodeImport
+	NodeRelationship
+	NodePrefixMetadata
+	NodeTransition
 	NodeOther
 )
 
@@ -142,6 +149,12 @@ func NodeKindOf(decl ast.Node) NodeKind {
 		return NodeAlias
 	case *ast.Import:
 		return NodeImport
+	case *ast.RelationshipMember:
+		return NodeRelationship
+	case *ast.PrefixMetadata:
+		return NodePrefixMetadata
+	case *ast.TransitionMember:
+		return NodeTransition
 	}
 	return NodeOther
 }
@@ -185,6 +198,10 @@ func (f LibraryFacts) Clone() LibraryFacts {
 		v := *f.Default
 		f.Default = &v
 	}
+	if f.Relationship != nil {
+		r := *f.Relationship
+		f.Relationship = &r
+	}
 	return f
 }
 
@@ -199,6 +216,38 @@ func (a AnnotationFacts) Clone() AnnotationFacts {
 type RelationshipFacts struct {
 	Kind   ast.RelationshipKind
 	Target ElementRef
+}
+
+// RelationshipDecl is the relationship a keyword-first member declares, which
+// conjugation writes as a form of its own (`conjugation C conjugate A ~ B;`).
+type RelationshipDecl struct {
+	Kind       ast.RelationshipKind
+	Conjugated bool
+}
+
+// RelationshipDecl is the relationship the symbol's keyword-first member
+// declares, from its declaration or its record; ok is false for any other symbol.
+func (s *Symbol) RelationshipDecl() (RelationshipDecl, bool) {
+	if s.Recorded() {
+		if s.Facts.Relationship == nil {
+			return RelationshipDecl{}, false
+		}
+		return *s.Facts.Relationship, true
+	}
+	if rel, ok := s.Decl.(*ast.RelationshipMember); ok {
+		return RelationshipDecl{Kind: rel.Kind, Conjugated: rel.Conjugated}, true
+	}
+	return RelationshipDecl{}, false
+}
+
+// DeclaresTransition reports whether the symbol was declared by a transition
+// member (`transition t first a then b;`), from its declaration or its record.
+func (s *Symbol) DeclaresTransition() bool {
+	if s.Recorded() {
+		return s.Facts.Node == NodeTransition
+	}
+	_, ok := s.Decl.(*ast.TransitionMember)
+	return ok
 }
 
 // DeclaresUsage reports whether the symbol was declared by a usage, from its
