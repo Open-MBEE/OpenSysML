@@ -16,15 +16,14 @@ func withoutStandIns(r *Rendering) *Rendering {
 		return r
 	}
 	out := r.Clone()
-	geometry := map[string]*Geometry{}
-	collectGeometry(out.Roots, geometry)
+	places := collectPlaces(out)
 	elided, dropped := 0, 0
 	for {
 		standIn := findStandIn(out.Roots)
 		if standIn == nil {
 			break
 		}
-		dropped += elideNode(out, standIn.ID, geometry)
+		dropped += elideNode(out, standIn.ID, places)
 		elided++
 	}
 	notice := fmt.Sprintf("%d control node(s) a migration made up, which no diagram positions, elided", elided)
@@ -35,12 +34,50 @@ func withoutStandIns(r *Rendering) *Rendering {
 	return out
 }
 
-// collectGeometry maps every node under nodes, by ID, to its stated geometry.
-func collectGeometry(nodes []*Node, into map[string]*Geometry) {
-	for _, node := range nodes {
-		into[node.ID] = node.Geometry
-		collectGeometry(node.Children, into)
+// place is where a positioned drawing has a node: the box its Layout states,
+// its corner when the Layout states no size, else the point the routes of its
+// edges meet it at, at their mean; none of these for a node nothing positions.
+type place struct {
+	box    nodeBox
+	sized  bool
+	at     Point
+	placed bool
+}
+
+// collectPlaces maps every node of r, by ID, to its place.
+func collectPlaces(r *Rendering) map[string]place {
+	places := map[string]place{}
+	var stated func(nodes []*Node)
+	stated = func(nodes []*Node) {
+		for _, node := range nodes {
+			if g := node.Geometry; g != nil {
+				p := place{at: Point{X: g.X, Y: g.Y}, placed: true}
+				if g.HasSize {
+					p.box, p.sized = nodeBox{low: p.at, high: Point{X: g.X + g.Width, Y: g.Y + g.Height}}, true
+				}
+				places[node.ID] = p
+			}
+			stated(node.Children)
+		}
 	}
+	stated(r.Roots)
+	sums, counts := map[string]Point{}, map[string]int{}
+	meet := func(id string, at Point) {
+		sums[id] = Point{X: sums[id].X + at.X, Y: sums[id].Y + at.Y}
+		counts[id]++
+	}
+	for _, edge := range r.Edges {
+		if n := len(edge.Route); n > 1 {
+			meet(edge.From, edge.Route[0])
+			meet(edge.To, edge.Route[n-1])
+		}
+	}
+	for id, n := range counts {
+		if !places[id].placed {
+			places[id] = place{at: Point{X: sums[id].X / float64(n), Y: sums[id].Y / float64(n)}, placed: true}
+		}
+	}
+	return places
 }
 
 // positionedRendering reports whether any node of r has stated geometry or any
@@ -86,7 +123,7 @@ func standInKind(kind string) bool {
 
 // elideNode removes node id from out, joining its edges pairwise; it returns
 // how many pairs had no route to be drawn along.
-func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
+func elideNode(out *Rendering, id string, places map[string]place) int {
 	var into, from, kept []Edge
 	for _, edge := range out.Edges {
 		switch {
@@ -103,7 +140,7 @@ func elideNode(out *Rendering, id string, geometry map[string]*Geometry) int {
 	var joins [][2]string
 	for _, in := range into {
 		for _, o := range from {
-			joined, ok := joinEdges(in, o, geometry)
+			joined, ok := joinEdges(in, o, places)
 			if !ok {
 				dropped++
 				continue
@@ -153,9 +190,8 @@ func rejoinNotes(notes []Note, id string, joins [][2]string) []Note {
 // joinEdges is the edge in and out draw as one, along in's route continued by
 // out's, less the point where they meet; false when neither has a route. Where
 // one alone has a route, it ends at the elided node, so the way on to the
-// other's end is added: straight to the border of that node's box, when its
-// geometry gives one.
-func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
+// other's end is added: straight to that node's place, when it has one.
+func joinEdges(in, out Edge, places map[string]place) (Edge, bool) {
 	route := append([]Point(nil), in.Route...)
 	switch {
 	case len(route) > 1 && len(out.Route) > 1:
@@ -165,11 +201,11 @@ func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
 			route = append(route, out.Route...)
 		}
 	case len(out.Route) > 1:
-		route = reachFrom(geometry[in.From], out.Route)
+		route = reachFrom(places[in.From], out.Route)
 	case len(route) < 2:
 		return Edge{}, false
 	default:
-		route = reversed(reachFrom(geometry[out.To], reversed(route)))
+		route = reversed(reachFrom(places[out.To], reversed(route)))
 	}
 	joined := out
 	joined.From, joined.FromPort = in.From, in.FromPort
@@ -182,17 +218,22 @@ func joinEdges(in, out Edge, geometry map[string]*Geometry) (Edge, bool) {
 	return joined, true
 }
 
-// reachFrom is route led out of the box g states, when it states one and the
-// route starts off it: from the point of the border facing the route's start.
-func reachFrom(g *Geometry, route []Point) []Point {
-	if g == nil || !g.HasSize {
+// reachFrom is route led out of place p, when the route starts off it: from
+// the point of its box's border facing the route's start, or from the point it
+// is, for a place with no box. It is route itself for a node with no place.
+func reachFrom(p place, route []Point) []Point {
+	switch {
+	case !p.placed:
+		return route
+	case p.sized:
+		if p.box.holds(route[0]) {
+			return route
+		}
+		return append([]Point{p.box.faces(route[0], route[0])}, route...)
+	case p.at == route[0]:
 		return route
 	}
-	box := nodeBox{low: Point{X: g.X, Y: g.Y}, high: Point{X: g.X + g.Width, Y: g.Y + g.Height}}
-	if box.holds(route[0]) {
-		return route
-	}
-	return append([]Point{box.faces(route[0], route[0])}, route...)
+	return append([]Point{p.at}, route...)
 }
 
 // removeNode is nodes without the node id, wherever it is nested.

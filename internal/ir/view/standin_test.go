@@ -61,7 +61,7 @@ func TestElideNodeMovesNotesOntoJoinedEdges(t *testing.T) {
 		Notes: []Note{{Text: "in", EdgeFrom: "a", EdgeTo: "w"}, {Text: "out", EdgeFrom: "w", EdgeTo: "c"},
 			{Text: "on", Anchor: "w"}, {Text: "apart", EdgeFrom: "a", EdgeTo: "b"}},
 	}
-	elideNode(out, "w", map[string]*Geometry{})
+	elideNode(out, "w", collectPlaces(out))
 	var got []string
 	for _, note := range out.Notes {
 		got = append(got, note.Text+":"+note.Anchor+note.EdgeFrom+"->"+note.EdgeTo)
@@ -85,13 +85,50 @@ func TestJoinEdgesKeepsBothRoutesWaypoints(t *testing.T) {
 		{"meeting", []Point{{X: 10, Y: 20}, {X: 10, Y: 50}}, "0,20 10,20 10,50"},
 		{"apart", []Point{{X: 30, Y: 20}, {X: 30, Y: 50}}, "0,20 10,20 30,20 30,50"},
 	} {
-		joined, ok := joinEdges(in, Edge{From: "w", To: "c", Route: tc.out}, map[string]*Geometry{})
-		var got []string
-		for _, p := range joined.Route {
-			got = append(got, fmt.Sprintf("%g,%g", p.X, p.Y))
-		}
-		if !ok || strings.Join(got, " ") != tc.want {
+		joined, ok := joinEdges(in, Edge{From: "w", To: "c", Route: tc.out}, map[string]place{})
+		if got := routeText(joined.Route); !ok || got != tc.want {
 			t.Errorf("%s: joined route = %v, %v; want %q, true", tc.name, got, ok, tc.want)
+		}
+	}
+}
+
+// routeText writes a route's points, `x,y` each.
+func routeText(route []Point) string {
+	var got []string
+	for _, p := range route {
+		got = append(got, fmt.Sprintf("%g,%g", p.X, p.Y))
+	}
+	return strings.Join(got, " ")
+}
+
+// A route joined through an elided node on one side only is led on to the
+// other end wherever the drawing has that node: on the border of the box its
+// Layout states, at the point the routes of its other edges meet it when it
+// states none, and left as it is for a node nothing positions.
+func TestJoinEdgesReachesEndsPlacedByRoutes(t *testing.T) {
+	out := &Rendering{
+		Roots: []*Node{{ID: "a"}, {ID: "b", Geometry: &Geometry{X: 0, Y: 200, Width: 40, Height: 20, HasSize: true}},
+			{ID: "c"}, {ID: "d"}, {ID: "w", Kind: "join", StandIn: true}},
+		Edges: []Edge{
+			{From: "d", To: "a", Route: []Point{{X: 20, Y: 0}, {X: 20, Y: 20}}},
+			{From: "a", To: "w"}, {From: "b", To: "w"},
+			{From: "w", To: "c", Route: []Point{{X: 100, Y: 100}, {X: 200, Y: 100}}},
+			{From: "w", To: "d"},
+		},
+	}
+	elideNode(out, "w", collectPlaces(out))
+	want := map[string]string{
+		"d->a": "20,0 20,20",
+		"a->c": "20,20 100,100 200,100",
+		"b->c": "27.5,200 100,100 200,100",
+	}
+	if len(out.Edges) != len(want) {
+		t.Errorf("edges after eliding w = %d, want %d: %+v", len(out.Edges), len(want), out.Edges)
+	}
+	for _, edge := range out.Edges {
+		key := edge.From + "->" + edge.To
+		if got := routeText(edge.Route); got != want[key] {
+			t.Errorf("%s route = %q, want %q", key, got, want[key])
 		}
 	}
 }

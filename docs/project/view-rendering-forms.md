@@ -572,8 +572,10 @@ digraph "PlantViews::placedView" {
   nodes undrawn, before the placement is read (`withoutStandIns` in `standin.go`, for every
   form): each edge into it meets each edge out of it, and the pair is redrawn as one edge between
   the nodes it was written between, along whichever route the two had — where one alone has a
-  route, that route is led out of the other end's stated box from the border point facing it,
-  so the edge leaves its source rather than the stand-in's old place; a pair with no route is
+  route, that route is led on to the other end wherever the drawing has it — the border point
+  of its stated box facing the route, its stated corner, or the point the routes of its other
+  edges meet it at (`collectPlaces`, `reachFrom`) — so the edge leaves its source rather than
+  the stand-in's old place; an end nothing positions leaves the route as it is; a pair with no route is
   left undrawn, as the migration's wiring rather than the diagram's. The notice counts the nodes
   elided and the routeless pairs dropped (`2 control node(s) a migration made up, which no
   diagram positions, elided, and 1 edge(s) through them without a route`). Under
