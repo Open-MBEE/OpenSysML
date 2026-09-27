@@ -33,6 +33,7 @@ attribute c2 = c1;
 part a : A;
 metadata def M { attribute q = 4; attribute q2; }
 calc def f { in x; return : ScalarValues::Integer = 1; }
+part def Ctl { attribute w; action run { assign w := 1; } }
 `
 
 // A metadata feature value and a filter condition must be decidable from the
@@ -40,6 +41,7 @@ calc def f { in x; return : ScalarValues::Integer = 1; }
 // is decided by FeatureReferenceExpression::modelLevelEvaluable: a feature of a
 // type other than a metaclass is not, an unfeatured one is as its value is. An
 // extent `all T` never is, whatever T (§8.2.5.8.1 Table 5): a run decides it.
+// `x meta T` reads the element x names, not its value, so it is whatever x.
 func TestModelLevelEvaluable(t *testing.T) {
 	for expr, want := range map[string]bool{
 		"1":                       true,
@@ -67,6 +69,10 @@ func TestModelLevelEvaluable(t *testing.T) {
 		"c1":                      false,
 		"A::y":                    false,
 		"A::z":                    false,
+		"A::y meta A":             true,
+		"Ctl::run meta A":         true,
+		"nowhere meta A":          false,
+		"A::y meta nowhere":       false,
 		"(as A).y":                false,
 		"f((as A).y)":             false,
 		"f(1)":                    false,

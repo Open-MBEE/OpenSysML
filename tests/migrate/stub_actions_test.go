@@ -232,3 +232,130 @@ func TestIncompletelySerializedCallsAreRefusedNotStubbed(t *testing.T) {
 	}
 	wantClean(t, "t.sysml", r)
 }
+
+// ownerUsageAllocation is a block Ctl whose activity Run sets the block's own
+// status, so it is written as an action usage of Ctl, «Allocate»d to the block
+// Motor; a stereotype Tags::Tracked tags Motor with an element-valued `runs` naming Run.
+const ownerUsageAllocation = `
+    <packagedElement xmi:type="uml:Profile" xmi:id="_prof" name="Tags" URI="http://example.com/schemas/Tags.xmi">
+      <packagedElement xmi:type="uml:Stereotype" xmi:id="_st" name="Tracked">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_base" name="base_Class" association="_ext">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Class"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_st_runs" name="runs">
+          <type xmi:type="uml:Class" href="http://www.omg.org/spec/UML/20131001/UML.xmi#Element"/>
+        </ownedAttribute>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Extension" xmi:id="_ext" memberEnd="_st_base _ext_end">
+        <ownedEnd xmi:type="uml:ExtensionEnd" xmi:id="_ext_end" name="extension_Tracked" type="_st" aggregation="composite"/>
+      </packagedElement>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_status0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_oneV" value="1"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_set" name="set status" structuralFeature="_status" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_one"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rof" source="_oneOut" target="_setVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_set" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_alloc">
+      <client xmi:idref="_run"/>
+      <supplier xmi:idref="_motor"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Dependency" xmi:id="_alloc2">
+      <client xmi:idref="_set"/>
+      <supplier xmi:idref="_motor"/>
+    </packagedElement>`
+
+const ownerUsageAllocationApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_motor"/>
+  <sysml:Block xmi:id="_b2" base_Class="_ctl"/>
+  <sysml:Allocate xmi:id="_s1" base_Dependency="_alloc"/>
+  <sysml:Allocate xmi:id="_s2" base_Dependency="_alloc2"/>
+  <Tags:Tracked xmlns:Tags="http://example.com/schemas/Tags.xmi" xmi:id="_a_tr" base_Class="_motor" runs="_run"/>`
+
+// An activity written as an action usage of its block is no definition: an
+// «Allocate» from it, or from a node of it, to a block is a plain dependency,
+// whose ends are qualified names, not an allocation def with an end typed by
+// the usage; and a tag naming it casts it to SysML::ActionUsage, not a definition.
+func TestBehaviorsWrittenAsUsagesAreNoDefinitionEnds(t *testing.T) {
+	r := migrateDocument(t, ownerUsageAllocation, ownerUsageAllocationApplications)
+	for _, line := range []string{
+		"action run {",
+		"dependency Ctl::run to Motor;",
+		"dependency Ctl::run::'set status' to Motor;",
+		"runs = Ctl::run meta SysML::ActionUsage;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "allocation def")
+	wantNoLine(t, r.Notation, "meta SysML::ActionDefinition")
+	wantClean(t, "t.sysml", r)
+}
+
+// unfedTargetCall is a block Ctl with one part motor : Motor, whose activity Run
+// calls Motor's operation Spin — whose method sets Motor's own rpm, so it is
+// written as an action usage of Motor — through a target pin no flow feeds.
+const unfedTargetCall = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_motor" name="Motor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rpm" name="rpm">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_rpm0" value="0"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_spin" name="Spin" method="_spinning"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_spinning" name="Spinning" specification="_spin">
+        <node xmi:type="uml:InitialNode" xmi:id="_si"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_ten" name="ten">
+          <value xmi:type="uml:LiteralInteger" xmi:id="_tenV" value="10"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_tenOut" name="result"/>
+        </node>
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_setRpm" name="set rpm" structuralFeature="_rpm" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_setRpmVal" name="value"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se1" source="_si" target="_ten"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_sof" source="_tenOut" target="_setRpmVal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_se2" source="_setRpm" target="_sf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctl" name="Ctl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ctlMotor" name="motor" type="_motor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallOperationAction" xmi:id="_call" name="spin" operation="_spin">
+          <target xmi:type="uml:InputPin" xmi:id="_callTgt" name="target"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_call"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_call" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const unfedTargetCallApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_motor"/>
+  <sysml:Block xmi:id="_b2" base_Class="_ctl"/>`
+
+// A call whose target pin no flow feeds names no object: it is not performed on
+// the caller's sole part of the operation's block, which the model never chose;
+// an empty step stands for it and the report says why.
+func TestUnfedTargetPinDoesNotPickAPart(t *testing.T) {
+	r := migrateDocument(t, unfedTargetCall, unfedTargetCallApplications)
+	wantLine(t, r.Notation, "action spin;")
+	wantNoLine(t, r.Notation, "::> motor.spin")
+	wantNote(t, r, "_call", migrate.Approximated, "the call runs in the caller's context: no flow feeds its target pin; spin is an action of Motor, performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+	wantNote(t, r, "_callTgt", migrate.Approximated, "the target pin is not written: it names no object read from this")
+	wantClean(t, "t.sysml", r)
+}

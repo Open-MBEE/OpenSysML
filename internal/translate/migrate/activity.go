@@ -1937,11 +1937,12 @@ func (a *activity) callOperation(n *sysmlv1.Element, name string) {
 			a.receivers[t] = receiver
 		}
 		note = ""
-	case a.m.asUsage[op]:
+	case a.m.asUsage[op] && t == nil:
 		note = joinNotes(note, a.performUsage(name, op))
-		if t != nil {
-			a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this, so the call performs the usage of the object the caller acts on")
-		}
+	case a.m.asUsage[op]:
+		a.m.w.line(actionKw + name + ";")
+		note = joinNotes(note, a.m.nameOf(op)+" is an action of "+qualifiedName(op.Parent)+", performed on an object of it, and the target pin names none read from this, so an empty step stands for the call")
+		a.m.add(t, Approximated, "", "the target pin is not written: it names no object read from this")
 	case port != nil && t == nil:
 		a.m.w.line(actionKw + name + " : " + a.m.ref(op, a.def) + ";")
 	case t != nil:

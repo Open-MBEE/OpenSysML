@@ -206,11 +206,15 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 }
 
 // isUsage says whether e is written as a usage whose members are features of
-// it: a view or viewpoint, or a property. A feature owned by one is reached by
-// a feature chain, not a qualified name.
+// it: a view or viewpoint, a property, or a behavior written as its block's
+// action usage. A feature owned by one is reached by a feature chain, not a
+// qualified name.
 func (m *migration) isUsage(e *sysmlv1.Element) bool {
 	switch e.Type {
 	case "Property", "Port":
+		return true
+	}
+	if m.asUsage[e] {
 		return true
 	}
 	cat, _ := m.classify(e)
