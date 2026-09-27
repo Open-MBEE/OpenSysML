@@ -245,7 +245,13 @@ func (m *migration) hidden(name string) bool {
 // siblingRef writes a reference to a synthesized declaration named name that
 // is written beside host's members, from inside whatever is being written.
 func (m *migration) siblingRef(host *sysmlv1.Element, name string) string {
-	return m.refMember(host, name, append(m.path(host), segment{name: name}), host, false)
+	return m.synthesizedRef(host, name, host)
+}
+
+// synthesizedRef writes a reference from inside scope's body to a synthesized
+// declaration named name that is written beside host's members.
+func (m *migration) synthesizedRef(host *sysmlv1.Element, name string, scope *sysmlv1.Element) string {
+	return m.refMember(host, name, append(m.path(host), segment{name: name}), scope, false)
 }
 
 // ref writes a reference to target from inside scope's body (nil for the top

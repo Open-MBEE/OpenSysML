@@ -924,3 +924,14 @@ func isNestedCase(sym *symbols.Symbol) bool {
 	usage, ok := sym.Decl.(*ast.Usage)
 	return ok && (usage.Kind == ast.UsageAnalysisCase || usage.Kind == ast.UsageVerificationCase)
 }
+
+// ExplorePreviewError reports a tool preview under a schedule that explores:
+// every linearization runs, while a preview shows only one run's first call.
+type ExplorePreviewError struct {
+	Policy runtime.SchedulePolicy
+}
+
+func (e *ExplorePreviewError) Error() string {
+	return fmt.Sprintf("%s explores every linearization of a run, and a tool preview shows one run's first call: set `%%schedule declared` (or another non-exploring schedule) and ask again",
+		e.Policy)
+}

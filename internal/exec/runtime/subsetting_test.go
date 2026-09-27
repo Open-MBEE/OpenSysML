@@ -3,7 +3,10 @@ package runtime
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 const redefinedCollectionModel = `
@@ -377,5 +380,66 @@ func TestSubsetterContributionIsTypedByTheSubsettedFeature(t *testing.T) {
 		if fv := inst.FeatureValues[feature]; fv.Materialized || fv.Value.Kind != ValInvalid || fv.Values.Kind != ValInvalid {
 			t.Errorf("%s.%s = %+v after the refusal, want it left unmaterialized", usage, feature, fv)
 		}
+	}
+}
+
+// TestSubsettersAreFoundThroughEachClassifier: a classifier's subsetter of a feature the
+// object carries from another type is found under the queried name, its redefinition
+// alias and, for a classifier that also redefines the target, its own name; a name the
+// type neither declares nor subsets has none.
+func TestSubsettersAreFoundThroughEachClassifier(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, `
+		package test {
+			private import ScalarValues::Real;
+			part def Item { attribute mass : Real; }
+			part def Bay { part items : Item[*]; }
+			part def Loaded :> Bay { part crate : Item :> items { attribute :>> mass = 2.0; } }
+			part def Renamed :> Bay {
+				part cargo : Item[*] :>> items;
+				part pallet : Item :> cargo { attribute :>> mass = 3.0; }
+			}
+			part bay : Bay;
+		}
+	`))
+	loaded, renamed := lookupOne(t, idx, "test::Loaded"), lookupOne(t, idx, "test::Renamed")
+	wants := map[string]struct {
+		typ  *symbols.Symbol
+		name string
+		want string
+	}{
+		"inherited target":           {loaded, "items", "crate"},
+		"redefined target":           {renamed, "items", "pallet"},
+		"redefining name":            {renamed, "cargo", "pallet"},
+		"name the type lacks":        {loaded, "cargo", ""},
+		"the target is no subsetter": {renamed, "pallet", ""},
+	}
+	for label, tc := range wants {
+		var got []string
+		for _, feat := range ctx.SubsettingFeatures(nil, tc.typ, tc.name) {
+			got = append(got, feat.Name)
+		}
+		if strings.Join(got, ",") != tc.want {
+			t.Errorf("%s: SubsettingFeatures(%s, %s) = %v, want %q", label, tc.typ.Name, tc.name, got, tc.want)
+		}
+	}
+	bay := instantiateNamed(t, ctx, idx, "test::bay")
+	for _, classifier := range []*symbols.Symbol{loaded, renamed} {
+		if err := ctx.classify(bay, classifier); err != nil {
+			t.Fatalf("classify(%s): %v", classifier.Name, err)
+		}
+	}
+	var got []string
+	for _, feat := range ctx.subsettingFeaturesOf(bay, "items") {
+		got = append(got, feat.Name)
+	}
+	if strings.Join(got, ",") != "crate,pallet" {
+		t.Errorf("subsetters of items through Bay, Loaded and Renamed = %v, want crate then pallet", got)
+	}
+	fv, err := bay.GetFeatureValue(ctx, "items")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(items): %v", err)
+	}
+	if n := len(elementsOf(fv.HeldValue())); n != 2 {
+		t.Errorf("items holds %d elements after classifying, want the two subsetters'", n)
 	}
 }

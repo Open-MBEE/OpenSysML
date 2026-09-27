@@ -268,7 +268,6 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 		}
 		subject = inst
 	}
-
 	// The requirement being satisfied chooses the object its conditions read the
 	// same way `%requirement` does, so an object holding the carrier nested
 	// answers about that nested object rather than about the declaration.
@@ -278,12 +277,15 @@ func (ctx *Context) CheckSatisfactionOn(a *SatisfyAssertion, subject *Instance) 
 	if carrying == nil {
 		carrying = target
 	}
-	resolved, err := ctx.checkSubject("satisfaction", a.Text(), carrying, subject)
-	if err != nil {
-		return CheckResult{}, err
-	}
-	reached := resolved // the object resolved to, named by where it was reached from
-	subject = resolved.instance
+	return ctx.checkOn(sharedElement(a), "satisfaction", a.Text(), carrying, subject, func(reached carrier) (CheckResult, error) {
+		return ctx.checkSatisfactionOn(a, target, reached)
+	})
+}
+
+// checkSatisfactionOn is CheckSatisfactionOn evaluated on the object it resolved
+// to, named by where it was reached from.
+func (ctx *Context) checkSatisfactionOn(a *SatisfyAssertion, target *symbols.Symbol, reached carrier) (CheckResult, error) {
+	subject := reached.instance
 
 	scope := target.OwnerScope
 	members := ctx.chainMembers(target, scope)

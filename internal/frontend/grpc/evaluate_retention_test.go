@@ -204,7 +204,7 @@ package Demo {
 	if got := worker.Semantics().MemoSize(); got != 0 {
 		t.Fatalf("a new worker starts with %d selections, want none", got)
 	}
-	rt, release := srv.newRuntime(cached)
+	rt, release := srv.newRuntime(context.Background(), cached)
 	defer release()
 	warm := rt.Semantics().MemoSize()
 	if warm == 0 {

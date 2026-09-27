@@ -1,0 +1,59 @@
+// view: FlowViews::driveView
+// kind: action
+// stated: render asInterconnectionDiagram, view def ActionFlowView
+// layout: dot
+digraph "FlowViews::driveView" {
+  graph [fontname="Arial", fontcolor="#424242", compound=true];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>act</b> [Activity] Drive [ driveView ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<font point-size="9">«action def»</font><br/><b>Drive</b>>;
+      style="rounded,filled";
+      fillcolor="#E1E1C3:#F7F7EF";
+      gradientangle=0;
+      color="#424242";
+      penwidth=1;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n1" [shape=circle, fillcolor=black, width=0.2, label=""];
+      "n2" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>provide : Provide</b>>];
+      subgraph "cluster_n3" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>monitor</b></td></tr><hr/><tr><td align="left">own flow</td></tr></table>>;
+        style="rounded,filled";
+        fillcolor="#E1E1C3:#F7F7EF";
+        gradientangle=0;
+        color="#424242";
+        penwidth=1;
+        "n3" [shape=point, style=invis, width=0, height=0, label=""];
+        "n5" [shape=circle, fillcolor=black, width=0.2, label=""];
+        "n6" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>record</b>>];
+      }
+      "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>tally</b>>];
+      "n8" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="split"];
+      "n9" [fillcolor=black, width=0.8333333333333334, height=0.06944444444444445, fixedsize=true, label="", xlabel="sync"];
+      "n10" [shape=doublecircle, fillcolor=black, width=0.2, label=""];
+      "n11" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>park</b>>];
+      "n12" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="check"];
+    }
+  }
+  "n5" -> "n6";
+  "n1" -> "n8";
+  "n2" -> "n9";
+  "n2" -> "n3" [label="torque to reading", style=dashed, lhead="cluster_n3"];
+  "n3" -> "n9" [ltail="cluster_n3"];
+  "n7" -> "n9";
+  "n8" -> "n2";
+  "n8" -> "n3" [lhead="cluster_n3"];
+  "n8" -> "n7";
+  "n9" -> "n12";
+  "n11" -> "n10";
+  "n12" -> "n10" [label="[speed > 0]"];
+  "n12" -> "n11";
+}

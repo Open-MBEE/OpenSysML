@@ -44,7 +44,7 @@ type Index struct {
 	base                     *Index
 	frozen                   bool
 	generation               *indexGeneration
-	directChildrenMu         sync.Mutex
+	directChildrenMu         sync.RWMutex
 	directChildrenGeneration uint64
 	directChildrenCache      map[directChildrenKey][]*Symbol
 	directChildrenByName     map[directChildrenKey]map[string][]*Symbol
@@ -375,7 +375,8 @@ func (idx *Index) AddDocumentWithKind(name string, root *ast.RootNamespace, kind
 
 func (idx *Index) addDocument(name string, root *ast.RootNamespace, rs *Scope, kind source.Kind, explicitKind bool) {
 	idx.mustBeWritable("AddDocument")
-	idx.RemoveDocument(name)
+	// The caller expands once the documents are in; nothing is read in between.
+	idx.removeDocument(name, false)
 	idx.changedDoc(name)
 	if rs == nil {
 		rs = Build(root)
@@ -826,6 +827,12 @@ func (idx *Index) hasFQN(fqn string, sym *Symbol) bool {
 // the removal is recorded in the overlay, which stops answering for what the
 // document contributed while the base keeps it for every other index over it.
 func (idx *Index) RemoveDocument(name string) {
+	idx.removeDocument(name, true)
+}
+
+// removeDocument is RemoveDocument, re-expanding only when asked: a replacement
+// takes the old document out and expands once the new one is in.
+func (idx *Index) removeDocument(name string, expand bool) {
 	idx.mustBeWritable("RemoveDocument")
 	if !idx.knows(name) {
 		return
@@ -869,7 +876,9 @@ func (idx *Index) RemoveDocument(name string) {
 	idx.docReexports.del(name)
 	idx.dropNamespaceFilters(name)
 
-	idx.ExpandWildcardImports()
+	if expand {
+		idx.ExpandWildcardImports()
+	}
 }
 
 // MarkLibrary records that the named document holds bundled library content,
@@ -1600,13 +1609,12 @@ func (idx *Index) ShortNamed(name string) bool {
 	}
 	idx.readSegment(name)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	if v, ok := idx.shortNamedCache[name]; ok {
-		idx.directChildrenMu.Unlock()
+	if v, ok := cachedAt(idx, generation, func() (bool, bool) {
+		v, ok := idx.shortNamedCache[name]
+		return v, ok
+	}); ok {
 		return v
 	}
-	idx.directChildrenMu.Unlock()
 	v := idx.shortNamedScan(name)
 	idx.directChildrenMu.Lock()
 	if idx.generation.get() == generation {
@@ -1704,13 +1712,12 @@ func (idx *Index) LookupDirectChildren(prefix string) []*Symbol {
 func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
 	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	if out, ok := idx.directChildrenCache[key]; ok {
-		idx.directChildrenMu.Unlock()
+	if out, ok := cachedAt(idx, generation, func() ([]*Symbol, bool) {
+		out, ok := idx.directChildrenCache[key]
+		return out, ok
+	}); ok {
 		return out
 	}
-	idx.directChildrenMu.Unlock()
 
 	var out []*Symbol
 	keys := idx.childKeys(key.prefix)
@@ -1731,6 +1738,23 @@ func (idx *Index) lookupDirectChildren(key directChildrenKey) []*Symbol {
 	}
 	idx.directChildrenMu.Unlock()
 	return out
+}
+
+// cachedAt reads a direct-children cache through get under the read lock while
+// current for generation; a stale or empty cache takes the write lock and resets.
+func cachedAt[V any](idx *Index, generation uint64, get func() (V, bool)) (V, bool) {
+	idx.directChildrenMu.RLock()
+	current := idx.directChildrenGeneration == generation
+	v, ok := get()
+	idx.directChildrenMu.RUnlock()
+	if current && ok {
+		return v, true
+	}
+	idx.directChildrenMu.Lock()
+	idx.resetDirectChildrenCachesLocked(generation)
+	v, ok = get()
+	idx.directChildrenMu.Unlock()
+	return v, ok
 }
 
 // resetDirectChildrenCachesLocked drops both direct-children caches when the
@@ -1771,10 +1795,10 @@ func (idx *Index) LookupDirectChildrenNamedFrom(prefix, fromFQN, name string) []
 func (idx *Index) lookupDirectChildrenNamed(key directChildrenKey, name string) []*Symbol {
 	idx.readNamespace(key.prefix)
 	generation := idx.generation.get()
-	idx.directChildrenMu.Lock()
-	idx.resetDirectChildrenCachesLocked(generation)
-	byName, ok := idx.directChildrenByName[key]
-	idx.directChildrenMu.Unlock()
+	byName, ok := cachedAt(idx, generation, func() (map[string][]*Symbol, bool) {
+		byName, ok := idx.directChildrenByName[key]
+		return byName, ok
+	})
 	if ok {
 		return byName[name]
 	}

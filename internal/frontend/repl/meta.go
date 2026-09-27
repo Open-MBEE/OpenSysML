@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -28,8 +27,9 @@ import (
 )
 
 // renderUsage is how %render is written: a view, the form to write it in, text
-// when none is named, and the palette the DOT and PlantUML forms fill nodes from.
-const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette]]"
+// when none is named, then the palette the DOT and PlantUML forms fill nodes
+// from and the drawing style the DOT form draws in, in either order.
+const renderUsage = "usage: %render <name> [text|mermaid|markdown|dot|plantuml [palette] [pilot|cameo]]"
 
 // isMeta reports whether a trimmed input line is a meta command.
 func isMeta(line string) bool {
@@ -177,6 +177,7 @@ var metaCommandTable = []metaCommand{
 
 	{name: "%engines", group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
 	{name: "%engine", group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
+	{name: "%tool", group: groupEngines, args: "<case|action>[(<args>)] [<object>]", desc: "show what the external tool a case's or action's ToolExecution names would be given — manifest, executable, argv, environment, cwd, standard input, input file and reply mapping — with the model's current values, without starting the process; what the preview performed is discarded"},
 
 	{name: "%check-diverge", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
 	{name: "%check-property", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
@@ -189,7 +190,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
 	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
 	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette"},
+	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram or a Markdown table, or as Graphviz DOT or PlantUML, filled from a named palette and drawn in a style (pilot or cameo)"},
 
 	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
 	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
@@ -386,6 +387,8 @@ func (s *Session) metaSessionCommand(fields []string, line string) (metaResult, 
 		return metaOut(s.doEngines(fields[1:]), false, nil), true
 	case "%engine":
 		return metaOut(s.doEngine(fields[1:]), false, nil), true
+	case "%tool":
+		return metaOut(s.doTool(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "%tool")))), true
 	case "%check-diverge":
 		return metaOut(s.doCheckDiverge(fields[1:]), false, nil), true
 	case "%check-property":
@@ -437,9 +440,10 @@ func (s *Session) doTrace(args []string) []string {
 }
 
 // metaRender reads the %render arguments — the name, an optional form and, for
-// a form that fills nodes, an optional palette — and renders the view they name.
+// a form that fills nodes, an optional palette and drawing style — and renders
+// the view they name.
 func (s *Session) metaRender(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 3 {
+	if len(args) < 1 || len(args) > 4 {
 		return []string{renderUsage}, false, nil
 	}
 	form := view.FormText
@@ -449,17 +453,28 @@ func (s *Session) metaRender(args []string) ([]string, bool, error) {
 			return []string{fmt.Sprintf("unknown form %q; %s", args[1], renderUsage)}, false, nil
 		}
 	}
-	var palette view.Palette
-	if len(args) == 3 {
+	var opts view.Options
+	for _, word := range args[min(2, len(args)):] {
+		if style, ok := view.ParseDrawingStyle(word); ok {
+			if opts.Style != "" {
+				return []string{renderUsage}, false, nil
+			}
+			opts.Style = style
+			continue
+		}
 		if !form.TakesPalette() {
 			return []string{fmt.Sprintf("a palette fills the dot and plantuml forms only, not %s; %s", form, renderUsage)}, false, nil
 		}
-		var ok bool
-		if palette, ok = view.ParsePalette(args[2]); !ok {
-			return []string{(&view.UnknownPaletteError{Name: args[2]}).Error() + "; " + renderUsage}, false, nil
+		palette, ok := view.ParsePalette(word)
+		if !ok {
+			return []string{(&view.UnknownPaletteError{Name: word}).Error() + "; " + renderUsage}, false, nil
 		}
+		if opts.Palette != "" {
+			return []string{renderUsage}, false, nil
+		}
+		opts.Palette = palette
 	}
-	return s.doRender(args[0], form, palette)
+	return s.doRender(args[0], form, opts)
 }
 
 // metaModelCommand runs a model-level command, reporting whether the line
@@ -783,7 +798,7 @@ func (s *Session) evalIn(name, expr string) ([]string, error) {
 
 // contextScope is the namespace a pinned context evaluates in: the element's own
 // scope, so its members are named without qualification, else the scope it was
-// declared in, searched through both session documents.
+// declared in, searched through every session document.
 func (s *Session) contextScope(sym *symbols.Symbol) *symbols.Scope {
 	if sym == nil {
 		return nil
@@ -837,14 +852,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 		return literalResult, litErr
 	}
 
-	doc := s.ws.Document(docName)
+	declared := s.hasDeclarations()
 
 	// The library is indexed with or without session declarations, so a name it
 	// declares is answered from it; only compound expressions, handled below,
-	// need the session's own document.
+	// need the session's own documents.
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		if doc == nil || doc.Scope == nil {
+		if !declared {
 			return nil, s.errWithoutDeclarations(expr)
 		}
 		return nil, err
@@ -938,12 +953,14 @@ func (s *Session) evalExpr(expr string) ([]string, error) {
 
 	// A compound expression is evaluated in the session's own namespace; an empty
 	// session has none, so only the library answers there.
-	if doc == nil || doc.Scope == nil {
+	if !declared {
 		return s.evalWithoutDeclarations(ctx, expr)
 	}
 
-	// Complex expression with feature refs - inject into session context
-	tempSrc := s.joined() + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
+	// Complex expression with feature refs - parsed after the transcript, the
+	// loaded files masked out of it as they are out of the transcript document
+	typed, _ := s.transcript()
+	tempSrc := typed + fmt.Sprintf("\nattribute __eval__ = %s;", expr)
 	p := parser.New(source.New("eval", []byte(tempSrc)))
 	root := p.ParseFile()
 
@@ -1840,8 +1857,7 @@ func (s *Session) evalCalc(calcName, argText string) ([]string, []NamedValue, *a
 // calcSymbol resolves the calc %calc names. It is resolved before the runtime is
 // built, so a misspelling is reported as one whatever the session holds.
 func (s *Session) calcSymbol(calcName string) (*symbols.Symbol, error) {
-	doc := s.ws.Document(docName)
-	if doc == nil || doc.Scope == nil {
+	if !s.hasDeclarations() {
 		return nil, errors.New("no declarations loaded")
 	}
 	sym, _, lerr := s.lookupSymbolOfKinds(calcName, symbols.SymbolCalcDef, symbols.SymbolCalcUsage)
@@ -2148,31 +2164,21 @@ func (s *Session) doConstraint(name string) ([]string, bool, error) {
 // promptScope is the namespace a prompt expression is evaluated in: the last
 // namespace the session declared, whose imports are then visible to it exactly
 // as they are to a member written there (KerML 8.2.3.5.3). A session that
-// declared no namespace evaluates at the document root. Both session documents
-// are read, in buffer order, so a namespace loaded from a .kerml file counts.
+// declared no namespace evaluates at the document root. Every session document
+// is read, in buffer order, so a namespace a loaded file declares counts.
 func (s *Session) promptScope() *symbols.Scope {
 	docs := s.sessionDocs()
 	if len(docs) == 0 {
 		return nil
 	}
-	type entry struct {
-		member ast.Node
-		scope  *symbols.Scope
-	}
-	var members []entry
-	for _, doc := range docs {
-		if doc.AST == nil || doc.Scope == nil {
-			continue
-		}
-		for _, m := range doc.AST.Members {
-			members = append(members, entry{m, doc.Scope})
+	var members []Member
+	for _, m := range s.sessionMembers() {
+		if m.scope != nil {
+			members = append(members, m)
 		}
 	}
-	sort.SliceStable(members, func(i, j int) bool {
-		return members[i].member.Span().Offset < members[j].member.Span().Offset
-	})
 	for i := len(members) - 1; i >= 0; i-- {
-		member := members[i].member
+		member := members[i].Node
 		if mem, ok := member.(*ast.Membership); ok {
 			member = mem.Member
 		}
@@ -2194,7 +2200,7 @@ func (s *Session) promptScope() *symbols.Scope {
 		}
 	}
 	// No namespace to work in: the root holding the last declaration, so a
-	// top-level member loaded from a .kerml file is still in reach.
+	// top-level member of the last loaded file is still in reach.
 	if len(members) > 0 {
 		return members[len(members)-1].scope
 	}

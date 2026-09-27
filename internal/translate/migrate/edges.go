@@ -436,6 +436,12 @@ func (f viewForm) drawsEdge(keyword string) bool {
 	return f.rendering == interconnectionRendering && (keyword == "connection" || keyword == "binding")
 }
 
+// drawsPictures reports whether the form's rendering draws the Pictures its
+// view carries: a drawing does, a table or the notation does not.
+func (f viewForm) drawsPictures() bool {
+	return f.rendering == interconnectionRendering || f.rendering == treeRendering
+}
+
 // showsGraph reports whether d shows a node or edge the graph of form f draws.
 func (m *migration) showsGraph(d *sysmlv1.Diagram, f viewForm) bool {
 	return slices.ContainsFunc(d.Shown, func(s sysmlv1.ElementRef) bool {

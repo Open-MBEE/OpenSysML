@@ -1,0 +1,32 @@
+// view: PlantViews::loopView
+// kind: interconnection
+// stated: render asInterconnectionDiagram
+// layout: dot
+digraph "PlantViews::loopView" {
+  graph [fontname="Arial", fontcolor="#424242"];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  subgraph "cluster_frame" {
+    label=<<b>ibd</b> [Block] Loop [ loopView ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<font point-size="9">«part def»</font><br/><b>Loop</b>>;
+      style=filled;
+      fillcolor="#FFCC99:#FFFAD4";
+      gradientangle=0;
+      color="#99795C";
+      penwidth=1;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n1" [label=<<font point-size="9">«part»</font><br/><b>pump : Pump</b>>];
+      "n2" [label=<<font point-size="9">«part»</font><br/><b>tank : Tank</b>>];
+      "n3" [label=<<font point-size="9">«part»</font><br/><b>sensor : Pump</b>>];
+    }
+  }
+  "n1" -> "n2" [label="supply", arrowhead=none];
+  "n1" -> "n2" [label="of Water", style=dashed];
+}

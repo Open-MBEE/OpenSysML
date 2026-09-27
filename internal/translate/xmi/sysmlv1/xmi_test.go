@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -811,5 +812,71 @@ func TestStereotypeAncestry(t *testing.T) {
 	}
 	if got := names(m.Ancestors(m.Lookup("_pong"))); got != "Ping Pong" {
 		t.Errorf("Pong ancestors = %q", got)
+	}
+}
+
+// TestAttachments reads arbitrary archive entries — here an attached image —
+// after the model parsed; a model not read from an archive has none.
+func TestAttachments(t *testing.T) {
+	data, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob := []byte("\x89PNG fleet")
+	m, err := Parse(archive(t, "", map[string][]byte{
+		"com.nomagic.magicdraw.uml_model.model": data,
+		"attachments/fleet.png":                 blob,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := m.Attachment("attachments/fleet.png")
+	if !ok || !bytes.Equal(got, blob) {
+		t.Errorf("Attachment = %q, %v", got, ok)
+	}
+	if _, ok := m.Attachment("missing.png"); ok {
+		t.Error("a missing entry reported an attachment")
+	}
+	if !slices.Contains(m.AttachmentNames(), "attachments/fleet.png") {
+		t.Errorf("AttachmentNames = %v", m.AttachmentNames())
+	}
+	plain, err := Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := plain.Attachment("attachments/fleet.png"); ok || len(plain.AttachmentNames()) != 0 {
+		t.Error("a plain-XMI model reported attachments")
+	}
+}
+
+// An ATTACHED_FILE extension's contents names the archive entry holding the
+// element's attached file by streamContentID.
+func TestAttachedStreamReadFromExtension(t *testing.T) {
+	m, err := Parse([]byte(`<?xml version="1.0"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001" xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:id="_m" name="M">
+    <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C">
+      <ownedComment xmi:type="uml:Comment" xmi:id="_note" body="with file">
+        <xmi:Extension extender="MagicDraw UML 2022x">
+          <md_extensions.ATTACHED_FILE>
+            <MDFoundation:MDExtension source="ATTACHED_FILE">
+              <element href="#_note" xsi:type="uml:Comment"/>
+              <contents streamContentID="BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd" xsi:type="binary:StreamIdentityBinaryObject"/>
+            </MDFoundation:MDExtension>
+          </md_extensions.ATTACHED_FILE>
+        </xmi:Extension>
+      </ownedComment>
+      <ownedComment xmi:type="uml:Comment" xmi:id="_plain" body="plain"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := m.Lookup("_note").AttachedStream; got != "BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd" {
+		t.Errorf("AttachedStream = %q, want BINARY-5f61da68-044e-4f13-848c-1aa8b6afd6fd", got)
+	}
+	if got := m.Lookup("_plain").AttachedStream; got != "" {
+		t.Errorf("a comment with no attachment: AttachedStream = %q, want empty", got)
 	}
 }

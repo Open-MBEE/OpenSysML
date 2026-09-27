@@ -299,9 +299,11 @@ package 'Fleet Documents' {
         view others :> 'Fleet Views'::'Other Figures';
         view owners :> 'Fleet Views'::'Figure Owners';
         view noFigures :> 'Fleet Views'::'No Figures';
+        view safety :> Safety;
         /* applied stereotype «Document» */
     }
     view Introduction {
+        doc /* The fleet, in brief. */
         satisfy 'Fleet Viewpoints'::'Parts Viewpoint';
         expose Fleet::Structure::**;
     }
@@ -312,6 +314,7 @@ package 'Fleet Documents' {
         expose Fleet::Requirements::**;
     }
     view Safety {
+        doc /* Safety comes first. */
         satisfy 'Fleet Viewpoints'::'Safety Viewpoint';
         public import Fleet::*;
         /* applied stereotype «view» */
@@ -423,11 +426,15 @@ package 'Fleet Documents' {
         attribute redefines title = "Fleet Handbook";
         part Introduction : DocumentQueries::Section {
             attribute redefines title = "Introduction";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "The fleet, in brief.";
+            }
+            /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             part table : DocumentQueries::Table {
                 attribute redefines caption = "Fleet Parts";
                 calc rows : 'Fleet Handbook Fleet Parts Rows';
             }
-            part paragraph : DocumentQueries::Paragraph {
+            part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The parts of the fleet, by name.";
             }
         }
@@ -445,6 +452,9 @@ package 'Fleet Documents' {
             }
             part Safety : DocumentQueries::Section {
                 attribute redefines title = "Safety";
+                part paragraph : DocumentQueries::Paragraph {
+                    attribute redefines text = "Safety comes first.";
+                }
                 part table : DocumentQueries::Table {
                     attribute redefines caption = "Safety Requirements";
                     calc rows : 'Fleet Handbook Safety Requirements Rows';
@@ -497,6 +507,7 @@ package 'Fleet Documents' {
         }
         part Notes : DocumentQueries::Section {
             attribute redefines title = "Notes";
+            /* not migrated: the view Fleet Documents::Notes's conformance is not migrated: Conform general "_vp_gone" names no element */
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "First note.";
             }
@@ -506,7 +517,7 @@ package 'Fleet Documents' {
             part 'paragraph 3' : DocumentQueries::Paragraph {
                 attribute redefines text = "Figure: the fleet at the depot";
             }
-            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" has no caption, and a Diagram shows a view, not an image file */
+            /* not migrated: «Image Paragraph» Comment '<Comment>' — the attached image "depot.png" is not in the archive */
             /* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */
             /* not migrated: «Paragraph» Comment '<Comment>' — the paragraph's comment has no body */
         }
@@ -520,6 +531,22 @@ package 'Fleet Documents' {
                 missing = "last",
                 multiple = "first"),
             properties = ("name"))
+    }
+    calc def 'Fleet Brief Safety Requirements Rows' :> DocumentQueries::Query {
+        DocumentQueries::Project(
+            source = DocumentQueries::Except(
+                source = DocumentQueries::WhereMetadata(
+                    source = DocumentQueries::Descendants(
+                        source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                    'metadata' = ("Fleet Profile::Safety")),
+                exclude = DocumentQueries::WhereName(
+                    source = DocumentQueries::WhereMetadata(
+                        source = DocumentQueries::Descendants(
+                            source = DocumentQueries::Named(qualifiedName = ("Fleet"))),
+                        'metadata' = ("Fleet Profile::Safety")),
+                    operator = "matches",
+                    value = "^(?:.*Count)$")),
+            properties = ("name", "documentation"))
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";
@@ -591,6 +618,16 @@ package 'Fleet Documents' {
         }
         part 'No Figures' : DocumentQueries::Section {
             attribute redefines title = "No Figures";
+        }
+        part Safety : DocumentQueries::Section {
+            attribute redefines title = "Safety";
+            part paragraph : DocumentQueries::Paragraph {
+                attribute redefines text = "Safety comes first.";
+            }
+            part table : DocumentQueries::Table {
+                attribute redefines caption = "Safety Requirements";
+                calc rows : 'Fleet Brief Safety Requirements Rows';
+            }
         }
     }
 }

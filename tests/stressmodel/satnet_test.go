@@ -18,8 +18,8 @@ func TestSatelliteNetworkValidates(t *testing.T) {
 	if stats.Satellites != 4 || stats.GroundStations != 1 {
 		t.Fatalf("stats = %+v, want 4 satellites and 1 station", stats)
 	}
-	if stats.Requirements != 3*stats.Satellites {
-		t.Errorf("Requirements = %d, want three per satellite", stats.Requirements)
+	if stats.Requirements != 3*stats.Satellites || stats.Assertions != stats.Requirements {
+		t.Errorf("Requirements = %d, Assertions = %d, want three per satellite", stats.Requirements, stats.Assertions)
 	}
 	if stats.Bytes != len(src) {
 		t.Errorf("Bytes = %d, want %d", stats.Bytes, len(src))
@@ -31,8 +31,8 @@ func TestSatelliteNetworkValidates(t *testing.T) {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
 	verdicts := s.CheckSatisfy("")
-	if len(verdicts) != stats.Requirements {
-		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Requirements)
+	if len(verdicts) != stats.Assertions {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Assertions)
 	}
 	for _, v := range verdicts {
 		if !v.Holds() {
@@ -61,6 +61,146 @@ func TestSatelliteNetworkScales(t *testing.T) {
 	}
 }
 
+// TestFleetValidates keeps the fleet form in step with the grammar and the
+// runtime: a constellation of a few blocks with occurrence counts loads under
+// strict conformance without a diagnostic, its satisfy assertions hold, and the
+// occurrences read the block's defaults where a unit states nothing of its own.
+func TestFleetValidates(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2 * fleetUnitStride, GroundStations: 1, Fleet: true}
+	src, stats := n.Source()
+	if stats.Satellites != 4*fleetUnitStride || stats.GroundStations != 1 {
+		t.Fatalf("stats = %+v, want %d satellites and 1 station", stats, 4*fleetUnitStride)
+	}
+	if stats.Definitions != 2 || stats.Units != 4 {
+		t.Errorf("stats = %+v, want 2 blocks and 4 diverging units", stats)
+	}
+	if stats.Requirements != 3*stats.Definitions || stats.Assertions != 3*(stats.Definitions+stats.Units) {
+		t.Errorf("Requirements = %d, Assertions = %d, want three per block and three more per unit", stats.Requirements, stats.Assertions)
+	}
+	if stats.Bytes != len(src) {
+		t.Errorf("Bytes = %d, want %d", stats.Bytes, len(src))
+	}
+	for _, want := range []string{
+		"attribute :>> dataRate default = ",
+		"attribute :>> area default = ",
+		"connect [1] sats.comms.crosslinkTx to [1] sats.comms.crosslinkRx",
+		"connect [1] plane0.sats.comms.crosslinkTx to [1] plane1.sats.comms.crosslinkRx",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("source lacks %q", want)
+		}
+	}
+
+	s := repl.NewSession()
+	s.SetConformanceMode(diag.ConformanceModeOf(true))
+	for _, d := range s.Submit(src).Diagnostics {
+		t.Errorf("diagnostic: %s", d.Message)
+	}
+	verdicts := s.CheckSatisfy("")
+	if want := stats.Assertions; len(verdicts) != want {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), want)
+	}
+	for _, v := range verdicts {
+		if !v.Holds() {
+			t.Errorf("%s: %v", v.Subject, v.Lines)
+		}
+	}
+
+	const network = "SatelliteNetwork::Constellation::network"
+	for expr, want := range map[string]string{
+		network + ".plane1.sats#(1).catalogId":                          "= 40032",
+		network + ".plane1.sats#(2).slot":                               "= 16",
+		network + ".plane1.sats#(3).catalogId":                          "= 50000",
+		network + ".plane1.unit0.catalogId":                             "= 40032",
+		network + ".plane1.unit16.comms.crosslinkTerminal.serialNumber": `= "CROSSLINKTERMINAL-00048-1"`,
+		network + ".plane1.unit16.comms.crosslinkTerminal.dataRate":     "= 244.0",
+		network + ".plane1.sats#(3).comms.crosslinkTerminal.dataRate":   "= 103.0",
+		network + ".plane1.sats#(3).eps.solarArray.area":                "= 5.1 ['m²']",
+		network + ".plane0.sats#(3).plane":                              "= 0",
+		network + ".satelliteCount":                                     "= 64",
+	} {
+		lines, err := s.EvalExpr(expr)
+		if err != nil {
+			t.Errorf("%s: %v", expr, err)
+			continue
+		}
+		if got := strings.TrimSpace(lines[len(lines)-1]); got != want {
+			t.Errorf("%s = %q, want %q", expr, got, want)
+		}
+	}
+}
+
+// TestFleetScales checks the fleet form declares the blocks, the planes and the
+// links but not the satellites: the element count grows with the planes and the
+// diverging units, not with the occurrences.
+func TestFleetScales(t *testing.T) {
+	_, small := SatelliteNetwork{Planes: 2, Satellites: fleetUnitStride, GroundStations: 1, Fleet: true}.Source()
+	_, wide := SatelliteNetwork{Planes: 2, Satellites: 2 * fleetUnitStride, GroundStations: 1, Fleet: true}.Source()
+	_, wider := SatelliteNetwork{Planes: 2, Satellites: 8 * fleetUnitStride, GroundStations: 1, Fleet: true}.Source()
+	_, tall := SatelliteNetwork{Planes: 4, Satellites: fleetUnitStride, GroundStations: 1, Fleet: true}.Source()
+	_, legacy := SatelliteNetwork{Planes: 2, Satellites: fleetUnitStride, GroundStations: 1}.Source()
+	if wider.Satellites != 8*small.Satellites || wider.Definitions != small.Definitions {
+		t.Errorf("more satellites per plane changed the blocks: %+v vs %+v", wider, small)
+	}
+	perUnit := wide.Elements - small.Elements
+	if wide.Units-small.Units != 2 || wider.Units != 8*small.Units || wider.Elements-small.Elements != (wider.Units-small.Units)*perUnit/2 {
+		t.Errorf("elements do not grow only with the diverging units: %+v, %+v vs %+v", wider, wide, small)
+	}
+	if tall.Definitions != 4 || tall.Connections <= small.Connections {
+		t.Errorf("more planes add no blocks or links: %+v vs %+v", tall, small)
+	}
+	if legacy.Satellites != small.Satellites || legacy.Elements <= 4*small.Elements {
+		t.Errorf("the fleet form is not much smaller than one definition per satellite: %+v vs %+v", small, legacy)
+	}
+}
+
+// splitFiles is a network split by plane as the CLI loads it, one source per file.
+func splitFiles(n SatelliteNetwork) ([]repl.SourceFile, Stats) {
+	files, stats := n.Split()
+	srcs := make([]repl.SourceFile, len(files))
+	for i, f := range files {
+		srcs[i] = repl.SourceFile{Name: f.Name, Text: f.Source}
+	}
+	return srcs, stats
+}
+
+// TestSatelliteNetworkSplitValidates: the split declares the single file's
+// network, loads clean at one worker and at several, and satisfies across files.
+func TestSatelliteNetworkSplitValidates(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2, GroundStations: 1}
+	_, whole := n.Source()
+	files, stats := splitFiles(n)
+	if len(files) != n.Planes+2 {
+		t.Fatalf("got %d files, want one per plane beside the library and the constellation", len(files))
+	}
+	// The split declares one package per plane over the single file's elements.
+	whole.Bytes, stats.Bytes = 0, 0
+	whole.Elements += n.Planes
+	if stats != whole {
+		t.Errorf("split declares %+v, the single file %+v", stats, whole)
+	}
+
+	for _, jobs := range []int{1, 4} {
+		s := repl.NewSession()
+		s.SetConformanceMode(diag.ConformanceModeOf(true))
+		if err := s.SetJobs(jobs); err != nil {
+			t.Fatal(err)
+		}
+		for _, d := range s.SubmitFiles(files).Diagnostics {
+			t.Errorf("jobs=%d: diagnostic: %s", jobs, d.Message)
+		}
+		verdicts := s.CheckSatisfy("")
+		if len(verdicts) != stats.Requirements {
+			t.Fatalf("jobs=%d: got %d satisfy verdicts, want %d", jobs, len(verdicts), stats.Requirements)
+		}
+		for _, v := range verdicts {
+			if !v.Holds() {
+				t.Errorf("jobs=%d: %s: %v", jobs, v.Subject, v.Lines)
+			}
+		}
+	}
+}
+
 // TestSatelliteNetworkFilesValidate keeps the multi-file form in step with the
 // single one: the same constellation split by plane loads clean under strict
 // conformance, one document per file, and every satisfy assertion holds.
@@ -71,9 +211,33 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 		t.Fatalf("got %d files, want the library, %d planes and the network", len(files), n.Planes)
 	}
 	_, whole := n.Source()
-	if stats.Satellites != whole.Satellites || stats.Requirements != whole.Requirements || stats.Connections != whole.Connections {
+	if stats.Satellites != whole.Satellites || stats.Assertions != whole.Assertions || stats.Connections != whole.Connections {
 		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
 	}
+	validateFiles(t, files, stats.Assertions)
+}
+
+// TestFleetFilesValidate keeps the split fleet form in step with the whole one:
+// the library and the constellation as two documents declare the same network,
+// load clean under strict conformance, and hold every satisfy assertion.
+func TestFleetFilesValidate(t *testing.T) {
+	n := SatelliteNetwork{Planes: 2, Satellites: 2 * fleetUnitStride, GroundStations: 1, Fleet: true}
+	files, stats := n.Split()
+	if len(files) != 2 {
+		t.Fatalf("got %d files, want the library and the constellation", len(files))
+	}
+	_, whole := n.Source()
+	if stats.Elements != whole.Elements || stats.Definitions != whole.Definitions || stats.Units != whole.Units ||
+		stats.Satellites != whole.Satellites || stats.Assertions != whole.Assertions || stats.Connections != whole.Connections {
+		t.Fatalf("split stats %+v, single-file stats %+v", stats, whole)
+	}
+	validateFiles(t, files, stats.Assertions)
+}
+
+// validateFiles opens files as one workspace and one session, wanting no
+// diagnostic and the given number of satisfy assertions, all holding.
+func validateFiles(t *testing.T, files []File, assertions int) {
+	t.Helper()
 	ws := model.NewWorkspace(model.WithConformanceMode(diag.ConformanceModeOf(true)))
 	for _, f := range files {
 		ws.Open(f.Name, []byte(f.Source), 1)
@@ -94,8 +258,8 @@ func TestSatelliteNetworkFilesValidate(t *testing.T) {
 		t.Errorf("diagnostic: %s", d.Message)
 	}
 	verdicts := s.CheckSatisfy("")
-	if len(verdicts) != stats.Requirements {
-		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), stats.Requirements)
+	if len(verdicts) != assertions {
+		t.Fatalf("got %d satisfy verdicts, want %d", len(verdicts), assertions)
 	}
 	for _, v := range verdicts {
 		if !v.Holds() {

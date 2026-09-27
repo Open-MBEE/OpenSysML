@@ -1116,6 +1116,7 @@ func (m *migration) exposeNamed(v, scope *sysmlv1.Element) {
 var (
 	htmlTag    = regexp.MustCompile(`(?s)<[^>]*>`)
 	htmlBreak  = regexp.MustCompile(`(?i)</p>|<br\s*/?>`)
+	htmlBody   = regexp.MustCompile(`(?is)<(style|script)[^>]*>.*?</\s*(style|script)\s*>`)
 	blankLines = regexp.MustCompile(`\n{3,}`)
 )
 
@@ -1123,7 +1124,11 @@ var (
 // documentation as HTML, whose tags are dropped and entities decoded.
 func commentText(body string) string {
 	text := body
-	if strings.Contains(strings.ToLower(text), "<html") || strings.Contains(text, "<p>") || strings.Contains(text, "<br") {
+	lower := strings.ToLower(text)
+	if strings.Contains(lower, "<html") || strings.Contains(lower, "<p>") || strings.Contains(lower, "<br") ||
+		strings.Contains(lower, "<style") || strings.Contains(lower, "<script") || strings.Contains(lower, "<img") ||
+		strings.Contains(lower, "<div") || strings.Contains(lower, "<span") {
+		text = htmlBody.ReplaceAllString(text, "")
 		text = htmlBreak.ReplaceAllString(text, "\n")
 		text = htmlTag.ReplaceAllString(text, "")
 		text = html.UnescapeString(text)

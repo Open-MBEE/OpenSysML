@@ -19,12 +19,16 @@ What the renderer emits:
 - A stable `<a id="..."></a>` anchor before every block that a `Ref` targets;
   the reference renders as a link to it.
 - Tables as GitHub-flavored pipe tables; grouped tables as one subtable per
-  group key.
+  group key; a nested row (one a `Tree` query placed under another) opens its
+  first cell with `↳ ` after a non-breaking indent per level above the first,
+  the cell's own text unchanged (see [hierarchical rows](#hierarchical-rows)).
 - Lists as `-` bullets or `1.` numbered items.
 - Diagrams as fenced ` ```mermaid ` blocks (` ```dot ` blocks of Graphviz DOT
   when rendered with `-diagram-form dot`, ` ```plantuml ` blocks with
   `-diagram-form plantuml`, or a pipe table for the `table` kind whichever
   form), with captions in emphasis.
+- Images as a CommonMark image of the location under the caption, the
+  location verbatim.
 - An object the session holds as its path from the object the query was bound
   through (`car.wheels[2]`), and a verdict as `<assertion> on <path>: <verdict>`
   (`assert constraint powerLow on car.engine: violated`).
@@ -91,7 +95,7 @@ The model rides alongside the structure. A small `sysml-` class vocabulary
 names each part of the document (`sysml-document`, `sysml-section`,
 `sysml-table`, `sysml-row`, `sysml-cell`, `sysml-value`, `sysml-list`,
 `sysml-item`, `sysml-definitions`, `sysml-entry`, `sysml-term`,
-`sysml-description`, `sysml-diagram`, `sysml-caption`, `sysml-link`,
+`sysml-description`, `sysml-diagram`, `sysml-image`, `sysml-caption`, `sysml-link`,
 `sysml-ref` and their kin), and `data-` attributes carry the facts behind
 it: the content kind and name, the query behind a table, list or
 definitions block, the group-by column, each row's, item's or entry's
@@ -107,6 +111,20 @@ apart), and a diagram's view, kind and flow direction.
 <span class="sysml-value" data-value-kind="real">15</span></td>
 </tr>
 ```
+
+A column heading prints the column's label ([Column labels](authoring.md#column-labels))
+and carries the column's name, the key its cells are marked with, as
+`data-column`, so a theme or script keys on the name whatever the heading
+reads. A table whose `columnWidths` the model states carries the class
+`sysml-table-sized` and a `<colgroup>` of one `<col>` per column, the stated
+width as `data-width` and its share of the table as `style="width: 52.7%"` (an
+automatic column takes the mean stated width), so the default stylesheet lays
+the table out fixed in that proportion and a theme can read the source widths;
+the PDF backend gives an unsized wide table the same group, its columns
+sharing the width evenly and none narrower than its heading needs.
+A nested row states its depth as `data-depth` and as the `--sysml-depth`
+property its first cell's `span.sysml-indent` is widened by
+([hierarchical rows](#hierarchical-rows)).
 
 A row over an object the session holds ([Objects the session holds](query-cookbook.md#objects-the-session-holds))
 adds `data-object="#<id>"`, the id the instantiation report printed, beside
@@ -153,6 +171,11 @@ script, so a page embedding one loads Mermaid itself. Rendered with
 embeds its Graphviz DOT source in
 `<pre class="dot">` or its PlantUML source in `<pre class="plantuml">` instead;
 the page never draws it, and `-html-mermaid` leaves it alone.
+
+An `Image` block is a `<figure class="sysml-image">` whose `<img>` carries its
+`location` verbatim — a relative path stays relative, so a page reads an
+image beside it, as a relative link does — and its `alt` the text
+alternative, the caption its `<figcaption>`.
 
 Formulas work the same way. A math span becomes `<span class="sysml-math">`
 and a `Formula` block a `<figure class="sysml-formula">` with its caption,
@@ -327,14 +350,54 @@ All three are off by default and shape HTML and PDF alike; `-pdf-title-page`,
 
 ### Wide tables
 
-The PDF stylesheet keeps every table within the text width: cells wrap
-wherever they must, so a long qualified name breaks rather than pushing the
-rightmost columns off the page. A table of seven or more columns — a
-traceability matrix, say — is placed on landscape pages, together with the
-heading and caption that introduce it, while the surrounding pages stay
-portrait. The rules use the CSS `:has()` selector, which WeasyPrint — and so
-`weasyprint` and `pandoc` — supports; an engine without it keeps the whole
-document portrait.
+The PDF stylesheet keeps every table within the text width. A cell wraps at
+word boundaries and breaks a token only when it fits no line on its own, so a
+long qualified name breaks rather than pushing the rightmost columns off the
+page; the header row repeats at the top of every page a table continues onto;
+a row never splits across pages, though a long table does. A table of seven or
+more columns — a traceability matrix, an instance table of many value
+properties — is placed on landscape pages in smaller type (9pt; 8pt from
+eleven columns), together with the heading and caption that introduce it,
+while the surrounding pages stay portrait, and its first column, the one
+naming each row, keeps a readable minimum width however many columns follow.
+A table whose `columnWidths` the model states
+([Column widths](authoring.md#column-widths)) is sized in that proportion
+instead, though no column narrower than its heading's longest word needs, the
+others giving up the difference in proportion. Wider still, the column set is
+split rather than squeezed. The backend measures each table's headings against
+the line its column count has — 140 characters of the dense type across a
+landscape page, four fifths of that in the wide type, half of it in the
+ordinary type on a portrait page — the first column counting its least share
+of 18 % and every other column the longest word of its heading plus its cell
+padding, so no heading breaks inside a word. Headings that overrun their own
+line but fit the dense landscape line set the table on that line (HTML class
+`sysml-table-wide`: landscape, in the dense type, whatever a theme sets
+ordinary cells at) however few columns it holds; headings that overrun even
+that line, or more than twelve columns, are written as continuation tables on
+it, each repeating the first column ahead of as many of the following columns
+as head unbroken beside it (at most eleven), under the table's caption with
+"(continued)" appended and no number of its own; a heading longer than the
+line itself still sets beside the repeated column, the two sharing the line in
+proportion to their needs and the heading breaking. A table of few
+wide-headed columns therefore goes landscape or splits sooner than one of many
+short-headed ones, and a table that fits its own line is never moved or split. The `weasyprint` and `prince`
+engines split the HTML table; the `pandoc` engine gets the same split in the
+Markdown it converts, so every engine sets the same column sets, though a
+Markdown table carries no class, so `pandoc` sets a part of fewer than seven
+columns on a portrait page in the ordinary type. The landscape and first-column rules use the CSS `:has()` selector,
+which WeasyPrint — and so `weasyprint` and `pandoc` — supports; an engine
+without it keeps the whole document portrait.
+
+### Hierarchical rows
+
+A query that arranges its rows as a tree ([Nesting rows](query-cookbook.md#nesting-rows-tree))
+gives each row a depth, and every backend shows the nesting structurally,
+leaving the cell's own text as the model states it: Markdown opens a nested
+row's first cell with `↳ `, indented one step per level beyond the first with
+non-breaking spaces; HTML states the depth on the row as `data-depth` and
+widens an empty `span.sysml-indent` ahead of the first cell's values by
+`--sysml-depth` steps of `--sysml-row-indent`; PDF inherits the HTML rule. A
+flat query has every row at depth 0 and renders as before.
 
 ### PDF rendering of inline runs and anchors
 

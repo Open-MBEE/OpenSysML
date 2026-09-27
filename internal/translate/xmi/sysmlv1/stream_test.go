@@ -3,7 +3,11 @@ package sysmlv1
 import (
 	"archive/zip"
 	"bytes"
+	"image"
+	"image/color"
+	"image/png"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -53,6 +57,242 @@ func TestReadSymbols(t *testing.T) {
 	}
 	if want := map[string]int{"ImageShape": 1, "TextBox": 2}; !reflect.DeepEqual(syms.free, want) {
 		t.Errorf("free = %v, want %v", syms.free, want)
+	}
+}
+
+// Each symbol's geometry, ends, colours, font and text are read as MagicDraw
+// writes them: shapes as "x, y, w, h", paths as "x, y; x, y; " between the
+// symbols their link ends name, colours as Java ARGB integers under a
+// ColorProperty, fonts under a FontProperty, and a pasted image's file.
+func TestReadSymbolsGeometryAndStyle(t *testing.T) {
+	stream := `<?xml version='1.0' encoding='UTF-8'?>
+<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <geometry>5, 5, 533, 457</geometry>
+  </mdElement>
+  <mdElement elementClass='State' xmi:id='_s1'>
+    <elementID xmi:idref='_init'/>
+    <properties>
+      <mdElement elementClass='ColorProperty'>
+        <propertyID>FILL_COLOR</propertyID>
+        <propertyDescriptionID>FILL_COLOR_DESCRIPTION</propertyDescriptionID>
+        <value xmi:value='-1973821'/>
+      </mdElement>
+      <mdElement elementClass='ColorProperty'>
+        <propertyID>PEN_COLOR</propertyID>
+        <value xmi:value='-6710948'/>
+      </mdElement>
+      <mdElement elementClass='ColorProperty'>
+        <propertyID>TEXT_COLOR</propertyID>
+        <value xmi:value='-16777216'/>
+      </mdElement>
+      <mdElement elementClass='FontProperty'>
+        <propertyID>FONT</propertyID>
+        <fontName>Arial</fontName>
+        <size xmi:value='11'/>
+        <style xmi:value='1'/>
+      </mdElement>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>SUPPRESS_CLASS_OPERATIONS</propertyID>
+        <value xmi:value='true'/>
+      </mdElement>
+    </properties>
+    <geometry>35, 392, 119, 50</geometry>
+  </mdElement>
+  <mdElement elementClass='State' xmi:id='_s2'>
+    <elementID xmi:idref='_standby'/>
+    <properties>
+      <mdElement elementClass='BooleanProperty'>
+        <propertyID>USE_FILL_COLOR</propertyID>
+        <value xmi:value='false'/>
+      </mdElement>
+    </properties>
+    <geometry>266, 392, 119, 50</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Region' xmi:id='_s2r'>
+        <elementID xmi:idref='_region'/>
+        <geometry>266, 410, 119, 32</geometry>
+      </mdElement>
+    </mdOwnedViews>
+  </mdElement>
+  <mdElement elementClass='Transition' xmi:id='_t1'>
+    <elementID xmi:idref='_go'/>
+    <linkFirstEndID xmi:idref='_s1'/>
+    <linkSecondEndID xmi:idref='_s2'/>
+    <geometry>154, 417; 210, 417; 210, 430; 266, 430; </geometry>
+    <nameVisible xmi:value='false'/>
+  </mdElement>
+  <mdElement elementClass='Note' xmi:id='_n1'>
+    <elementID xmi:idref='_comment'/>
+    <geometry>200, 100, 150, 40</geometry>
+  </mdElement>
+  <mdElement elementClass='NoteAnchor' xmi:id='_na1'>
+    <linkFirstEndID xmi:idref='_n1'/>
+    <linkSecondEndID xmi:idref='_s1'/>
+    <geometry>200, 140; 90, 392; </geometry>
+  </mdElement>
+  <mdElement elementClass='TextBox' xmi:id='_tb'>
+    <geometry>400, 20, 80, 12</geometry>
+    <text>Draft only</text>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_img'>
+    <properties>
+      <mdElement elementClass='FileProperty'>
+        <propertyID>IMAGE_FILE</propertyID>
+        <value>optics/bench.png</value>
+      </mdElement>
+    </properties>
+    <geometry>10, 200, 300, 200</geometry>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (&Bounds{5, 5, 533, 457}); !reflect.DeepEqual(syms.frame, want) {
+		t.Errorf("frame = %+v, want %+v", syms.frame, want)
+	}
+	if want := []string{"_init", "_standby", "_region", "_go", "_comment"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
+	}
+	if want := map[string]int{"NoteAnchor": 1, "TextBox": 1, "ImageShape": 1}; !reflect.DeepEqual(syms.free, want) {
+		t.Errorf("free = %v, want %v", syms.free, want)
+	}
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		byID[s.ID] = s
+	}
+	if len(byID) != 9 {
+		t.Fatalf("read %d symbols, want 9", len(byID))
+	}
+	s1 := byID["_s1"]
+	if s1.Class != "State" || s1.ElementID != "_init" || s1.Parent != nil || !reflect.DeepEqual(s1.Bounds, &Bounds{35, 392, 119, 50}) || s1.Points != nil {
+		t.Errorf("state symbol = %+v", s1)
+	}
+	if want := (Style{Fill: "#E1E1C3", Pen: "#99995C", Text: "#000000", Font: &Font{Name: "Arial", Size: 11, Bold: true}}); !reflect.DeepEqual(s1.Style, want) {
+		t.Errorf("state style = %+v (font %+v), want %+v", s1.Style, s1.Style.Font, want)
+	}
+	if s2 := byID["_s2"]; !s2.Style.NoFill || s2.Style.Fill != "" {
+		t.Errorf("unfilled state style = %+v", s2.Style)
+	}
+	if r := byID["_s2r"]; r.Parent != byID["_s2"] || r.ElementID != "_region" || !reflect.DeepEqual(r.Bounds, &Bounds{266, 410, 119, 32}) {
+		t.Errorf("nested region symbol = %+v", r)
+	}
+	t1 := byID["_t1"]
+	if !t1.IsPath() || t1.Ends != [2]string{"_s1", "_s2"} || t1.Bounds != nil ||
+		!reflect.DeepEqual(t1.Points, []Point{{154, 417}, {210, 417}, {210, 430}, {266, 430}}) {
+		t.Errorf("transition symbol = %+v", t1)
+	}
+	if n := byID["_n1"]; n.Class != "Note" || n.ElementID != "_comment" || n.Free() {
+		t.Errorf("note symbol = %+v", n)
+	}
+	if a := byID["_na1"]; !a.Free() || !a.IsPath() || a.Ends != [2]string{"_n1", "_s1"} || len(a.Points) != 2 {
+		t.Errorf("note anchor symbol = %+v", a)
+	}
+	if tb := byID["_tb"]; !tb.Free() || tb.Text != "Draft only" || tb.Bounds == nil {
+		t.Errorf("text box symbol = %+v", tb)
+	}
+	if img := byID["_img"]; !img.Free() || img.Class != "ImageShape" || img.Attachment != "optics/bench.png" || !reflect.DeepEqual(img.Bounds, &Bounds{10, 200, 300, 200}) {
+		t.Errorf("image symbol = %+v", img)
+	}
+}
+
+// A geometry that is not a rectangle or a point list is no geometry, and a
+// colour that is not a Java ARGB integer, or is fully transparent, no colour.
+func TestReadSymbolsIgnoresMalformedGeometryAndColour(t *testing.T) {
+	stream := `<mdOwnedViews>
+  <mdElement elementClass='Class' xmi:id='_s1'><elementID xmi:idref='_a'/><geometry>10, 20, 30</geometry></mdElement>
+  <mdElement elementClass='Class' xmi:id='_s2'><elementID xmi:idref='_b'/><geometry>ten, 20, 30, 40</geometry>
+    <properties>
+      <mdElement elementClass='ColorProperty'><propertyID>FILL_COLOR</propertyID><value xmi:value='red'/></mdElement>
+      <mdElement elementClass='ColorProperty'><propertyID>PEN_COLOR</propertyID><value xmi:value='0'/></mdElement>
+    </properties>
+  </mdElement>
+  <mdElement elementClass='Dependency' xmi:id='_s3'><elementID xmi:idref='_c'/><geometry>1, 2; 3; </geometry></mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range syms.list {
+		if s.Bounds != nil || s.Points != nil || s.Style != (Style{}) {
+			t.Errorf("%s: bounds %+v points %v style %+v; want none", s.ID, s.Bounds, s.Points, s.Style)
+		}
+	}
+}
+
+// A symbol MagicDraw marks not visible is read but hidden: a hidden frame does not bound the
+// diagram, a hidden free symbol is not counted, and neither a hidden symbol, one nested in it nor
+// a hidden listed part shows its element, whichever of its visible flag and elementID comes
+// first, while a property's own visible flag is not the symbol's.
+func TestReadSymbolsHidden(t *testing.T) {
+	stream := `<mdOwnedViews>
+  <mdElement elementClass='DiagramFrame' xmi:id='_frame'>
+    <elementID xmi:idref='_diag'/>
+    <visible xmi:value='false'/>
+    <geometry>5, 5, 1397, 971</geometry>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_img'>
+    <geometry>0, 0, 823, 577</geometry>
+    <image>89 50 4e 47 d a 1a a</image>
+  </mdElement>
+  <mdElement elementClass='TextBox' xmi:id='_tb'>
+    <visible xmi:value='false'></visible>
+    <geometry>0, 0, 24, 12</geometry>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_s1'>
+    <elementID xmi:idref='_a'/>
+    <properties>
+      <mdElement elementClass='BooleanProperty'><propertyID>SHOW_NAME</propertyID><visible xmi:value='false'/></mdElement>
+    </properties>
+    <geometry>10, 10, 100, 50</geometry>
+    <mdOwnedViews>
+      <mdElement elementClass='Part' xmi:id='_s2'>
+        <elementID xmi:idref='_b'/>
+        <visible xmi:value='false'/>
+        <geometry>20, 20, 40, 20</geometry>
+        <mdOwnedViews>
+          <mdElement elementClass='Port' xmi:id='_s3'><elementID xmi:idref='_c'/><geometry>20, 25, 10, 10</geometry></mdElement>
+        </mdOwnedViews>
+      </mdElement>
+    </mdOwnedViews>
+    <parts>
+      <mdElement elementClass='Part' xmi:id='_p1'><elementID xmi:idref='_d'/><geometry>30, 40, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p2'><elementID xmi:idref='_e'/><visible xmi:value='false'/><geometry>30, 60, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p3'><visible xmi:value='false'/><elementID xmi:idref='_g'/><geometry>30, 80, 40, 20</geometry></mdElement>
+      <mdElement elementClass='Part' xmi:id='_p4'><visible xmi:value='true'/><elementID xmi:idref='_h'/></mdElement>
+    </parts>
+  </mdElement>
+  <mdElement elementClass='Class' xmi:id='_s4'>
+    <elementID xmi:idref='_f'/>
+    <visible xmi:value='false'/>
+    <geometry>200, 10, 100, 50</geometry>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if syms.frame != nil {
+		t.Errorf("a hidden frame bounds the diagram: %+v", syms.frame)
+	}
+	if want := map[string]int{"ImageShape": 1}; !reflect.DeepEqual(syms.free, want) {
+		t.Errorf("free = %v, want %v", syms.free, want)
+	}
+	hidden, stands := map[string]bool{}, map[string]string{}
+	for _, s := range syms.list {
+		hidden[s.ID] = s.Hidden
+		stands[s.ID] = s.ElementID
+	}
+	if want := map[string]bool{"_frame": true, "_img": false, "_tb": true, "_s1": false, "_s2": true, "_s3": true, "_s4": true}; !reflect.DeepEqual(hidden, want) {
+		t.Errorf("hidden = %v, want %v", hidden, want)
+	}
+	if want := map[string]string{"_frame": "_diag", "_img": "", "_tb": "", "_s1": "_a", "_s2": "_b", "_s3": "_c", "_s4": "_f"}; !reflect.DeepEqual(stands, want) {
+		t.Errorf("element ids = %v, want %v", stands, want)
+	}
+	if want := []string{"_a", "_d", "_h"}; !reflect.DeepEqual(syms.shown, want) {
+		t.Errorf("shown = %q, want %q", syms.shown, want)
 	}
 }
 
@@ -109,8 +349,9 @@ func TestReadSymbolsRejectsTruncatedStream(t *testing.T) {
 // or for an ancestor, as a compartment's — drops the listed elements none
 // displays, and gains the elements the symbols draw beyond the list, however
 // the two spell an element's href, while hrefs into two modules stay two
-// elements though their fragments agree; one whose symbols stand for no element
-// shows nothing, whatever its list names; one whose stream is absent or
+// elements though their fragments agree; one whose list names a compartment row the
+// stream hides drops it though its owner is shown; one whose symbols stand for no
+// element shows nothing, whatever its list names; one whose stream is absent or
 // unreadable stays unread with its list as written.
 func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	model := strings.Replace(string(diagramDocument(bddDiagram+`
@@ -144,6 +385,20 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
                   <usedElements>_b</usedElements>
                   <usedElements>_a_m</usedElements>
                   <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-blank"/>
+                </diagramContents>
+              </diagram:DiagramRepresentationObject>
+            </diagramRepresentation>
+          </xmi:Extension>
+        </ownedDiagram>
+        <ownedDiagram xmi:type="uml:Diagram" xmi:id="_d_veiled" name="Veiled" ownerOfDiagram="_p">
+          <xmi:Extension extender="Example UML Tool 1.0">
+            <diagramRepresentation>
+              <diagram:DiagramRepresentationObject xmi:id="_d_veiled_rep" type="SysML Block Definition Diagram" umlType="Class Diagram">
+                <diagramContents xmi:id="_d_veiled_contents">
+                  <usedElements>_a</usedElements>
+                  <usedElements>_a_b</usedElements>
+                  <usedElements>_a_m</usedElements>
+                  <binaryObject xsi:type="binary:StreamIdentityBinaryObject" streamContentID="BINARY-veiled"/>
                 </diagramContents>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
@@ -190,8 +445,11 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 			`<mdElement elementClass="Class"><elementID href="ModuleA.xmi#_shared"/></mdElement>` +
 			`<mdElement elementClass="Class"><elementID href="ModuleB.xmi#_shared"/></mdElement></mdOwnedViews>`),
 		"BINARY-blank": []byte(`<mdOwnedViews><mdElement elementClass="DiagramFrame"><elementID xmi:idref="_d_blank"/></mdElement><mdElement elementClass="TextBox"/></mdOwnedViews>`),
-		"BINARY-lost":  []byte("\xff\xfe not a stream"),
-		"BINARY-cut":   []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
+		"BINARY-veiled": []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_a"/><mdOwnedViews>` +
+			`<mdElement elementClass="Part"><visible xmi:value="false"/><elementID xmi:idref="_a_b"/></mdElement>` +
+			`<mdElement elementClass="Part"><elementID xmi:idref="_a_m"/></mdElement></mdOwnedViews></mdElement></mdOwnedViews>`),
+		"BINARY-lost": []byte("\xff\xfe not a stream"),
+		"BINARY-cut":  []byte(`<mdOwnedViews><mdElement elementClass="Class"><elementID xmi:idref="_b"/></mdElement><mdElement elementClass="Class"><elementID xmi:idref="_a"/>`),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -222,6 +480,9 @@ func TestParseArchiveReadsDiagramStreams(t *testing.T) {
 	}
 	if d := byID["_d_blank"]; !d.Drawn || len(d.Shown) != 0 || !reflect.DeepEqual(d.Free, map[string]int{"TextBox": 1}) {
 		t.Errorf("blank diagram: drawn %v, shown %q, free %v; want the list dropped, since no symbol displays what it names", d.Drawn, shown(d), d.Free)
+	}
+	if d := byID["_d_veiled"]; !d.Drawn || !reflect.DeepEqual(shown(d), []string{"_a", "_a_m"}) {
+		t.Errorf("veiled diagram: drawn %v, shown %q; want the hidden compartment row dropped though its owner is shown", d.Drawn, shown(d))
 	}
 	if d := byID["_d_lost"]; d.Drawn || len(d.Shown) != 0 || !d.Represented() {
 		t.Errorf("unreadable stream: drawn %v, shown %q, represented %v", d.Drawn, shown(d), d.Represented())
@@ -277,5 +538,126 @@ func TestParseArchiveSurvivesTornDiagramStream(t *testing.T) {
 	}
 	if m.Lookup("_b") == nil {
 		t.Error("the model beside the torn stream was not read")
+	}
+}
+
+// pngHex writes a small PNG the way MagicDraw serializes a pasted image's
+// bytes: lowercase hexadecimal octets without zero padding, space-separated.
+func pngHex(t *testing.T) ([]byte, string) {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	img.Set(0, 0, color.NRGBA{R: 255, A: 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatal(err)
+	}
+	octets := make([]string, 0, buf.Len())
+	for _, b := range buf.Bytes() {
+		octets = append(octets, strconv.FormatUint(uint64(b), 16))
+	}
+	return buf.Bytes(), strings.Join(octets, " ")
+}
+
+// A pasted image's bytes are read from its image tag, padded or not, apart from
+// its file name; unreadable octets are noted on the symbol itself, never failing
+// the stream nor touching another symbol, however the two are identified.
+func TestReadSymbolsDecodesPastedImages(t *testing.T) {
+	data, hex := pngHex(t)
+	stream := `<?xml version='1.0' encoding='UTF-8'?>
+<mdOwnedViews>
+  <mdElement elementClass='ImageShape' xmi:id='_img'>
+    <properties>
+      <mdElement elementClass='FileProperty'>
+        <propertyID>IMAGE</propertyID>
+        <value>Screen Shot 2013-12-08 at 9.46.18 PM.png</value>
+      </mdElement>
+    </properties>
+    <geometry>0, 0, 823, 577</geometry>
+    <mdOwnedViews/>
+    <image>` + hex + `</image>
+    <symbolStyleID>_style</symbolStyleID>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_padded'>
+    <geometry>10, 10, 20, 20</geometry>
+    <image>
+      89 50 4E 47 0D 0A 1A 0A
+    </image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_named'>
+    <properties>
+      <mdElement elementClass='FileProperty'>
+        <propertyID>IMAGE</propertyID>
+        <value>bench.png</value>
+      </mdElement>
+    </properties>
+    <geometry>10, 200, 300, 200</geometry>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_bad'>
+    <geometry>10, 400, 300, 200</geometry>
+    <image>89 50 4e 47 zz 1a a</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_long'>
+    <geometry>10, 600, 300, 200</geometry>
+    <image>895 0</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape' xmi:id='_name_as_bytes'>
+    <geometry>10, 800, 300, 200</geometry>
+    <image>bench.png</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape'>
+    <geometry>10, 1000, 300, 200</geometry>
+    <image>zz</image>
+  </mdElement>
+  <mdElement elementClass='ImageShape'>
+    <geometry>10, 1200, 300, 200</geometry>
+    <image>` + hex + `</image>
+  </mdElement>
+</mdOwnedViews>`
+	syms, err := readSymbols([]byte(stream), "_diag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]*Symbol{}
+	for _, s := range syms.list {
+		if s.ID != "" {
+			byID[s.ID] = s
+		}
+	}
+	if img := byID["_img"]; !bytes.Equal(img.Image, data) || img.Attachment != "Screen Shot 2013-12-08 at 9.46.18 PM.png" || img.ImageType() != "image/png" || !reflect.DeepEqual(img.Bounds, &Bounds{0, 0, 823, 577}) {
+		t.Errorf("image symbol = %+v (%d bytes, type %q)", img, len(img.Image), img.ImageType())
+	}
+	if p := byID["_padded"]; !bytes.Equal(p.Image, []byte("\x89PNG\r\n\x1a\n")) || p.Attachment != "" {
+		t.Errorf("padded image symbol = %+v", p)
+	}
+	if n := byID["_named"]; n.Image != nil || n.Attachment != "bench.png" || n.ImageType() != "" {
+		t.Errorf("named image symbol = %+v", n)
+	}
+	for _, s := range []*Symbol{byID["_img"], byID["_padded"], byID["_named"]} {
+		if s.ImageError != nil {
+			t.Errorf("%s: image error %v, want none", s.ID, s.ImageError)
+		}
+	}
+	want := map[string]*ImageError{
+		"_bad":           {Diagram: "_diag", Symbol: "_bad", Offset: 4, Octet: "zz"},
+		"_long":          {Diagram: "_diag", Symbol: "_long", Offset: 0, Octet: "895"},
+		"_name_as_bytes": {Diagram: "_diag", Symbol: "_name_as_bytes", Offset: 0, Octet: "bench.png"},
+	}
+	for id, e := range want {
+		if s := byID[id]; s.Image != nil || s.Attachment != "" || s.Bounds == nil || !reflect.DeepEqual(s.ImageError, e) {
+			t.Errorf("%s = %+v (error %+v); want bounds, the error %+v and neither bytes nor a name", id, s, s.ImageError, e)
+		}
+	}
+	if got := byID["_bad"].ImageError.Error(); got != `the pasted image's bytes do not read: octet 4 is "zz", not a hexadecimal byte` {
+		t.Errorf("error = %q", got)
+	}
+	if n := len(syms.list); n != 8 {
+		t.Fatalf("%d symbols, want 8", n)
+	}
+	if bad, good := syms.list[6], syms.list[7]; bad.Image != nil || !reflect.DeepEqual(bad.ImageError, &ImageError{Diagram: "_diag", Offset: 0, Octet: "zz"}) ||
+		!bytes.Equal(good.Image, data) || good.ImageError != nil {
+		t.Errorf("unnamed symbols = %+v, %+v; want the first noted and the second read", bad, good)
+	}
+	if want := map[string]int{"ImageShape": 8}; !reflect.DeepEqual(syms.free, want) {
+		t.Errorf("free = %v, want %v", syms.free, want)
 	}
 }

@@ -29,6 +29,8 @@ type Origin struct {
 	// Transport and Protocol are an engine entry's; empty and zero for a tool.
 	Transport string
 	Protocol  int
+	// Exchange is a tool's ToolEntry.Protocol; empty for an engine entry.
+	Exchange string
 }
 
 // Manifested is an engine registered from a manifest entry, which reports its origin.
@@ -53,13 +55,15 @@ func (o Origin) KindText() string {
 }
 
 // ProtocolText names how the engine is spoken to: `-` for one built in, `object` for a tool's
-// one JSON object each way, `<transport>/<protocol>` for an engine entry.
+// one JSON object each way, `argv+<stdin>` for one composed from its invocation block — the
+// reply's format alone or `argv+<stdin>/<format>` when it is not `object` — and
+// `<transport>/<protocol>` for an engine entry.
 func (o Origin) ProtocolText() string {
 	switch {
 	case o.Kind == "":
 		return "-"
 	case o.Kind == KindTool:
-		return "object"
+		return o.Exchange
 	}
 	return fmt.Sprintf("%s/%d", o.Transport, o.Protocol)
 }

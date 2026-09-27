@@ -2,21 +2,23 @@ package view
 
 import "fmt"
 
-// placement is what a positioned rendering has a place for: the nodes a Layout
-// positions, the clusters round a placed member, and the nodes a route meets.
-// Every graph-shaped form draws by it, so a drawing shows the same nodes and
-// edges whichever form writes it.
+// placement is what a positioned rendering has a place for: positioned nodes,
+// their clusters, routed nodes and pictures; every graph-shaped form draws by it.
 type placement struct {
-	placed map[string]bool // node ID -> has a place
-	extent map[string]bool // node ID -> its place has an extent, not a corner alone
-	nodes  int             // nodes in the rendering, and how many have a place
-	count  int
+	placed   map[string]bool // node ID -> has a place
+	extent   map[string]bool // node ID -> its place has an extent, not a corner alone
+	derived  map[string]bool // node ID -> placed beside the placed nodes its edges reach
+	nodes    int             // nodes in the rendering, and how many have a place
+	count    int
+	pictures int     // pictures drawn, each at stated bounds
+	ends     []*Node // the unplaced start and final nodes, candidates for a derived place
 }
 
 // placeRendering classifies every node of r. A rendering no Layout or Route
-// positions places nothing, and every form draws all of it.
+// positions places nothing, and every form draws all of it. A start or final
+// node nothing positions takes its place beside the placed nodes its edges reach.
 func placeRendering(r *Rendering) *placement {
-	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}}
+	p := &placement{placed: map[string]bool{}, extent: map[string]bool{}, derived: map[string]bool{}, pictures: len(r.Pictures)}
 	routed := map[string]bool{}
 	for _, edge := range r.Edges {
 		if len(edge.Route) > 1 {
@@ -26,7 +28,55 @@ func placeRendering(r *Rendering) *placement {
 	for _, root := range r.Roots {
 		p.place(root, r.Kind == KindTree, routed)
 	}
+	if p.count > 0 {
+		p.deriveEnds(r.Edges)
+	}
 	return p
+}
+
+// deriveEnds places every unplaced start or final node whose edges all reach a
+// node placed in its own right.
+func (p *placement) deriveEnds(edges []Edge) {
+	for _, node := range p.ends {
+		found := false
+		for _, edge := range edges {
+			other, ok := edgeOtherEnd(edge, node.ID)
+			if !ok {
+				continue
+			}
+			if !p.placed[other] || p.derived[other] {
+				found = false
+				break
+			}
+			found = true
+		}
+		if found {
+			p.placed[node.ID], p.extent[node.ID], p.derived[node.ID] = true, true, true
+			p.count++
+		}
+	}
+}
+
+// edgeOtherEnd is the node at the other end of edge from id, if id is an end.
+func edgeOtherEnd(edge Edge, id string) (string, bool) {
+	switch id {
+	case edge.From:
+		return edge.To, true
+	case edge.To:
+		return edge.From, true
+	}
+	return "", false
+}
+
+// endKind reports whether a node is where a flow begins or ends — a start,
+// initial, final or terminate pseudostate — drawn beside its neighbour when
+// nothing positions it.
+func endKind(kind string) bool {
+	switch kind {
+	case startKind, "initial", "final", terminateKind:
+		return true
+	}
+	return false
 }
 
 // place classifies node and the nodes under it, members first so a cluster
@@ -46,15 +96,26 @@ func (p *placement) place(node *Node, tree bool, routed map[string]bool) {
 	case cluster && members, routed[node.ID]:
 		p.extent[node.ID] = true
 	default:
+		if endKind(node.Kind) && !cluster {
+			p.ends = append(p.ends, node)
+		}
 		return
 	}
 	p.placed[node.ID] = true
 	p.count++
 }
 
+// positioned reports whether anything in the rendering has a stated place, a
+// node or a picture, so the drawing is pinned where the diagram states.
+func (p *placement) positioned() bool { return p.count > 0 || p.pictures > 0 }
+
 // partial reports whether the rendering places some nodes and not others: the
-// case a form settles as its Options.Unplaced asks.
+// case a form settles as its Options.Unplaced asks. Pictures place no node.
 func (p *placement) partial() bool { return p.count > 0 && p.count < p.nodes }
+
+// picturedOnly reports whether pictures alone pin the drawing while none of
+// its nodes has a place, so the nodes are drawn in a strip below the pictures.
+func (p *placement) picturedOnly() bool { return p.count == 0 && p.pictures > 0 && p.nodes > 0 }
 
 // unplaced is how many nodes have no place.
 func (p *placement) unplaced() int { return p.nodes - p.count }

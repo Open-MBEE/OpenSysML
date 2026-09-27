@@ -25,6 +25,10 @@ type Options struct {
 	// NumberSections numbers the section headings hierarchically.
 	NumberSections bool
 
+	// NumberFigures numbers the figures and tables in their captions, as
+	// docrender.HTMLOptions.NumberFigures.
+	NumberFigures bool
+
 	// Theme names the HTML backend's bundled theme laid under the print
 	// stylesheet, with the theme's print companion, when it carries one, laid
 	// over the print stylesheet; empty is the default sheet alone.
@@ -40,19 +44,63 @@ type Options struct {
 
 	// BaseDir is the directory a reader stylesheet's relative url() and
 	// @import references resolve against, the current directory when empty:
-	// the PDF's own, as an HTML page's sheets resolve against the page's.
+	// the PDF's own, as an HTML page's sheets resolve against the page's; and
+	// an image block's relative location when its source is no file on disk.
 	BaseDir string
 
 	// Lang is the document language, "en" when empty.
 	Lang string
 
-	// DiagramForm is the source graph-shaped diagrams are drawn from, Mermaid
-	// when empty.
+	// DiagramForm is the source graph-shaped diagrams are drawn from. Empty
+	// picks per diagram: DOT drawn by Graphviz for a rendering a Layout or
+	// Route positions when Graphviz is installed, Mermaid otherwise, the
+	// document stating each fallback.
 	DiagramForm view.Form
 
 	// Unplaced is where a diagram some Layout positions puts the nodes none
 	// does: left undrawn when empty, or drawn too (a strip below a DOT drawing).
 	Unplaced view.Unplaced
+
+	// Style is the drawing style every DOT diagram is drawn in, the Pilot look
+	// when empty.
+	Style view.DrawingStyle
+
+	// TableColumns is the most columns one table is set with on a page: a
+	// table projecting more is split into continuation tables, each repeating
+	// the first column ahead of its share of the rest. 0 is DefaultTableColumns;
+	// 1 is refused, as nothing would fit beside the repeated column.
+	TableColumns int
+
+	// TableMeasure is the characters of heading type one landscape table line
+	// holds: a table whose headings need more is split into continuation
+	// tables whose headings each set unbroken. 0 is DefaultTableMeasure.
+	TableMeasure int
+}
+
+// DefaultTableColumns is the widest table one landscape page sets legibly at
+// the print stylesheet's dense-table size before the column set is split.
+const DefaultTableColumns = 12
+
+// DefaultTableMeasure is the characters of bold dense-table type (8pt), the
+// type every part of a split table is set in, across the text width of a
+// landscape page at the print stylesheet's margins: 667pt on letter, 717pt
+// on A4, at about 4.8pt a character of a camel-cased heading.
+const DefaultTableMeasure = 140
+
+// tableColumns is the split an Options states, or the default.
+func tableColumns(opts Options) int {
+	if opts.TableColumns > 0 {
+		return opts.TableColumns
+	}
+	return DefaultTableColumns
+}
+
+// tableMeasure is the line an Options states, or the default.
+func tableMeasure(opts Options) int {
+	if opts.TableMeasure > 0 {
+		return opts.TableMeasure
+	}
+	return DefaultTableMeasure
 }
 
 // PrintStylesheet is the PDF backend's print stylesheet: page geometry, the
@@ -84,7 +132,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err := converter.Available(); err != nil {
 		return nil, err
 	}
-	diagrams, err := docrender.Diagrams(document, opts.DiagramForm, opts.Unplaced)
+	forms := docrender.DiagramOptions{Form: opts.DiagramForm, Unplaced: opts.Unplaced, Style: opts.Style}
+	forms.WithoutGraphviz = opts.DiagramForm == "" && !Graphviz{}.Available()
+	diagrams, err := docrender.Diagrams(document, forms)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +144,7 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	drawn, err := drawDiagrams(dir, diagrams, opts.DiagramForm)
+	drawn, err := drawDiagrams(dir, diagrams)
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +157,16 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	if err := checkImages(docrender.Images(document), base); err != nil {
+		return nil, err
+	}
 	doc := &Prepared{Dir: dir, MathCSS: math.css, BaseDir: base, Options: opts}
 	switch converter.Capabilities().Input {
 	case InputMarkdown:
-		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{DiagramForm: opts.DiagramForm, Unplaced: opts.Unplaced})
+		markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{
+			DiagramForm: opts.DiagramForm, WithoutGraphviz: forms.WithoutGraphviz, Unplaced: opts.Unplaced, Style: opts.Style,
+			OutputDir: base, NumberFigures: opts.NumberFigures, TableColumns: tableColumns(opts), TableMeasure: tableMeasure(opts),
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -118,11 +174,11 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 		if err := os.WriteFile(filepath.Join(dir, doc.MarkdownFile), []byte(markdown), 0o600); err != nil {
 			return nil, err
 		}
-		if doc.Filter, err = writeArtworkFilter(dir, opts.DiagramForm, images, math, docrender.Captions(document)); err != nil {
+		if doc.Filter, err = writeArtworkFilter(dir, images, math, docrender.Captions(document, opts.NumberFigures)); err != nil {
 			return nil, err
 		}
 	case InputHTML:
-		htmlOpts, err := htmlOptions(opts, dir, images, math)
+		htmlOpts, err := htmlOptions(opts, forms.WithoutGraphviz, dir, base, images, math)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +198,9 @@ func Render(document *docir.Document, engine string, opts Options) ([]byte, erro
 // the HTML backend's stylesheet choices for a converter reading Markdown,
 // whose HTML carries none of the backend's classes.
 func checkOptions(converter Converter, opts Options) error {
+	if opts.TableColumns < 0 || opts.TableColumns == 1 {
+		return &Error{Kind: ErrorTableColumns, Columns: opts.TableColumns}
+	}
 	for _, sheet := range opts.Stylesheets {
 		if err := sheet.Check(); err != nil {
 			return err
@@ -164,8 +223,9 @@ func checkOptions(converter Converter, opts Options) error {
 // companion over that, the KaTeX stylesheet when formulas were typeset, then
 // the reader's sheets; the diagram images and typeset formulas take the place
 // of source. The page's base is the reader's directory, so the working
-// directory's files are referenced by file URL.
-func htmlOptions(opts Options, dir string, images []string, math formulas) (docrender.HTMLOptions, error) {
+// directory's files are referenced by file URL and an image block's file
+// relative to that base.
+func htmlOptions(opts Options, withoutGraphviz bool, dir, base string, images []string, math formulas) (docrender.HTMLOptions, error) {
 	var sheets []docrender.Stylesheet
 	if !opts.NoDefaultStylesheet {
 		sheets = append(sheets, docrender.InlineStylesheet(PrintStylesheet))
@@ -188,11 +248,17 @@ func htmlOptions(opts Options, dir string, images []string, math formulas) (docr
 		TitlePage:           opts.TitlePage,
 		TOC:                 opts.TOC,
 		NumberSections:      opts.NumberSections,
+		NumberFigures:       opts.NumberFigures,
 		Lang:                opts.Lang,
 		DiagramForm:         opts.DiagramForm,
+		WithoutGraphviz:     withoutGraphviz,
 		Unplaced:            opts.Unplaced,
+		Style:               opts.Style,
 		DiagramImages:       images,
 		Math:                math.html,
+		OutputDir:           base,
+		TableColumns:        tableColumns(opts),
+		TableMeasure:        tableMeasure(opts),
 	}, nil
 }
 
@@ -206,6 +272,22 @@ func fileRefs(dir string, names []string) []string {
 		}
 	}
 	return refs
+}
+
+// checkImages requires every local image a document shows to exist where its
+// location resolves (docrender.Image.Path); remote locations are the engine's to fetch.
+func checkImages(images []docrender.Image, base string) error {
+	for _, image := range images {
+		if image.Remote() {
+			continue
+		}
+		path := image.Path(base)
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			return &Error{Kind: ErrorImageMissing, Tool: image.Name, Detail: path}
+		}
+	}
+	return nil
 }
 
 // dirURL is the file URL of an absolute directory with a trailing slash, so

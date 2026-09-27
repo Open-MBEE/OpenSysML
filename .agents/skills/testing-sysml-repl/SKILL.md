@@ -2530,9 +2530,66 @@ its output rather than in an exit code — so assert on the exact rendered text:
 
 ## Multi-file projects: `%load <path>...` and positional dirs/globs (PR #146)
 
+### Per-file document isolation probes
+
+- Give only one file a root-level `private import ScalarValues::*;`. A second
+  file's bare `Real` must stay unresolved, as must a later prompt declaration's
+  bare `Real`. A qualified expression such as `%eval A::x + 1.0` should still
+  work, proving isolation did not remove the loaded package from the index.
+- Two loaded files declaring the same root package are two root namespaces, not
+  a duplicate. References select the declaration in the document whose name
+  sorts first, independent of CLI argument order (see the CLI reference's
+  Multiple Files section). Put `A::X` in `first.sysml` and `A::Y` in
+  `second.sysml`, then reverse arguments: `A::X` must resolve and `A::Y` must
+  remain unresolved in both orders. Do not confuse reference precedence with
+  document rendering order.
+- For rendering order, `%view` takes a **view**, not an ordinary package.
+  `%render #table` renders the loaded documents without a declared view; reverse
+  two nonalphabetical package names and assert their member groups reverse.
+  A declared view with `render asElementTable;` needs `private import Views::*;`
+  in its scope.
+- `%save` passes notation through the formatter. Test source retention separately
+  from byte equality: tabs can become four spaces even while comments, members,
+  file order and typed declarations survive. Compare with a `develop` build
+  before attributing such formatting to a load-path regression.
+- Both debugger fixtures in `internal/frontend/repl/testdata/` are load-ready:
+  `action_debug.sysml` (`%action Debug::tally`, `%step`, type `part def Z;`,
+  `%continue`) ends at `total = 5`; `state_debug.sysml` (`%state Debug::Cycle`,
+  `%advance 1`, type `part def Z;`, `%advance 9`, `%advance 5`) reaches working
+  at t=10 and done at t=15. This tests symbol rebinding across prompt edits.
+
+#### Devin Secrets Needed
+
+None for local multi-file CLI/REPL tests.
+
+### Parallel file-load verification
+
+- The shared concurrency knob is `-jobs N` / `OPENSYSML_JOBS`, also observable
+  with `%jobs`. It bounds both plan execution and files parsed/validated in one
+  load. Compare stdout, stderr and exit status at 1, 2 and 8 jobs plus an
+  environment override; test invalid values against a nonexistent path to
+  distinguish startup rejection from a load failure. `-workers` is not a
+  supported replacement flag.
+- Generate a small multi-file model from the nested tools module:
+  `go run -C tools ./cmd/stress-model -planes 4 -satellites 10 -ground-stations 8 -split-planes <scratch-dir>`.
+  Verify SHA256/name manifest records, then shrink the model: unchanged surplus
+  output should disappear, while an edited surplus plane and user file survive.
+  Editing a still-current output should refuse the entire regeneration with
+  `nothing written`; compare all directory bytes before and after.
+- A load containing `part component : Needed::T;` gives a non-vacuous batch
+  diagnostic. In `%verbosity debug`, declare `package Needed { part def T; }`,
+  then `package Needed {}`, then restore `T`. Whole-buffer diagnostics must
+  change 1→0→1→0. An empty package removes its members; a nonempty declaration
+  merges with existing members and is not a suitable deletion probe.
+- For save/reload, retain comments and loaded-file declarations and assert
+  only the latest prompt redeclaration survives. Re-evaluate a compound
+  expression after `%clear` and reloading the saved file.
+
 `sysml <dir|glob|file>...` and `%load <path>...` expand to model files via
 `internal/workspace/project.Expand`, and every file is accepted before one analysis pass
-(`Session.SubmitAll`), so load order does not affect name resolution. Shapes to expect:
+(`Session.SubmitAll`), each file a workspace document of its own indexed with the
+others. Repeated root names resolve by document-name order, not load order.
+Shapes to expect:
 
 - More than one file prints a `loaded N files:` header listing each path (a single file prints no
   header — a good tell that the multi-file path was taken).

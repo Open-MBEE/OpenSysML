@@ -25,6 +25,7 @@ const (
 	definitionsBaseFQN = "DocumentQueries::Definitions"
 	formulaBaseFQN     = "DocumentQueries::Formula"
 	diagramBaseFQN     = "DocumentQueries::Diagram"
+	imageBaseFQN       = "DocumentQueries::Image"
 	runBaseFQN         = "DocumentQueries::Run"
 	spanBaseFQN        = "DocumentQueries::Span"
 	linkBaseFQN        = "DocumentQueries::Link"
@@ -59,6 +60,7 @@ type bases struct {
 	definitions *symbols.Symbol
 	formula     *symbols.Symbol
 	diagram     *symbols.Symbol
+	image       *symbols.Symbol
 	run         *symbols.Symbol
 	span        *symbols.Symbol
 	link        *symbols.Symbol
@@ -113,6 +115,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		definitions: libraryBase(index, definitionsBaseFQN),
 		formula:     libraryBase(index, formulaBaseFQN),
 		diagram:     libraryBase(index, diagramBaseFQN),
+		image:       libraryBase(index, imageBaseFQN),
 		run:         libraryBase(index, runBaseFQN),
 		span:        libraryBase(index, spanBaseFQN),
 		link:        libraryBase(index, linkBaseFQN),
@@ -123,7 +126,7 @@ func Compile(index *symbols.Index, model *semantics.Model, resolver *resolve.Res
 		linkColumn: libraryBase(index, linkColumnBaseFQN),
 	}
 	if all.document == nil || all.section == nil || all.paragraph == nil ||
-		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil ||
+		all.table == nil || all.list == nil || all.definitions == nil || all.formula == nil || all.diagram == nil || all.image == nil ||
 		all.run == nil || all.span == nil || all.link == nil || all.ref == nil ||
 		all.columnRun == nil || all.spanColumn == nil || all.linkColumn == nil {
 		return nil, &Error{Kind: ErrorLibraryUnavailable}
@@ -240,7 +243,8 @@ func (c *compiler) isContent(member *symbols.Symbol) bool {
 		c.model.Conforms(member, c.bases.list) ||
 		c.model.Conforms(member, c.bases.definitions) ||
 		c.model.Conforms(member, c.bases.formula) ||
-		c.model.Conforms(member, c.bases.diagram)
+		c.model.Conforms(member, c.bases.diagram) ||
+		c.model.Conforms(member, c.bases.image)
 }
 
 func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
@@ -266,6 +270,8 @@ func (c *compiler) compileContent(member *symbols.Symbol) (Content, error) {
 		return c.compileFormula(member)
 	case c.model.Conforms(member, c.bases.diagram):
 		return c.compileDiagram(member)
+	case c.model.Conforms(member, c.bases.image):
+		return c.compileImage(member)
 	default:
 		return Content{}, &Error{
 			Kind:     ErrorInvalidContent,
@@ -1016,6 +1022,14 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 	if err != nil {
 		return Content{}, err
 	}
+	widths, err := c.optionalWidths(member)
+	if err != nil {
+		return Content{}, err
+	}
+	labels, err := c.optionalLabels(member)
+	if err != nil {
+		return Content{}, err
+	}
 	query, err := c.requiredQueryRef(member)
 	if err != nil {
 		return Content{}, err
@@ -1037,13 +1051,112 @@ func (c *compiler) compileTable(member *symbols.Symbol) (Content, error) {
 		return Content{}, err
 	}
 	return Content{
-		kind:    ContentTable,
-		name:    c.effectiveName(member),
-		caption: caption,
-		groupBy: groupBy,
-		query:   query,
-		origin:  member.Origin(),
+		kind:         ContentTable,
+		name:         c.effectiveName(member),
+		caption:      caption,
+		groupBy:      groupBy,
+		columnWidths: widths,
+		columnLabels: labels,
+		query:        query,
+		origin:       member.Origin(),
 	}, nil
+}
+
+// optionalWidths reads a table's columnWidths: a sequence of non-negative
+// integer literals, or one such literal, in projection order.
+func (c *compiler) optionalWidths(member *symbols.Symbol) ([]int, error) {
+	candidate, literals := c.optionalSequence(member, "columnWidths")
+	if candidate != nil {
+		widths := make([]int, 0, len(literals))
+		for _, literal := range literals {
+			integer, ok := literal.(*ast.LiteralInteger)
+			if !ok {
+				return nil, c.invalidColumnWidths(member, candidate)
+			}
+			width, err := strconv.Atoi(integer.Value)
+			if err != nil || width < 0 {
+				return nil, c.invalidColumnWidths(member, candidate)
+			}
+			widths = append(widths, width)
+		}
+		return widths, nil
+	}
+	return nil, nil
+}
+
+// optionalLabels reads a table's columnLabels: a sequence of string literals,
+// or one such literal, in projection order.
+func (c *compiler) optionalLabels(member *symbols.Symbol) ([]string, error) {
+	candidate, literals := c.optionalSequence(member, "columnLabels")
+	if candidate == nil {
+		return nil, nil
+	}
+	labels := make([]string, 0, len(literals))
+	for _, literal := range literals {
+		text, ok := literal.(*ast.LiteralString)
+		label, err := "", error(nil)
+		if ok {
+			label, err = strconv.Unquote(text.Value)
+		}
+		if !ok || err != nil {
+			return nil, &Error{
+				Kind:      ErrorInvalidColumnLabels,
+				Document:  c.document,
+				Content:   symbols.FQNOf(member),
+				Parameter: "columnLabels",
+				Origin:    candidate.Origin(),
+			}
+		}
+		labels = append(labels, label)
+	}
+	return labels, nil
+}
+
+// optionalSequence is a table's valued attribute of the given name and the
+// literals of its value: the elements of a sequence, or the one value itself.
+func (c *compiler) optionalSequence(member *symbols.Symbol, name string) (*symbols.Symbol, []ast.Node) {
+	for _, candidate := range c.effectiveMembers(member) {
+		if candidate.Kind != symbols.SymbolAttributeUsage || c.effectiveName(candidate) != name {
+			continue
+		}
+		value := c.attributeValue(candidate, make(map[*symbols.Symbol]bool))
+		if value == nil {
+			continue
+		}
+		if sequence, ok := value.(*ast.SequenceExpr); ok {
+			return candidate, sequence.Elements
+		}
+		return candidate, []ast.Node{value}
+	}
+	return nil, nil
+}
+
+// attributeValue is the value expression of an attribute declaration,
+// following redefinition lineage when the declaration itself is unvalued.
+func (c *compiler) attributeValue(candidate *symbols.Symbol, seen map[*symbols.Symbol]bool) ast.Node {
+	if candidate == nil || seen[candidate] {
+		return nil
+	}
+	seen[candidate] = true
+	if declaration, ok := candidate.Decl.(*ast.Usage); ok && declaration.Value != nil {
+		return declaration.Value
+	}
+	for _, target := range c.model.RedefinedFeatures(candidate) {
+		if value := c.attributeValue(target, seen); value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func (c *compiler) invalidColumnWidths(member, candidate *symbols.Symbol) error {
+	return &Error{
+		Kind:      ErrorInvalidColumnWidths,
+		Document:  c.document,
+		Content:   symbols.FQNOf(member),
+		Parameter: "columnWidths",
+		Origin:    candidate.Origin(),
+	}
 }
 
 // staticColumns resolves the columns a compiled query statically projects,
@@ -1084,6 +1197,8 @@ func expressionColumns(program *queryplan.Program, expression queryplan.Expressi
 	case queryplan.OperationWhereType,
 		queryplan.OperationWhereMetadata,
 		queryplan.OperationWhereName,
+		queryplan.OperationWhereText,
+		queryplan.OperationTree,
 		queryplan.OperationWhereFeature,
 		queryplan.OperationOrderBy,
 		queryplan.OperationWhereRelated,
@@ -1298,6 +1413,45 @@ func (c *compiler) compileFormula(member *symbols.Symbol) (Content, error) {
 		name:    c.effectiveName(member),
 		source:  source,
 		caption: caption,
+		origin:  member.Origin(),
+	}, nil
+}
+
+// compileImage compiles an image block: the location it shows, which must
+// not be blank, an optional caption and an optional text alternative.
+func (c *compiler) compileImage(member *symbols.Symbol) (Content, error) {
+	location, stated, err := c.optionalText(member, "location")
+	if err != nil {
+		return Content{}, err
+	}
+	if !stated || strings.TrimSpace(location) == "" {
+		return Content{}, &Error{
+			Kind:     ErrorMissingImageLocation,
+			Document: c.document,
+			Content:  symbols.FQNOf(member),
+			Origin:   member.Origin(),
+		}
+	}
+	caption, _, err := c.optionalText(member, "caption")
+	if err != nil {
+		return Content{}, err
+	}
+	alt, _, err := c.optionalText(member, "alt")
+	if err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectQuery(member); err != nil {
+		return Content{}, err
+	}
+	if err := c.rejectNestedContent(member); err != nil {
+		return Content{}, err
+	}
+	return Content{
+		kind:    ContentImage,
+		name:    c.effectiveName(member),
+		source:  location,
+		caption: caption,
+		alt:     alt,
 		origin:  member.Origin(),
 	}, nil
 }

@@ -33,8 +33,12 @@ type life struct {
 func (l life) alive() bool { return l.began > 0 && l.ended == 0 }
 
 // readsLives lists the `=` value being derived, if any, as reading the lives: which
-// objects there are, and when each began and ended.
-func (ctx *Context) readsLives() { ctx.noteRead(&ctx.lifetimes) }
+// objects there are, and when each began and ended. The lives are the run's, not the
+// shape's, so nothing derived over them is shared.
+func (ctx *Context) readsLives() {
+	ctx.unshareTraces()
+	ctx.noteRead(nil, &ctx.lifetimes)
+}
 
 // livesChanged unmaterializes what derived from the lives, save what is deriving now:
 // a change a `=` value makes while deriving is its own, and what it derives reflects it.
@@ -186,6 +190,7 @@ func (ctx *Context) createDuring(op string, inst *Instance, mark int64) error {
 // outlives its whole or ends twice, and ends the behaviors they perform; a behavior
 // under way ends where its call catches the unwinding, which destroy returns.
 func (ctx *Context) destroy(inst *Instance) error {
+	ctx.unshareTraces()
 	if err := ctx.checkLiving(inst); err != nil {
 		return err
 	}

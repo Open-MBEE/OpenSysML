@@ -58,6 +58,10 @@ type Instance struct {
 	// explicit marks an object a caller asked for by name, which stands on its
 	// own even where its usage is a feature of a type.
 	explicit bool
+
+	// owed are the derived values this object took from its shape before
+	// materializing all their derivations read (see shared_default.go).
+	owed []owedDefault
 }
 
 // Owner answers the object holding this one and the feature of it that does, or
@@ -95,6 +99,9 @@ type FeatureValue struct {
 	// changing is set while a write to this value is under way, so a write nested
 	// in it counts as part of it (see beforeWrite).
 	changing bool
+	// intrinsic marks a value the feature's declarations alone materialized, which
+	// every occurrence of the shape holds alike (see shared_default.go).
+	intrinsic bool
 }
 
 // HeldValue is the value the feature value reads as: its collection when the feature is
@@ -266,7 +273,7 @@ func (ctx *Context) initFeatureValue(inst *Instance, fv *FeatureValue, feat *Eff
 			val := Value{Kind: ValConst, Const: semVal}
 			if ctx.checkDefault(inst, fv, feat.Name, &val, admitDeclared) == nil {
 				fv.Value = val
-				fv.Materialized = true
+				fv.Materialized, fv.intrinsic = true, true
 			}
 		}
 	}
@@ -299,7 +306,7 @@ func (ctx *Context) unfoldSubsettedDefaults(inst *Instance, typ *symbols.Symbol,
 				continue
 			}
 			ctx.noteProbeWrite(fv)
-			fv.Value, fv.Values, fv.Materialized = Value{}, Value{}, false
+			fv.Value, fv.Values, fv.Materialized, fv.intrinsic = Value{}, Value{}, false, false
 			ctx.invalidateDependents(fv)
 		}
 	}
@@ -732,7 +739,8 @@ func (inst *Instance) SetFeatureValue(ctx *Context, name string, value Value) er
 			fv.Value = Value{}
 		}
 		fv.Materialized, fv.Written = true, true
-		fv.BindingDerived, fv.Assumed = false, false
+		fv.BindingDerived, fv.Assumed, fv.intrinsic = false, false, false
+		ctx.unshareTraces()
 		ctx.afterWrite(fv, before)
 		return nil
 	})
@@ -751,7 +759,7 @@ func (inst *Instance) materializeFeatureValue(ctx *Context, name string, open *o
 	if err != nil {
 		return nil, err
 	}
-	ctx.noteRead(fv)
+	ctx.noteRead(inst, fv)
 	return fv, nil
 }
 
@@ -880,14 +888,17 @@ func (inst *Instance) materializeVariation(ctx *Context, fv *FeatureValue, name 
 		return nil, fmt.Errorf("feature value %s.%s: %w", inst.Type.Name, name, err)
 	}
 	fv.Value = bound
-	fv.Materialized = true
+	fv.Materialized, fv.intrinsic = true, false
 	return fv, nil
 }
 
 // materializeDerived evaluates a default against this instance and holds what
 // it states once that conforms to the feature's multiplicity and type.
 func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name string) (*FeatureValue, error) {
-	val, err := ctx.deriveFeatureValue(inst, fv, name)
+	if ctx.takeShared(inst, fv) {
+		return fv, nil
+	}
+	val, clean, reads, err := ctx.deriveFeatureValue(inst, fv, name)
 	if err != nil {
 		return nil, err
 	}
@@ -903,7 +914,8 @@ func (inst *Instance) materializeDerived(ctx *Context, fv *FeatureValue, name st
 	} else {
 		fv.Values = val
 	}
-	fv.Materialized = true
+	fv.Materialized, fv.intrinsic = true, clean
+	ctx.shareDerived(inst, fv, val, clean, reads)
 	return fv, nil
 }
 
@@ -941,7 +953,7 @@ func (inst *Instance) materializeComposite(ctx *Context, fv *FeatureValue, name 
 			return nil, err
 		}
 		fv.Value = Value{Kind: ValInstance, Instance: childInst.ID}
-		fv.Materialized = true
+		fv.Materialized, fv.intrinsic = true, true
 		if err := ctx.startClassifierBehaviors(childInst, mark); err != nil {
 			return nil, err
 		}
@@ -979,7 +991,7 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 	mark := len(ctx.created)
 	children, unfill, err := ctx.fillOptionalSubsetters(inst, name, count)
 	fail := func(err error) error {
-		fv.Values, fv.Materialized = Value{}, false
+		fv.Values, fv.Materialized, fv.intrinsic = Value{}, false, false
 		ctx.abandonInstancesSince(mark)
 		unfill()
 		release()
@@ -1003,6 +1015,7 @@ func (inst *Instance) materializeCompositeCollection(ctx *Context, fv *FeatureVa
 	fv.Values = ctx.collectionOf(fv.Feature, seq.Elements())
 	fv.Materialized = true
 	fv.Assumed = mult.AdmitsMore(int64(seq.Size()))
+	fv.intrinsic = ctx.subsettersDeclared(inst, name)
 	if err := ctx.startClassifierBehaviorsOf(children, mark); err != nil {
 		return fail(err)
 	}
@@ -1078,7 +1091,7 @@ func (inst *Instance) holdContributed(ctx *Context, fv *FeatureValue, name strin
 	} else {
 		fv.Values = val
 	}
-	fv.Materialized = true
+	fv.Materialized, fv.intrinsic = true, ctx.subsettersDeclared(inst, name)
 	fv.Assumed = !symbols.IsAbstract(fv.Feature.Symbol) && fv.Feature.Multiplicity.AdmitsMore(int64(len(contributed)))
 	return fv, nil
 }

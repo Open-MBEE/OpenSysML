@@ -5,6 +5,16 @@ package Plant {
         state def Modes {
             view 'Pump Modes' : StandardViewDefinitions::StateTransitionView {
                 expose Modes;
+                @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+                metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
+                metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
+                metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
+                @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 20; y = 20; width = 400; height = 300; }
+                @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }
+                metadata DiagramLayout::Style about Plant::Pump::Modes::Idle { fill = "#E1E1C3"; line = "#99995C"; text = "#000000"; font = "Arial"; fontSize = 11; bold = true; }
+                metadata DiagramLayout::Note about Plant::Pump::Modes::Idle { text = "Moves the coolant."; x = 40; y = 200; width = 150; height = 40; }
+                metadata DiagramLayout::Note about 'Idle accept Start then Running' { text = "On demand."; x = 180; y = 40; width = 100; height = 30; }
+                @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
                 render Views::asInterconnectionDiagram;
             }
             entry; then Idle;
@@ -33,14 +43,20 @@ package Plant {
     }
     part def Tank;
     view Blank {
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
         render Views::asTreeDiagram;
     }
     view Poster {
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 40; y = 40; width = 300; height = 200; alt = "Plant from the north"; }
+        @DiagramLayout::Note { text = "The plant from the north"; x = 40; y = 260; width = 300; height = 40; }
         render Views::asTreeDiagram;
     }
     view Unlisted {
         expose Tank;
         expose Pump;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
     view Silent {
@@ -48,11 +64,23 @@ package Plant {
     }
     view Stale {
         expose Tank;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
+    }
+    view Roster {
+        expose Tank;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 20; y = 20; width = 200; height = 30; }
+        @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 300; y = 20; width = 120; height = 80; }
+        render Views::asElementTable;
     }
     view Partial {
         expose Tank;
         expose Pump;
+        @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
+        metadata DiagramLayout::Layout about Tank { x = 100; y = 100; width = 120; height = 60; }
+        metadata DiagramLayout::Layout about Pump { x = 300; y = 100; width = 120; height = 60; }
         render Views::asTreeDiagram;
     }
 }
@@ -112,6 +140,7 @@ package 'Plant Documents' {
         expose Plant::Unlisted;
         expose Plant::Silent;
         expose Plant::Stale;
+        expose Plant::Roster;
     }
     view Shown {
         satisfy 'Plant Viewpoints'::'Shown Viewpoint';
@@ -149,16 +178,24 @@ package 'Plant Documents' {
             part paragraph : DocumentQueries::Paragraph {
                 attribute redefines text = "Nothing to see";
             }
+            part diagram : DocumentQueries::Diagram {
+                attribute redefines caption = "Poster";
+                ref redefines source = Plant::Poster;
+            }
             part 'paragraph 2' : DocumentQueries::Paragraph {
                 attribute redefines text = "The plant, photographed";
             }
-            part diagram : DocumentQueries::Diagram {
+            part 'diagram 2' : DocumentQueries::Diagram {
                 attribute redefines caption = "Unlisted";
                 ref redefines source = Plant::Unlisted;
             }
-            part 'diagram 2' : DocumentQueries::Diagram {
+            part 'diagram 3' : DocumentQueries::Diagram {
                 attribute redefines caption = "Stale";
                 ref redefines source = Plant::Stale;
+            }
+            part 'diagram 4' : DocumentQueries::Diagram {
+                attribute redefines caption = "Roster";
+                ref redefines source = Plant::Roster;
             }
         }
         part Shown : DocumentQueries::Section {

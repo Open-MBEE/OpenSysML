@@ -48,11 +48,15 @@ func wantOneNote(t *testing.T, r *migrate.Result, id string, verdict migrate.Ver
 	t.Errorf("entries for %s = %+v, want a %v entry noting %q", id, es, verdict, note)
 }
 
-// notationSection is the written Section of the title up to the next Section,
-// or "" when the notation writes none.
+// notationSection is the written Section of the title (quoted when it needs
+// to be) up to the next Section, or "" when the notation writes none.
 func notationSection(notation, title string) string {
-	head := "part '" + title + "' : DocumentQueries::Section {"
+	head := "part " + title + " : DocumentQueries::Section {"
 	i := strings.Index(notation, head)
+	if i < 0 {
+		head = "part '" + title + "' : DocumentQueries::Section {"
+		i = strings.Index(notation, head)
+	}
 	if i < 0 {
 		return ""
 	}
@@ -103,20 +107,24 @@ func html(t *testing.T, s *repl.Session, name string) string {
 // the tool showed: the instance rows of the scope plus the explicit rows,
 // sorted as the table was, with the matrix cells naming the related elements.
 func TestMigratedTablesExecute(t *testing.T) {
-	s := session(t, migrateFixtureFile(t, "tables"))
+	r := migrateFixtureFile(t, "tables")
+	s := session(t, r)
 
 	// Instance table: individuals of Pump (and its subtypes) under the scope
-	// plus two explicit rows, sorted by mass descending with the empty cell last.
+	// plus two explicit rows, less the excluded one, sorted by mass descending
+	// with the empty cell last; the classifier column is the individual's general.
+	// A slot typed by an individual (st1's pumps, holding p1) is not a row.
 	pumps := rows(t, s, "Plant::Inventory::'Pump Table Rows'")
 	wantInOrder(t, "Pump Table rows", pumps,
-		"returned 5 rows",
-		"Plant::Inventory::r1", `mass = 14`,
-		"Plant::Inventory::p1", `mass = 12.5`, `flow = 3`,
-		"Plant::Inventory::p2", `mass = 9`,
+		"returned 4 rows",
+		"Plant::Inventory::r1", `general = Plant::Structure::ReservePump`, `mass = 14`,
+		"Plant::Inventory::p1", `general = Plant::Structure::Pump`, `mass = 12.5`, `flow = 3`,
 		"Plant::Spares::s1", `mass = 7`,
 		"Plant::Spares::s2", `mass = ""`)
-	if strings.Contains(pumps, "Plant::Inventory::v1") {
-		t.Fatalf("Pump Table lists the valve v1:\n%s", pumps)
+	for _, absent := range []string{"Plant::Inventory::v1", "Plant::Inventory::p2", "st1"} {
+		if strings.Contains(pumps, absent) {
+			t.Fatalf("Pump Table lists %s:\n%s", absent, pumps)
+		}
 	}
 
 	// Built-in columns are projected before the feature columns, and a
@@ -134,6 +142,32 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"FlowRequirement", "The pump keeps the flow above the minimum.",
 		"MassRequirement", "SealRequirement")
 
+	// Requirement Id and Text read the short name and documentation the
+	// requirement's tags became, a stereotype tag its metadata feature, and
+	// the saved row filter keeps the rows whose tag cell matches.
+	key := rows(t, s, "Plant::Requirements::'Key Requirements Rows'")
+	wantInOrder(t, "Key Requirements rows", key,
+		"returned 1 row",
+		"Columns: shortName, name, documentation, level, level 2, grade",
+		"FlowRequirement", `shortName = "R-1"`, `name = "FlowRequirement"`,
+		`documentation = "The pump keeps the flow above the minimum."`, `level = 1`, `level 2 = 1`,
+		`grade = ['Plant Profile'::Grade::high, 'Plant Profile'::Grade::low]`)
+
+	// A saved filter whose column selection cannot be counted is dropped, not
+	// read as every column, so every row stays; an unreadable width or
+	// expanded-row entry is noted, and the table is still written.
+	wantNote(t, r, "_tbl_bad_filter", migrate.Approximated,
+		`the saved row filter "1*" names its columns in a form the reader does not count, and is dropped: OPTION_FILTER_COLUMN_INDEXES "0^bad": not column indexes joined by ^`)
+	wantNote(t, r, "_tbl_bad_filter", migrate.Approximated, `the tool wrote columnWidth "wide": not a width in pixels or -1, which is dropped`)
+	wantNote(t, r, "_tbl_reqs", migrate.Approximated, `the tool wrote expandedRows "x,_req_flow": not in the form <level>,<id>, which is dropped`)
+	unfiltered := rows(t, s, "Plant::Requirements::'Badly Filtered Requirements Rows'")
+	wantInOrder(t, "Badly Filtered Requirements rows", unfiltered, "returned 3 rows", "FlowRequirement")
+	for _, name := range []string{"SealRequirement", "MassRequirement"} {
+		if !strings.Contains(unfiltered, name) {
+			t.Errorf("Badly Filtered Requirements drops %s:\n%s", name, unfiltered)
+		}
+	}
+
 	// Dependency matrix: the cell of each requirement row lists the blocks
 	// that satisfy it, and the duplicate criterion column stays distinct.
 	matrix := rows(t, s, "Plant::Requirements::'Satisfaction Matrix Rows'")
@@ -149,10 +183,12 @@ func TestMigratedTablesExecute(t *testing.T) {
 		"returned 1 row",
 		"Plant::Requirements::FlowRequirement", `@type = "RequirementDefinition"`)
 
-	// Whole-model scope filtered by a migrated user stereotype.
+	// Whole-model scope filtered by a migrated user stereotype, the elements
+	// its specializations are applied to included.
 	critical := rows(t, s, "Plant::'Critical Elements Rows'")
 	wantInOrder(t, "Critical Elements rows", critical,
-		"returned 2 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement")
+		"returned 3 rows", "Plant::Structure::Pump", "Plant::Requirements::FlowRequirement",
+		"Plant::Requirements::SealRequirement")
 }
 
 // A generic table over a broad UML metaclass lists what that metaclass holds
@@ -266,7 +302,7 @@ func TestTopLevelTableIsWritten(t *testing.T) {
 		t.Errorf("target = %q", es[0].Target)
 	}
 	wantInOrder(t, "top-level Pump Table rows", rows(t, session(t, r), "'Pump Table Rows'"),
-		"returned 5 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
+		"returned 4 rows", "Plant::Inventory::r1", "Plant::Spares::s2")
 }
 
 // The Document each table becomes renders through the real Markdown and HTML
@@ -277,12 +313,11 @@ func TestMigratedTablesRender(t *testing.T) {
 	md := markdown(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table Markdown", md,
 		"# Pump Table",
-		"| name | mass | flow |",
-		"| r1 | 14 |  |",
-		"| p1 | 12.5 | 3 |",
-		"| p2 | 9 |  |",
-		"| s1 | 7 |  |",
-		"| s2 |  |  |")
+		"| name | classifier | mass | flow |",
+		"| r1 | ReservePump | 14 |  |",
+		"| p1 | Pump | 12.5 | 3 |",
+		"| s1 | Pump | 7 |  |",
+		"| s2 | Pump |  |  |")
 
 	page := html(t, s, "Plant::Inventory::'Pump Table Document'")
 	wantInOrder(t, "Pump Table HTML", page,
@@ -296,8 +331,8 @@ func TestMigratedTablesRender(t *testing.T) {
 	matrix := markdown(t, s, "Plant::Requirements::'Satisfaction Matrix Document'")
 	wantInOrder(t, "Satisfaction Matrix Markdown", matrix,
 		"| name | Trace | Trace 2 |",
-		"| FlowRequirement | Plant::Structure::Pump |  |",
-		"| SealRequirement | Plant::Structure::Valve |  |",
+		"| FlowRequirement | Pump |  |",
+		"| SealRequirement | Valve |  |",
 		"| MassRequirement |  |  |")
 }
 
@@ -425,6 +460,77 @@ func TestMigratedDocumentsRender(t *testing.T) {
 	}
 	if strings.Contains(brief, "showCaptions is false") {
 		t.Fatalf("a caption DocGen hides is rendered:\n%s", brief)
+	}
+}
+
+// A view's own documentation opens its section, before what its method
+// produces, as DocGen prints it: at every depth, tool HTML reduced to text,
+// once when the same comment is also one of the view's collaborator paragraphs,
+// and not at all for a view that has none. A collaborator paragraph following
+// nothing comes right after it, before the method's content, refused or not.
+func TestViewDocumentationOpensItsSection(t *testing.T) {
+	r := migrateFixtureFile(t, "documents")
+	notation := string(r.Notation)
+	for view, target := range map[string]string{
+		"Introduction": "part 'Fleet Documents'::'Fleet Handbook Document'::Introduction::paragraph",
+		"Safety":       "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph",
+	} {
+		var paragraphs []migrate.Entry
+		for _, e := range r.Report.Entries {
+			if e.Target == target {
+				paragraphs = append(paragraphs, e)
+			}
+		}
+		if len(paragraphs) != 1 || paragraphs[0].Verdict != migrate.Mapped || paragraphs[0].Name != "Fleet Documents::"+view+"::<Comment>" ||
+			!strings.HasPrefix(paragraphs[0].Note, "the documentation of the view Fleet Documents::"+view) {
+			t.Errorf("entries -> %s = %+v, want one mapped entry for the comment of %s noting the view's documentation", target, paragraphs, view)
+		}
+	}
+	wantInOrder(t, "Introduction section", notationSection(notation, "Introduction"),
+		`attribute redefines title = "Introduction";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "The fleet, in brief.";`,
+		`/* not migrated: «Paragraph» Comment '<Comment>' — property "META:QPROP:Element:name" is not the comment body */`,
+		`attribute redefines caption = "Fleet Parts";`,
+		"part 'paragraph 2' : DocumentQueries::Paragraph {",
+		`attribute redefines text = "The parts of the fleet, by name.";`)
+	if es := entriesFor(r, "_st_intro_named"); len(es) != 1 || es[0].Verdict != migrate.Unmapped {
+		t.Errorf("a malformed collaborator over the view's documentation should be refused, and only refused: %+v", es)
+	}
+	if es := entriesFor(r, "_intro_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped || !strings.HasSuffix(es[0].Target, "::Introduction::paragraph") {
+		t.Errorf("the view's documentation comment should have one entry, mapped to the paragraph it opens the section with: %+v", es)
+	}
+	if es := entriesFor(r, "_safety_doc"); len(es) != 1 || es[0].Verdict != migrate.Mapped ||
+		es[0].Target != "part 'Fleet Documents'::'Fleet Handbook Document'::Requirements::Safety::paragraph" ||
+		es[0].Note != "the documentation of the view Fleet Documents::Safety; also written as part 'Fleet Documents'::'Fleet Brief Document'::Safety::paragraph" {
+		t.Errorf("the documentation of a view placed in two documents should keep one entry naming both paragraphs: %+v", es)
+	}
+	wantInOrder(t, "Safety section", notationSection(notation, "Safety"),
+		`attribute redefines title = "Safety";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "Safety comes first.";`,
+		`attribute redefines caption = "Safety Requirements";`)
+	for text, want := range map[string]int{"The fleet, in brief.": 1, "Safety comes first.": 2, "Second note.": 1} {
+		if n := strings.Count(notation, `text = "`+text+`";`); n != want {
+			t.Errorf("%q is written as %d paragraph(s), want %d:\n%s", text, n, want, notation)
+		}
+	}
+	wantInOrder(t, "Requirements section", notationSection(notation, "Requirements"),
+		`attribute redefines title = "Requirements";`,
+		"part paragraph : DocumentQueries::Paragraph {",
+		`attribute redefines text = "Every truck of the fleet satisfies these requirements.";`)
+	if sec := notationSection(notation, "Figures"); strings.Count(sec, "DocumentQueries::Paragraph") != 1 {
+		t.Errorf("Figures, a view with no documentation, does not hold its caption paragraph alone:\n%s", sec)
+	}
+
+	md := markdown(t, session(t, r), "'Fleet Documents'::'Fleet Handbook Document'")
+	wantInOrder(t, "Fleet Handbook Markdown", md,
+		"## Introduction", "The fleet, in brief.", "*Fleet Parts*", "The parts of the fleet, by name.",
+		"## Requirements", "Every truck of the fleet satisfies these requirements.",
+		"### Safety", "Safety comes first.", "| Brake Distance |",
+		"## Notes", "First note.")
+	if n := strings.Count(md, "Second note."); n != 1 {
+		t.Errorf("a collaborator paragraph that is also its view's documentation is printed %d times, want 1:\n%s", n, md)
 	}
 }
 

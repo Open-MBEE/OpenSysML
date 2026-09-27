@@ -1606,7 +1606,7 @@ func (e *ActionExecutor) moving(t Token) bool {
 // of a join (its sources are 1..1), else those delivered or whose source a token may still perform.
 func (e *ActionExecutor) awaitedSuccessions(frame *actionFrame, node ast.Node) []lower.ActionEdge {
 	graph := e.graphOf(frame)
-	incoming := incomingEdges(graph, node)
+	incoming := graph.Incoming(node)
 	if _, join := node.(*ast.JoinNode); join || len(incoming) < 2 {
 		return incoming
 	}
@@ -1653,26 +1653,12 @@ func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[a
 	if _, join := node.(*ast.JoinNode); !join {
 		return true
 	}
-	for _, edge := range incomingEdges(e.graphOf(frame), node) {
+	for _, edge := range e.graphOf(frame).Incoming(node) {
 		if _, delivered := e.arrival(frame, node, edge, false); !delivered && !reached[edge.Source] {
 			return false
 		}
 	}
 	return true
-}
-
-// incomingEdges returns the successions into node, in the declaration order of
-// the nodes they leave.
-func incomingEdges(graph *lower.ActionGraph, node ast.Node) []lower.ActionEdge {
-	var incoming []lower.ActionEdge
-	for _, source := range graph.Nodes {
-		for _, edge := range graph.Edges[source] {
-			if edge.Target == node {
-				incoming = append(incoming, edge)
-			}
-		}
-	}
-	return incoming
 }
 
 // Awaiting returns the successions into the node token is held at that no token has

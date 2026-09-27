@@ -20,6 +20,13 @@ func StringValue(raw string) string {
 	if len(raw) >= 2 && (raw[0] == '"' || raw[0] == '\'') && raw[len(raw)-1] == raw[0] {
 		raw = raw[1 : len(raw)-1]
 	}
+	return Unescape(raw)
+}
+
+// Unescape reads the backslash escapes KerML §8.2.2 defines as the characters
+// they name; a backslash before anything else stands for that character
+// itself, and text with no backslash stands as it is.
+func Unescape(raw string) string {
 	if !strings.ContainsRune(raw, '\\') {
 		return raw
 	}

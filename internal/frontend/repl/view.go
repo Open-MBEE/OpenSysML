@@ -84,8 +84,8 @@ func (s *Session) view(name string) ([]string, error) {
 // doRender renders a view, reporting a name the session cannot find, an element
 // that is no view, a rendering kind not produced, or a form the kind is not
 // written in, as a line.
-func (s *Session) doRender(name string, form view.Form, palette view.Palette) ([]string, bool, error) {
-	lines, err := s.renderLines(name, form, palette)
+func (s *Session) doRender(name string, form view.Form, opts view.Options) ([]string, bool, error) {
+	lines, err := s.renderLines(name, form, opts)
 	if err != nil {
 		return []string{"error: " + err.Error()}, false, nil
 	}
@@ -101,25 +101,29 @@ func renderForms() []string {
 	return out
 }
 
-// renderPalettes are the palettes %render fills the dot form from, as its third
-// argument spells them.
+// renderPalettes are the palettes %render fills the dot form from and the
+// styles it draws in, as the arguments after the form spell them.
 func renderPalettes() []string {
-	out := make([]string, 0, len(view.Palettes()))
+	out := make([]string, 0, len(view.Palettes())+len(view.DrawingStyles()))
 	for _, palette := range view.Palettes() {
 		out = append(out, string(palette))
+	}
+	for _, style := range view.DrawingStyles() {
+		out = append(out, string(style))
 	}
 	return out
 }
 
 // renderLines renders a view in the kind its `render` member states and the form
-// asked for, filled from the palette when one is named, one line per line of
-// the artifact.
-func (s *Session) renderLines(name string, form view.Form, palette view.Palette) ([]string, error) {
+// asked for, filled from the palette and drawn in the style when they are named,
+// one line per line of the artifact.
+func (s *Session) renderLines(name string, form view.Form, opts view.Options) ([]string, error) {
 	rendering, err := s.viewRendering(name)
 	if err != nil {
 		return nil, err
 	}
-	artifact, err := rendering.WriteWith(form, view.Options{Palette: palette, Width: s.renderWidth})
+	opts.Width = s.renderWidth
+	artifact, err := rendering.WriteWith(form, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -220,14 +224,16 @@ func (s *Session) Views() ([]model.ViewInfo, error) {
 func (s *Session) symbolsInLoadOrder(in func(*symbols.Scope) []*symbols.Symbol) []*symbols.Symbol {
 	idx := s.browseIndex()
 	var out []*symbols.Symbol
-	for _, doc := range s.sessionDocs() {
-		out = append(out, in(idx.DocumentRoot(doc.Name))...)
+	// Each document's symbols are placed where its text sits in the buffer, so
+	// sorting restores submission order across the documents.
+	at := make(map[*symbols.Symbol]int)
+	for _, l := range s.locatedDocs() {
+		for _, sym := range in(idx.DocumentRoot(l.doc.Name)) {
+			at[sym] = l.base + sym.DeclSpan.Offset
+			out = append(out, sym)
+		}
 	}
-	// The language documents are masked copies of one joined buffer, so their
-	// spans share coordinates and sorting restores submission order.
-	sort.SliceStable(out, func(i, j int) bool {
-		return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset
-	})
+	sort.SliceStable(out, func(i, j int) bool { return at[out[i]] < at[out[j]] })
 	return out
 }
 
@@ -240,8 +246,19 @@ func (s *Session) viewRenderer() (*view.Renderer, error) {
 	}
 	resolver := resolve.New(idx)
 	model := semantics.NewModel(resolver)
+	model.SetSourceFile(s.sessionSourceFile)
 	resolver.SetModel(model)
 	return view.NewRenderer(model, resolver, s.sessionSourceText()), nil
+}
+
+// sessionSourceFile locates the file a span of a session document was loaded from:
+// a loaded file is a document named for its path; the transcript's spans are typed.
+func (s *Session) sessionSourceFile(doc string, span source.Span) string {
+	if doc != docName {
+		return source.FileNamed(doc, span)
+	}
+	sn, _ := s.snippetAt(span.Offset)
+	return source.FileNamed(sn.origin, span)
 }
 
 // sessionSourceText reads notation from the session's loaded documents, and
@@ -407,6 +424,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	sem.SetSourceText(r.session.sessionSourceText())
+	sem.SetSourceFile(r.session.sessionSourceFile)
 	model := runtime.NewModel(sem, resolver)
 	model.SetExpressionParser(parser.ParseOneExpression)
 	for _, doc := range r.session.sessionDocs() {
@@ -423,6 +441,7 @@ func (r *reportRuntime) runtime() (*runtime.Context, error) {
 		return nil, err
 	}
 	r.session.applyDraws(ctx)
+	r.session.attachTools(ctx)
 	r.ctx = ctx
 	return ctx, nil
 }

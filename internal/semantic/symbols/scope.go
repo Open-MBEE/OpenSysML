@@ -22,6 +22,7 @@ type Scope struct {
 	children         []*Scope
 	childIndex       atomic.Pointer[map[ast.Node]*Scope] // lazily built node -> child scope index for larger scopes
 	bodyLocal        bool                                // declarations live only inside the owning body
+	annotated        ast.Node                            // for a metadata body, the declaration the annotation is written on
 	docName          string                              // document this scope tree belongs to (stamped by SetDocName)
 }
 
@@ -67,6 +68,10 @@ func (s *Scope) BodyLocal() bool { return s.bodyLocal }
 
 // markBodyLocal records that this scope's names do not escape its body.
 func (s *Scope) markBodyLocal() { s.bodyLocal = true }
+
+// Annotated returns, for the body scope of a prefix metadata annotation, the
+// declaration the annotation is written on; nil for any other scope.
+func (s *Scope) Annotated() ast.Node { return s.annotated }
 
 // Children returns the child scopes in definition order.
 func (s *Scope) Children() []*Scope { return s.children }

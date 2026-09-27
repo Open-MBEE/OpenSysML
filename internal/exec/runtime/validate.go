@@ -175,6 +175,8 @@ func (ctx *Context) validateObjectWithin(root *Instance, scopes []*symbols.Scope
 	}
 	w := ctx.walkHeldObjects(root, budget)
 	report := ValidationReport{Root: root, Bounded: w.bounded, Unread: w.unread}
+	// Objects of one shape reading only declared values share one verdict.
+	defer ctx.ShareVerdicts()()
 	// Every object's carried assertions are read first, since a satisfaction one
 	// states may be about any object of the tree; verdicts then go out object by object.
 	carried := make([][]ObjectVerdict, len(w.objects))

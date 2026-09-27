@@ -26,6 +26,7 @@ var layoutFeatures = map[string][]string{
 	semantics.LayoutFQN: {"x", "y", "width", "height", "collapsed"},
 	semantics.RouteFQN:  {"points"},
 	semantics.CanvasFQN: {"unit", "width", "height"},
+	semantics.StyleFQN:  {"fill", "line", "text", "font", "fontSize", "bold", "italic"},
 }
 
 // layoutSplices turns a set-layout operation into the bytes it rewrites: the
@@ -35,8 +36,8 @@ func (m Model) layoutSplices(i int, op Operation) ([]splice, error) {
 	features, known := layoutFeatures[op.Annotation]
 	if !known {
 		return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
-			Message: fmt.Sprintf("%q is no DiagramLayout annotation; the annotations are %s, %s and %s",
-				op.Annotation, semantics.LayoutFQN, semantics.RouteFQN, semantics.CanvasFQN)}
+			Message: fmt.Sprintf("%q is no DiagramLayout annotation this edit writes; the annotations are %s, %s, %s and %s",
+				op.Annotation, semantics.LayoutFQN, semantics.RouteFQN, semantics.CanvasFQN, semantics.StyleFQN)}
 	}
 	bindings, err := m.layoutBindings(i, op)
 	if err != nil {
@@ -151,6 +152,42 @@ func (m Model) layoutBindings(i int, op Operation) ([]layoutBinding, error) {
 				Message: fmt.Sprintf("a Canvas of %s binds neither a unit nor a size; clear the Canvas to drop it", op.Target)}
 		}
 		return out, nil
+	case semantics.StyleFQN:
+		if op.Style == nil {
+			return nil, nil
+		}
+		var out []layoutBinding
+		for _, c := range []struct{ feature, color string }{{"fill", op.Style.Fill}, {"line", op.Style.Line}, {"text", op.Style.Text}} {
+			if c.color == "" {
+				continue
+			}
+			if !semantics.IsHexColor(c.color) {
+				return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+					Message: fmt.Sprintf("the %s of a Style of %s is %q, not a colour written #RRGGBB", c.feature, m.label(op), c.color)}
+			}
+			out = append(out, layoutBinding{c.feature, stringLiteral(strings.ToUpper(c.color))})
+		}
+		if op.Style.Font != "" {
+			out = append(out, layoutBinding{"font", stringLiteral(op.Style.Font)})
+		}
+		if op.Style.FontSize < 0 {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("the fontSize of a Style of %s is negative", m.label(op))}
+		}
+		if op.Style.FontSize > 0 {
+			out = append(out, layoutBinding{"fontSize", realLiteral(op.Style.FontSize)})
+		}
+		if op.Style.Bold {
+			out = append(out, layoutBinding{"bold", "true"})
+		}
+		if op.Style.Italic {
+			out = append(out, layoutBinding{"italic", "true"})
+		}
+		if len(out) == 0 {
+			return nil, &Error{Failure: FailureInvalidValue, OperationIndex: i,
+				Message: fmt.Sprintf("a Style of %s states nothing; clear the Style to drop it", m.label(op))}
+		}
+		return out, nil
 	}
 	return nil, nil
 }
@@ -233,21 +270,25 @@ func (m Model) viewNamed(i int, name, doc, noView string) (*symbols.Symbol, erro
 	return oneOf(i, name, doc, views)
 }
 
-// checkPlaceable refuses a Layout or Route of an element the rendering it
-// applies in does not draw as a node or an edge: the view's rendering for a
-// view-local one, any rendering for an inline one.
+// checkPlaceable refuses a Layout, Route or Style of an element the rendering
+// it applies in does not draw as a node or an edge: the view's rendering for a
+// view-local one, any rendering for an inline one. A Style colours either.
 func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem *semantics.Model, sym, viewSym *symbols.Symbol) error {
 	if op.Annotation == semantics.CanvasFQN {
 		return nil
 	}
-	asLayout := op.Annotation == semantics.LayoutFQN
+	wantNode := op.Annotation != semantics.RouteFQN
+	wantEdge := op.Annotation != semantics.LayoutFQN
 	role := "an edge a Route steers"
-	if asLayout {
+	switch op.Annotation {
+	case semantics.LayoutFQN:
 		role = "a node a Layout positions"
+	case semantics.StyleFQN:
+		role = "a node or an edge a Style colours"
 	}
 	if viewSym == nil {
 		node, edge := renderer.DrawsAnywhere(sym)
-		if (asLayout && !node) || (!asLayout && !edge) {
+		if !(wantNode && node) && !(wantEdge && edge) {
 			return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 				Message: fmt.Sprintf("no rendering draws %s as %s", m.label(op), role)}
 		}
@@ -263,7 +304,7 @@ func (m Model) checkPlaceable(i int, op Operation, renderer *view.Renderer, sem 
 		return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 			Message: fmt.Sprintf("%s does not render: %v", op.View, err)}
 	}
-	if (asLayout && !drawn.Node(sym)) || (!asLayout && !drawn.Edge(sym)) {
+	if !(wantNode && drawn.Node(sym)) && !(wantEdge && drawn.Edge(sym)) {
 		return &Error{Failure: FailureNotDrawn, OperationIndex: i,
 			Message: fmt.Sprintf("the rendering of %s does not draw %s as %s", op.View, m.label(op), role)}
 	}

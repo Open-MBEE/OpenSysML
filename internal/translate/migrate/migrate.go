@@ -5,6 +5,7 @@ package migrate
 import (
 	"fmt"
 	"math/big"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -41,6 +42,10 @@ type Result struct {
 	Notation []byte
 	Report   *Report
 	Results  *simresults.Results
+	// Files are the attached image files the documents' Image blocks show, by
+	// the relative path they are written under (images/<name>); a caller
+	// writes them beside the notation, empty when none was attached.
+	Files map[string][]byte
 }
 
 // Options carries the optional inputs of a migration: an MTIP export whose
@@ -51,6 +56,14 @@ type Options struct {
 	// LayoutSource names the file Layout was read from, for the report and
 	// diagnostics.
 	LayoutSource string
+	// ImageBaseURL resolves a comment's relative <img src> to the server
+	// serving it; "" leaves such images out.
+	ImageBaseURL string
+	// Strict writes only notation a pinned SysML v2 production admits: a
+	// construct whose only v2 form is an OpenSysML extension (a deferred
+	// event, a choice, junction or history pseudostate) is reported unmapped
+	// instead of written.
+	Strict bool
 }
 
 // Migrate reads a SysML v1 model as UML XMI, or a zip archive (such as a
@@ -64,6 +77,9 @@ func Migrate(name string, data []byte) (*Result, error) {
 // whose diagram records match no diagram of the model is an error: the file
 // was exported from a different project.
 func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
+	if _, err := imageBaseURL(opts.ImageBaseURL); err != nil {
+		return nil, err
+	}
 	model, err := sysmlv1.Parse(data)
 	if err != nil {
 		return nil, err
@@ -73,6 +89,19 @@ func MigrateOptions(name string, data []byte, opts Options) (*Result, error) {
 			opts.LayoutSource, len(opts.Layout.Diagrams), name)
 	}
 	return FromModelOptions(name, model, opts), nil
+}
+
+// imageBaseURL parses the server a relative <img src> resolves against; it
+// must be an absolute http(s) URL.
+func imageBaseURL(raw string) (*url.URL, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || !u.IsAbs() || (u.Scheme != "http" && u.Scheme != "https") {
+		return nil, fmt.Errorf("image base URL %q is not an absolute http(s) URL", raw)
+	}
+	return u, nil
 }
 
 // layoutJoins counts the export's diagram records whose id is a diagram of the
@@ -142,6 +171,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		indexed:      map[string]int{},
 		userProfiles: map[*sysmlv1.Element]bool{},
 		defsWritten:  map[*sysmlv1.Element]bool{},
+		files:        map[string][]byte{},
+		fileContents: map[string]string{},
 		pending:      map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
 		vertexNames:  map[*sysmlv1.Element]string{},
@@ -158,9 +189,11 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		viewOf:       map[*sysmlv1.Diagram]*view{},
 		hosted:       map[*sysmlv1.Element][]*view{},
 		tableOf:      map[*sysmlv1.Table]*tableDoc{},
+		pictureOf:    map[*sysmlv1.Diagram]*pictures{},
 		buried:       map[*sysmlv1.Element]bool{},
 		actors:       map[*sysmlv1.Element]*actorLink{},
 		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
+		strict:       opts.Strict,
 		layout:       opts.Layout,
 		layoutSource: opts.LayoutSource,
 		layoutByID:   map[string]*mtip.Diagram{},
@@ -172,6 +205,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		routeKinds:   routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
+	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
 			Source:       opts.LayoutSource,
@@ -191,6 +225,12 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		for i := range opts.Layout.Diagrams {
 			m.layoutSummary.Malformed += len(opts.Layout.Diagrams[i].Malformed)
 		}
+	} else if drawsAny(model) {
+		m.layoutSource = streamsSource
+		m.layoutSummary = &LayoutSummary{Source: streamsSource, Unsupported: map[string]int{}}
+	}
+	if m.layoutSummary != nil {
+		m.layoutSummary.Dropped = map[string]int{}
 	}
 	m.prepare()
 	for _, root := range model.Roots {
@@ -207,7 +247,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m.diagrams()
 	m.layoutReport()
 	m.extensions()
-	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results}
+	m.report.Images = m.imagesWritten
+	return &Result{Notation: []byte(m.w.String()), Report: m.report, Results: m.results, Files: m.files}
 }
 
 // unwrittenEvents reports the events whose triggers were never written: those
@@ -259,6 +300,9 @@ func (m *migration) extensions() {
 type migration struct {
 	model  *sysmlv1.Model
 	report *Report
+	// strict writes only notation a pinned SysML v2 production admits; see
+	// Options.Strict.
+	strict bool
 	// results index the run configurations' result snapshots.
 	results *simresults.Results
 	w       *writer
@@ -285,6 +329,8 @@ type migration struct {
 	diagramsOf map[*sysmlv1.Element][]*sysmlv1.Diagram
 	// tableOf plans each table definition's Document beside its diagram's view.
 	tableOf map[*sysmlv1.Table]*tableDoc
+	// pictureOf memoizes pastedPictures: the pasted images each diagram's stream carries.
+	pictureOf map[*sysmlv1.Diagram]*pictures
 	// buried memoizes isBuried: whether an ancestor left out of the document takes e with it.
 	buried map[*sysmlv1.Element]bool
 	// flows lists the item flows each connector realizes.
@@ -372,6 +418,11 @@ type migration struct {
 	indexed map[string]int
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
+	// files are the images written beside the notation by relative path;
+	// fileContents deduplicates them by content, imagesWritten counts them.
+	files         map[string][]byte
+	fileContents  map[string]string
+	imagesWritten int
 	// userProfiles memoizes which profiles are a user's own; see userProfile.
 	userProfiles map[*sysmlv1.Element]bool
 	// namespacesOf lists the XML namespaces each profile's stereotypes are applied under.
@@ -391,12 +442,17 @@ type migration struct {
 	opaque map[*sysmlv1.Element]*opaqueResult
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
+	// mcRecorded lazily lists the written individuals that record an analysis;
+	// mcRecordedDone marks the list computed.
+	mcRecorded     []*sysmlv1.Element
+	mcRecordedDone bool
 	// layout is the MTIP export augmenting the migration, nil without one;
 	// layoutByID indexes its diagram records by id, diagramIDs the model's
 	// diagrams, layoutJoined the records a written view laid out, and
-	// layoutSummary the report's layout account.
+	// layoutSummary the report's layout account, nil when no diagram is drawn either.
 	layout        *mtip.Export
 	layoutSource  string
+	imageBase     *url.URL
 	layoutByID    map[string]*mtip.Diagram
 	diagramIDs    map[string]bool
 	layoutJoined  map[string]bool

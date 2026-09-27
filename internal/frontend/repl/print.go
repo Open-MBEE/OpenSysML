@@ -54,7 +54,7 @@ func (s *Session) printElement(name string) ([]string, bool, error) {
 		shown = name
 	}
 	var doc *model.Document
-	if sym != nil && (sym.DocName == docName || sym.DocName == kermlDocName) {
+	if sym != nil {
 		doc = s.ws.Document(sym.DocName)
 	}
 	if doc == nil || sym == nil || sym.Decl == nil {

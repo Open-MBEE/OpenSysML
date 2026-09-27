@@ -38,6 +38,12 @@ const (
 	OpMove
 	// OpSetLayout writes, updates or clears a DiagramLayout annotation.
 	OpSetLayout
+	// OpAddSatisfy inserts a satisfy requirement usage.
+	OpAddSatisfy
+	// OpAddRequirementConstraint inserts a requirement constraint.
+	OpAddRequirementConstraint
+	// OpAddTransition inserts a transition usage into a state body.
+	OpAddTransition
 )
 
 // Operation is one change to make to a model's source.
@@ -56,25 +62,48 @@ type Operation struct {
 	Value string
 	// NewName is the new declared name, for OpRename.
 	NewName string
-	// Owner is the namespace receiving an OpAddMember or OpAddConnection; empty
-	// means the root.
+	// Owner is the namespace receiving an authoring operation; empty means the
+	// root.
 	Owner string
-	// Declaration details for OpAddMember and OpAddConnection. MemberName is
-	// optional for a connection, which the notation lets be anonymous.
+	// Declaration details for OpAddMember and OpAddConnection.
 	MemberKind   string
 	MemberName   string
 	Type         string
 	Multiplicity string
 	Specializes  []string
+	IsAbstract   bool
+	Redefines    []string
+	IsDefault    bool
+	Direction    string
 	// From and To are the ends of an OpAddConnection, written as the notation
 	// references features (`a.p`, `A::b`).
 	From    string
 	To      string
 	Cascade bool
+	// Requirement and SatisfyingFeature are the feature references of an
+	// OpAddSatisfy. The latter is optional.
+	Requirement       string
+	SatisfyingFeature string
+	Asserted          bool
+	Negated           bool
+	// ConstraintKind, Expression and ConstraintName describe an
+	// OpAddRequirementConstraint.
+	ConstraintKind string
+	Expression     string
+	ConstraintName string
+	// TransitionSource, TransitionTarget, TransitionName and the optional
+	// trigger, guard and effect describe an OpAddTransition.
+	TransitionName   string
+	TransitionSource string
+	TransitionTarget string
+	Trigger          string
+	Guard            string
+	Effect           string
+	Initial          bool
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
-	// (semantics.LayoutFQN, RouteFQN or CanvasFQN). View names the view whose
+	// (semantics.LayoutFQN, RouteFQN, CanvasFQN or StyleFQN). View names the view whose
 	// body states it about Target; empty, the annotation is inline on Target
 	// and applies in every view.
 	Annotation string
@@ -84,6 +113,7 @@ type Operation struct {
 	Layout *semantics.Layout
 	Route  *semantics.Route
 	Canvas *semantics.Canvas
+	Style  *semantics.Style
 }
 
 // SetValue is an operation setting target's value to the expression value.
@@ -111,6 +141,31 @@ func Delete(target string, cascade bool) Operation {
 // name may be empty for an anonymous connection.
 func AddConnection(owner, kind, from, to, name string) Operation {
 	return Operation{Kind: OpAddConnection, Owner: owner, MemberKind: kind, From: from, To: to, MemberName: name}
+}
+
+// AddSatisfy creates an operation inserting a satisfy usage.
+func AddSatisfy(owner, requirement, by string, asserted, negated bool) Operation {
+	return Operation{
+		Kind: OpAddSatisfy, Owner: owner, Requirement: requirement,
+		SatisfyingFeature: by, Asserted: asserted, Negated: negated,
+	}
+}
+
+// AddRequirementConstraint creates an operation inserting a requirement constraint.
+func AddRequirementConstraint(owner, kind, expression, name string) Operation {
+	return Operation{
+		Kind: OpAddRequirementConstraint, Owner: owner, ConstraintKind: kind,
+		Expression: expression, ConstraintName: name,
+	}
+}
+
+// AddTransition inserts a state transition, or an entry transition when initial.
+func AddTransition(owner, name, from, to, trigger, guard, effect string, initial bool) Operation {
+	return Operation{
+		Kind: OpAddTransition, Owner: owner, TransitionName: name,
+		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
+		Guard: guard, Effect: effect, Initial: initial,
+	}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -153,6 +208,17 @@ func SetRouteAt(decl source.Span, view string, route *semantics.Route) Operation
 // size when canvas is nil.
 func SetCanvas(view string, canvas *semantics.Canvas) Operation {
 	return Operation{Kind: OpSetLayout, Target: view, Annotation: semantics.CanvasFQN, Canvas: canvas}
+}
+
+// SetStyle is an operation colouring target in view — inline on target when
+// view is empty — or clearing its Style when style is nil.
+func SetStyle(target, view string, style *semantics.Style) Operation {
+	return Operation{Kind: OpSetLayout, Target: target, View: view, Annotation: semantics.StyleFQN, Style: style}
+}
+
+// SetStyleAt is SetStyle of the element declared at decl in the document.
+func SetStyleAt(decl source.Span, view string, style *semantics.Style) Operation {
+	return Operation{Kind: OpSetLayout, Declaration: decl, View: view, Annotation: semantics.StyleFQN, Style: style}
 }
 
 // Model is a parsed model to edit: the source that was read, its parse, and the
@@ -246,6 +312,7 @@ func (r *reindexer) analyzedIn(sf *source.SourceFile, root *ast.RootNamespace) *
 	if r.indexed != nil {
 		r.indexed(r.idx, sf, root)
 	}
+	r.idx.ExpandWildcardImports()
 	return r.idx
 }
 
@@ -519,6 +586,27 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 		}
 		return []splice{sp}, nil
 	}
+	if op.Kind == OpAddSatisfy {
+		sp, err := m.addSatisfySplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddRequirementConstraint {
+		sp, err := m.addRequirementConstraintSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddTransition {
+		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
 	if op.Kind == OpSetLayout {
 		return m.layoutSplices(i, op)
 	}
@@ -637,12 +725,16 @@ func (m Model) declarationGone(i int, op Operation) error {
 		Message: fmt.Sprintf("an earlier operation rewrote the declaration at %s; nothing is declared there now", m.at(op))}
 }
 
-// checkOverlap refuses edits covering the same non-empty source bytes.
+// checkOverlap refuses edits covering the same non-empty source bytes; an
+// insertion at the first byte of another edit precedes it and is no overlap.
 func checkOverlap(splices []splice) error {
 	ordered := make([]splice, len(splices))
 	copy(ordered, splices)
 	sort.SliceStable(ordered, func(a, b int) bool {
-		return ordered[a].span.Offset < ordered[b].span.Offset
+		if ordered[a].span.Offset != ordered[b].span.Offset {
+			return ordered[a].span.Offset < ordered[b].span.Offset
+		}
+		return ordered[a].span.Len == 0 && ordered[b].span.Len > 0
 	})
 	for i := 1; i < len(ordered); i++ {
 		prev, cur := ordered[i-1], ordered[i]

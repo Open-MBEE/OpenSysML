@@ -531,7 +531,7 @@ func TestPlantUMLHeaderAndGeometryComments(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(puml, "\n' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does\n<style>\n") {
+	if !strings.Contains(puml, "\n' not represented: 2 positioned node(s) and 1 route(s) kept as comments; PlantUML pins no position, the dot form does\n") {
 		t.Errorf("geometry is not noted as unrepresented:\n%s", puml)
 	}
 	if plain, _ := render(t, "interconnection.sysml", "PlantViews::loopView").PlantUML(); strings.Contains(plain, "kept as comments") {

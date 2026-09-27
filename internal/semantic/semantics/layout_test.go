@@ -220,6 +220,215 @@ func TestCanvasOfIgnoresACanvasStatedOutsideTheViewBody(t *testing.T) {
 	}
 }
 
+func TestStyleOfPrefersTheViewBodyAndNormalisesColours(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "#ffe8bd"; font = "Arial"; fontSize = 11; bold = true; } }
+		view a { expose engine; metadata Style about engine { line = "#336699"; italic = true; } }
+		view b { expose engine; }
+	`)
+	engine := sym(t, p, "engine")
+	site, ok := m.StyleOf(sym(t, p, "a"), engine)
+	if !ok || site.Style == nil || !site.About {
+		t.Fatalf("StyleOf(a, engine) = %+v, %v", site, ok)
+	}
+	if want := (Style{Line: "#336699", Italic: true}); *site.Style != want {
+		t.Fatalf("view-local style = %+v, want %+v", *site.Style, want)
+	}
+	site, ok = m.StyleOf(sym(t, p, "b"), engine)
+	if !ok || site.Style == nil {
+		t.Fatalf("StyleOf(b, engine) = %+v, %v", site, ok)
+	}
+	if want := (Style{Fill: "#FFE8BD", Font: "Arial", FontSize: 11, Bold: true}); *site.Style != want {
+		t.Fatalf("inline style = %+v, want %+v", *site.Style, want)
+	}
+}
+
+func TestStyleOfReportsAMalformedColour(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "orange"; fontSize = -2; } }
+	`)
+	site, ok := m.StyleOf(nil, sym(t, p, "engine"))
+	if !ok || site.Style != nil {
+		t.Fatalf("StyleOf(nil, engine) = %+v, %v", site, ok)
+	}
+	if len(site.Problems) != 2 ||
+		site.Problems[0].Message != `fill of Style is "orange", not a colour written #RRGGBB` ||
+		site.Problems[1].Message != "fontSize of Style is negative" {
+		t.Fatalf("problems = %+v", site.Problems)
+	}
+}
+
+func TestStyleOfRejectsAMalformedBoolean(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Style { fill = "#FF0000"; bold = 7; } }
+		part pump { @Style { fill = "#FF0000"; italic = "yes"; } }
+	`)
+	for _, name := range []string{"engine", "pump"} {
+		site, ok := m.StyleOf(nil, sym(t, p, name))
+		if !ok || site.Style != nil {
+			t.Errorf("StyleOf(nil, %s) = %+v, %v; want the style withheld", name, site, ok)
+		}
+		if len(site.Problems) != 1 || !strings.HasSuffix(site.Problems[0].Message, "of Style is not a constant boolean") {
+			t.Errorf("%s problems = %+v", name, site.Problems)
+		}
+	}
+}
+
+func TestNotesOfListsEveryNoteInTheView(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Note { text = "always"; x = 1; y = 2; } }
+		view a {
+			expose engine;
+			metadata Note about engine { text = "anchored"; x = 10; y = 20; width = 100; height = 40; }
+			metadata Note about engine { text = "second"; x = 30; y = 40; }
+			@Note { text = "free"; x = 0; y = 0; }
+		}
+		view b { expose engine; }
+	`)
+	engine, a := sym(t, p, "engine"), sym(t, p, "a")
+	notes := m.NotesOf(a, engine)
+	if len(notes) != 3 {
+		t.Fatalf("NotesOf(a, engine) has %d notes, want 3", len(notes))
+	}
+	if n := notes[0].Note; n == nil || n.Text != "always" || notes[0].About {
+		t.Fatalf("inline note = %+v", n)
+	}
+	if n := notes[1].Note; n == nil || n.Text != "anchored" || !n.HasSize || n.Width != 100 || n.Height != 40 {
+		t.Fatalf("first about note = %+v", n)
+	}
+	if n := notes[2].Note; n == nil || n.Text != "second" || n.HasSize {
+		t.Fatalf("second about note = %+v", n)
+	}
+	if got := m.NotesOf(sym(t, p, "b"), engine); len(got) != 1 || got[0].Note.Text != "always" {
+		t.Fatalf("NotesOf(b, engine) = %+v", got)
+	}
+	if free := m.NotesOf(a, a); len(free) != 1 || free[0].Note.Text != "free" {
+		t.Fatalf("NotesOf(a, a) = %+v", free)
+	}
+}
+
+// A note stated in a nested view's body belongs to that view's drawing alone:
+// it is listed for the view stating it, not for the view enclosing it.
+func TestNotesOfScopesANoteStatedInANestedViewToIt(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view outer {
+			expose engine;
+			view inner {
+				expose engine;
+				@Note { text = "inner"; x = 1; y = 2; }
+			}
+		}
+	`)
+	outer := sym(t, p, "outer")
+	inner := sym(t, outer.Scope, "inner")
+	notes := m.NotesOf(inner, inner)
+	if len(notes) != 1 || notes[0].Note == nil || notes[0].Note.Text != "inner" {
+		t.Fatalf("NotesOf(inner, inner) = %+v", notes)
+	}
+	if got := m.NotesOf(outer, inner); len(got) != 0 {
+		t.Fatalf("NotesOf(outer, inner) = %+v, want none", got)
+	}
+}
+
+func TestNotesOfReportsAnIncompleteNote(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine { @Note { x = 1; width = 10; } }
+	`)
+	notes := m.NotesOf(nil, sym(t, p, "engine"))
+	if len(notes) != 1 || notes[0].Note != nil {
+		t.Fatalf("NotesOf(nil, engine) = %+v", notes)
+	}
+	want := []string{
+		"Note binds no text to show",
+		"Note binds no x and y to place the note at",
+		"Note binds one of width and height; a size needs both",
+	}
+	if len(notes[0].Problems) != len(want) {
+		t.Fatalf("problems = %+v", notes[0].Problems)
+	}
+	for i, p := range notes[0].Problems {
+		if p.Message != want[i] {
+			t.Errorf("problem %d = %q, want %q", i, p.Message, want[i])
+		}
+	}
+}
+
+func TestPicturesOfListsEveryPictureOfTheView(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		part engine;
+		view a {
+			expose engine;
+			@Picture { location = "images/bench.png"; x = 0; y = 0; width = 823; height = 577; alt = "the bench"; }
+			@Picture { location = "images/logo.png"; x = 700; y = 20; width = 80; height = 40; above = true; }
+		}
+		view b { expose engine; }
+	`)
+	a := sym(t, p, "a")
+	pics := m.PicturesOf(a)
+	if len(pics) != 2 {
+		t.Fatalf("PicturesOf(a) has %d pictures, want 2", len(pics))
+	}
+	if pic := pics[0].Picture; pic == nil || pic.Location != "images/bench.png" || pic.X != 0 || pic.Y != 0 ||
+		pic.Width != 823 || pic.Height != 577 || pic.Alt != "the bench" || pic.Above {
+		t.Fatalf("first picture = %+v", pic)
+	}
+	if pic := pics[1].Picture; pic == nil || pic.Location != "images/logo.png" || pic.X != 700 || pic.Y != 20 ||
+		pic.Width != 80 || pic.Height != 40 || pic.Alt != "" || !pic.Above {
+		t.Fatalf("second picture = %+v", pic)
+	}
+	if got := m.PicturesOf(sym(t, p, "b")); len(got) != 0 {
+		t.Fatalf("PicturesOf(b) = %+v", got)
+	}
+	if got := m.PicturesOf(nil); got != nil {
+		t.Fatalf("PicturesOf(nil) = %+v", got)
+	}
+}
+
+func TestPicturesOfReportsAnIncompletePicture(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		view a {
+			@Picture { x = 1; width = 10; }
+			@Picture { location = ""; x = 0; y = 0; width = 0; height = 10; }
+			@Picture { location = "https://example.org/a.png"; x = 0; y = 0; width = 10; height = 10; }
+			@Picture { location = "data:image/png;base64,iVBORw0KGgo="; x = 0; y = 0; width = 10; height = 10; }
+		}
+	`)
+	pics := m.PicturesOf(sym(t, p, "a"))
+	if len(pics) != 4 || pics[0].Picture != nil || pics[1].Picture != nil || pics[2].Picture != nil || pics[3].Picture != nil {
+		t.Fatalf("PicturesOf(a) = %+v", pics)
+	}
+	for i, want := range [][]string{{
+		"Picture binds no location to read the picture from",
+		"Picture binds no x and y to place the picture at",
+		"Picture binds no width and height to size the picture to",
+	}, {
+		"location of Picture is empty",
+		"width and height of Picture must be positive",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
+	}, {
+		"location of Picture is a URL, not the path of a file the drawing tools can read",
+	}} {
+		if len(pics[i].Problems) != len(want) {
+			t.Fatalf("picture %d problems = %+v", i, pics[i].Problems)
+		}
+		for j, p := range pics[i].Problems {
+			if p.Message != want[j] {
+				t.Errorf("picture %d problem %d = %q, want %q", i, j, p.Message, want[j])
+			}
+		}
+	}
+}
+
 func TestSymbolDeclaringFindsATransitionByItsDeclaration(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

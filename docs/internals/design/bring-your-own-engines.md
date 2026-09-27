@@ -741,8 +741,8 @@ trimmed of leading and trailing white space before it is typed, unless `type` is
 which case it is taken as unquoted. An empty cell after trimming is `ToolMissingOutput` for
 that variable and row — no default is invented — unless `type` is `string`. `unitColumn` reads
 the unit from the same row as the value, and with `row: "all"` every row's unit must be the
-same one. `errorColumn`, when the last data record's cell in that column is non-empty, is
-`ToolRefused` with that text.
+same one. `errorColumn`, when any data record's cell in that column is non-empty, is
+`ToolRefused` with the first such cell's text.
 
 **`lines`.** The source is text split on `\n` (a trailing `\r` dropped). Without `regex`, each
 non-blank line is `key` `=` *value* or `key` `:` *value*, split at the **first** `=` or `:`, both
@@ -806,11 +806,11 @@ silent first-element would be an invented value. The bound value is the runtime'
 of the converted elements, each converted to the coherent unit as a scalar is, so the model
 reads `Tprofile` as it reads any `Real[0..*]`; the multiplicity's bounds are checked as the
 runtime checks any write (an empty sequence to `[1..*]` is refused there, not here). Recording
-today spells a sequence as a String of its text (`record.classify` falls through to
-`spellText`); it gains a sequence shape that records `attribute Tprofile : Real[0..*] = (300.0,
-310.5, 341.2);` with the element type the scalars share and the list literal in reply order, so
-a record reads as a model value and not as a quotation, and a document table cell holds it as
-it holds any sequence-valued attribute. `renderReply`
+spells a sequence as a list literal: `attribute Tprofile : Real[0..*] ordered nonunique` declared on the run
+definition and `attribute :>> Tprofile = (300.0, 310.5, 341.2);` on each record, with the
+element type the scalars share and the items in reply order, so a record reads as a model
+value and not as a quotation, and a document table cell holds it as it holds any
+sequence-valued attribute. `renderReply`
 renders `Items` in the same form for divergence. `stdin: "csv"` and `{var}` render inputs only,
 and a sequence-valued **input** is out of scope for this note: a `ToolCall.Inputs` element is a
 scalar, and an action whose `in` parameter has an upper bound above 1 and a `ToolVariable` is
@@ -891,13 +891,13 @@ For an implementer, and for a reviewer who wants to change one:
   twice is malformed; `key` and `regex` are exclusive.
 - `exitcode` makes a non-zero exit data rather than `ToolProcessFailed`; `success` defaults to
   `[0]`.
-- `errorPath`, `errorColumn` and `errorKey` refuse only on a non-empty string, and are checked
-  before outputs.
+- `errorPath`, `errorColumn` and `errorKey` refuse only on a non-empty string — for
+  `errorColumn`, any data record's cell — and are checked before outputs.
 - A sequence binds only to a multiplicity above 1 and a scalar only to one of 1; neither
   direction wraps or picks; elements share one kind and one unit.
 - A `reply.outputs` entry for a variable this action has no `out` for is `ToolUnknownOutput`,
   as an extra `outputs` key is today; a manifest describes one interface.
-- A recorded sequence output is a typed `[0..*]` attribute with a list literal, not a String of
+- A recorded sequence output is a typed `[0..*] ordered nonunique` attribute with a list literal, not a String of
   its text.
 - The temporary directory is removed on every exit path unless `OPENSYSML_TOOL_KEEP=1`.
 - Divergence compares parsed `ToolValue`s, not reply bytes.

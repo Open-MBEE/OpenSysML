@@ -546,8 +546,11 @@ pub struct EngineInfo {
     /// "sampler". The fields below are empty for a built-in engine.
     #[prost(string, tag="9")]
     pub kind: ::prost::alloc::string::String,
-    /// How the engine is spoken to: "-" for one built in, "object" for a tool's
-    /// one JSON object each way, "<transport>/<protocol>" for an engine entry.
+    /// How the engine is spoken to: "-" for one built in; for a tool, "object"
+    /// for the one-JSON-object exchange or "argv+<stdin>" when the entry has an
+    /// invocation block, with a "/<reply format>" suffix such as "argv+none/csv"
+    /// when the reply block reads another format (the format alone when the entry
+    /// has no invocation); "<transport>/<protocol>" for an engine entry.
     #[prost(string, tag="10")]
     pub protocol: ::prost::alloc::string::String,
     /// The manifest entry the engine was registered from, the command it resolved
@@ -985,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1002,6 +1005,14 @@ pub mod edit_operation {
         Delete(super::DeleteEdit),
         #[prost(message, tag="5")]
         Move(super::MoveEdit),
+        #[prost(message, tag="6")]
+        AddConnection(super::AddConnectionEdit),
+        #[prost(message, tag="7")]
+        AddSatisfy(super::AddSatisfyEdit),
+        #[prost(message, tag="8")]
+        AddRequirementConstraint(super::AddRequirementConstraintEdit),
+        #[prost(message, tag="9")]
+        AddTransition(super::AddTransitionEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1028,6 +1039,104 @@ pub struct AddMemberEdit {
     /// Optional specialization targets for a definition.
     #[prost(string, repeated, tag="7")]
     pub specializes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the declaration is abstract.
+    #[prost(bool, tag="8")]
+    pub is_abstract: bool,
+    /// Optional redefinition targets for a usage.
+    #[prost(string, repeated, tag="9")]
+    pub redefines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Whether the value uses the default assignment keyword.
+    #[prost(bool, tag="10")]
+    pub is_default: bool,
+    /// Optional usage direction: "in", "out" or "inout".
+    #[prost(string, tag="11")]
+    pub direction: ::prost::alloc::string::String,
+}
+/// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddSatisfyEdit {
+    /// Body receiving the usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+    /// Optional satisfying feature reference.
+    #[prost(string, tag="3")]
+    pub satisfying_feature: ::prost::alloc::string::String,
+    /// Whether the usage is asserted.
+    #[prost(bool, tag="4")]
+    pub is_asserted: bool,
+    /// Whether the usage is negated.
+    #[prost(bool, tag="5")]
+    pub is_negated: bool,
+}
+/// AddRequirementConstraintEdit inserts a require or assume constraint.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddRequirementConstraintEdit {
+    /// Requirement-like namespace receiving the constraint.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Constraint kind: "require" or "assume".
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// Constraint expression, written as notation.
+    #[prost(string, tag="3")]
+    pub expression: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="4")]
+    pub name: ::prost::alloc::string::String,
+}
+/// AddTransitionEdit inserts a transition usage, or an entry transition, into a state body.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddTransitionEdit {
+    /// State body receiving the transition.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Optional transition name.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// Source feature reference; empty only for an entry transition.
+    #[prost(string, tag="3")]
+    pub source: ::prost::alloc::string::String,
+    /// Target feature reference.
+    #[prost(string, tag="4")]
+    pub target: ::prost::alloc::string::String,
+    /// Optional text after `accept`.
+    #[prost(string, tag="5")]
+    pub trigger: ::prost::alloc::string::String,
+    /// Optional boolean expression after `if`.
+    #[prost(string, tag="6")]
+    pub guard: ::prost::alloc::string::String,
+    /// Optional effect text after `do`.
+    #[prost(string, tag="7")]
+    pub effect: ::prost::alloc::string::String,
+    /// Write `entry; then <target>;` instead of a regular transition.
+    #[prost(bool, tag="8")]
+    pub initial: bool,
+}
+/// AddConnectionEdit inserts a usage whose ends connect two features.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddConnectionEdit {
+    /// Namespace FQN receiving the usage; empty means the document root.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Usage kind: SysML connection, interface, allocation, binding, flow,
+    /// succession or transition; KerML connector, binding, flow or succession.
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// First feature reference resolved from the owner.
+    #[prost(string, tag="3")]
+    pub from_end: ::prost::alloc::string::String,
+    /// Second feature reference resolved from the owner.
+    #[prost(string, tag="4")]
+    pub to_end: ::prost::alloc::string::String,
+    /// Optional declared name.
+    #[prost(string, tag="5")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional typing target, legal only for typed connection kinds.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
 }
 /// DeleteEdit removes a declaration and its owned trivia.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

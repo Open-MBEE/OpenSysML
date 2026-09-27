@@ -365,12 +365,12 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 		skipWithout(t, "Graphviz dot", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormDot, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormDot})
 	if err != nil {
 		t.Fatal(err)
 	}
-	positioned := docrender.Diagram{Name: "placed", Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  node [shape=box];\n  Pump [pos=\"0,0\"];\n  Tank [pos=\"200,100\"];\n  Pump -- Tank [label=\"supply\"];\n}"}
-	images, err := drawDiagrams(dir, append(diagrams, positioned), view.FormDot)
+	positioned := docrender.Diagram{Name: "placed", Form: view.FormDot, Source: "// kind: interconnection\n// layout: neato -n\ngraph G {\n  node [shape=box];\n  Pump [pos=\"0,0\"];\n  Tank [pos=\"200,100\"];\n  Pump -- Tank [label=\"supply\"];\n}"}
+	images, err := drawDiagrams(dir, append(diagrams, positioned))
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -416,6 +416,155 @@ func TestRenderDiagramsWithInstalledGraphviz(t *testing.T) {
 	}
 }
 
+// TestRenderCameoDiagramWithInstalledGraphviz draws a fully positioned state
+// machine in the cameo style through a real Graphviz: the pinned `neato -n2`
+// layout, Cameo's Arial text, the frame header, a Style's own colours, the
+// note with its anchor, and an arrowhead on a routed transition; then the PDF
+// carries the figure rather than its DOT source.
+func TestRenderCameoDiagramWithInstalledGraphviz(t *testing.T) {
+	if _, err := graphvizTool.locate(""); err != nil {
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{Form: view.FormDot, Style: view.StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || !strings.Contains(diagrams[0].Source, "// layout: neato -n2\n") {
+		t.Fatalf("cameo diagram is not pinned with neato -n2:\n%+v", diagrams)
+	}
+	dir := t.TempDir()
+	images, err := drawDiagrams(dir, diagrams)
+	if err != nil {
+		t.Fatalf("drawDiagrams: %v", err)
+	}
+	if len(images) != 1 {
+		t.Fatalf("images = %q", images)
+	}
+	if err := checkSVG(filepath.Join(dir, images[0])); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, images[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	svg := string(raw)
+	for _, want := range []string{
+		`font-family="Arial"`, "font-size=\"11.00\"",
+		">stm</text>", "State Machine",
+		"do / MonitorPEAS", "InitializePEAS",
+		"Runs once at power&#45;up.", `stroke-dasharray`,
+		`fill="#f2dcdb"`, `stroke="#9c0006"`,
+		"accept Start", "<polygon",
+	} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("cameo SVG lacks %q", want)
+		}
+	}
+	if strings.Contains(svg, "Helvetica") || strings.Contains(svg, "«state»") {
+		t.Errorf("cameo SVG carries the Pilot look")
+	}
+	if t.Failed() {
+		t.Log(svg)
+	}
+
+	_, text := renderInstalled(t, document, "", Options{DiagramForm: view.FormDot, Style: view.StyleCameo})
+	if strings.Contains(text, "digraph") || strings.Contains(text, dotNotice[:40]) {
+		t.Fatalf("DOT source or its notice reached the PDF:\n%s", text)
+	}
+	if !strings.Contains(text, "PEAS states, as Cameo drew them") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderPositionedDiagramByDefaultWithInstalledGraphviz renders the
+// positioned cameo fixture with no DiagramForm stated: the automatic choice
+// picks DOT, Graphviz draws it, and the PDF carries the figure with no Mermaid
+// fallback notice; Graphviz.Draw returns the same SVG for the inline backends.
+func TestRenderPositionedDiagramByDefaultWithInstalledGraphviz(t *testing.T) {
+	if !(Graphviz{}).Available() {
+		_, err := graphvizTool.locate("")
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{Style: view.StyleCameo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || diagrams[0].Form != view.FormDot || diagrams[0].Fallback != "" {
+		t.Fatalf("automatic choice for a positioned view = %+v, want dot without fallback", diagrams)
+	}
+	svgs, err := Graphviz{}.Draw(diagrams)
+	if err != nil {
+		t.Fatalf("Graphviz.Draw: %v", err)
+	}
+	if len(svgs) != 1 || !strings.Contains(svgs[0], "<svg") || !strings.Contains(svgs[0], "do / MonitorPEAS") {
+		t.Fatalf("Graphviz.Draw SVG = %q", svgs)
+	}
+	_, text := renderInstalled(t, document, "", Options{Style: view.StyleCameo})
+	if strings.Contains(text, "digraph") || strings.Contains(text, "stateDiagram") || strings.Contains(text, "drawn as Mermaid") {
+		t.Fatalf("source or a fallback notice reached the PDF:\n%s", text)
+	}
+	if !strings.Contains(text, "PEAS states, as Cameo drew them") {
+		t.Fatalf("diagram caption missing:\n%s", text)
+	}
+}
+
+// TestRenderNestedActionNotesWithInstalledGraphviz renders the nested-action
+// report, whose notes anchor to a nested action's drawn node: the automatic
+// choice picks DOT, and Graphviz draws it — an anchor to a node the drawing
+// does not declare would make `dot -n` fail — with the note text in the SVG.
+func TestRenderNestedActionNotesWithInstalledGraphviz(t *testing.T) {
+	if !(Graphviz{}).Available() {
+		_, err := graphvizTool.locate("")
+		skipWithout(t, "Graphviz dot", err)
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "nested_notes_report.sysml"), "Nested::NestedNotesReport")
+	diagrams, err := docrender.Diagrams(document, docrender.DiagramOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(diagrams) != 1 || diagrams[0].Form != view.FormDot || diagrams[0].Fallback != "" {
+		t.Fatalf("automatic choice for a positioned view = %+v, want dot without fallback", diagrams)
+	}
+	svgs, err := Graphviz{}.Draw(diagrams)
+	if err != nil {
+		t.Fatalf("Graphviz.Draw: %v", err)
+	}
+	if len(svgs) != 1 || !strings.Contains(svgs[0], "<svg") || !strings.Contains(svgs[0], "these values") {
+		t.Fatalf("Graphviz.Draw SVG = %q", svgs)
+	}
+}
+
+// TestRenderPositionedDiagramFallsBackWithInstalledMermaid renders the Cameo
+// report with Graphviz pointed nowhere: the positioned view falls back to a
+// Mermaid drawing, the notice saying so and the caption both reach the PDF,
+// through the default engine and through pandoc, whose filter marks the
+// caption past the notice.
+func TestRenderPositionedDiagramFallsBackWithInstalledMermaid(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	t.Setenv(DotEnv, filepath.Join(t.TempDir(), "no-dot"))
+	if (Graphviz{}).Available() {
+		t.Fatal("Graphviz is available with OPENSYSML_DOT pointed at nothing")
+	}
+	document := fixtureDocument(t, filepath.Join("testdata", "cameo_report.sysml"), "Instrument::CameoReport")
+	for _, engine := range []string{"", pandocTool.name} {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{})
+			for _, want := range []string{"PEAS states, as Cameo drew them", "drawn as Mermaid, not at its stated positions"} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			if strings.Contains(text, "stateDiagram") || strings.Contains(text, "digraph") {
+				t.Fatalf("diagram source reached the PDF:\n%s", text)
+			}
+		})
+	}
+}
+
 // TestRenderDiagramsWithInstalledPlantUML draws the telescope report's
 // diagrams as PlantUML through a real jar when OPENSYSML_PLANTUML_JAR and java
 // are set, and skips otherwise.
@@ -427,11 +576,11 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 		skipWithout(t, "java", err)
 	}
 	dir := t.TempDir()
-	diagrams, err := docrender.Diagrams(telescopeDocument(t), view.FormPlantUML, "")
+	diagrams, err := docrender.Diagrams(telescopeDocument(t), docrender.DiagramOptions{Form: view.FormPlantUML})
 	if err != nil {
 		t.Fatal(err)
 	}
-	images, err := drawDiagrams(dir, diagrams, view.FormPlantUML)
+	images, err := drawDiagrams(dir, diagrams)
 	if err != nil {
 		t.Fatalf("drawDiagrams: %v", err)
 	}
@@ -444,8 +593,8 @@ func TestRenderDiagramsWithInstalledPlantUML(t *testing.T) {
 	}
 
 	// A diagram the jar rejects is the typed failure, with what it said.
-	rejected := []docrender.Diagram{{Name: "bad", Source: "@startuml\nclass A\nA --> \n@enduml"}}
-	_, err = drawDiagrams(t.TempDir(), rejected, view.FormPlantUML)
+	rejected := []docrender.Diagram{{Name: "bad", Form: view.FormPlantUML, Source: "@startuml\nclass A\nA --> \n@enduml"}}
+	_, err = drawDiagrams(t.TempDir(), rejected)
 	var docErr *Error
 	if !errors.As(err, &docErr) || docErr.Kind != ErrorToolFailed || !strings.Contains(docErr.Detail, "Syntax Error") {
 		t.Fatalf("rejected diagram: got %v, want ErrorToolFailed with the jar's message", err)
@@ -863,4 +1012,181 @@ func dominantSize(sizes map[float64]int) float64 {
 		}
 	}
 	return best
+}
+
+// TestRenderImageBlocksWithInstalledEngines checks each converter draws the
+// image a sourceless document names beside the output: pdfimages lists it.
+func TestRenderImageBlocksWithInstalledEngines(t *testing.T) {
+	base := t.TempDir()
+	writeMark(t, filepath.Join(base, "images", "mark.png"))
+	document := imageDocSource(t, "<stdin>", `"images/mark.png"`)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{BaseDir: base})
+			if !strings.Contains(text, "The survey mark") {
+				t.Errorf("caption missing:\n%s", text)
+			}
+			images := pdfImages(t, pdf)
+			if !regexp.MustCompile(`(?m)^\s*1\s+0\s+image\s+`).MatchString(images) {
+				t.Errorf("the image beside the PDF was not drawn:\n%s", images)
+			}
+		})
+	}
+}
+
+// TestRenderNumberedCaptionsWithInstalledEngines checks every converter lays
+// out the same numbered captions, the image resolved beside the source.
+func TestRenderNumberedCaptionsWithInstalledEngines(t *testing.T) {
+	if _, err := mermaidTool.locate(""); err != nil {
+		skipWithout(t, "mmdc", err)
+	}
+	base := t.TempDir()
+	writeMark(t, filepath.Join(base, "images", "mark.png"))
+	content, err := os.ReadFile(filepath.Join("..", "docrender", "testdata", "numbered_report.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := sourceDocument(t, filepath.Join(base, "numbered_report.sysml"), string(content), "Numbered::NumberedReport")
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{BaseDir: t.TempDir(), NumberFigures: true, DiagramForm: view.FormMermaid})
+			for _, want := range []string{
+				"Table 1. Optical parts",
+				"Figure 1. How the parts connect",
+				"Collecting area",
+				"Figure 2",
+				"Table 2",
+				"Table 3. The parts as rows",
+				"Figure 3. The survey mark",
+			} {
+				if !strings.Contains(text, want) {
+					t.Errorf("PDF text lacks %q:\n%s", want, text)
+				}
+			}
+			if strings.Contains(text, "Figure 4") || strings.Contains(text, "Table 4") || strings.Contains(text, "*") {
+				t.Errorf("PDF text carries a stray number or emphasis marker:\n%s", text)
+			}
+		})
+	}
+}
+
+// TestRenderTwentyColumnTableWithInstalledEngines renders a sized
+// twenty-column table of two dozen rows through each installed converter and
+// reads back the wide-table policy: the column set split into continuation
+// tables of the columns that head unbroken beside the first, every one on
+// landscape pages that each repeat the header and the row-naming first
+// column, the row names set whole, and no page left to a fragment of a row or two.
+func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
+	const rows = 24
+	document := wideResultsDocument(t, rows)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{NumberFigures: true})
+			orientations := pageOrientations(t, pdf)
+			pages := strings.Split(strings.TrimRight(text, "\f\n"), "\f")
+			if len(pages) != len(orientations) {
+				t.Fatalf("pdftotext reads %d pages, /MediaBox %d", len(pages), len(orientations))
+			}
+			if len(pages) > 5 {
+				t.Fatalf("%d pages for %d rows over two continuation tables:\n%s", len(pages), rows, text)
+			}
+			landscape, continued := 0, 0
+			inContinuation := false
+			for i, page := range pages {
+				names := strings.Count(page, "Alignment Scenario")
+				if names == 0 {
+					continue
+				}
+				if orientations[i] != "landscape" {
+					t.Errorf("page %d holds table rows in %s", i+1, orientations[i])
+				}
+				landscape++
+				if names < 3 {
+					t.Errorf("page %d holds a fragment of %d rows", i+1, names)
+				}
+				if head := page[:strings.Index(page, "Alignment Scenario")]; !strings.Contains(head, "name") {
+					t.Errorf("page %d repeats no header ahead of its rows:\n%s", i+1, page)
+				}
+				first, rest, split := strings.Cut(page, "(continued)")
+				if split {
+					continued++
+				} else if inContinuation {
+					first, rest = "", page
+				}
+				if strings.Contains(first, "tAcquisition") {
+					t.Errorf("page %d sets the last column in the first table:\n%s", i+1, page)
+				}
+				if strings.Contains(rest, "postSegXchgTimeLimit") {
+					t.Errorf("page %d sets the first value column in a continuation table:\n%s", i+1, page)
+				}
+				inContinuation = inContinuation || split
+			}
+			if landscape < 2 || continued == 0 {
+				t.Fatalf("%d landscape table pages, %d continued; want the second table on its own pages:\n%s", landscape, continued, text)
+			}
+			if n := strings.Count(text, "Alignment Scenario 24"); n != continued+1 {
+				t.Errorf("the last row's name is set %d times, want once per table:\n%s", n, text)
+			}
+			if n := strings.Count(text, "Alignment timing results"); n != continued+1 {
+				t.Errorf("the caption is set %d times, want once per table:\n%s", n, text)
+			}
+			if !strings.Contains(text, "Table 1. Alignment timing results (continued)") {
+				t.Errorf("the continuation keeps no caption number:\n%s", text)
+			}
+		})
+	}
+}
+
+// TestRenderThemedSplitTableWithInstalledEngines reads back that a theme
+// sizing its ordinary cells still sets every part of a split table in the
+// dense type, each heading whole, over the engines that take a theme.
+func TestRenderThemedSplitTableWithInstalledEngines(t *testing.T) {
+	document := wideResultsDocument(t, 24)
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{Theme: "nasa"})
+			for _, column := range twentyColumnColumns {
+				if !strings.Contains(text, column) {
+					t.Errorf("the heading %s is set broken:\n%s", column, text)
+				}
+			}
+			if got := dominantSize(pdfTextSizes(t, pdf)); math.Abs(got-8) > 0.15 {
+				t.Errorf("the table is set at %gpt, want the dense 8pt", got)
+			}
+			if pages := pageOrientations(t, pdf); len(pages) > 5 {
+				t.Errorf("%d pages for 24 rows over two continuation tables:\n%s", len(pages), text)
+			}
+		})
+	}
+}
+
+// TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines reads
+// back that a continuation table's caption is set on the page its header and
+// first rows start on, however the table before it fills the page.
+func TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines(t *testing.T) {
+	const rows = 52
+	document := wideResultsDocument(t, rows)
+	for _, engine := range Engines() {
+		t.Run(engine, func(t *testing.T) {
+			_, text := renderInstalled(t, document, engine, Options{NumberFigures: true})
+			pages := strings.Split(strings.TrimRight(text, "\f\n"), "\f")
+			continued := 0
+			for i, page := range pages {
+				_, rest, split := strings.Cut(page, "(continued)")
+				if !split {
+					continue
+				}
+				continued++
+				if !strings.Contains(rest, "name") || !strings.Contains(rest, "Alignment Scenario") {
+					t.Errorf("page %d sets the continuation caption without its header and rows:\n%s", i+1, page)
+				}
+			}
+			if continued == 0 {
+				t.Errorf("no page sets a continuation caption:\n%s", text)
+			}
+		})
+	}
 }

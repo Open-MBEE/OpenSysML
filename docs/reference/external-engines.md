@@ -64,10 +64,13 @@ directory, as a bad run bound is reported.
 
 ## Listing, probing, selecting
 
-`-engines` and `%engines` read the manifests and print each entry with its kind, protocol
-(`<transport>/<protocol>`), authority, question kinds and status, then one source line per
+`-engines` and `%engines` read the manifests and print each entry with its kind, protocol,
+authority, question kinds and status, then one source line per
 manifest entry — the file, the resolved command, and `not admitted` for an engine — spawning no
-process. The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
+process. The protocol is `<transport>/<protocol>` for an engine entry; a tool's is `object` for
+the one-JSON-object exchange or `argv+<stdin>` when the entry has an `invocation` block, with a
+`/<reply format>` suffix such as `argv+none/csv` when the `reply` block reads another format —
+see [External tools](environment.md#external-tools). The status is what the file can tell: `ready (spin-bridge 1.4.0 at /opt/…)` when the
 command resolves to an executable regular file, `unavailable: <why>` when it does not or the
 entry is not served.
 

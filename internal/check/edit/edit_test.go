@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -208,13 +209,19 @@ func assertOnlySpanChanged(t *testing.T, m Model, res *Result) {
 	// Rebuild the original from the result by undoing each applied edit, which
 	// only succeeds if nothing else moved.
 	rebuilt := got
-	for i := len(res.Applied) - 1; i >= 0; i-- {
-		a := res.Applied[i]
+	// In source order; an insertion at the first byte of another edit precedes it.
+	applied := append([]Applied(nil), res.Applied...)
+	sort.SliceStable(applied, func(a, b int) bool {
+		if applied[a].Span.Offset != applied[b].Span.Offset {
+			return applied[a].Span.Offset < applied[b].Span.Offset
+		}
+		return applied[a].Span.Len == 0 && applied[b].Span.Len > 0
+	})
+	for i := len(applied) - 1; i >= 0; i-- {
+		a := applied[i]
 		shift := 0
-		for _, other := range res.Applied {
-			if other.Span.Offset < a.Span.Offset {
-				shift += len(other.NewText) - other.Span.Len
-			}
+		for _, other := range applied[:i] {
+			shift += len(other.NewText) - other.Span.Len
 		}
 		at := a.Span.Offset + shift
 		if at+len(a.NewText) > len(rebuilt) || string(rebuilt[at:at+len(a.NewText)]) != a.NewText {

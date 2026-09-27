@@ -1,0 +1,17 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::fleet",
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[1]", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[2]", "status": "violated", "error": "evaluated to false"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[3]", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[4]", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[5]", "status": "holds"},
+      {"kind": "requirement", "assertion": "requirement massGrowth", "object": "sats[6]", "status": "holds"}
+    ],
+    "valid": false
+  }
+}

@@ -12,6 +12,9 @@
 # Rendered documentation site (make docs)
 /site/
 
+# Julia package environments resolve locally; the pinned deps are in Project.toml.
+client/julia/**/Manifest.toml
+
 # Downloaded training examples (run scripts/download-training-examples.sh)
 /examples/sysml-v2-training/
 

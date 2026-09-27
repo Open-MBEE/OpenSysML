@@ -18,13 +18,13 @@ library package DocumentQueries {
 	 * maxDepth = null (the default) walks the whole tree. */
 	calc def Descendants {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
 	calc def Ancestors {
 		in source : Element[0..*] ordered;
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -47,7 +47,7 @@ library package DocumentQueries {
 	 * kind selects all, constraint, requirement, satisfaction or verification. */
 	calc def Verdicts {
 		in source : Element[0..*] ordered;
-		in kind : String[1] = "all";
+		in kind : String[1] default "all";
 		return result : Element[0..*] ordered;
 	}
 
@@ -105,10 +105,10 @@ library package DocumentQueries {
 	 * durations or bare numbers of the clock's seconds. Requires a session
 	 * recording a trace. */
 	calc def Events {
-		in source : Element[0..*] ordered = null;
-		in kind : String[1] = "all";
-		in since : ScalarValue[0..1] = null;
-		in before : ScalarValue[0..1] = null;
+		in source : Element[0..*] ordered default null;
+		in kind : String[1] default "all";
+		in since : ScalarValue[0..1] default null;
+		in before : ScalarValue[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -141,7 +141,7 @@ library package DocumentQueries {
 		in relationshipKind : String[1];
 		in direction : String[1];
 		/* maxDepth: how many relationships to follow; null (the default) is unbounded. */
-		in maxDepth : Integer[0..1] = null;
+		in maxDepth : Integer[0..1] default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -161,6 +161,15 @@ library package DocumentQueries {
 
 	calc def WhereName {
 		in source : Element[0..*] ordered;
+		in operator : String[1];
+		in value : String[1];
+		return result : Element[0..*] ordered;
+	}
+
+	/* WhereText keeps the projected rows whose text in any of the named columns — every column when none is named — satisfies the comparison. */
+	calc def WhereText {
+		in source : Element[0..*] ordered;
+		in columns : String[0..*] ordered = null;
 		in operator : String[1];
 		in value : String[1];
 		return result : Element[0..*] ordered;
@@ -190,6 +199,15 @@ library package DocumentQueries {
 	/* A column expression references row properties by their declared
 	 * feature (e.g. Subsystem::mass), supports +, -, *, / arithmetic,
 	 * string concatenation with +, and ?? for absent-value defaults.
+	 * A feature chain (e.g. stat.runs or 'Monte Carlo'.runs) reads a
+	 * feature of a member nested in the row element, each segment
+	 * resolved against the members of the element reached so far —
+	 * own members before inherited ones; a row lacking a segment is
+	 * absent on that row, a member declaring no value is an empty
+	 * cell, and a member holding more values than its multiplicity
+	 * admits fails the column as a direct feature column does. A
+	 * property string of Project's properties or OrderBy's property
+	 * may hold the same path ("stat.runs").
 	 * A row not conforming to the feature's declaring type reads it as
 	 * absent; a failing expression, an absent result not defaulted
 	 * with ??, or a multi-valued result fails the query with a typed
@@ -202,8 +220,8 @@ library package DocumentQueries {
 
 	calc def Project {
 		in source : Element[0..*] ordered;
-		in properties : String[0..*] ordered = null;
-		in columns : ColumnSpec[0..*] ordered = null;
+		in properties : String[0..*] ordered default null;
+		in columns : ColumnSpec[0..*] ordered default null;
 		return result : Element[0..*] ordered;
 	}
 
@@ -271,6 +289,13 @@ library package DocumentQueries {
 		/* groupBy: a projected column name; rows are grouped by its value
 		 * into subtables in order of first appearance. */
 		attribute groupBy : String[0..1];
+		/* columnWidths: the relative widths of the projected columns in order,
+		 * in the source's units; 0 sizes a column automatically. Renderers
+		 * honour them proportionally. */
+		attribute columnWidths : Integer[0..*] ordered nonunique;
+		/* columnLabels: the headings of the projected columns in order, where
+		 * they differ from the column names; "" heads a column by its name. */
+		attribute columnLabels : String[0..*] ordered nonunique;
 	}
 
 	part def List :> ContentBlock {
@@ -291,6 +316,14 @@ library package DocumentQueries {
 	part def Formula :> ContentBlock {
 		attribute source : String[1];
 		attribute caption : String[0..1];
+	}
+
+	/* Image shows an image file: location is a path relative to the document's
+	 * source file, or an http(s)/file URL; alt is its text alternative. */
+	part def Image :> ContentBlock {
+		attribute location : String[1];
+		attribute caption : String[0..1];
+		attribute alt : String[0..1];
 	}
 
 	part def Diagram :> ContentBlock {
@@ -317,9 +350,9 @@ library package DocumentQueries {
 		in name : String[1];
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[0..1] = null;
-		in aggregate : String[1] = "list";
-		in targets : Element[0..*] ordered = null;
+		in maxDepth : Integer[0..1] default null;
+		in aggregate : String[1] default "list";
+		in targets : Element[0..*] ordered default null;
 		return result : ColumnSpec[1];
 	}
 
@@ -330,8 +363,8 @@ library package DocumentQueries {
 		in source : Element[0..*] ordered;
 		in relationshipKind : String[1];
 		in direction : String[1];
-		in maxDepth : Integer[0..1] = null;
-		in exists : Boolean[1] = true;
+		in maxDepth : Integer[0..1] default null;
+		in exists : Boolean[1] default true;
 		return result : Element[0..*] ordered;
 	}
 
@@ -348,6 +381,17 @@ library package DocumentQueries {
 	calc def Union {
 		in source : Element[0..*] ordered;
 		in other : Element[0..*] ordered;
+		return result : Element[0..*] ordered;
+	}
+
+	/* Tree: the source rows arranged as a containment tree in pre-order, each
+	 * row nested under the nearest row containing it — its nearest owner among
+	 * the rows, or the individual whose part it is — at the depth the table
+	 * indents it by; rows of ancestors join as intermediate levels where a
+	 * source row nests under them. */
+	calc def Tree {
+		in source : Element[0..*] ordered;
+		in ancestors : Element[0..*] ordered = null;
 		return result : Element[0..*] ordered;
 	}
 }

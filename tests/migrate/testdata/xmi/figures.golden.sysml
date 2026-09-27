@@ -48,6 +48,10 @@ package Plant {
         expose Pump;
         render Views::asTreeDiagram;
     }
+    view Roster {
+        expose Tank;
+        render Views::asElementTable;
+    }
     view Partial {
         expose Tank;
         render Views::asTreeDiagram;
@@ -109,6 +113,7 @@ package 'Plant Documents' {
         expose Plant::Unlisted;
         expose Plant::Silent;
         expose Plant::Stale;
+        expose Plant::Roster;
     }
     view Shown {
         satisfy 'Plant Viewpoints'::'Shown Viewpoint';
@@ -147,6 +152,10 @@ package 'Plant Documents' {
             part diagram : DocumentQueries::Diagram {
                 attribute redefines caption = "Stale";
                 ref redefines source = Plant::Stale;
+            }
+            part 'diagram 2' : DocumentQueries::Diagram {
+                attribute redefines caption = "Roster";
+                ref redefines source = Plant::Roster;
             }
         }
         part Shown : DocumentQueries::Section {

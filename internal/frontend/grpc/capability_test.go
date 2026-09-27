@@ -93,6 +93,40 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"connection authoring", CapabilityConnectionAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addConnectionOp("", "flow", "a", "b", "", "")},
+			})
+			return err
+		}},
+		{"satisfy authoring", CapabilitySatisfyAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addSatisfyOp("P::r", "P::r", "", false, false)},
+			})
+			return err
+		}},
+		{"requirement constraint authoring", CapabilityRequirementConstraintAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addRequirementConstraintOp("P::r", "require", "true", "")},
+			})
+			return err
+		}},
+		{"transition authoring", CapabilityTransitionAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addTransitionOp("P::S", "", "idle", "idle", "", "", "", false)},
+			})
+			return err
+		}},
+		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{{
+					Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+						Owner: "P", Kind: "part def", Name: "X", IsAbstract: true,
+					}},
+				}},
+			})
+			return err
+		}},
 		{"edit documents", CapabilityEditDocuments, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{Document: "q.sysml"})
 			return err

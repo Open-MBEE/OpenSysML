@@ -123,6 +123,9 @@ func (s *Session) recordAnalysisInv(inv analysisInvocation, into, command string
 		Verifications: run.verdicts,
 		Spell:         s.recordSpelling(contexts),
 	}
+	if run.plan != nil {
+		rec.Tools = run.plan.ToolTexts()
+	}
 	res, rerr := s.recordRuns(fqn, kind, into, command, []record.Run{rec})
 	return s.recorded(verdict, res, rerr, 0, nil)
 }
@@ -173,7 +176,7 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 		// Each row's values spell in its own context: instance ids restart per
 		// row, so a value means nothing read through another row's.
 		own := map[*runtime.Context]bool{row.Context: true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration:   i + 1,
 			Subject:     s.recordSubject(row.Subject, inv.object, own),
 			Inputs:      row.Inputs,
@@ -181,7 +184,11 @@ func (s *Session) recordSweepInv(inv analysisInvocation, specs []sweepSpec, into
 			Verdicts:    row.Verdicts,
 			Evaluations: row.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if plan != nil {
+			rec.Tools = plan.ToolTextsIn(row.Context)
+		}
+		runs = append(runs, rec)
 	}
 	if len(runs) == 0 {
 		return s.recorded(verdict, record.Result{}, nil, skipped, []string{"nothing recorded: every row failed"})
@@ -227,14 +234,20 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			continue
 		}
 		own := map[*runtime.Context]bool{run.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Iteration: int(run.Number),
 			Subject:   s.recordSubject(run.Subject, inv.object, own),
 			Inputs:    run.Inputs,
 			Outputs:   run.Outputs,
 			Verdicts:  run.Verdicts,
 			Spell:     s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			// The conclusion's calls ran in the last row's context: toolMark bounds
+			// each row's own.
+			rec.Tools = answered.ToolTextsInBefore(run.Context(), sample.toolMark)
+		}
+		runs = append(runs, rec)
 	}
 	// The sample's own record carries what the run rows cannot: the statistics,
 	// the result and the sample's checks of the case's conclusion.
@@ -244,7 +257,7 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 	case len(sample.completed) > 0:
 		last := sample.last()
 		own := map[*runtime.Context]bool{last.Context(): true}
-		runs = append(runs, record.Run{
+		rec := record.Run{
 			Kind:        record.KindSample,
 			Subject:     s.recordSubject(last.Subject, inv.object, own),
 			Inputs:      last.Inputs,
@@ -252,7 +265,11 @@ func (s *Session) recordMonteCarloInv(inv analysisInvocation, count int64, seed 
 			Verdicts:    concluded.Verdicts,
 			Evaluations: concluded.Evaluations,
 			Spell:       s.recordSpelling(own),
-		})
+		}
+		if answered != nil {
+			rec.Tools = answered.ToolTexts()
+		}
+		runs = append(runs, rec)
 	}
 	skipped += len(sample.table.Rows) - len(sample.completed)
 	if len(runs) == 0 {
@@ -512,6 +529,8 @@ func recordAttributes(idx *symbols.Index, sem *semantics.Model, def *symbols.Sym
 		if types := sem.DeclaredFeatureTypes(m); len(types) > 0 {
 			f.TypeFQN = idx.GetFQN(types[0])
 		}
+		f.Multi = !sem.GoverningMultiplicityOf(m).AtMostOne()
+		f.Unique = sem.IsUnique(m)
 		attrs[m.Name] = f
 	}
 	return attrs

@@ -55,6 +55,9 @@ type Context struct {
 	// Options is what the caller asked for, fixed at construction: a pass reads
 	// it, and nothing mutates it during a run.
 	Options Options
+	// Batch is the batch this document is analyzed in, nil when it is analyzed
+	// alone; every context of a batch reads the one value and none writes it.
+	Batch *Batch
 
 	resolver    *resolve.Resolver
 	model       *semantics.Model
@@ -65,6 +68,19 @@ type Context struct {
 	// failures is where the tiers below the pass now running found blocking
 	// faults, so an element-scoped pass can gate itself per element.
 	failures []source.Span
+}
+
+// Batch is what a batch of analyses computes once before its documents are
+// analyzed together; anything a pass would gather over every document belongs here.
+type Batch struct {
+	// Documents names the documents the batch analyzes, in the order asked for.
+	Documents []string
+	// Gathers is what the workspace-wide audits gather, once for the batch, on
+	// first use by any of its contexts; nil leaves each context to gather alone.
+	Gathers *Gathers
+	// Source reads the documents' notation, which comment and documentation
+	// bodies come from; nil leaves every body unreadable, as an editor never is.
+	Source source.Lookup
 }
 
 // Options is the analysis configuration of one run. The zero value is what
@@ -83,6 +99,15 @@ func NewContext(name string, kind source.Kind, idx *symbols.Index, parseDiags []
 // workspace's, kept across analyses — instead of the fresh ones it would make.
 func (c *Context) Share(resolver *resolve.Resolver, model *semantics.Model, gathers *Gathers) {
 	c.resolver, c.model, c.gathers = resolver, model, gathers
+}
+
+// InBatch places the context in batch, reading the gathers the batch shares
+// instead of gathering alone; a nil batch leaves it analyzing on its own.
+func (c *Context) InBatch(b *Batch) {
+	c.Batch = b
+	if b != nil {
+		c.gathers = b.Gathers
+	}
 }
 
 // Gathers is what the workspace-wide audits gathered per document, shared
@@ -141,6 +166,9 @@ func (c *Context) Model() *semantics.Model {
 		c.model = c.newModel(c.Resolver())
 		// Attach model to resolver for inheritance-aware member resolution
 		c.Resolver().SetModel(c.model)
+		if c.Batch != nil {
+			c.model.SetSourceText(c.Batch.Source)
+		}
 	}
 	return c.model
 }

@@ -170,6 +170,11 @@ type compileBatch struct {
 
 // compile decides shape, compiling its callees first.
 func (b *compileBatch) compile(shape *calcShape) {
+	// A tool-computed calc has no body to compile; callers settle to the evaluator.
+	if shape.Tool != nil {
+		shape.withdraw("computed by tool " + shape.Tool.tool)
+		return
+	}
 	shape.compileState = compileInProgress
 	shape.compiled = &compiledCalc{kind: shape.Kind, name: shape.Name}
 	c := &calcCompiler{batch: b, ctx: b.ctx, shape: shape}

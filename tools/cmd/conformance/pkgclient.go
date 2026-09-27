@@ -1381,6 +1381,32 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Multiplicity: kind.AddMember.GetMultiplicity(),
 			Value:        kind.AddMember.GetValue(),
 			Specializes:  kind.AddMember.GetSpecializes(),
+			IsAbstract:   kind.AddMember.GetIsAbstract(),
+			Redefines:    kind.AddMember.GetRedefines(),
+			IsDefault:    kind.AddMember.GetIsDefault(),
+			Direction:    kind.AddMember.GetDirection(),
+		}, true
+	case *pb.EditOperation_AddConnection:
+		return opensysml.AddConnection{
+			Owner: kind.AddConnection.GetOwner(),
+			Kind:  kind.AddConnection.GetKind(),
+			From:  kind.AddConnection.GetFromEnd(),
+			To:    kind.AddConnection.GetToEnd(),
+			Name:  kind.AddConnection.GetName(),
+			Type:  kind.AddConnection.GetType(),
+		}, true
+	case *pb.EditOperation_AddSatisfy:
+		return opensysml.AddSatisfy{
+			Owner: kind.AddSatisfy.GetOwner(), Requirement: kind.AddSatisfy.GetRequirement(),
+			By: kind.AddSatisfy.GetSatisfyingFeature(), Asserted: kind.AddSatisfy.GetIsAsserted(),
+			Negated: kind.AddSatisfy.GetIsNegated(),
+		}, true
+	case *pb.EditOperation_AddRequirementConstraint:
+		return opensysml.AddRequirementConstraint{
+			Owner:      kind.AddRequirementConstraint.GetOwner(),
+			Kind:       kind.AddRequirementConstraint.GetKind(),
+			Expression: kind.AddRequirementConstraint.GetExpression(),
+			Name:       kind.AddRequirementConstraint.GetName(),
 		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true

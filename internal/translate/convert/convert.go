@@ -261,6 +261,10 @@ type Migration struct {
 	Output  []byte
 	Report  *migrate.Report
 	Results *simresults.Results
+	// Files are the attached image files the migration wrote for its document
+	// Image blocks, by the relative path they belong under; a caller writes
+	// them beside Output, empty when none was attached.
+	Files map[string][]byte
 }
 
 // Migrate reads a SysML v1 model in XMI and writes it in the to format. opts
@@ -278,7 +282,7 @@ func Migrate(name string, data []byte, to Format, opts migrate.Options) (*Migrat
 	if err != nil {
 		return nil, fmt.Errorf("the migrated notation could not be written: %w", err)
 	}
-	return &Migration{Output: out, Report: result.Report, Results: result.Results}, nil
+	return &Migration{Output: out, Report: result.Report, Results: result.Results, Files: result.Files}, nil
 }
 
 func convert(name string, data []byte, from, to Format, tolerateSyntaxErrors bool, opts Options) ([]byte, *SyntaxError, error) {

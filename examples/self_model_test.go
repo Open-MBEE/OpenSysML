@@ -453,8 +453,9 @@ func TestSelfModelAnalysisFrameworkMatchesImplementation(t *testing.T) {
 	if declared := budget.str("jobsEnvVar"); declared != analysis.JobsEnvVar {
 		t.Errorf("pipeline.sysml says jobsEnvVar = %q, analysis reads %q", declared, analysis.JobsEnvVar)
 	}
-	if declared, actual := budget.boolean("defaultJobsIsCpuCount"), analysis.DefaultJobs() == goruntime.NumCPU(); declared != actual {
-		t.Errorf("pipeline.sysml says defaultJobsIsCpuCount = %v, DefaultJobs is the CPU count: %v", declared, actual)
+	jobs := analysis.DefaultJobs()
+	if declared, actual := budget.boolean("defaultJobsAtMostCpuCount"), jobs >= 1 && jobs <= goruntime.NumCPU(); declared != actual {
+		t.Errorf("pipeline.sysml says defaultJobsAtMostCpuCount = %v, DefaultJobs is %d of %d CPUs: %v", declared, jobs, goruntime.NumCPU(), actual)
 	}
 	rejects := true
 	for _, text := range []string{"0", "-1", "two", ""} {

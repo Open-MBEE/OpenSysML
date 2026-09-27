@@ -55,6 +55,9 @@ type Element struct {
 	Children []*Element
 	// Stereotypes are the stereotype applications whose base is this element.
 	Stereotypes []*Stereotype
+	// AttachedStream is the archive entry holding the element's attached file,
+	// "" when none.
+	AttachedStream string
 	// refs are child reference elements (xmi:idref or href) by role.
 	refs map[string][]string
 }
@@ -145,6 +148,9 @@ type Model struct {
 	// names for applied stereotypes, by namespace and name.
 	stereotypeHrefs map[stereotypeKey]string
 	ancestors       map[*Element][]*Element
+	// entries are the archive's entries by name, for reading attachments;
+	// nil when the model was not read from an archive.
+	entries map[string]*zip.File
 }
 
 // stereotypeKey identifies an applied stereotype by the namespace it is
@@ -426,11 +432,40 @@ func parseArchive(zr *zip.Reader) (*Model, error) {
 		return nil, fmt.Errorf("archive holds no model document (expected a MagicDraw uml_model.model entry or an .xmi file); entries: %s", strings.Join(names, ", "))
 	}
 	m.readStreams(entries)
+	m.entries = entries
 	model, err := m.finish()
 	if err != nil {
 		return nil, fmt.Errorf("archive: %w", err)
 	}
 	return model, nil
+}
+
+// Attachment returns the archive entry named name read in full; false when
+// the model was not read from an archive or names no such entry.
+func (m *Model) Attachment(name string) ([]byte, bool) {
+	if m.entries == nil {
+		return nil, false
+	}
+	f := m.entries[name]
+	if f == nil {
+		return nil, false
+	}
+	data, err := readEntry(f)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// AttachmentNames lists the archive's entries by name; empty when the model
+// was not read from an archive.
+func (m *Model) AttachmentNames() []string {
+	names := make([]string, 0, len(m.entries))
+	for name := range m.entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // readEntry reads one archive entry within the size bound.
@@ -584,8 +619,32 @@ func (m *Model) special(raw *xmi.Element, owner, ref *Element) {
 		ext := Extension{Extender: raw.Attr("extender"), Owner: owner}
 		adopted := m.adoptValues(raw, owner, ref)
 		m.extensionContent(raw, &ext, ref, adopted)
+		if owner != nil && owner.AttachedStream == "" {
+			owner.AttachedStream = attachedStream(raw)
+		}
 		m.Extensions = append(m.Extensions, ext)
 	}
+}
+
+// attachedStream is the streamContentID an ATTACHED_FILE extension carries:
+// the archive entry the element's attached file is stored under.
+func attachedStream(raw *xmi.Element) string {
+	mark := false
+	for _, d := range raw.Descendants() {
+		if strings.Contains(d.Tag, "ATTACHED_FILE") || d.Attr("source") == "ATTACHED_FILE" {
+			mark = true
+			break
+		}
+	}
+	if !mark {
+		return ""
+	}
+	for _, d := range raw.Descendants() {
+		if local(d.Tag) == "contents" && d.Attr("streamContentID") != "" {
+			return d.Attr("streamContentID")
+		}
+	}
+	return ""
 }
 
 // extensionContent records what an extension block holds, in document order:

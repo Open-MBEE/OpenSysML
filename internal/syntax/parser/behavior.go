@@ -1183,7 +1183,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 
 	// The variable is a full UsageDeclaration, so it may state its type before
 	// `in` (`for n : ScalarValues::Integer in (1, 2, 3)`).
-	variableRels := p.parseRelationships(true)
+	variableRels := p.parseRelationships(declFeature)
 
 	// Expect 'in' keyword
 	if !p.acceptKeyword("in") {
@@ -1519,6 +1519,9 @@ func (p *Parser) atReturnedUsage() bool {
 // without `return`, so an expression after `return` is refused here.
 func (p *Parser) parseResultMember() ast.Node {
 	start := p.peek().Span.Offset
+	if p.isResultKeyword() && p.bodyContext() == bodyRequirement {
+		p.error(p.peek().Span, "'return' is not a member of a requirement body: only a calculation, constraint or case body declares a return parameter")
+	}
 
 	// Expect 'return' keyword
 	if !p.acceptKeyword("return") {
@@ -2014,7 +2017,7 @@ func (p *Parser) parseSubjectMember(start int, prefixes []*ast.PrefixMetadata) a
 	}
 
 	// A subject may redefine the one it inherits: subject subj : View[1] :>> RequirementCheck::subj;
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 
 	// Value part: `= expr`, `:= expr` or `default [=] expr`.
 	valueOp, hasValue := p.acceptValueOperator()
@@ -2195,7 +2198,7 @@ func (p *Parser) parseOwnedConstraintDecl(what string) ownedConstraintDecl {
 	if p.atName() || p.at(lexer.Lt) {
 		d.ident = p.parseIdentification()
 	}
-	d.relationships = p.parseRelationships(true)
+	d.relationships = p.parseRelationships(declFeature)
 	if p.at(lexer.LBracket) {
 		d.multiplicity = p.parseMultiplicity()
 	}
@@ -2237,13 +2240,13 @@ func (p *Parser) tryParseConstraintReference() (constraintReference, bool) {
 		p.restore(cp)
 		return constraintReference{}, false
 	}
-	rels := p.parseRelationships(true)
+	rels := p.parseRelationships(declFeature)
 	// The specialization part carries a multiplicity of its own, which may be
 	// followed by further specializations: `require c [0..*] :> d;`.
 	var mult *ast.Multiplicity
 	if p.at(lexer.LBracket) {
 		mult = p.parseMultiplicity()
-		rels = append(rels, p.parseRelationships(true)...)
+		rels = append(rels, p.parseRelationships(declFeature)...)
 	}
 	if p.at(lexer.LBrace) {
 		p.advance() // consume '{'
@@ -2607,7 +2610,7 @@ func (p *Parser) parsePayloadParameter() *ast.Usage {
 			param.Ident = p.parseIdentification()
 		}
 		if p.atPayloadOperator() {
-			rels := p.parseRelationships(true)
+			rels := p.parseRelationships(declFeature)
 			param.Relationships = append(param.Relationships, rels...)
 		}
 		if p.atTriggerKeyword() {
@@ -3033,22 +3036,33 @@ func (p *Parser) atTransitionClause() bool {
 
 // parseTransitionTail parses the clauses a transition carries after its source —
 // trigger, guard, effect and the `then` naming its target — and the terminating
-// ';'. The clauses are read in the order they were written so a misordered
-// transition is reported once, at the clause that is out of place, rather than
-// silently dropped.
+// ';'. Repeated and misordered clauses are reported at the offending keyword;
+// parsing continues so the remaining transition can be recovered.
 func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *ast.QualifiedName) ast.Node {
 	node := &ast.TransitionMember{
 		Name:     name.Text,
 		NameSpan: name.Span,
 		Source:   source,
 	}
+	var lastClause int
+	var seenTrigger, seenGuard, seenEffect bool
+	reportClause := func(tok lexer.Token, keyword string, order int, repeated bool) {
+		if repeated {
+			p.error(tok.Span, fmt.Sprintf("a transition has at most one '%s' clause", keyword))
+		}
+		if order < lastClause {
+			p.error(tok.Span, "transition clauses must appear in the order 'accept', 'if', 'do'")
+		}
+		if order > lastClause {
+			lastClause = order
+		}
+	}
 
 	for {
 		switch {
 		case p.atKeyword("accept"):
-			if node.Trigger != nil {
-				p.error(p.peek().Span, "a transition accepts one trigger: write a second transition for the other event")
-			}
+			reportClause(p.peek(), "accept", 1, seenTrigger)
+			seenTrigger = true
 			acceptStart := p.peek().Span.Offset
 			p.advance() // consume 'accept'
 			node.Trigger = p.parseTriggerEvent()
@@ -3064,19 +3078,22 @@ func (p *Parser) parseTransitionTail(start int, name ast.NameSegment, source *as
 			// standard `accept`. What follows is read as an expression and
 			// classified when lowered, so a name states a signal and a condition a
 			// change, as it did before the standard spelling was added.
-			if node.Trigger != nil {
-				p.error(p.peek().Span, "a transition accepts one trigger: write a second transition for the other event")
-			}
+			reportClause(p.peek(), "when", 1, seenTrigger)
+			seenTrigger = true
 			whenStart := p.peek().Span.Offset
 			p.advance() // consume 'when'
 			node.Trigger = p.ParseExpression()
 			node.TriggerSpan = p.spanFrom(whenStart)
 			continue
 		case p.atKeyword("if"):
+			reportClause(p.peek(), "if", 2, seenGuard)
+			seenGuard = true
 			p.advance() // consume 'if'
 			node.Guard = p.ParseExpression()
 			continue
 		case p.atKeyword("do"):
+			reportClause(p.peek(), "do", 3, seenEffect)
+			seenEffect = true
 			p.advance() // consume 'do'
 			effect, err := p.parseTransitionEffect(start)
 			if err != nil {

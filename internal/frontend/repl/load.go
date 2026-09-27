@@ -53,22 +53,15 @@ func (s *Session) loadPathsReport(paths []string) (LoadReport, error) {
 	if err != nil {
 		return LoadReport{}, err
 	}
-	files = s.withDependencies(files)
-	srcs := make([]SourceFile, 0, len(files))
-	names := make([]string, 0, len(files))
-	for _, file := range files {
-		name, data, err := project.ReadFile(file)
-		if err != nil {
-			return LoadReport{}, readError(name, err)
-		}
-		names = append(names, name)
-		srcs = append(srcs, SourceFile{Name: name, Text: string(data)})
+	srcs, err := s.readSources(s.withDependencies(files))
+	if err != nil {
+		return LoadReport{}, err
 	}
 	var loaded []string
-	if len(files) > 1 {
-		loaded = append(loaded, fmt.Sprintf("loaded %d files:", len(files)))
-		for _, name := range names {
-			loaded = append(loaded, "  "+name)
+	if len(srcs) > 1 {
+		loaded = append(loaded, fmt.Sprintf("loaded %d files:", len(srcs)))
+		for _, src := range srcs {
+			loaded = append(loaded, "  "+src.Name)
 		}
 	}
 	found, declared := renderSplit(s.submitFiles(srcs), s.verbosity)
@@ -102,6 +95,42 @@ func expandHomes(paths []string) []string {
 		out = append(out, expandHome(p))
 	}
 	return out
+}
+
+// readSources reads every path into the file a load submits, under the name it
+// is reported by; the error is a *ReadError or a *ReservedNameError.
+func (s *Session) readSources(paths []string) ([]SourceFile, error) {
+	files := make([]SourceFile, 0, len(paths))
+	for _, path := range paths {
+		name, data, err := project.ReadFile(path)
+		if err != nil {
+			return nil, readError(name, err)
+		}
+		if err := reservedName(name); err != nil {
+			return nil, err
+		}
+		files = append(files, SourceFile{Name: name, Text: string(data)})
+	}
+	return files, nil
+}
+
+// ReservedNameError is a file a load refused because its name is the one the
+// session keeps its typed text under, which a loaded file cannot share.
+type ReservedNameError struct {
+	Name string
+}
+
+func (e *ReservedNameError) Error() string {
+	return fmt.Sprintf("cannot load %s: the name is reserved for the text typed at the prompt", e.Name)
+}
+
+// reservedName is the *ReservedNameError refusing a file named as the
+// transcript, nil for any other name.
+func reservedName(name string) error {
+	if name != docName {
+		return nil
+	}
+	return &ReservedNameError{Name: name}
 }
 
 // ReadError is a file a load could not read, under the name it is reported by.

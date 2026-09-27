@@ -549,22 +549,59 @@ func (r *Resolver) resolveMetadataPrefix(names, parent *symbols.Scope, prefix *a
 	for _, a := range prefix.About {
 		r.ResolveQualified(names, a)
 	}
-	owner, ok := r.ResolveQualified(names, prefix.Type)
-	if !ok || owner == nil || len(prefix.Body) == 0 {
-		return
-	}
-	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
-		owner = target
-	}
+	owner := r.metadataBodyOwner(names, prefix)
 	body := parent.ChildFor(prefix)
 	if body == nil {
 		return
 	}
 	// Body values resolve against the metadata definition, not the annotated element.
-	if body.Owner() == nil {
+	linkMetadataBody(body, owner)
+	if owner != nil {
+		r.resolveMetadataBody(body, prefix.Body)
+	}
+}
+
+// metadataBodyOwner is the metadata definition the body of prefix resolves against,
+// its type read in names; nil when it does not resolve or there is no body.
+func (r *Resolver) metadataBodyOwner(names *symbols.Scope, prefix *ast.PrefixMetadata) *symbols.Symbol {
+	owner, ok := r.ResolveQualified(names, prefix.Type)
+	if !ok || owner == nil || len(prefix.Body) == 0 {
+		return nil
+	}
+	if target, aliasOK := r.ResolveAliasTarget(owner); aliasOK {
+		return target
+	}
+	return owner
+}
+
+// linkMetadataBody makes owner, the metadata definition the body resolves against
+// now, the body scope's owner; a definition it kept from an earlier build goes.
+func linkMetadataBody(body *symbols.Scope, owner *symbols.Symbol) {
+	if body.Owner() != owner {
 		body.SetOwner(owner)
 	}
-	r.resolveMetadataBody(body, prefix.Body)
+}
+
+// LinkMetadataBodies sets every annotation body scope's owner as resolving the
+// document would, so resolving it afterwards writes nothing to the scope tree.
+func (r *Resolver) LinkMetadataBodies(name string) {
+	rootScope := r.idx.DocumentRoot(name)
+	if rootScope == nil {
+		return
+	}
+	saved := r.document
+	r.document = name
+	defer func() { r.document = saved }()
+	r.linkMetadataBodies(rootScope)
+}
+
+func (r *Resolver) linkMetadataBodies(scope *symbols.Scope) {
+	for _, child := range scope.Children() {
+		if prefix, ok := child.Node().(*ast.PrefixMetadata); ok {
+			linkMetadataBody(child, r.metadataBodyOwner(r.bodyScope(scope, child.Annotated()), prefix))
+		}
+		r.linkMetadataBodies(child)
+	}
 }
 
 func (r *Resolver) resolveMetadataBody(scope *symbols.Scope, members []ast.Node) {
@@ -1464,22 +1501,36 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 			r.ResolveQualified(scope, v.TypeRef)
 		}
 	case *ast.FeatureChainExpr:
-		r.resolveFeatureChain(scope, v)
+		if r.columnChains == 0 || r.columnChainHeadResolves(scope, v) {
+			r.resolveFeatureChain(scope, v)
+		}
 	case *ast.IndexExpr:
 		r.resolveExpr(scope, v.Operand)
 		r.resolveExpr(scope, v.Index)
 	case *ast.InvocationExpr:
 		r.resolveExpr(scope, v.Operand)
+		var called *symbols.Symbol
 		if v.Type != nil {
-			r.ResolveInvocationName(scope, v.Type)
+			called, _ = r.ResolveInvocationName(scope, v.Type)
 		}
-		for _, a := range v.Args {
-			r.resolveExpr(scope, a)
+		// A Column's expression argument evaluates per row, so a chain in it
+		// may name members of the row element, not a visible reference.
+		column := called != nil && symbols.FQNOf(called) == documentColumnCalcFQN
+		for i, a := range v.Args {
+			if column && i == 1 {
+				r.resolveColumnExpression(scope, a)
+			} else {
+				r.resolveExpr(scope, a)
+			}
 		}
 		for _, na := range v.NamedArgs {
 			// Named argument names are parameter identifiers, not references
 			// Don't resolve na.Name - it's looked up in callee's parameter list
-			r.resolveExpr(scope, na.Value)
+			if column && na.Name != nil && na.Name.Text() == "expression" {
+				r.resolveColumnExpression(scope, na.Value)
+			} else {
+				r.resolveExpr(scope, na.Value)
+			}
 		}
 	case *ast.CollectExpr:
 		r.resolveExpr(scope, v.Operand)
@@ -1539,6 +1590,43 @@ func (r *Resolver) resolveExpr(scope *symbols.Scope, e ast.Node) {
 		r.ResolveQualified(scope, v)
 	}
 	// Literals (LiteralBool/String/Integer/Real/Infinity, NullExpr) have no refs.
+}
+
+// resolveColumnExpression resolves a Column's expression argument: a chain
+// whose head resolves is a reference, a row-relative one records nothing.
+func (r *Resolver) resolveColumnExpression(scope *symbols.Scope, node ast.Node) {
+	r.columnChains++
+	defer func() { r.columnChains-- }()
+	r.resolveExpr(scope, node)
+}
+
+// columnChainHeadResolves reports whether the name a chain's operands bottom
+// out at resolves in scope; an unresolved head makes the chain row-relative.
+func (r *Resolver) columnChainHeadResolves(scope *symbols.Scope, fc *ast.FeatureChainExpr) bool {
+	operand := fc.Operand
+	for {
+		chain, ok := operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		operand = chain.Operand
+	}
+	head := ast.AsQualifiedName(operand)
+	if head == nil || len(head.Parts) == 0 {
+		return true
+	}
+	return r.probe(head, func() bool {
+		sym, ok := r.ResolveQualified(scope, head)
+		if !ok || sym == nil {
+			return false
+		}
+		// A head naming a parameter is row-relative too: a parameter cannot
+		// be read through, so no reference resolves here.
+		if usage, isUsage := sym.Decl.(*ast.Usage); isUsage && (usage.Direction != ast.DirNone || usage.IsResult) {
+			return false
+		}
+		return true
+	})
 }
 
 // resolveFeatureChain resolves a FeatureChainExpr and returns its final symbol.
@@ -1767,6 +1855,10 @@ func (r *Resolver) getOperandSymbol(scope *symbols.Scope, e ast.Node) *symbols.S
 // baseThatFQN is the implicit `that` feature every usage takes from the base
 // usage Base::things ([KerML, 8.4.2]).
 const baseThatFQN = "Base::things::that"
+
+// documentColumnCalcFQN is the document-query library's column constructor,
+// whose expression argument evaluates on each projected row.
+const documentColumnCalcFQN = "DocumentQueries::Column"
 
 // featuringOf returns what a member chain from `that` reads its members from:
 // the usage enclosing the expression, whose value features the value being

@@ -1,0 +1,1 @@
+- **The language-server lifecycle tests wait for a killed server before reading its stderr.** `TestSilentServerFailsWithinDeadline` read the captured stderr as soon as the server's stdout closed, before `os/exec` had finished copying the goroutine dump the `SIGQUIT` produced, so the dump was sometimes empty and the test failed at random under load.

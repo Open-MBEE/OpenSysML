@@ -14,11 +14,13 @@ in this directory, so adding a case is a data-only change.
 
 | Field | Applies to | Meaning |
 |---|---|---|
-| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits` or `RunDocumentQuery` |
+| `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery` or `EvaluateCalc` |
 | `expression` | Evaluate | expression source to evaluate |
 | `context_symbol_id` | Evaluate | optional FQN whose scope the expression is evaluated in |
 | `subject_symbol_id` | Evaluate | optional FQN of a part/usage instantiated and evaluated against, so features read its feature values |
-| `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState | FQN of the subject |
+| `symbol_id` | GetSymbol, Instantiate, ExecuteAction, ExecuteState, EvaluateCalc | FQN of the subject |
+| `arguments` | EvaluateCalc | positional arguments bound to the calc's parameters |
+| `tools` | EvaluateCalc | stand-ins under `internal/exec/analysis/testdata` built and registered from a manifest before the service is built |
 | `inputs` | ExecuteAction | parameter name → value, bound before execution |
 | `events` | ExecuteState | event names injected, in order |
 | `instantiate` | RunDocumentQuery | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them |
@@ -26,12 +28,12 @@ in this directory, so adding a case is a data-only change.
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
 | `expected_columns` | RunDocumentQuery | full ordered projected-column name list |
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
-| `expected_result` | Evaluate | expected `Value` |
+| `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
-| `expected_outputs` | ExecuteAction | output name → expected `Value` |
+| `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |
 | `expected_states_visited` | ExecuteState | full ordered state-visit trace |
 | `expected_final_context` | ExecuteState | context entry name → expected `Value` |
 | `expected_error` | all | substring the RPC's in-band `error` must contain (for `RunDocumentQuery`, the status error the call fails with) |

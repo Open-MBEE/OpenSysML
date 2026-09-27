@@ -122,7 +122,8 @@ func (e *executor) evaluateColumnCell(
 func columnMultiplicity(expression queryplan.Expression) queryplan.Multiplicity {
 	one := queryplan.Multiplicity{Lower: 1, Upper: 1, Known: true}
 	switch expression.Operation() {
-	case queryplan.OperationRowProperty, queryplan.OperationParameter:
+	case queryplan.OperationRowProperty, queryplan.OperationRowMember,
+		queryplan.OperationParameter:
 		return expression.Multiplicity()
 	case queryplan.OperationLiteral:
 		if kind, _ := expression.Literal(); kind == queryplan.LiteralNull {
@@ -164,6 +165,8 @@ func (e *executor) evaluateColumnExpression(
 	switch expression.Operation() {
 	case queryplan.OperationRowProperty:
 		return e.rowPropertyValues(expression, row, tracker)
+	case queryplan.OperationRowMember:
+		return e.rowMemberValues(expression, column, row, tracker)
 	case queryplan.OperationLiteral:
 		value, err := e.evaluateLiteral(expression)
 		if err != nil {
@@ -224,6 +227,15 @@ func (e *executor) rowPropertyValues(
 		}
 		return e.reflectiveFeatureValues(expression, property, sym)
 	}
+	if e.metadataType(declaring) != nil {
+		// A feature of a metadata def reads what the row's annotations of
+		// that def bind it to; a row not annotated reads it as absent.
+		values, _, err := e.annotationFeatureValues(sym, declaring, property)
+		if err != nil {
+			return nil, e.unevaluable(expression, property, ElementValue(sym), err)
+		}
+		return values, nil
+	}
 	if !e.rowConformsTo(sym, declaring) {
 		// The row is unrelated to the declaring type: read as absent so a
 		// ?? operator can default it. The feature resolved at planning.
@@ -234,6 +246,50 @@ func (e *executor) rowPropertyValues(
 		return nil, e.unevaluable(expression, property, ElementValue(sym), err)
 	}
 	return declared, nil
+}
+
+// rowMemberValues evaluates a member path on the row element; only element
+// rows carry members, so other rows and nonconforming ones read it as absent.
+func (e *executor) rowMemberValues(
+	expression queryplan.Expression,
+	column string,
+	row Value,
+	tracker *propertyTracker,
+) ([]Value, error) {
+	path := expression.Target()
+	_, declaring := expression.Literal()
+	sym, isElement := row.Element()
+	if !isElement {
+		tracker.record(path, false)
+		return nil, nil
+	}
+	if declaring != "" && !e.rowConformsTo(sym, declaring) {
+		return nil, nil
+	}
+	segments, ok := parseMemberPath(path)
+	if !ok {
+		return nil, e.unevaluable(expression, path, row, nil)
+	}
+	values, present, member, err := e.memberPathValues(sym, segments)
+	if err != nil {
+		return nil, e.unevaluable(expression, path, row, err)
+	}
+	tracker.record(path, present)
+	if member != nil {
+		rng := e.context.Model.GoverningMultiplicityOf(member)
+		if rng.Upper.Known && !rng.Upper.Infinite && int64(len(values)) > rng.Upper.Value {
+			failure := e.columnError(
+				ErrorColumnCardinality, column, row, expression.Origin(), "", strconv.Itoa(len(values)))
+			failure.Expected = multiplicityString(queryplan.Multiplicity{
+				Lower:         rng.Lower.Value,
+				Upper:         rng.Upper.Value,
+				UpperInfinite: rng.Upper.Infinite,
+				Known:         rng.Lower.Known && rng.Upper.Known,
+			})
+			return nil, failure
+		}
+	}
+	return values, nil
 }
 
 // objectRowValues reads a declared or metaclass feature of an object row.
@@ -353,7 +409,7 @@ func (e *executor) reflectiveFeatureValues(
 	}
 	result := make([]Value, 0, len(values))
 	for _, value := range values {
-		converted, ok := filterValue(value, sym)
+		converted, ok := e.filterValue(value, sym)
 		if !ok {
 			return nil, e.featureError(expression, property, ElementValue(sym))
 		}

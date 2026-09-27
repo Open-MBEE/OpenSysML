@@ -188,7 +188,9 @@ type distribution struct {
 // draw makes the draw the call what asks for — the witness's under replay, the
 // distribution's fixed point under a fixed policy, else one from the run's modeled
 // stream — noting it for the trace and the witness; a probe's draw is undone with the probe.
+// A draw is the run's, not the shape's: what it feeds is never shared between occurrences.
 func (ctx *Context) draw(what string, dist distribution) (semantics.Value, error) {
+	ctx.unshareTraces()
 	val, err := ctx.scheduling().draw(what, dist)
 	if err != nil {
 		return semantics.Value{}, err

@@ -123,7 +123,7 @@ func (ctx *Context) RunVerification(sym *symbols.Symbol, args AnalysisArgs, scop
 	name := ctx.qualifiedSymbolName(sym)
 	caseRun, run, err := ctx.runCase(sym, args, scope, self)
 	if err != nil {
-		if badRequest(err) {
+		if badRequest(err) || errors.Is(err, ErrToolDryRun) {
 			return VerificationResult{}, err
 		}
 		return VerificationResult{

@@ -14,10 +14,11 @@ import (
 )
 
 // LayoutPass validates the DiagramLayout annotations of a document: a
-// Layout or Route the rendering it applies to cannot draw, a binding that does
-// not read as geometry, a Canvas stated outside the body of the view it
-// annotates, and two `about` annotations of one kind for one element in one
-// view, of which the first applies.
+// Layout, Route, Style or Note the rendering it applies to cannot draw, a
+// binding that does not read as geometry, a Canvas stated outside the body of
+// the view it annotates, a Picture annotating anything but a view, and two
+// `about` annotations of one kind for one element in one view, of which the
+// first applies; a Note or Picture is never a duplicate, since every one is drawn.
 type LayoutPass struct{}
 
 // Diagnostic codes of the pass.
@@ -90,7 +91,7 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 	}
 	firstInView := map[viewKey]*semantics.LayoutSite{}
 	for _, site := range sites {
-		if site.View != nil {
+		if site.View != nil && site.TypeFQN != semantics.NoteFQN && site.TypeFQN != semantics.PictureFQN {
 			key := viewKey{view: site.View.Decl, typeFQN: site.TypeFQN}
 			if _, dup := firstInView[key]; !dup {
 				firstInView[key] = site
@@ -115,8 +116,17 @@ func (c *layoutChecker) check(sym *symbols.Symbol) {
 				c.errorf(site.Node.Span(), layoutCanvasCode,
 					"Canvas about %s is stated outside its body and sizes nothing; a Canvas belongs in the body of the view it sizes", c.describe(sym))
 			}
-		case semantics.LayoutFQN, semantics.RouteFQN:
+		case semantics.PictureFQN:
+			if !semantics.IsView(sym) {
+				c.errorf(site.Node.Span(), layoutCanvasCode,
+					"Picture annotates %s, which is no view; a Picture is drawn on the surface of the view it annotates", c.describe(sym))
+			}
+		case semantics.LayoutFQN, semantics.RouteFQN, semantics.StyleFQN:
 			c.checkPlaced(site, sym)
+		case semantics.NoteFQN:
+			if !semantics.IsView(sym) {
+				c.checkPlaced(site, sym)
+			}
 		}
 	}
 }
@@ -128,20 +138,29 @@ type viewKey struct {
 	typeFQN string
 }
 
-// checkPlaced warns when the rendering a Layout or Route applies to draws no
-// node, or no edge, for the element: the rendering of the view an `about`
-// annotation is stated in, any kind for an annotation applying in every view.
+// checkPlaced warns when the rendering a Layout, Route, Style or Note applies
+// to draws no node, or no edge, for the element: the rendering of the view an
+// `about` annotation is stated in, any kind for an annotation applying in every
+// view. A Layout or Note wants a node, a Route an edge, a Style either.
 func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Symbol) {
-	asLayout := site.TypeFQN == semantics.LayoutFQN
+	wantNode := site.TypeFQN != semantics.RouteFQN
+	wantEdge := site.TypeFQN == semantics.RouteFQN || site.TypeFQN == semantics.StyleFQN
+	verb := map[string]string{
+		semantics.LayoutFQN: "Layout positions", semantics.RouteFQN: "Route steers",
+		semantics.StyleFQN: "Style colours", semantics.NoteFQN: "Note annotates",
+	}[site.TypeFQN]
+	role := "a node"
+	switch {
+	case wantNode && wantEdge:
+		role = "a node or an edge"
+	case wantEdge:
+		role = "an edge"
+	}
 	if site.View == nil {
 		node, edge := c.renderer.DrawsAnywhere(sym)
-		if asLayout && !node {
+		if !(wantNode && node) && !(wantEdge && edge) {
 			c.warnf(site.Node.Span(), layoutUnplacedCode,
-				"Layout positions %s, which no rendering draws as a node", c.describe(sym))
-		}
-		if !asLayout && !edge {
-			c.warnf(site.Node.Span(), layoutUnplacedCode,
-				"Route steers %s, which no rendering draws as an edge", c.describe(sym))
+				"%s %s, which no rendering draws as %s", verb, c.describe(sym), role)
 		}
 		return
 	}
@@ -153,15 +172,10 @@ func (c *layoutChecker) checkPlaced(site *semantics.LayoutSite, sym *symbols.Sym
 	if !ok {
 		return
 	}
-	if asLayout && !drawn.Node(sym) {
+	if !(wantNode && drawn.Node(sym)) && !(wantEdge && drawn.Edge(sym)) {
 		c.warnf(site.Node.Span(), layoutUnplacedCode,
-			"Layout positions %s, which the %s rendering of %s does not draw as a node",
-			c.describe(sym), kind, c.describe(site.View))
-	}
-	if !asLayout && !drawn.Edge(sym) {
-		c.warnf(site.Node.Span(), layoutUnplacedCode,
-			"Route steers %s, which the %s rendering of %s does not draw as an edge",
-			c.describe(sym), kind, c.describe(site.View))
+			"%s %s, which the %s rendering of %s does not draw as %s",
+			verb, c.describe(sym), kind, c.describe(site.View), role)
 	}
 }
 

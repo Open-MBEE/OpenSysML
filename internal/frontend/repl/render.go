@@ -8,22 +8,27 @@ import (
 
 	"golang.org/x/text/width"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// Result is the outcome of one Submit: the top-level members parsed from the
-// accumulated buffer (for the success summary), the names this submission
-// declared, and any analysis diagnostics over the whole <repl> document.
+// Result is the outcome of one Submit: the top-level members of the session's
+// documents (for the success summary), the names this submission declared, and
+// any analysis diagnostics over the whole buffer.
 type Result struct {
-	Members     []ast.Node        // top-level members of the <repl> AST (Task 5 renders these)
+	Members     []Member          // top-level members of the session documents, in buffer order
 	Declared    []string          // names introduced by THIS submission
 	Diagnostics []diag.Diagnostic // eager analysis over the whole buffer
 	Source      string            // the full joined <repl> content (Task 6 caret rendering)
 	Offset      int               // byte offset in Source where THIS submission begins
 	Origins     []Origin          // the files of THIS submission, in buffer order
 	Notices     []string          // side effects of the submission, e.g. a debugging session it ended
+
+	// Refused is the *ReservedNameError a submission was refused for, nil when
+	// it was accepted; a refused submission changed nothing.
+	Refused error
 
 	// Blocked names the unresolved error that stopped the deeper checks from
 	// running over this submission, nil when they ran or when the session already
@@ -38,6 +43,19 @@ type Result struct {
 	// masked locates the submissions kept out of the analyzed buffer, whose
 	// findings gated no validation tier.
 	masked []source.Span
+
+	// foreign locates the snippets analyzed in another document than this
+	// submission's, whose findings gated none of its validation tiers.
+	foreign []source.Span
+}
+
+// Member is one top-level member of a session document; Offset is where the
+// member begins in the buffer, a loaded file's document having offsets of its own.
+type Member struct {
+	Node   ast.Node
+	Offset int
+	// scope is the root scope of the document declaring the member.
+	scope *symbols.Scope
 }
 
 // Origin locates one file of a submission in the buffer, so a diagnostic is
@@ -110,10 +128,10 @@ func (r Result) holdsMine(span source.Span) bool {
 }
 
 // renderSummary returns one accepted line per top-level member: "✓ <kind> <name>".
-func renderSummary(members []ast.Node) []string {
+func renderSummary(members []Member) []string {
 	out := make([]string, 0, len(members))
 	for _, m := range members {
-		if line := renderMember(m); line != "" {
+		if line := renderMember(m.Node); line != "" {
 			out = append(out, "✓ "+line)
 		}
 	}
@@ -329,6 +347,9 @@ func renderResult(r Result, v Verbosity) []string {
 // analysis found apart from what the submission declared, so a caller outside
 // the prompt can send the two to different streams.
 func renderSplit(r Result, v Verbosity) (found, declared []string) {
+	if r.Refused != nil {
+		return []string{"error: " + r.Refused.Error()}, nil
+	}
 	if v >= VerbosityDebug {
 		// Everything the analysis produced over the whole buffer, at
 		// buffer-absolute positions, plus where this submission landed in it.
@@ -355,6 +376,9 @@ func renderSplit(r Result, v Verbosity) (found, declared []string) {
 // text just read rather than about the analysis of the model as a whole: a load
 // that defers the analysis still says why a file could not be read.
 func renderSyntax(r Result, v Verbosity) []string {
+	if r.Refused != nil {
+		return []string{"error: " + r.Refused.Error()}
+	}
 	// A finding about the notation is no reason a file could not be read, and the
 	// analysis this load defers reports it, so reporting it here would report it twice.
 	var diags []diag.Diagnostic
@@ -427,11 +451,16 @@ func (b *blocker) note() string {
 
 // blockedBy reports the unresolved error that stopped the deeper checks from
 // running over this submission: a standing error is named on the first
-// submission whose report says so, not on every one after it.
-func (s *Session) blockedBy(r Result) *blocker {
+// submission whose report says so, not on every one after it. A load shares no
+// document with the transcript, so it names nothing; one that resolves the
+// standing error lets it be named again should it return.
+func (s *Session) blockedBy(r Result, load bool) *blocker {
 	b := r.analysisBlocked()
 	if b == nil {
 		s.notedBlocker.record("")
+		return nil
+	}
+	if load {
 		return nil
 	}
 	key := b.key()
@@ -467,7 +496,7 @@ func (n *blockerNote) record(key string) {
 func (r Result) analysisBlocked() *blocker {
 	var first *blocker
 	for _, d := range r.Diagnostics {
-		if !d.Blocking() || r.mine(d.Span) || r.isMasked(d.Span) {
+		if !d.Blocking() || r.mine(d.Span) || covers(r.masked, d.Span) || covers(r.foreign, d.Span) {
 			continue
 		}
 		if first != nil {
@@ -479,10 +508,10 @@ func (r Result) analysisBlocked() *blocker {
 	return first
 }
 
-// isMasked reports whether a span falls in a submission that was kept out of
-// the analyzed buffer, so its errors blocked nothing.
-func (r Result) isMasked(span source.Span) bool {
-	for _, m := range r.masked {
+// covers reports whether a span starts in one of the snippets located, whose
+// errors blocked nothing of the submission's.
+func covers(snippets []source.Span, span source.Span) bool {
+	for _, m := range snippets {
 		// End() included: a submission that does not close its own text is
 		// reported at its end as often as inside it.
 		if span.Offset >= m.Offset && span.Offset <= m.End() {
@@ -505,13 +534,13 @@ func hasError(diags []diag.Diagnostic) bool {
 
 // within narrows the result to one span of the submission — one file of a load
 // of several — so what is reported as its own is scoped to that text alone. A
-// member is the file's when it begins there: the last member of a document runs
-// on over the other language's text masked out after it.
+// member is the file's when it begins there: the transcript's last member runs
+// on over the files' text masked out after it.
 func (r Result) within(span source.Span) Result {
 	r.own = []source.Span{span}
-	members := make([]ast.Node, 0, len(r.Members))
+	members := make([]Member, 0, len(r.Members))
 	for _, m := range r.Members {
-		if at := m.Span().Offset; at >= span.Offset && at < span.End() {
+		if m.Offset >= span.Offset && m.Offset < span.End() {
 			members = append(members, m)
 		}
 	}
@@ -521,10 +550,10 @@ func (r Result) within(span source.Span) Result {
 
 // ownMembers returns the top-level members this submission contributed, so a
 // summary does not re-announce everything typed earlier in the session.
-func (r Result) ownMembers() []ast.Node {
-	out := make([]ast.Node, 0, len(r.Members))
+func (r Result) ownMembers() []Member {
+	out := make([]Member, 0, len(r.Members))
 	for _, m := range r.Members {
-		if r.holdsMine(m.Span()) {
+		if r.holdsMine(source.Span{Offset: m.Offset, Len: m.Node.Span().Len}) {
 			out = append(out, m)
 		}
 	}

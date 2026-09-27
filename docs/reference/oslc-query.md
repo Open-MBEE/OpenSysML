@@ -67,6 +67,8 @@ bound predicate that is not in this table:
 | `sysml:type` | `type` |
 | `sysml:multiplicityLower` | `multiplicityLower` |
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
+| `sysml:satisfiedRequirement` | `satisfiedRequirement` |
+| `sysml:satisfyingFeature` | `satisfyingFeature` |
 
 Unknown properties fail the query instead of silently returning no matches, and
 the diagnostic lists the OSLC predicates of the left column, since the query
@@ -128,6 +130,8 @@ properties. A reported property carries the name the query asked for it by, so
 written back into a query; rebinding a prefix renames it in the answer too. The
 gRPC response instead keys properties by the query property names of the table
 above, which the structured `query` field also uses.
+The REPL's `%query` and `sysml -query` identify unnamed elements with the same
+positional `@N` IDs as the service query; see [the query model](api.md#the-query-model).
 A query that matches nothing says so: the REPL prints `no
 elements matched`, and the command reports it on standard error, so the result
 rows on standard output stay one line per match. `-query` with empty text is

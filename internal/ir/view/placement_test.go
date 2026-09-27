@@ -58,6 +58,41 @@ func drawnNodes(t *testing.T, form Form, artifact string) []string {
 	return ids
 }
 
+// Positioned holds for a graph-shaped rendering some Layout or Route places,
+// and for nothing else: an unplaced graph, a table, or a missing rendering.
+func TestRenderingPositioned(t *testing.T) {
+	if !partlyPlaced().Positioned() {
+		t.Error("a partly placed interconnection is not Positioned")
+	}
+	loose := partlyPlaced()
+	for _, n := range loose.Roots {
+		n.Geometry = nil
+	}
+	for i := range loose.Edges {
+		loose.Edges[i].Route = nil
+	}
+	if loose.Positioned() {
+		t.Error("an interconnection without Layouts or Routes is Positioned")
+	}
+	routed := partlyPlaced()
+	for _, n := range routed.Roots {
+		n.Geometry = nil
+	}
+	if !routed.Positioned() {
+		t.Error("a Route alone does not make the rendering Positioned")
+	}
+	table := &Rendering{View: "T", Kind: KindTable, Roots: []*Node{
+		{ID: "r", Kind: "part", Name: "r", Geometry: &Geometry{X: 1, Y: 1}},
+	}}
+	if table.Positioned() {
+		t.Error("a table is Positioned")
+	}
+	var missing *Rendering
+	if missing.Positioned() {
+		t.Error("a nil rendering is Positioned")
+	}
+}
+
 // Every graph-shaped form of a partly placed rendering draws the placed nodes
 // and the edges between them, and no other, accounting for the rest in its own
 // comment syntax; UnplacedStrip draws every node in every form.

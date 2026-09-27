@@ -636,15 +636,15 @@ package OpenSysMLPipeline {
         out item plan : AnalysisPlan;
     }
 
-    // The budget one plan runs under: jobs is the width of the fleet, the rest
-    // bound one run in the engine's own unit.
+    // The budget one plan runs under: jobs is the width of the fleet (by default one
+    // per CPU the memory available allows), the rest bound one run in the engine's own unit.
     part def PlanBudget {
         attribute fields : String = "Deadline, Jobs, Runs, Depth, Unroll, Steps, Solver, Memory";
         attribute fieldCount : Integer = 8;
         attribute jobsEnvVar : String = "OPENSYSML_JOBS";
         attribute jobsFlag : String = "-jobs";
         attribute jobsCommand : String = "%jobs";
-        attribute defaultJobsIsCpuCount : Boolean = true;
+        attribute defaultJobsAtMostCpuCount : Boolean = true;
         attribute rejectsNonPositiveJobs : Boolean = true;
     }
 

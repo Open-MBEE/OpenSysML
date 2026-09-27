@@ -36,12 +36,16 @@ const (
 	OperationWhereType       Operation = "where-type"
 	OperationWhereMetadata   Operation = "where-metadata"
 	OperationWhereName       Operation = "where-name"
+	OperationWhereText       Operation = "where-text"
 	OperationWhereFeature    Operation = "where-feature"
 	OperationOrderBy         Operation = "order-by"
 	OperationProject         Operation = "project"
 	OperationColumn          Operation = "column"
 	OperationRowProperty     Operation = "row-property"
-	OperationColumnOperator  Operation = "column-operator"
+	// OperationRowMember reads a feature reached through a member path nested
+	// in the row element — a feature chain like `stat.runs`.
+	OperationRowMember      Operation = "row-member"
+	OperationColumnOperator Operation = "column-operator"
 	// OperationRelatedColumn projects the elements a relationship reaches from each row.
 	OperationRelatedColumn Operation = "related-column"
 	// OperationWhereRelated keeps the source rows by whether a related element exists.
@@ -49,6 +53,8 @@ const (
 	// OperationExcept and OperationUnion are the ordered set operations over rows.
 	OperationExcept Operation = "except"
 	OperationUnion  Operation = "union"
+	// OperationTree arranges rows as a containment tree, each with its depth.
+	OperationTree Operation = "tree"
 )
 
 // LiteralKind classifies a literal retained in a query plan.

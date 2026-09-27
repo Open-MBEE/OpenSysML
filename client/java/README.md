@@ -57,7 +57,7 @@ verification (`Verification`, `Satisfaction`, `Validation`, each over `Verdict`s
 documents (`DocumentValue`, `DocumentRow`, `DocumentQueryResult`,
 `RenderedDocument`) and `EngineInfo`. `SourceDocument` names a document a
 `parseSources` call reads; `Edit` is sealed over `SetValue`, `Rename`,
-`AddMember`, `Delete` and `Move`. Every RPC the service offers is a method.
+`AddMember`, `AddConnection`, `Delete` and `Move`. Every RPC the service offers is a method.
 No generated protobuf message or builder appears in the public API. A `Diagnostic`
 is `(severity, message, code, span)`; `code()` is the identifier to branch on
 (`"syntax"`, a validation code such as `"unresolved"`, `"choice-point"`,
@@ -366,12 +366,12 @@ unnoticed.
 
 Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
-Per protocol, of 134 scenarios:
+Per protocol, of 138 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      | 129 |    129 |      0 |       5 |
-| `connect-json` | 129 |    129 |      0 |       5 |
+| `connect`      | 133 |    133 |      0 |       5 |
+| `connect-json` | 133 |    133 |      0 |       5 |
 
 **5 skipped**: only the requests the public API cannot express —
 `parse/naming_no_source_is_invalid` (the API always names a
@@ -393,6 +393,13 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 | `perturb-reals`   | moves each real by a millionth   |                  24 |
 | `truncate-lists`  | drops the last repeated element  |                  50 |
 | `rewrite-strings` | replaces each string            |                  70 |
+
+`Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
+`withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
+`Edit.AddTransition` expose requirement and state-transition authoring.
+`Edit.AddTransition.entry` constructs an entry transition. The client checks
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
+`transition_authoring` before sending those additions.
 
 ## Running the tests
 

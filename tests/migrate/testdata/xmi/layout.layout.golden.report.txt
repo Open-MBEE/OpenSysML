@@ -1,11 +1,12 @@
 # SysML v1 to v2 migration report: layout.xmi
 # exported by Example UML Tool
-# migrated 16 element(s): 12 mapped, 2 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 2 of 2 diagrams from layout.layout.xml: 5 elements positioned, 1 connectors routed
+# migrated 16 element(s): 12 mapped, 2 approximated, 2 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to); laid out 2 of 2 diagrams from layout.layout.xml: 5 elements positioned, 1 connectors routed, 0 styled, 0 notes
 
 ## layout
 # source: layout.layout.xml (2022x v1.0.0, cameo 2022x Refresh2, exported 2025-06-12T21:38:50.779458500Z)
-# 3 diagram records: 2 joined, 1 matching no diagram; 0 views without layout
+# 3 diagram records: 2 joined, 1 matching no diagram; 0 views laid out from their own symbol stream, 0 without layout
 # placements: 5 of 7 written (1 not exposed, 1 resolving to no element); routes: 1 of 4 written (2 not pinned, 1 resolving to no element); malformed: 1
+# styles: 0 of 0 written; notes: 0 written (0 anchored, 0 freed of an anchor the view does not lay out)
 # routes of Connector: 1 not drawn
 # routes of Connector: 1 written
 # routes of ControlFlow: 1 not drawn

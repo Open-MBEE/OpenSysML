@@ -28,6 +28,9 @@ type Context = kit.Context
 // Options is the analysis configuration of one run.
 type Options = kit.Options
 
+// Batch is what a batch of analyses shares: its documents, gathers and source lookup.
+type Batch = kit.Batch
+
 // NewContext builds a Context for a document, in the default mode.
 func NewContext(name string, idx *symbols.Index, parseDiags []diag.Diagnostic) *Context {
 	return NewContextWithKind(name, source.KindOf(name), idx, parseDiags)

@@ -294,6 +294,36 @@ func engineStandin(t *testing.T) string {
 	return standinPath
 }
 
+// A tool manifest entry composing its process from an invocation block and
+// reading a CSV reply lists its protocol as argv+none/csv rather than object.
+func TestAToolEntryListsItsComposedProtocol(t *testing.T) {
+	dir := t.TempDir()
+	entry := `{"kind":"tool","toolName":"Solver","version":"1.0","executable":"` + engineStandin(t) + `",` +
+		`"variables":["x","y"],"invocation":{"args":["--x","{x}"],"stdin":"none"},` +
+		`"reply":{"format":"csv","outputs":{"y":{"column":"y"}}}}`
+	if err := os.WriteFile(filepath.Join(dir, "solver.json"), []byte(entry), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(analysis.ToolsEnv, dir)
+	t.Setenv(analysis.EnginesEnv, "")
+	srv := mustNewService(t, 10)
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.ListEngines(context.Background(), &pb.ListEnginesRequest{})
+	if err != nil {
+		t.Fatalf("ListEngines: %v", err)
+	}
+	for _, e := range resp.Engines {
+		if e.Name == "tool:Solver" {
+			if e.Kind != "tool" || e.Protocol != "argv+none/csv" || e.Version != "1.0" {
+				t.Errorf("tool:Solver = %v, want kind tool, protocol argv+none/csv, version 1.0", e)
+			}
+			return
+		}
+	}
+	t.Fatalf("tool:Solver is not listed in %v", resp.Engines)
+}
+
 // standinManifest points OPENSYSML_ENGINES at a manifest registering the stand-in as `standin`.
 func standinManifest(t *testing.T) string {
 	t.Helper()

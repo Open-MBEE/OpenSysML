@@ -371,7 +371,7 @@ func (ctx *Context) forgetValuesNaming(abandoned map[int64]bool) {
 				continue
 			}
 			fv.Value, fv.Values = Value{}, Value{}
-			fv.Materialized, fv.Written = false, false
+			fv.Materialized, fv.Written, fv.intrinsic = false, false, false
 			ctx.invalidateDependents(fv)
 		}
 	}
@@ -660,6 +660,7 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			}
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
+			ctx.behaviorsAttached++
 			ctx.pendingBehaviors = append(ctx.pendingBehaviors, behavior)
 			ctx.objectBehaviors = append(ctx.objectBehaviors, behavior)
 			ctx.workChanged()

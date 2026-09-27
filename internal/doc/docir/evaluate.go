@@ -153,6 +153,7 @@ func evaluate(
 		title:   plan.Title(),
 		content: content,
 		origin:  plan.Origin(),
+		model:   context.Model,
 	}, nil
 }
 
@@ -292,6 +293,24 @@ func (e *evaluator) evaluateNode(node docplan.Content) (Content, error) {
 		}, nil
 	case docplan.ContentDiagram:
 		return e.evaluateDiagram(node)
+	case docplan.ContentImage:
+		if strings.TrimSpace(node.Location()) == "" {
+			return Content{}, &Error{
+				Kind:     ErrorMissingImageLocation,
+				Document: e.document,
+				Content:  node.Name(),
+				Origin:   node.Origin(),
+			}
+		}
+		return Content{
+			kind:    ContentImage,
+			name:    node.Name(),
+			source:  node.Location(),
+			caption: node.Caption(),
+			alt:     node.Alt(),
+			file:    e.context.Model.SourceFileOf(node.Origin()),
+			origin:  node.Origin(),
+		}, nil
 	default:
 		return Content{}, &Error{
 			Kind:     ErrorInvalidPlan,
@@ -499,6 +518,20 @@ func (e *evaluator) rowTarget(node docplan.Content, template docplan.ColumnRun, 
 	return target, nil
 }
 
+// presentColumns states the table's declared widths and labels on the projected columns by
+// position; columns beyond the stated widths stay automatic.
+func presentColumns(columns []queryexec.Column, widths []int, labels []string) []queryexec.Column {
+	for i := range columns {
+		if i < len(widths) {
+			columns[i] = columns[i].WithWidth(widths[i])
+		}
+		if i < len(labels) {
+			columns[i] = columns[i].WithLabel(labels[i])
+		}
+	}
+	return columns
+}
+
 func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 	result, err := e.executeQuery(node)
 	if err != nil {
@@ -509,7 +542,7 @@ func (e *evaluator) evaluateTable(node docplan.Content) (Content, error) {
 		name:        node.Name(),
 		caption:     node.Caption(),
 		groupBy:     node.GroupBy(),
-		columns:     result.Columns(),
+		columns:     presentColumns(result.Columns(), node.ColumnWidths(), node.ColumnLabels()),
 		rows:        result.Rows(),
 		query:       node.Query().Entry(),
 		queryOrigin: result.Origin(),
@@ -832,10 +865,7 @@ func (e *evaluator) rowRuns(row queryexec.Row) []TextRun {
 // event as its summary.
 func (e *evaluator) valueText(value queryexec.Value) string {
 	if element, ok := value.Element(); ok {
-		if name := e.context.Model.EffectiveNameOf(element); name != "" {
-			return name
-		}
-		return symbols.FQNOf(element)
+		return elementName(e.context.Model, element)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label
