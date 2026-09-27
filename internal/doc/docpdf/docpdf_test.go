@@ -465,16 +465,18 @@ func TestPrintStylesheetSetsWideTablesLandscape(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wide := ".sysml-table:has(thead > tr > th:nth-child(7))"
+	wide := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7)))"
+	dense := ".sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(11)))"
 	for _, want := range []string{
 		"@page wide {\n    size: var(--sysml-page-size) landscape;",
 		"page: main;",
 		"--sysml-wide-table-font-size: 9pt;",
 		"--sysml-dense-table-font-size: 8pt;",
 		"--sysml-wide-table-layout: fixed;",
-		".sysml-document " + wide + " {\n    page: wide;\n    font-size: var(--sysml-wide-table-font-size);\n    table-layout: var(--sysml-wide-table-layout);\n    width: var(--sysml-table-width);",
+		".sysml-document " + wide + " {\n    page: wide;\n    table-layout: var(--sysml-wide-table-layout);\n    width: var(--sysml-table-width);",
+		".sysml-document " + wide + ",\n  .sysml-document " + wide + " :is(th, td) {\n    font-size: var(--sysml-wide-table-font-size);",
 		".sysml-document " + wide + " thead > tr > th:first-child {\n    width: var(--sysml-first-column-width);",
-		".sysml-document .sysml-table:has(thead > tr > th:nth-child(11)) {\n    font-size: var(--sysml-dense-table-font-size);",
+		".sysml-document " + dense + ",\n  .sysml-document " + dense + " :is(th, td) {\n    font-size: var(--sysml-dense-table-font-size);",
 		".sysml-document p:has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ " + wide + "),\n" +
 			"  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ " + wide + ")) {\n    page: wide;",
@@ -901,10 +903,7 @@ func TestRenderStateReportPage(t *testing.T) {
 		t.Fatalf("Render: %v", err)
 	}
 	page, _ := readCapture(t, capture)
-	want, err := docrender.HTML(document, docrender.HTMLOptions{
-		TOC:         true,
-		Stylesheets: []docrender.Stylesheet{docrender.InlineStylesheet(PrintStylesheet)},
-	})
+	want, err := docrender.HTML(document, pageOptions(t, Options{TOC: true}, dir, nil, formulas{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -931,8 +930,10 @@ func TestRenderStateReportPage(t *testing.T) {
 			t.Errorf("state report markup missing from the page: %q\n%s", want, page)
 		}
 	}
+	// Column groups carry their shares as style; nothing else on the page may.
+	unsized := regexp.MustCompile(`<col [^>]*>`).ReplaceAllString(page, "")
 	for _, stray := range []string{`\[`, "<!-- caption -->", `class="caption"`, " style=\""} {
-		if strings.Contains(page, stray) {
+		if strings.Contains(unsized, stray) {
 			t.Errorf("page leaks %q:\n%s", stray, page)
 		}
 	}

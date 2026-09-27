@@ -126,34 +126,43 @@
     page-break-after: avoid;
   }
 
-  /* A table of seven or more columns goes on a landscape page in smaller type
-     with its heading and lead-in; :has() nests since cssselect2 misreads "+ p + table". */
+  /* A wide table — seven or more columns, or one the backend lays out on the
+     dense landscape line (every part of a split column set is) — goes on a
+     landscape page in smaller type with its heading and lead-in;
+     :has() nests since cssselect2 misreads "+ p + table". */
   @page wide {
     size: var(--sysml-page-size) landscape;
   }
 
-  .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) {
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7))) {
     page: wide;
-    font-size: var(--sysml-wide-table-font-size);
     table-layout: var(--sysml-wide-table-layout);
     width: var(--sysml-table-width);
   }
 
+  /* The stepped-down type is set on the cells as well as the table, over the
+     size a theme gives ordinary cells. */
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7))),
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7))) :is(th, td) {
+    font-size: var(--sysml-wide-table-font-size);
+  }
+
   /* A wide table's first column, naming each row, keeps a readable width
      however many columns follow; a sized table's <col> shares take precedence. */
-  .sysml-document .sysml-table:has(thead > tr > th:nth-child(7)) thead > tr > th:first-child {
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7))) thead > tr > th:first-child {
     width: var(--sysml-first-column-width);
   }
 
-  /* Eleven or more columns step the type down once more before the backend
-     splits the column set into continuation tables. */
-  .sysml-document .sysml-table:has(thead > tr > th:nth-child(11)) {
+  /* Eleven or more columns step the type down once more; a table laid out on
+     the dense landscape line is set in that dense type, which it was measured for. */
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(11))),
+  .sysml-document .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(11))) :is(th, td) {
     font-size: var(--sysml-dense-table-font-size);
   }
 
-  .sysml-document p:has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
-  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ .sysml-table:has(thead > tr > th:nth-child(7))),
-  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ .sysml-table:has(thead > tr > th:nth-child(7)))) {
+  .sysml-document p:has(+ .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7)))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7)))),
+  .sysml-document :is(h1, h2, h3, h4, h5, h6):has(+ p:has(+ .sysml-table:is(.sysml-table-wide, :has(thead > tr > th:nth-child(7))))) {
     page: wide;
   }
 

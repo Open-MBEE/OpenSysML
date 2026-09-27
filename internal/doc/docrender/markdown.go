@@ -68,6 +68,12 @@ type MarkdownOptions struct {
 	// first column ahead of its share of the rest. 0 writes every table whole;
 	// 1 is refused, as nothing would fit beside the repeated column.
 	TableColumns int
+
+	// TableMeasure is the characters of header type one table line holds.
+	// When positive, a table is split into continuation tables so that every
+	// part's headings fit unbroken at their columns' shares of the line. 0
+	// splits by TableColumns alone.
+	TableMeasure int
 }
 
 // diagramOptions is the part of the options the diagrams are written by.
@@ -100,7 +106,7 @@ func Markdown(document *docir.Document, opts MarkdownOptions) (string, error) {
 	}
 	w := &markdownWriter{
 		opts: diagrams, files: opts.Files, svg: opts.DiagramSVG, outputDir: opts.OutputDir,
-		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns,
+		numbers: captionNumbering{on: opts.NumberFigures}, tableColumns: opts.TableColumns, tableMeasure: opts.TableMeasure,
 		names: document.ElementName,
 	}
 	var blocks []string
@@ -136,6 +142,7 @@ type markdownWriter struct {
 	outputDir    string
 	numbers      captionNumbering
 	tableColumns int
+	tableMeasure int
 	names        namer
 }
 
@@ -178,7 +185,7 @@ func (w *markdownWriter) renderNode(node docir.Content, level int) ([]string, er
 	case docir.ContentParagraph:
 		return []string{w.blockText(node.Runs())}, nil
 	case docir.ContentTable:
-		return renderTable(node, w.numbers.caption(node).String(), w.tableColumns, w.names), nil
+		return renderTable(node, w.numbers.caption(node).String(), w.tableColumns, w.tableMeasure, w.names), nil
 	case docir.ContentList:
 		return w.renderList(node), nil
 	case docir.ContentDefinitions:
@@ -203,17 +210,18 @@ func heading(level int, title string) string {
 }
 
 // renderTable writes a table as a caption block, when captioned, followed by a pipe table
-// whose header is the query's column names; a table without columns writes the row
+// whose header is the columns' labels; a table without columns writes the row
 // elements themselves under an "element" header, so a result of bare elements stays
 // readable; a table without rows still writes its header and delimiter. A table
-// projecting more columns than limit (when positive) is written as continuation tables
-// of at most limit columns, each repeating the first column under the caption with its
-// continued suffix. A grouped table writes one subtable per group, each preceded by its
-// group key in strong emphasis; the group column keeps its place in every subtable.
-func renderTable(node docir.Content, caption string, limit int, names namer) []string {
+// projecting more columns than limit (when positive), or whose headings need more than
+// a line of measure characters, is written as continuation tables each repeating the
+// first column under the caption with its continued suffix. A grouped table writes one
+// subtable per group, each preceded by its group key in strong emphasis; the group
+// column keeps its place in every subtable.
+func renderTable(node docir.Content, caption string, limit, measure int, names namer) []string {
 	var blocks []string
 	columns := node.Columns()
-	for i, part := range tableParts(len(columns), limit) {
+	for i, part := range tableParts(columns, limit, measure).parts {
 		if i > 0 && strings.TrimSpace(caption) != "" {
 			blocks = append(blocks, captionBlock(caption+" "+continuedSuffix)...)
 		} else {
@@ -229,7 +237,7 @@ func renderTable(node docir.Content, caption string, limit int, names namer) []s
 func renderTablePart(node docir.Content, columns []queryexec.Column, indexes []int, names namer) []string {
 	labels := make([]string, 0, len(indexes))
 	for _, i := range indexes {
-		labels = append(labels, columns[i].Name())
+		labels = append(labels, columns[i].Label())
 	}
 	if len(labels) == 0 {
 		labels = []string{elementColumn}

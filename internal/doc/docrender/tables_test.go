@@ -2,10 +2,13 @@ package docrender
 
 import (
 	"errors"
+	"math"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 )
 
 const sizedReport = "Observatory::SizedReport"
@@ -30,6 +33,26 @@ func TestHTMLTableColumnWidths(t *testing.T) {
 	}
 	if !strings.Contains(got, `<table class="sysml-table" data-content="table" data-name="readings"`) {
 		t.Fatalf("the unsized table is marked sized:\n%s", got)
+	}
+}
+
+// TestHTMLTableColumnLabels locks that a column's stated label heads it while
+// its name stays the column's data, and that an unlabelled column is headed
+// by its name, in HTML and Markdown alike.
+func TestHTMLTableColumnLabels(t *testing.T) {
+	got := renderFixtureHTML(t, sizedReportPath(), sizedReport, HTMLOptions{Fragment: true})
+	want := "<thead>\n<tr>\n<th scope=\"col\" data-column=\"name\">Item</th>\n" +
+		"<th scope=\"col\" data-column=\"documentation\">Description</th>\n" +
+		"<th scope=\"col\" data-column=\"mass\">mass</th>\n</tr>\n</thead>"
+	if !strings.Contains(got, want) {
+		t.Fatalf("HTML lacks %q:\n%s", want, got)
+	}
+	if !strings.Contains(got, `<td class="sysml-cell" data-column="documentation" data-value-kind="string">`) {
+		t.Fatalf("cells are keyed by the label, not the column name:\n%s", got)
+	}
+	markdown := renderFixtureDocument(t, sizedReportPath(), sizedReport)
+	if !strings.Contains(markdown, "| Item | Description | mass |\n| --- | --- | --- |\n| optics |") {
+		t.Fatalf("Markdown lacks the labelled header:\n%s", markdown)
 	}
 }
 
@@ -66,8 +89,8 @@ func TestHTMLTableContinuation(t *testing.T) {
 		t.Fatalf("continuation tables = %d, want 2:\n%s", n, got)
 	}
 	for _, want := range []string{
-		`<table class="sysml-table" data-content="table" data-name="readings"`,
-		`<table class="sysml-table sysml-table-continued" data-content="table" data-name="readings"`,
+		`<table class="sysml-table sysml-table-wide sysml-table-split" data-content="table" data-name="readings"`,
+		`<table class="sysml-table sysml-table-wide sysml-table-split sysml-table-continued" data-content="table" data-name="readings"`,
 		`<caption class="sysml-caption"><span class="sysml-caption-number">Table 2.</span> Readings</caption>`,
 		`<caption class="sysml-caption"><span class="sysml-caption-number">Table 2.</span> Readings (continued)</caption>`,
 		"<thead>\n<tr>\n<th scope=\"col\" data-column=\"name\">name</th>\n<th scope=\"col\" data-column=\"h\">h</th>",
@@ -86,9 +109,117 @@ func TestHTMLTableContinuation(t *testing.T) {
 	if n := strings.Count(got, `data-name="parts"`); n != 1 {
 		t.Fatalf("the three-column table was split:\n%s", got)
 	}
+	if n := strings.Count(got, "sysml-table-split"); n != 3 {
+		t.Fatalf("parts marked split = %d, want the three readings parts:\n%s", n, got)
+	}
 	whole := renderFixtureHTML(t, sizedReportPath(), sizedReport, HTMLOptions{Fragment: true})
-	if strings.Contains(whole, "continued") || strings.Count(whole, `data-name="readings"`) != 1 {
+	if strings.Contains(whole, "continued") || strings.Count(whole, `data-name="readings"`) != 1 || strings.Contains(whole, "sysml-table-split") {
 		t.Fatalf("the default split a table:\n%s", whole)
+	}
+}
+
+// TestHTMLTableMeasureSplit locks the split by measure: the readings table's
+// single-letter headings all fit a line of 320 characters — the three-column
+// parts table has half of it — a line of 40 takes as many as head unbroken,
+// and a sized table's column group widens a column to what its heading needs.
+func TestHTMLTableMeasureSplit(t *testing.T) {
+	got := renderFixtureHTML(t, sizedReportPath(), sizedReport, HTMLOptions{Fragment: true, TableMeasure: 320})
+	if strings.Contains(got, "continued") || strings.Contains(got, "sysml-table-wide") {
+		t.Fatalf("a table whose headings fit the line was split or set wide:\n%s", got)
+	}
+	if !strings.Contains(got, "<colgroup>\n<col data-width=\"774\" style=\"width: 52.7%\">") {
+		t.Fatalf("headings shorter than their shares changed the shares:\n%s", got)
+	}
+	got = renderFixtureHTML(t, sizedReportPath(), sizedReport, HTMLOptions{Fragment: true, TableMeasure: 40})
+	// name needs 7 of 40 characters and each letter heading 4: eight letters
+	// fit beside name (39), a ninth does not.
+	if n := strings.Count(got, `data-name="readings"`); n != 3 {
+		t.Fatalf("readings parts = %d, want 3:\n%s", n, got)
+	}
+	if !strings.Contains(got, "<th scope=\"col\" data-column=\"name\">name</th>\n<th scope=\"col\" data-column=\"i\">i</th>") {
+		t.Fatalf("the continuation does not start at the ninth letter:\n%s", got)
+	}
+	// Description needs 14 of 40 characters, over its 14.0% share, so it is
+	// pinned at 35% and name and mass split the rest at 774 : 490.
+	if !strings.Contains(got, "<colgroup>\n<col data-width=\"774\" style=\"width: 39.8%\">\n<col data-width=\"206\" style=\"width: 35.0%\">\n<col style=\"width: 25.2%\">") {
+		t.Fatalf("the sized table's shares were not widened to the headings:\n%s", got)
+	}
+}
+
+// TestTablePartsByMeasure locks the column sets a measure splits a table
+// into: a part takes as many columns as head unbroken on the line, a heading
+// wider than the line still joins the first column, and a sized table's
+// shares widen to what its headings need.
+func TestTablePartsByMeasure(t *testing.T) {
+	labelled := func(labels ...string) []queryexec.Column {
+		columns := make([]queryexec.Column, len(labels))
+		for i, label := range labels {
+			columns[i] = queryexec.Column{}.WithLabel(label)
+		}
+		return columns
+	}
+	// Four columns have half the dense line: the headings need 7, 8, 13 and 4
+	// characters, the first at least 18 % of the line, so they overrun a line
+	// of 60's half but fit the line whole, and a dense line of 30 in two parts.
+	four := labelled("name", "alpha beta", "gammadelta", "x")
+	if got := tableParts(four, 0, 60); !got.wide || !reflect.DeepEqual(got.parts, [][]int{{0, 1, 2, 3}}) {
+		t.Fatalf("layout on 60 = %+v, want every column on the dense line", got)
+	}
+	if got := tableParts(four, 0, 30); !got.wide || !reflect.DeepEqual(got.parts, [][]int{{0, 1, 2}, {0, 3}}) {
+		t.Fatalf("layout on 30 = %+v", got)
+	}
+	if got := tableParts(labelled("name", "a", "b"), 0, 60); got.wide || len(got.parts) != 1 {
+		t.Fatalf("layout of a fitting table = %+v, want its own line", got)
+	}
+	if line := tableLine(140, 7); line != 112 {
+		t.Fatalf("tableLine(140, 7) = %d", line)
+	}
+	// TableColumns still caps a part the measure would let grow.
+	if got := tableParts(labelled("name", "a", "b", "c"), 3, 80).parts; !reflect.DeepEqual(got, [][]int{{0, 1, 2}, {0, 3}}) {
+		t.Fatalf("capped parts = %v", got)
+	}
+	// A heading wider than the line sets beside the first column alone.
+	if got := tableParts(labelled("name", "a", strings.Repeat("w", 50), "b"), 0, 40).parts; !reflect.DeepEqual(got, [][]int{{0, 1}, {0, 2}, {0, 3}}) {
+		t.Fatalf("overwide parts = %v", got)
+	}
+	if need := headingNeed(queryexec.Column{}.WithLabel("Time Limit (s)")); need != 8 {
+		t.Fatalf("headingNeed = %d, want the longest word and the padding", need)
+	}
+	sized := []queryexec.Column{
+		queryexec.Column{}.WithLabel("name").WithWidth(774),
+		queryexec.Column{}.WithLabel("postSegXchgTimeLimit").WithWidth(105),
+	}
+	// The second heading needs 23 of 100 characters, over its 105/879 share,
+	// so it is pinned there and the first column takes the rest.
+	shares := columnShares(sized, 100)
+	if len(shares) != 2 || math.Abs(shares[0]-0.77) > 0.001 || math.Abs(shares[1]-0.23) > 0.001 {
+		t.Fatalf("widened shares = %v", shares)
+	}
+	if shares := columnShares(sized, 0); math.Abs(shares[1]-105.0/879) > 0.001 {
+		t.Fatalf("unmeasured shares = %v", shares)
+	}
+	// Ten value headings of 7 characters need 100 of 120; the first column
+	// keeps its least share of 18 % rather than the 20 characters left, so a
+	// part holds the nine that fit beside it and the shares stay at their minima.
+	dense := []queryexec.Column{queryexec.Column{}.WithLabel("name").WithWidth(774)}
+	for i := 0; i < 10; i++ {
+		dense = append(dense, queryexec.Column{}.WithLabel("abcdefg").WithWidth(105))
+	}
+	if got := tableParts(dense, 0, 120).parts; !reflect.DeepEqual(got, [][]int{{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}, {0, 10}}) {
+		t.Fatalf("dense parts = %v", got)
+	}
+	if shares := columnShares(dense, 120); math.Abs(shares[0]-firstColumnMinShare) > 0.001 {
+		t.Fatalf("dense first share = %v, want the least share", shares[0])
+	}
+	// An unsized wide table shares its width evenly, held to the headings:
+	// eight columns take an eighth each on a line of 112, but a heading of 18
+	// characters needs 21 of them, and the first column its 18 %.
+	even := evenShares(labelled("name", "a", "b", "c", "d", "e", "f", "integrationTimePIT"), 112)
+	if math.Abs(even[7]-21.0/112) > 0.001 || math.Abs(even[0]-firstColumnMinShare) > 0.001 || math.Abs(even[1]-even[2]) > 0.001 {
+		t.Fatalf("even shares = %v", even)
+	}
+	if columnShares(labelled("name", "a"), 112) != nil {
+		t.Fatal("an unsized table took shares")
 	}
 }
 
@@ -106,7 +237,7 @@ func TestTableParts(t *testing.T) {
 		{6, 3, [][]int{{0, 1, 2}, {0, 3, 4}, {0, 5}}},
 	}
 	for _, tc := range cases {
-		if got := tableParts(tc.columns, tc.limit); !reflect.DeepEqual(got, tc.want) {
+		if got := tableParts(make([]queryexec.Column, tc.columns), tc.limit, 0).parts; !reflect.DeepEqual(got, tc.want) {
 			t.Fatalf("tableParts(%d, %d) = %v, want %v", tc.columns, tc.limit, got, tc.want)
 		}
 	}
@@ -179,7 +310,7 @@ func TestTableColumnsOfOneRefused(t *testing.T) {
 			t.Errorf("HTML with %d columns: error = %v", columns, err)
 		}
 	}
-	if parts := tableParts(20, 0); len(parts) != 1 || len(parts[0]) != 20 {
+	if parts := tableParts(make([]queryexec.Column, 20), 0, 0).parts; len(parts) != 1 || len(parts[0]) != 20 {
 		t.Errorf("tableParts(20, 0) = %v, want one part of every column", parts)
 	}
 }

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"html"
 	"io/fs"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
@@ -224,6 +226,13 @@ type HTMLOptions struct {
 	// first column ahead of its share of the rest. 0 writes every table whole;
 	// 1 is refused, as nothing would fit beside the repeated column.
 	TableColumns int
+
+	// TableMeasure is the characters of header type one table line holds.
+	// When positive, a table is split into continuation tables so that every
+	// part's headings fit unbroken at their columns' shares of the line, and a
+	// sized part's shares widen to what its headings need. 0 splits by
+	// TableColumns alone.
+	TableMeasure int
 }
 
 // MermaidScriptURL is the pinned Mermaid release a page loads from a public
@@ -548,8 +557,8 @@ func (w *htmlWriter) writeSection(node docir.Content, path []step, id string, le
 func (w *htmlWriter) writeTable(node docir.Content, id string) {
 	columns := node.Columns()
 	c := w.captions.caption(node)
-	parts := tableParts(len(columns), w.opts.TableColumns)
-	for i, part := range parts {
+	layout := tableParts(columns, w.opts.TableColumns, w.opts.TableMeasure)
+	for i, part := range layout.parts {
 		partID, partCaption := id, c
 		if i > 0 {
 			if id != "" {
@@ -557,7 +566,8 @@ func (w *htmlWriter) writeTable(node docir.Content, id string) {
 			}
 			partCaption.text = strings.TrimSpace(c.text + " " + continuedSuffix)
 		}
-		w.writeTablePart(node, partID, partCaption, columns, part, i > 0)
+		w.writeTablePart(node, partID, partCaption, columns, part,
+			tablePartKind{wide: layout.wide, split: len(layout.parts) > 1, continued: i > 0})
 	}
 }
 
@@ -574,30 +584,128 @@ func checkTableColumns(limit int, form string) error {
 	return nil
 }
 
-// tableParts splits the indexes of a table's columns into the column sets its
-// parts are written with: one part holding every column when at most limit
-// (or when limit is 0), otherwise parts of the first column followed by
-// consecutive slices of the rest, each part of at most limit columns. A limit
-// of 1 leaves no room beside the repeated column and is refused by the
-// renderers; here it sets the table whole rather than looping.
-func tableParts(columns, limit int) [][]int {
-	all := make([]int, columns)
+// tablePartKind says how a table part stands among the parts of its table:
+// set on the dense landscape line (wide), one of several (split), and past
+// the first (continued).
+type tablePartKind struct {
+	wide, split, continued bool
+}
+
+// Column counts from which the print stylesheet sets a table on a landscape
+// page in the wide type, and in the dense type; print.css states the same.
+const (
+	wideTableColumns  = 7
+	denseTableColumns = 11
+)
+
+// tableLine is the characters a line of a table of n columns holds when the
+// dense landscape line holds measure: fewer than wideTableColumns set in the
+// ordinary type on a portrait page hold about half, fewer than
+// denseTableColumns in the wide type about four fifths.
+func tableLine(measure, n int) int {
+	switch {
+	case n >= denseTableColumns:
+		return measure
+	case n >= wideTableColumns:
+		return measure * 4 / 5
+	default:
+		return measure / 2
+	}
+}
+
+// tableLayout is how a table's columns are written: the column indexes of
+// each part, and whether the parts take the dense landscape line rather than
+// the line their column count would have.
+type tableLayout struct {
+	parts [][]int
+	wide  bool
+}
+
+// tableParts lays out a table's columns: one part holding every column when
+// they fit the line their count has, that part on the dense landscape line
+// when they fit only there, otherwise parts on that line of the first column
+// followed by consecutive slices of the rest. A part holds at most limit
+// columns (any number when limit is 0) and, when measure is positive, only
+// as many as head unbroken across the line beside the first column at its
+// least share; a column whose heading alone exceeds the line still joins the
+// first column rather than setting nothing.
+// A limit of 1 leaves no room beside the repeated column and is refused by
+// the renderers; here it sets the table whole rather than looping.
+func tableParts(columns []queryexec.Column, limit, measure int) tableLayout {
+	all := make([]int, len(columns))
 	for i := range all {
 		all[i] = i
 	}
-	if limit <= 1 || columns <= limit {
-		return [][]int{all}
+	if limit == 1 || len(columns) < 2 {
+		return tableLayout{parts: [][]int{all}}
+	}
+	fits := func(part []int, line int) bool {
+		if limit > 1 && len(part) > limit {
+			return false
+		}
+		return line <= 0 || headingsFit(partColumns(columns, part), line)
+	}
+	if fits(all, tableLine(measure, len(all))) {
+		return tableLayout{parts: [][]int{all}}
+	}
+	if fits(all, measure) {
+		return tableLayout{parts: [][]int{all}, wide: true}
 	}
 	var parts [][]int
-	for start := 1; start < columns; start += limit - 1 {
-		end := start + limit - 1
-		if end > columns {
-			end = columns
+	part := []int{0}
+	for i := 1; i < len(columns); i++ {
+		if candidate := append(part[:len(part):len(part)], i); len(part) == 1 || fits(candidate, measure) {
+			part = candidate
+			continue
 		}
-		part := append([]int{0}, all[start:end]...)
 		parts = append(parts, part)
+		part = []int{0, i}
 	}
-	return parts
+	return tableLayout{parts: append(parts, part), wide: true}
+}
+
+// partColumns are the columns at the given indexes.
+func partColumns(columns []queryexec.Column, indexes []int) []queryexec.Column {
+	part := make([]queryexec.Column, 0, len(indexes))
+	for _, i := range indexes {
+		part = append(part, columns[i])
+	}
+	return part
+}
+
+// cellPadding is the characters of a line a cell's horizontal padding takes.
+const cellPadding = 3
+
+// headingNeed is the characters a column's heading needs to set unbroken: its
+// longest word and the cell padding.
+func headingNeed(column queryexec.Column) int {
+	longest := 0
+	for _, word := range strings.Fields(column.Label()) {
+		longest = max(longest, utf8.RuneCountInString(word))
+	}
+	return longest + cellPadding
+}
+
+// firstColumnNeed is the characters the first column of a table part takes on
+// a line of measure characters: its heading's need or its least share,
+// whichever is more.
+func firstColumnNeed(column queryexec.Column, measure int) int {
+	return max(headingNeed(column), int(math.Ceil(firstColumnMinShare*float64(measure))))
+}
+
+// headingsFit reports whether every heading of the columns sets unbroken on a
+// line of measure characters: the line holds what the headings need together,
+// the first column counting at least its least share.
+func headingsFit(columns []queryexec.Column, measure int) bool {
+	need := 0
+	for i, column := range columns {
+		if i == 0 {
+			need += firstColumnNeed(column, measure)
+			continue
+		}
+		need += headingNeed(column)
+	}
+	return need <= measure
 }
 
 // writeTablePart writes one table over the columns at the given indexes: its
@@ -609,22 +717,36 @@ func (w *htmlWriter) writeTablePart(
 	c caption,
 	columns []queryexec.Column,
 	indexes []int,
-	continued bool,
+	kind tablePartKind,
 ) {
-	names := make([]string, 0, len(indexes))
-	part := make([]queryexec.Column, 0, len(indexes))
-	for _, i := range indexes {
-		names = append(names, columns[i].Name())
-		part = append(part, columns[i])
+	part := partColumns(columns, indexes)
+	names := make([]string, 0, len(part))
+	labels := make([]string, 0, len(part))
+	for _, column := range part {
+		names = append(names, column.Name())
+		labels = append(labels, column.Label())
 	}
 	if len(names) == 0 {
-		names = []string{elementColumn}
+		names, labels = []string{elementColumn}, []string{elementColumn}
 	}
 	class := "sysml-table"
-	if continued {
+	if kind.wide {
+		class += " sysml-table-wide"
+	}
+	if kind.split {
+		class += " sysml-table-split"
+	}
+	if kind.continued {
 		class += " sysml-table-continued"
 	}
-	shares := columnShares(part)
+	line := w.opts.TableMeasure
+	if !kind.wide {
+		line = tableLine(line, len(part))
+	}
+	shares := columnShares(part, line)
+	if shares == nil && line > 0 && (kind.wide || len(part) >= wideTableColumns) {
+		shares = evenShares(part, line)
+	}
 	if shares != nil {
 		class += " sysml-table-sized"
 	}
@@ -635,7 +757,7 @@ func (w *htmlWriter) writeTablePart(
 		w.b.WriteString("<caption class=\"sysml-caption\">" + captionMarkup(c) + "</caption>\n")
 	}
 	w.writeColumnGroup(part, shares)
-	w.writeTableHead(names)
+	w.writeTableHead(names, labels)
 	if node.GroupBy() != "" {
 		for _, group := range node.Groups() {
 			w.b.WriteString("<tbody class=\"sysml-group\"" + attr("data-group", node.GroupBy()) +
@@ -662,9 +784,11 @@ const firstColumnMinShare = 0.18
 
 // columnShares is the share of the table's width each column takes from the
 // stated widths: proportional to them, an automatic column counting as the
-// mean stated width, the first column at least firstColumnMinShare. Nil when
-// no column states a width.
-func columnShares(columns []queryexec.Column) []float64 {
+// mean stated width, the first column at least firstColumnMinShare and, on a
+// line of measure characters (when positive), no column narrower than its
+// heading needs, the first keeping its least share however much the other
+// headings need. Nil when no column states a width.
+func columnShares(columns []queryexec.Column, measure int) []float64 {
 	total, stated := 0, 0
 	for _, column := range columns {
 		if column.Width() > 0 {
@@ -677,13 +801,34 @@ func columnShares(columns []queryexec.Column) []float64 {
 	}
 	mean := float64(total) / float64(stated)
 	widths := make([]float64, len(columns))
-	sum := 0.0
 	for i, column := range columns {
 		widths[i] = mean
 		if column.Width() > 0 {
 			widths[i] = float64(column.Width())
 		}
-		sum += widths[i]
+	}
+	return widthShares(columns, widths, measure)
+}
+
+// evenShares is the share of the table's width each column of an unsized wide
+// table takes: equal, as a fixed layout would set them, the first column at
+// least firstColumnMinShare and, on a line of measure characters, no column
+// narrower than its heading needs.
+func evenShares(columns []queryexec.Column, measure int) []float64 {
+	widths := make([]float64, len(columns))
+	for i := range widths {
+		widths[i] = 1
+	}
+	return widthShares(columns, widths, measure)
+}
+
+// widthShares turns the columns' widths into shares of the table's width,
+// held to the first column's least share and the headings' needs on a line
+// of measure characters (when positive).
+func widthShares(columns []queryexec.Column, widths []float64, measure int) []float64 {
+	sum := 0.0
+	for _, width := range widths {
+		sum += width
 	}
 	shares := make([]float64, len(columns))
 	for i, width := range widths {
@@ -696,12 +841,55 @@ func columnShares(columns []queryexec.Column) []float64 {
 		}
 		shares[0] = firstColumnMinShare
 	}
+	if measure > 0 {
+		minima := make([]float64, len(columns))
+		for i, column := range columns {
+			minima[i] = float64(headingNeed(column)) / float64(measure)
+		}
+		if len(columns) > 1 {
+			minima[0] = max(minima[0], firstColumnMinShare)
+		}
+		shares = fitShares(shares, minima)
+	}
 	return shares
 }
 
+// fitShares sets the shares of a unit line so that none falls below its
+// minimum: a share that would is pinned at its minimum and the rest split
+// what the pinned ones leave in their proportions, until every share fits.
+// Minima summing past one leave every share at its minimum.
+func fitShares(shares, minima []float64) []float64 {
+	out := make([]float64, len(shares))
+	pinned := make([]bool, len(shares))
+	for {
+		free, weight := 1.0, 0.0
+		for i := range shares {
+			if pinned[i] {
+				free -= minima[i]
+			} else {
+				weight += shares[i]
+			}
+		}
+		fits := true
+		for i := range shares {
+			if pinned[i] {
+				out[i] = minima[i]
+				continue
+			}
+			out[i] = shares[i] / weight * free
+			if out[i] < minima[i] {
+				pinned[i], fits = true, false
+			}
+		}
+		if fits {
+			return out
+		}
+	}
+}
+
 // writeColumnGroup writes one <col> per column of a sized table, its stated
-// width as data and its share of the table's width as style, so a fixed
-// layout honours the source's proportions.
+// width (when one is) as data and its share of the table's width as style,
+// so a fixed layout honours the source's proportions.
 func (w *htmlWriter) writeColumnGroup(columns []queryexec.Column, shares []float64) {
 	if shares == nil {
 		return
@@ -718,10 +906,12 @@ func (w *htmlWriter) writeColumnGroup(columns []queryexec.Column, shares []float
 	w.b.WriteString("</colgroup>\n")
 }
 
-func (w *htmlWriter) writeTableHead(names []string) {
+// writeTableHead writes the header row: each column's name as data and its
+// label as the heading text.
+func (w *htmlWriter) writeTableHead(names, labels []string) {
 	w.b.WriteString("<thead>\n<tr>\n")
-	for _, name := range names {
-		w.b.WriteString("<th scope=\"col\"" + attr(attrColumn, name) + ">" + htmlText(name) + "</th>\n")
+	for i, name := range names {
+		w.b.WriteString("<th scope=\"col\"" + attr(attrColumn, name) + ">" + htmlText(labels[i]) + "</th>\n")
 	}
 	w.b.WriteString("</tr>\n</thead>\n")
 }
@@ -988,7 +1178,7 @@ func (w *htmlWriter) writeRenderingTable(rendering *view.Rendering) {
 		columns = view.TableColumns()
 	}
 	w.b.WriteString("<table class=\"sysml-table\" data-content=\"table\">\n")
-	w.writeTableHead(columns)
+	w.writeTableHead(columns, columns)
 	w.b.WriteString("<tbody>\n")
 	for _, row := range rendering.Rows {
 		w.b.WriteString("<tr class=\"sysml-row\">\n")

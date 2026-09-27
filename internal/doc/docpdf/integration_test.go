@@ -1073,9 +1073,9 @@ func TestRenderNumberedCaptionsWithInstalledEngines(t *testing.T) {
 // TestRenderTwentyColumnTableWithInstalledEngines renders a sized
 // twenty-column table of two dozen rows through each installed converter and
 // reads back the wide-table policy: the column set split into continuation
-// tables of at most DefaultTableColumns, every one on landscape pages that
-// each repeat the header and the row-naming first column, the row names set
-// whole, and no page left to a fragment of a row or two.
+// tables of the columns that head unbroken beside the first, every one on
+// landscape pages that each repeat the header and the row-naming first
+// column, the row names set whole, and no page left to a fragment of a row or two.
 func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 	const rows = 24
 	document := wideResultsDocument(t, rows)
@@ -1124,14 +1124,40 @@ func TestRenderTwentyColumnTableWithInstalledEngines(t *testing.T) {
 			if landscape < 2 || continued == 0 {
 				t.Fatalf("%d landscape table pages, %d continued; want the second table on its own pages:\n%s", landscape, continued, text)
 			}
-			if n := strings.Count(text, "Alignment Scenario 24"); n != 2 {
+			if n := strings.Count(text, "Alignment Scenario 24"); n != continued+1 {
 				t.Errorf("the last row's name is set %d times, want once per table:\n%s", n, text)
 			}
-			if n := strings.Count(text, "Alignment timing results"); n != 2 {
+			if n := strings.Count(text, "Alignment timing results"); n != continued+1 {
 				t.Errorf("the caption is set %d times, want once per table:\n%s", n, text)
 			}
 			if !strings.Contains(text, "Table 1. Alignment timing results (continued)") {
 				t.Errorf("the continuation keeps no caption number:\n%s", text)
+			}
+		})
+	}
+}
+
+// TestRenderThemedSplitTableWithInstalledEngines reads back that a theme
+// sizing its ordinary cells still sets every part of a split table in the
+// dense type, each heading whole, over the engines that take a theme.
+func TestRenderThemedSplitTableWithInstalledEngines(t *testing.T) {
+	document := wideResultsDocument(t, 24)
+	for _, engine := range Engines() {
+		if engine == pandocTool.name {
+			continue
+		}
+		t.Run(engine, func(t *testing.T) {
+			pdf, text := renderInstalled(t, document, engine, Options{Theme: "nasa"})
+			for _, column := range twentyColumnColumns {
+				if !strings.Contains(text, column) {
+					t.Errorf("the heading %s is set broken:\n%s", column, text)
+				}
+			}
+			if got := dominantSize(pdfTextSizes(t, pdf)); math.Abs(got-8) > 0.15 {
+				t.Errorf("the table is set at %gpt, want the dense 8pt", got)
+			}
+			if pages := pageOrientations(t, pdf); len(pages) > 5 {
+				t.Errorf("%d pages for 24 rows over two continuation tables:\n%s", len(pages), text)
 			}
 		})
 	}
@@ -1158,8 +1184,8 @@ func TestRenderContinuationCaptionStaysWithItsTableWithInstalledEngines(t *testi
 					t.Errorf("page %d sets the continuation caption without its header and rows:\n%s", i+1, page)
 				}
 			}
-			if continued != 1 {
-				t.Errorf("the continuation caption is set on %d pages, want one:\n%s", continued, text)
+			if continued == 0 {
+				t.Errorf("no page sets a continuation caption:\n%s", text)
 			}
 		})
 	}

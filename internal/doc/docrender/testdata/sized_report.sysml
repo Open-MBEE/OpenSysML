@@ -89,6 +89,7 @@ package Observatory {
 		part parts : Table {
 			attribute redefines caption = "Parts by owner";
 			attribute redefines columnWidths = (774, 206, 0);
+			attribute redefines columnLabels = ("Item", "Description");
 			calc rows : Nested { in root = telescope; }
 		}
 		part readings : Table {
