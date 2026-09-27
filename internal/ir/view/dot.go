@@ -1300,12 +1300,24 @@ func (l labeller) keywordSize() float64 {
 // dotFitFloor is the smallest font size, in points, a stated box's label shrinks to.
 const dotFitFloor = 8
 
+// The Cameo compartment table's chrome about its text, in points: the padding
+// of a cell, and the two cells' padding with the rule between them.
+const (
+	dotCellPadding        = 2
+	dotCompartmentPadding = 2 * dotCellPadding
+	dotCompartmentChrome  = 4*dotCellPadding + 1
+)
+
 // dotFittedLabel is a node's label composed to fit a stated box: the head wrapped
 // at the box's width and shrunk from the default size to the largest at which it
 // fits, the keyword and detail lines after it while height remains. A head too
 // tall even at the floor is cut to the lines that fit and ellipsized.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	lines := l.lines(node)
+	if l.compartmented(node) {
+		width -= dotCompartmentPadding
+		height -= dotCompartmentChrome
+	}
 	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, l.size())
 	var parts labelParts
 	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
@@ -1330,6 +1342,16 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 		parts.details = append(parts.details, l.sized(lineSize, text))
 	}
 	return dotLabelAttribute(l.assemble(parts))
+}
+
+// compartmented reports whether a node's label is set in Cameo's compartment
+// table: when it has detail lines under its title.
+func (l labeller) compartmented(node *Node) bool {
+	details := len(l.lines(node)) - len(l.headLines(node))
+	if l.keyworded(node) {
+		details--
+	}
+	return l.skin.cameo && details > 0
 }
 
 // labelParts is a node's label as HTML-like content, by part: the bold head,
@@ -1365,8 +1387,8 @@ func (l labeller) assemble(parts labelParts) string {
 	if len(parts.details) == 0 {
 		return "<" + title + ">"
 	}
-	return fmt.Sprintf(`<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td>%s</td></tr><hr/><tr><td align="left">%s</td></tr></table>>`,
-		title, strings.Join(parts.details, "<br/>"))
+	return fmt.Sprintf(`<<table border="0" cellborder="0" cellspacing="0" cellpadding="%d"><tr><td>%s</td></tr><hr/><tr><td align="left">%s</td></tr></table>>`,
+		dotCellPadding, title, strings.Join(parts.details, "<br/>"))
 }
 
 // dotFitText wraps lines of text into a box at the largest font size, from the

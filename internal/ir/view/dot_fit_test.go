@@ -1,6 +1,9 @@
 package view
 
 import (
+	"bytes"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -378,6 +381,52 @@ func TestDOTFitTextWrapsEachLine(t *testing.T) {
 	size, lines, fits = dotFitText([]string{"wordier", "line"}, dotGlyphEm, 30, 100, dotFontSize)
 	if size != 14 || !fits || strings.Join(lines, "|") != "wor|die|r|lin|e" {
 		t.Errorf("dotFitText(wordier, line) = %v, %q, %v; want 14, wor|die|r|lin|e, true", size, lines, fits)
+	}
+}
+
+// A Cameo label with detail lines is set in the compartment table, whose cell
+// padding and rule take room of their own: a stated box that holds the text
+// lines alone keeps only the detail lines the table leaves room for, and
+// Graphviz, when present, agrees the box is not too small.
+func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
+	// Four 11pt lines stack in 52.8pt; the table about them needs 9pt more.
+	node := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / configMode, do / update"}, 104, 60)
+	source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	checkDOTSyntax(t, source)
+	want := `label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>OFF</b></td></tr><hr/><tr><td align="left">entry /<br/>configMode</td></tr></table>>, margin=0`
+	if !strings.Contains(source, want) {
+		t.Errorf("DOT lacks %q:\n%s", want, source)
+	}
+	roomy := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / configMode, do / update"}, 104, 70)
+	source, err = (&Rendering{View: "V", Kind: KindState, Roots: []*Node{roomy}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `<tr><td><b>OFF</b></td></tr><hr/><tr><td align="left">entry /<br/>configMode<br/>do / update</td></tr>`; !strings.Contains(source, want) {
+		t.Errorf("roomier box's DOT lacks %q:\n%s", want, source)
+	}
+	dot := os.Getenv("OPENSYSML_DOT")
+	if dot == "" {
+		t.Skip("OPENSYSML_DOT not set")
+	}
+	for _, n := range []*Node{node, roomy} {
+		source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{n}}).DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatalf("DOT: %v", err)
+		}
+		cmd := exec.Command(dot, "-Kneato", "-n2", "-Tplain")
+		cmd.Stdin = strings.NewReader(source)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if _, err := cmd.Output(); err != nil {
+			t.Fatalf("dot: %v\n%s", err, stderr.String())
+		}
+		if stderr.Len() != 0 {
+			t.Errorf("box %gx%g: dot warned: %s\n%s", n.Geometry.Width, n.Geometry.Height, stderr.String(), source)
+		}
 	}
 }
 
