@@ -164,7 +164,10 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 		s.viaLane = true
 	case m.contextClassifier(s.scope) != nil:
 		a.expr, a.f = m.thisName(s.scope), m.contextClassifier(s.scope)
-		if m.defContext(s.scope) == nil && len(path) > 1 {
+		if c := m.selfContext(s.scope); c != nil {
+			// `this` inside the def is the object its context parameter holds.
+			a.f = c.classifier
+		} else if len(path) > 1 {
 			// Inside a usage of the object its features resolve bare: `this.f` is f.
 			a.expr = ""
 		}
@@ -214,6 +217,11 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	expr := writeName(m.nameOf(f))
 	if m.ownedByClassifier(f, s.scope) {
 		expr = m.ownerPrefix(s.scope) + expr
+	} else if c := m.selfContext(s.scope); c != nil {
+		// A member of the object the def's context parameter is reads through it.
+		if members, _ := m.membersOf(c.classifier, memberAny); members[name] == f {
+			expr = m.contextSpelling(c, s.scope) + "." + expr
+		}
 	}
 	return featureAnchor{expr: expr, f: f}
 }

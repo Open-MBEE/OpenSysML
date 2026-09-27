@@ -893,7 +893,7 @@ const guardedEntryApplications = `
 // the owning state's entry behavior falsifying it does not turn the route.
 func TestGuardedEntryPointRouteIsKept(t *testing.T) {
 	r := migrateDocument(t, guardedEntryMachine, guardedEntryApplications)
-	for _, line := range []string{"junction arm;", "transition first Work::arm if Main::context.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
+	for _, line := range []string{"junction arm;", "transition first Work::arm if context.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}

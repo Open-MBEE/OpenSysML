@@ -441,7 +441,7 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		starts = append(starts, r.start)
 	}
 	prefix := m.self + "."
-	if c := m.defContext(scope); c != nil {
+	if c := m.selfContext(scope); c != nil {
 		c.used = true
 		prefix = writeName(c.name) + "."
 	} else if m.self == "this" {

@@ -20,7 +20,7 @@ part def Plant {
         state Work {
             entry; then Prep;
             exit action tally {
-                assign Line::context.count := Line::context.count + 1;
+                assign context.count := context.count + 1;
             }
             state Prep;
             state Run;

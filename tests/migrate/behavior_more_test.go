@@ -130,15 +130,15 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"state Off {",
 		"defer Door;",
 		"entry action cool {",
-		"assign Baking::context.temperature := 20.0;",
+		"assign context.temperature := 20.0;",
 		"state On {",
 		"exit action count {",
-		"assign Baking::context.cycles := Baking::context.cycles + 1;",
+		"assign context.cycles := context.cycles + 1;",
 		"entry; then regions;",
 		"state regions parallel {",
 		"state heating {",
 		"entry; then Warming;",
-		"transition first Warming accept when Baking::context.temperature > 200.0 then Hot;",
+		"transition first Warming accept when context.temperature > 200.0 then Hot;",
 		"state lighting {",
 		"entry; then Lit;",
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
@@ -165,7 +165,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
 	wantNote(t, r, "_tRested", migrate.Mapped, "")
 	wantNote(t, r, "_tSelf", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Resting")
-	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when Baking::context.temperature > 200.0")
+	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when context.temperature > 200.0")
 	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
 	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes")
 	wantNote(t, r, "_doorEv", migrate.Approximated, "written where a trigger refers to it, as defer Door, an OpenSysML extension of the notation")

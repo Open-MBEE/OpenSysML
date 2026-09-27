@@ -150,7 +150,7 @@ func TestStateBehaviorsTakeTheSignalTheirTransitionsAccept(t *testing.T) {
 		"state Heating {",
 		"in target : ScalarValues::Real = setPoint.level;",
 		"in keep : ScalarValues::Boolean = setPoint.hold;",
-		"assign Ctl::context.last := target;",
+		"assign context.last := target;",
 		"do action Run {",
 		"in level : ScalarValues::Real = setPoint.level;",
 		"in hold : ScalarValues::Boolean = setPoint.hold;",
@@ -272,7 +272,7 @@ func TestStateBehaviorsTakeInheritedSignalAttributes(t *testing.T) {
 		"item fine : Fine;",
 		"in keep : ScalarValues::Boolean = fine.hold;",
 		"in target : ScalarValues::Real = fine.level;",
-		"assign Dim::context.last := target;",
+		"assign context.last := target;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

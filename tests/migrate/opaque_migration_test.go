@@ -496,8 +496,8 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 // collection function over it translates and runs.
 func TestPluralPathsStayCollections(t *testing.T) {
 	r := migrateXMI(t, "meter")
-	wantLine(t, r.Notation, "assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
-	wantLine(t, r.Notation, "action ticking : Gauge::Tick { in ref :>> context = Sweep::context; }")
+	wantLine(t, r.Notation, "assign context.total := context.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
+	wantLine(t, r.Notation, "/* not migrated: CallBehaviorAction 'ticking' — the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; v1 runs Gauge::Tick on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */")
 	wantNoLine(t, r.Notation, "assign this.total := this.cells.reading + 1;")
 	wantNoLine(t, r.Notation, "assign this.cells.reading := 1;")
 	wantNoLine(t, r.Notation, "assign this.cells.reading := 2;")
@@ -507,10 +507,10 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
 		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
-		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
+		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: context.cells is a collection, so the assignment would write through several objects`,
 		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
 		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
-		"_ticking": "the behavior acts on a Gauge through its parameter context, which is bound to Sweep::context",
+		"_ticking": "the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; v1 runs Gauge::Tick on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing",
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}

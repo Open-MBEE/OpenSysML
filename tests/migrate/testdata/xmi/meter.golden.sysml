@@ -208,7 +208,7 @@ part def Meter {
         metadata MigrationMetadata::SynthesizedName about final;
     }
     action def Sweep {
-        in ref context : Gauge;
+        in ref context : Meter;
         first start then spread;
         action spread {
             /* body not migrated (the types at "+" disagree: an operand is a collection, not a number) {JavaScript}:
@@ -217,13 +217,13 @@ part def Meter {
         }
         first spread then reset;
         action reset {
-            /* body not migrated (the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects) {JavaScript}:
+            /* body not migrated (the construct "cells.reading" is outside the translated subset: context.cells is a collection, so the assignment would write through several objects) {JavaScript}:
              * cells.reading = 1;
              */
         }
         first reset then peak;
         action peak {
-            assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
+            assign context.total := context.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };
         }
         first peak then calib;
         action calib {
@@ -238,7 +238,9 @@ part def Meter {
              */
         }
         first span then ticking;
-        action ticking : Gauge::Tick { in ref :>> context = Sweep::context; }
+        action ticking {
+            /* not migrated: CallBehaviorAction 'ticking' — the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; v1 runs Gauge::Tick on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */
+        }
         first ticking then tally;
         action tally {
             /* body not migrated (the construct "banks.level" is outside the translated subset: the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told) {JavaScript}:

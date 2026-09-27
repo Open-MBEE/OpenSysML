@@ -156,10 +156,20 @@ func (m *migration) selfContext(e *sysmlv1.Element) *behaviorContext {
 // thisName spells `this` where e's body is written: the enclosing def's
 // context parameter, or this itself inside the object's usages.
 func (m *migration) thisName(e *sysmlv1.Element) string {
-	if c := m.defContext(e); c != nil {
+	if c := m.selfContext(e); c != nil {
 		return m.contextSpelling(c, e)
 	}
 	return "this"
+}
+
+// selfPrefix spells the start of a path on the object the def enclosing e acts
+// on — its context parameter followed by a dot — or nothing outside such a def,
+// where `this` and the object's features resolve in scope.
+func (m *migration) selfPrefix(e *sysmlv1.Element) string {
+	if c := m.selfContext(e); c != nil {
+		return m.contextSpelling(c, e) + "."
+	}
+	return ""
 }
 
 // ownerPrefix spells the start of a feature path on `this` where e's body is
@@ -180,9 +190,6 @@ func (m *migration) ownerPrefix(e *sysmlv1.Element) string {
 // the parameter takes the def's qualified name.
 func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) string {
 	if e == nil {
-		return m.qualifiedContext(c, e)
-	}
-	if m.insideStateUsage(e) {
 		return m.qualifiedContext(c, e)
 	}
 	cur := e
@@ -207,7 +214,7 @@ func (m *migration) respellThis(expr string, e *sysmlv1.Element) string {
 		return m.thisName(e)
 	}
 	if strings.HasPrefix(expr, "this.") {
-		return m.ownerPrefix(e) + strings.TrimPrefix(expr, "this.")
+		return m.selfPrefix(e) + strings.TrimPrefix(expr, "this.")
 	}
 	return expr
 }
@@ -219,7 +226,7 @@ func (m *migration) anchorExpr(expr string, e *sysmlv1.Element) string {
 	if expr == "this" || strings.HasPrefix(expr, "this.") {
 		return m.respellThis(expr, e)
 	}
-	return m.ownerPrefix(e) + expr
+	return m.selfPrefix(e) + expr
 }
 
 // callBodyExpr respells an expression written for e's body so it still reads
@@ -227,7 +234,7 @@ func (m *migration) anchorExpr(expr string, e *sysmlv1.Element) string {
 // the context parameter and its others — are not in the call's own scope: a
 // bare name there is spelled qualified through its owner.
 func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
-	if c := m.defContext(e); c != nil {
+	if c := m.selfContext(e); c != nil {
 		name := writeName(c.name)
 		if expr == name {
 			return m.qualifiedContext(c, e)
@@ -406,6 +413,18 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
 			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
 				uses = true
+			}
+		case "OpaqueAction":
+			// A body written in its own language reads a feature by its name.
+			if body, _ := opaqueBody(e); body != "" {
+				if toks, err := lexOpaque(body); err == nil {
+					members, _ := m.membersOf(c, memberAny)
+					for _, t := range toks {
+						if t.kind == tokIdent && members[t.text] != nil {
+							uses = true
+						}
+					}
+				}
 			}
 		}
 	})
