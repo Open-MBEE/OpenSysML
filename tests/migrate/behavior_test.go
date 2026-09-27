@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -530,6 +531,9 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 		"first Log then 'merge';",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if !regexp.MustCompile(`decide 'decide';\n\s*else 'merge';\n`).Match(r.Notation) {
+		t.Errorf("the else branch does not directly follow the decide it is a target succession of:\n%s", r.Notation)
 	}
 	if n := strings.Count(string(r.Notation), "first 'fork' then Log;"); n != 2 {
 		t.Errorf("the two flows from Retry to Log are written %d times, want 2:\n%s", n, r.Notation)

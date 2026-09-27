@@ -876,6 +876,9 @@ func (a *activity) unmappedWait(dc, e *sysmlv1.Element, note string) {
 // ordinary node has several, guarded and weighted out of a decision.
 func (a *activity) successions(n *sysmlv1.Element) {
 	if a.starved[n] != nil {
+		if n.Type == "DecisionNode" {
+			a.m.writeComments(n, false)
+		}
 		a.starvation(n)
 		for _, e := range a.succ[n] {
 			a.m.add(e, Unmapped, "", "the edge leaves "+describe(n)+", which never fires, so no token travels it")
@@ -953,6 +956,14 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		weights = a.arbitraryChoice(n, outs, tos, guards, elseAt)
 		elseAt = -1
 	}
+	if elseAt >= 0 {
+		// A target succession of the member before it: right after the decide,
+		// before the comments and named successions.
+		a.m.w.line("else " + tos[elseAt] + ";")
+		a.m.wroteNoMember(outs[elseAt])
+		a.m.add(outs[elseAt], Mapped, "", "")
+	}
+	a.m.writeComments(n, false)
 	for i, e := range outs {
 		to := tos[i]
 		if to == "" {
@@ -971,12 +982,6 @@ func (a *activity) decisionSuccessions(n *sysmlv1.Element, from string, outs []*
 		if guards[i].ok {
 			a.m.add(e, Mapped, a.m.edgeTarget(e), "")
 		}
-	}
-	if elseAt >= 0 {
-		// An else branch is a target succession of the decision, not a member of its own.
-		a.m.w.line("else " + tos[elseAt] + ";")
-		a.m.wroteNoMember(outs[elseAt])
-		a.m.add(outs[elseAt], Mapped, "", "")
 	}
 }
 
@@ -1369,6 +1374,7 @@ func (a *activity) declareNode(n *sysmlv1.Element, name string) {
 	case "DecisionNode":
 		a.m.w.line("decide " + name + ";")
 		a.m.add(n, Mapped, name, "")
+		return // successions writes the comments, after the else branch
 	case "MergeNode":
 		a.m.w.line("merge " + name + ";")
 		a.m.add(n, Mapped, name, "")
