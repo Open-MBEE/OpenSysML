@@ -737,6 +737,124 @@ func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
 	}
 }
 
+// A transition out of the state on a general of the deferred signal takes its
+// occurrences as a v2 accept typed by the general does, so under -strict the
+// state does not keep the signal; a transition on a specialization takes only
+// the occurrences of that specialization, so the state keeps the general.
+func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
+	const signals = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gAlarm" general="_notif"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>`
+	const machine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDeferred" event="_DEFERRED"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dStop" event="_stopEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tOut" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOut" event="_ACCEPTED"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const block = `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`
+
+	general := strings.NewReplacer("_DEFERRED", "_alarmEv", "_ACCEPTED", "_notifEv").Replace(machine)
+	r := migrateDocumentOptions(t, signals+general, block, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"item deferred : Stop[*] ordered;",
+		"action receive accept kept : Stop;",
+		"transition first Busy accept Notification then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "item deferredAlarm : Alarm[*] ordered;")
+	wantNote(t, r, "_dDeferred", migrate.Approximated, "the transition (_tOut) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it")
+	wantClean(t, "deferralGeneralTaken", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Alarm")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Idle"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("the Alarm did not take the transition on Notification:\n%s", out)
+	}
+
+	special := strings.NewReplacer("_DEFERRED", "_notifEv", "_ACCEPTED", "_alarmEv").Replace(machine)
+	r = migrateDocumentOptions(t, signals+special, block, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"item deferredNotification : Notification[*] ordered;",
+		"action receiveNotification accept keptNotification : Notification;",
+		"transition first Busy accept Alarm then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDeferred", migrate.Approximated, "the transition (_tOut) out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences")
+	wantClean(t, "deferralSpecialContested", r)
+}
+
+// The members the strict encoding adds must not hide what it refers to from
+// where it is written: a deferred signal named like one of them, or the
+// library package a member of an enclosing scope is named after.
+func TestStrictDeferralNamesShadowNothingItRefersTo(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_recv" name="receive"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_recvEv" signal="_recv"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_sfAttr" name="SequenceFunctions" type="_stop"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dRecv" event="_recvEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"ref item SequenceFunctions : Stop;",
+		"item deferred : receive[*] ordered;",
+		"action receive2 accept kept : receive;",
+		"then action keep { assign deferred := $::SequenceFunctions::including(deferred, receive2.kept); }",
+		"then receive2;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferralShadowing", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send receive")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Errorf("the receive signal was not kept:\n%s", out)
+	}
+}
+
 // Under -strict, a deferring state whose do behavior cannot run as an action
 // (here a StateMachine) gets the accept loop alone: the generated do action
 // forks into the behavior only when the behavior is written.

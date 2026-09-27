@@ -1106,7 +1106,9 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 			note = joinNotes(note, "the state's deferred signals are flushed one signal at a time, each in arrival order, so the order between occurrences of different signals is not kept; UML leaves the order of the event pool open, so that is a permitted approximation")
 		}
 		if t := k.contested; t != nil {
-			if s.m.model.Ref(t, "source") != v {
+			if !s.m.acceptsGeneralOf(t, k.sig) {
+				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences; the standard leaves open which of the transition and the accept loop takes them, which the runtime settles for the transition when it can fire and the loop otherwise")
+			} else if s.m.model.Ref(t, "source") != v {
 				note = joinNotes(note, "the transition "+describe(t)+" out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
 			} else {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
@@ -1126,6 +1128,9 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 		used = inheritedStateNamesSet()
 		s.m.stateUsed[v] = used
 	}
+	inner := inheritedActionNamesSet()
+	outer := inheritedActionNamesSet()
+	s.reserveDeferralRefs(d, used, inner, outer)
 	for _, k := range d.kept {
 		base := "deferred"
 		if len(d.kept) > 1 {
@@ -1135,11 +1140,9 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 	}
 	d.buffer = s.m.freshMember(v, used, "buffer")
 	d.flush = s.m.freshMember(v, used, "flush")
-	inner := inheritedActionNamesSet()
 	if do != nil {
 		d.run = s.m.nestedBehaviorName(do, v, inner, "run", d.buffer)
 	}
-	outer := inheritedActionNamesSet()
 	if exit != nil {
 		d.exitRun = s.m.nestedBehaviorName(exit, v, outer, "run", d.flush)
 	}
@@ -1162,6 +1165,30 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 		}
 		k.item = freshIn(outer, deferredPayload+suffix)
 		k.clear = freshIn(outer, "clear"+suffix)
+	}
+}
+
+// reserveDeferralRefs takes, in every scope the encoding names members in, the
+// names the encoding refers to from there — a signal and the root of its
+// qualified name, a port, the library packages — so no generated member
+// shadows them.
+func (s *stateRegion) reserveDeferralRefs(d *deferrals, scopes ...map[string]bool) {
+	names := []string{"SequenceFunctions", "MigrationMetadata"}
+	for _, k := range d.kept {
+		names = append(names, s.m.nameOf(k.sig))
+		if p := s.m.path(k.sig); len(p) > 0 {
+			names = append(names, p[0].name)
+		}
+		for _, l := range k.loops {
+			if l.port != nil {
+				names = append(names, s.m.nameFor(l.port))
+			}
+		}
+	}
+	for _, name := range names {
+		for _, used := range scopes {
+			used[name] = true
+		}
 	}
 }
 
@@ -1192,10 +1219,11 @@ func (s *stateRegion) takeRoutes(k *deferral, always []*sysmlv1.Element) (taker 
 	var taken []string
 	for _, t := range always {
 		for _, tr := range t.Owned("trigger") {
-			if ev := s.m.model.Ref(tr, "event"); ev == nil || s.m.model.Ref(ev, "signal") != k.sig {
+			ev := s.m.model.Ref(tr, "event")
+			if ev == nil || !s.m.signalConforms(k.sig, s.m.model.Ref(ev, "signal")) {
 				continue
 			}
-			ports, direct, _, _ := s.m.portRoutes(tr, classifierOf(tr), k.sig)
+			ports, direct, _, _ := s.m.portRoutes(tr, classifierOf(tr), s.m.model.Ref(ev, "signal"))
 			kept := k.loops[:0]
 			for _, l := range k.loops {
 				switch {
@@ -1275,9 +1303,9 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Ele
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
 			for _, tr := range t.Owned("trigger") {
-				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.model.Ref(ev, "signal") == sig {
+				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.signalsMeet(sig, m.model.Ref(ev, "signal")) {
 					g := m.guardOf(t)
-					if e == v && (g == nil || trueLiteral(firstOwned(g, "specification"))) {
+					if e == v && m.signalConforms(sig, m.model.Ref(ev, "signal")) && (g == nil || trueLiteral(firstOwned(g, "specification"))) {
 						always = append(always, t)
 					} else if contested == nil {
 						contested = t
@@ -1294,6 +1322,50 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Ele
 	}
 	walk(v)
 	return always, contested
+}
+
+// signalConforms reports whether every occurrence of signal sig is one of
+// signal general: sig is general or specializes it, so a trigger referring to
+// general accepts sig, as a v2 accept typed by general does.
+func (m *migration) signalConforms(sig, general *sysmlv1.Element) bool {
+	if sig == nil || general == nil {
+		return false
+	}
+	seen := map[*sysmlv1.Element]bool{}
+	var walk func(cur *sysmlv1.Element) bool
+	walk = func(cur *sysmlv1.Element) bool {
+		if cur == nil || seen[cur] {
+			return false
+		}
+		seen[cur] = true
+		if cur == general {
+			return true
+		}
+		for _, g := range cur.Owned("generalization") {
+			if walk(m.model.Ref(g, "general")) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(sig)
+}
+
+// signalsMeet reports whether some occurrence is of both signals: one
+// specializes the other, so a trigger on either can accept it.
+func (m *migration) signalsMeet(a, b *sysmlv1.Element) bool {
+	return m.signalConforms(a, b) || m.signalConforms(b, a)
+}
+
+// acceptsGeneralOf reports whether a trigger of transition t refers to sig or
+// a general of it, accepting every occurrence of sig.
+func (m *migration) acceptsGeneralOf(t, sig *sysmlv1.Element) bool {
+	for _, tr := range t.Owned("trigger") {
+		if ev := m.model.Ref(tr, "event"); ev != nil && m.signalConforms(sig, m.model.Ref(ev, "signal")) {
+			return true
+		}
+	}
+	return false
 }
 
 // completionOutOf returns a transition out of state v that no trigger fires,
@@ -1364,6 +1436,10 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 		if ran {
 			s.m.madeUp(do, d.run)
 		}
+		including := "SequenceFunctions::including"
+		if s.m.shadowsLibrary("SequenceFunctions", v) {
+			including = "$::" + including
+		}
 		for _, k := range d.kept {
 			sig := s.m.ref(k.sig, v)
 			for _, l := range k.loops {
@@ -1373,7 +1449,7 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 				}
 				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
 				s.m.w.line("action " + receive + " accept " + payload + " : " + sig + via + ";")
-				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := SequenceFunctions::including(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
+				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := " + including + "(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
 				s.m.w.line("then " + receive + ";")
 				s.m.w.madeUp(receive)
 				s.m.w.madeUp(keep)
