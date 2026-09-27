@@ -418,11 +418,20 @@ func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
 	if want := `label=<<font point-size="8"><b>Standing By</b></font>>, margin=0`; !strings.Contains(source, want) {
 		t.Errorf("short box's DOT lacks %q:\n%s", want, source)
 	}
+	// Two 11pt lines stack in 26.4pt: within the box, but not with the table about them.
+	snug := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / start"}, 200, 30)
+	source, err = (&Rendering{View: "V", Kind: KindState, Roots: []*Node{snug}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `label=<<b>OFF</b>>, margin=0`; !strings.Contains(source, want) {
+		t.Errorf("snug box's DOT lacks %q:\n%s", want, source)
+	}
 	dot := os.Getenv("OPENSYSML_DOT")
 	if dot == "" {
 		t.Skip("OPENSYSML_DOT not set")
 	}
-	for _, n := range []*Node{node, roomy, short} {
+	for _, n := range []*Node{node, roomy, short, snug} {
 		source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{n}}).DOTWith(Options{Style: StyleCameo})
 		if err != nil {
 			t.Fatalf("DOT: %v", err)

@@ -1314,14 +1314,16 @@ const (
 // fits, the keyword and detail lines after it while height remains. A head too
 // tall even at the floor is cut to the lines that fit and ellipsized. A Cameo
 // label with detail lines is set in the compartment table, so it is fitted to
-// the box less the table's chrome; when no detail line fits, the title alone is
-// fitted to the whole box.
+// the box less the table's chrome; when no detail line fits there, no table is
+// written and the title alone is fitted to the whole box.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 	if l.compartmented(node) {
 		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome)
-		if len(parts.details) > 0 {
-			return dotLabelAttribute(l.assemble(parts))
+		if len(parts.details) == 0 {
+			parts = l.fitParts(node, width, height)
+			parts.details = nil
 		}
+		return dotLabelAttribute(l.assemble(parts))
 	}
 	return dotLabelAttribute(l.assemble(l.fitParts(node, width, height)))
 }

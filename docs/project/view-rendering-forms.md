@@ -500,7 +500,8 @@ digraph "PlantViews::placedView" {
   particular to the tool that stated the box. A Cameo-style label with detail lines is set in
   the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
   before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
-  (`compartmented`). A symbol kind in a stated box carries no label at
+  (`compartmented`); when no detail line fits in what is left, the table is dropped and the title
+  alone is fitted to the whole box. A symbol kind in a stated box carries no label at
   all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),
   1.2 em a line, at 14 pt for every line but the 10 pt keyword line, Graphviz's margins, no
