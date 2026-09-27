@@ -27,7 +27,7 @@ env:
   # z3 is installed below, so "no solver, therefore skip" would exercise nothing:
   # this turns an absent solver into a failure (see internal/exec/solve).
   OPENSYSML_REQUIRE_SMT: "1"
-  # The WebAssembly gate runs the wasm binaries under Node, which the runners carry;
+  # The WebAssembly gate runs the wasm binaries under Node 24, set up by its jobs;
   # without a runtime it would skip instead of proving they run (see tests/wasm).
   OPENSYSML_REQUIRE_WASM: "1"
 
@@ -84,6 +84,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      # The WebAssembly gate runs the wasm binaries under Node; Node 22's WASI host
+      # crashes on them, so the version is pinned rather than the runner's default.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Download Go modules
         run: go mod download
@@ -463,19 +470,6 @@ jobs:
             exit 1
           fi
 
-      # The WebAssembly gate on its own, for the same reason: it compiles and vets
-      # the whole tree for both wasm targets, links the commands and runs them under
-      # Node, so a skip has to be visible and has to fail.
-      - name: Run the WebAssembly gate
-        run: |
-          set -o pipefail
-          node --version
-          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
-          if grep -qE '^\s*--- SKIP' wasm-gate.log; then
-            echo "error: the WebAssembly gate skipped" >&2
-            exit 1
-          fi
-
       # Re-run the solver gate on its own, as the corpus gate is, so a skip
       # cannot hide behind a green suite.
       - name: Run solver gate (Z3)
@@ -546,6 +540,41 @@ jobs:
               exit 1
             }
           done
+
+  wasm-gate:
+    name: WebAssembly gate
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # It compiles and vets the whole tree for both wasm targets, links the commands
+      # and runs them under Node, so a skip has to be visible and has to fail.
+      - name: Run the WebAssembly gate
+        run: |
+          set -o pipefail
+          node --version
+          go test -count=1 -v ./tests/wasm | tee wasm-gate.log
+          if grep -qE '^\s*--- SKIP' wasm-gate.log; then
+            echo "error: the WebAssembly gate skipped" >&2
+            exit 1
+          fi
 
   # The client jobs download this binary rather than building one, so it runs
   # whenever the service or any client does.
@@ -623,6 +652,7 @@ jobs:
       - rust-test
       - static-and-integrity
       - vscode-extension
+      - wasm-gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -646,6 +676,7 @@ jobs:
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
+          WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
@@ -663,7 +694,8 @@ jobs:
              ! ok "$RACE_TESTS_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
-             ! ok "$VSCODE_EXTENSION_RESULT"; then
+             ! ok "$VSCODE_EXTENSION_RESULT" ||
+             ! ok "$WASM_GATE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
             echo "cameo-plugin=$CAMEO_PLUGIN_RESULT"
@@ -680,6 +712,7 @@ jobs:
             echo "rust-test=$RUST_TEST_RESULT"
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
+            echo "wasm-gate=$WASM_GATE_RESULT"
             exit 1
           fi
 
