@@ -116,7 +116,7 @@ Each of these is refused with the reason, not left to fail on the platform's own
 
 | Not available | What it answers |
 |---|---|
-| External processes — SMT solvers, external engines, PDF rendering, `-compile` | `a WebAssembly build cannot start external processes`, named for what could not run: `an SMT solver cannot run: …` in `sysml -engines`, `weasyprint cannot run: …` from `-doc-form pdf`, `codegen: cc cannot run: …` from `-compile`. Go's WebAssembly targets start no process at all, so installing the tool cannot help and the message says so instead of advising it |
+| External processes — SMT solvers, external engines, PDF rendering, `-compile` | `a WebAssembly build cannot start external processes`, named for what could not run: `an SMT solver cannot run: …` in `sysml -engines`, `weasyprint cannot run: …` from `-doc-form pdf`, `codegen: cc cannot run: …` from `-compile`, `codegen: go cannot run: …` from `-compile -target go`. Go's WebAssembly targets start no process at all, so installing the tool cannot help and the message says so instead of advising it |
 | `sysml-grpc -transport grpc` and `-transport connect` | `… binds an address, and a WebAssembly build's network reaches only the process it runs in …; use -transport stdio`. Go's `net` on these targets reaches only the same process, so a listener would report an address no client outside could dial and wait on it forever |
 | HTTP clients, such as the client that reads and pushes a Flexo branch | A transport error from the request. Outbound requests have no socket to make |
 | Prompt history, tab completion, `Ctrl-C`, terminal width | Nothing is faked: lines are read without editing, renderings are written unbounded, and an interrupt is the host's to deliver |
@@ -134,9 +134,10 @@ make wasm-check
 ```
 
 compiles and vets the whole tree for both targets, links each command, and runs them under Node
-— the WASI host above for `wasip1`, `wasm_exec` for `js`. It needs Node; without it the run half
-skips with the reason, and `OPENSYSML_REQUIRE_WASM=1`, which both CI systems set, turns that skip
-into a failure so a green run cannot be a skipped one.
+— the WASI host above for `wasip1`, `wasm_exec` for `js`. Node 24 or later is required: Node 22's
+WASI host crashes on the `wasip1` modules. Without Node, the run half skips with the reason, and
+`OPENSYSML_REQUIRE_WASM=1`, which both CI systems set, turns that skip into a failure so a green
+run cannot be a skipped one.
 
 The `wasip1` cases are driven with files and end each server at end of input, for the reason
 under [Running a WASI build](#running-a-wasi-build); the `js` cases hold a pipe open across a
