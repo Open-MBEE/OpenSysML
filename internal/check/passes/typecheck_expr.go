@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -1342,7 +1343,7 @@ func (ec *exprChecker) namedParameter(
 		return -1
 	}
 	for i, p := range params {
-		if p.usage == target.Decl {
+		if p.declares(target) {
 			return i
 		}
 	}
@@ -1351,7 +1352,24 @@ func (ec *exprChecker) namedParameter(
 
 // parameterPrimType is the scalar type p is declared with, PrimUnknown when none is known.
 func (ec *exprChecker) parameterPrimType(p parameter) semantics.PrimType {
-	return ec.declaredPrimType(p.scope(), p.usage.Relationships)
+	if p.usage != nil {
+		return ec.declaredPrimType(p.scope(), p.usage.Relationships)
+	}
+	for _, typ := range ec.model.DeclaredTypes(p.sym) {
+		if prim := ec.model.PrimTypeOf(typ); prim != semantics.PrimUnknown {
+			return prim
+		}
+	}
+	return semantics.PrimUnknown
+}
+
+// parameterDeclaredTypes are the types p's own typing relationships name: read
+// from its declaration, or from its record when its document holds none.
+func (ec *exprChecker) parameterDeclaredTypes(p parameter) []*symbols.Symbol {
+	if p.usage != nil {
+		return ec.declaredTypeSymbols(p.scope(), p.usage.Relationships)
+	}
+	return ec.model.DeclaredTypes(p.sym)
 }
 
 // misbinding is a value an argument binds that does not bind to its parameter, and why.
@@ -1396,7 +1414,10 @@ func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType,
 		}
 		return fmt.Sprintf("expects %s, found %s", want, prim)
 	}
-	want := ec.declaredTypeSymbol(p.scope(), p.usage.Relationships)
+	var want *symbols.Symbol
+	if types := ec.parameterDeclaredTypes(p); len(types) > 0 {
+		want = types[0]
+	}
 	if want == nil || len(types) == 0 || semantics.IsCollection(want) || semantics.IsElementType(want) ||
 		ec.boundTypesConform(nil, types, []*symbols.Symbol{want}) {
 		return ""
@@ -1429,8 +1450,19 @@ func (ec *exprChecker) isInvocationBehavior(sym *symbols.Symbol, visiting map[*s
 	if sym == nil || visiting[sym] {
 		return false
 	}
-	if isInvocationBehaviorKind(sym.Kind) || isBehaviorDeclaration(sym.Decl) {
+	if isInvocationBehaviorKind(sym.Kind) || isBehaviorDeclaration(sym) {
 		return true
+	}
+	if sym.Recorded() {
+		// A recorded typing that resolved to nothing is a zero reference.
+		refs := sym.RecordedRelationships(ast.RelTyping)
+		typed := ec.model.RecordedRelationshipTargets(sym, ast.RelTyping)
+		if len(refs) != 1 || len(typed) != 1 {
+			return false
+		}
+		visiting[sym] = true
+		defer delete(visiting, sym)
+		return ec.isInvocationBehavior(typed[0], visiting)
 	}
 	if sym.Decl == nil {
 		return false
@@ -1455,13 +1487,13 @@ func (ec *exprChecker) isInvocationBehavior(sym *symbols.Symbol, visiting map[*s
 	return ec.isInvocationBehavior(typed[0], visiting)
 }
 
-func isBehaviorDeclaration(decl ast.Node) bool {
-	switch d := decl.(type) {
-	case *ast.Definition:
-		return d.Kind == ast.DefBehavior || d.Kind == ast.DefState ||
-			d.Kind == ast.DefPredicate || d.Kind == ast.DefConstraint
-	case *ast.Usage:
-		switch d.Kind {
+func isBehaviorDeclaration(sym *symbols.Symbol) bool {
+	if kind, ok := sym.DefinitionKind(); ok {
+		return kind == ast.DefBehavior || kind == ast.DefState ||
+			kind == ast.DefPredicate || kind == ast.DefConstraint
+	}
+	if kind, ok := sym.UsageKind(); ok {
+		switch kind {
 		case ast.UsageBehavior, ast.UsageState, ast.UsagePredicate,
 			ast.UsageExpr, ast.UsageConstraint, ast.UsageInteraction:
 			return true
@@ -1474,17 +1506,17 @@ func (ec *exprChecker) isDefinitelyNonBehavior(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	if isInvocationBehaviorKind(sym.Kind) || isBehaviorDeclaration(sym.Decl) {
+	if isInvocationBehaviorKind(sym.Kind) || isBehaviorDeclaration(sym) {
 		return false
 	}
-	if isRequirementDeclaration(sym.Decl) {
+	if isRequirementDeclaration(sym) {
 		return false
 	}
-	if sym.Decl != nil {
-		switch sym.Decl.(type) {
-		case *ast.Definition, *ast.Usage:
-			return true
-		}
+	if _, ok := sym.DefinitionKind(); ok {
+		return true
+	}
+	if _, ok := sym.UsageKind(); ok {
+		return true
 	}
 	switch sym.Kind {
 	case symbols.SymbolUnknown, symbols.SymbolKerMLType,
@@ -1495,21 +1527,21 @@ func (ec *exprChecker) isDefinitelyNonBehavior(sym *symbols.Symbol) bool {
 	}
 }
 
-func isRequirementDeclaration(decl ast.Node) bool {
-	switch d := decl.(type) {
-	case *ast.Definition:
-		return d.Kind == ast.DefRequirement
-	case *ast.Usage:
-		return d.Kind == ast.UsageRequirement
-	default:
-		return false
+func isRequirementDeclaration(sym *symbols.Symbol) bool {
+	if kind, ok := sym.DefinitionKind(); ok {
+		return kind == ast.DefRequirement
 	}
+	kind, ok := sym.UsageKind()
+	return ok && kind == ast.UsageRequirement
 }
 
 // parameter is one `in` parameter of an invoked behavior together with the
-// symbol declaring it, whose scope its type names resolve in.
+// symbol declaring it, whose scope its type names resolve in. A parameter of a
+// loaded document is its declaration; one of a recorded document is its
+// symbol, whose facts answer what the declaration would.
 type parameter struct {
 	usage *ast.Usage
+	sym   *symbols.Symbol
 	owner *symbols.Symbol
 	// redefined is the inherited parameter this declaration redefines, whose
 	// default and multiplicity it keeps where it states none (KerML 1.0 §7.3.4.5).
@@ -1520,23 +1552,60 @@ type parameter struct {
 // default, its own or inherited, and its multiplicity admits no omission.
 func (p parameter) required(m *semantics.Model) bool {
 	for q := &p; q != nil; q = q.redefined {
-		if q.usage.Value != nil {
+		if q.valued() {
 			return false
 		}
 	}
 	for q := &p; q != nil; q = q.redefined {
-		if q.usage.Multiplicity != nil {
-			return !m.IsOptionalParameter(q.usage)
+		if optional, stated := q.optional(m); stated {
+			return !optional
 		}
 	}
 	return true
 }
 
+// valued reports whether the declaration binds the parameter a value.
+func (p parameter) valued() bool {
+	if p.usage != nil {
+		return p.usage.Value != nil
+	}
+	return p.sym.Facts.Modifiers.Has(symbols.ModValued)
+}
+
+// optional reports whether the multiplicity the declaration states admits no
+// value; stated is false when it states none.
+func (p parameter) optional(m *semantics.Model) (optional, stated bool) {
+	if p.usage != nil {
+		return m.IsOptionalParameter(p.usage), p.usage.Multiplicity != nil
+	}
+	r, ok := m.MultiplicityOf(p.sym)
+	return ok && r.AllowsNone(), ok
+}
+
+// direction is the parameter's declared direction.
+func (p parameter) direction() ast.FeatureDirection {
+	if p.usage != nil {
+		return p.usage.Direction
+	}
+	return p.sym.Facts.Direction
+}
+
+// declares reports whether p is the parameter sym declares.
+func (p parameter) declares(sym *symbols.Symbol) bool {
+	if p.usage != nil {
+		return p.usage == sym.Decl
+	}
+	return p.sym == sym
+}
+
 // name returns the name the parameter answers to, which a declaration written
 // as a redefinition takes from what it redefines (`in redefines ifTest;`).
 func (p parameter) name() string {
-	name, _ := ast.EffectiveName(p.usage)
-	return name
+	if p.usage != nil {
+		name, _ := ast.EffectiveName(p.usage)
+		return name
+	}
+	return p.sym.Name
 }
 
 // scope returns the scope the parameter's type names resolve in, which is the
@@ -1567,7 +1636,7 @@ func (ec *exprChecker) effectiveInParameters(sym, node *symbols.Symbol) ([]param
 	}
 	var params []parameter
 	for _, p := range all {
-		if p.usage.Direction == ast.DirIn || p.usage.Direction == ast.DirInOut {
+		if dir := p.direction(); dir == ast.DirIn || dir == ast.DirInOut {
 			params = append(params, p)
 		}
 	}
@@ -1577,7 +1646,7 @@ func (ec *exprChecker) effectiveInParameters(sym, node *symbols.Symbol) ([]param
 	// A parameterless declaration with no supertypes really takes no
 	// arguments; with supertypes the signature may live somewhere the checker
 	// cannot see, so stay silent.
-	return nil, len(ec.model.DirectSupertypes(sym)) == 0 && sym.Decl != nil
+	return nil, len(ec.model.DirectSupertypes(sym)) == 0 && (sym.Decl != nil || sym.Recorded())
 }
 
 // mergedParameters returns sym's parameter list: the parameter lists of the
@@ -1622,15 +1691,14 @@ func mergeParameters(inherited []parameter, sym *symbols.Symbol) []parameter {
 	}
 	merged := make([]parameter, 0, len(declared)+len(inherited))
 	claimed := make([]bool, len(inherited))
-	for position, u := range declared {
-		p := parameter{usage: u, owner: sym}
-		i := indexOfRedefined(inherited, u)
+	for position, p := range declared {
+		i := indexOfRedefined(inherited, p)
 		if i < 0 {
 			i = position
 		}
 		// A position whose directions disagree is not a redefinition, so the
 		// inherited parameter there stays in the list.
-		if i < len(inherited) && inherited[i].usage.Direction == u.Direction {
+		if i < len(inherited) && inherited[i].direction() == p.direction() {
 			claimed[i] = true
 			p.redefined = &inherited[i]
 		}
@@ -1648,8 +1716,8 @@ func mergeParameters(inherited []parameter, sym *symbols.Symbol) []parameter {
 // by its `:>>` target. A declaration with no explicit target redefines by
 // position (KerML 7.4.7.2), which the caller applies, so its own name does not
 // select the inherited parameter.
-func indexOfRedefined(params []parameter, u *ast.Usage) int {
-	for _, name := range redefinedNames(u) {
+func indexOfRedefined(params []parameter, p parameter) int {
+	for _, name := range redefinedNames(p) {
 		if i := indexOfName(params, name); i >= 0 {
 			return i
 		}
@@ -1670,10 +1738,18 @@ func indexOfName(params []parameter, name string) int {
 	return -1
 }
 
-// redefinedNames returns the unqualified names a usage redefines (`:>>`).
-func redefinedNames(u *ast.Usage) []string {
+// redefinedNames returns the unqualified names a parameter redefines (`:>>`).
+func redefinedNames(p parameter) []string {
 	var names []string
-	for _, rel := range u.Relationships {
+	if p.usage == nil {
+		for _, ref := range p.sym.Facts.Redefines {
+			if name := lastSegment(ref.FQN); name != "" {
+				names = append(names, name)
+			}
+		}
+		return names
+	}
+	for _, rel := range p.usage.Relationships {
 		if rel == nil || rel.Kind != ast.RelRedefines {
 			continue
 		}
@@ -1686,10 +1762,37 @@ func redefinedNames(u *ast.Usage) []string {
 	return names
 }
 
+// lastSegment returns the simple name a fully-qualified name ends in.
+func lastSegment(fqn string) string {
+	if i := strings.LastIndex(fqn, "::"); i >= 0 {
+		return fqn[i+2:]
+	}
+	return fqn
+}
+
 // declaredParameters returns the parameters declared directly by a symbol's
 // def/usage declaration: its directed features, minus the result parameter,
-// which is redefined as the result rather than by position.
-func declaredParameters(sym *symbols.Symbol) []*ast.Usage {
+// which is redefined as the result rather than by position. A recorded
+// declaration's are the directed members of its scope, in declaration order.
+func declaredParameters(sym *symbols.Symbol) []parameter {
+	var params []parameter
+	if sym.Recorded() {
+		if sym.Facts.Node != symbols.NodeDefinition && sym.Facts.Node != symbols.NodeUsage {
+			return nil
+		}
+		seen := make(map[*symbols.Symbol]bool)
+		sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if seen[member] || member.Facts == nil {
+				return true
+			}
+			seen[member] = true
+			if member.Facts.Direction != ast.DirNone && !member.Facts.Modifiers.Has(symbols.ModResult) {
+				params = append(params, parameter{sym: member, owner: sym})
+			}
+			return true
+		})
+		return params
+	}
 	var members []ast.Node
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
@@ -1699,14 +1802,13 @@ func declaredParameters(sym *symbols.Symbol) []*ast.Usage {
 	default:
 		return nil
 	}
-	var params []*ast.Usage
 	for _, m := range members {
 		u, ok := unwrapType(m).(*ast.Usage)
 		if !ok {
 			continue
 		}
 		if u.Direction != ast.DirNone && !u.IsResult {
-			params = append(params, u)
+			params = append(params, parameter{usage: u, owner: sym})
 		}
 	}
 	return params

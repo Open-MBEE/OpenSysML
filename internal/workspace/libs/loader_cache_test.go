@@ -83,7 +83,7 @@ func TestLoaderCacheMissThenHit(t *testing.T) {
 		t.Fatal("the cached load left ScalarValues::Boolean without its declaration")
 	}
 	if boolean.Facts == nil || len(boolean.Facts.Supers) != 1 ||
-		boolean.Facts.Supers[0] != "ScalarValues::ScalarValue" {
+		boolean.Facts.Supers[0].FQN != "ScalarValues::ScalarValue" || len(boolean.Facts.Supers[0].Path) != 0 {
 		t.Fatalf("restored supertype facts of Boolean = %+v, want [ScalarValues::ScalarValue]", boolean.Facts)
 	}
 }
@@ -113,7 +113,7 @@ func TestLoaderCacheKeepsTypingEdge(t *testing.T) {
 	if len(e) != 1 {
 		t.Fatalf("cached load did not register Lib::e")
 	}
-	if e[0].Facts == nil || len(e[0].Facts.Supers) != 1 || e[0].Facts.Supers[0] != "Lib::Engine" {
+	if e[0].Facts == nil || len(e[0].Facts.Supers) != 1 || e[0].Facts.Supers[0].FQN != "Lib::Engine" {
 		t.Fatalf("restored supertype facts of e = %+v, want [Lib::Engine]", e[0].Facts)
 	}
 }
@@ -436,7 +436,11 @@ func snapshotIndex(idx *symbols.Index) indexView {
 // describeSymbol renders the state a symbol contributes to name resolution,
 // which its declaration states on every load path.
 func describeSymbol(sym *symbols.Symbol, idx *symbols.Index, model *semantics.Model) string {
-	supers, _ := supersOf(sym, idx, model)
+	refs, _ := supersOf(sym, idx, model)
+	var supers []string
+	for _, ref := range refs {
+		supers = append(supers, refString(ref))
+	}
 	sort.Strings(supers)
 	return fmt.Sprintf("kind=%v short=%q supers=%v alias=%q name=%q",
 		sym.Kind, sym.ShortName, supers, aliasTargetOf(sym.Decl), sym.Name)

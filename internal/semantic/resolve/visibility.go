@@ -147,7 +147,7 @@ func (r *Resolver) eachInheritedImport(scope *symbols.Scope, name string, yield 
 		if sup.Scope == nil {
 			continue
 		}
-		for _, imp := range importsOf(sup.Scope.Node()) {
+		for _, imp := range sup.Scope.Imports() {
 			if !inheritedThroughSpecialization(imp) || !r.importPrefixAvailable(sup.Scope, imp, name) {
 				continue
 			}

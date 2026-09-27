@@ -715,7 +715,10 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 
 // declaredFeatureValues reads a declared (non-metadata) feature of a row.
 func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) ([]Value, bool, error) {
-	values, present := e.context.Model.DeclaredFeatureValues(sym, property)
+	values, present, err := e.context.Model.DeclaredFeatureValues(sym, property)
+	if err != nil {
+		return nil, false, err
+	}
 	if !present {
 		return nil, false, nil
 	}

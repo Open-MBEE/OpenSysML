@@ -3,6 +3,8 @@ package libs
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -33,13 +35,31 @@ func recordOf(name string, idx *symbols.Index) *IndexRecord {
 	return rec
 }
 
-// supersByFQN is the supertype facts the record holds, keyed by qualified name.
+// supersByFQN is the supertype facts the record holds, keyed by qualified name,
+// each rendered as refString does.
 func supersByFQN(rec *IndexRecord) map[string][]string {
 	out := map[string][]string{}
 	for _, f := range rec.Facts {
-		out[f.FQN] = f.Supers
+		var supers []string
+		for _, ref := range f.Supers {
+			supers = append(supers, refString(ref))
+		}
+		out[f.FQN] = supers
 	}
 	return out
+}
+
+// refString renders a reference as its name, then "#k" per member ordinal and
+// "@doc" for a document-qualified one.
+func refString(ref symbols.ElementRef) string {
+	s := ref.FQN
+	for _, at := range ref.Path {
+		s += fmt.Sprintf("#%d", at)
+	}
+	if ref.Doc != "" {
+		s += "@" + ref.Doc
+	}
+	return s
 }
 
 // A record memoizes derived facts only: a symbol whose declaration yields
@@ -55,7 +75,7 @@ func TestRecordFromIndexPersistsDerivedFactsOnly(t *testing.T) {
 		t.Fatalf("Name = %q", rec.Name)
 	}
 	supers := supersByFQN(rec)
-	if want := []string{"ScalarValues::Boolean"}; !slices.Equal(supers["ScalarValues::Real"], want) {
+	if want := []string{"ScalarValues::Boolean@" + name}; !slices.Equal(supers["ScalarValues::Real"], want) {
 		t.Errorf("Supers of ScalarValues::Real = %v, want %v", supers["ScalarValues::Real"], want)
 	}
 	if _, recorded := supers["ScalarValues::Boolean"]; recorded {
@@ -80,7 +100,7 @@ func TestIndexRecordGobRoundTrip(t *testing.T) {
 	}
 	for i := range rec.Facts {
 		a, b := got.Facts[i], rec.Facts[i]
-		if a.FQN != b.FQN || !slices.Equal(a.Supers, b.Supers) {
+		if a.FQN != b.FQN || !reflect.DeepEqual(a.Supers, b.Supers) {
 			t.Errorf("fact[%d] = %+v, want %+v", i, a, b)
 		}
 	}
@@ -93,7 +113,7 @@ func TestRecordSupersFromSpecializationEdges(t *testing.T) {
 		t.Fatalf("expected a record")
 	}
 	got := supersByFQN(rec)["Car"]
-	if want := []string{"Vehicle", "Machine"}; !slices.Equal(got, want) {
+	if want := []string{"Vehicle@lib", "Machine@lib"}; !slices.Equal(got, want) {
 		t.Fatalf("Supers = %v, want %v", got, want)
 	}
 }
@@ -104,7 +124,7 @@ func TestRecordSupersCoversGeneralizationEdges(t *testing.T) {
 	idx := indexOf(t, "lib", "part def Engine; part e : Engine subsets Engine; part def Chassis; part c ::> Chassis;")
 	got := supersByFQN(recordOf("lib", idx))
 	// Typing and subsetting name the same target here, recorded once.
-	if want := []string{"Engine"}; !slices.Equal(got["e"], want) {
+	if want := []string{"Engine@lib"}; !slices.Equal(got["e"], want) {
 		t.Fatalf("Supers of e = %v, want %v", got["e"], want)
 	}
 	// `::>` is reference subsetting: it contributes members, not conformance.
@@ -114,9 +134,9 @@ func TestRecordSupersCoversGeneralizationEdges(t *testing.T) {
 }
 
 // A result parameter implicitly redefines the nameless result of the behavior
-// its owner specializes. That edge has no qualified name to restore it by, so
-// the symbol's edges are left to be derived on load rather than recorded short.
-func TestRecordSkipsSupersReachingNamelessTarget(t *testing.T) {
+// its owner specializes. That edge has no qualified name of its own, so the
+// record reaches it by its owner's name and its member ordinal.
+func TestRecordSupersReachNamelessTarget(t *testing.T) {
 	idx := indexOf(t, "lib.kerml", `package P {
 		datatype Boolean;
 		abstract function Check { return : Boolean; }
@@ -124,12 +144,16 @@ func TestRecordSkipsSupersReachingNamelessTarget(t *testing.T) {
 		function Plain specializes Check { return result = true; }
 	}`)
 	got := supersByFQN(recordOf("lib.kerml", idx))
-	if want := []string{"P::Check"}; !slices.Equal(got["P::Named"], want) {
+	if want := []string{"P::Check@lib.kerml"}; !slices.Equal(got["P::Named"], want) {
 		t.Fatalf("Supers of P::Named = %v, want %v", got["P::Named"], want)
 	}
 	for _, fqn := range []string{"P::Named::result", "P::Plain::result"} {
-		if supers, recorded := got[fqn]; recorded {
-			t.Errorf("Supers of %s = %v recorded, want derived on load", fqn, supers)
+		want := []string{"P::Boolean@lib.kerml", "P::Check#0@lib.kerml"}
+		if fqn == "P::Plain::result" {
+			want = want[1:]
+		}
+		if !slices.Equal(got[fqn], want) {
+			t.Errorf("Supers of %s = %v, want %v", fqn, got[fqn], want)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package passes
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
@@ -50,6 +51,11 @@ var w8cTypeOperators = map[ast.OperatorKind]bool{
 // w8cOwnsVariants reports whether sym's members are variants (enumeration
 // literals included), which are owned rather than featured.
 func w8cOwnsVariants(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModVariation) ||
+			sym.Facts.DefKind == ast.DefEnumeration && sym.Facts.Node == symbols.NodeDefinition ||
+			sym.Facts.UsageKind == ast.UsageEnumeration && sym.Facts.Node == symbols.NodeUsage
+	}
 	switch d := sym.Decl.(type) {
 	case *ast.Definition:
 		return d.IsVariation || d.Kind == ast.DefEnumeration
@@ -298,7 +304,7 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	}
 	// A variant is an owned member of its variation, not a feature of it, so
 	// it carries no featuring type to be accessible from.
-	if tu, ok := target.Decl.(*ast.Usage); ok && tu.IsVariant {
+	if semantics.DeclaresVariant(target) {
 		return
 	}
 	// A feature with no featuring type is accessible everywhere, so only a
@@ -322,7 +328,7 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 	// A feature of an implicit node (an accept parameter's action) has no
 	// nameable dot path, and our scoping shares it with sibling nodes (W6C row
 	// ~952, a deliberate divergence from the reference).
-	if w8cOwnedByImplicitNode(target) || w8cAcceptPayload(target) {
+	if w8cOwnedByImplicitNode(target) || semantics.AcceptPayload(target) {
 		return
 	}
 	msg, code := msgSubsettingFeaturingTypes, "feature-reference-featuring-types"
@@ -336,33 +342,6 @@ func (c *featureReferenceChecker) checkReferent(site refSite, scope *symbols.Sco
 		Code:     code,
 		Source:   "constraint",
 	})
-}
-
-// w8cAcceptPayload reports whether target is the payload an accept node binds,
-// which the nodes of one action body share (resolve.acceptPayloadsIn), so a
-// sibling node's body reaches it under its bare name.
-func w8cAcceptPayload(target *symbols.Symbol) bool {
-	if target == nil || target.OwnerScope == nil {
-		return false
-	}
-	owner := target.OwnerScope.Owner()
-	if owner == nil {
-		return false
-	}
-	node, ok := owner.Decl.(*ast.Usage)
-	if !ok || node.Kind != ast.UsageAction {
-		return false
-	}
-	for _, member := range node.Members {
-		if mem, ok := member.(*ast.Membership); ok {
-			member = mem.Member
-		}
-		payload, ok := member.(*ast.Usage)
-		if ok && payload.IsAccept && payload.Value == nil && payload.Ident.Name == target.Name {
-			return true
-		}
-	}
-	return false
 }
 
 // w8cOwnedByImplicitNode reports whether target is owned by an unnamed usage,

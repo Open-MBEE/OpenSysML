@@ -393,7 +393,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 	if sym.Scope == nil {
 		return nil, false
 	}
-	for _, imp := range r.importsOf(sym.Scope.Node()) {
+	for _, imp := range r.scopeImports(sym.Scope) {
 		if r.resolvingImports[imp] {
 			continue
 		}

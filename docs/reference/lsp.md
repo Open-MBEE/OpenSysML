@@ -74,6 +74,19 @@ mode's verdict. A client that cannot send settings can start the server with
 [the guide](../guide/03-command-line.md#strict-conformance) explains what the mode
 changes.
 
+## Interface records
+
+A document the server holds but no editor has open — one it read from the disk
+for another's diagnostics, or one closed clean — is held as its interface record
+when the record cache has one for its bytes: its scopes and symbols without its
+tree, and the diagnostics its analysis found, which is what the workspace reports
+for it. Opening it, renaming into it, asking for references or a debugger over
+it hydrates it — parses it and invalidates what read it, as an edit does —
+saving a document writes its record, and closing it unchanged demotes it again.
+`sysml-lsp -no-record-cache`, or
+`OPENSYSML_RECORD_CACHE=0`, holds every document loaded and writes no record; see
+[Interface records](../internals/interface-records.md).
+
 ## `opensysml/render` (request)
 
 Renders one view of a document.
