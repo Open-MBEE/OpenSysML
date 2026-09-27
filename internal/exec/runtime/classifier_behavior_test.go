@@ -2690,3 +2690,49 @@ func TestInvokeCalcDefOutputBindingReadsThis(t *testing.T) {
 		t.Errorf("same.result = %s, want true: the usage's run shared the occurrence", FormatTraceValue(got))
 	}
 }
+
+// stateQualifiedContextFixture reads the machine's own context parameter by its
+// qualified name from a transition guard and a `when` trigger: both evaluate
+// over the machine's data frame, which carries the machine as the performance
+// the qualifier runs on.
+const stateQualifiedContextFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Plant {
+			attribute flag : Boolean = true;
+		}
+		state def Life {
+			in ref context : Plant;
+			state idle; state done;
+			first start then idle;
+			transition first idle if Life::context.flag then done;
+		}
+		state def Watch {
+			in ref context : Plant;
+			state idle; state done;
+			first start then idle;
+			transition first idle accept when Watch::context.flag then done;
+		}
+	}
+`
+
+// A transition's guard and `when` trigger read the machine's own qualified
+// members — `Life::context` — over the machine's data frame, as its bodies do.
+func TestStateTransitionReadsTheMachinesQualifiedContext(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateQualifiedContextFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	for _, name := range []string{"test::Life", "test::Watch"} {
+		def := oneSymbol(t, idx, name)
+		_, visits, err := ctx.ExecuteStatePerformedBy(def, inst, nil)
+		if err != nil {
+			t.Fatalf("run %s: %v", name, err)
+		}
+		if !slices.Contains(visits, "done") {
+			t.Errorf("%s visits = %v, want done: the qualified context read did not fire the transition", name, visits)
+		}
+	}
+}

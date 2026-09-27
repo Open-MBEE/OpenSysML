@@ -559,7 +559,9 @@ func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node,
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
 	ec.thisOccurrence = e.materializeOccurrence
-	ec.pushFrame(frame{vars: e.stateData, firing: f})
+	data := e.dataFrame()
+	data.firing = f
+	ec.pushFrame(data)
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
 			ec.Push(frame)
@@ -4669,7 +4671,7 @@ func (e *StateExecutor) triggerEval(scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
 	ec.thisOccurrence = e.materializeOccurrence
-	ec.Push(e.stateData)
+	ec.pushFrame(e.dataFrame())
 	return ec
 }
 
