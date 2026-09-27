@@ -58,6 +58,9 @@ func (w *multiplicityWalk) symbolIsOne(sym *symbols.Symbol) bool {
 		return false
 	}
 	w.seen[sym] = true
+	if sym.Recorded() {
+		return w.recordedIsOne(sym)
+	}
 	if decl, ok := sym.Decl.(*ast.MultiplicityDecl); ok {
 		return w.declIsOne(decl, sym.OwnerScope)
 	}
@@ -67,6 +70,32 @@ func (w *multiplicityWalk) symbolIsOne(sym *symbols.Symbol) bool {
 			return ok && isExactlyOne(r)
 		}
 		return w.declIsOne(decl, sym.Scope)
+	}
+	if declaresEnd(sym) && !w.m.isKerMLDoc(sym) {
+		return true
+	}
+	for _, general := range w.generals(sym) {
+		if w.symbolIsOne(general) {
+			return true
+		}
+	}
+	return false
+}
+
+// recordedIsOne is symbolIsOne read from a record: the range the declaration
+// or its `multiplicity` member states, evaluated in its scope, else its generals'.
+func (w *multiplicityWalk) recordedIsOne(sym *symbols.Symbol) bool {
+	if r, ok := recordedRangeIn(sym.Facts.Multiplicity); ok {
+		return isExactlyOne(r)
+	}
+	if sym.Kind == symbols.SymbolMultiplicity {
+		subsetted := w.m.RecordedRelationshipTargets(sym, ast.RelSubsets)
+		return len(subsetted) > 0 && w.symbolIsOne(subsetted[0])
+	}
+	for _, member := range sym.Scope.AllMembers() {
+		if member.Kind == symbols.SymbolMultiplicity {
+			return w.symbolIsOne(member)
+		}
 	}
 	if declaresEnd(sym) && !w.m.isKerMLDoc(sym) {
 		return true
@@ -101,6 +130,10 @@ func (w *multiplicityWalk) generals(sym *symbols.Symbol) []*symbols.Symbol {
 	out := w.m.allGenerals(sym)
 	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
 		out = append(out, w.resolve(enclosingScope(sym), end.AttachedTarget()))
+	} else if sym.Recorded() {
+		for _, kind := range []ast.RelationshipKind{ast.RelReferences, ast.RelCrosses, ast.RelChains} {
+			out = append(out, w.m.RecordedRelationshipTargets(sym, kind)...)
+		}
 	} else {
 		for _, rel := range RelationshipsOf(sym) {
 			if rel == nil || rel.Target == nil {
@@ -114,7 +147,7 @@ func (w *multiplicityWalk) generals(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	if declaresEnd(sym) {
 		if owner := ownerSymbol(sym); owner != nil {
-			if i := endIndex(owner, sym); i >= 0 {
+			if i := w.m.endIndex(owner, sym); i >= 0 {
 				out = append(out, w.m.positionalEnds(owner, i)...)
 			}
 		}
@@ -159,8 +192,8 @@ func (m *Model) allGenerals(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // endIndex is the position of end among the ends owner declares, or -1.
-func endIndex(owner, end *symbols.Symbol) int {
-	for i, owned := range ownedEnds(owner) {
+func (m *Model) endIndex(owner, end *symbols.Symbol) int {
+	for i, owned := range m.ownedEnds(owner) {
 		if owned == end {
 			return i
 		}

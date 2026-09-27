@@ -95,7 +95,7 @@ func TestActionsWaitForTheValuesFlowingIntoThem(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
-	meta(t, s, "%action Meter::Sample #1")
+	meta(t, s, "%action Meter::sample #1")
 	meta(t, s, "%continue")
 	if out := meta(t, s, "%eval in #1 : last"); !strings.Contains(out, "= 21") {
 		t.Errorf("the call did not wait for the value flowing into it: %s", out)
@@ -169,7 +169,7 @@ func TestActionsWaitForProducersEachPassOfALoopRuns(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
-	meta(t, s, "%action Meter::Poll #1")
+	meta(t, s, "%action Meter::poll #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the loop did not complete:\n%s", out)
 	}

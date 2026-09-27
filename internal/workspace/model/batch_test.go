@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // The model roots a batch is checked against: the fixtures, the shipped examples
@@ -281,9 +283,9 @@ func TestOpenAllKeepsAChangeMadeWhileItParsed(t *testing.T) {
 		{Name: "e.sysml", Content: []byte("package E { part def Batch; }"), Version: 1},
 	}
 	was := ws.reserveBatch(inputs)
-	docs := make([]*Document, len(inputs))
+	docs := make([]batchDoc, len(inputs))
 	for i, in := range inputs {
-		docs[i] = newDocument(in.Name, in.Content, in.Version)
+		docs[i] = batchDoc{doc: newDocument(in.Name, in.Content, in.Version)}
 	}
 	ws.Update("a.sysml", []byte("package A { part def Edited; }"), 3)
 	ws.Open("b.sysml", []byte("package B { part def Opened; }"), 1)
@@ -454,5 +456,44 @@ func TestOpenAllReloadedMetadataDefinitionReownsAnnotationBodies(t *testing.T) {
 		if got.String() != want.String() {
 			t.Errorf("%d workers, after reloading M:\n%s\nwant, as a fresh workspace reports:\n%s", workers, got.String(), want.String())
 		}
+	}
+}
+
+func TestBatchRecordsReadsOnlyForARecordCache(t *testing.T) {
+	inputs := hydrateInputs()
+	plain := NewWorkspace()
+	plain.OpenAll(inputs)
+	want := messagesOf(plain.DiagnosticsAll([]string{"user.sysml"})[0])
+	if reads, ok := plain.batched["user.sysml"]; !ok || reads != nil {
+		t.Fatalf("a batch without a record cache kept reads %v, want none", reads)
+	}
+	cache, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	recording := NewWorkspace(WithRecordCache(cache))
+	recording.OpenAll(inputs)
+	got := messagesOf(recording.DiagnosticsAll([]string{"user.sysml"})[0])
+	if reads := recording.batched["user.sysml"]; reads == nil || len(reads.Names)+len(reads.Namespaces)+len(reads.Segments)+len(reads.Docs) == 0 {
+		t.Fatalf("a batch writing records kept reads %v, want what user.sysml read", reads)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("recording batch reports %v, plain %v", got, want)
+	}
+	later, err := libs.NewCacheIn(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain.SetRecordCache(later)
+	if err := plain.WriteRecord("user.sysml"); err != nil {
+		t.Fatalf("WriteRecord after a batch that recorded nothing: %v", err)
+	}
+	reopened := NewWorkspace(WithRecordCache(later))
+	reopened.OpenAll(inputs)
+	if !reopened.Recorded("user.sysml") {
+		t.Fatal("user.sysml is not recorded from the record written after the batch")
+	}
+	if got := messagesOf(reopened.Diagnostics("user.sysml")); !reflect.DeepEqual(got, want) {
+		t.Fatalf("recorded user.sysml reports %v, loaded %v", got, want)
 	}
 }

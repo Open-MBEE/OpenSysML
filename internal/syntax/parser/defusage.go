@@ -1637,8 +1637,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 				var members []ast.Node
 				leave := p.pushBodyContext(usageBodyContext(ast.UsageUseCase))
 				for !p.at(lexer.RBrace) && !p.atEOF() {
+					p.memberStart()
 					m := p.parseBodyMember()
 					if m != nil {
+						p.markAttached(m)
 						members = append(members, m)
 					}
 				}
@@ -2432,10 +2434,13 @@ func (p *Parser) parseUsage(start int, kind ast.UsageKind, keyword string, mods 
 			inEffect := p.atTransitionEffectStatement(start)
 			savedEffectStmtStart := p.effectStmtStart
 			for !p.atEOF() && !p.atNamespaceSuccession() {
+				p.memberStart()
 				if inEffect {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
-				members = append(members, p.parseActionMember())
+				member := p.parseActionMember()
+				p.markAttached(member)
+				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
 				if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
@@ -2590,6 +2595,7 @@ func (p *Parser) parseDefUsageBody() (members []ast.Node, hasBody bool) {
 func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// A member-attached `then` sequences the members either side of it, so
 		// the keyword is taken here and the member it prefixes read next time
@@ -2619,6 +2625,7 @@ func (p *Parser) parseDefUsageBodyMembers() []ast.Node {
 func (p *Parser) parseCaseBody() []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		if body.atSuccession() {
 			body.takeSuccession()
@@ -2636,6 +2643,7 @@ func (p *Parser) parseCaseBody() []ast.Node {
 		}
 		if p.atResultExpression() {
 			body.add(p.ParseExpression())
+			p.resultEnd()
 			continue
 		}
 		body.add(p.parseBodyMember())
@@ -2694,6 +2702,7 @@ var wordBinaryOpKeywords = map[string]bool{
 func (p *Parser) parseEnumBody(def *ast.Definition) []ast.Node {
 	body := p.newBodyBuilder()
 	for !p.at(lexer.RBrace) && !p.atEOF() {
+		p.memberStart()
 		before := p.peek().Span.Offset
 		// `= 60.0;`, `uncl : Level = 0;`, `<u> uncl;`, `: Level;` and `#M a;` are
 		// enumerated values (SysML.xtext EnumeratedValue), not keyword-less attributes.
@@ -4757,7 +4766,9 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		var body []ast.Node
 		leave := p.pushBodyContext(bodyOther)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
+			p.memberStart()
 			if m := p.parseBodyMember(); m != nil {
+				p.markAttached(m)
 				body = append(body, m)
 				continue
 			}

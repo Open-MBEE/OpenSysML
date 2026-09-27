@@ -13,8 +13,8 @@ import (
 func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 	r := migrateFixtureFile(t, "rig_interactions")
 	for _, line := range []string{
-		"action def Spinup {",
-		"perform action spin : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; in times = 2; }",
+		"action spinup {",
+		"perform action spin ::> drive.motor.spin { in rpm = 30.0; in times = 2; }",
 		"first start then spin;",
 		"action spun {",
 		"assign this.ctrl.got := spin.result;",
@@ -30,7 +30,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"action 'loop' {",
 		"for i in 1..2 {",
 		"action loopOp1 {",
-		"perform action callSpin : Motor::Spin ::> drive.motor.spin { in rpm = 40.0; }",
+		"perform action callSpin ::> drive.motor.spin { in rpm = 40.0; }",
 		"first alt then 'loop';",
 		"fork par;",
 		"first 'loop' then par;",
@@ -49,13 +49,13 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 		"/* not migrated: Interaction 'Twinned' — the lifeline 'm' stands for 'motor', which Twin reaches as both left.motor and right.motor */",
 		"verification def 'Spinup Test' {",
 		"subject context : Rig;",
-		"perform action spin : Motor::Spin ::> context.drive.motor.spin { in rpm = 12.0; }",
+		"perform action spin ::> context.drive.motor.spin { in rpm = 12.0; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_spinup", migrate.Approximated, "written as a scenario of 8 steps, one per message in occurrence order")
 	wantNote(t, r, "_lm", migrate.Mapped, "the lifeline stands for this.drive.motor, which the steps address")
-	wantNote(t, r, "_mSpin", migrate.Mapped, "written as a call of Spin on this.drive.motor")
+	wantNote(t, r, "_mSpin", migrate.Mapped, "written as a call of spin on this.drive.motor")
 	wantNote(t, r, "_mRet", migrate.Approximated, "the value 30.0 the reply states for result is the operation's own result, which the call computes")
 	wantNote(t, r, "_exec", migrate.Skipped, "the execution spans the steps between its occurrences")
 	wantNote(t, r, "_alt", migrate.Mapped, "written as the action alt, an if over the operands")
@@ -73,7 +73,7 @@ func TestInteractionCallsRepliesAndFragments(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Rig")
-	meta(t, s, "%action Rig::Spinup #1")
+	meta(t, s, "%action Rig::spinup #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "completed") {
 		t.Errorf("the scenario did not complete:\n%s", out)
 	}

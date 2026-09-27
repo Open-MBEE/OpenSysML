@@ -217,11 +217,13 @@ nav:
       - SysML v1 migration: reference/sysml-v1-migration.md
       - Grammar: reference/grammar/README.md
       - Grammar conformance audit: reference/grammar/conformance-audit.md
+      - WebAssembly builds: reference/wasm.md
   - Internals:
       - internals/README.md
       - Architecture: internals/architecture.md
       - Testing: internals/testing.md
       - Performance: internals/performance.md
+      - Interface records: internals/interface-records.md
       - Execution IR design: internals/execution-ir-design.md
   - Project:
       - project/README.md

@@ -41,6 +41,10 @@ Report the model's diagnostics and exit, nonzero on an error;
 Judge the model as conforming SysML v2: notation no pinned production admits
 is an error, not a warning; a SysML v1 migration writes none of it
 .TP
+.B \-no\-record\-cache
+Parse every file loaded and hold it loaded, reading no interface record from
+the record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
+.TP
 .BR \-constraint " \fIname\fP"
 Evaluate this constraint and exit (repeatable)
 .TP
