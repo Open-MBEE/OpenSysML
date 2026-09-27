@@ -1,0 +1,22 @@
+# SysML v1 to v2 migration report: calc_context.xmi
+# migrated 16 element(s): 13 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (3)
+CallBehaviorAction	Plant::Run::rate	_rRate	-> rate	(the behavior acts on a Tank through its parameter context, which is bound to Run::context.tank, the caller's one part that is one; the calc Tank::Rate is evaluated when the action runs; a calc is no action node)
+Parameter	Plant::Run::result	_runResult	-> Plant::Run::result	(the return parameter is written as an out parameter)
+Parameter	Tank::Rate::result	_rateResult	-> Tank::Rate::result	(the return parameter is written as an out parameter)
+
+## mapped (13)
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Plant	_plant	-> Plant
+Activity	Plant::Run	_run	-> Plant::Run	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Plant::Run::<ActivityFinalNode>	_rDone	-> final
+ControlFlow	Plant::Run::<ControlFlow>	_rf3
+InitialNode	Plant::Run::<InitialNode>	_rInit	-> start
+ObjectFlow	Plant::Run::<ObjectFlow>	_rf2
+OutputPin	Plant::Run::rate::result	_rRateOut	-> Plant::Run::rate.result
+ActivityParameterNode	Plant::Run::result	_rOut	-> Plant::Run::result	(the flows to and from the node name the parameter result)
+Property	Plant::tank	_pTank	-> Plant::tank
+«Block» Class	Tank	_tank	-> Tank
+OpaqueBehavior	Tank::Rate	_rate	-> Tank::Rate	(the English body is translated to v2; acts on its owner Tank, which it takes as its parameter context, since its this is the def's own occurrence)
+Property	Tank::level	_level	-> Tank::level

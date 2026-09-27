@@ -1888,9 +1888,20 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		a.m.add(n, verdictFor(note), name, note)
 		return
 	}
+	cnote := ""
+	var ctxArg string
+	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {
+		if expr, note := a.callContext(n, c); expr != "" {
+			ctxArg, c.bound, cnote = expr, true, note
+		}
+	}
 	a.m.w.block(actionKw+name, func() {
 		a.pins(n, nil)
 		var args []string
+		if ctxArg != "" {
+			// The def's leading `in ref context` binds positionally first.
+			args = append(args, ctxArg)
+		}
 		for _, pin := range n.Owned("argument") {
 			args = append(args, writeName(a.names[pin]))
 		}
@@ -1905,7 +1916,7 @@ func (a *activity) callBehavior(n *sysmlv1.Element, name string) {
 		}
 		a.m.w.line("out " + writeName(a.names[results[0]]) + " = " + call + ";")
 	})
-	a.m.add(n, Approximated, name, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node")
+	a.m.add(n, Approximated, name, joinNotes(cnote, "the calc "+qualifiedName(b)+" is evaluated when the action runs; a calc is no action node"))
 }
 
 // callPrimitive writes a call to a behavior of the fUML or Alf library as an action

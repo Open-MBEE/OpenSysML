@@ -115,10 +115,10 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	case cat == catStateDef:
 		m.stateMachineBody(e)
 	case cat == catCalcDef:
-		m.calcBody(e)
+		m.bodyWithContext(e, func() { m.calcBody(e) })
 	case e.Type == "Interaction":
 		m.parameters(e, e)
-		m.interactionBody(e)
+		m.bodyWithContext(e, func() { m.interactionBody(e) })
 	case e.Type == "Activity":
 		m.parameters(e, e)
 		m.bodyWithContext(e, func() { m.activityBody(e, e) })
