@@ -2512,3 +2512,145 @@ func TestExecuteDefMirrorsDefaultsAfterEarlyThis(t *testing.T) {
 		t.Errorf("result = %v, want 7: the later default mirrored into the occurrence", got)
 	}
 }
+
+// calcDefThisFixture is a calculation run as a definition: `this` in its body
+// denotes the occurrence the invocation itself is, seeded with its parameters.
+const calcDefThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		calc def Identity { return : Boolean = this == this; }
+		calc def Echo { in x : Integer; return : Integer = this.x; }
+	}
+`
+
+// A calc definition's `this` is the occurrence of its own invocation: equality
+// holds for it, and a parameter bound into it reads back through it.
+func TestInvokeCalcDefReadsThis(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcDefThisFixture))
+	root := idx.DocumentRoot("<test>")
+
+	identity, identityScope := calcByName(t, root, "test", "Identity")
+	got, err := ctx.InvokeCalc(identity, nil, identityScope)
+	if err != nil {
+		t.Fatalf("Identity(): %v", err)
+	}
+	if !got.Const.Bool {
+		t.Errorf("Identity() = %s, want true: this denoted the invocation's own occurrence", FormatTraceValue(got))
+	}
+
+	echo, echoScope := calcByName(t, root, "test", "Echo")
+	got, err = ctx.InvokeCalc(echo, []Value{constInt(5)}, echoScope)
+	if err != nil {
+		t.Fatalf("Echo(5): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Echo(5) = %s, want 5: this.x read the bound parameter", FormatTraceValue(got))
+	}
+}
+
+// stateFlowThisFixture calls Observer from the entry action of a state
+// definition run directly: the `= this` the call's context binding reads is the
+// machine's occurrence, made lazily when no earlier read produced one, and the
+// one materialized at initialization when an attribute default read it first.
+const stateFlowThisFixture = `
+	package test {
+		private import ScalarValues::*;
+		action def Observer {
+			in ref context : Life;
+			first o;
+			action o { assign context.flag := true; }
+			first o then done;
+		}
+		action def EarlyObserver {
+			in ref context : EarlyLife;
+			first o;
+			action o { assign context.flag := true; }
+			first o then done;
+		}
+		state def Life {
+			attribute flag : Boolean;
+			out result : Boolean;
+			entry; then work;
+			state work {
+				entry action run {
+					first call;
+					action call : Observer { in ref :>> context = this; }
+					first call then note;
+					action note { assign result := this.flag; }
+				}
+			}
+		}
+		state def EarlyLife {
+			attribute early : Boolean = this == this;
+			attribute flag : Boolean;
+			out result : Boolean;
+			entry; then work;
+			state work {
+				entry action run {
+					first call;
+					action call : EarlyObserver { in ref :>> context = this; }
+					first call then note;
+					action note { assign result := this.flag; }
+				}
+			}
+		}
+	}
+`
+
+// `this` in a call's context binding inside a state behavior denotes the
+// machine's own occurrence whether or not an attribute default already made it.
+func TestStateBehaviorCallBindsThisToTheMachineOccurrence(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, stateFlowThisFixture))
+	for _, name := range []string{"test::Life", "test::EarlyLife"} {
+		def := oneSymbol(t, idx, name)
+		outputs, _, err := ctx.ExecuteStatePerformedBy(def, nil, nil)
+		if err != nil {
+			t.Fatalf("run %s: %v", name, err)
+		}
+		if got := outputs["result"]; !got.Const.Bool {
+			t.Errorf("%s result = %v, want true: the call's `this` bound the machine's occurrence", name, got)
+		}
+	}
+}
+
+// performedJoinRefValueFixture binds a non-instance ref parameter explicitly in
+// the performed usage: only an input equal to the stored binding is implicit.
+const performedJoinRefValueFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Machine {
+			action def Work {
+				in ref threshold : Integer;
+				out result : Integer;
+				first w;
+				action w { assign result := threshold; }
+				first w then done;
+			}
+		}
+		part def Plant {
+			perform action work : Machine::Work { in ref :>> threshold = 1; }
+		}
+	}
+`
+
+// A ref parameter whose performed usage bound a value, not an object, joins
+// only for an input equal to that stored binding; a different value conflicts.
+func TestPerformedActionJoinRejectsADifferentRefValue(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, performedJoinRefValueFixture))
+	work := oneSymbol(t, idx, "test::Machine::Work")
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	if err = ctx.startClassifierBehaviors(inst, 0); err != nil {
+		t.Fatalf("start behaviors: %v", err)
+	}
+	_, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(2)})
+	if !errors.Is(err, ErrPerformedInputs) {
+		t.Fatalf("join offering threshold 2 where 1 is bound: %v, want ErrPerformedInputs", err)
+	}
+	if _, err = ctx.ExecuteActionPerformedBy(work, inst, map[string]Value{"threshold": constInt(1)}); err != nil {
+		t.Fatalf("join with the binding the performance stored: %v", err)
+	}
+}

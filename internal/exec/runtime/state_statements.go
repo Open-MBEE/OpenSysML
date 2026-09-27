@@ -81,7 +81,7 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
 	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence, thisOccurrence: e.materializeOccurrence},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,

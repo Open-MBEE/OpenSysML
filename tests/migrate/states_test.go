@@ -1538,3 +1538,11 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	wantNote(t, r, "_startEff", migrate.Unmapped, "its transition is not written")
 	wantNote(t, r, "_leaveEff", migrate.Unmapped, "its transition is not written")
 }
+
+// testdata/xmi/operation_extra_params.xmi: a usage binding only the context of
+// an operation whose method declares a parameter matching none of the
+// operation's redeclares that parameter too, before the context redefinition.
+func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
+	r := migrateFixtureFile(t, "operation_extra_params")
+	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = this; }")
+}

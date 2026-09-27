@@ -256,7 +256,7 @@ func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element)
 // whose positions the redefinition would otherwise be read as redeclaring.
 func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
 	var members []string
-	for _, p := range callee.Owned("ownedParameter") {
+	for _, p := range m.actionParameters(callee) {
 		dir, _ := parameterDirection(p)
 		members = append(members, dir+" "+writeName(m.nameOf(p)))
 	}

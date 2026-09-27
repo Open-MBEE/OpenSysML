@@ -691,6 +691,39 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		activation: activation,
 	}
 
+	// A definition's `this` denotes the occurrence the invocation itself is,
+	// which the first read of it materializes seeded with the parameters bound
+	// so far; the invocation's end ends it.
+	occurrence := &calcOccurrence{}
+	if isBehaviorDefKind(shape.Sym.Kind) {
+		occurrence.materialize = func() (*Instance, error) {
+			if occurrence.inst != nil {
+				return occurrence.inst, nil
+			}
+			inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+			if err != nil {
+				return nil, err
+			}
+			for _, name := range shape.ParamNames {
+				if value, held := locals.lookup(name); held {
+					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+							ErrActionPerformanceOccurrence, name, inst.ID, err)
+					}
+				}
+			}
+			ctx.beginPerformanceLife(inst, activation)
+			occurrence.inst = inst
+			return inst, nil
+		}
+		defer func() {
+			if occurrence.inst != nil {
+				ctx.endPerformanceLife(occurrence.inst)
+			}
+		}()
+		ec.thisOccurrence = occurrence.materializeOccurrence
+	}
+
 	if ec.trace != nil {
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
@@ -712,7 +745,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 			result, err = shape.toolCalcResult(outputs)
 		}
 	} else {
-		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
+		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing, occurrence)
 	}
 	if ec.trace != nil {
 		if err != nil {
@@ -802,8 +835,8 @@ func (ctx *Context) bindCalcParameters(
 // the invocation yields: what the body returned, or, for a body that returns
 // nothing, the calc's designated output feature, evaluated in the invocation's
 // activation, which the caller ends after it.
-func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame) (Value, error) {
-	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self}
+func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
+	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
 	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
 	frame.host.attachPerformances(&frame.engine)

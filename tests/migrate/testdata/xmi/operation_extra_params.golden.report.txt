@@ -1,0 +1,18 @@
+# SysML v1 to v2 migration report: operation_extra_params.xmi
+# migrated 12 element(s): 9 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (3)
+Class	Boiler	_boiler	-> Boiler	(a plain UML class without «Block» is written as a part def)
+AddStructuralFeatureValueAction	Boiler::Adjusting::set level	_ajset	-> 'set level'	(no edge leads to the node, so it starts with the activity)
+Parameter	Boiler::Adjusting::y	_ajY	-> Boiler::Adjust::y	(the method's parameter matches none of the operation's by position, direction and type; it is declared after them, and a call binds it there)
+
+## mapped (9)
+Operation	Boiler::Adjust	_opAdjust	-> Boiler::Adjust	(acts on its owner Boiler, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage adjust performs it, as a call on an object does)
+Parameter	Boiler::Adjust::x	_ajX	-> Boiler::Adjust::x
+Activity	Boiler::Adjusting	_adjusting	-> Boiler::Adjust	(written as the body of the operation Boiler::Adjust, whose method it is)
+ObjectFlow	Boiler::Adjusting::<ObjectFlow>	_ajof
+Parameter	Boiler::Adjusting::d	_ajD	-> Boiler::Adjust::x	(stands for the operation's parameter x at the same position, which is written once)
+ActivityParameterNode	Boiler::Adjusting::d	_ajnD	-> Boiler::Adjust::x	(the flows to and from the node name the parameter x)
+InputPin	Boiler::Adjusting::set level::value	_ajsetVal	-> Boiler::Adjust::'set level'.value
+Property	Boiler::level	_level	-> Boiler::level
+Model	Model	_m	(the root model's members are written at the top level)

@@ -1767,8 +1767,8 @@ var ErrPerformedInputs = errors.New("inputs for a performed action")
 // place of a second; nil when self performs none. The `in ref` parameters a
 // usage binds by redefinition (`in ref :>> context = …`) are the declaration's
 // own bindings, not arguments a call supplies, so they do not count against it:
-// an input counts only where it is not a reference bound to self itself, the
-// implicit binding the running performance supplies.
+// an input counts only where it is not a reference equal to the binding the
+// running performance stored for it — self itself where none was stored.
 func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs map[string]Value) (*ActionExecutor, error) {
 	if self == nil {
 		return nil, nil
@@ -1786,7 +1786,7 @@ func (ctx *Context) performanceOf(action *symbols.Symbol, self *Instance, inputs
 				}
 				root := performed[0].Action.root
 				if bound, held := root.data[root.key(name)]; held {
-					implicit = bound.Kind == value.Kind && (value.Kind != ValInstance || bound.Instance == value.Instance)
+					implicit = ctx.valueEqual(bound, value)
 				} else {
 					implicit = value.Kind == ValInstance && value.Instance == self.ID
 				}

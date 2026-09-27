@@ -20,6 +20,25 @@ type calcStmtHost struct {
 	flow   *ActionExecutor
 	perfs  *performances
 	env    *stmtEnv // the body's values, which a step's outputs return to
+	// occ shares the performance instance `this` denotes with the
+	// invocation's evaluation context: nil until the first read materializes it.
+	occ *calcOccurrence
+}
+
+// calcOccurrence is the performance instance a calc def invocation's `this`
+// denotes, materialized lazily and shared between the invocation's evaluation
+// context and its statement host so both answer with the one instance.
+type calcOccurrence struct {
+	inst        *Instance
+	materialize func() (*Instance, error)
+}
+
+// materializeOccurrence is the invocation's occurrence, made on the first call.
+func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
+	if o == nil || o.materialize == nil {
+		return nil, nil
+	}
+	return o.materialize()
 }
 
 // attachPerformances makes the host perform the steps of a case body as
@@ -136,14 +155,18 @@ func (h *calcStmtHost) performer() *Instance {
 	return h.self
 }
 
-// occurrence is nil: a calculation materializes no performance instance `this` denotes.
+// occurrence is the instance the invocation materialized for `this`, nil
+// until a first read makes one; a calc usage materializes none.
 func (h *calcStmtHost) occurrence() *Instance {
-	return nil
+	if h.occ == nil {
+		return nil
+	}
+	return h.occ.inst
 }
 
-// materializeOccurrence is nil for the same reason.
+// materializeOccurrence makes the occurrence the invocation's `this` denotes.
 func (h *calcStmtHost) materializeOccurrence() (*Instance, error) {
-	return nil, nil
+	return h.occ.materializeOccurrence()
 }
 
 // effect performs the action a `perform` in a case body names, its outputs

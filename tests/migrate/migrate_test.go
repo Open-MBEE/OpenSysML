@@ -308,6 +308,7 @@ var constructFixtures = []string{
 	"plant_states",
 	"station_points",
 	"submachine_params",
+	"operation_extra_params",
 	"rig_interactions",
 	"heater_receptions",
 	"ported_calls",
