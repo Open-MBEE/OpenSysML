@@ -450,8 +450,8 @@ const mixedGenerals = `
 // as an action usage is subsetted: each keeps its own relationship.
 func TestUsageGeneralsAreTypedByDefinitionsAndSubsetUsages(t *testing.T) {
 	r := migrateDocument(t, mixedGenerals, `<sysml:Block xmi:id="_b1" base_Class="_ctl"/>`)
-	wantLine(t, r.Notation, "action def Base;")
+	wantLine(t, r.Notation, "action def BaseModel;")
 	wantLine(t, r.Notation, "action active {")
-	wantLine(t, r.Notation, "action run : Base :> active {")
+	wantLine(t, r.Notation, "action run : BaseModel :> active {")
 	wantClean(t, "t.sysml", r)
 }
