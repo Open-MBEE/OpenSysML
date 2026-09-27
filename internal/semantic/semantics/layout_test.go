@@ -210,6 +210,34 @@ func TestMemberLayoutOfKeepsTheDeclaringMemberApartFromInheritors(t *testing.T) 
 	}
 }
 
+// A view's own site wins over one applying in every view whichever body each
+// names: a view positioning an inherited member through the declaring body
+// overrides a Layout stated outside any view through the inheriting body, and
+// outside that view the latter applies.
+func TestMemberLayoutOfPrefersTheViewsSiteOverAnyOwnersGlobalOne(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s; first s then done; }
+		action def A :> Base { action a; first s then a; }
+		metadata Layout about A::s { x = 10; y = 10; }
+		view v { expose A; metadata Layout about Base::s { x = 20; y = 20; } }
+		view w { expose A; }
+	`)
+	a := sym(t, p, "A")
+	for _, tc := range []struct {
+		view string
+		x    float64
+	}{{"v", 20}, {"w", 10}} {
+		site, ok := m.MemberLayoutOf(sym(t, p, tc.view), a, "s")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Errorf("MemberLayoutOf(%s, A, s) = %+v, %v, want x = %v", tc.view, site, ok, tc.x)
+		}
+	}
+	if site, ok := m.MemberLayoutOf(nil, a, "s"); !ok || site.Layout == nil || site.Layout.X != 10 {
+		t.Errorf("MemberLayoutOf(nil, A, s) = %+v, %v, want x = 10", site, ok)
+	}
+}
+
 func TestRouteOfReadsWaypointPairs(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;
