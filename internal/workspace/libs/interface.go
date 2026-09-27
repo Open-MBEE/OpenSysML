@@ -92,7 +92,7 @@ func WriteInterface(name string, kind source.Kind, idx *symbols.Index, r *resolv
 		return nil, w.err
 	}
 	scope.Gathered = gathered
-	return &InterfaceRecord{Name: name, Kind: kind, Scope: scope, Diagnostics: diags}, nil
+	return &InterfaceRecord{Name: name, Kind: kind, Scope: scope, Diagnostics: diag.Clone(diags)}, nil
 }
 
 // keepInInterface says whether a member of a loaded scope belongs in the

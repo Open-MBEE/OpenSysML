@@ -435,7 +435,8 @@ func TestInterfaceRecordOwnsItsContent(t *testing.T) {
 		t.Fatalf("A::P: %v", p)
 	}
 
-	// The record itself is the caller's to change: nothing installed reads it.
+	// The record itself is the caller's to change: nothing installed reads it,
+	// and the workspace that wrote it keeps its own diagnostics.
 	message := diags[0].Message
 	for i := range rec.Diagnostics {
 		rec.Diagnostics[i].Message = "changed"
@@ -447,6 +448,9 @@ func TestInterfaceRecordOwnsItsContent(t *testing.T) {
 	}
 	if _, diags, _ := ws.AnalyzedContent("a.sysml"); diags[0].Message != message {
 		t.Fatalf("the stored diagnostic reads %q after the caller's record changed", diags[0].Message)
+	}
+	if diags := loaded.Diagnostics("a.sysml"); diags[0].Message != message {
+		t.Fatalf("the writing workspace's diagnostic reads %q after the caller's record changed", diags[0].Message)
 	}
 	if r := ws.LookupQualified("A::R"); len(r) != 1 || len(r[0].Facts.Supers) != 1 || r[0].Facts.Supers[0].FQN != "A::P" {
 		t.Fatalf("A::R's recorded supertypes after the caller's record changed: %+v", r)
