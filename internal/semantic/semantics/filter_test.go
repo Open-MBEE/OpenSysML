@@ -262,5 +262,6 @@ func TestFilterChainThroughNestedFeatures(t *testing.T) {
 	want(t, "root.inner.k == 3", selects(t, src, "root.inner.k == 3", "seatBelt"), true)
 	want(t, "root.inner.k == 4", selects(t, src, "root.inner.k == 4", "seatBelt"), false)
 	want(t, "(root.inner).k == 3", selects(t, src, "(root.inner).k == 3", "seatBelt"), true)
+	want(t, "root.inner::k == 3", selects(t, src, "root.inner::k == 3", "seatBelt"), true)
 	want(t, "root.m == 2", selects(t, src, "root.m == 2", "seatBelt"), true)
 }

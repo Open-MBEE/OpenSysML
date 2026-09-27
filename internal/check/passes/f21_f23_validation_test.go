@@ -162,6 +162,20 @@ func TestFilterChainUnvaluedTerminalReportsLimitation(t *testing.T) {
 	}
 }
 
+// A member segment written as a qualified name that names a member of the
+// preceding feature still evaluates.
+func TestFilterChainQualifiedMemberSegmentIsEvaluable(t *testing.T) {
+	const src = `package ScalarValues { attribute def Integer; }
+	package E {
+		private import ScalarValues::*;
+		attribute root { attribute inner { attribute k : Integer = 3; } }
+		package Q { filter E::root.inner::k == 3; }
+	}`
+	if diags := filterDiags(t, src); len(diags) != 0 {
+		t.Fatalf("expected no filter diagnostics, got %v", diags)
+	}
+}
+
 // A read feature whose value is not a number or boolean reports the same.
 func TestFilterChainNonNumericValueReportsLimitation(t *testing.T) {
 	const src = `package ScalarValues { attribute def Integer; attribute def String; }

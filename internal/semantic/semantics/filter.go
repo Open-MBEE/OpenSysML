@@ -403,18 +403,6 @@ func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, 
 		}
 		return evaluatorUnsupported(span, chainReflectiveLimitation, read)
 	}
-	for n := ast.Node(e); ; n = n.(*ast.FeatureChainExpr).Operand {
-		chain, isChain := n.(*ast.FeatureChainExpr)
-		if !isChain {
-			break
-		}
-		if chain.Member != nil && len(chain.Member.Parts) > 1 {
-			if resolved, resolvedOk := m.resolver.ResolveTarget(scope, e); resolvedOk && resolved != nil {
-				return evaluatorUnsupported(span, chainQualifiedLimitation, resolved)
-			}
-			return unresolvedReference(span, "a feature chain does not resolve")
-		}
-	}
 	hops := chainHops(e)
 	cur := rootSym
 	soFar := qnText(root.Name)
