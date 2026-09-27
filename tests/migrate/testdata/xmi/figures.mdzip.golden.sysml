@@ -8,6 +8,7 @@ package Plant {
                 @DiagramLayout::Canvas { unit = "px"; width = 810; height = 610; }
                 metadata DiagramLayout::Layout about Plant::Pump::Modes::Idle { x = 40; y = 100; width = 120; height = 50; }
                 metadata DiagramLayout::Layout about Plant::Pump::Modes::Running { x = 260; y = 100; width = 120; height = 50; }
+                metadata DiagramLayout::Route about 'start then Idle' { points = (68, 56, 68, 100); }
                 metadata DiagramLayout::Route about 'Idle accept Start then Running' { points = (160, 125, 210, 125, 210, 130, 260, 130); }
                 @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 20; y = 20; width = 400; height = 300; }
                 @DiagramLayout::Picture { location = "images/Plant_from_the_north.png"; x = 350; y = 120; width = 40; height = 40; above = true; }
@@ -17,11 +18,11 @@ package Plant {
                 @DiagramLayout::Note { text = "Draft only"; x = 600; y = 20; width = 80; height = 12; }
                 render Views::asInterconnectionDiagram;
             }
-            entry; then Idle;
+            transition 'start then Idle' first start then Idle;
             state Idle;
             state Running;
             transition 'Idle accept Start then Running' first Idle accept Start then Running;
-            metadata MigrationMetadata::SynthesizedName about 'Idle accept Start then Running';
+            metadata MigrationMetadata::SynthesizedName about 'start then Idle', 'Idle accept Start then Running';
         }
         action def Prime {
             view Priming : StandardViewDefinitions::ActionFlowView {

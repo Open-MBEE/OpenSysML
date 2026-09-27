@@ -1,0 +1,66 @@
+// view: NotationViews::acquireView
+// kind: action
+// stated: view def ActionFlowView
+// canvas: w=700 h=560
+// layout: neato -n2
+digraph "NotationViews::acquireView" {
+  graph [fontname="Arial", fontcolor="#424242", layout=neato, inputscale=72, dpi=72];
+  node [shape=box, style=filled, fillcolor="#FFCC99:#FFFAD4", gradientangle=0, color="#99795C", fontname="Arial", fontsize=11, fontcolor="#424242", penwidth=1];
+  edge [color="#424242", fontname="Arial", fontsize=9, fontcolor="#424242", penwidth=1, arrowhead=open];
+  "canvas:0" [shape=point, style=invis, width=0, height=0, label="", pos="0,560!", pin=true];
+  "canvas:1" [shape=point, style=invis, width=0, height=0, label="", pos="700,0!", pin=true];
+  subgraph "cluster_frame" {
+    label=<<b>act</b> [Activity] Acquire [ acquireView ]>;
+    labeljust=l;
+    labelloc=t;
+    fontsize=11;
+    color="#5B5B59";
+    penwidth=1;
+    margin=8;
+    bb="0,0,700,560";
+    subgraph "cluster_n0" {
+      label="";
+      style="rounded,filled";
+      fillcolor="#E1E1C3:#F7F7EF";
+      gradientangle=0;
+      color="#424242";
+      penwidth=1;
+      bb="0,0,700,560";
+      "n0" [shape=point, style=invis, width=0, height=0, label="", pos="350,280!", pin=true];
+      "n1" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>&#34;SH-0&#34;</b>>, margin=0, pos="60,520!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
+      "n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="60,494!", pin=true];
+      "n3" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>true</b>>, margin=0, pos="180,520!", pin=true, width=1.1111111111111112, height=0.5555555555555556, fixedsize=true];
+      "n3.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="180,494!", pin=true];
+      "n5" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>sense : Sense</b>>, margin=0, pos="140,370!", pin=true, width=2.2222222222222223, height=0.8333333333333334, fixedsize=true];
+      "n5.0" [shape=box, label="", xlabel="mask", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="90,406!", pin=true];
+      "n5.1" [shape=box, label="", xlabel="guide", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="180,406!", pin=true];
+      "n5.2" [shape=box, label="", xlabel="image", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="180,334!", pin=true];
+      "n6" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>process : Process</b>>, margin=0, pos="140,250!", pin=true, width=2.2222222222222223, height=0.8333333333333334, fixedsize=true];
+      "n6.0" [shape=box, label="", xlabel="image", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="180,286!", pin=true];
+      "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>report : Report</b>>, margin=0, pos="370,370!", pin=true, width=1.9444444444444444, height=0.8333333333333334, fixedsize=true];
+      "n8" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>i := i + 1</b>>, margin=0, pos="450,100!", pin=true, width=1.3888888888888888, height=0.5555555555555556, fixedsize=true];
+      "n9" [fillcolor=black, label="", pos="250,455!", pin=true, width=2.7777777777777777, height=0.1388888888888889, fixedsize=true];
+      "n10" [fillcolor=black, label="", pos="250,175!", pin=true, width=2.7777777777777777, height=0.1388888888888889, fixedsize=true];
+      "n11" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", pos="250,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n12" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", pos="250,120!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n13" [shape=doublecircle, fillcolor=black, label="", pos="250,20!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n14" [shape=circle, fillcolor=black, label="", pos="337.5,522.5!", pin=true, width=0.20833333333333334, height=0.20833333333333334, fixedsize=true];
+    }
+    "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>Acquire a new star>, pos="550,295!", pin=true, width=1.9444444444444444, height=0.6944444444444444, fixedsize=true];
+  }
+  "n1.0" -> "n5.0" [style=dashed, pos="e,90,400 60,494 60,494 60,430 60,430 60,430 90,430 90,430 90,430 90,410 90,410"];
+  "n3.0" -> "n5.1" [style=dashed, pos="e,180,400 180,494 180,494 180,410 180,410"];
+  "n5" -> "n6" [pos="e,100,280 100,340 100,340 100,290 100,290"];
+  "n5.2" -> "n6.0" [style=dashed, pos="e,180,280 180,340 180,340 180,290 180,290"];
+  "n6" -> "n10" [pos="e,140,180 140,220 140,220 140,190 140,190"];
+  "n7" -> "n10" [pos="e,370,180 370,340 370,340 370,190 370,190"];
+  "n8" -> "n12" [pos="e,260,120 450,120 450,120 450,120 450,120 450,120 270,120 270,120"];
+  "n9" -> "n5" [pos="e,140,400 140,450 140,450 140,410 140,410"];
+  "n9" -> "n7" [pos="e,370,400 370,450 370,450 370,410 370,410"];
+  "n10" -> "n12" [pos="e,250,130 250,170 250,170 250,140 250,140"];
+  "n11" -> "n8" [label="[i < 3]", pos="e,400,70 260,70 260,70 390,70 390,70", lp="330,79.5"];
+  "n11" -> "n13" [label="[i >= 3]", pos="e,250,30 250,60 250,60 250,40 250,40", lp="275.5,45"];
+  "n12" -> "n11" [pos="e,250,80 250,110 250,110 250,90 250,90"];
+  "n14" -> "n9" [pos="e,337,460 337,515 337,515 337,470 337,470"];
+  "note:0" -> "n5" [style=dashed, arrowhead=none];
+}

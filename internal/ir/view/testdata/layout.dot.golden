@@ -15,7 +15,7 @@ digraph "PlantViews::placedView" {
     penwidth=0.5;
     bb="292,692,628,768";
     "n0" [shape=point, style=invis, width=0, height=0, label="", pos="460,730!", pin=true];
-    "n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="359,741.5!", pin=true, width=1.6388888888888888, height=0.5138888888888888, comment="collapsed"];
+    "n1" [style="rounded,filled", label=<<b><b>pump : Pump</b><br/><font point-size="10"><i>«part»</i></font></b>>, fillcolor="#FFE8BD", color="#333333", fontname="Arial", fontsize=11, pos="348,742!", pin=true, width=1.3333333333333333, height=0.5, comment="collapsed"];
     "n2" [style="rounded,filled", label=<<b>tank : Tank</b><br/><font point-size="10"><i>«part»</i></font>>, margin=0, pos="560,730!", pin=true, width=1.6666666666666667, height=0.8333333333333334, fixedsize=true];
   }
   "note:0" [shape=note, label="always", pos="43.5,692!", pin=true, width=0.9305555555555556, height=0.5];
