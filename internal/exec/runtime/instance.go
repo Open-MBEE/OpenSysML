@@ -62,6 +62,10 @@ type Instance struct {
 	// owed are the derived values this object took from its shape before
 	// materializing all their derivations read (see shared_default.go).
 	owed []owedDefault
+
+	// nested are the tails of the nested redefinitions applying below this
+	// object, each the chain rest a member of it applies (see nested_redefinition.go).
+	nested []pendingRedefinition
 }
 
 // Owner answers the object holding this one and the feature of it that does, or
@@ -337,6 +341,11 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 	// Get effective features
 	features := ctx.FeaturesOf(sym)
 
+	// A nested redefinition written on a type of this object's owner redefines a
+	// feature below it: what applies on this object overrides its shape now, and
+	// what applies below carries on it (see nested_redefinition.go).
+	pending := ctx.pendingNestedRedefinitions(owner, feature)
+
 	// Create instance
 	inst := &Instance{
 		ID:            id,
@@ -344,6 +353,9 @@ func (ctx *Context) materialize(sym *symbols.Symbol, id int64, owner *Instance, 
 		FeatureValues: make(map[string]*FeatureValue, len(features)),
 		owner:         owner,
 		ownerFeature:  feature,
+	}
+	if len(pending) > 0 {
+		features, inst.nested = ctx.applyNestedRedefinitions(sym, features, pending)
 	}
 
 	// Create feature value for each feature, allocated as one block.
@@ -1163,37 +1175,13 @@ func untypedPortUsage(sym *symbols.Symbol) bool {
 
 // isSubjectUsage reports whether sym is the subject parameter of a case.
 func isSubjectUsage(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	switch decl := sym.Decl.(type) {
-	case *ast.SubjectMember:
-		return true
-	case *ast.Usage:
-		return decl.Kind == ast.UsageSubject
-	}
-	return false
+	return semantics.IsSubjectUsage(sym)
 }
 
 // isReferenceUsage reports a usage declared `ref` or with a `references` relationship
 // (SysML v2 §7.6.2: Usage::isReference), which owns none of the objects it holds.
 func isReferenceUsage(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok {
-		return false
-	}
-	if usage.IsReference {
-		return true
-	}
-	for _, rel := range usage.Relationships {
-		if rel != nil && rel.Kind == ast.RelReferences {
-			return true
-		}
-	}
-	return false
+	return semantics.IsReferenceUsage(sym)
 }
 
 // declaresFeatures reports whether a usage's own body restates or adds features,

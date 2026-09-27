@@ -76,6 +76,7 @@ func DefaultRegistry() *Registry {
 	reg.Register(behavior.ControlNodeSuccessionPass{})
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
+	reg.Register(NestedRedefinitionPass{})
 	return reg
 }
 
