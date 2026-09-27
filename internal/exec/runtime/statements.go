@@ -370,6 +370,14 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 		// name shadowed by a nearer declaration still reaches it.
 		if s.Qualified {
 			ec := e.evalIn(s.Scope)
+			// The qualifier denoting this body's own run makes the write the
+			// unqualified one: the host writes and streams it as `assign n := 3`.
+			if e.env.data.runs(ec.ctx, s.Owner) {
+				if !e.host.declaredOutput(s.Target) && e.env.data.has(s.Target) {
+					return flowNext, e.host.assignData(e.env, s.Target, value, s)
+				}
+				return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
+			}
 			if written, err := ec.writeFrameFeature(s.Owner, s.Feature, value); err != nil {
 				return flowNext, err
 			} else if written {

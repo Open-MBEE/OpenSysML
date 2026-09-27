@@ -2394,7 +2394,7 @@ const qualifiedAssignFixture = `
 			out seen : Integer;
 			action step {
 				assign Probe::count := 3;
-				assign seen := this.count;
+				assign Probe::seen := this.count;
 			}
 			first step;
 		}
@@ -2423,7 +2423,7 @@ func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
 		t.Fatalf("run Probe on Host: %v", err)
 	}
 	if got := results["seen"]; got.Const.Int != 3 {
-		t.Errorf("seen = %v, want 3: Probe::count wrote the Probe run's own count", got)
+		t.Errorf("seen = %v, want 3: Probe::seen bound the output as `assign seen` would", got)
 	}
 	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
 		t.Fatalf("read Host.count: %v", err)
@@ -2436,6 +2436,95 @@ func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
 		t.Error("Stray on Host: want a typed error — Other names no run or performer here")
 	} else if !strings.Contains(err.Error(), "Other") {
 		t.Errorf("Stray on Host: error %q names no qualifier", err)
+	}
+}
+
+// qualifiedWriteFixture runs a state machine whose entry materializes this and
+// then writes its own attribute through its qualified name: `this` stays live.
+const qualifiedWriteFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Plant {
+			attribute flag : Boolean = false;
+		}
+		state def Life {
+			in ref context : Plant;
+			attribute n : Integer default = 0;
+			attribute mark : Boolean = false;
+			state on {
+				entry action run {
+					assign Life::mark := this == this;
+					assign Life::n := 5;
+					assign context.flag := this.n == 5;
+				}
+			}
+			first start then on;
+		}
+	}
+`
+
+// A qualified write inside a machine that already materialized this lands on the
+// same occurrence `this` reads, through the machine's own write path.
+func TestQualifiedWriteMirrorsTheLiveOccurrence(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedWriteFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	life := oneSymbol(t, idx, "test::Life")
+	if _, _, err = ctx.ExecuteStatePerformedBy(life, inst, nil); err != nil {
+		t.Fatalf("run Life on Plant: %v", err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "flag"); err != nil {
+		t.Fatalf("read Plant.flag: %v", err)
+	} else if got := fv.HeldValue(); !got.Const.Bool {
+		t.Errorf("flag = %v, want true: this.n read the 5 Life::n wrote", got)
+	}
+}
+
+// calcContextOrderFixture invokes a context-taking calc with a declared input:
+// the context binds first, as the def declares it.
+const calcContextOrderFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Tank {
+			attribute level : Real default = 1.5;
+		}
+		calc def Rate {
+			in ref context : Tank;
+			in factor : Real;
+			out result : Real = context.level * factor;
+		}
+		part def Plant {
+			part tank : Tank;
+			action def Run {
+				in ref context : Plant;
+				out result : Real;
+				action rate { out result = Rate(Run::context.tank, 2.0); }
+				first rate;
+				bind result = rate.result;
+			}
+		}
+	}
+`
+
+// Tank::Rate(Plant-context.tank, 2.0) binds the context first as declared, so
+// factor takes the second argument and result is level * factor = 3.
+func TestCalcCallBindsContextBeforeItsInputs(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, calcContextOrderFixture))
+	plant := findSymbolByName(idx.DocumentRoot("<test>"), "Plant", ast.DefPart)
+	inst, err := ctx.Instantiate(plant)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	run := oneSymbol(t, idx, "test::Plant::Run")
+	results, err := ctx.ExecuteActionPerformedBy(run, inst, nil)
+	if err != nil {
+		t.Fatalf("run Run on Plant: %v", err)
+	}
+	if got := results["result"]; got.Const.Real != 3.0 {
+		t.Errorf("result = %v, want 3.0: the tank instance bound context, 2.0 bound factor", got)
 	}
 }
 

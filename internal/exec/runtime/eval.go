@@ -948,7 +948,16 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 			continue
 		}
 		f.set(sym.Name, value)
-		if oc := ec.occurrence; oc != nil && ec.ctx.isOrSpecializes(oc.Type, qualifier) {
+		// The run's occurrence holds this feature once materialized — take it from
+		// the run's own hook, not a pointer the context captured before it existed.
+		oc := ec.occurrence
+		if oc == nil && ec.thisOccurrence != nil {
+			var err error
+			if oc, err = ec.thisOccurrence(); err != nil {
+				return true, err
+			}
+		}
+		if oc != nil && ec.ctx.isOrSpecializes(oc.Type, qualifier) {
 			if err := oc.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
 				return true, err
 			}
