@@ -2820,6 +2820,7 @@ func TestAnalysisDefRunGetsItsOwnOccurrence(t *testing.T) {
 package test {
 	analysis def Occurrence {
 		in n : Integer;
+		out who = this;
 		return : Integer = this.n;
 	}
 }
@@ -2827,6 +2828,7 @@ package test {
 	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
 	root := idx.DocumentRoot("<test>")
 	occ, scope := calcByName(t, root, "test", "Occurrence")
+	var lastID int64
 	for _, n := range []int64{3, 8} {
 		result, err := ctx.RunAnalysis(occ, AnalysisArgs{
 			Positional: []Value{constInt(n)},
@@ -2834,9 +2836,31 @@ package test {
 		if err != nil {
 			t.Fatalf("Occurrence(%d): %v", n, err)
 		}
-		if len(result.Outputs) != 1 || result.Outputs[0].Value.Const.Int != n {
-			t.Errorf("Occurrence(%d) = %+v, want %d: each run's this holds its own inputs",
-				n, result.Outputs, n)
+		var got Value
+		var selfID int64
+		for _, out := range result.Outputs {
+			switch out.Name {
+			case "who":
+				selfID = out.Value.Instance
+			default:
+				got = out.Value
+			}
+		}
+		if got.Const.Int != n {
+			t.Errorf("Occurrence(%d) = %s, want %d: each run's this holds its own inputs",
+				n, FormatTraceValue(got), n)
+		}
+		if selfID == 0 {
+			t.Fatalf("Occurrence(%d): no `who` output carrying this", n)
+		}
+		if lastID != 0 && selfID == lastID {
+			t.Errorf("Occurrence(%d): this is object #%d, the occurrence the earlier run ended", n, selfID)
+		}
+		lastID = selfID
+		// A case run's occurrence is a performance: once the run's outputs are
+		// all read, its life is ended with the run.
+		if life, ok := ctx.OccurrenceLife(selfID); !ok || life.Alive() {
+			t.Errorf("OccurrenceLife(#%d) = %v, %v; want the run's occurrence ended", selfID, life, ok)
 		}
 	}
 }

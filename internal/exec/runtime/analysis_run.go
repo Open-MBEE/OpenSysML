@@ -265,7 +265,10 @@ type AnalysisResult struct {
 func (ctx *Context) RunAnalysis(sym *symbols.Symbol, args AnalysisArgs, scope *symbols.Scope, self *Instance) (AnalysisResult, error) {
 	defer ctx.beginRun()()
 
-	_, result, err := ctx.runCase(sym, args, scope, self)
+	run, result, err := ctx.runCase(sym, args, scope, self)
+	// The run's occurrence lives until its last reader is done, and nothing
+	// downstream of RunAnalysis reads the run, so its end is here.
+	defer run.endOccurrence(ctx)
 	return result, err
 }
 

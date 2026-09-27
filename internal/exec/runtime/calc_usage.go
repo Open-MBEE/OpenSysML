@@ -942,11 +942,13 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	run := newCalcRun(shape, reader.scope, reader.self, env)
 	run.outer = nested
 	run.activation, run.perf, run.boundInputs, run.occurrence = engine.activation, host.performance(), start.inputs, start.occurrence
-	// A definition's occurrence lives for the run, as a performed behavior's does:
-	// the run's end ends it.
+	// A definition's occurrence lives for the whole run: a run abandoned to an
+	// error has nothing left to read, so its occurrence ends here; one returned
+	// is its caller's to end after the outputs and verdicts are read.
+	kept := false
 	defer func() {
-		if isBehaviorDefKind(shape.Sym.Kind) && start.occurrence.inst != nil {
-			ctx.endPerformanceLife(start.occurrence.inst)
+		if !kept {
+			run.endOccurrence(ctx)
 		}
 	}()
 
@@ -972,6 +974,7 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 				ec.trace.RecordCalcUsageExit(shape.Kind, shape.Name)
 			}
 		}
+		kept = true
 		return run, nil
 	}
 
@@ -1007,7 +1010,21 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 			run.outputs[resultOutputName] = result
 		}
 	}
+	kept = true
 	return run, nil
+}
+
+// endOccurrence ends the performance occurrence a definition's run materialized
+// for `this`, once the run's outputs and verdicts have all been read; a usage
+// run's occurrence is the object the symbol caches, which outlives the run.
+func (run *calcRun) endOccurrence(ctx *Context) {
+	if run == nil || run.occurrence == nil || !isBehaviorDefKind(run.shape.Sym.Kind) || run.occurrence.ended {
+		return
+	}
+	run.occurrence.ended = true
+	if run.occurrence.inst != nil {
+		ctx.endPerformanceLife(run.occurrence.inst)
+	}
 }
 
 // output returns the value of one output feature of this evaluation, evaluating

@@ -31,6 +31,7 @@ type calcStmtHost struct {
 type calcOccurrence struct {
 	inst        *Instance
 	materialize func() (*Instance, error)
+	ended       bool
 }
 
 // materializeOccurrence is the invocation's occurrence, made on the first call.
