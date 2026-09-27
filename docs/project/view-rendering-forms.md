@@ -498,8 +498,8 @@ digraph "PlantViews::placedView" {
   to, so a strip thinner than a line still gets one line at 8 pt. The estimate is
   the box fitting's own — 0.6 em a glyph (0.66 em bold), 1.2 em a line — so nothing here is
   particular to the tool that stated the box. A Cameo-style label with detail lines is set in
-  the compartment table, whose cell padding and rule take 4 pt of the width and 9 pt of the
-  height before the text, so those are taken off the box the text is fitted to
+  the compartment table, whose cell padding takes 4 pt of the width and 8 pt of the height
+  before the text (the rule is drawn within it), so those are taken off the box the text is fitted to
   (`compartmented`). A symbol kind in a stated box carries no label at
   all ([Style](#style)). Without a stated size
   the writer sizes the box to the label itself — 0.6 em a glyph (0.66 em in the bold head),

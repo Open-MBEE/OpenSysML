@@ -1301,23 +1301,34 @@ func (l labeller) keywordSize() float64 {
 const dotFitFloor = 8
 
 // The Cameo compartment table's chrome about its text, in points: the padding
-// of a cell, and the two cells' padding with the rule between them.
+// either side of a cell, and that of its two cells stacked (the rule between
+// them is drawn within it).
 const (
 	dotCellPadding        = 2
 	dotCompartmentPadding = 2 * dotCellPadding
-	dotCompartmentChrome  = 4*dotCellPadding + 1
+	dotCompartmentChrome  = 4 * dotCellPadding
 )
 
 // dotFittedLabel is a node's label composed to fit a stated box: the head wrapped
 // at the box's width and shrunk from the default size to the largest at which it
 // fits, the keyword and detail lines after it while height remains. A head too
-// tall even at the floor is cut to the lines that fit and ellipsized.
+// tall even at the floor is cut to the lines that fit and ellipsized. A Cameo
+// label with detail lines is set in the compartment table, so it is fitted to
+// the box less the table's chrome; when no detail line fits, the title alone is
+// fitted to the whole box.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
-	lines := l.lines(node)
 	if l.compartmented(node) {
-		width -= dotCompartmentPadding
-		height -= dotCompartmentChrome
+		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome)
+		if len(parts.details) > 0 {
+			return dotLabelAttribute(l.assemble(parts))
+		}
 	}
+	return dotLabelAttribute(l.assemble(l.fitParts(node, width, height)))
+}
+
+// fitParts is a node's label fitted to a box, by part.
+func (l labeller) fitParts(node *Node, width, height float64) labelParts {
+	lines := l.lines(node)
 	size, head, fits := dotFitText(l.headLines(node), dotBoldGlyphEm, width, height, l.size())
 	var parts labelParts
 	parts.head = l.sized(size, "<b>"+dotEscapeLines(head)+"</b>")
@@ -1341,7 +1352,7 @@ func (l labeller) dotFittedLabel(node *Node, width, height float64) string {
 		}
 		parts.details = append(parts.details, l.sized(lineSize, text))
 	}
-	return dotLabelAttribute(l.assemble(parts))
+	return parts
 }
 
 // compartmented reports whether a node's label is set in Cameo's compartment

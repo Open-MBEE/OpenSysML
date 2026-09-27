@@ -385,11 +385,12 @@ func TestDOTFitTextWrapsEachLine(t *testing.T) {
 }
 
 // A Cameo label with detail lines is set in the compartment table, whose cell
-// padding and rule take room of their own: a stated box that holds the text
-// lines alone keeps only the detail lines the table leaves room for, and
-// Graphviz, when present, agrees the box is not too small.
+// padding takes room of its own: a stated box that holds the text lines alone
+// keeps only the detail lines the table leaves room for, a box with room for
+// no detail line gives its whole self to the title, and Graphviz, when
+// present, agrees no box is too small.
 func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
-	// Four 11pt lines stack in 52.8pt; the table about them needs 9pt more.
+	// Four 11pt lines stack in 52.8pt; the table about them needs 8pt more.
 	node := stated(&Node{ID: "n", Kind: "state", Name: "OFF", Detail: "entry / configMode, do / update"}, 104, 60)
 	source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{node}}).DOTWith(Options{Style: StyleCameo})
 	if err != nil {
@@ -408,11 +409,20 @@ func TestDOTCameoCompartmentFitsItsChrome(t *testing.T) {
 	if want := `<tr><td><b>OFF</b></td></tr><hr/><tr><td align="left">entry /<br/>configMode<br/>do / update</td></tr>`; !strings.Contains(source, want) {
 		t.Errorf("roomier box's DOT lacks %q:\n%s", want, source)
 	}
+	// At 8pt the title is 58pt wide: one line in the 60pt box, two in the 56pt the table leaves.
+	short := stated(&Node{ID: "n", Kind: "state", Name: "Standing By", Detail: "entry / start"}, 60, 20)
+	source, err = (&Rendering{View: "V", Kind: KindState, Roots: []*Node{short}}).DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOT: %v", err)
+	}
+	if want := `label=<<font point-size="8"><b>Standing By</b></font>>, margin=0`; !strings.Contains(source, want) {
+		t.Errorf("short box's DOT lacks %q:\n%s", want, source)
+	}
 	dot := os.Getenv("OPENSYSML_DOT")
 	if dot == "" {
 		t.Skip("OPENSYSML_DOT not set")
 	}
-	for _, n := range []*Node{node, roomy} {
+	for _, n := range []*Node{node, roomy, short} {
 		source, err := (&Rendering{View: "V", Kind: KindState, Roots: []*Node{n}}).DOTWith(Options{Style: StyleCameo})
 		if err != nil {
 			t.Fatalf("DOT: %v", err)
