@@ -1061,13 +1061,16 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		k := &deferral{trigger: d, event: ev, sig: sig}
 		if s.m.strict {
-			t, always := s.m.acceptsOutOf(v, sig)
-			if always {
+			s.routeDeferral(k)
+			always, contested := s.m.acceptsOutOf(v, sig)
+			if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
 				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it"
 				s.m.add(d, Approximated, "", note)
 				continue
+			} else if taken != "" {
+				k.info = joinNotes(k.info, taken)
 			}
-			k.contested = t
+			k.contested = contested
 			if t := s.m.completionOutOf(v); t != nil {
 				note := "the completion transition " + describe(t) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
 				out.lines = append(out.lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
@@ -1091,7 +1094,6 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		return out
 	}
-	s.routeDeferrals(v, out)
 	s.nameDeferrals(v, do, exit, out)
 	for _, k := range out.kept {
 		note := "kept in the item " + k.buffer + " by the accept loop of the do action " + out.buffer + " while the state is active, and sent to self by the exit action " + out.flush + ": the standard SysML v2 encoding of a deferred signal, which the state's @" + deferredEventFQN + " annotation records"
@@ -1159,24 +1161,69 @@ func (s *stateRegion) nameDeferrals(v, do, exit *sysmlv1.Element, d *deferrals) 
 	}
 }
 
-// routeDeferrals gives each deferral its accept loops, one per route the
-// signal reaches the object by: the ports the trigger names, or else the
-// object itself and every port a connector delivers the signal to, as a
-// transition's trigger would accept it.
-func (s *stateRegion) routeDeferrals(v *sysmlv1.Element, d *deferrals) {
-	for _, k := range d.kept {
-		ports, direct, info, note := s.m.portRoutes(k.trigger, classifierOf(k.trigger), k.sig)
-		if direct {
-			k.loops = append(k.loops, &deferralLoop{})
-		}
-		for _, p := range ports {
-			k.loops = append(k.loops, &deferralLoop{port: p})
-		}
-		if len(ports) > 0 {
-			info = joinNotes(info, "an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts")
-		}
-		k.info, k.note = info, note
+// routeDeferral gives a deferral its accept loops, one per route the signal
+// reaches the object by: the ports the trigger names, or else the object
+// itself and every port a connector delivers the signal to, as a transition's
+// trigger would accept it.
+func (s *stateRegion) routeDeferral(k *deferral) {
+	ports, direct, info, note := s.m.portRoutes(k.trigger, classifierOf(k.trigger), k.sig)
+	if direct {
+		k.loops = append(k.loops, &deferralLoop{})
 	}
+	for _, p := range ports {
+		k.loops = append(k.loops, &deferralLoop{port: p})
+	}
+	if len(ports) > 0 {
+		info = joinNotes(info, "an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts")
+	}
+	k.info, k.note = info, note
+}
+
+// takeRoutes drops from a deferral's loops every route one of the transitions
+// always, which leave the state on the signal under no guard, accepts by: the
+// transition takes the signal there, so the state need not keep it. It returns
+// the first transition that took a route, and a note naming what it took when
+// loops remain.
+func (s *stateRegion) takeRoutes(k *deferral, always []*sysmlv1.Element) (taker *sysmlv1.Element, note string) {
+	var taken []string
+	for _, t := range always {
+		for _, tr := range t.Owned("trigger") {
+			if ev := s.m.model.Ref(tr, "event"); ev == nil || s.m.model.Ref(ev, "signal") != k.sig {
+				continue
+			}
+			ports, direct, _, _ := s.m.portRoutes(tr, classifierOf(tr), k.sig)
+			kept := k.loops[:0]
+			for _, l := range k.loops {
+				switch {
+				case l.port == nil && direct:
+					taken = append(taken, "from the object itself")
+				case l.port != nil && containsElement(ports, l.port):
+					taken = append(taken, "via "+s.m.nameFor(l.port))
+				default:
+					kept = append(kept, l)
+					continue
+				}
+				if taker == nil {
+					taker = t
+				}
+			}
+			k.loops = kept
+		}
+	}
+	if taker == nil || len(k.loops) == 0 {
+		return taker, ""
+	}
+	return taker, "the transition " + describe(taker) + " out of the state accepts the signal " + strings.Join(taken, " and ") + ", which in v1 takes precedence over deferring it, so no loop keeps it there"
+}
+
+// containsElement reports whether es holds e.
+func containsElement(es []*sysmlv1.Element, e *sysmlv1.Element) bool {
+	for _, x := range es {
+		if x == e {
+			return true
+		}
+	}
+	return false
 }
 
 // loopCount is how many accept loops the encoding writes in all.
@@ -1212,13 +1259,14 @@ func (m *migration) nestedBehaviorName(b, owner *sysmlv1.Element, used map[strin
 	return name
 }
 
-// acceptsOutOf returns a transition out of state v, or out of a vertex within
-// it, that a trigger referring to signal sig fires, preferring one that always
-// takes the signal from the deferral: out of v itself, under no guard or a true
-// one. always reports that; otherwise the returned transition takes the signal
-// only while its guard holds or while the vertex it leaves is active, so the
-// state keeps the signal the rest of the time. nil when no transition accepts.
-func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Element, always bool) {
+// acceptsOutOf returns the transitions out of state v, or out of a vertex
+// within it, that a trigger referring to signal sig fires: always holds those
+// that always take the signal from the deferral by the routes their triggers
+// accept by, out of v itself under no guard or a true one; contested is the
+// first other, which takes the signal only while its guard holds or while the
+// vertex it leaves is active, so the state keeps the signal the rest of the
+// time. nil when no transition accepts.
+func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Element, contested *sysmlv1.Element) {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
@@ -1226,12 +1274,11 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Elemen
 				if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.model.Ref(ev, "signal") == sig {
 					g := m.guardOf(t)
 					if e == v && (g == nil || trueLiteral(firstOwned(g, "specification"))) {
-						found, always = t, true
-						return
+						always = append(always, t)
+					} else if contested == nil {
+						contested = t
 					}
-					if found == nil {
-						found = t
-					}
+					break
 				}
 			}
 		}
@@ -1242,7 +1289,7 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (found *sysmlv1.Elemen
 		}
 	}
 	walk(v)
-	return found, always
+	return always, contested
 }
 
 // completionOutOf returns a transition out of state v that no trigger fires,

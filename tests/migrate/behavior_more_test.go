@@ -599,6 +599,58 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 	}
 }
 
+// Under -strict, a transition out of the state that accepts the signal via one
+// port alone takes the deferral from that route only: the state keeps the
+// signal by the routes the transition does not accept by. The result runs: a
+// Cmd sent to the unit itself while Waiting is kept, and replayed once the Cmd
+// at the inbox has taken the transition, where Working accepts it again.
+func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
+	machine := strings.Replace(portDeferringMachine,
+		`<trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv"/>
+            <guard xmi:type="uml:Constraint" xmi:id="_gArmed">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gArmedX"><body>armed</body></specification>
+            </guard>`,
+		`<trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv" port="_inbox"/>`, 1)
+	if machine == portDeferringMachine {
+		t.Fatal("the fixture's guarded transition was not found")
+	}
+	r := migrateDocumentOptions(t, machine, portDeferringApplications, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Cmd;")
+	for _, line := range []string{
+		"item deferredCmd : Cmd[*] ordered;",
+		"action receiveCmd accept keptCmd : Cmd;",
+		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
+		"for keptCmd in deferredCmd { send keptCmd to self; }",
+		"transition first Waiting accept Cmd via inbox then Working;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via inbox;")
+	wantNoLine(t, r.Notation, "transition first Waiting accept Cmd then Working;")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "kept in the item deferredCmd by the accept loop of the do action buffer while the state is active")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the transition (_tArmed) out of the state accepts the signal via inbox, which in v1 takes precedence over deferring it, so no loop keeps it there")
+	wantClean(t, "portDeferringSkipped", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Site")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	meta(t, s, "%send Cmd to #1.unit")
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredCmd = [Instance") {
+		t.Fatalf("the Cmd sent to the unit itself was not kept:\n%s", out)
+	}
+	meta(t, s, "%action Console::issue #1.console")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+		t.Fatalf("the Cmd at the inbox did not take the transition and flush the kept one:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 2") {
+		t.Errorf("Working was not entered by the Cmd at the inbox and again by the replayed one: %s", out)
+	}
+}
+
 // Under -strict, a transition accepting the signal out of a substate does not
 // stop the composite state deferring it: v1 lets the transition win only while
 // that substate is active, so the composite keeps the signal the rest of the
