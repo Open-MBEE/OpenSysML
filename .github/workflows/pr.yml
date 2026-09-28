@@ -219,7 +219,7 @@ jobs:
       # Python subprocess, so the library it drives is installed here, pinned
       # and wheel-only like every pip install of this workflow.
       - name: Install fmpy
-        run: pip install --only-binary :all: fmpy==0.3.32
+        run: pip install --only-binary ":all:" fmpy==0.3.32
 
       # The Modelica Reference-FMUs, checksummed; keyed on the download script
       # and its pin. A restored cache is verified by the script's own check.

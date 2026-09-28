@@ -330,10 +330,10 @@ jobs:
       - download-corpora
 
       # The FMI gate's runner is a Python subprocess over FMPy; the executor
-        # carries python3, the library it drives is installed here.
+      # carries python3, the library it drives is installed here.
       - run:
           name: Install fmpy
-          command: pip install --only-binary :all: fmpy==0.3.32
+          command: pip install --only-binary ":all:" fmpy==0.3.32
 
       # Sharded by package: the suite's slowest packages run near the 30m
       # per-package timeout when they share one executor.
