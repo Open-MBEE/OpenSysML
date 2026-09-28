@@ -60,5 +60,5 @@ func fmuToNotation(name string, data []byte) ([]byte, error) {
 	if onDisk, err := os.ReadFile(abs); err != nil || !bytes.Equal(onDisk, data) {
 		return nil, &FMUChangedError{Name: name}
 	}
-	return tfmi.Notation(d, tfmi.Options{URI: "file://" + filepath.ToSlash(abs)})
+	return tfmi.Notation(d, tfmi.Options{URI: execfmi.FileURI(abs)})
 }

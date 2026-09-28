@@ -114,6 +114,27 @@ func TestConvertFMURefusesAChangedArchive(t *testing.T) {
 	}
 }
 
+// The uri the notation carries percent-escapes the path's URL metacharacters.
+func TestConvertFMUEscapesTheFileURI(t *testing.T) {
+	data := fmuBytes(t, ballXML)
+	for _, tc := range []struct{ file, want string }{
+		{"gear#2.fmu", "gear%232.fmu"},
+		{"a?b.fmu", "a%3Fb.fmu"},
+	} {
+		name := filepath.Join(t.TempDir(), tc.file)
+		if err := os.WriteFile(name, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, err := convert.Convert(name, data, convert.FormatFMU, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("Convert: %v", err)
+		}
+		if !strings.Contains(string(out), tc.want) {
+			t.Errorf("notation lacks the escaped %q:\n%s", tc.want, out)
+		}
+	}
+}
+
 // A file that is not an FMU fails the conversion, not as notation.
 func TestConvertRejectsNonFMU(t *testing.T) {
 	if _, err := convert.Convert("text.fmu", []byte("hello"), convert.FormatFMU, convert.FormatSysML); err == nil {
