@@ -314,6 +314,7 @@ var constructFixtures = []string{
 	"swimlane_context_calls",
 	"rig_interactions",
 	"heater_receptions",
+	"accept_via_context_port",
 	"ported_calls",
 	"empty_behaviors",
 	"library_calls",

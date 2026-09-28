@@ -17,6 +17,6 @@ package Recovery {
             action final terminate;
             metadata MigrationMetadata::SynthesizedName about final;
         }
-        perform action recover : Recover;
+        perform action recover : Recover { in ref :>> context = this; }
     }
 }

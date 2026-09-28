@@ -95,7 +95,7 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 		}
 	}
 	owner := classifierOf(e)
-	if owner == nil {
+	if owner == nil || !m.definitionEnd(owner) {
 		return nil
 	}
 	if c, ok := m.ownerCtx[e]; ok {
@@ -397,11 +397,29 @@ func addOwner(owners []*sysmlv1.Element, c *sysmlv1.Element) []*sysmlv1.Element 
 // the behaviors it calls name; the note why none is written is kept for the report.
 func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element) *behaviorContext {
 	how := "its actions go through ports of "
+	eligible := make([]*sysmlv1.Element, 0, len(owners))
+	for _, owner := range owners {
+		if m.definitionEnd(owner) {
+			eligible = append(eligible, owner)
+		}
+	}
+	if len(owners) > 0 && len(eligible) == 0 {
+		names := make([]string, len(owners))
+		for i, owner := range owners {
+			names[i] = qualifiedName(owner)
+		}
+		m.contextNotes[b] = how + strings.Join(names, " and ") +
+			", none of which is written as a definition that can type a context parameter"
+	}
+	owners = eligible
 	switch owner := classifierOf(b); {
 	case owner != nil && b.Parent != owner:
 		// A state's or transition's behavior runs on the machine's object.
 		return nil
 	case owner != nil:
+		if defScope(b) && slices.Contains(owners, owner) {
+			return m.ownerContext(b)
+		}
 		if len(owners) == 0 || m.providesAny(owner, owners) || m.usesFeaturesOf(b, owner) {
 			return nil
 		}
