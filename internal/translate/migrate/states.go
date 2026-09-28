@@ -476,12 +476,13 @@ func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	return out
 }
 
-// vertexWritten reports whether vertex v is written as a member of its state def's
-// body: its machine is written and nameMachine named it, which skips what no region writes.
+// vertexWritten reports whether v is written as a member of its state definition's body.
+// It excludes vertices refused by strict migration, even if nameMachine named them.
 func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
 	return m.vertexNamed(v) && m.extensionVertex(v) == ""
 }
 
+// vertexNamed reports whether nameMachine assigned v a name, independent of whether it is written.
 func (m *migration) vertexNamed(v *sysmlv1.Element) bool {
 	sm := machineOf(v)
 	if sm == nil || !m.written(sm) {

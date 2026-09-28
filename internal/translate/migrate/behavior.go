@@ -221,7 +221,8 @@ func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	}
 }
 
-// contextLeads keeps call-site parameter order aligned with definition writing.
+// contextLeads reports whether e's definition declares `in ref context` before its own parameters.
+// Operations and calc definitions write those parameters inside bodyWithContext.
 func (m *migration) contextLeads(e *sysmlv1.Element, cat category) bool {
 	return e != nil && (e.Type == "Operation" || cat == catCalcDef)
 }

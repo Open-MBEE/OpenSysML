@@ -276,6 +276,7 @@ func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
 	return ref
 }
 
+// recordViewExposure records the names introduced into a view by an exposure.
 func (m *migration) recordViewExposure(view, exposed *sysmlv1.Element, ref string) {
 	switch {
 	case strings.HasSuffix(ref, "::*"):
@@ -287,6 +288,7 @@ func (m *migration) recordViewExposure(view, exposed *sysmlv1.Element, ref strin
 	}
 }
 
+// recordWildcardViewExposure records names imported by a wildcard exposure.
 func (m *migration) recordWildcardViewExposure(view, exposed *sysmlv1.Element, recursive bool) {
 	if exposed == nil {
 		return
@@ -308,14 +310,15 @@ func (m *migration) recordWildcardViewExposure(view, exposed *sysmlv1.Element, r
 	}
 }
 
+// recordExposedViewName records an exposed name in the view's namespace.
 func (m *migration) recordExposedViewName(view *sysmlv1.Element, name string) {
 	if name == "" {
 		return
 	}
-	if m.viewExposedNames[view] == nil {
-		m.viewExposedNames[view] = map[string]bool{}
+	if m.viewNames[view] == nil {
+		m.viewNames[view] = map[string]bool{}
 	}
-	m.viewExposedNames[view][name] = true
+	m.viewNames[view][name] = true
 }
 
 // absentNote says what an unresolved reference to id was: notation the tool

@@ -352,10 +352,12 @@ func (x exposures) exposed(ref string) bool {
 	return false
 }
 
+// shadows reports whether a view exposure uses name.
 func (x exposures) shadows(name string) bool {
 	return x.names[name]
 }
 
+// diagramLayoutAttribute qualifies an attribute when a view exposure shadows it.
 func diagramLayoutAttribute(prefix, definition, name, value string, x exposures) string {
 	if x.shadows(name) {
 		return ":>> " + prefix + definition + "::" + name + " = " + value
@@ -507,7 +509,7 @@ func (m *migration) writeView(v *view) {
 	form := m.formOf(d)
 	x := m.exposures(d, host, form)
 	for _, scope := range scopeChain(host) {
-		for name := range m.viewExposedNames[scope] {
+		for name := range m.viewNames[scope] {
 			x.names[name] = true
 		}
 	}
@@ -640,6 +642,7 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 	return x
 }
 
+// exposureName returns the unqualified name at the end of an exposure reference.
 func exposureName(ref string) string {
 	start := 0
 	quoted := false
@@ -925,8 +928,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 				grow(maxX, n)
 			}
 		}
-		b.WriteString(");")
-		b.WriteString(" }")
+		b.WriteString("); }")
 		routes = append(routes, b.String())
 	}
 	for tag, n := range rec.Unsupported {

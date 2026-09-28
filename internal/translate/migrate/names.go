@@ -247,6 +247,7 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 	return segs
 }
 
+// acceptSignalRef qualifies a signal reference when its name matches the payload.
 func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string) string {
 	if payload == "" || payload != writeName(m.nameFor(sig)) {
 		return m.ref(sig, scope)
