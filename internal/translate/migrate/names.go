@@ -256,7 +256,11 @@ func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string)
 	if len(path) == 1 {
 		return "$::" + writeName(path[0].name)
 	}
-	return m.qualifiedFrom(path, scopeChain(scope), false)
+	ref := m.qualifiedFrom(path, scopeChain(scope), false)
+	if writeName(path[0].name) == payload && !strings.HasPrefix(ref, "$::") {
+		return "$::" + ref
+	}
+	return ref
 }
 
 // isUsage says whether e is written as a usage whose members are features of

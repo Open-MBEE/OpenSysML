@@ -473,10 +473,42 @@ func TestStrictPropertyProbabilityUsesOnlyLiteralDefaults(t *testing.T) {
 	}
 }
 
+func TestStrictRejectedProbabilityDecisionDoesNotReportUnusedDefault(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_rejected_probability_default", migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "@Stochastic::Probability")
+	entries := entriesFor(r, "_eDefault")
+	if len(entries) != 1 ||
+		!strings.Contains(entries[0].Note, "no «Probability» is written on the decision's branches") ||
+		strings.Contains(entries[0].Note, "under strict the probability is written as") {
+		t.Errorf("defaulted branch report = %+v, want only the decision rejection note", entries)
+	}
+	if errs := errorsMode(t, "decision_rejected_probability_default.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestExposeUsesPlannedActionUsageName(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "exposed_action_usage", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "perform action route")
+	wantLine(t, r.Notation, "expose route;")
+	wantNoLine(t, r.Notation, "expose Route;")
+	if errs := errorsMode(t, "exposed_action_usage.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict exposed action migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
 func TestAcceptPayloadNameDoesNotShadowSignalType(t *testing.T) {
 	r := migrateFixtureFile(t, "accept_payload_name")
 	wantLine(t, r.Notation, "accept s3 : AccProbe::s3")
 	wantLine(t, r.Notation, "accept AccProbe::start")
+}
+
+func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Alarm;")
+	if errs := errorsMode(t, "accept_payload_package_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
 }
 
 // widerChooser is a block whose decision weights are properties typed by the

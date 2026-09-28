@@ -233,9 +233,9 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 			}
 			pl.write(m.v2Name(c))
 			view, exposed := c, s
-			ref := m.exposeRef(view, exposed)
-			m.recordViewExposure(view, exposed, ref)
 			m.extras[view] = append(m.extras[view], func() {
+				ref := m.exposeRef(view, exposed)
+				m.recordViewExposure(view, exposed, ref)
 				m.w.line("expose " + ref + ";")
 			})
 		}

@@ -1139,6 +1139,10 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 	var unmarked, valueless []int
 	sum, marked, dynamic := 0.0, false, false
 	var notes []string
+	var approximations []struct {
+		edge *sysmlv1.Element
+		note string
+	}
 	for i, e := range outs {
 		if tos[i] == "" {
 			notes = append(notes, "the edge "+describe(e)+" leads to "+describe(ownerNode(a.m.model.Ref(e, "target")))+", "+a.unwritableTarget(e))
@@ -1162,7 +1166,10 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 			continue
 		}
 		if w.approximation != "" {
-			a.m.add(e, Approximated, "", w.approximation)
+			approximations = append(approximations, struct {
+				edge *sysmlv1.Element
+				note string
+			}{edge: e, note: w.approximation})
 		}
 		if w.property != nil {
 			dynamic = true
@@ -1196,7 +1203,11 @@ func (a *activity) probabilities(outs []*sysmlv1.Element, tos []string) []string
 		}
 		return nil
 	}
-	return a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	exprs := a.weightExprs(outs, weights, unmarked, sum, dynamic)
+	for _, approximation := range approximations {
+		a.m.add(approximation.edge, Approximated, "", approximation.note)
+	}
+	return exprs
 }
 
 // branchWeight reads the «Probability» text of one marked edge: the weight it is
