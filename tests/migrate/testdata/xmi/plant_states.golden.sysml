@@ -13,13 +13,14 @@ item def Unused;
 part def Plant {
     attribute count : ScalarValues::Integer default = 0;
     state def Line {
+        in ref context : Plant;
         attribute dawn : Time::TimeInstantValue = 21600.0 [SI::s];
         entry; then Idle;
         state Idle;
         state Work {
             entry; then Prep;
             exit action tally {
-                assign this.count := this.count + 1;
+                assign context.count := context.count + 1;
             }
             state Prep;
             state Run;
@@ -29,7 +30,7 @@ part def Plant {
             transition first last then Prep;
         }
         state Pause;
-        state Cell : CellMachine;
+        state Cell : CellMachine { in ref :>> context = Line::context; }
         junction route;
         fork spread;
         join gather;
@@ -62,7 +63,7 @@ part def Plant {
         transition first Idle accept Enter then Cell::warmStart;
         transition first Cell::spent then Idle;
         transition first Idle accept Route then route;
-        transition first route if this.count < 2 then Work;
+        transition first route if context.count < 2 then Work;
         transition first route then done;
         transition first Idle accept Split then spread;
         transition first spread then Both::regions::a::A1;
@@ -76,6 +77,7 @@ part def Plant {
         /* transition (_tNever) from Pause to done not migrated — a trigger is dropped: the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax */
     }
     state def CellMachine {
+        in ref context : Plant;
         state warmStart;
         state spent;
         entry; then Cold;
@@ -85,5 +87,5 @@ part def Plant {
         transition first warmStart then Hot;
         transition first Hot accept Finish then spent;
     }
-    exhibit state line : Line;
+    exhibit state line : Line { in ref :>> context = this; }
 }

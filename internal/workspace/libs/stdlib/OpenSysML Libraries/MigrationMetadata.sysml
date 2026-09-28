@@ -9,6 +9,14 @@ standard library package MigrationMetadata {
              * it. The name keys the element but is not one a picture shows. */
     }
 
+    metadata def DeferredEvent {
+        doc /* The annotated state deferred the signal that types signal in
+             * the source: an occurrence while the state is active is kept and
+             * dispatched once the state exits, unless a transition out of the
+             * state accepts it. Written as `@DeferredEvent { ref :>> signal : Sig; }`. */
+        ref signal : Base::Anything[1];
+    }
+
     metadata def LibraryNameAvoided {
         doc /* The annotated top-level package was named, in the source model,
              * like a standard library package, which a qualified name starting

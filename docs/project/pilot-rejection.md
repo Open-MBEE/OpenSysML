@@ -116,7 +116,7 @@ systematically from four sources, one subdirectory each:
    pilot's grammar rejects before its validator would), and a constructed payload whose `new`
    names a package rather than a type (`send-constructor-non-type`).
 
-What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 306
+What this corpus cannot see: it tests the invalid models we thought to write. **We authored all 307
 cases ourselves**, so the denominator measures our coverage of the rejection surface, not our
 conformance: it is a **sample, not a proof** — a clean bucket here does not mean OpenSysML rejects
 everything the reference rejects, and no official conformance suite exists to make that claim
@@ -164,7 +164,7 @@ measured at their own round and are not the current baseline.
 Under the default `-conformance auto`:
 
 ```
-306 case(s): 297 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
+307 case(s): 298 both reject, 0 only the pilot rejects, 9 only we reject, 0 both accept
   of which 4 agree only because we were asked strictly (the default mode accepts them, by design)
 ```
 
@@ -172,7 +172,7 @@ Under the default `-conformance auto`:
 | --- | --- | --- | --- | --- | --- |
 | extensions | 9 | 9 | 0 | 0 | 0 |
 | grammar | 106 | 106 | 0 | 0 | 0 |
-| semantic | 156 | 147 | 0 | 9 | 0 |
+| semantic | 157 | 148 | 0 | 9 | 0 |
 | xpect | 35 | 35 | 0 | 0 | 0 |
 
 Eight of the nine ours-only cases are the control-node succession rules (`cn01`–`cn04`, `cn06`–`cn09`)
@@ -226,7 +226,8 @@ cases (`s94`–`s98`: a `:>>` target that is a sibling member, a same-scope impo
 alias, or a qualified name or feature chain whose first segment is a sibling — KerML 8.2.3.5.2 resolves a
 redefinition's target from the owning type's generals and then the enclosing namespaces, never the
 owning type's own scope, so the pilot fails to link `Couldn't resolve reference to Feature '…'` and
-so do we).
+so do we), and to 307 with `s99` (a transition's bare accept name is its payload type; inherited
+`Action::start` is a usage, not a definition, so both validators reject it under `validateUsageType`).
 The KerML constraints in that
 source reopened 14 gaps — all of them semantic rules the pilot enforces and we did not; the
 named-argument validation that landed alongside closed one of them (`k33`), the constructor
@@ -270,7 +271,7 @@ when it was first written, six were closed by the validation work itself — `p0
 Read those four as agreement *when asked strictly*, not as gaps that disappeared. An opt-in
 check is weaker evidence than a default one: it says the strict question has an answer we agree on,
 not that the pipeline a user gets by default rejects the notation — by design it does not. And
-because we authored all 306 cases ourselves, a small gap count means we ran out of questions we
+because we authored all 307 cases ourselves, a small gap count means we ran out of questions we
 thought to ask, not that we stopped being permissive: the denominator measures our coverage of the
 rejection surface, not our conformance.
 

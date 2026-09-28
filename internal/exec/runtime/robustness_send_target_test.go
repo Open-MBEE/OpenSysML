@@ -37,11 +37,12 @@ func hostNotifying(param, binding, target string) string {
 				then done;
 			}
 			action def Round {
+				in ref context : Host;
 				first start;
 				then action notify : Notify { ` + binding + ` }
 				then done;
 			}
-			perform action round : Round;
+			perform action round : Round { in ref :>> context = this; }
 		}
 	}`
 }
@@ -72,7 +73,7 @@ func testSendTargetHoldsNothing(t *testing.T) {
 // port or object is unroutable, named as the target was written.
 func testSendTargetChainNamesNoFeature(t *testing.T) {
 	_, _, err := instantiateWithLibraries(t, hostNotifying(
-		"in recipient : Worker;", "in recipient = this.worker;", "recipient.nowhere",
+		"in recipient : Worker;", "in recipient = context.worker;", "recipient.nowhere",
 	), "test::Host")
 	if !errors.Is(err, ErrUnroutableSend) || !strings.Contains(err.Error(), `"recipient.nowhere" names no port of an object`) {
 		t.Fatalf("error = %v, want ErrUnroutableSend over a chain naming no feature", err)

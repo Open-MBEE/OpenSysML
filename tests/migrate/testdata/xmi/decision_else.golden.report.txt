@@ -3,7 +3,7 @@
 # migrated 15 element(s): 13 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
 ## approximated (2)
-Activity	Recovery::Retrier::Recover	_act_recover	-> Recovery::Retrier::Recover	(the classifier behavior is run by every object of Recovery::Retrier as its usage recover)
+Activity	Recovery::Retrier::Recover	_act_recover	-> Recovery::Retrier::Recover	(acts on its owner Recovery::Retrier, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Recovery::Retrier as its usage recover)
 OpaqueAction	Recovery::Retrier::Recover::retry	_de_retry	-> retry	(the body is kept as a comment: the body is empty)
 
 ## mapped (13)

@@ -1,0 +1,1 @@
+- **SysML v1 migration preserves context-parameter order, qualifies accept signal types shadowed by payloads, specializes viewpoint context usages, and qualifies DiagramLayout attributes shadowed by view exposures.** In strict mode, it also omits layouts for refused pseudostates and writes probability metadata only from finite literal defaults.

@@ -110,22 +110,23 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	// Views open the body: a calc def's must end in its result expression.
 	m.views(e)
 	switch {
-	case e.Type == "Operation":
-		m.operationBody(e)
+	case m.contextLeads(e, cat):
+		if e.Type == "Operation" {
+			m.bodyWithContext(e, func() { m.operationBody(e) })
+		} else {
+			m.bodyWithContext(e, func() { m.calcBody(e) })
+		}
 	case cat == catStateDef:
 		m.stateMachineBody(e)
-	case cat == catCalcDef:
-		m.calcBody(e)
 	case e.Type == "Interaction":
 		m.parameters(e, e)
-		m.interactionBody(e)
+		m.bodyWithContext(e, func() { m.interactionBody(e) })
 	case e.Type == "Activity":
 		m.parameters(e, e)
-		m.contextParameter(e)
-		m.activityBody(e, e)
+		m.bodyWithContext(e, func() { m.activityBody(e, e) })
 	default:
 		m.parameters(e, e)
-		m.opaqueBehaviorBody(e, e)
+		m.bodyWithContext(e, func() { m.opaqueBehaviorBody(e, e) })
 	}
 	m.stereotypeAnnotations(e)
 	m.w.markMadeUp()
@@ -145,11 +146,22 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	if b == nil || m.asUsage[b] {
 		return
 	}
+	ins, _ := m.contextIns(m.contextOf(b), c)
 	switch cat {
 	case catStateDef:
-		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := "exhibit state " + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	case catActionDef:
-		m.w.line("perform action " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := "perform action " + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	default:
 		return
 	}
@@ -218,6 +230,12 @@ func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	for _, p := range e.Owned("ownedParameter") {
 		m.parameter(p, scope, nil)
 	}
+}
+
+// contextLeads reports whether e's definition declares `in ref context` before its own parameters.
+// Operations and calc definitions write those parameters inside bodyWithContext.
+func (m *migration) contextLeads(e *sysmlv1.Element, cat category) bool {
+	return e != nil && (e.Type == "Operation" || cat == catCalcDef)
 }
 
 // realizeParameters pairs a method's parameters with its operation's by position:
@@ -433,9 +451,15 @@ func (m *migration) qualifySelf(text string, refs []reference, scope *sysmlv1.El
 		}
 		starts = append(starts, r.start)
 	}
+	// Inside a def a classifier feature spells through the context parameter;
+	// inside a usage it resolves bare, so no prefix is inserted there.
+	prefix := m.self + "."
+	if m.self == "this" {
+		prefix = m.selfPrefix(scope)
+	}
 	sort.Sort(sort.Reverse(sort.IntSlice(starts)))
 	for _, s := range starts {
-		text = text[:s] + m.self + "." + text[s:]
+		text = text[:s] + prefix + text[s:]
 	}
 	return text
 }
@@ -543,7 +567,8 @@ func (m *migration) v2Statements(body, lang string, scope *sysmlv1.Element) (lin
 }
 
 // assignable writes the v2 target of an assignment to name read in scope: a
-// parameter or local of the behavior bare, a feature of its classifier as `this.`.
+// parameter or local of the behavior bare, a feature of its classifier through
+// the context parameter in a def or bare inside the object's usages.
 func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, bool) {
 	visible, _ := m.visibleFrom(scope)
 	f := visible[name]
@@ -556,7 +581,7 @@ func (m *migration) assignable(name string, scope *sysmlv1.Element) (string, boo
 		return "", false
 	}
 	if m.ownedByClassifier(f, scope) {
-		return "this." + writeName(name), true
+		return m.ownerPrefix(scope) + writeName(name), true
 	}
 	return writeName(name), true
 }
@@ -983,8 +1008,13 @@ func (m *migration) reception(r *sysmlv1.Element) {
 		m.w.block("perform action "+writeName(usage), body)
 		desc = "written as an action usage accepting " + m.nameFor(sig)
 	} else {
-		m.w.block("action def "+writeName(name), body)
-		m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+		m.w.block("action def "+writeName(name), func() { m.bodyWithContext(r, body) })
+		ins, _ := m.contextIns(m.contextOf(r), owner)
+		if ins == "" {
+			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+		} else {
+			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + " { " + ins + "; }")
+		}
 	}
 	m.receptionParameters(r, sig)
 	if route.performed {
@@ -1011,12 +1041,12 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	suffix, via := "", ""
 	if port != nil {
 		suffix = " via " + m.nameFor(port)
-		via = " via " + writeName(m.nameFor(port))
+		via = " via " + m.ownerPrefix(r) + writeName(m.nameFor(port))
 	}
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
 	m.w.line(firstKw + from + thenKw + trig + ";")
-	m.w.line(actionKw + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	m.w.line(actionKw + trig + " accept " + payload + " : " + m.acceptSignalRef(route.sig, route.owner, payload) + via + ";")
 	last := trig
 	method := route.method
 	switch {

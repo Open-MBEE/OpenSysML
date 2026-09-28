@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Package" xmi:id="_pkg" name="Routing">
+      <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_route">
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_speed" name="speed">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_route" name="Route">
+          <node xmi:type="uml:InitialNode" xmi:id="_initial"/>
+          <node xmi:type="uml:ReadStructuralFeatureAction" xmi:id="_read" name="read speed" structuralFeature="_speed"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_start" source="_initial" target="_read"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_finish" source="_read" target="_final"/>
+        </ownedBehavior>
+        <nestedClassifier xmi:type="uml:Class" xmi:id="_view" name="Route View"/>
+      </packagedElement>
+      <packagedElement xmi:type="uml:Dependency" xmi:id="_exposeRoute" client="_view" supplier="_route"/>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_block" base_Class="_chooser"/>
+  <sysml:View xmi:id="_routeView" base_Class="_view"/>
+  <sysml:Expose xmi:id="_expose" base_Dependency="_exposeRoute"/>
+</xmi:XMI>

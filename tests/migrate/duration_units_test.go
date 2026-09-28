@@ -75,16 +75,16 @@ func TestDurationWithNoUnitIsInMilliseconds(t *testing.T) {
 	for _, line := range []string{
 		"action wait accept after 0.2 [SI::s];",
 		"action wait2 accept after 1.5 [SI::s];",
-		"action wait3 accept after (this.settle * 0.001) [SI::s];",
-		"action wait4 accept after this.settle [SI::s];",
+		"action wait3 accept after (context.settle * 0.001) [SI::s];",
+		"action wait4 accept after context.settle [SI::s];",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantClean(t, "t.sysml", r)
 	wantNote(t, r, "_dNum", migrate.Approximated, "the duration 200 carries no unit and is read in milliseconds, the simulation toolkit's default")
 	wantNote(t, r, "_dStr", migrate.Approximated, `the duration "t = 1500" carries no unit and is read in milliseconds, the simulation toolkit's default`)
-	wantNote(t, r, "_dExpr", migrate.Approximated, `the duration "settle" is read as the expression this.settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default`)
-	wantNote(t, r, "_dUnit", migrate.Approximated, `the duration "settle s" is read as the expression this.settle, in seconds`)
+	wantNote(t, r, "_dExpr", migrate.Approximated, `the duration "settle" is read as the expression context.settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default; the duration "settle" is read as the expression context.settle * 0.001, in seconds; the expression carries no unit and is read in milliseconds, the simulation toolkit's default; written as a fixed wait of context.settle * 0.001 s before 'settling'`)
+	wantNote(t, r, "_dUnit", migrate.Approximated, `the duration "settle s" is read as the expression context.settle, in seconds; the duration "settle s" is read as the expression context.settle, in seconds; written as a fixed wait of context.settle s before 'holding'`)
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Lens")

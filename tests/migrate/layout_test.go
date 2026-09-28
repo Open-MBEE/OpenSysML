@@ -1,12 +1,14 @@
 package migrate_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 )
@@ -41,6 +43,53 @@ func migrateLaidOut(t *testing.T, name string) *migrate.Result {
 	return r
 }
 
+func migrateStreamLaidOut(t *testing.T, name string, strict bool) *migrate.Result {
+	t.Helper()
+	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream, err := os.ReadFile("testdata/xmi/" + name + ".stream.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var archive bytes.Buffer
+	zw := zip.NewWriter(&archive)
+	for _, entry := range []struct {
+		name string
+		data []byte
+	}{
+		{name: name + ".xmi", data: data},
+		{name: "BINARY-" + name, data: stream},
+	} {
+		w, err := zw.Create(entry.name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(entry.data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	layoutData, err := os.ReadFile("testdata/xmi/" + name + ".layout.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, err := mtip.Parse(layoutData)
+	if err != nil {
+		t.Fatalf("mtip.Parse: %v", err)
+	}
+	r, err := migrate.MigrateOptions(name+".xmi", archive.Bytes(), migrate.Options{
+		Layout: layout, LayoutSource: name + ".layout.xml", Strict: strict,
+	})
+	if err != nil {
+		t.Fatalf("MigrateOptions: %v", err)
+	}
+	return r
+}
+
 // The notation and report of the augmented migration are pinned, and the
 // notation analyses clean — the DiagramLayout annotations must type-check.
 func TestGoldenLayout(t *testing.T) {
@@ -53,6 +102,53 @@ func TestGoldenLayout(t *testing.T) {
 	checkGolden(t, "testdata/xmi/layout.layout.golden.report.txt", report.Bytes())
 	for _, d := range errors(t, "layout.sysml", r.Notation) {
 		t.Errorf("%v", d)
+	}
+}
+
+func TestGoldenLayoutExposedMetadataAttribute(t *testing.T) {
+	r := migrateStreamLaidOut(t, "layout_exposed_shadow", false)
+	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 2 || l.RoutesWritten != 1 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/layout_exposed_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "layout_exposed_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"expose Structure::Scale::height;",
+		"expose Structure::Scale::text;",
+		"expose Structure::Scale::width;",
+		":>> DiagramLayout::Layout::height = 40",
+		":>> DiagramLayout::Route::points = (",
+		":>> DiagramLayout::Canvas::height = 100",
+		":>> DiagramLayout::Style::text = ",
+		":>> DiagramLayout::Picture::width = ",
+	} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("layout output does not contain %q:\n%s", want, notation)
+		}
+	}
+}
+
+func TestGoldenLayoutWildcardExposedMetadataAttribute(t *testing.T) {
+	r := migrateLaidOut(t, "layout_wildcard_exposed_shadow")
+	if l := r.Report.Layout; l == nil || l.DiagramsJoined != 1 || l.PlacementsWritten != 2 {
+		t.Fatalf("layout summary: %+v", l)
+	}
+	checkGolden(t, "testdata/xmi/layout_wildcard_exposed_shadow.layout.golden.sysml", r.Notation)
+	for _, d := range errors(t, "layout_wildcard_exposed_shadow.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, want := range []string{
+		"expose Structure::**;",
+		":>> DiagramLayout::Layout::height = ",
+		"x = 10;",
+	} {
+		if !strings.Contains(notation, want) {
+			t.Errorf("layout output does not contain %q:\n%s", want, notation)
+		}
 	}
 }
 
@@ -140,6 +236,57 @@ func TestGoldenEdgeLayout(t *testing.T) {
 	}
 	if got := strings.Join(stripped, "\n"); got != string(plain.Notation) {
 		t.Errorf("the laid-out notation differs from the plain one beyond its DiagramLayout annotations:\n%s", got)
+	}
+}
+
+func TestGoldenRefusedVertexLayout(t *testing.T) {
+	r := migrateStreamLaidOut(t, "refused_vertex_layout", false)
+	checkGolden(t, "testdata/xmi/refused_vertex_layout.layout.golden.sysml", r.Notation)
+	var report bytes.Buffer
+	if err := r.Report.WriteText(&report); err != nil {
+		t.Fatal(err)
+	}
+	checkGolden(t, "testdata/xmi/refused_vertex_layout.layout.golden.report.txt", report.Bytes())
+	for _, d := range errors(t, "refused_vertex_layout.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	for _, kind := range []string{"Style", "Note"} {
+		found := false
+		for _, line := range strings.Split(string(r.Notation), "\n") {
+			if strings.Contains(line, "DiagramLayout::"+kind+" about ") && strings.Contains(line, "::junction") {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("non-strict output has no %s about the junction:\n%s", kind, r.Notation)
+		}
+	}
+}
+
+func TestStrictRefusedVertexLayoutHasNoPseudostateReferences(t *testing.T) {
+	const name = "refused_vertex_layout"
+	r := migrateStreamLaidOut(t, name, true)
+	for _, d := range errorsMode(t, name+".sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+	notation := string(r.Notation)
+	for _, line := range strings.Split(notation, "\n") {
+		if !strings.Contains(line, "DiagramLayout::") {
+			continue
+		}
+		target, ok := strings.CutPrefix(line, "metadata ")
+		if !ok {
+			continue
+		}
+		_, target, ok = strings.Cut(target, " about ")
+		if !ok {
+			continue
+		}
+		target, _, _ = strings.Cut(target, " {")
+		if strings.HasSuffix(strings.TrimSpace(target), "::junction") ||
+			strings.HasSuffix(strings.TrimSpace(target), "::choice") {
+			t.Errorf("strict output has DiagramLayout metadata about a refused pseudostate:\n%s", line)
+		}
 	}
 }
 

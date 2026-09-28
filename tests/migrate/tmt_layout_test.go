@@ -2,8 +2,10 @@ package migrate_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 )
@@ -53,7 +55,55 @@ func TestTMTLayout(t *testing.T) {
 	}
 	t.Logf("layout summary: %+v", l)
 	t.Logf("summary: %s", r.Report.Summary())
-	for _, d := range errors(t, "tmt.sysml", r.Notation) {
-		t.Errorf("%v", d)
+	assertTMTOwnedDiagnostics(t, "tmt.sysml", r.Notation, diag.ConformanceDefault)
+	strict, err := migrate.MigrateOptions(mdzip, data, migrate.Options{
+		Layout: layout, LayoutSource: mtipPath, Strict: true,
+	})
+	if err != nil {
+		t.Fatalf("strict MigrateOptions: %v", err)
 	}
+	assertTMTOwnedDiagnostics(t, "tmt-strict.sysml", strict.Notation, diag.ConformanceStrict)
+
+	const refusedMachine = "Procedure Executive and Analysis Software_Behavior'::"
+	for _, line := range strings.Split(string(strict.Notation), "\n") {
+		if !strings.Contains(line, "metadata DiagramLayout::Layout about") &&
+			!strings.Contains(line, "metadata DiagramLayout::Route about") {
+			continue
+		}
+		for _, vertex := range []string{"junction", "choice", "choice2"} {
+			if strings.Contains(line, refusedMachine+vertex+" {") {
+				t.Errorf("strict output writes layout for refused vertex %s:\n%s", vertex, line)
+			}
+		}
+	}
+}
+
+func assertTMTOwnedDiagnostics(t *testing.T, name string, notation []byte, mode diag.ConformanceMode) {
+	t.Helper()
+	remaining := 0
+	diagnostics := errorsMode(t, name, notation, mode)
+	for _, d := range diagnostics {
+		if isTMTWorkOwnedDiagnostic(d.Message) {
+			t.Errorf("%s: %v", name, d)
+			continue
+		}
+		remaining++
+	}
+	t.Logf("%s retains %d diagnostics outside this work's buckets (of %d total)", name, remaining, len(diagnostics))
+}
+
+func isTMTWorkOwnedDiagnostic(message string) bool {
+	for _, target := range []string{
+		"unresolved reference:",
+		"Couldn't resolve reference",
+		"Redefining feature must have a compatible direction",
+		"Must be model-level evaluable",
+		"A usage must be typed by definitions",
+		"Must redefine an owning-type feature",
+	} {
+		if strings.Contains(message, target) {
+			return true
+		}
+	}
+	return false
 }

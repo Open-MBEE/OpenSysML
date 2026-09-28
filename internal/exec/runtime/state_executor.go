@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -289,11 +290,31 @@ func newStateExecutorOn(
 	return exec
 }
 
-// initializeAttributes populates stateData from the exhibited occurrence, or
-// from declared defaults when the machine has no occurrence.
+// initializeAttributes populates stateData from the exhibited occurrence's
+// slots, else the declared defaults, each evaluated where it was declared.
 func (e *StateExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.graph.Attributes {
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
+			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
+			ec.pushFrame(e.dataFrame())
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.graph.Attributes {
+		if _, held := e.stateData[attr.Name]; held {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -301,25 +322,59 @@ func (e *StateExecutor) initializeAttributes() error {
 			}
 			if value := fv.HeldValue(); value.Kind != ValInvalid {
 				e.stateData[attr.Name] = value
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := NewEvalContextIn(e.ctx, e.graph.Scope, e.self)
-	defer ec.beginStep()()
-	for _, attr := range e.graph.Attributes {
 		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		value, err := ec.Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
 		}
 		e.stateData[attr.Name] = value
 	}
 
 	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a machine exhibited on an
+// object to that object, when the object is of the type the parameter declares, as the
+// action executor's does for a performance started on one.
+func (e *StateExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+		return false
+	}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.stateData[attr.Name] = value
+	return true
+}
+
+// dataFrame is the machine's data as a run frame of the machine, so `Ctl::context`
+// written in a member the machine owns reads the binding the running machine gave it.
+func (e *StateExecutor) dataFrame() frame {
+	return frame{vars: e.stateData, performed: e.stateMachine}
 }
 
 // initializeStateAttributes gives every state that owns attributes its own
@@ -340,6 +395,9 @@ func (e *StateExecutor) initializeStateAttributes() error {
 				scope = e.graph.Scope
 			}
 			ec := NewEvalContextIn(e.ctx, scope, e.self)
+			ec.occurrence = e.occurrence
+			ec.thisOccurrence = e.materializeOccurrence
+			ec.pushFrame(e.dataFrame())
 			end := ec.beginStep()
 			value, err := ec.Eval(attr.Value)
 			end()
@@ -403,6 +461,53 @@ func (e *StateExecutor) declaresAttribute(name string) bool {
 	return false
 }
 
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a machine definition run directly denotes it, seeding it with
+// the values the machine's own attributes already hold; a run of a usage has
+// none of its own to make.
+func (e *StateExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.stateMachine.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.stateMachine, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.graph.Attributes {
+		if value, held := e.stateData[attr.Name]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrStatePerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
+}
+
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write; with none, or a name it does not declare, it leaves value untouched.
+func (e *StateExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrStatePerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
+}
+
 func (e *StateExecutor) assignAttribute(name string, value Value) error {
 	if e.occurrence != nil {
 		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
@@ -453,7 +558,10 @@ func (e *StateExecutor) stepFiring(trans *lower.Transition) *firing {
 func (e *StateExecutor) evalStepWithin(owner ast.Node, f *firing, node ast.Node, scope *symbols.Scope) (Value, error) {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
-	ec.pushFrame(frame{vars: e.stateData, firing: f})
+	ec.thisOccurrence = e.materializeOccurrence
+	data := e.dataFrame()
+	data.firing = f
+	ec.pushFrame(data)
 	if state, ok := owner.(*ast.StateNode); ok {
 		for _, frame := range e.attrFramesFor(state) {
 			ec.Push(frame)
@@ -3886,14 +3994,14 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 
 // doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
 // those parked at an accept for it, except in a state a transition chosen for it
-// leaves — the transition ending the state is the message's only taker there, as
-// the innermost enabled transition is among transitions, while one moving between
-// the state's own substates leaves its do behavior to go on. A port failing to
+// leaves or fires within — the transition is the message's only taker there, as
+// the innermost enabled transition is among transitions, so a do behavior of the
+// state whose substate takes the message does not take it too. A port failing to
 // resolve on the way is the error.
 func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandidate) ([]*doAction, error) {
 	var taking []*doAction
 	for _, act := range e.doActions {
-		if act.run == nil || e.leftByChosen(act.state, candidates) {
+		if act.run == nil || e.takenByChosen(act.state, candidates) {
 			continue
 		}
 		accepted, err := act.run.acceptsMessage(m)
@@ -3907,10 +4015,15 @@ func (e *StateExecutor) doBehaviorsTaking(m Message, candidates []dispatchCandid
 	return taking, nil
 }
 
-// leftByChosen reports whether firing the transition chosen for a candidate exits
-// the state, itself or a state enclosing it; a firing that would fail counts as one.
-func (e *StateExecutor) leftByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
+// takenByChosen reports whether the transition chosen for a candidate takes the
+// message from the state's do behavior: it leaves the state, itself or a state
+// enclosing it, or fires out of the state or a state within it; a firing that
+// would fail counts as one.
+func (e *StateExecutor) takenByChosen(state *ast.StateNode, candidates []dispatchCandidate) bool {
 	for _, candidate := range candidates {
+		if e.isBelowOrEqual(candidate.source, state) {
+			return true
+		}
 		exited, ok := e.exitedBy(candidate)
 		if !ok {
 			return true
@@ -4562,7 +4675,8 @@ func (e *StateExecutor) triggerSignalMatches(accept *ast.AcceptEvent, scope *sym
 func (e *StateExecutor) triggerEval(scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
 	ec.inBehaviorBody = true
-	ec.Push(e.stateData)
+	ec.thisOccurrence = e.materializeOccurrence
+	ec.pushFrame(e.dataFrame())
 	return ec
 }
 

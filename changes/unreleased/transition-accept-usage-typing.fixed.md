@@ -1,0 +1,1 @@
+- **Transition accept triggers are checked against resolved usages.** A bare name that resolves to a usage, including an inherited `start`, is rejected as the pilot does.

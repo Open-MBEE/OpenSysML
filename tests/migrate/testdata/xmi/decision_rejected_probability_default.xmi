@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_chooser" name="Chooser" classifierBehavior="_route">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_default" name="pDefault">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_defaultValue" value="0.25"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_missing" name="pMissing">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_route" name="Route">
+        <node xmi:type="uml:InitialNode" xmi:id="_initial"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_decide" name="decide"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_defaulted" name="defaulted"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_missingBranch" name="missing"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_start" source="_initial" target="_decide"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eDefault" source="_decide" target="_defaulted"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_eMissing" source="_decide" target="_missingBranch">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_guardMissing">
+            <body>pMissing &gt; 0.0</body>
+          </guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishDefault" source="_defaulted" target="_final"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_finishMissing" source="_missingBranch" target="_final"/>
+      </ownedBehavior>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_block" base_Class="_chooser"/>
+  <sysml:Probability xmi:id="_probDefault" base_ActivityEdge="_eDefault" probability="pDefault"/>
+  <sysml:Probability xmi:id="_probMissing" base_ActivityEdge="_eMissing" probability="pMissing"/>
+</xmi:XMI>

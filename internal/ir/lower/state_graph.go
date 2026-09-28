@@ -463,6 +463,12 @@ func (g *StateGraph) ownTransitionEffects() {
 	}
 }
 
+// isStateDatum reports whether a usage in a state body is a value slot of the
+// state: an attribute, or an item kept while the state is active.
+func isStateDatum(usage *ast.Usage) bool {
+	return usage.Kind == ast.UsageAttribute || usage.Kind == ast.UsageItem
+}
+
 // lowerStateAttributes returns every attribute a machine declares, its own and
 // those it inherits. An unvalued attribute is still owned by the machine even
 // though it supplies no initial value. A restated run-to-completion default is
@@ -471,7 +477,7 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 	var attrs []Attribute
 	for _, member := range members {
 		usage, ok := unwrapMembership(member.node).(*ast.Usage)
-		if !ok || usage.Kind != ast.UsageAttribute || graph.redefinedRunToCompletionFeature(usage, member.scope) != "" {
+		if !ok || !isStateDatum(usage) || graph.redefinedRunToCompletionFeature(usage, member.scope) != "" {
 			continue
 		}
 		name, _ := ast.EffectiveName(usage)
@@ -1100,7 +1106,7 @@ func parallelOwnedMember(member ast.Node) bool {
 		return true
 	case *ast.Usage:
 		switch n.Kind {
-		case ast.UsageAttribute, ast.UsagePort, ast.UsageSuccession, ast.UsageMetadata:
+		case ast.UsageAttribute, ast.UsageItem, ast.UsagePort, ast.UsageSuccession, ast.UsageMetadata:
 			return true
 		}
 		return IsTerminateUsage(n)
