@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -430,6 +431,45 @@ func TestEngineConvertsExperimentTimes(t *testing.T) {
 	var fault *runtime.ToolError
 	if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
 		t.Fatalf("InvokeCalc = %v, want a ToolError of kind unsent input", err)
+	}
+}
+
+// TestFileURIPathReadsDrives: a file: URL's path reads the local spelling —
+// a Windows drive loses the leading slash the URL form carries.
+func TestFileURIPathReadsDrives(t *testing.T) {
+	for _, tc := range []struct {
+		uri, goos, want string
+	}{
+		{"file:///fmus/ball.fmu", "linux", "/fmus/ball.fmu"},
+		{"file:///fmus/gear%232.fmu", "linux", "/fmus/gear#2.fmu"},
+		{"file:///C:/fmus/ball.fmu", "windows", "C:/fmus/ball.fmu"},
+		{"file:///c:/fmus/ball.fmu", "windows", "c:/fmus/ball.fmu"},
+		{"file:///fmus/ball.fmu", "windows", "/fmus/ball.fmu"},
+	} {
+		u, err := url.Parse(tc.uri)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fileURIPath(u, tc.goos); got != tc.want {
+			t.Errorf("%s on %s = %q, want %q", tc.uri, tc.goos, got, tc.want)
+		}
+	}
+}
+
+// TestFMUURIRoundTrips: the file URI the import writes resolves back to the
+// archive it names, escapes and all.
+func TestFMUURIRoundTrips(t *testing.T) {
+	fmu := writeFMU(t, "gear#2.fmu", fixtureXML(t, "bouncingball-2.0.xml"), "x86_64-linux")
+	uri := FileURI(fmu)
+	if !strings.Contains(uri, "gear%232.fmu") {
+		t.Fatalf("FileURI = %q, want the name escaped", uri)
+	}
+	got, err := resolveURI(&runtime.ToolCall{URI: uri})
+	if err != nil {
+		t.Fatalf("resolveURI(%q): %v", uri, err)
+	}
+	if got != filepath.Clean(fmu) {
+		t.Fatalf("uri resolves to %q, want the FMU %q", got, fmu)
 	}
 }
 

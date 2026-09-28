@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	stdruntime "runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -191,7 +192,7 @@ func (e *engine) resolve(call *runtime.ToolCall) (*Description, string, error) {
 func resolveURI(call *runtime.ToolCall) (string, error) {
 	uri := call.URI
 	if u, err := url.Parse(uri); err == nil && u.Scheme == "file" && u.Host == "" && strings.HasPrefix(uri, "file://") {
-		uri = u.Path
+		uri = fileURIPath(u, stdruntime.GOOS)
 	} else if rest, ok := strings.CutPrefix(uri, "file:"); ok {
 		uri = rest
 	} else if u != nil && u.Scheme != "" {
@@ -205,6 +206,29 @@ func resolveURI(call *runtime.ToolCall) (string, error) {
 		uri = filepath.Join(source.Dir(doc), uri)
 	}
 	return filepath.Clean(uri), nil
+}
+
+// FileURI spells the file: URI naming the file at path: the absolute path,
+// escaped, a Windows drive gaining the leading slash the URL form carries.
+func FileURI(path string) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return (&url.URL{Scheme: "file", Path: p}).String()
+}
+
+// fileURIPath is the local path a file: URL carries: the unescaped path, a
+// Windows drive losing the leading slash the URL form spells.
+func fileURIPath(u *url.URL, goos string) string {
+	p := u.Path
+	if goos == "windows" {
+		if len(p) > 2 && p[0] == '/' && p[2] == ':' && ((p[1] >= 'A' && p[1] <= 'Z') || (p[1] >= 'a' && p[1] <= 'z')) {
+			p = p[1:]
+		}
+		return filepath.FromSlash(p)
+	}
+	return p
 }
 
 // describe is the description of the FMU at path, re-read only when the file
