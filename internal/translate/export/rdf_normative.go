@@ -183,7 +183,7 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 // bare, and the other end-binding forms (`perform`, `exhibit`, `include`,
 // `assert`, `satisfy`) state their targets through `references`.
 func (e *encoder) referenceSubsettingForm(subject rdf.Term) bool {
-	return e.metaclassOf(subject) == "SatisfyRequirementUsage" ||
+	return e.metaclassOf(subject) == "SatisfyRequirementUsage" || e.verifiedReferences[subject] ||
 		e.graph.HasProperty(subject, rdf.OpenSysML+xEndForm)
 }
 

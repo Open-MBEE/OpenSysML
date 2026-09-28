@@ -1970,11 +1970,12 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	}
 	// A satisfy head writes the requirement it subsets bare, after the keyword;
 	// without that form it declares a requirement usage of its own. An unnamed
-	// SatisfyRequirementUsage, or the RequirementUsage of a `verify`, that
-	// subsets one is the reference form whether or not sysx:endForm records it
-	// (`verify r :>> req;` records none, since it specializes twice).
+	// SatisfyRequirementUsage, or the RequirementUsage of a `verify` whose
+	// subsetting is a ReferenceSubsetting, is the reference form whether or not
+	// sysx:endForm records it (`verify r :>> req;` records none, since it
+	// specializes twice); `verify requirement :> r;` declares one instead.
 	var satisfyTargets []string
-	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedRequirement(el) {
+	if endForm == formSatisfy || el.metaclass == mSatisfyRequirementUsage || d.verifiedReference(el) {
 		var err error
 		satisfyTargets, err = d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelSubsets])
 		if err != nil {

@@ -462,6 +462,21 @@ func (d *decoder) verifiedRequirement(el *element) bool {
 	return owned && d.metaclass(rdf.IRI(m.iri)) == mRequirementVerificationMembership
 }
 
+// verifiedReference reports whether el is a `verify` member written as a
+// reference: its subsetting is the OwnedReferenceSubsetting of
+// RequirementVerificationUsage, where a declaration's `:>` is a Subsetting.
+func (d *decoder) verifiedReference(el *element) bool {
+	if !d.verifiedRequirement(el) {
+		return false
+	}
+	for _, relationship := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pOwnedReferenceSubsetting) {
+		if d.metaclass(relationship) == mReferenceSubsetting {
+			return true
+		}
+	}
+	return false
+}
+
 // parameterMembershipKind is the kind of the parameter a subject, actor,
 // stakeholder or objective membership owns.
 func (d *decoder) parameterMembershipKind(el *element) (ast.UsageKind, bool) {
