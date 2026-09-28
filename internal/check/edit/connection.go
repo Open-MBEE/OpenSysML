@@ -118,9 +118,9 @@ func checkEnd(i int, role, end string) error {
 }
 
 // checkFeatureReference refuses text that is not written as a feature reference
-// — names joined by `.` or `::` — naming what the reference is of in the
-// message, and returns its last name segment: the name a usage referring to
-// the feature takes.
+// — names joined by `.` or `::`, optionally rooted at `$::` — naming what the
+// reference is of in the message, and returns its last name segment: the name
+// a usage referring to the feature takes.
 func checkFeatureReference(i int, what, ref string) (string, error) {
 	refuse := func(reason string) error {
 		return &Error{
@@ -134,9 +134,17 @@ func checkFeatureReference(i int, what, ref string) (string, error) {
 	}
 	lx := lexer.New(source.New("<ref>", []byte(ref)))
 	wantName := true
+	first := true
+	rooted := false
 	last := ""
 	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if rooted && tok.Kind != lexer.ColonColon {
+			return "", refuse("is not a feature reference")
+		}
+		rooted = false
 		switch {
+		case wantName && first && tok.Kind == lexer.Dollar:
+			rooted = true
 		case wantName && (tok.Kind == lexer.Identifier || tok.Kind == lexer.UnrestrictedName):
 			if tok.Unterminated {
 				return "", refuse("is an unterminated quoted name")
@@ -147,8 +155,9 @@ func checkFeatureReference(i int, what, ref string) (string, error) {
 			return "", refuse("is not a feature reference")
 		}
 		wantName = !wantName
+		first = false
 	}
-	if wantName {
+	if wantName || rooted {
 		return "", refuse("is not a feature reference")
 	}
 	return last, nil

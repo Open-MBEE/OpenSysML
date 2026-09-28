@@ -398,6 +398,24 @@ func TestAddMemberPerformAction(t *testing.T) {
 		}
 		requireClean(t, loadContent(t, "perform.sysml", got))
 	})
+	t.Run("rooted reference form", func(t *testing.T) {
+		rooted := "package P {\n    action def A;\n    action run : A;\n}\npackage Q {}\n"
+		m := loadContent(t, "rooted.sysml", rooted)
+		requireClean(t, m)
+		res, err := Apply(m, []Operation{AddMember("Q", "perform", "$::P::run")})
+		if err != nil {
+			t.Fatalf("Apply: %v", err)
+		}
+		got := string(res.Content)
+		if !strings.Contains(got, "perform $::P::run;") {
+			t.Fatalf("content lacks the rooted perform usage:\n%s", got)
+		}
+		requireClean(t, loadContent(t, "rooted.sysml", got))
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$"), FailureInvalidName)
+		addFailure(t, loadContent(t, "rooted.sysml", rooted),
+			AddMember("Q", "perform", "$.run"), FailureInvalidName)
+	})
 	t.Run("refusals", func(t *testing.T) {
 		addFailure(t, loadContent(t, "perform.sysml", src),
 			AddMember("Demo::Kitchen", "perform-action", "heat"), FailureIllegalKind)

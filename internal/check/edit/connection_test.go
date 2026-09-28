@@ -218,6 +218,26 @@ func TestAddConnectionRefusals(t *testing.T) {
 	}
 }
 
+// A connection end may be rooted at the global namespace with `$::`; it
+// resolves from the root exactly as a relative end resolves from the owner.
+func TestAddConnectionRootedEnd(t *testing.T) {
+	m := loadContent(t, "assembly.sysml", interconnectionFixture)
+	requireClean(t, m)
+	res, err := Apply(m, []Operation{
+		AddConnection("Vehicle::Assembly", "connection",
+			"$::Vehicle::Assembly::tank.fuelOut", "engine.fuelIn", ""),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	got := string(res.Content)
+	if !strings.Contains(got,
+		"connection connect $::Vehicle::Assembly::tank.fuelOut to engine.fuelIn;") {
+		t.Fatalf("content lacks the rooted-end connection:\n%s", got)
+	}
+	requireClean(t, loadContent(t, "assembly.sysml", got))
+}
+
 func TestAddConnectionDuplicateNamesInOneRequestRefuse(t *testing.T) {
 	m := loadContent(t, "assembly.sysml", interconnectionFixture)
 	_, err := Apply(m, []Operation{
