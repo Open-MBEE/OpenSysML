@@ -380,8 +380,9 @@ class Editor:
                    all=False, filter=None):
         """Add an import declaration to a namespace body or the document root.
 
-        ``target`` is the imported qualified name: ``A::B`` for a membership
-        import, ``A::*`` for a namespace import. ``visibility`` is ``private``,
+        ``target`` is the imported qualified name, optionally ``$::``-rooted:
+        ``A::B`` for a membership import, ``A::*`` for a namespace import.
+        ``visibility`` is ``private``,
         ``public`` or ``protected``; ``None`` writes ``private``, the indicator
         the grammar requires and the one legal in every body including the
         document root. ``recursive`` writes ``::**``, ``all`` writes

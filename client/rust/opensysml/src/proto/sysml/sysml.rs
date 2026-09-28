@@ -1126,7 +1126,7 @@ pub struct AddImportEdit {
     /// "private", "public" or "protected"; empty writes "private".
     #[prost(string, tag="2")]
     pub visibility: ::prost::alloc::string::String,
-    /// Imported qualified name, suffixed "::*" for a namespace import.
+    /// Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
     #[prost(string, tag="3")]
     pub target: ::prost::alloc::string::String,
     /// Write "::**" to import recursively.

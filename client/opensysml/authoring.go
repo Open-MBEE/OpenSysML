@@ -254,8 +254,8 @@ type AddImport struct {
 	Owner string
 	// Visibility is "private", "public" or "protected"; empty writes "private".
 	Visibility string
-	// Target is the imported qualified name, suffixed "::*" for a namespace
-	// import.
+	// Target is the imported qualified name, optionally rooted "$::", suffixed
+	// "::*" for a namespace import.
 	Target string
 	// Recursive writes "::**" to import recursively.
 	Recursive bool

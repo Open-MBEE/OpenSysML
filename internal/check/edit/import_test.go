@@ -3,6 +3,8 @@ package edit
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 func TestAddImportForms(t *testing.T) {
@@ -212,6 +214,57 @@ func TestAddImportsThenMemberFromSingleLineBody(t *testing.T) {
 	requireClean(t, loadContent(t, "import.sysml", got))
 }
 
+func TestAddImportAfterAnImportWithBody(t *testing.T) {
+	model := loadContent(t, "import.sysml",
+		"package P {\n    private import ScalarValues::* {\n        doc /* inner */\n    }\n    part a;\n}\n")
+	requireClean(t, model)
+	result := applyOne(t, model, AddImport("P", "", "ISQ::*", false, false, nil))
+	want := "package P {\n    private import ScalarValues::* {\n        doc /* inner */\n    }\n    private import ISQ::*;\n    part a;\n}\n"
+	got := string(result.Content)
+	if got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	reloaded := loadContent(t, "import.sysml", got)
+	requireClean(t, reloaded)
+	pkg, ok := unwrapMembership(reloaded.Root.Members[0]).(*ast.Package)
+	if !ok {
+		t.Fatalf("first member is %T, want *ast.Package", unwrapMembership(reloaded.Root.Members[0]))
+	}
+	imports := 0
+	for _, member := range pkg.Members {
+		if _, ok := unwrapMembership(member).(*ast.Import); ok {
+			imports++
+		}
+	}
+	if imports != 2 {
+		t.Fatalf("P holds %d imports, want the new import as a direct member (2)", imports)
+	}
+}
+
+func TestAddImportGlobalTarget(t *testing.T) {
+	model := loadContent(t, "import.sysml",
+		"package A {\n    part a;\n}\npackage P {\n    package A {\n        part b;\n    }\n}\n")
+	requireClean(t, model)
+	result, err := Apply(model, []Operation{
+		AddImport("P", "", "$::A::*", false, false, nil),
+		AddImport("P", "", "A::*", false, false, nil),
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	want := "package A {\n    part a;\n}\npackage P {\n    private import $::A::*;\n    private import A::*;\n    package A {\n        part b;\n    }\n}\n"
+	got := string(result.Content)
+	if got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	requireClean(t, loadContent(t, "import.sysml", got))
+
+	model = loadContent(t, "import.sysml",
+		"package A {\n    part a;\n}\npackage P {\n    private import $::A::*;\n}\n")
+	requireClean(t, model)
+	addFailure(t, model, AddImport("P", "", "$::A::*", false, false, nil), FailureMemberNameTaken)
+}
+
 func TestAddImportIntoBodylessOwner(t *testing.T) {
 	model := loadContent(t, "import.sysml", "part def D;\n")
 	requireClean(t, model)
@@ -364,6 +417,16 @@ func TestAddImportRefusals(t *testing.T) {
 		{
 			"dangling scope", "package P {\n}\n",
 			AddImport("P", "", "A::", false, false, nil),
+			FailureInvalidName,
+		},
+		{
+			"global prefix alone", "package P {\n}\n",
+			AddImport("P", "", "$::", false, false, nil),
+			FailureInvalidName,
+		},
+		{
+			"global prefix then dangling scope", "package P {\n}\n",
+			AddImport("P", "", "$::A::", false, false, nil),
 			FailureInvalidName,
 		},
 		{

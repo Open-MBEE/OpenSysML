@@ -927,7 +927,7 @@ message AddImportEdit {
   string owner = 1;
   // "private", "public" or "protected"; empty writes "private".
   string visibility = 2;
-  // Imported qualified name, suffixed "::*" for a namespace import.
+  // Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
   string target = 3;
   // Write "::**" to import recursively.
   bool is_recursive = 4;

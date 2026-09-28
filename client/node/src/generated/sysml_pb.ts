@@ -2575,7 +2575,7 @@ export type AddImportEdit = Message<"sysml.AddImportEdit"> & {
   visibility: string;
 
   /**
-   * Imported qualified name, suffixed "::*" for a namespace import.
+   * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
    *
    * @generated from field: string target = 3;
    */

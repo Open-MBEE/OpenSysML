@@ -41,7 +41,7 @@ func (m Model) addImportSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("visibility %q is not private, public or protected", op.ImportVisibility),
 		}
 	}
-	namespaceImport, segments, err := importTarget(i, op.ImportTarget)
+	global, namespaceImport, segments, err := importTarget(i, op.ImportTarget)
 	if err != nil {
 		return splice{}, err
 	}
@@ -57,6 +57,7 @@ func (m Model) addImportSplice(i int, op Operation) (splice, error) {
 	}
 	if parsed.Visibility != wantVisibility || parsed.IsAll != op.ImportAll ||
 		parsed.Kind != importKind(namespaceImport) || parsed.IsRecursive != op.ImportRecursive ||
+		parsed.Imported.Global != global ||
 		!nameSegmentsEqual(qualifiedNameSegments(parsed.Imported), segments) ||
 		(parsed.FilterExpr != nil) != (len(op.ImportFilters) > 0) {
 		return splice{}, invalidImportText(i)
@@ -77,10 +78,11 @@ func (m Model) addImportSplice(i int, op Operation) (splice, error) {
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
-// importTarget reads the target as a qualified name optionally suffixed `::*`
-// for a namespace import, refusing every other shape; it answers whether the
-// suffix was present and the name's segments.
-func importTarget(i int, target string) (bool, []string, error) {
+// importTarget reads the target as a qualified name optionally rooted with
+// `$::` and optionally suffixed `::*` for a namespace import, refusing every
+// other shape; it answers whether the name is global, whether the suffix was
+// present and the name's segments.
+func importTarget(i int, target string) (bool, bool, []string, error) {
 	refuse := func(reason string) error {
 		return &Error{
 			Failure: FailureInvalidName, OperationIndex: i,
@@ -88,10 +90,10 @@ func importTarget(i int, target string) (bool, []string, error) {
 		}
 	}
 	if target == "" {
-		return false, nil, refuse("is empty")
+		return false, false, nil, refuse("is empty")
 	}
 	if strings.HasSuffix(target, "::**") {
-		return false, nil, refuse("ends in ::**; write recursion with is_recursive")
+		return false, false, nil, refuse("ends in ::**; write recursion with is_recursive")
 	}
 	namespaceImport := false
 	name := target
@@ -99,14 +101,18 @@ func importTarget(i int, target string) (bool, []string, error) {
 		namespaceImport = true
 		name = name[:len(name)-len("::*")]
 	}
+	global := strings.HasPrefix(name, "$::")
+	if global {
+		name = name[len("$::"):]
+	}
 	if !lexesAsQualifiedName(name) {
-		return false, nil, refuse("is not a qualified name")
+		return false, false, nil, refuse("is not a qualified name")
 	}
 	segments, ok := source.QualifiedNameSegments(name)
 	if !ok || len(segments) == 0 {
-		return false, nil, refuse("is not a qualified name")
+		return false, false, nil, refuse("is not a qualified name")
 	}
-	return namespaceImport, segments, nil
+	return global, namespaceImport, segments, nil
 }
 
 // lexesAsQualifiedName reports whether name lexes as exactly one qualified
@@ -205,7 +211,8 @@ func importMembers(owner ast.Node) []ast.Node {
 // and filter tokens (whitespace dropped).
 func (m Model) sameImport(existing, parsed *ast.Import, sf *source.SourceFile, want ast.Visibility) bool {
 	if existing.Visibility != want || existing.IsAll != parsed.IsAll ||
-		existing.Kind != parsed.Kind || existing.IsRecursive != parsed.IsRecursive {
+		existing.Kind != parsed.Kind || existing.IsRecursive != parsed.IsRecursive ||
+		existing.Imported.Global != parsed.Imported.Global {
 		return false
 	}
 	if !nameSegmentsEqual(qualifiedNameSegments(existing.Imported), qualifiedNameSegments(parsed.Imported)) {
@@ -343,11 +350,22 @@ func (m Model) importStatementEnd(imp *ast.Import) int {
 		contentEnd = imp.FilterExpr.Span().End()
 	}
 	lx := lexer.New(m.Source)
+	depth := 0
 	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
 		if tok.Span.Offset < contentEnd {
 			continue
 		}
-		if tok.Kind == lexer.Semicolon {
+		if imp.HasBody {
+			switch tok.Kind {
+			case lexer.LBrace:
+				depth++
+			case lexer.RBrace:
+				depth--
+				if depth == 0 {
+					return tok.Span.End()
+				}
+			}
+		} else if tok.Kind == lexer.Semicolon {
 			return tok.Span.End()
 		}
 		if tok.Span.Offset >= imp.Span().End() {

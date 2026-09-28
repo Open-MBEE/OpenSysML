@@ -315,7 +315,12 @@ public sealed interface Edit {
     }
   }
 
-  /** Inserts an import declaration into a namespace body or the document root. */
+  /**
+   * Inserts an import declaration into a namespace body or the document root.
+   *
+   * @param target the imported qualified name, optionally {@code $::}-rooted,
+   *     suffixed {@code ::*} for a namespace import
+   */
   record AddImport(
       String owner,
       String visibility,

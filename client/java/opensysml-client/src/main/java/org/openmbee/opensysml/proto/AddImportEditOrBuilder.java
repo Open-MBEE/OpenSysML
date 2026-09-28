@@ -52,7 +52,7 @@ public interface AddImportEditOrBuilder extends
 
   /**
    * <pre>
-   * Imported qualified name, suffixed "::*" for a namespace import.
+   * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
    * </pre>
    *
    * <code>string target = 3 [json_name = "target"];</code>
@@ -61,7 +61,7 @@ public interface AddImportEditOrBuilder extends
   java.lang.String getTarget();
   /**
    * <pre>
-   * Imported qualified name, suffixed "::*" for a namespace import.
+   * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
    * </pre>
    *
    * <code>string target = 3 [json_name = "target"];</code>

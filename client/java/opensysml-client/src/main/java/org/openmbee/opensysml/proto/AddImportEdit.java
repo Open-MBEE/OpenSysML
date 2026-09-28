@@ -151,7 +151,7 @@ private static final long serialVersionUID = 0L;
   private volatile java.lang.Object target_ = "";
   /**
    * <pre>
-   * Imported qualified name, suffixed "::*" for a namespace import.
+   * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
    * </pre>
    *
    * <code>string target = 3 [json_name = "target"];</code>
@@ -172,7 +172,7 @@ private static final long serialVersionUID = 0L;
   }
   /**
    * <pre>
-   * Imported qualified name, suffixed "::*" for a namespace import.
+   * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
    * </pre>
    *
    * <code>string target = 3 [json_name = "target"];</code>
@@ -896,7 +896,7 @@ private static final long serialVersionUID = 0L;
     private java.lang.Object target_ = "";
     /**
      * <pre>
-     * Imported qualified name, suffixed "::*" for a namespace import.
+     * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
      * </pre>
      *
      * <code>string target = 3 [json_name = "target"];</code>
@@ -916,7 +916,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Imported qualified name, suffixed "::*" for a namespace import.
+     * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
      * </pre>
      *
      * <code>string target = 3 [json_name = "target"];</code>
@@ -937,7 +937,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Imported qualified name, suffixed "::*" for a namespace import.
+     * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
      * </pre>
      *
      * <code>string target = 3 [json_name = "target"];</code>
@@ -954,7 +954,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Imported qualified name, suffixed "::*" for a namespace import.
+     * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
      * </pre>
      *
      * <code>string target = 3 [json_name = "target"];</code>
@@ -968,7 +968,7 @@ private static final long serialVersionUID = 0L;
     }
     /**
      * <pre>
-     * Imported qualified name, suffixed "::*" for a namespace import.
+     * Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
      * </pre>
      *
      * <code>string target = 3 [json_name = "target"];</code>

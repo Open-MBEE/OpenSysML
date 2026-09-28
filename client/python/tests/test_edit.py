@@ -1171,6 +1171,7 @@ class TestEditRoundTripAgainstRealService:
                 .add_import("P", "ISQ::*", recursive=True)
                 .add_import("P", "Q::*", all=True)
                 .add_import("P", "Q::*", filter=["@Q::Safety", "@Q::Approved"])
+                .add_import("P", "$::Q::*")
                 .apply()
             )
             edited = str(result)
@@ -1181,6 +1182,7 @@ class TestEditRoundTripAgainstRealService:
                 "private import ISQ::*::**;",
                 "private import all Q::*;",
                 "private import Q::*[@Q::Safety][@Q::Approved];",
+                "private import $::Q::*;",
             ):
                 assert "    " + line in edited
             again = conn.load_from_content(edited)

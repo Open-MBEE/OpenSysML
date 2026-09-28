@@ -4681,7 +4681,7 @@ type AddImportEdit struct {
 	Owner string `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
 	// "private", "public" or "protected"; empty writes "private".
 	Visibility string `protobuf:"bytes,2,opt,name=visibility,proto3" json:"visibility,omitempty"`
-	// Imported qualified name, suffixed "::*" for a namespace import.
+	// Imported qualified name, optionally rooted "$::", suffixed "::*" for a namespace import.
 	Target string `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
 	// Write "::**" to import recursively.
 	IsRecursive bool `protobuf:"varint,4,opt,name=is_recursive,json=isRecursive,proto3" json:"is_recursive,omitempty"`
