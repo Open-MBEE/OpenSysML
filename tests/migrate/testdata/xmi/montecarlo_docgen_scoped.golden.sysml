@@ -44,7 +44,7 @@ package Viewpoints {
         perform action 'statistics Method' : 'Statistics Method';
     }
 }
-package Views {
+package ViewsModel {
     view 'Scoped Statistics' {
         satisfy Viewpoints::'Statistics Viewpoint';
         expose ResultsB::**;
@@ -56,8 +56,8 @@ package Views {
 }
 package Documents {
     part def 'Statistics Report' {
-        view scoped :> Views::'Scoped Statistics';
-        view recorded :> Views::'Recorded Statistics';
+        view scoped :> ViewsModel::'Scoped Statistics';
+        view recorded :> ViewsModel::'Recorded Statistics';
         /* applied stereotype «Document» */
     }
     calc def 'Statistics Report Statistics Rows' :> DocumentQueries::Query {
@@ -94,3 +94,4 @@ package Documents {
         }
     }
 }
+metadata MigrationMetadata::LibraryNameAvoided about ViewsModel { sourceName = "Views"; }

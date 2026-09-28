@@ -169,7 +169,7 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Feeding", "_sys", "SysML Block Definition Diagram", "_a_end"),
 			[]string{"connection def Feeds {\n    end pump2 : Sys::Pump;\n    end pump : Sys::Pump;\n    metadata MigrationMetadata::SynthesizedName about pump;\n}", "view Feeding {\n        expose Feeds::pump;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
-		{"a shown primitive is exposed past a member named like its library package",
+		{"a member named like a library package is renamed, so a shown primitive still exposes the library's",
 			`<packagedElement xmi:type="uml:Class" xmi:id="_svs" name="ScalarValues"/>
 			 <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
 			   <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
@@ -178,7 +178,8 @@ func TestDiagramViews(t *testing.T) {
 			 </packagedElement>`,
 			diagram("_d", "Levels", "_tank", "SysML Block Definition Diagram", "_level",
 				"http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"),
-			[]string{"view Levels {\n        expose level;\n        expose $::ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }"}, Mapped, ""},
+			[]string{"part def ScalarValuesModel;", "view Levels {\n        expose level;\n        expose ScalarValues::Real;\n        render Views::asTreeDiagram;\n    }",
+				`metadata MigrationMetadata::LibraryNameAvoided about ScalarValuesModel { sourceName = "ScalarValues"; }`}, Mapped, ""},
 		{"a diagram of a user stereotype is written in its metadata def",
 			`<packagedElement xmi:type="uml:Profile" xmi:id="_marks" name="Marks">
 			   <packagedElement xmi:type="uml:Stereotype" xmi:id="_review" name="Review">

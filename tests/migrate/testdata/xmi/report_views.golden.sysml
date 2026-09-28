@@ -8,7 +8,7 @@ package 'Pump System' {
         comment /* The pump shall carry a guard. */
     }
     view 'Pump BDD' {
-        render $::Views::asTextualNotation;
+        render Views::asTextualNotation;
     }
 }
 package Stakeholders {
@@ -46,7 +46,7 @@ package Viewpoints {
     }
     part def 'Plain Block';
 }
-package Views {
+package ViewsModel {
     view 'Safety View' {
         doc /* Everything that keeps the pump safe. */
         satisfy Viewpoints::'Safety Viewpoint';
@@ -73,3 +73,4 @@ package Views {
     /* not migrated: «Conform» Dependency (_conformToBlock) — Viewpoints::Plain Block becomes a part def, which a view cannot satisfy; applied stereotypes «Conform» */
     /* not migrated: «Conform» Dependency (_conformFromBlock) — the client Pump System::Pump is not a view: v2 lets a view alone satisfy a viewpoint; applied stereotypes «Conform» */
 }
+metadata MigrationMetadata::LibraryNameAvoided about ViewsModel { sourceName = "Views"; }
