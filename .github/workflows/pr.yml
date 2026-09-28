@@ -90,8 +90,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Other race-shard tests may shell out to Node, so keep Node 24; the WASI gate needs it.
-      # Node 22's WASI host crashes on the wasm binaries.
+      # Node 24, as the WebAssembly gate pins: Node 22's WASI host crashes on the wasm binaries.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -411,6 +410,7 @@ jobs:
           git fetch --no-tags --depth=1 origin "$BASE_REF"
           make proto-breaking BUF_BREAKING_REF="origin/$BASE_REF"
 
+      # Race shards skip tests gated here; keep Makefile RACE_SHARD_SKIP and RACE_SHARD_TOOLS_SKIP in sync.
       # Re-run the corpus gate on its own so its verdict is legible in the log
       # and a skip is impossible to miss. TestCorpusGates is the shared
       # cache-independence case over all four OMG roots, which skips with them.
