@@ -120,13 +120,10 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	}
 }
 
-func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
+func TestViewpointUsageDoesNotBecomeAContextParameter(t *testing.T) {
 	r := migrateFixtureFile(t, "viewpoint_context")
-	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint';")
-	if !strings.Contains(string(r.Notation), "in ref :>> context = Review::context;") {
-		t.Errorf("nested call does not bind the viewpoint-owned context:\n%s", r.Notation)
-	}
-	wantNote(t, r, "_review", migrate.Mapped, "its context classifier is written as a usage, so the parameter specializes it rather than being typed by it")
+	wantNoLine(t, r.Notation, "in ref context")
+	wantNote(t, r, "_inspect", migrate.Approximated, "its actions go through ports of Reviews::Review Viewpoint, none of which is written as a definition that can type a context parameter")
 }
 
 // borrowedContext is a package-owned activity Hit sending Ping(a, b) through a
@@ -256,6 +253,48 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	meta(t, s, "%advance 0")
 	if out := meta(t, s, "%eval in #1.r : sum"); !strings.Contains(out, "= 4") {
 		t.Errorf("the borrowed context did not carry the ping to the receiver: %s", out)
+	}
+}
+
+func TestNestedBehaviorDefinitionsRetainAndPassTheirEnclosingContext(t *testing.T) {
+	r := migrateFixtureFile(t, "nested_context")
+	for _, line := range []string{
+		"in ref context : Host;",
+		"action def Write {",
+		"action def Set {",
+		"assign context.'aO Sequencer'.k := value;",
+		"action def Direct {",
+		"assign context.'aO Sequencer'.k := 2;",
+		"if context.'aO Sequencer'.k >= 2",
+		"bind direct.context = this;",
+		"action set : Set { in ref :>> context = Write::context; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "nested_context.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Rig")
+	meta(t, s, "%action Host::run #1.h")
+	meta(t, s, "%continue")
+	if out := meta(t, s, "%eval in #1.h : 'aO Sequencer'.k"); !strings.Contains(out, "= 2") {
+		t.Errorf("the nested action did not update the owning part's exhibited state: %s", out)
+	}
+}
+
+func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
+	r := migrateFixtureFile(t, "context_bound_call")
+	for _, line := range []string{
+		"in ref context : Host;",
+		"action make : Make { in ref :>> context = Run::context; }",
+		"send new Ping() via context.tx;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if diags := errors(t, "context_bound_call.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
 	}
 }
 

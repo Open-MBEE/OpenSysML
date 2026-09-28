@@ -53,13 +53,20 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	}
 	for cur := b; cur != nil; cur = cur.Parent {
 		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
-			// Under a usage's body the object's features resolve on this.
 			m.contexts[b] = nil
 			return nil
 		}
 	}
 	if b.Type != "Activity" {
 		c := m.ownerContext(b)
+		if c != nil && m.usesFeaturesOf(b, c.classifier) {
+			c.used = true
+		}
+		if c != nil && b.Type == "Operation" {
+			if method := m.model.Ref(b, "method"); method != nil && m.usesFeaturesOf(method, c.classifier) {
+				c.used = true
+			}
+		}
 		m.contexts[b] = c
 		return c
 	}
@@ -90,7 +97,6 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	}
 	for cur := e; cur != nil; cur = cur.Parent {
 		if m.asUsage[cur] {
-			// Inside a usage's body the object's features resolve on this.
 			return nil
 		}
 	}
@@ -260,10 +266,8 @@ func joinDot(root, step string) string {
 	return root + "." + step
 }
 
-// callBodyExpr respells an expression written for e's body so it still reads
-// the names it names from inside a call usage's body, where the def's members —
-// the context parameter and its others — are not in the call's own scope: a
-// bare name there is spelled qualified through its owner.
+// callBodyExpr respells names from e's body that a call usage's body could
+// shadow; the caller's context parameter keeps its lexical spelling.
 func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 	if c := m.selfContext(e); c != nil {
 		name := writeName(c.name)
@@ -326,20 +330,18 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 		return "", ""
 	}
 	if c.owner && c.evaluated && !c.used && !c.bound {
-		// A def already written, whose body never read its owner: no parameter
-		// was declared, so nothing binds it.
 		return "", ""
 	}
 	self, selfType := "this", m.contextClassifier(scope)
 	if dc := m.selfContext(scope); dc != nil {
 		self, selfType = m.qualifiedContext(dc, scope), dc.classifier
 	}
-	expr, cnote := m.contextBinding(c, selfType, self)
+	expr, note := m.contextBinding(c, selfType, self)
 	if expr == "" {
-		return "", cnote
+		return "", note
 	}
 	c.bound = true
-	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
+	return "in ref :>> " + writeName(c.name) + " = " + expr, note
 }
 
 // visitContext reaches b and, through it, the behaviors it calls; once every call
@@ -387,6 +389,15 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 		decided[i] = m.decideContext(e, owners)
 	}
 	for i, e := range members {
+		if decided[i] == nil {
+			owner := classifierOf(e)
+			if owner != nil && (m.providesAny(owner, owners) || m.usesFeaturesOf(e, owner)) {
+				decided[i] = m.ownerContext(e)
+				if decided[i] != nil {
+					decided[i].used = true
+				}
+			}
+		}
 		m.contexts[e] = decided[i]
 	}
 }
@@ -461,6 +472,15 @@ func (m *migration) providesAny(owner *sysmlv1.Element, cs []*sysmlv1.Element) b
 // usesFeaturesOf reports whether b reads itself or a structural feature of c, so
 // that it plainly acts on an object of c.
 func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
+	return m.usesFeaturesOfSeen(b, c, map[*sysmlv1.Element]bool{})
+}
+
+func (m *migration) usesFeaturesOfSeen(b, c *sysmlv1.Element, seen map[*sysmlv1.Element]bool) bool {
+	if b == nil || c == nil || seen[b] {
+		return false
+	}
+	seen[b] = true
+	defer delete(seen, b)
 	uses := false
 	m.walkActions(b, func(e *sysmlv1.Element) {
 		switch e.Type {
@@ -470,21 +490,88 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
 				uses = true
 			}
-		case "OpaqueAction":
-			// A body written in its own language reads a feature by its name.
-			if body, _ := opaqueBody(e); body != "" {
-				if toks, err := lexOpaque(body); err == nil {
-					members, _ := m.membersOf(c, memberAny)
-					for _, t := range toks {
-						if t.kind == tokIdent && members[t.text] != nil {
-							uses = true
-						}
-					}
+		case "CallBehaviorAction":
+			if _, _, why := m.lanePerformer(e); why != "" {
+				return
+			}
+			callee := m.model.Ref(e, "behavior")
+			if op := m.methodOf[callee]; op != nil {
+				callee = op
+			}
+			if callee != nil {
+				if ctx := m.contextOf(callee); ctx != nil && m.providesAny(c, []*sysmlv1.Element{ctx.classifier}) {
+					uses = true
+				}
+			}
+		case "CallOperationAction":
+			if op := m.model.Ref(e, "operation"); op != nil {
+				if method := m.model.Ref(op, "method"); m.usesFeaturesOfSeen(method, c, seen) {
+					uses = true
+				}
+			}
+		case "OpaqueAction", "OpaqueExpression":
+			if opaqueUsesFeature(e, c, m) {
+				uses = true
+			}
+		case "DurationConstraint":
+			spec := firstOwned(e, "specification")
+			if spec == nil {
+				return
+			}
+			for _, endpoint := range []string{"min", "max"} {
+				if d := m.model.Ref(spec, endpoint); d != nil && opaqueUsesFeature(d, c, m) {
+					uses = true
 				}
 			}
 		}
 	})
+	if !uses && (b.Type == "OpaqueBehavior" || b.Type == "FunctionBehavior") && opaqueUsesFeature(b, c, m) {
+		uses = true
+	}
 	return uses
+}
+
+func opaqueUsesFeature(e, c *sysmlv1.Element, m *migration) bool {
+	return opaqueUsesFeatureScope(e, c, m, true)
+}
+
+func opaqueUsesOwnerFeature(e, c *sysmlv1.Element, m *migration) bool {
+	return opaqueUsesFeatureScope(e, c, m, false)
+}
+
+func opaqueUsesFeatureScope(e, c *sysmlv1.Element, m *migration, includeLane bool) bool {
+	if e == nil {
+		return false
+	}
+	body, _ := opaqueBody(e)
+	if body == "" {
+		switch e.Type {
+		case "Duration":
+			return opaqueUsesFeatureScope(firstOwned(e, "expr"), c, m, includeLane)
+		case "LiteralString":
+			body = e.Attrs["value"]
+		}
+	}
+	if body == "" {
+		return false
+	}
+	toks, err := lexOpaque(body)
+	if err != nil {
+		return false
+	}
+	members, _ := m.membersOf(c, memberAny)
+	var laneMembers map[string]*sysmlv1.Element
+	if lane, _ := m.laneAt(e); includeLane && lane != nil && lane.typ != nil && lane.expr != "" {
+		if activity := enclosingActivity(e); activity != nil && m.contextClassifier(activity) == c {
+			laneMembers, _ = m.membersOf(lane.typ, memberAny)
+		}
+	}
+	for _, t := range toks {
+		if t.kind == tokIdent && (members[t.text] != nil || laneMembers[t.text] != nil) {
+			return true
+		}
+	}
+	return false
 }
 
 // portOwners lists the classifiers whose ports the actions of b, or the
@@ -525,6 +612,9 @@ func (m *migration) calledActivities(b *sysmlv1.Element) []*sysmlv1.Element {
 	var called []*sysmlv1.Element
 	m.walkActions(b, func(e *sysmlv1.Element) {
 		if e.Type != "CallBehaviorAction" {
+			return
+		}
+		if _, _, why := m.lanePerformer(e); why != "" {
 			return
 		}
 		if c := m.model.Ref(e, "behavior"); c != nil && c.Type == "Activity" && !slices.Contains(called, c) {

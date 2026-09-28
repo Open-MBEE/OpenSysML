@@ -1,0 +1,24 @@
+# SysML v1 to v2 migration report: context_bound_call.xmi
+# migrated 18 element(s): 16 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+ActivityPartition	Host::Run::host	_hostLane	(a partition names who performs its nodes; it is kept as a comment; the partition represents the context object itself, a Host, but nothing in it names the object's features)
+CallBehaviorAction	Host::Run::make	_callMake	-> make	(the behavior acts on a Host through its parameter context, which is bound to Run::context)
+
+## mapped (16)
+«Block» Class	Host	_host	-> Host
+Activity	Host::Run	_run	-> Host::Run	(acts on its owner Host, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Host::Run::<ActivityFinalNode>	_rf	-> final
+ControlFlow	Host::Run::<ControlFlow>	_re2
+InitialNode	Host::Run::<InitialNode>	_ri	-> start
+Port	Host::tx	_tx	-> Host::tx
+Activity	Make	_make	-> Make	(acts on a Host through its ports, which it takes as its parameter context)
+ActivityFinalNode	Make::<ActivityFinalNode>	_mf	-> final
+ControlFlow	Make::<ControlFlow>	_me2
+ControlFlow	Make::<ControlFlow>	_me3
+InitialNode	Make::<InitialNode>	_mi	-> start
+ValueSpecificationAction	Make::one	_one	-> one
+OutputPin	Make::one::result	_oneOut	-> Make::one.result
+SendSignalAction	Make::send ping	_send	-> 'send ping'
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Ping	_ping	-> Ping

@@ -195,7 +195,7 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 			return false
 		}
 	}
-	if m.usesFeaturesOf(body, owner) || m.lifelinesOn(body, owner) {
+	if m.readsFeaturesOf(body, owner) || m.lifelinesOn(body, owner) {
 		return true
 	}
 	for _, o := range m.namedPortOwners(body) {
@@ -221,6 +221,25 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 		}
 	})
 	return reads
+}
+
+func (m *migration) readsFeaturesOf(b, c *sysmlv1.Element) bool {
+	uses := false
+	m.walkActions(b, func(e *sysmlv1.Element) {
+		switch e.Type {
+		case "ReadSelfAction":
+			uses = true
+		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
+			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
+				uses = true
+			}
+		case "OpaqueAction":
+			if opaqueUsesOwnerFeature(e, c, m) {
+				uses = true
+			}
+		}
+	})
+	return uses
 }
 
 // probabilityProperty is the property the «Probability» on the edge e of body

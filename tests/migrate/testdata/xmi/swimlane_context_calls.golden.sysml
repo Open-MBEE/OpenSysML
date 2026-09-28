@@ -1,11 +1,13 @@
 part def Engine {
     attribute rpm : ScalarValues::Real;
-    action tune {
+    action def Tune {
+        in ref context : Engine;
         action 'set rpm' {
             in value;
-            assign rpm := value;
+            assign context.rpm := value;
         }
     }
+    action tune : Tune;
 }
 part def Host {
     attribute hits : ScalarValues::Real default = 0.0;
@@ -16,21 +18,25 @@ part def Host {
             assign hits := value;
         }
     }
-    action run {
+    action def Run {
+        in ref context : Host;
         first start then hit;
-        perform action hit ::> Host::hit;
+        perform action hit ::> context.hit;
         first hit then tune;
-        perform action tune ::> Host::engine.tune;
+        action tune : Engine::Tune { in ref :>> context = Run::context.engine; }
         first tune then check;
-        perform action check ::> Host::hit;
+        perform action check ::> context.hit;
         /* partition 'host' represents Host: hit, tune */
         /* partition 'engine' represents Host::engine: check */
     }
 }
 action def Else {
-    in ref context : Host;
     first start then run;
-    perform action run ::> context.run;
+    action run {
+        /* not migrated: CallBehaviorAction 'run' — the behavior acts on a Host through its parameter context, which is left unbound: the caller acts on no object; v1 runs Host::Run on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */
+    }
     first run then tune;
-    perform action tune ::> context.engine.tune;
+    action tune {
+        /* not migrated: CallBehaviorAction 'tune' — the behavior acts on a Engine through its parameter context, which is left unbound: the caller acts on no object; v1 runs Engine::Tune on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */
+    }
 }

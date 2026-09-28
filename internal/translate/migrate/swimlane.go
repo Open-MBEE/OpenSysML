@@ -444,7 +444,8 @@ func (m *migration) behaviorUsage(b *sysmlv1.Element) string {
 		m.extras[owner] = append(m.extras[owner], func() {
 			if !m.asUsage[b] {
 				line := "action " + writeName(name) + " : " + m.ref(b, owner)
-				if ins, _ := m.contextIns(m.contextOf(b), owner); ins != "" {
+				ins, _ := m.contextIns(m.contextOf(b), owner)
+				if ins != "" {
 					m.w.line(line + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
 				} else {
 					m.w.line(line + ";")

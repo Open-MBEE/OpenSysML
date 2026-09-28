@@ -398,8 +398,9 @@ const externalMethodCall = `
 // names, rather than a usage the call could only stand for by an empty step.
 func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
 	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/>`)
-	wantLine(t, r.Notation, "action def Spin {")
-	wantLine(t, r.Notation, "action spin : Spin;")
+	wantLine(t, r.Notation, "action spin {")
+	wantLine(t, r.Notation, "action def Bench {")
+	wantNoLine(t, r.Notation, "action def Spin {")
 	wantClean(t, "t.sysml", r)
 }
 

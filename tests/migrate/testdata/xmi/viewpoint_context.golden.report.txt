@@ -1,21 +1,21 @@
 # SysML v1 to v2 migration report: viewpoint_context.xmi
-# migrated 15 element(s): 14 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 15 element(s): 13 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (1)
-CallBehaviorAction	Reviews::Review::inspect	_inspectCall	-> inspect	(the behavior acts on a Reviews::Review Viewpoint through its parameter context, which is bound to Review::context)
+## approximated (2)
+Activity	Reviews::Inspect	_inspect	-> Reviews::Inspect	(its actions go through ports of Reviews::Review Viewpoint, none of which is written as a definition that can type a context parameter)
+SendSignalAction	Reviews::Inspect::send ping	_sendPing	-> 'send ping'	(the port Reviews::Review Viewpoint::tx is no port of the object the sender acts on; the signal is sent to the sender)
 
-## mapped (14)
+## mapped (13)
 Model	Model	_m	(the root model's members are written at the top level)
 Package	Reviews	_pkg	-> Reviews
-Activity	Reviews::Inspect	_inspect	-> Reviews::Inspect	(acts on a Reviews::Review Viewpoint through its ports, which it takes as its parameter context its context classifier is written as a usage, so the parameter specializes it rather than being typed by it)
 ActivityFinalNode	Reviews::Inspect::<ActivityFinalNode>	_inspectFinal	-> final
 ControlFlow	Reviews::Inspect::<ControlFlow>	_inspectFinish
 InitialNode	Reviews::Inspect::<InitialNode>	_inspectInitial	-> start
-SendSignalAction	Reviews::Inspect::send ping	_sendPing	-> 'send ping'
 Signal	Reviews::Ping	_ping	-> Reviews::Ping
-Activity	Reviews::Review	_review	-> Reviews::Review	(acts on a Reviews::Review Viewpoint through its ports, which it takes as its parameter context its context classifier is written as a usage, so the parameter specializes it rather than being typed by it)
+Activity	Reviews::Review	_review	-> Reviews::Review
 «Viewpoint» Class	Reviews::Review Viewpoint	_vp	-> Reviews::'Review Viewpoint'
 Port	Reviews::Review Viewpoint::tx	_tx	-> Reviews::'Review Viewpoint'::tx
 ActivityFinalNode	Reviews::Review::<ActivityFinalNode>	_final	-> final
 ControlFlow	Reviews::Review::<ControlFlow>	_e2
 InitialNode	Reviews::Review::<InitialNode>	_init	-> start
+CallBehaviorAction	Reviews::Review::inspect	_inspectCall	-> inspect

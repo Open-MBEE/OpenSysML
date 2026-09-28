@@ -185,6 +185,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		points:        map[*sysmlv1.Element]pointForm{},
 		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outgoing:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		relocatedTo:   map[*sysmlv1.Element]*sysmlv1.Element{},
 		instant:       map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
 		self:          "this",
 		lanes:         map[*sysmlv1.Element]*lanes{},
@@ -525,6 +527,8 @@ type migration struct {
 	// incoming and outgoing list the transitions into and out of each vertex
 	// of the machines named so far.
 	incoming, outgoing map[*sysmlv1.Element][]*sysmlv1.Element
+	relocated          map[*sysmlv1.Element][]*sysmlv1.Element
+	relocatedTo        map[*sysmlv1.Element]*sysmlv1.Element
 	// instant names, per state machine, the TimeInstantValue attribute each
 	// absolute time event its transitions accept is written as.
 	instant map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue
@@ -746,13 +750,10 @@ func (m *migration) prepare() {
 		}
 	}
 	for b := range m.contexts {
-		// Settled before usages were decided; under a usage the object's
-		// features resolve on this, so no context parameter is taken.
-		for cur := b; cur != nil; cur = cur.Parent {
-			if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
-				delete(m.contexts, b)
-				break
-			}
+		// Settled before usages were decided; a behavior written as a usage
+		// needs no context parameter.
+		if m.asUsage[b] || m.asUsage[m.methodOf[b]] {
+			delete(m.contexts, b)
 		}
 	}
 	for _, d := range m.allocations {
@@ -2406,6 +2407,9 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return em.name != "" && m.reaches(em.owner)
 	}
 	if vertexBase(e) != "" {
+		if e.Type == "Pseudostate" && m.extensionVertex(e) != "" {
+			return false
+		}
 		return m.vertexWritten(e)
 	}
 	if e.Type == "Region" && e.Role == "region" {

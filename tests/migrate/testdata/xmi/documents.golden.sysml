@@ -1,5 +1,7 @@
 package 'Fleet Profile' {
-    metadata def Safety;
+    metadata def Safety {
+        attribute level : ScalarValues::String;
+    }
 }
 package Fleet {
     package Structure {
@@ -34,11 +36,15 @@ package Fleet {
         requirement def <'R-2'> 'Brake Distance' {
             doc /* A loaded truck stops within the legal distance. */
             comment /* A loaded truck stops within the legal distance. */
-            @'Fleet Profile'::Safety;
+            @'Fleet Profile'::Safety {
+                level = "brakes";
+            }
         }
         requirement def <'R-3'> 'Axle Count' {
             doc /* A truck has two axles. */
-            @'Fleet Profile'::Safety;
+            @'Fleet Profile'::Safety {
+                level = "many";
+            }
         }
     }
 }
@@ -120,7 +126,9 @@ package 'Fleet Viewpoints' {
                 action Name;
                 first Name then Text;
                 action Text;
-                first Text then Owner;
+                first Text then Level;
+                action Level;
+                first Level then Owner;
                 action Owner;
             }
             first 'Safety Requirements' then final;
@@ -363,8 +371,8 @@ package 'Fleet Documents' {
                 multiple = "first"),
             properties = ("name", "qualifiedName", "documentation"),
             columns = (
-                DocumentQueries::Column(name = "Payload", expression = Fleet::Structure::Truck::payload ?? ""),
-                DocumentQueries::Column(name = "name 2", expression = Fleet::Structure::Truck::payload ?? "")))
+                DocumentQueries::Column(name = "Payload", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" }),
+                DocumentQueries::Column(name = "name 2", cell = { in row : Fleet::Structure::Truck; row.payload ?? "" })))
     }
     calc def 'Fleet Handbook Requirement List Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -402,7 +410,9 @@ package 'Fleet Documents' {
                         'metadata' = ("Fleet Profile::Safety")),
                     operator = "matches",
                     value = "^(?:.*Count)$")),
-            properties = ("name", "documentation"))
+            properties = ("name", "documentation"),
+            columns = (
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
     }
     calc def 'Fleet Handbook Related Elements Rows' :> DocumentQueries::Query {
         DocumentQueries::Project(
@@ -546,7 +556,9 @@ package 'Fleet Documents' {
                         'metadata' = ("Fleet Profile::Safety")),
                     operator = "matches",
                     value = "^(?:.*Count)$")),
-            properties = ("name", "documentation"))
+            properties = ("name", "documentation"),
+            columns = (
+                DocumentQueries::Column(name = "Level", cell = { in row : 'Fleet Profile'::Safety; row.level ?? "" })))
     }
     part def 'Fleet Brief Document' :> DocumentQueries::Document {
         attribute redefines title = "Fleet Brief";

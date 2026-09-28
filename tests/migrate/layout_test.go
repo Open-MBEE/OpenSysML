@@ -23,6 +23,10 @@ func migrateLayoutFixture(t *testing.T) *migrate.Result {
 // migrateLaidOut migrates testdata/xmi/<name>.xmi augmented by the MTIP export
 // <name>.layout.xml beside it.
 func migrateLaidOut(t *testing.T, name string) *migrate.Result {
+	return migrateLaidOutOptions(t, name, migrate.Options{})
+}
+
+func migrateLaidOutOptions(t *testing.T, name string, opts migrate.Options) *migrate.Result {
 	t.Helper()
 	data, err := os.ReadFile("testdata/xmi/" + name + ".xmi")
 	if err != nil {
@@ -36,7 +40,9 @@ func migrateLaidOut(t *testing.T, name string) *migrate.Result {
 	if err != nil {
 		t.Fatalf("mtip.Parse: %v", err)
 	}
-	r, err := migrate.MigrateOptions(name+".xmi", data, migrate.Options{Layout: layout, LayoutSource: name + ".layout.xml"})
+	opts.Layout = layout
+	opts.LayoutSource = name + ".layout.xml"
+	r, err := migrate.MigrateOptions(name+".xmi", data, opts)
 	if err != nil {
 		t.Fatalf("MigrateOptions: %v", err)
 	}
@@ -94,6 +100,8 @@ func migrateStreamLaidOut(t *testing.T, name string, strict bool) *migrate.Resul
 // notation analyses clean — the DiagramLayout annotations must type-check.
 func TestGoldenLayout(t *testing.T) {
 	r := migrateLayoutFixture(t)
+	wantLine(t, r.Notation, ":>> DiagramLayout::Layout::height = 80;")
+	wantLine(t, r.Notation, "metadata DiagramLayout::Layout about engine { x = 20; y = 10; width = 100; :>> DiagramLayout::Layout::height = 40; }")
 	checkGolden(t, "testdata/xmi/layout.layout.golden.sysml", r.Notation)
 	var report bytes.Buffer
 	if err := r.Report.WriteText(&report); err != nil {
@@ -101,6 +109,10 @@ func TestGoldenLayout(t *testing.T) {
 	}
 	checkGolden(t, "testdata/xmi/layout.layout.golden.report.txt", report.Bytes())
 	for _, d := range errors(t, "layout.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+	strict := migrateLaidOutOptions(t, "layout", migrate.Options{Strict: true})
+	for _, d := range errorsMode(t, "layout.sysml", strict.Notation, diag.ConformanceStrict) {
 		t.Errorf("%v", d)
 	}
 }
