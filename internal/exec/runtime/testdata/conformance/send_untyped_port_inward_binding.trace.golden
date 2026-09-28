@@ -1,7 +1,8 @@
 materialize: Rig #1
 materialize: Sender #2
 start: performed action fire of #2
-materialize: Fire #3
+materialize: fire #3
+eval feature this -> instance#2
 materialize: Box #4
 materialize: Receiver #5
 start: exhibited state machine life of #5

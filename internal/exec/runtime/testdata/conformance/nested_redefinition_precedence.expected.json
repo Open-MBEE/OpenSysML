@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "instantiate": "test::top",
+  "slots": {
+    "mid.scale": {"type": "Real", "value": 9.0},
+    "mid.leaf.value": {"type": "Real", "value": 99.0}
+  }
+}

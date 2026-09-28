@@ -4,10 +4,10 @@ part def Sensor {
     attribute scale : ScalarValues::Real;
     attribute label : ScalarValues::String;
     attribute misses : ScalarValues::Integer;
-    action def Settle {
+    perform action settle {
         first start then 'start timer';
         action 'start timer' {
-            assign this.settleTime := localClock.currentTime;
+            assign settleTime := localClock.currentTime;
         }
         first 'start timer' then wait;
         action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];
@@ -15,14 +15,13 @@ part def Sensor {
         action settle;
         first settle then 'stop timer';
         action 'stop timer' {
-            assign this.settleTime := localClock.currentTime - this.settleTime;
+            assign settleTime := localClock.currentTime - settleTime;
         }
         first 'stop timer' then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about wait, final;
         metadata MigrationMetadata::StandIn about wait;
     }
-    perform action settle : Settle;
 }
 part def 'Settling Analysis' :> Sensor {
     /* not migrated: «BindingConnector» Connector (_bindMedian) — the connector binds the simulation tool's MonteCarloAnalysis::Median, a statistic Simulation::MonteCarlo has no counterpart for; applied stereotypes «BindingConnector» */

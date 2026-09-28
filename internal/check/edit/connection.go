@@ -113,32 +113,52 @@ func writeConnection(op Operation, kind connectionKind, lang source.Kind) string
 // names joined by `.` or `::`. Whether it names anything is answered by
 // analyzing the edited model, where it has a scope.
 func checkEnd(i int, role, end string) error {
+	_, err := checkFeatureReference(i, fmt.Sprintf("connection end (%s)", role), end)
+	return err
+}
+
+// checkFeatureReference refuses text that is not written as a feature reference
+// — names joined by `.` or `::`, optionally rooted at `$::` — naming what the
+// reference is of in the message, and returns its last name segment: the name
+// a usage referring to the feature takes.
+func checkFeatureReference(i int, what, ref string) (string, error) {
 	refuse := func(reason string) error {
 		return &Error{
 			Failure:        FailureInvalidName,
 			OperationIndex: i,
-			Message:        fmt.Sprintf("connection end %q (%s) %s", end, role, reason),
+			Message:        fmt.Sprintf("%s %q %s", what, ref, reason),
 		}
 	}
-	if end == "" {
-		return refuse("is empty")
+	if ref == "" {
+		return "", refuse("is empty")
 	}
-	lx := lexer.New(source.New("<end>", []byte(end)))
+	lx := lexer.New(source.New("<ref>", []byte(ref)))
 	wantName := true
+	first := true
+	rooted := false
+	last := ""
 	for tok := lx.Next(); tok.Kind != lexer.EOF; tok = lx.Next() {
+		if rooted && tok.Kind != lexer.ColonColon {
+			return "", refuse("is not a feature reference")
+		}
+		rooted = false
 		switch {
+		case wantName && first && tok.Kind == lexer.Dollar:
+			rooted = true
 		case wantName && (tok.Kind == lexer.Identifier || tok.Kind == lexer.UnrestrictedName):
 			if tok.Unterminated {
-				return refuse("is an unterminated quoted name")
+				return "", refuse("is an unterminated quoted name")
 			}
+			last = string(ref[tok.Span.Offset : tok.Span.Offset+tok.Span.Len])
 		case !wantName && (tok.Kind == lexer.Dot || tok.Kind == lexer.ColonColon):
 		default:
-			return refuse("is not a feature reference")
+			return "", refuse("is not a feature reference")
 		}
 		wantName = !wantName
+		first = false
 	}
-	if wantName {
-		return refuse("is not a feature reference")
+	if wantName || rooted {
+		return "", refuse("is not a feature reference")
 	}
-	return nil
+	return last, nil
 }

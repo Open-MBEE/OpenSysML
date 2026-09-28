@@ -29,7 +29,11 @@ func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	if rootScope == nil {
 		return nil
 	}
-	mc := &w8dMetadataChecker{resolver: ctx.Resolver(), model: ctx.Model()}
+	mc := &w8dMetadataChecker{
+		resolver:   ctx.Resolver(),
+		model:      ctx.Model(),
+		runDecided: !ctx.Options.Conformance.IsStrict(),
+	}
 	if mc.resolver == nil || mc.model == nil {
 		return nil
 	}
@@ -38,9 +42,10 @@ func (W8DMetadataUsagePass) Run(ctx *Context, name string, root *ast.RootNamespa
 }
 
 type w8dMetadataChecker struct {
-	resolver *resolve.Resolver
-	model    *semantics.Model
-	diags    []diag.Diagnostic
+	resolver   *resolve.Resolver
+	model      *semantics.Model
+	runDecided bool
+	diags      []diag.Diagnostic
 }
 
 func (mc *w8dMetadataChecker) check(sym *symbols.Symbol) {
@@ -92,7 +97,7 @@ func (mc *w8dMetadataChecker) checkBody(sym *symbols.Symbol, typeRef *ast.Qualif
 			Source:   "constraint",
 		})
 	}
-	for _, value := range mc.model.MetadataBodyInevaluableValuesOf(typ, sym.Scope, body) {
+	for _, value := range mc.model.MetadataBodyInevaluableValuesOf(typ, sym.Scope, body, mc.runDecided) {
 		mc.diags = append(mc.diags, diag.Diagnostic{
 			Severity: diag.SeverityError,
 			Span:     metadataValueSpan(body, value),

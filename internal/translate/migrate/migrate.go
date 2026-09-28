@@ -142,6 +142,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		placeholders:  map[*sysmlv1.Element]bool{},
 		nodeEnds:      map[*sysmlv1.Element]*placement{},
 		extras:        map[*sysmlv1.Element][]func(){},
+		viewNames:     map[*sysmlv1.Element]map[string]bool{},
 		flows:         map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:      map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:      map[*sysmlv1.Element]*placement{},
@@ -161,6 +162,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		snapshots:     map[*sysmlv1.Element]snapshotTyping{},
 		contexts:      map[*sysmlv1.Element]*behaviorContext{},
 		contextNotes:  map[*sysmlv1.Element]string{},
+		ownerCtx:      map[*sysmlv1.Element]*behaviorContext{},
 		visiting:      map[*sysmlv1.Element]*contextVisit{},
 		invokers:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:      map[*sysmlv1.Element]bool{},
@@ -177,6 +179,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		fileContents:  map[string]string{},
 		pending:       map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:    map[*sysmlv1.Element]map[string]bool{},
+		stateUsed:     map[*sysmlv1.Element]map[string]bool{},
+		nestedIn:      map[*sysmlv1.Element]string{},
 		vertexNames:   map[*sysmlv1.Element]string{},
 		points:        map[*sysmlv1.Element]pointForm{},
 		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -329,6 +333,8 @@ type migration struct {
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
+	// viewNames records the simple names imported into each view by its exposures.
+	viewNames map[*sysmlv1.Element]map[string]bool
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view
@@ -383,6 +389,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// ownerCtx holds the context a def declares for the object its owner is,
+	// which its `this` does not reach.
+	ownerCtx map[*sysmlv1.Element]*behaviorContext
 	// visiting is the search settling contexts: each activity it has reached and
 	// not settled, and the order it reached them in.
 	visiting map[*sysmlv1.Element]*contextVisit
@@ -504,6 +513,11 @@ type migration struct {
 	observed map[*sysmlv1.Element][]*sysmlv1.Element
 	// regionUsed holds the vertex names each region's body has taken.
 	regionUsed map[*sysmlv1.Element]map[string]bool
+	// stateUsed holds the member names each state's body has taken.
+	stateUsed map[*sysmlv1.Element]map[string]bool
+	// nestedIn names the generated action a state's behavior is written
+	// within, for those the strict deferral encoding nests.
+	nestedIn map[*sysmlv1.Element]string
 	// vertexNames gives the v2 name of every vertex a state machine writes.
 	vertexNames map[*sysmlv1.Element]string
 	// points says how each connection point of a composite state is written.
@@ -722,6 +736,25 @@ func (m *migration) prepare() {
 	}
 	m.admitAbsent(laned)
 	m.planUsages(behaviors)
+	for n := range m.opaque {
+		// Translated before usages were decided; a usage body spells bare.
+		for cur := n; cur != nil; cur = cur.Parent {
+			if m.asUsage[cur] {
+				delete(m.opaque, n)
+				break
+			}
+		}
+	}
+	for b := range m.contexts {
+		// Settled before usages were decided; under a usage the object's
+		// features resolve on this, so no context parameter is taken.
+		for cur := b; cur != nil; cur = cur.Parent {
+			if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+				delete(m.contexts, b)
+				break
+			}
+		}
+	}
 	for _, d := range m.allocations {
 		m.placeAllocation(d)
 	}
@@ -1240,6 +1273,10 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	}
 	if behaviorCategory(cat) {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
+		if c := m.contexts[e]; c != nil {
+			// Written now: a context parameter can no longer be declared.
+			c.evaluated = true
+		}
 		if e.Type == "Operation" && !m.asUsage[e] {
 			m.operationFeature(e)
 		}

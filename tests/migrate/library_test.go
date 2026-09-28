@@ -45,7 +45,7 @@ func TestLibraryCallsComputeThroughTheV2Library(t *testing.T) {
 		"out result : ScalarValues::String = BooleanFunctions::ToString(x);",
 		"/* not migrated: CallBehaviorAction 'position' — the behavior Alf SequenceFunctions::IndexOf it calls has no v2 library function: the v2 library has no function giving the position of an element in a sequence; the behavior is known by its OMG href http://www.omg.org/spec/ALF/20170201/Alf-Library.xmi#Alf-Library-PrimitiveBehaviors-SequenceFunctions-IndexOf */",
 		"/* not migrated: CallBehaviorAction 'print' — the behavior fUML BasicInputOutput::WriteLine it calls has no v2 library function: writes a line to the standard output channel, which the v2 library has no function for; the behavior is known by its OMG href http://www.omg.org/spec/FUML/20180501/fUML_Library.xmi#BasicInputOutput-WriteLine */",
-		"/* flow position.result to 'after'.x not written: 'position' is not migrated and produces no value */",
+		"flow position.result to 'after'.x;",
 	} {
 		wantLine(t, r.Notation, line)
 	}

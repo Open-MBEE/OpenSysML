@@ -72,8 +72,8 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		bodies := r.semantics.DocumentationOf(sym)
 		return bodies, len(bodies) > 0
 	case PropertyOwner:
-		if sym.OwnerScope != nil && sym.OwnerScope.Owner() != nil {
-			owner := sym.OwnerScope.Owner()
+		if sym.OwnerScope != nil && sym.OwnerScope.OwningElement() != nil {
+			owner := sym.OwnerScope.OwningElement()
 			if r.identity != nil {
 				if identity := r.identity(owner); identity != "" {
 					return presentValues(identity)

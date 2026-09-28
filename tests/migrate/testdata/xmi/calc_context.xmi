@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_tank" name="Tank">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_level" name="level">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_level0" value="1.5"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:OpaqueBehavior" xmi:id="_rate" name="Rate">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rateFactor" name="factor" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_rateResult" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <language>English</language>
+        <body>level * factor</body>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pTank" name="tank" type="_tank" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_runResult" name="result" direction="return">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedParameter>
+        <node xmi:type="uml:InitialNode" xmi:id="_rInit"/>
+        <node xmi:type="uml:ValueSpecificationAction" xmi:id="_rTwo" name="two">
+          <result xmi:type="uml:OutputPin" xmi:id="_rTwoOut" name="result"/>
+          <value xmi:type="uml:LiteralReal" xmi:id="_rTwoV" value="2.0"/>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_rRate" name="rate" behavior="_rate">
+          <argument xmi:type="uml:InputPin" xmi:id="_rRateFactor" name="factor"/>
+          <result xmi:type="uml:OutputPin" xmi:id="_rRateOut" name="result"/>
+        </node>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_rOut" name="result" parameter="_runResult"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rDone"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_rf1" source="_rInit" target="_rRate"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rf2" source="_rRateOut" target="_rOut"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rf4" source="_rTwoOut" target="_rRateFactor"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_rf3" source="_rRate" target="_rDone"/>
+      </ownedBehavior>
+    </packagedElement>
+
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_tank"/>
+  <sysml:Block xmi:id="_s2" base_Class="_plant"/>
+</xmi:XMI>

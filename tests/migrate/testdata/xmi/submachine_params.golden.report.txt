@@ -1,0 +1,29 @@
+# SysML v1 to v2 migration report: submachine_params.xmi
+# migrated 23 element(s): 21 mapped, 2 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (2)
+StateMachine	Plant::Line	_line	-> Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Plant as its usage line)
+OpaqueBehavior	Plant::Line::main::Cell::tally	_cellEntry	-> Plant::Line::Cell::tally	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
+
+## mapped (21)
+SignalEvent	<SignalEvent>	_goEv	(written where a trigger refers to it, as accept Go)
+Signal	Go	_go	-> Go
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Plant	_plant	-> Plant
+StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+Region	Plant::CellMachine::cell	_rc	(the one region is written as the body of its owner)
+FinalState	Plant::CellMachine::cell::<FinalState>	_finC	-> done
+Pseudostate	Plant::CellMachine::cell::<Pseudostate>	_initC	(written as the entry of the region)
+Transition	Plant::CellMachine::cell::<Transition>	_tCi
+Transition	Plant::CellMachine::cell::<Transition>	_tCc
+State	Plant::CellMachine::cell::Cold	_cold	-> Cold
+Parameter	Plant::CellMachine::x	_cellIn	-> Plant::CellMachine::x
+Region	Plant::Line::main	_main	(the one region is written as the body of its owner)
+FinalState	Plant::Line::main::<FinalState>	_fin	-> done
+Pseudostate	Plant::Line::main::<Pseudostate>	_init0	(written as the entry of the region)
+Transition	Plant::Line::main::<Transition>	_t0
+Transition	Plant::Line::main::<Transition>	_tGo
+Trigger	Plant::Line::main::<Transition>::<Trigger>	_trGo
+State	Plant::Line::main::Cell	_cellSt	-> Cell
+State	Plant::Line::main::Idle	_idle	-> Idle
+Property	Plant::count	_count	-> Plant::count

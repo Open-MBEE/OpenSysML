@@ -18,6 +18,10 @@ type EffectiveFeature struct {
 	DefaultDecl  *symbols.Symbol // feature the DefaultValue was written on (nil if none)
 	HoldsSet     bool            // values form a set: a Collection's unordered unique elements
 	Unique       bool            // holds no two equal values (KerML isUnique, the default)
+	// GovernedByChain marks a feature a valued nested chain from a more specific
+	// body reaches below, so its bound value does not govern, as with a
+	// redefining body.
+	GovernedByChain bool
 }
 
 // Scalar reports whether the feature holds at most one value.

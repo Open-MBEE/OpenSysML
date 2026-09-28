@@ -1,0 +1,29 @@
+# SysML v1 to v2 migration report: operation_context_out.xmi
+# migrated 23 element(s): 18 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+Parameter	Plant::Adjust::x	_x	-> Plant::Adjust::x	(it is declared admitting no value: the call 'adjust' in Plant::Drive passes no argument for it, and v1 runs the callee without one)
+AddStructuralFeatureValueAction	Plant::Adjusting::set level	_setLevel	-> 'set level'	(no edge leads to the node, so it starts with the activity; the pin 'value' admits no value, which the feature cannot hold: it is written only when the pin holds one)
+InputPin	Plant::Adjusting::set level::value	_setValue	-> Plant::Adjust::'set level'.value	(it is declared admitting no value: the parameter x of Plant::Adjusting, which feeds it, admits no value)
+CallOperationAction	Plant::Drive::adjust	_call	-> adjust	(the call passes no argument for the parameter x of Plant::Adjust; v1 runs the callee without the value, so the parameter is declared admitting none)
+CallOperationAction	Reach::adjust	_reachCall	-> adjust	(the call passes no argument for the parameter x of Plant::Adjust; v1 runs the callee without the value, so the parameter is declared admitting none)
+
+## mapped (18)
+Model	Model	_m	(the root model's members are written at the top level)
+«Block» Class	Plant	_plant	-> Plant
+Operation	Plant::Adjust	_adjust	-> Plant::Adjust	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage adjust performs it, as a call on an object does)
+Parameter	Plant::Adjust::result	_result	-> Plant::Adjust::result
+Activity	Plant::Adjusting	_adjusting	-> Plant::Adjust	(written as the body of the operation Plant::Adjust, whose method it is)
+ObjectFlow	Plant::Adjusting::<ObjectFlow>	_methodInput
+Parameter	Plant::Adjusting::result	_methodResult	-> Plant::Adjust::result	(stands for the operation's parameter result at the same position, which is written once)
+Parameter	Plant::Adjusting::x	_methodX	-> Plant::Adjust::x	(stands for the operation's parameter x at the same position, which is written once)
+ActivityParameterNode	Plant::Adjusting::x	_methodXNode	-> Plant::Adjust::x	(the flows to and from the node name the parameter x)
+Activity	Plant::Drive	_drive	-> Plant::Drive	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+ActivityFinalNode	Plant::Drive::<ActivityFinalNode>	_done	-> final
+ControlFlow	Plant::Drive::<ControlFlow>	_finish
+InitialNode	Plant::Drive::<InitialNode>	_initial	-> start
+Property	Plant::level	_level	-> Plant::level
+Activity	Reach	_reach	-> Reach
+ActivityFinalNode	Reach::<ActivityFinalNode>	_reachFinal	-> final
+ControlFlow	Reach::<ControlFlow>	_reachFinish
+InitialNode	Reach::<InitialNode>	_reachInitial	-> start

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -129,16 +130,17 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"entry; then Off;",
 		"state Off {",
 		"defer Door;",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
 		"entry action cool {",
-		"assign this.temperature := 20.0;",
+		"assign context.temperature := 20.0;",
 		"state On {",
 		"exit action count {",
-		"assign this.cycles := this.cycles + 1;",
+		"assign context.cycles := context.cycles + 1;",
 		"entry; then regions;",
 		"state regions parallel {",
 		"state heating {",
 		"entry; then Warming;",
-		"transition first Warming accept when this.temperature > 200.0 then Hot;",
+		"transition first Warming accept when context.temperature > 200.0 then Hot;",
 		"state lighting {",
 		"entry; then Lit;",
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
@@ -149,7 +151,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"transition first Off accept TurnOn then On;",
 		"transition first On accept TurnOff then choice;",
 		"transition first On accept Door then choice;",
-		"transition first choice if this.cycles >= 3 then done;",
+		"transition first choice if context.cycles >= 3 then done;",
 		"transition first choice then Resting;",
 		"transition first Resting accept at instant then Off;",
 		"transition first Resting accept Door then Resting;",
@@ -165,20 +167,40 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
 	wantNote(t, r, "_tRested", migrate.Mapped, "")
 	wantNote(t, r, "_tSelf", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Resting")
-	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when this.temperature > 200.0")
+	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when context.temperature > 200.0")
 	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
-	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes; the state is annotated @MigrationMetadata::DeferredEvent")
 	wantNote(t, r, "_doorEv", migrate.Approximated, "written where a trigger refers to it, as defer Door, an OpenSysML extension of the notation")
 	wantNote(t, r, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
 
-	r = migrateDocumentOptions(t, ovenMachine, ovenApplications, migrate.Options{Strict: true})
-	noExtensionStatement(t, r.Notation)
-	wantLine(t, r.Notation, "not migrated: defer Door;")
-	wantNote(t, r, "_dDoor", migrate.Unmapped, "`defer <event>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_doorEv", migrate.Unmapped, "`defer <event>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_pick", migrate.Unmapped, "`choice <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
-	wantNote(t, r, "_trOff", migrate.Unmapped, "its transition is not written")
-	wantNote(t, r, "_gWorn", migrate.Unmapped, "the guard [cycles >= 3] is dropped with it")
+	// Strict output carries the deferral in standard notation: a buffer the do
+	// action's accept loop fills, which the exit action sends back to self.
+	strict := migrateDocumentOptions(t, ovenMachine, ovenApplications, migrate.Options{Strict: true})
+	wantNoLine(t, strict.Notation, "defer Door;")
+	for _, line := range []string{
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
+		"item deferred : Door[*] ordered;",
+		"do action buffer {",
+		"first start then receive;",
+		"action receive accept kept : Door;",
+		"then action keep { assign deferred := SequenceFunctions::including(deferred, receive.kept); }",
+		"then receive;",
+		"metadata MigrationMetadata::SynthesizedName about receive, keep;",
+		"exit action flush {",
+		"for kept in deferred { send kept to self; }",
+		"then action clear { assign deferred := (); }",
+		"metadata MigrationMetadata::SynthesizedName about deferred, buffer, flush;",
+	} {
+		wantLine(t, strict.Notation, line)
+	}
+	wantNote(t, strict, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush: the standard SysML v2 encoding of a deferred signal, which the state's @MigrationMetadata::DeferredEvent annotation records")
+	wantNote(t, strict, "_doorEv", migrate.Approximated, "deferred by 'Off' through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
+	wantNote(t, strict, "_dNoon", migrate.Unmapped, "only a signal event can be deferred, not a TimeEvent")
+	wantNote(t, strict, "_pick", migrate.Unmapped, "`choice <name>;` is an OpenSysML extension with no SysML v2 production, which a strict migration does not write")
+	wantNoLine(t, strict.Notation, "choice choice;")
+	noExtensionStatement(t, strict.Notation)
+	wantNote(t, strict, "_trOff", migrate.Unmapped, "its transition is not written")
+	wantNote(t, strict, "_gWorn", migrate.Unmapped, "the guard [cycles >= 3] is dropped with it")
 
 	r = migrateDocument(t, ovenMachine, ovenApplications)
 	s := session(t, r)
@@ -238,6 +260,1111 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Resting") {
 		t.Errorf("the deferred Door did not leave On once it was entered:\n%s", out)
 	}
+}
+
+// deferringMachine is a block whose state machine defers two signals in a state
+// that has a do and an exit behavior of its own, and there also defers the
+// signal its outgoing transition accepts; a state before it defers a signal
+// while leaving by a completion transition. The deferred signals are taken by
+// a substate of the composite state entered next and by that state itself.
+const deferringMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_beep" name="Beep"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_back" name="Back"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_backEv" signal="_back"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_beepEv" signal="_beep"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goDeferredEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_panel" name="Panel" classifierBehavior="_psm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ticks0" value="0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_exits" name="exits">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_exits0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_psm" name="Watch">
+        <region xmi:type="uml:Region" xmi:id="_pr0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_pinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_prep" name="Prep">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dPrepAlarm" event="_alarmEv"/>
+            <doActivity xmi:type="uml:OpaqueBehavior" xmi:id="_prepDo" name="reset">
+              <language>JavaScript</language>
+              <body>ticks = 0;</body>
+            </doActivity>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_wait" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dAlarm" event="_alarmEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dBeep" event="_beepEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dGo" event="_goDeferredEv"/>
+            <doActivity xmi:type="uml:OpaqueBehavior" xmi:id="_waitDo">
+              <language>JavaScript</language>
+              <body>ticks = ticks + 1;</body>
+            </doActivity>
+            <exit xmi:type="uml:OpaqueBehavior" xmi:id="_waitExit" name="leave">
+              <language>JavaScript</language>
+              <body>exits = exits + 1;</body>
+            </exit>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_work" name="Working">
+            <region xmi:type="uml:Region" xmi:id="_prw">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_winit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy"/>
+              <subvertex xmi:type="uml:State" xmi:id="_alarmed" name="Alarmed"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tw0" source="_winit" target="_busy"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tAlarm" source="_busy" target="_alarmed">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trAlarm" event="_alarmEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_done" name="Done"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tp0" source="_pinit" target="_prep"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tPrep" source="_prep" target="_wait"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_wait" target="_work">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tBeep" source="_work" target="_done">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trBeep" event="_beepEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tBack" source="_done" target="_wait">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trBack" event="_backEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+const deferringApplications = `
+  <sysml:Block xmi:id="_ps1" base_Class="_panel"/>`
+
+// Under -strict, deferred signals are kept by an accept loop per signal run
+// beside the state's own do behavior, and sent back to self after its own exit
+// behavior; a signal a transition out of the state accepts is not kept, and a
+// state a completion transition leaves keeps none. The result runs: signals
+// sent while Waiting are dispatched, in order, once it exits, and a later
+// visit to Waiting replays only what that visit kept.
+func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
+	r := migrateDocumentOptions(t, deferringMachine, deferringApplications, migrate.Options{Strict: true})
+	for _, stmt := range []string{"defer Alarm;", "defer Beep;", "defer Go;"} {
+		wantNoStatement(t, r.Notation, stmt)
+	}
+	for _, line := range []string{
+		"state Prep {",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"/* not migrated: defer Alarm; — the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped */",
+		"state Waiting {",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Beep; }",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Go; }",
+		"item deferredAlarm : Alarm[*] ordered;",
+		"item deferredBeep : Beep[*] ordered;",
+		"do action buffer {",
+		"first start then split;",
+		"fork split;",
+		"then run;",
+		"then receiveAlarm;",
+		"then receiveBeep;",
+		"action run {",
+		"assign context.ticks := context.ticks + 1;",
+		"action receiveAlarm accept keptAlarm : Alarm;",
+		"then action keepAlarm { assign deferredAlarm := SequenceFunctions::including(deferredAlarm, receiveAlarm.keptAlarm); }",
+		"then receiveAlarm;",
+		"action receiveBeep accept keptBeep : Beep;",
+		"then action keepBeep { assign deferredBeep := SequenceFunctions::including(deferredBeep, receiveBeep.keptBeep); }",
+		"then receiveBeep;",
+		"metadata MigrationMetadata::SynthesizedName about split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep;",
+		"exit action flush {",
+		"action leave {",
+		"assign context.exits := context.exits + 1;",
+		"then for keptAlarm in deferredAlarm { send keptAlarm to self; }",
+		"then action clearAlarm { assign deferredAlarm := (); }",
+		"then for keptBeep in deferredBeep { send keptBeep to self; }",
+		"then action clearBeep { assign deferredBeep := (); }",
+		"metadata MigrationMetadata::SynthesizedName about clearAlarm, clearBeep;",
+		"metadata MigrationMetadata::SynthesizedName about deferredAlarm, deferredBeep, buffer, flush;",
+		"transition first Waiting accept Go then Working;",
+		"transition first Busy accept Alarm then Alarmed;",
+		"transition first Working accept Beep then Done;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dGo", migrate.Approximated, "the transition (_tGo) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @MigrationMetadata::DeferredEvent annotation records the deferral")
+	wantNoLine(t, r.Notation, "item deferredGo : Go[*] ordered;")
+	wantNote(t, r, "_goDeferredEv", migrate.Approximated, "deferred by 'Waiting', which the state's @MigrationMetadata::DeferredEvent annotation records; the state does not keep the signal, the transition (_tGo) accepting it")
+	wantNote(t, r, "_dPrepAlarm", migrate.Unmapped, "the completion transition (_tPrep) leaves the state once its do action ends, which the accept loop that would keep Alarm never lets it, so the deferral is dropped")
+	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept in the item deferredAlarm by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dBeep", migrate.Approximated, "kept in the item deferredBeep by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dBeep", migrate.Approximated, "the order between occurrences of different signals is not kept; UML leaves the order of the event pool open")
+	wantNote(t, r, "_waitDo", migrate.Approximated, "the JavaScript body is written as v2 assignments")
+	wantNote(t, r, "_waitExit", migrate.Approximated, "the JavaScript body is written as v2 assignments")
+	for id, target := range map[string]string{"_waitDo": "Panel::Watch::Waiting::buffer::run", "_waitExit": "Panel::Watch::Waiting::flush::leave"} {
+		if es := entriesFor(r, id); len(es) != 1 || es[0].Target != target {
+			t.Errorf("%s is named where the generated action nests it: want %s, got %+v", id, target, es)
+		}
+	}
+	wantClean(t, "deferring", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Panel")
+	meta(t, s, "%state Panel::Watch")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Waiting"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") {
+		t.Fatalf("Prep's completion transition did not reach Waiting:\n%s", out)
+	}
+	meta(t, s, "%send Alarm")
+	meta(t, s, "%step")
+	meta(t, s, "%send Beep")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredAlarm = [Instance") || !strings.Contains(out, "Waiting.deferredBeep = [Instance") {
+		t.Errorf("the Alarm and Beep sent while Waiting were not kept there:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : ticks"); !strings.Contains(out, "= 1") {
+		t.Errorf("Waiting's own do behavior did not run beside the accept loops: %s", out)
+	}
+	if out := meta(t, s, "%send Go"); !strings.Contains(out, "transition Waiting -> Working fires on it") {
+		t.Errorf("%%send Go while Waiting: %s", out)
+	}
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Done"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Done") {
+		t.Errorf("the kept Alarm and Beep were not taken by Working once Waiting exited:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : exits"); !strings.Contains(out, "= 1") {
+		t.Errorf("Waiting's own exit behavior did not run before the flush: %s", out)
+	}
+	meta(t, s, "%send Back")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Waiting"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredAlarm = null") || !strings.Contains(out, "Waiting.deferredBeep = null") {
+		t.Errorf("Waiting's buffers were not emptied by its first exit:\n%s", out)
+	}
+	meta(t, s, "%send Go")
+	for i := 0; i < 6; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Busy") || strings.Contains(out, "Alarmed") {
+		t.Errorf("the Alarm and Beep of the first visit were replayed again by the second:\n%s", out)
+	}
+}
+
+// portDeferringMachine is a unit whose state machine defers, while Waiting, a
+// command that a connector delivers to its inbox port and a ping its trigger
+// takes at the side port only, and leaves Waiting on the command only once
+// armed; a console issues the command over the connector.
+const portDeferringMachine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_cmd" name="Cmd"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_arm" name="Arm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_cmdEv" signal="_cmd"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_armEv" signal="_arm"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_unit" name="Unit" classifierBehavior="_duty">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_inbox" name="inbox" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_side" name="side" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_armed" name="armed">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_armed0" value="false"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_got" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_got0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_duty" name="Duty">
+        <region xmi:type="uml:Region" xmi:id="_dr0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_dinit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_uwait" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dCmd" event="_cmdEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dPing" event="_pingEv" port="_side"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_uwork" name="Working">
+            <entry xmi:type="uml:OpaqueBehavior" xmi:id="_workEntry">
+              <language>JavaScript</language>
+              <body>got = got + 1;</body>
+            </entry>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_td0" source="_dinit" target="_uwait"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tArm" source="_uwait" target="_uwait">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trArm" event="_armEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_armEff">
+              <language>JavaScript</language>
+              <body>armed = true;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tArmed" source="_uwait" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv"/>
+            <guard xmi:type="uml:Constraint" xmi:id="_gArmed">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gArmedX"><body>armed</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAgain" source="_uwork" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAgain" event="_cmdEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPinged" source="_uwork" target="_uwork">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPinged" event="_pingEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_console" name="Console">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_out" name="out" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_issue" name="Issue">
+        <node xmi:type="uml:InitialNode" xmi:id="_isInit"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_isSend" name="send cmd" signal="_cmd" onPort="_out"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_isFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_isE1" source="_isInit" target="_isSend"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_isE2" source="_isSend" target="_isFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_site" name="Site">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_siteC" name="console" type="_console" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_siteU" name="unit" type="_unit" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_siteLink">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_siteLink1" role="_out" partWithPort="_siteC"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_siteLink2" role="_inbox" partWithPort="_siteU"/>
+      </ownedConnector>
+    </packagedElement>`
+
+const portDeferringApplications = `
+  <sysml:Block xmi:id="_pb1" base_Class="_unit"/>
+  <sysml:Block xmi:id="_pb2" base_Class="_console"/>
+  <sysml:Block xmi:id="_pb3" base_Class="_site"/>`
+
+// A port named only by a deferred trigger still makes the state def's context
+// necessary, even when no transition or activity uses it.
+func TestStrictDeferredPortRouteDeclaresAndBindsContext(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred" event="_eventEv" port="_p"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_initialTransition" source="_initial" target="_waiting"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
+	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in ref context : Receiver;",
+		"accept 'kept via p' : Event via context.p;",
+		"exhibit state life : Life { in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferredPortContext", r)
+}
+
+func TestClassifierBehaviorContextFollowsInputParameter(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_x" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred" event="_eventEv" port="_p"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_initialTransition" source="_initial" target="_waiting"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
+	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in x : ScalarValues::Integer;",
+		"in ref context : Receiver;",
+		"exhibit state life : Life { in x; in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "classifierBehaviorParameterContext", r)
+}
+
+func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
+	const members = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pingValue" name="value">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_contract" name="Contract">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_carriedPing" name="ping" type="_ping"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_interfaceOwner" name="IB">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_interfacePort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_interfaceReception" name="R" signal="_ping">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_receptionValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+      </ownedReception>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blockOwner" name="Owner">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_blockPort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_blockReception" name="R" signal="_ping"/>
+    </packagedElement>`
+	const applications = `
+    <sysml:InterfaceBlock xmi:id="_contractInterface" base_Class="_contract"/>
+    <sysml:FlowProperty xmi:id="_carriedPingFlow" base_Property="_carriedPing" direction="in"/>
+    <sysml:InterfaceBlock xmi:id="_interfaceBlock" base_Class="_interfaceOwner"/>
+    <sysml:Block xmi:id="_block" base_Class="_blockOwner"/>`
+	r := migrateDocumentOptions(t, members, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"action def R {",
+		"in ref context : IB;",
+		"action 'receive via p' accept 'ping via p' : Ping via context.p;",
+		"perform action r : R { in ref :>> context = this; }",
+		"perform action r {",
+		"action 'receive via p' accept 'ping via p' : Ping via p;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "in value;")
+	for _, d := range errorsMode(t, "interfaceBlockReception.sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
+}
+
+func TestStrictAcceptViaContextPortFixture(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_via_context_port", migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in ref context : Receiver;",
+		"in ref context : ActivityReceiver;",
+		"action receive accept Ping via context.p;",
+		"transition first Waiting accept Go via context.p then Done;",
+		"action 'receive via p' accept 'kept via p' : Ping via context.p;",
+		"action 'receive via p' accept 'ping via p' : Ping via p;",
+		"exhibit state life : Life { in ref :>> context = this; }",
+		"perform action await : Await { in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "acceptViaContextPortFixture", r)
+}
+
+// Under -strict, a deferred signal is kept by whichever route it reaches the
+// object: from the object itself and via each port a connector delivers it to,
+// or via the ports the deferrable trigger names alone. A transition out of the
+// state accepting the same signal under a guard does not stop the deferral:
+// the signal is kept while the guard is false and taken by the transition once
+// it holds. The result runs: a command sent over the connector while unarmed
+// is kept at the inbox port, and replayed once Waiting exits it takes the
+// transition that its guard now lets fire.
+func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
+	r := migrateDocumentOptions(t, portDeferringMachine, portDeferringApplications, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Cmd;")
+	wantNoLine(t, r.Notation, "defer Ping;")
+	for _, line := range []string{
+		"state Waiting {",
+		"item deferredCmd : Cmd[*] ordered;",
+		"item deferredPing : Ping[*] ordered;",
+		"do action buffer {",
+		"first start then split;",
+		"fork split;",
+		"then receiveCmd;",
+		"then 'receiveCmd via inbox';",
+		"then 'receivePing via side';",
+		"action receiveCmd accept keptCmd : Cmd;",
+		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
+		"then receiveCmd;",
+		"action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via context.inbox;",
+		"then action 'keepCmd via inbox' { assign deferredCmd := SequenceFunctions::including(deferredCmd, 'receiveCmd via inbox'.'keptCmd via inbox'); }",
+		"then 'receiveCmd via inbox';",
+		"action 'receivePing via side' accept 'keptPing via side' : Ping via context.side;",
+		"then action 'keepPing via side' { assign deferredPing := SequenceFunctions::including(deferredPing, 'receivePing via side'.'keptPing via side'); }",
+		"then 'receivePing via side';",
+		"exit action flush {",
+		"for keptCmd in deferredCmd { send keptCmd to self; }",
+		"then action clearCmd { assign deferredCmd := (); }",
+		"then for keptPing in deferredPing { send keptPing to self; }",
+		"then action clearPing { assign deferredPing := (); }",
+		"transition first Waiting accept Cmd if context.armed then Working;",
+		"transition first Waiting accept Cmd via context.inbox if context.armed then Working;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action receivePing accept keptPing : Ping;")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "kept in the item deferredCmd by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the signal arrives at the port inbox over the document's connectors or declarations")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the transition (_tArmed) out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds")
+	wantNote(t, r, "_dPing", migrate.Approximated, "the trigger accepts via the port side it names")
+	wantClean(t, "portDeferring", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Site")
+	meta(t, s, "%action Console::issue #1.console")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredCmd = [Instance") {
+		t.Fatalf("the Cmd sent over the connector while unarmed was not kept at the inbox:\n%s", out)
+	}
+	if out := meta(t, s, "%send Arm to #1.unit"); !strings.Contains(out, "transition Waiting -> Waiting fires on it") {
+		t.Errorf("%%send Arm while Waiting: %s", out)
+	}
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+		t.Errorf("the kept Cmd, replayed once armed, did not take the guarded transition:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 1") {
+		t.Errorf("Working was not entered once by the replayed Cmd: %s", out)
+	}
+}
+
+// Under -strict, a transition out of the state that accepts the signal via one
+// port alone takes the deferral from that route only: the state keeps the
+// signal by the routes the transition does not accept by. The result runs: a
+// Cmd sent to the unit itself while Waiting is kept, and replayed once the Cmd
+// at the inbox has taken the transition, where Working accepts it again.
+func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
+	machine := strings.Replace(portDeferringMachine,
+		`<trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv"/>
+            <guard xmi:type="uml:Constraint" xmi:id="_gArmed">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gArmedX"><body>armed</body></specification>
+            </guard>`,
+		`<trigger xmi:type="uml:Trigger" xmi:id="_trCmd" event="_cmdEv" port="_inbox"/>`, 1)
+	if machine == portDeferringMachine {
+		t.Fatal("the fixture's guarded transition was not found")
+	}
+	r := migrateDocumentOptions(t, machine, portDeferringApplications, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Cmd;")
+	for _, line := range []string{
+		"item deferredCmd : Cmd[*] ordered;",
+		"action receiveCmd accept keptCmd : Cmd;",
+		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
+		"for keptCmd in deferredCmd { send keptCmd to self; }",
+		"transition first Waiting accept Cmd via context.inbox then Working;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "action 'receiveCmd via inbox' accept 'keptCmd via inbox' : Cmd via inbox;")
+	wantNoLine(t, r.Notation, "transition first Waiting accept Cmd then Working;")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "kept in the item deferredCmd by the accept loop of the do action buffer while the state is active")
+	wantNote(t, r, "_dCmd", migrate.Approximated, "the transition (_tArmed) out of the state accepts the signal via inbox, which in v1 takes precedence over deferring it, so no loop keeps it there")
+	wantClean(t, "portDeferringSkipped", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Site")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	meta(t, s, "%send Cmd to #1.unit")
+	meta(t, s, "%advance 0")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Waiting") || !strings.Contains(out, "Waiting.deferredCmd = [Instance") {
+		t.Fatalf("the Cmd sent to the unit itself was not kept:\n%s", out)
+	}
+	meta(t, s, "%action Console::issue #1.console")
+	meta(t, s, "%continue")
+	meta(t, s, "%advance 0")
+	meta(t, s, "%state Unit::Duty #1.unit")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Working") || !strings.Contains(out, "Waiting.deferredCmd = null") {
+		t.Fatalf("the Cmd at the inbox did not take the transition and flush the kept one:\n%s", out)
+	}
+	if out := meta(t, s, "%eval in #1 : unit.got"); !strings.Contains(out, "= 2") {
+		t.Errorf("Working was not entered by the Cmd at the inbox and again by the replayed one: %s", out)
+	}
+}
+
+// Under -strict, a transition accepting the signal out of a substate does not
+// stop the composite state deferring it: v1 lets the transition win only while
+// that substate is active, so the composite keeps the signal the rest of the
+// time. The result runs: a Door sent while the substate with the transition is
+// active takes the transition alone, and one sent while the sibling without it
+// is active is kept, and replayed once the composite exits.
+func TestStrictDeferralSurvivesInactiveSubstateTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+            <region xmi:type="uml:Region" xmi:id="_rb">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_binit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_heat" name="Heating"/>
+              <subvertex xmi:type="uml:State" xmi:id="_cool" name="Cooling"/>
+              <subvertex xmi:type="uml:State" xmi:id="_open" name="Opened"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tb0" source="_binit" target="_heat"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_heat" target="_cool">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+              </transition>
+              <transition xmi:type="uml:Transition" xmi:id="_tDoor" source="_heat" target="_open">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trDoor" event="_doorEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"state Busy {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Heating accept Door then Opened;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the transition (_tDoor) out of a substate accepts the signal too, which in v1 takes precedence over deferring it only while that substate is active; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when it can fire and the loop otherwise")
+	wantClean(t, "deferralInactiveSubstate", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Door")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Opened"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Opened") || strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Fatalf("the Door sent while Heating did not take the transition alone:\n%s", out)
+	}
+
+	s = session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Go")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Cooling"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Cooling") {
+		t.Fatalf("Go did not reach Cooling:\n%s", out)
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Cooling") || !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Errorf("the Door sent while Cooling was not kept by Busy:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Busy exited:\n%s", out)
+	}
+}
+
+// Under -strict, a transition the migration refuses to write, its target
+// having no v2 form, does not take the signal from the deferral, nor does a
+// completion transition it refuses drop it: the state keeps the signal and
+// replays it once it exits.
+func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_pick" name="pick" kind="choice"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tPick" source="_off" target="_pick">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPick" event="_doorEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_pick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tFar" source="_off" target="_far">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trFar" event="_doorEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tPicked" source="_pick" target="_idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm2" name="Aside">
+        <region xmi:type="uml:Region" xmi:id="_r1">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init2"/>
+          <subvertex xmi:type="uml:State" xmi:id="_far" name="Far"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t2" source="_init2" target="_far"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	wantNoLine(t, r.Notation, "choice pick;")
+	wantNoLine(t, r.Notation, "accept Door then Far;")
+	wantNoLine(t, r.Notation, "/* not migrated: defer Door; — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
+	for _, line := range []string{
+		"state Off {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, r, "_tDone", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, r, "_tFar", migrate.Unmapped, "")
+	wantClean(t, "deferralTargetNoForm", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
+// Under -strict, a guarded completion transition out of a deferring state may
+// leave it active while the guard is false, so the state keeps the signal: the
+// accept loop stays, and the completion transition never fires. The result
+// runs: a Door sent while Off is active is kept, Off leaves by the triggered
+// transition only, and the Door is replayed then.
+func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ready" name="ready">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Boolean"/>
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_ready0" value="true"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_done" name="Done"/>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_done">
+            <guard xmi:type="uml:Constraint" xmi:id="_gReady">
+              <specification xmi:type="uml:OpaqueExpression" xmi:id="_gReadyX"><body>ready</body></specification>
+            </guard>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"state Off {",
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Off if context.ready then Done;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the guarded completion transition (_tDone) leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
+	wantClean(t, "deferralGuardedCompletion", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") {
+		t.Fatalf("Off did not stay active with the accept loop running, its guarded completion transition notwithstanding:\n%s", out)
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
+// Under -strict, an internal transition of a deferring state, written as a
+// self transition, exits and re-enters the state: the exit action sends the
+// kept occurrences to self, and the restarted accept loop keeps them again, so
+// they are replayed once the state truly exits.
+func TestStrictDeferralSurvivesInternalTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_tick" name="Tick"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_tickEv" signal="_tick"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ticks0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tTick" kind="internal" source="_off" target="_off">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trTick" event="_tickEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_tickFx">
+              <language>JavaScript</language>
+              <body>ticks = ticks + 1;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Off accept Tick",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the internal transition (_tTick) is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
+	wantNote(t, r, "_tTick", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Off")
+	wantClean(t, "deferralInternalTransition", r)
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Fatalf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Tick")
+	for i := 0; i < 8; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%eval in #1 : ticks"); !strings.Contains(out, "= 1") {
+		t.Fatalf("the internal transition did not run its effect:\n%s", out)
+	}
+	out := meta(t, s, "%current")
+	if !strings.Contains(out, "Current state: Off") {
+		t.Fatalf("the internal transition did not stay in Off:\n%s", out)
+	}
+	if !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door kept before the internal transition was not kept again after it:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
+// A transition out of the state on a general of the deferred signal takes its
+// occurrences as a v2 accept typed by the general does, so under -strict the
+// state does not keep the signal; a transition on a specialization takes only
+// the occurrences of that specialization, so the state keeps the general.
+func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
+	const signals = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gAlarm" general="_notif"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>`
+	const machine = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDeferred" event="_DEFERRED"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dStop" event="_stopEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tOut" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOut" event="_ACCEPTED"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const block = `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`
+
+	general := strings.NewReplacer("_DEFERRED", "_alarmEv", "_ACCEPTED", "_notifEv").Replace(machine)
+	r := migrateDocumentOptions(t, signals+general, block, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"item deferred : Stop[*] ordered;",
+		"action receive accept kept : Stop;",
+		"transition first Busy accept Notification then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "item deferredAlarm : Alarm[*] ordered;")
+	wantNote(t, r, "_dDeferred", migrate.Approximated, "the transition (_tOut) out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it")
+	wantClean(t, "deferralGeneralTaken", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send Alarm")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Current state: Idle"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Idle") {
+		t.Errorf("the Alarm did not take the transition on Notification:\n%s", out)
+	}
+
+	special := strings.NewReplacer("_DEFERRED", "_notifEv", "_ACCEPTED", "_alarmEv").Replace(machine)
+	r = migrateDocumentOptions(t, signals+special, block, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"item deferredNotification : Notification[*] ordered;",
+		"action receiveNotification accept keptNotification : Notification;",
+		"transition first Busy accept Alarm then Idle;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDeferred", migrate.Approximated, "the transition (_tOut) out of the state accepts a specialization of the signal, which in v1 takes precedence over deferring those occurrences")
+	wantClean(t, "deferralSpecialContested", r)
+}
+
+// A state deferring a signal and a general of it, or the same signal twice,
+// keeps each occurrence once: the general's accept loop takes every occurrence
+// of the specialization, so the specialization gets no loop of its own, and a
+// second trigger on one signal folds into the first. Through a chain of
+// generals the note names the deferral whose loop is written.
+func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gNotif" general="_event"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gAlarm" general="_notif"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv2" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dAlarm" event="_alarmEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif" event="_notifEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif2" event="_notifEv2"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dEvent" event="_eventEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_once" name="Once"/>
+          <subvertex xmi:type="uml:State" xmi:id="_twice" name="Twice"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tOnce" source="_idle" target="_once">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOnce" event="_notifEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tTwice" source="_once" target="_twice">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trTwice" event="_notifEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Notification; }",
+		"item deferred : Event[*] ordered;",
+		"action receive accept kept : Event;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "item deferredAlarm : Alarm[*] ordered;")
+	wantNoLine(t, r.Notation, "item deferredNotification : Notification[*] ordered;")
+	wantNoLine(t, r.Notation, "item deferredEvent : Event[*] ordered;")
+	wantNote(t, r, "_dEvent", migrate.Approximated, "kept in the item deferred by the accept loop")
+	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice")
+	wantNote(t, r, "_dNotif", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state")
+	wantNote(t, r, "_dNotif2", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state")
+	wantNote(t, r, "_alarmEv", migrate.Approximated, "deferred by 'Busy' through the deferral of Event")
+	wantClean(t, "deferralOverlap", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	meta(t, s, "%send Alarm")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Fatalf("the Alarm sent while Busy was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 8; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Once") {
+		t.Errorf("the kept Alarm was not replayed exactly once after Busy exited:\n%s", out)
+	}
+}
+
+// The members the strict encoding adds must not hide what it refers to from
+// where it is written: a deferred signal named like one of them, or the
+// library package a member of an enclosing scope is named after.
+func TestStrictDeferralNamesShadowNothingItRefersTo(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_recv" name="receive"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_recvEv" signal="_recv"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_sfAttr" name="SequenceFunctions" type="_stop"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dRecv" event="_recvEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"ref item SequenceFunctions : Stop;",
+		"item deferred : receive[*] ordered;",
+		"action receive2 accept kept : receive;",
+		"then action keep { assign deferred := $::SequenceFunctions::including(deferred, receive2.kept); }",
+		"then receive2;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferralShadowing", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	meta(t, s, "%send receive")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Errorf("the receive signal was not kept:\n%s", out)
+	}
+}
+
+// Under -strict, a deferring state whose do behavior cannot run as an action
+// (here a StateMachine) gets the accept loop alone: the generated do action
+// forks into the behavior only when the behavior is written.
+func TestStrictDeferralWithoutRunnableDoBehavior(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:StateMachine" xmi:id="_aux" name="Aux">
+      <region xmi:type="uml:Region" xmi:id="_ar0">
+        <subvertex xmi:type="uml:State" xmi:id="_aidle" name="AuxIdle"/>
+      </region>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off" doActivity="_aux">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="On"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t1" source="_off" target="_on">
+            <trigger xmi:type="uml:Trigger" xmi:id="_tr1" event="_goEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	wantNoLine(t, r.Notation, "fork split;")
+	wantNoLine(t, r.Notation, "then run;")
+	for _, line := range []string{
+		"state Off {",
+		"do action buffer {",
+		"first start then receive;",
+		"/* do action Aux is written as a state def, which no state runs */",
+		"action receive accept kept : Door;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "deferralWithoutDo", r)
 }
 
 // pipelineActivity is a package-owned activity taking a parameter, which it
@@ -422,11 +1549,11 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	for _, line := range []string{
 		"action handshake {",
 		"/* duration constraint on request not migrated — the duration constraint has no interval */",
-		"action request send new Request(n = 7) to this.b;",
+		"action request send new Request(n = 7) to b;",
 		"first start then request;",
 		"action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];",
 		"first request then wait;",
-		"action reply send new Reply() to this.a;",
+		"action reply send new Reply() to a;",
 		"first wait then reply;",
 		"first reply then done;",
 	} {
@@ -436,8 +1563,8 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 		t.Errorf("an interaction carrying a call was written as a scenario:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
-	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to this.b")
-	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for this.a, which the steps address")
+	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to b")
+	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for a, which the steps address")
 	wantNote(t, r, "_hsDur", migrate.Approximated, "the time from request, written as the wait wait before reply")
 	wantNote(t, r, "_hsDur2", migrate.Unmapped, "the duration constraint has no interval")
 	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
@@ -526,7 +1653,7 @@ const timedApplications = `
 func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 	r := migrateDocument(t, timedInteraction, timedApplications)
 	for _, line := range []string{
-		"action request send new Request() to this.b;",
+		"action request send new Request() to b;",
 		"first start then request;",
 		"fork timing;",
 		"first request then timing;",
@@ -534,12 +1661,12 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 		"first timing then wait;",
 		"action wait2 accept after 4.0 [SI::s];",
 		"first timing then wait2;",
-		"action probe send new Probe() to this.b;",
+		"action probe send new Probe() to b;",
 		"first wait2 then probe;",
 		"join waitEnd;",
 		"first probe then waitEnd;",
 		"first wait then waitEnd;",
-		"action reply send new Reply() to this.a;",
+		"action reply send new Reply() to a;",
 		"first waitEnd then reply;",
 		"first reply then done;",
 		"/* duration constraint on reply not migrated — the time it measures from request to reply is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other */",
@@ -751,22 +1878,22 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	for _, line := range []string{
 		"perform action outer ::> motor.spin { in rpm = 30.0; }",
 		"perform action inner ::> motor.spin { in rpm = 40.0; }",
-		"assign this.ctrl.got := inner.result;",
-		"assign this.ctrl.'first' := outer.result;",
+		"assign ctrl.got := inner.result;",
+		"assign ctrl.'first' := outer.result;",
 		"action either {",
-		"if this.mode == 1 {",
-		"assign this.ctrl.got := spin.result;",
+		"if mode == 1 {",
+		"assign ctrl.got := spin.result;",
 		"else {",
-		"assign this.ctrl.'first' := spin.result;",
+		"assign ctrl.'first' := spin.result;",
 		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
 		"/* not migrated: Interaction 'Crossed' — the combined fragment (_xpar) the message 'beside' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to this.ctrl")
-	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to this.ctrl")
-	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
-	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
+	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to ctrl")
+	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to ctrl")
+	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
+	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
 	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
 	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
 	wantNote(t, r, "_crossed", migrate.Unmapped, "the message 'beside' answers no call of Spin between its lifelines before it")
@@ -917,7 +2044,7 @@ const inoutApplications = `
 // value the callee gives the parameter is written back to what the argument named.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = this.level; }")
+	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = Bench::level; }")
 	wantNoLine(t, r.Notation, "{ in level = this.level; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)

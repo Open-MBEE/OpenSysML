@@ -59,6 +59,20 @@ func (s *Scope) Parent() *Scope { return s.parent }
 // Owner returns the symbol that owns this scope, or nil if not set.
 func (s *Scope) Owner() *Symbol { return s.owner }
 
+// OwningElement is the element that owns the members of s: the member of the
+// parent scope declaring s's node, or the owner symbol when no member does.
+func (s *Scope) OwningElement() *Symbol {
+	if s == nil {
+		return nil
+	}
+	if s.Parent() != nil && s.Node() != nil {
+		if m := s.Parent().MemberDeclaring(s.Node()); m != nil {
+			return m
+		}
+	}
+	return s.Owner()
+}
+
 // SetOwner sets the symbol that owns this scope (for inheritance lookup).
 func (s *Scope) SetOwner(sym *Symbol) { s.owner = sym }
 

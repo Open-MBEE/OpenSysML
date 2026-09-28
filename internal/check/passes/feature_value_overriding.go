@@ -60,7 +60,7 @@ func valuePartSpan(op source.Span, value ast.Node) source.Span {
 // (KerML 1.0 §8.3.4.10.2 FeatureValue, validateFeatureValueOverriding).
 func (cc *constraintChecker) checkFeatureValueOverriding(sym *symbols.Symbol) {
 	value, ok := featureValueOf(sym)
-	if !ok {
+	if !ok || inAnnotationBody(sym) {
 		return
 	}
 	for _, redefined := range cc.model.AllRedefinedFeatures(sym) {
@@ -98,4 +98,23 @@ func (cc *constraintChecker) featureName(sym *symbols.Symbol) string {
 		}
 	}
 	return sym.Name
+}
+
+// inAnnotationBody reports whether sym is declared in the body of a prefix
+// metadata annotation, at any depth. Such a declaration restates a metaclass
+// feature to bind the value the annotation carries — the body's own mechanism,
+// not an override of the feature's declared value.
+func inAnnotationBody(sym *symbols.Symbol) bool {
+	for scope := sym.OwnerScope; scope != nil; {
+		if scope.BodyLocal() {
+			_, isAnnotation := scope.Node().(*ast.PrefixMetadata)
+			return isAnnotation
+		}
+		owner := scope.Owner()
+		if owner == nil || !owner.DeclaresUsage() {
+			return false
+		}
+		scope = owner.OwnerScope
+	}
+	return false
 }

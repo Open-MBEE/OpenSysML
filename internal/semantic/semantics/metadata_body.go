@@ -43,24 +43,25 @@ func (m *Model) MetadataBodyViolationsOf(def *symbols.Symbol, scope *symbols.Sco
 // MetadataBodyInevaluableValues returns the values written in the body of the
 // annotation that are not model-level evaluable, at any nesting depth. A
 // metadata feature is a model-level element, so its value must be one the model
-// alone decides (KerML 7.4.7, Expression::isModelLevelEvaluable), except one the
-// run reads by design (RunDecidedMetadataFeature).
-func (m *Model) MetadataBodyInevaluableValues(scope *symbols.Scope, prefix *ast.PrefixMetadata) []ast.Node {
+// alone decides (KerML 7.4.7, Expression::isModelLevelEvaluable); runDecided
+// admits features whose values a run reads by design.
+func (m *Model) MetadataBodyInevaluableValues(scope *symbols.Scope, prefix *ast.PrefixMetadata, runDecided bool) []ast.Node {
 	if m == nil || prefix == nil || len(prefix.Body) == 0 {
 		return nil
 	}
-	return m.MetadataBodyInevaluableValuesOf(m.resolveMetadataType(scope, prefix.Type), valueScope(scope, prefix), prefix.Body)
+	return m.MetadataBodyInevaluableValuesOf(m.resolveMetadataType(scope, prefix.Type), valueScope(scope, prefix), prefix.Body, runDecided)
 }
 
 // MetadataBodyInevaluableValuesOf is MetadataBodyInevaluableValues for a body whose
 // declarations are registered in scope, such as that of `metadata m : A { … }`;
-// def is the metadata type, nil when it does not resolve.
-func (m *Model) MetadataBodyInevaluableValuesOf(def *symbols.Symbol, scope *symbols.Scope, body []ast.Node) []ast.Node {
+// def is the metadata type, nil when it does not resolve; runDecided controls
+// whether the run-decided feature exemption applies.
+func (m *Model) MetadataBodyInevaluableValuesOf(def *symbols.Symbol, scope *symbols.Scope, body []ast.Node, runDecided bool) []ast.Node {
 	if m == nil || len(body) == 0 {
 		return nil
 	}
 	var out []ast.Node
-	m.collectInevaluableValues(def, scope, body, &out)
+	m.collectInevaluableValues(def, scope, body, runDecided, &out)
 	return out
 }
 
@@ -79,17 +80,17 @@ func valueScope(scope *symbols.Scope, node ast.Node) *symbols.Scope {
 // collectInevaluableValues walks a metadata annotation body, collecting the
 // values of its declarations that the model cannot evaluate; owner is the type
 // whose features the level restates, nil when unknown.
-func (m *Model) collectInevaluableValues(owner *symbols.Symbol, scope *symbols.Scope, body []ast.Node, out *[]ast.Node) {
+func (m *Model) collectInevaluableValues(owner *symbols.Symbol, scope *symbols.Scope, body []ast.Node, runDecided bool, out *[]ast.Node) {
 	for _, node := range body {
 		usage := metadataBodyFeature(node)
 		if usage == nil {
 			continue
 		}
 		target := m.metadataBodyTargetOf(owner, scope, usage)
-		if usage.Value != nil && !RunDecidedMetadataFeature(owner, target) && !m.ModelLevelEvaluable(scope, usage.Value) {
+		if usage.Value != nil && !(runDecided && RunDecidedMetadataFeature(owner, target)) && !m.ModelLevelEvaluable(scope, usage.Value) {
 			*out = append(*out, usage.Value)
 		}
-		m.collectInevaluableValues(target, valueScope(scope, usage), usage.Members, out)
+		m.collectInevaluableValues(target, valueScope(scope, usage), usage.Members, runDecided, out)
 	}
 }
 

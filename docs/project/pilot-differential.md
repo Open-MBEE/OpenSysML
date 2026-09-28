@@ -87,6 +87,25 @@ It was the first of the two bridges, and since F6 the SysML side works the same 
 resource set per root, diagnostics printed relative to the corpus root, no ordering to emulate
 and no basename batching.
 
+The SysML bridge also reads `.kerml` files — named on the command line or found by walking a
+directory — into the same resource set, and validates each file with its own language's
+validator, looked up from the resource's URI: a `.kerml` file gets the pilot's
+`KerMLResourceValidator`, exactly as `validate-kerml` gives it (over `kerml-examples` the two
+bridges print identical diagnostics). That is what a model checked together with the OpenSysML
+libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
+KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
+as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
+behavior or a behavioral feature`. Pass the whole library directory:
+
+```bash
+build/pilot-sysml-validator/validate-sysml-batch model.sysml \
+    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+```
+
+This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
+`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
+source digest in its provenance moved.
+
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
 repeated runs are byte-identical.
@@ -2922,6 +2941,18 @@ unchanged at 366 files, 338 fully agreeing, 43 agreed, 20 only ours, 302 only th
 the Xpect baseline is left alone; a sweep of `examples/`, `testdata/` and the bundled library
 with both binaries produces identical diagnostics. The 8 only-ours rejection cases are the
 control-node successions the pilot leaves as `TODO`s; the three new cases are both-reject.
+
+### Nested-redefinition chain evaluation
+
+A chain redefinition written as a member of a type or usage — `attribute :>> mid.leaf.value = 99.0;`
+— is spec semantics, not an extension: the chain parses to a feature hosting the chain
+(`semantics/nested_redefinition.go` `NestedRedefinitionsOf`,
+`runtime/nested_redefinition.go`), and the host is redefinable, so the redefinition applies
+below every composite feature the chain walks, exactly as the nested-body form does. The pinned
+pilot accepts the notation but reads the original value — a pilot-evaluator gap, not a
+divergence to report — so the pass reports nothing for a plain chain, and only a chain crossing
+a `ref`, port or subject is an error (`redefinition-through-reference`). The differential
+baseline did not move.
 
 ## Current branch movement and adjudications
 

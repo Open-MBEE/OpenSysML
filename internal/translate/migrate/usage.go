@@ -78,11 +78,13 @@ func (m *migration) usageCandidate(b *sysmlv1.Element) bool {
 	}
 	switch b.Type {
 	case "Activity", "OpaqueBehavior", "FunctionBehavior", "Interaction":
-		if m.methodOf[b] != nil || m.contextOf(b) != nil {
+		// A context through ports excludes a usage; the owner's own does not:
+		// the usage's this is the object the context parameter would bind.
+		if m.methodOf[b] != nil || contextThroughPorts(m.contextOf(b)) {
 			return false
 		}
 	case "Operation":
-		if method := m.bodyMethod(b); method != nil && m.contextOf(method) != nil {
+		if method := m.bodyMethod(b); method != nil && contextThroughPorts(m.contextOf(method)) {
 			return false
 		}
 	default:
@@ -224,6 +226,9 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 // probabilityProperty is the property the «Probability» on the edge e of body
 // names, as probability resolves it; nil when it carries none or a number.
 func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Element {
+	if m.strict {
+		return nil
+	}
 	s := probability(e)
 	if s == nil {
 		return nil

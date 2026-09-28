@@ -678,9 +678,15 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	activation := ctx.newActivation()
 	defer ctx.endActivation(activation)
 
+	// A definition's `this` denotes the occurrence the invocation itself is,
+	// which the first read of it materializes seeded with the parameters bound
+	// so far; the invocation's end ends it. The box is on the locals frame, so a
+	// qualified write through it lands on the same instance the host mirrors to.
+	occurrence := &calcOccurrence{}
 	frame.slots.reset(shape.ParamNames)
 	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
+	locals.write = calcFeatureWriter(ctx, shape, occurrence)
 	ec := &frame.ec
 	*ec = EvalContext{
 		ctx:        ctx,
@@ -691,11 +697,40 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		activation: activation,
 	}
 
+	if isBehaviorDefKind(shape.Sym.Kind) {
+		occurrence.materialize = func() (*Instance, error) {
+			if occurrence.inst != nil {
+				return occurrence.inst, nil
+			}
+			inst, err := ctx.materialize(shape.Sym, 0, nil, "")
+			if err != nil {
+				return nil, err
+			}
+			for _, name := range shape.ParamNames {
+				if value, held := locals.lookup(name); held {
+					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
+						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+							ErrActionPerformanceOccurrence, name, inst.ID, err)
+					}
+				}
+			}
+			ctx.beginPerformanceLife(inst, activation)
+			occurrence.inst = inst
+			return inst, nil
+		}
+		defer func() {
+			if occurrence.inst != nil {
+				ctx.endPerformanceLife(occurrence.inst)
+			}
+		}()
+		ec.thisOccurrence = occurrence.materializeOccurrence
+	}
+
 	if ec.trace != nil {
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
 
-	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(shape, ec, args, callerScope, locals, nil, occurrence); err != nil {
 		if ec.trace != nil {
 			ec.trace.RecordCalculationExitError(shape.Kind, shape.Name, err)
 		}
@@ -712,7 +747,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 			result, err = shape.toolCalcResult(outputs)
 		}
 	} else {
-		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing)
+		result, err = ctx.runCalcBody(shape, frame, callerScope, self, activation, enclosing, occurrence)
 	}
 	if ec.trace != nil {
 		if err != nil {
@@ -766,6 +801,7 @@ func (ctx *Context) bindCalcParameters(
 	callerScope *symbols.Scope,
 	bindings frame,
 	nested *EvalContext,
+	occurrence *calcOccurrence,
 ) error {
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -790,6 +826,14 @@ func (ctx *Context) bindCalcParameters(
 			return err
 		}
 		bindings.bindParam(i, param.Name, value)
+		if occurrence != nil && occurrence.inst != nil {
+			// A parameter default read `this` earlier, so the occurrence exists
+			// and needs this binding like a run's later defaults do.
+			if err := occurrence.inst.SetFeatureValue(ctx, param.Name, value); err != nil {
+				return fmt.Errorf("%w: bind %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, param.Name, occurrence.inst.ID, err)
+			}
+		}
 		if ec.trace != nil {
 			ec.trace.RecordCalcBind(param.Name, value, source)
 		}
@@ -802,8 +846,8 @@ func (ctx *Context) bindCalcParameters(
 // the invocation yields: what the body returned, or, for a body that returns
 // nothing, the calc's designated output feature, evaluated in the invocation's
 // activation, which the caller ends after it.
-func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame) (Value, error) {
-	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self}
+func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
+	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing)}
 	frame.engine = stmtEngine{ctx: ctx, host: &frame.host, env: &frame.env, activation: activation, frameBuf: frame.engine.frameBuf}
 	frame.host.attachPerformances(&frame.engine)
@@ -822,7 +866,7 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 	// naming itself is a cycle rather than an evaluation, so it is evaluated
 	// through the same run bookkeeping a calc usage's outputs use.
 	run := newCalcRun(shape, callerScope, self, frame.locals())
-	run.activation, run.perf = activation, frame.host.performance()
+	run.activation, run.perf, run.occurrence = activation, frame.host.performance(), occurrence
 	if len(enclosing) > 0 {
 		run.outer = &EvalContext{ctx: ctx, scope: callerScope, self: self, frames: enclosing, trace: ctx.trace, activation: activation}
 	}
@@ -1214,7 +1258,7 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 		trace:      ctx.trace,
 		activation: activation,
 	}
-	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil); err != nil {
+	if err := ctx.bindCalcParameters(sig, ec, args, callerScope, locals, nil, nil); err != nil {
 		return Value{}, err
 	}
 

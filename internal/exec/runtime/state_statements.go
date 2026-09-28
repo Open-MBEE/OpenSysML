@@ -81,7 +81,7 @@ func (e *StateExecutor) endedBefore(ended []ast.Node, behavior lower.StateBehavi
 func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firing) *stateStmtHost {
 	host := &stateStmtHost{exec: e, behavior: behavior, attrs: e.attrFramesFor(behavior.Owner), firing: firing}
 	host.flow = &ActionExecutor{
-		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine},
+		performances:     performances{ctx: e.ctx, self: e.self, root: host.rootFrame(host.attrs), owner: host, behavior: e.stateMachine, occurrence: e.occurrence, thisOccurrence: e.materializeOccurrence},
 		action:           behaviorSymbol(behavior),
 		state:            StateRunning,
 		nextTokenID:      1,
@@ -92,6 +92,7 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firin
 	host.flow.driven.exec = host.flow
 	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
+	host.perfs.root.perfs = host.perfs
 	return host
 }
 
@@ -116,9 +117,12 @@ func (e *StateExecutor) firingOf(t *lower.Transition) *firing {
 	return f
 }
 
-// dataFrame is the machine's data as the behavior reads it, within its firing.
+// dataFrame is the machine's data as the behavior reads it, within its firing. The
+// frame runs the machine, so a member of the machine's behavior read by a qualified
+// name — `Track::context` inside a behavior of a state of Track's — finds its value
+// here.
 func (h *stateStmtHost) dataFrame() frame {
-	return frame{vars: h.exec.stateData, firing: h.firing}
+	return frame{vars: h.exec.stateData, performed: h.exec.stateMachine, firing: h.firing}
 }
 
 // run executes the behavior's statements; a do behavior's pause where they wait
@@ -353,6 +357,12 @@ func (h *stateStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value
 	return assignThroughChain(ec, h.describe(), s, value)
 }
 
+// assignForeign writes a qualified target naming a feature outside the body's
+// own run: an enclosing run's frame, else the performing object the qualifier types.
+func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
+}
+
 // assignStateAttribute writes an attribute owned by the state running this
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.
@@ -371,6 +381,17 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 // performer is the object exhibiting the machine this behavior belongs to.
 func (h *stateStmtHost) performer() *Instance {
 	return h.exec.self
+}
+
+// occurrence is the state performance this machine runs as: `this` in a body
+// statement denotes it.
+func (h *stateStmtHost) occurrence() *Instance {
+	return h.exec.occurrence
+}
+
+// materializeOccurrence defers to the executor's.
+func (h *stateStmtHost) materializeOccurrence() (*Instance, error) {
+	return h.exec.materializeOccurrence()
 }
 
 // acceptReturn rejects a `return`: a state behavior computes no result.
