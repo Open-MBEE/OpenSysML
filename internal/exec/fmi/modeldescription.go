@@ -73,8 +73,10 @@ type Variable struct {
 	Unit              string // unit attribute, or the declaredType's unit when the variable has none
 	DeclaredType      string
 	Min, Max          string
-	// Array reports the variable carries Dimension children: an FMI 3.0 array.
-	Array bool
+	// Dimensions are the variable's array dimensions in document order; empty
+	// for a scalar. A Dimension with HasStart is fixed; HasVR names the
+	// valueReference of a structural parameter.
+	Dimensions []Dimension
 }
 
 // BaseUnit is the SI base-unit exponents of a Unit and the factor and offset
@@ -320,7 +322,8 @@ type wireTypedVariable struct {
 	Min            string  `xml:"min,attr"`
 	Max            string  `xml:"max,attr"`
 	Dimensions     []struct {
-		Start string `xml:"start,attr"`
+		Start          *string `xml:"start,attr"`
+		ValueReference *int64  `xml:"valueReference,attr"`
 	} `xml:"Dimension"`
 }
 

@@ -72,6 +72,7 @@ func engineFor(t *testing.T) *engine {
 const driver = `package Drive {
 	private import AnalysisTooling::*;
 	private import ScalarValues::*;
+	private import ISQ::*;
 
 	calc def BB {
 		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
@@ -80,8 +81,8 @@ const driver = `package Drive {
 		in startTime : Real = 0.0 { @ToolVariable { name = "fmi:startTime"; } }
 		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
 		in stepSize : Real = 0.01 { @ToolVariable { name = "fmi:stepSize"; } }
-		return h : Real { @ToolVariable { name = "h"; } }
-		out v : Real { @ToolVariable { name = "v"; } }
+		return h : LengthValue { @ToolVariable { name = "h"; } }
+		out v : SpeedValue { @ToolVariable { name = "v"; } }
 	}
 
 	calc bb : BB { }
@@ -167,8 +168,8 @@ func TestEngineRunDrivesTheRunner(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InvokeCalc: %v", err)
 	}
-	if got := runtime.FormatValue(result); got != "0.0123" {
-		t.Fatalf("result = %s, want 0.0123", got)
+	if got := runtime.FormatValue(result); got != "0.0123 [SI::m]" {
+		t.Fatalf("result = %s, want 0.0123 [SI::m]", got)
 	}
 	request, err := os.ReadFile(filepath.Join(os.TempDir(), "fmirunner-request.json"))
 	if err != nil {
@@ -383,4 +384,143 @@ func TestTimeout(t *testing.T) {
 	if !errors.As(err, &fault) || fault.Kind != runtime.ToolTimeout {
 		t.Fatalf("InvokeCalc = %v, want a ToolError of kind timeout", err)
 	}
+}
+
+// unitsFMU describes one measured input and output in metres, and one unitless
+// input.
+const unitsFMU = `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="Units" guid="{units}">
+  <CoSimulation modelIdentifier="Units"/>
+  <UnitDefinitions>
+    <Unit name="m"><BaseUnit m="1"/></Unit>
+  </UnitDefinitions>
+  <ModelVariables>
+    <ScalarVariable name="dist" valueReference="1" causality="input"><Real start="0.0" unit="m"/></ScalarVariable>
+    <ScalarVariable name="h" valueReference="2" causality="output"><Real unit="m"/></ScalarVariable>
+    <ScalarVariable name="e" valueReference="3" causality="input"><Real start="0.5"/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>`
+
+// unitsDriver is the model the conversion tests use: %s where the FMU's file
+// URI belongs and %s for the input's declaration line.
+const unitsDriver = `package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+
+	calc def Conv {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		%s
+		return h : LengthValue { @ToolVariable { name = "h"; } }
+	}
+
+	calc conv : Conv { }
+}`
+
+// TestEngineConvertsMeasuredInputs: an input sent in kilometres reaches the FMU
+// in metres, and the reply in metres binds to the ISQ-typed parameter.
+func TestEngineConvertsMeasuredInputs(t *testing.T) {
+	fmu := writeFMU(t, "units.fmu", unitsFMU, "x86_64-linux")
+	uri := fileURI(fmu)
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 1.0, "outputs": {"h": 2.0}}`)
+	p := parseProbe(t, fmt.Sprintf(unitsDriver, uri,
+		`in dist : LengthValue = 5.0 [km] { @ToolVariable { name = "dist"; } }`))
+	result, err := invokeCalcNamed(t, p, "Conv", engineFor(t))
+	if err != nil {
+		t.Fatalf("InvokeCalc: %v", err)
+	}
+	if got := runtime.FormatValue(result); got != "2.0 [SI::m]" {
+		t.Fatalf("result = %s, want 2.0 [SI::m]", got)
+	}
+	request, err := os.ReadFile(filepath.Join(os.TempDir(), "fmirunner-request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf(`{"protocol":1,"fmu":%q,"interface":"coSimulation","experiment":{"startTime":0,"stopTime":1},"start":{"dist":5000},"outputs":["h"]}`, fmu)
+	if strings.TrimSpace(string(request)) != want {
+		t.Fatalf("request =\n%s\nwant\n%s", request, want)
+	}
+}
+
+// TestEngineRefusesMeasuredInputs: a measured input fails before the runner
+// starts when the variable resolves no coherent unit, or its own dimension
+// does not match the value's.
+func TestEngineRefusesMeasuredInputs(t *testing.T) {
+	fmu := writeFMU(t, "units.fmu", unitsFMU, "x86_64-linux")
+	uri := fileURI(fmu)
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 1.0, "outputs": {"h": 2.0}}`)
+	for name, decl := range map[string]string{
+		"dimension mismatch": `in dist : MassValue = 5.0 [kg] { @ToolVariable { name = "dist"; } }`,
+		"unitless variable":  `in e : LengthValue = 0.5 [m] { @ToolVariable { name = "e"; } }`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := parseProbe(t, fmt.Sprintf(unitsDriver, uri, decl))
+			_, err := invokeCalcNamed(t, p, "Conv", engineFor(t))
+			var fault *runtime.ToolError
+			if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
+				t.Fatalf("InvokeCalc = %v, want a ToolError of kind unsent input", err)
+			}
+		})
+	}
+}
+
+// TestEngineRunsArrays: a one-dimensional array input is sent as a JSON list in
+// the variable's unit, and an array reply binds item by item.
+func TestEngineRunsArrays(t *testing.T) {
+	fmu := writeFMU(t, "arrays.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="3.0" modelName="Arrays" instantiationToken="{arrays}">
+  <CoSimulation modelIdentifier="Arrays"/>
+  <UnitDefinitions>
+    <Unit name="m"><BaseUnit m="1"/></Unit>
+  </UnitDefinitions>
+  <ModelVariables>
+    <Float64 name="u" valueReference="1" causality="input" unit="m" start="1 2"><Dimension start="2"/></Float64>
+    <Float64 name="y" valueReference="2" causality="output" unit="m"><Dimension start="2"/></Float64>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	uri := fileURI(fmu)
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 1.0, "outputs": {"y": [3.0, 4.0]}}`)
+	p := parseProbe(t, fmt.Sprintf(`package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+	private import ISQ::*;
+	private import SI::*;
+
+	calc def A {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in u : Real[2] = (1.0, 2.0) { @ToolVariable { name = "u"; } }
+		return y : Real[2] { @ToolVariable { name = "y"; } }
+	}
+
+	calc a : A { }
+}`, uri))
+	result, err := invokeCalcNamed(t, p, "A", engineFor(t))
+	if err != nil {
+		t.Fatalf("InvokeCalc: %v", err)
+	}
+	if got := runtime.FormatValue(result); got != "[3.0, 4.0]" {
+		t.Fatalf("result = %s, want [3.0, 4.0]", got)
+	}
+	request, err := os.ReadFile(filepath.Join(os.TempDir(), "fmirunner-request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf(`{"protocol":1,"fmu":%q,"interface":"coSimulation","experiment":{"startTime":0,"stopTime":1},"start":{"u":[1,2]},"outputs":["y"]}`, fmu)
+	if strings.TrimSpace(string(request)) != want {
+		t.Fatalf("request =\n%s\nwant\n%s", request, want)
+	}
+}
+
+// invokeCalcNamed runs the named calc def of p's model under a registry holding e.
+func invokeCalcNamed(t *testing.T, p *probe, name string, e analysis.Engine) (runtime.Value, error) {
+	t.Helper()
+	sym, ok := p.pkg.LookupLocal(name)
+	if !ok {
+		t.Fatalf("%s not indexed", name)
+	}
+	return p.context(registryWith(t, e)).InvokeCalc(sym, nil, p.pkg)
 }

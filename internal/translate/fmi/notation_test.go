@@ -137,7 +137,8 @@ func TestSkipsDocumented(t *testing.T) {
 		ModelName:  "Mixed",
 		Variables: []execfmi.Variable{
 			{Name: "n", Causality: execfmi.CausalityStructuralParameter, Kind: execfmi.KindInteger},
-			{Name: "grid", Causality: execfmi.CausalityOutput, Kind: execfmi.KindReal, Array: true},
+			{Name: "grid", Causality: execfmi.CausalityOutput, Kind: execfmi.KindReal,
+				Dimensions: []execfmi.Dimension{{HasVR: true, ValueReference: 5}}},
 			{Name: "tick", Causality: execfmi.CausalityInput, Kind: execfmi.KindClock},
 			{Name: "blob", Causality: execfmi.CausalityLocal, Kind: execfmi.KindBinary},
 			{Name: "y", Causality: execfmi.CausalityOutput, Kind: execfmi.KindReal},
@@ -150,7 +151,7 @@ func TestSkipsDocumented(t *testing.T) {
 	text := string(out)
 	for _, want := range []string{
 		"// structural parameter n not imported",
-		"// array grid not imported",
+		"// array grid with a structural dimension not imported",
 		"// tick Clock not imported",
 		"return y : Real",
 	} {

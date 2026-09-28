@@ -39,38 +39,32 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 	names := newNamer()
 	calcName := names.take(d.ModelName)
 
-	var b strings.Builder
-	iface := "model exchange"
-	switch {
-	case d.CoSimulation != nil:
-		iface = "co-simulation"
-	case d.ScheduledExecution != nil:
-		iface = "scheduled execution"
-	}
-	identifier := ""
-	if i := firstInterface(d); i != nil {
-		identifier = ", model identifier " + i.ModelIdentifier
-	}
-	fmt.Fprintf(&b, "// Imported from %s (FMI %s, %s%s)\n", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)
-	fmt.Fprintf(&b, "package %s {\n", pkg)
-	b.WriteString("\tprivate import ScalarValues::*;\n\tprivate import AnalysisTooling::*;\n\n")
-	fmt.Fprintf(&b, "\tcalc def %s {\n", calcName)
-	if d.Description != "" {
-		fmt.Fprintf(&b, "\t\tdoc /* %s */\n", docText(d.Description))
-	}
-	fmt.Fprintf(&b, "\t\tmetadata ToolExecution {\n\t\t\ttoolName = \"fmi\";\n\t\t\turi = %s;\n\t\t}\n", strconv.Quote(opts.URI))
-
-	// The experiment parameters take their identifiers first so a model
-	// variable of the same name is suffixed, not them.
-	for _, name := range experimentNames(d) {
-		names.taken[name] = 1
-	}
 	// The variables keep document order, skipped ones as comment items in the
-	// section their causality would have put them in.
+	// section their causality would have put them in; they are scanned before
+	// the package header so the imports the quantity types need are written
+	// only when used.
 	var inputs, outputs []item
+	var useISQ, useSI, useQuantities bool
 	for _, v := range d.Variables {
 		skip, reason := importable(v)
 		m := member{v: v}
+		if !skip {
+			m.typ, m.unit = typeOf(d, v)
+			if len(v.Dimensions) != 0 {
+				// FMI arrays allow repeated values; a bare [n] is unique.
+				m.typ = fmt.Sprintf("%s[%d] nonunique", m.typ, v.Dimensions[0].Start)
+			}
+			switch strings.SplitN(m.typ, "[", 2)[0] {
+			case "ScalarQuantityValue":
+				useQuantities = true
+			case "Real", "Integer", "Boolean", "String":
+			default:
+				useISQ = true
+			}
+			if m.unit != "" && v.HasStart {
+				useSI = true
+			}
+		}
 		switch v.Causality {
 		case execfmi.CausalityInput, execfmi.CausalityParameter, execfmi.CausalityStructuralParameter:
 			if skip {
@@ -92,10 +86,47 @@ func Notation(d *execfmi.Description, opts Options) ([]byte, error) {
 			}
 		}
 	}
-	for _, it := range inputs {
+
+	var b strings.Builder
+	iface := "model exchange"
+	switch {
+	case d.CoSimulation != nil:
+		iface = "co-simulation"
+	case d.ScheduledExecution != nil:
+		iface = "scheduled execution"
+	}
+	identifier := ""
+	if i := firstInterface(d); i != nil {
+		identifier = ", model identifier " + i.ModelIdentifier
+	}
+	fmt.Fprintf(&b, "// Imported from %s (FMI %s, %s%s)\n", modelFile(d, opts.URI), d.FMIVersion, iface, identifier)
+	fmt.Fprintf(&b, "package %s {\n", pkg)
+	b.WriteString("\tprivate import ScalarValues::*;\n\tprivate import AnalysisTooling::*;\n")
+	if useQuantities {
+		b.WriteString("\tprivate import Quantities::*;\n")
+	}
+	if useISQ {
+		b.WriteString("\tprivate import ISQ::*;\n")
+	}
+	if useSI {
+		b.WriteString("\tprivate import SI::*;\n")
+	}
+	b.WriteString("\n")
+	fmt.Fprintf(&b, "\tcalc def %s {\n", calcName)
+	if d.Description != "" {
+		fmt.Fprintf(&b, "\t\tdoc /* %s */\n", docText(d.Description))
+	}
+	fmt.Fprintf(&b, "\t\tmetadata ToolExecution {\n\t\t\ttoolName = \"fmi\";\n\t\t\turi = %s;\n\t\t}\n", strconv.Quote(opts.URI))
+
+	// The experiment parameters take their identifiers first so a model
+	// variable of the same name is suffixed, not them.
+	for _, name := range experimentNames(d) {
+		names.taken[name] = 1
+	}
+	for i, it := range inputs {
 		if m, ok := it.(member); ok {
 			m.ident = names.take(m.v.Name)
-			inputs[indexOf(inputs, it)] = m
+			inputs[i] = m
 		}
 	}
 	var body strings.Builder
@@ -131,21 +162,15 @@ type item interface {
 	write(b *strings.Builder)
 }
 
-// indexOf finds it in items, for the identifier pass over inputs.
-func indexOf(items []item, it item) int {
-	for i, x := range items {
-		if x == it {
-			return i
-		}
-	}
-	return -1
-}
-
-// member is one calc parameter written from an FMU variable.
+// member is one calc parameter written from an FMU variable: typ is the SysML
+// type spelled (an ISQ value type when the variable's unit resolves, plain
+// otherwise, [n]-suffixed for an array) and unit the unit expression a start
+// literal is measured in.
 type member struct {
 	v         execfmi.Variable
 	direction string
 	ident     string
+	typ, unit string
 }
 
 // comment is one `// …` line documenting a variable that was not imported.
@@ -156,8 +181,14 @@ func (c comment) write(b *strings.Builder) { fmt.Fprintf(b, "\t\t// %s\n", strin
 // importable reports whether the variable is written, and the comment line a
 // skipped one leaves instead.
 func importable(v execfmi.Variable) (skip bool, reason string) {
-	if v.Array {
-		return true, fmt.Sprintf("array %s not imported", v.Name)
+	switch len(v.Dimensions) {
+	case 0:
+	case 1:
+		if dim := v.Dimensions[0]; !dim.HasStart || dim.HasVR {
+			return true, fmt.Sprintf("array %s with a structural dimension not imported", v.Name)
+		}
+	default:
+		return true, fmt.Sprintf("multi-dimensional array %s not imported", v.Name)
 	}
 	if v.Causality == execfmi.CausalityStructuralParameter {
 		return true, fmt.Sprintf("structural parameter %s not imported", v.Name)
@@ -171,21 +202,25 @@ func importable(v execfmi.Variable) (skip bool, reason string) {
 // write emits the parameter's declaration line.
 func (m member) write(b *strings.Builder) {
 	v := m.v
-	fmt.Fprintf(b, "\t\t%s %s : %s", m.direction, m.ident, sysmlType(v.Kind))
+	fmt.Fprintf(b, "\t\t%s %s : %s", m.direction, m.ident, m.typ)
 	if v.HasStart && m.direction == "in" {
 		fmt.Fprintf(b, " = %s", literal(v))
+		if m.unit != "" {
+			fmt.Fprintf(b, " [%s]", m.unit)
+		}
 	}
 	fmt.Fprintf(b, " { @ToolVariable { name = %s; } }", strconv.Quote(v.Name))
-	if note := memberNote(v); note != "" {
+	if note := memberNote(v, m.unit != ""); note != "" {
 		fmt.Fprintf(b, " // %s", note)
 	}
 	b.WriteString("\n")
 }
 
-// memberNote is the trailing comment a variable's unit or description leaves.
-func memberNote(v execfmi.Variable) string {
+// memberNote is the trailing comment a variable's unit or description leaves;
+// a unit that typed the parameter is not repeated.
+func memberNote(v execfmi.Variable, typed bool) string {
 	var parts []string
-	if v.Unit != "" {
+	if v.Unit != "" && !typed {
 		parts = append(parts, v.Unit)
 	}
 	if v.Description != "" {
@@ -194,43 +229,106 @@ func memberNote(v execfmi.Variable) string {
 	return strings.Join(parts, " — ")
 }
 
-// sysmlType is the SysML type a variable's kind writes as; units are not typed.
-func sysmlType(k execfmi.Kind) string {
-	switch k {
-	case execfmi.KindInteger, execfmi.KindEnumeration:
-		return "Integer"
-	case execfmi.KindBoolean:
-		return "Boolean"
-	case execfmi.KindString:
-		return "String"
-	default:
-		return "Real"
+// typeOf is the SysML type a variable writes as and the unit expression its
+// start literal is measured in: an ISQ value type when the variable's unit
+// resolves to coherent base exponents — the table's name for the dimension or
+// ScalarQuantityValue for one it does not hold — and a plain scalar type
+// otherwise. Only Real variables carry a unit.
+func typeOf(d *execfmi.Description, v execfmi.Variable) (typ, unit string) {
+	// An array of quantities has no SysML literal — `(a, b) [u]` reads a
+	// coordinate-frame vector, not a sequence of measured numbers — so an
+	// array variable types as plain Real elements and its unit stays a
+	// comment.
+	if v.Kind == execfmi.KindReal && len(v.Dimensions) == 0 {
+		if b, ok := v.UnitExponents(d); ok {
+			if expr := b.SIExpression(); expr != "" {
+				if name, known := isqTypes[expr]; known {
+					return name, expr
+				}
+				return "ScalarQuantityValue", expr
+			}
+		}
+		return "Real", ""
 	}
+	switch v.Kind {
+	case execfmi.KindInteger, execfmi.KindEnumeration:
+		return "Integer", ""
+	case execfmi.KindBoolean:
+		return "Boolean", ""
+	case execfmi.KindString:
+		return "String", ""
+	}
+	return "Real", ""
 }
 
-// literal renders a start value as a SysML literal of the variable's kind: a
-// Real always with a decimal point or exponent, strings quoted, booleans as
-// true/false, integers bare.
+// isqTypes names the ISQ value type of a dimension by its coherent unit
+// expression, as BaseUnit.SIExpression spells it. A dimension the table does
+// not hold falls back to ScalarQuantityValue; dimensionless is never a key.
+var isqTypes = map[string]string{
+	"kg":             "MassValue",
+	"m":              "LengthValue",
+	"s":              "DurationValue",
+	"A":              "ElectricCurrentValue",
+	"K":              "ThermodynamicTemperatureValue",
+	"mol":            "AmountOfSubstanceValue",
+	"cd":             "LuminousIntensityValue",
+	"m^2":            "AreaValue",
+	"m^3":            "VolumeValue",
+	"m/s":            "SpeedValue",
+	"m/s^2":          "AccelerationValue",
+	"1/s":            "FrequencyValue",
+	"kg*m/s^2":       "ForceValue",
+	"kg/m/s^2":       "PressureValue",
+	"kg*m^2/s^2":     "EnergyValue",
+	"kg*m^2/s^3":     "PowerValue",
+	"s*A":            "ElectricChargeValue",
+	"kg*m^2/s^3/A":   "ElectricPotentialValue",
+	"kg*m^2/s^3/A^2": "ResistanceValue",
+	"s^4*A^2/kg/m^2": "CapacitanceValue",
+	"kg*m^2/s^2/A^2": "InductanceValue",
+	"kg/m^3":         "MassDensityValue",
+	"rad/s":          "AngularVelocityValue",
+	"kg/s":           "MassFlowRateValue",
+	"m^3/s":          "VolumeFlowRateValue",
+}
+
+// literal renders a start value as a SysML literal of the variable's kind: an
+// array's space-separated fields become a list, a Real always carries a
+// decimal point or exponent, strings are quoted, booleans are true/false,
+// integers bare.
 func literal(v execfmi.Variable) string {
-	switch v.Kind {
-	case execfmi.KindReal:
-		f, err := strconv.ParseFloat(v.Start, 64)
-		if err != nil {
-			return v.Start
+	if len(v.Dimensions) != 0 {
+		fields := strings.Fields(v.Start)
+		parts := make([]string, 0, len(fields))
+		for _, field := range fields {
+			parts = append(parts, scalarLiteral(v.Kind, field))
 		}
-		text := strconv.FormatFloat(f, 'g', -1, 64)
-		if !strings.ContainsAny(text, ".eE") {
-			text += ".0"
-		}
-		return text
-	case execfmi.KindInteger, execfmi.KindEnumeration:
-		return v.Start
-	case execfmi.KindBoolean:
-		return strconv.FormatBool(strings.TrimSpace(v.Start) == "true" || v.Start == "1")
-	case execfmi.KindString:
-		return strconv.Quote(v.Start)
+		return "(" + strings.Join(parts, ", ") + ")"
 	}
-	return v.Start
+	return scalarLiteral(v.Kind, v.Start)
+}
+
+// scalarLiteral renders one field of a start value.
+func scalarLiteral(k execfmi.Kind, text string) string {
+	switch k {
+	case execfmi.KindReal:
+		f, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return text
+		}
+		out := strconv.FormatFloat(f, 'g', -1, 64)
+		if !strings.ContainsAny(out, ".eE") {
+			out += ".0"
+		}
+		return out
+	case execfmi.KindInteger, execfmi.KindEnumeration:
+		return text
+	case execfmi.KindBoolean:
+		return strconv.FormatBool(strings.TrimSpace(text) == "true" || text == "1")
+	case execfmi.KindString:
+		return strconv.Quote(text)
+	}
+	return text
 }
 
 // writeExperiment writes the reserved experiment parameters: startTime and

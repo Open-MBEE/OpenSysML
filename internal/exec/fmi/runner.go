@@ -102,7 +102,7 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 			continue
 		}
 		v, _ := d.Variable(in.Variable)
-		value, err := inputValue(call, in, v)
+		value, err := inputValue(call, in, d, v)
 		if err != nil {
 			return nil, err
 		}
@@ -132,18 +132,57 @@ func reservedNumber(call *runtime.ToolCall, in runtime.ToolInput) (float64, erro
 		Detail: fmt.Sprintf("%s (%s): %s is not a number", in.Variable, in.Parameter, displayValue(in.Value))}
 }
 
-// inputValue is the JSON value one call input carries for the FMU variable,
-// typed by the variable's kind. A value of the wrong kind, or a unit the
-// variable does not also declare, fails the performance before the process starts.
-func inputValue(call *runtime.ToolCall, in runtime.ToolInput, v Variable) (any, error) {
+// inputValue is the JSON value one call input carries for the FMU variable:
+// a scalar typed by the variable's kind, converted to the variable's coherent
+// unit when the value was sent measured, or an array for a fixed one-dimensional
+// variable. A measured value against a variable resolving no unit, or a
+// scalar/sequence against the wrong shape, fails before the process starts.
+func inputValue(call *runtime.ToolCall, in runtime.ToolInput, d *Description, v Variable) (any, error) {
 	fault := func(detail string) error {
 		return &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
 			Detail: fmt.Sprintf("%s (%s): %s", in.Variable, in.Parameter, detail)}
 	}
-	if in.Value.Unit != "" && v.Unit != "" && in.Value.Unit != v.Unit {
-		return nil, fault(fmt.Sprintf("%s is in %s, which the variable declares as %s", displayValue(in.Value), in.Value.Unit, v.Unit))
+	if in.Value.Items != nil {
+		if len(v.Dimensions) != 1 || !v.Dimensions[0].HasStart {
+			return nil, fault(fmt.Sprintf("a sequence was sent for %s, which is not a fixed one-dimensional array", v.Name))
+		}
+		items := make([]any, 0, len(in.Value.Items))
+		for _, item := range in.Value.Items {
+			if item.Unit == "" {
+				item.Unit = in.Value.Unit
+			}
+			value, err := scalarValue(call, in, d, v, item)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, value)
+		}
+		return items, nil
 	}
-	tv := in.Value
+	if len(v.Dimensions) != 0 {
+		return nil, fault(fmt.Sprintf("%s is an array but %s is not a sequence", v.Name, displayValue(in.Value)))
+	}
+	return scalarValue(call, in, d, v, in.Value)
+}
+
+// scalarValue is the JSON one scalar of the variable's kind holds, the number
+// converted to the variable's coherent unit when the value was sent measured.
+func scalarValue(call *runtime.ToolCall, in runtime.ToolInput, d *Description, v Variable, tv runtime.ToolValue) (any, error) {
+	fault := func(detail string) error {
+		return &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
+			Detail: fmt.Sprintf("%s (%s): %s", in.Variable, in.Parameter, detail)}
+	}
+	if tv.Unit != "" {
+		base, ok := v.UnitExponents(d)
+		if !ok {
+			return nil, fault(fmt.Sprintf("%s is measured in %s but variable %s resolves no coherent unit", displayValue(tv), tv.Unit, v.Name))
+		}
+		num, err := call.ConvertInput(runtime.ToolInput{Variable: in.Variable, Parameter: in.Parameter, Value: tv}, base.SIExpression())
+		if err != nil {
+			return nil, err
+		}
+		tv.Value, tv.Unit = num, ""
+	}
 	switch v.Kind {
 	case KindReal:
 		switch tv.Value.Kind {
@@ -206,7 +245,7 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 		if !ok {
 			return nil, malformed(fmt.Sprintf("the runner answered no output %q", v.Name))
 		}
-		value, err := outputValue(v, raw)
+		value, err := outputValue(d, v, raw)
 		if err != nil {
 			return nil, malformed(err.Error())
 		}
@@ -216,8 +255,49 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 }
 
 // outputValue is the JSON the runner answered for one variable as a ToolValue,
-// typed by the variable's kind; a wrongly typed value is a protocol break.
-func outputValue(v Variable, raw json.RawMessage) (runtime.ToolValue, error) {
+// typed by the variable's kind and measured in its coherent unit when it
+// resolves one; a sequence for a scalar or a scalar for an array, a wrongly
+// typed value, or an array of the wrong length is a protocol break.
+func outputValue(d *Description, v Variable, raw json.RawMessage) (runtime.ToolValue, error) {
+	text := strings.TrimSpace(string(raw))
+	unit := ""
+	if b, ok := v.UnitExponents(d); ok {
+		unit = b.SIExpression()
+	}
+	if len(v.Dimensions) != 0 {
+		var elems []json.RawMessage
+		if err := json.Unmarshal(raw, &elems); err != nil {
+			return runtime.ToolValue{}, fmt.Errorf("output %q is %s, not an array", v.Name, text)
+		}
+		if dim := v.Dimensions[0]; dim.HasStart && uint64(len(elems)) != dim.Start {
+			return runtime.ToolValue{}, fmt.Errorf("output %q answered %d elements, its dimension holds %d", v.Name, len(elems), dim.Start)
+		}
+		items := make([]runtime.ToolValue, 0, len(elems))
+		for _, elem := range elems {
+			item, err := scalarOutput(v, elem)
+			if err != nil {
+				return runtime.ToolValue{}, err
+			}
+			items = append(items, item)
+		}
+		// Elements bind as plain numbers: a sequence of measured values has no
+		// SysML form, so an array parameter types as Real and carries no unit.
+		return runtime.ToolValue{Items: items}, nil
+	}
+	if strings.HasPrefix(text, "[") {
+		return runtime.ToolValue{}, fmt.Errorf("output %q is %s, an array the variable does not declare", v.Name, text)
+	}
+	value, err := scalarOutput(v, raw)
+	if err != nil {
+		return runtime.ToolValue{}, err
+	}
+	value.Unit = unit
+	return value, nil
+}
+
+// scalarOutput is the JSON of one scalar as a ToolValue, typed by the variable's
+// kind; a wrongly typed value is a protocol break.
+func scalarOutput(v Variable, raw json.RawMessage) (runtime.ToolValue, error) {
 	text := strings.TrimSpace(string(raw))
 	switch v.Kind {
 	case KindReal:

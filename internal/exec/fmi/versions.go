@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 )
 
 // wireRoot1 is the FMI 1.0 document shape.
@@ -285,9 +287,28 @@ func variableOfTyped(tv wireTypedVariable, typeUnits map[string]string) (Variabl
 		Kind:         kind,
 		FMIType:      tv.XMLName.Local,
 		DeclaredType: tv.DeclaredType,
-		Array:        len(tv.Dimensions) > 0,
 		Min:          tv.Min,
 		Max:          tv.Max,
+	}
+	for _, dim := range tv.Dimensions {
+		var d Dimension
+		switch {
+		case dim.Start != nil:
+			n, err := strconv.ParseUint(strings.TrimSpace(*dim.Start), 10, 64)
+			if err != nil {
+				return Variable{}, &ModelDescriptionError{Detail: fmt.Sprintf("variable %q has a dimension start %q that is not a count", v.Name, *dim.Start)}
+			}
+			d.Start, d.HasStart = n, true
+		case dim.ValueReference != nil:
+			vr := *dim.ValueReference
+			if vr < 0 || vr > math.MaxUint32 {
+				return Variable{}, &ModelDescriptionError{Detail: fmt.Sprintf("variable %q has a dimension valueReference %d out of range", v.Name, vr)}
+			}
+			d.ValueReference, d.HasVR = uint32(vr), true
+		default:
+			return Variable{}, &ModelDescriptionError{Detail: fmt.Sprintf("variable %q has a dimension with neither start nor valueReference", v.Name)}
+		}
+		v.Dimensions = append(v.Dimensions, d)
 	}
 	if tv.ValueReference == nil || *tv.ValueReference < 0 || *tv.ValueReference > math.MaxUint32 {
 		return Variable{}, &ModelDescriptionError{Detail: fmt.Sprintf("variable %q has no valueReference", tv.Name)}

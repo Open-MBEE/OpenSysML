@@ -131,8 +131,12 @@ func TestReadsFMI3Description(t *testing.T) {
 		t.Fatalf("m = %+v, want the declaredType's unit", m)
 	}
 	grid, _ := d.Variable("grid")
-	if !grid.Array {
-		t.Fatal("grid should read as an array")
+	if len(grid.Dimensions) != 1 || !grid.Dimensions[0].HasStart || grid.Dimensions[0].Start != 4 {
+		t.Fatalf("grid.Dimensions = %+v, want one fixed dimension of 4", grid.Dimensions)
+	}
+	vec, _ := d.Variable("vec")
+	if len(vec.Dimensions) != 1 || !vec.Dimensions[0].HasVR || vec.Dimensions[0].ValueReference != 9 {
+		t.Fatalf("vec.Dimensions = %+v, want one structural dimension", vec.Dimensions)
 	}
 	tv, _ := d.Variable("t")
 	if tv.Causality != CausalityIndependent || tv.Variability != VariabilityContinuous {

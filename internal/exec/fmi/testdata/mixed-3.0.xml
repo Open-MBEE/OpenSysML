@@ -17,7 +17,9 @@
     <Enumeration name="mode" valueReference="5" causality="input" start="1"/>
     <Clock name="tick" valueReference="6" causality="input"/>
     <Binary name="blob" valueReference="7" causality="local"/>
-    <Float64 name="grid" valueReference="8" causality="output"><Dimension start="4"/></Float64>
+    <Float64 name="grid" valueReference="8" causality="output" unit="kg" start="1.5 2.5 3.5 4.5"><Dimension start="4"/></Float64>
+    <Float64 name="matrix" valueReference="10" causality="output"><Dimension start="2"/><Dimension start="2"/></Float64>
+    <Float64 name="vec" valueReference="11" causality="input"><Dimension valueReference="9"/></Float64>
     <UInt64 name="n" valueReference="9" causality="structuralParameter"/>
     <Float64 name="t" valueReference="10" causality="independent" variability="continuous"/>
   </ModelVariables>
