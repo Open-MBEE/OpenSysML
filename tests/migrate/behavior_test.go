@@ -587,8 +587,8 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if context.attempts < 3 then Retry;",
-		"first 'decide' if context.manualOverride then Retry;",
+		"first 'decide' if attempts < 3 then Retry;",
+		"first 'decide' if manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
@@ -611,7 +611,7 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	wantNote(t, r, "_retry", migrate.Approximated, "several edges leave the node, which a fork fork carries")
 	s := session(t, r)
 	meta(t, s, "%instantiate Retrier")
-	meta(t, s, "%action Retrier::Recover #1")
+	meta(t, s, "%action Retrier::recover #1")
 	if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
 		t.Errorf("the action with parallel flows did not run to completion:\n%s", out)
 	}

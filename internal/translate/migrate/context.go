@@ -22,6 +22,10 @@ type behaviorContext struct {
 	holder *sysmlv1.Element
 	// owner is whether the object is the def's own classifier, spelled for `this`.
 	owner bool
+	// implied is whether only the body's own reads or bindings call for it,
+	// none of its actions going through ports: a caller is then not held to
+	// name an object of the owner for the def.
+	implied bool
 	// used is whether the def's body spelled it; bound whether a usage bound it.
 	// The parameter is written when either holds once the body is evaluated.
 	used, bound, evaluated bool
@@ -40,6 +44,9 @@ func (c *behaviorContext) objectType() *sysmlv1.Element {
 type contextVisit struct {
 	index, low int
 	owners     []*sysmlv1.Element
+	// implied are the classifiers the contexts its calls lead to take for their
+	// own reads alone, which the visited behavior binds but need not act on.
+	implied []*sysmlv1.Element
 }
 
 // contextOf settles, once, the context an activity needs: the one classifier whose
@@ -76,8 +83,11 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 		return nil
 	}
 	m.visitContext(b)
-	if m.contexts[b] == nil {
+	if c := m.contexts[b]; c == nil {
 		m.contexts[b] = m.ownerContext(b)
+	} else if c.implied {
+		// Asked for first, the behavior's object is what the callers reach.
+		c.implied = false
 	}
 	return m.contexts[b]
 }
@@ -408,9 +418,7 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	m.visits = append(m.visits, b)
 	for _, c := range m.calledActivities(b) {
 		if ctx, settled := m.contexts[c]; settled {
-			if ctx != nil {
-				v.owners = addOwner(v.owners, ctx.classifier)
-			}
+			v.reach(ctx)
 			continue
 		}
 		if w := m.visiting[c]; w != nil {
@@ -419,9 +427,7 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 		}
 		m.visitContext(c)
 		if ctx, settled := m.contexts[c]; settled {
-			if ctx != nil {
-				v.owners = addOwner(v.owners, ctx.classifier)
-			}
+			v.reach(ctx)
 		} else {
 			v.low = min(v.low, m.visiting[c].low)
 		}
@@ -431,10 +437,13 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	}
 	members := slices.Clone(m.visits[v.index:])
 	m.visits = m.visits[:v.index]
-	var owners []*sysmlv1.Element
+	var owners, implied []*sysmlv1.Element
 	for _, e := range members {
 		for _, o := range m.visiting[e].owners {
 			owners = addOwner(owners, o)
+		}
+		for _, o := range m.visiting[e].implied {
+			implied = addOwner(implied, o)
 		}
 		delete(m.visiting, e)
 		// Settled as none while the members decide, so a cycle contributes nothing to itself.
@@ -445,7 +454,27 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 		decided[i] = m.decideContext(e, owners)
 	}
 	for i, e := range members {
+		if owner := classifierOf(e); decided[i] == nil && owner != nil && (m.usesFeaturesOf(e, owner) || m.providesAny(owner, implied)) {
+			// The body reads its owner, or binds a callee's context to it or to
+			// one of its parts: the def takes the owner as its own context.
+			if decided[i] = m.ownerContext(e); decided[i] != nil {
+				decided[i].implied = true
+			}
+		}
 		m.contexts[e] = decided[i]
+	}
+}
+
+// reach records the context of a behavior the visit's calls lead to: the
+// classifier whose ports it acts through as a port owner, one it takes only for
+// its own reads as implied, which holds the caller to no object of it.
+func (v *contextVisit) reach(ctx *behaviorContext) {
+	switch {
+	case ctx == nil:
+	case ctx.implied:
+		v.implied = addOwner(v.implied, ctx.classifier)
+	default:
+		v.owners = addOwner(v.owners, ctx.classifier)
 	}
 }
 
@@ -556,19 +585,51 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 			}
 		case "OpaqueAction":
 			// A body written in its own language reads a feature by its name.
-			if body, _ := opaqueBody(e); body != "" {
-				if toks, err := lexOpaque(body); err == nil {
-					members, _ := m.membersOf(c, memberAny)
-					for _, t := range toks {
-						if t.kind == tokIdent && members[t.text] != nil {
-							uses = true
-						}
-					}
-				}
+			if body, _ := opaqueBody(e); m.bodyReads(body, e, c) {
+				uses = true
+			}
+		case "OpaqueExpression":
+			// So does a guard, a value, or any other expression the body carries.
+			if body, _ := opaqueBody(e); m.bodyReads(body, opaqueScope(e), c) {
+				uses = true
 			}
 		}
 	})
 	return uses
+}
+
+// bodyReads reports whether an opaque body, read where scope's names resolve,
+// names a feature of the classifier c: a name the writer would spell as a
+// read of c's object, directly or through a swimlane over one of its parts.
+// A name after a dot is a member of what precedes it, not a read of its own.
+func (m *migration) bodyReads(body string, scope, c *sysmlv1.Element) bool {
+	if body == "" || scope == nil {
+		return false
+	}
+	toks, err := lexOpaque(body)
+	if err != nil {
+		return false
+	}
+	s := m.bodyScope(scope)
+	for i, t := range toks {
+		if t.kind != tokIdent || i > 0 && toks[i-1].isPunct(".") {
+			continue
+		}
+		if s.readsFeatureOf(t.text, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// opaqueScope is the element whose names an opaque expression's body reads:
+// the node or edge holding it, a pin's value reading at the pin's node.
+func opaqueScope(v *sysmlv1.Element) *sysmlv1.Element {
+	scope := v.Parent
+	if scope != nil && nodeKind(scope) == nodePin {
+		scope = scope.Parent
+	}
+	return scope
 }
 
 // portOwners lists the classifiers whose ports the actions of b, or the

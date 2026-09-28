@@ -194,14 +194,13 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	m := s.m
 	name := path[0]
-	if lf := m.laneFeature(s.lane, name); lf != nil {
+	f, viaLane, hidden := s.lookup(name)
+	if viaLane {
 		s.viaLane = true
-		return featureAnchor{expr: joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(lf))), f: lf, plural: s.lane.plural, carrier: s.lane.expr}
+		return featureAnchor{expr: joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(f))), f: f, plural: s.lane.plural, carrier: s.lane.expr}
 	}
-	visible, hidden := m.visibleFrom(s.scope)
-	f := visible[name]
 	// The clock variable is the tool's global; any feature of that name shadows it.
-	if by, clock := m.clockNames()[name]; clock && f == nil && hidden[name] == nil && len(path) == 1 {
+	if by, clock := m.clockNames()[name]; clock && f == nil && hidden == nil && len(path) == 1 {
 		if write {
 			return featureAnchor{refusal: &refusal{kind: refusedConstruct, token: name, why: "the simulation clock is read, never assigned"}}
 		}
@@ -209,9 +208,9 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		return featureAnchor{res: &opaqueRef{expr: clockRead, scalar: "Real"}}
 	}
 	switch {
-	case f == nil && hidden[name] != nil:
+	case f == nil && hidden != nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
-			why: "it is private to " + qualifiedName(hidden[name].Parent)}}
+			why: "it is private to " + qualifiedName(hidden.Parent)}}
 	case f == nil:
 		return featureAnchor{refusal: &refusal{kind: refusedName, token: name,
 			why: joinNotes("nothing visible from "+qualifiedName(s.scope)+" is called "+name, s.clash)}}
@@ -229,6 +228,41 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 		}
 	}
 	return featureAnchor{expr: expr, f: f}
+}
+
+// lookup resolves a bare name at the scope to what a body reads by it: a
+// feature of the lane's object when the lane has one so named, else the
+// member the scope sees; hidden is the private member of the name that it
+// does not see.
+func (s *bodyScope) lookup(name string) (f *sysmlv1.Element, viaLane bool, hidden *sysmlv1.Element) {
+	if lf := s.m.laneFeature(s.lane, name); lf != nil {
+		return lf, true, nil
+	}
+	visible, hid := s.m.visibleFrom(s.scope)
+	return visible[name], false, hid[name]
+}
+
+// readsFeatureOf reports whether a bare name at the scope reads the object of
+// classifier c or a feature of it, resolved as a body's names are: `this` is
+// the object of the classifier the scope is in; a pin of the scope's node bears
+// the name first; a name the lane resolves reads the lane's object, which is
+// that object or one of its parts; else the name reads the member the scope
+// sees, when that is a feature of c.
+func (s *bodyScope) readsFeatureOf(name string, c *sysmlv1.Element) bool {
+	if name == "this" {
+		return s.m.contextClassifier(s.scope) == c
+	}
+	if p, _ := s.m.pinNamed(s.scope, name); p != nil {
+		return false
+	}
+	f, viaLane, _ := s.lookup(name)
+	if f == nil || (f.Type != "Property" && f.Type != "Port") {
+		return false
+	}
+	if viaLane {
+		return s.m.contextClassifier(s.scope) == c
+	}
+	return s.m.hasFeature(c, f)
 }
 
 // featureSteps resolves each further step of path as a feature of the last object,
