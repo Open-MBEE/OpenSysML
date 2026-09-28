@@ -127,6 +127,9 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	if err != nil {
 		return nil, err
 	}
+	// The run's own occurrence ends once the sample's results are all evaluated;
+	// the detached run the conclusion keeps holds no occurrence of its own.
+	defer run.endOccurrence(ctx)
 	observed, err := ctx.monteCarloObserved(run)
 	if err != nil {
 		return nil, err

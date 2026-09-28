@@ -661,6 +661,15 @@ class Editor:
             )
         return self
 
+    def add_perform_action(self, owner, name, type=None, **kwargs):
+        """Add a ``perform action name : Type`` usage (SysML v2 7.17.6)."""
+        return self.add_member(owner, "perform action", name, type=type, **kwargs)
+
+    def add_perform(self, owner, action):
+        """Add a ``perform <action>;`` usage naming an existing action usage;
+        the member is named by the action it references."""
+        return self.add_member(owner, "perform", action)
+
     def add_state_def(self, owner, name, **kwargs):
         """Add a ``state def`` declaration."""
         return self.add_member(owner, "state def", name, **kwargs)

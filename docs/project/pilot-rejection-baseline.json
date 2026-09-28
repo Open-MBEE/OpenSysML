@@ -12,7 +12,7 @@
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
-        "sourceDigest": "sha256:3855d223162d6ece6a08b5e1bc9388ff2706bd52e7f3373be31c7e8abc0a22bb",
+        "sourceDigest": "sha256:fe6dc20d8723bb5022322b5701b98d13d90a560882c0970b90aa7305073f60ad",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
@@ -27,15 +27,15 @@
         "name": "negative-corpus",
         "dir": "tools/referee/reject/testdata/negative",
         "origin": "ours",
-        "files": 306,
-        "digest": "sha256:b163959570c53c32063a871623b654c8879676374dcdf0856244edeac0ee85f2"
+        "files": 307,
+        "digest": "sha256:4c3312f06e030b3747aced47f88d7ae529f6881db9974ffb01b3d13fb2844cd6"
       }
     ],
-    "recorded": "2026-09-19"
+    "recorded": "2026-09-28"
   },
   "totals": {
-    "cases": 306,
-    "bothReject": 297,
+    "cases": 307,
+    "bothReject": 298,
     "pilotOnlyRejects": 0,
     "oursOnlyRejects": 9,
     "bothAccept": 0
@@ -65,8 +65,8 @@
     },
     {
       "source": "semantic",
-      "cases": 156,
-      "bothReject": 147,
+      "cases": 157,
+      "bothReject": 148,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0
@@ -2535,6 +2535,15 @@
       "pilotErrors": 2
     },
     {
+      "path": "semantic/s99-transition-accept-typed-by-usage.sysml",
+      "source": "semantic",
+      "rule": "A usage must be typed by definitions: a transition's bare accept names the payload type, and `start` here is the inherited Action::start usage (SysML 7.6 Definition and Usage; pilot validateUsageType).",
+      "mode": "default",
+      "bucket": "both-reject",
+      "oursErrors": 1,
+      "pilotErrors": 2
+    },
+    {
       "path": "semantic/send-constructor-non-type.sysml",
       "source": "semantic",
       "rule": "a constructor must instantiate a type, not a package (KerML 8.3.4.8 InstantiationExpression validateInstantiationExpressionInstantiatedType; pilot validateInstantiationExpressionInstantiatedType).",
@@ -2981,8 +2990,8 @@
       }
     ],
     "totals": {
-      "cases": 306,
-      "bothReject": 297,
+      "cases": 307,
+      "bothReject": 298,
       "pilotOnlyRejects": 0,
       "oursOnlyRejects": 9,
       "bothAccept": 0

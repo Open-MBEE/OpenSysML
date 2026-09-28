@@ -216,3 +216,24 @@ func TestRecursiveCalcTraceNestsPerInvocation(t *testing.T) {
 	}
 	wantFramesReleased(t, ctx)
 }
+
+// A derived frame's write lands in its own bindings: write receives the frame
+// the write is for, so a copy made by withVars writes its vars, not the
+// frame the closure was built over.
+func TestFrameWriteLandsInTheDerivedFrame(t *testing.T) {
+	f := frame{vars: map[string]Value{"n": constInt(0)}}
+	f.write = func(g frame, name string, value Value) error {
+		g.set(name, value)
+		return nil
+	}
+	derived := f.withVars(map[string]Value{"n": constInt(0)})
+	if err := derived.write(derived, "n", constInt(5)); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if got := derived.vars["n"]; got.Const.Int != 5 {
+		t.Errorf("derived.vars[n] = %v, want 5", got)
+	}
+	if got := f.vars["n"]; got.Const.Int != 0 {
+		t.Errorf("f.vars[n] = %v, want 0: the derived write stayed out of the original", got)
+	}
+}

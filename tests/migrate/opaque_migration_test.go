@@ -43,15 +43,15 @@ func migrateXMI(t *testing.T, name string) *migrate.Result {
 func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	r := migrateXMI(t, "acquisition")
 	for _, line := range []string{
-		"assign this.Time_Acq_Total := localClock.currentTime;",
-		"assign this.tcs.i := 1;",
-		"assign this.tcs.GS_Found := false;",
-		"assign this.tcs.GS_Found := true;",
-		"assign this.tcs.i := this.tcs.i + 1;",
-		"assign this.Time_Acq_Total := localClock.currentTime - this.Time_Acq_Total;",
-		"if this.tcs.i >= this.tcs.Retries",
-		"if not this.tcs.GS_Found and not this.tcs.'Guide Star Lost' and this.tcs.i < this.tcs.Retries",
-		"action wait accept after this.tcs.ditSetup [SI::s];",
+		"assign Time_Acq_Total := localClock.currentTime;",
+		"assign tcs.i := 1;",
+		"assign tcs.GS_Found := false;",
+		"assign tcs.GS_Found := true;",
+		"assign tcs.i := tcs.i + 1;",
+		"assign Time_Acq_Total := localClock.currentTime - Time_Acq_Total;",
+		"if tcs.i >= tcs.Retries",
+		"if not tcs.GS_Found and not tcs.'Guide Star Lost' and tcs.i < tcs.Retries",
+		"action wait accept after tcs.ditSetup [SI::s];",
 		"action attempt;",
 		"attribute 'Time_Loop start' : ScalarValues::Real [0..1];",
 		"attribute Time_Loop : ScalarValues::Real [0..1];",
@@ -76,7 +76,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 		"assign Time_Drop := localClock.currentTime - 'Time_Drop start';",
 		"first stamp12 then done;",
 		"in Retries : ScalarValues::Integer = 2;",
-		"assign this.tcs.GS_Found := Retries < 1;",
+		"assign tcs.GS_Found := Retries < 1;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -90,7 +90,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	wantNote(t, r, "_e6", migrate.Mapped, "the English body is translated to v2; names resolve against the context's tcs, read as this.tcs")
 	wantNote(t, r, "_lane", migrate.Mapped, "read as this.tcs")
 	wantNote(t, r, "_attempt", migrate.Mapped, "a step with a duration and no further behavior")
-	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression this.tcs.ditSetup, in seconds`)
+	wantNote(t, r, "_dc", migrate.Approximated, `the duration "ditSetup s" is read as the expression tcs.ditSetup, in seconds; the duration "ditSetup s" is read as the expression tcs.ditSetup, in seconds; written as a fixed wait of tcs.ditSetup s before 'attempt'`)
 	wantNote(t, r, "_span", migrate.Mapped, "from the start of 'first attempt' to the end of 'guide star found' is assigned to the attribute Time_Loop, in seconds")
 	wantNote(t, r, "_between", migrate.Mapped, "from the end of 'first attempt' to the start of 'guide star found' is assigned to the attribute Time_Between, in seconds")
 	wantNote(t, r, "_single", migrate.Mapped, "from the start of 'attempt' to the end of 'attempt' is assigned to the attribute Time_Attempt, in seconds, and left without a value by a run that does not reach both")
@@ -111,9 +111,9 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	s := session(t, r)
 	meta(t, s, "%instantiate Observatory")
 	meta(t, s, "%seed 1")
-	v := s.RunAction("Observatory::Acquire", "Observatory")
+	v := s.RunAction("Observatory::acquire", "Observatory")
 	wantVerdict(t, v)
-	runs := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 5, seedOf(1), []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass", "Time_Drop"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Observatory::acquire", []string{"Observatory"}, 5, seedOf(1), []string{"this.Time_Acq_Total", "Time_Loop", "Time_Between", "Time_Attempt", "Time_Run", "Time_Pass", "Time_Drop"}).Lines, "\n")
 	// Four attempts of ditSetup = 2.5 s each: the loop ran until i reached Retries,
 	// the observation from the initial node to the final spans the whole run, and
 	// those ending at the flow final and at the merge no edge leaves, which each
@@ -137,7 +137,7 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 	// The abort branch is never taken: the observation starting there and the one
 	// ending there hold no value in any run, so neither is a column nor a zero,
 	// while the stamp the unfinished one did take is.
-	all := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, seedOf(1), nil).Lines, "\n")
+	all := strings.Join(s.RunRuns("Observatory::acquire", []string{"Observatory"}, 2, seedOf(1), nil).Lines, "\n")
 	for _, want := range []string{"| Time_Loop ", "Time_Loop: 2 run(s)", "Time_Unfinished start: 2 run(s), min 0.0"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("runs lack %q:\n%s", want, all)
@@ -148,8 +148,8 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 			t.Errorf("runs mention %q:\n%s", absent, all)
 		}
 	}
-	never := strings.Join(s.RunRuns("Observatory::Acquire", []string{"Observatory"}, 2, seedOf(1), []string{"Time_Never"}).Lines, "\n")
-	if !strings.Contains(never, "error: invalid run request: no completed run of Observatory::Acquire produced a value named Time_Never") {
+	never := strings.Join(s.RunRuns("Observatory::acquire", []string{"Observatory"}, 2, seedOf(1), []string{"Time_Never"}).Lines, "\n")
+	if !strings.Contains(never, "error: invalid run request: no completed run of Observatory::acquire produced a value named Time_Never") {
 		t.Errorf("observing the never-stamped duration:\n%s", never)
 	}
 }
@@ -169,16 +169,16 @@ func TestSwimlaneBodiesAndGuardsRunAgainstTheRepresentedPart(t *testing.T) {
 func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 	r := migrateXMI(t, "plant")
 	for _, line := range []string{
-		"assign this.tank.valve.open := true;",
-		"assign this.tank.volume := this.tank.volume * 2 + (if this.tank.valve.open ? 1 else 0);",
-		"assign this.runs := this.runs + 1;",
-		"assign this.level := this.tank.volume;",
-		"assign this.level := this.level + 1;",
-		"assign this.level := this.level + this.tank.volume;",
-		"assign this.pump.on := true;",
-		"assign this.tank.volume := this.tank.volume + 1;",
-		"assign this.site.control.rack.controller.status := true;",
-		"assign this.site.control.rack.controller.led.lit := true;",
+		"assign tank.valve.open := true;",
+		"assign tank.volume := tank.volume * 2 + (if tank.valve.open ? 1 else 0);",
+		"assign runs := runs + 1;",
+		"assign level := tank.volume;",
+		"assign level := level + 1;",
+		"assign level := level + tank.volume;",
+		"assign pump.on := true;",
+		"assign tank.volume := tank.volume + 1;",
+		"assign site.control.rack.controller.status := true;",
+		"assign site.control.rack.controller.led.lit := true;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -211,13 +211,13 @@ func TestPartitionsOfEveryShapeResolveNames(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Plant")
-	wantVerdict(t, s.RunAction("Plant::Fill", "Plant"))
+	wantVerdict(t, s.RunAction("Plant::fill", "Plant"))
 	for _, path := range []string{"site.control.rack.controller.status", "site.control.rack.controller.led.lit"} {
 		if got := meta(t, s, "%eval in #1 : "+path); !strings.HasSuffix(got, "= true") {
 			t.Errorf("%s not assigned through the deep lane:\n%s", path, got)
 		}
 	}
-	runs := strings.Join(s.RunRuns("Plant::Fill", []string{"Plant"}, 1, seedOf(1), []string{"this.level", "this.runs"}).Lines, "\n")
+	runs := strings.Join(s.RunRuns("Plant::fill", []string{"Plant"}, 1, seedOf(1), []string{"this.level", "this.runs"}).Lines, "\n")
 	for _, want := range []string{"this.level: 1 run(s), min 9.0", "this.runs: 1 run(s), min 1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -235,10 +235,10 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 		"calc def Energy {",
 		"RealFunctions::max(E_0 - P * dt, 0)",
 		"attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);",
-		"assign this.started := localClock.currentTime;",
+		"assign started := localClock.currentTime;",
 		"attribute k : ScalarValues::Integer;",
 		"assign n := n * k;",
-		"assign y := x * this.power;",
+		"assign y := x * power;",
 		"assign d := t_sim * 2;",
 		"attribute reading : ScalarValues::Real default = t_sim + 1;",
 	} {
@@ -289,7 +289,7 @@ func TestTranslatorRefusalsAndConfiguredClockName(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Reactor")
-	v := s.RunAction("Reactor::Cycle", "Reactor")
+	v := s.RunAction("Reactor::cycle", "Reactor")
 	wantVerdict(t, v)
 	// gain reads its value pin x = 1.5 and the context's power = 4 into its out pin.
 	if lines := strings.Join(v.Lines, "\n"); !strings.Contains(lines, "gain.y = 6.0") {
@@ -349,14 +349,14 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	for _, line := range []string{
 		"assign y := x * 2;",
 		"flow sense.y to record.v;",
-		"assign this.total := v + 1;",
-		"assign this.peak := v;",
-		"assign this.half := OpenSysMLMathFunctions::quotient(this.ticks, 2);",
-		"assign this.ratio := this.total / 2;",
-		"assign this.floored := RealFunctions::floor(this.total) / 8;",
-		"assign this.rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(this.total + 0.5), 8);",
-		"assign this.quarter := OpenSysMLMathFunctions::quotient(this.ticks, 4);",
-		"assign this.eighth := this.ticks / 8;",
+		"assign total := v + 1;",
+		"assign peak := v;",
+		"assign half := OpenSysMLMathFunctions::quotient(ticks, 2);",
+		"assign ratio := total / 2;",
+		"assign floored := RealFunctions::floor(total) / 8;",
+		"assign rounded := OpenSysMLMathFunctions::quotient(RealFunctions::floor(total + 0.5), 8);",
+		"assign quarter := OpenSysMLMathFunctions::quotient(ticks, 4);",
+		"assign eighth := ticks / 8;",
 		"/* flow idle.z to sink.w not written: the body of 'idle' never assigns idle.z */",
 		"/* flow dark.q to drain.w not written: 'dark' is not migrated and produces no value */",
 	} {
@@ -371,7 +371,7 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_judgem", migrate.Mapped, "")
 	for _, line := range []string{
 		"in ok : ScalarValues::Boolean;",
-		"in n : ScalarValues::Integer = RealFunctions::floor(this.total);",
+		"in n : ScalarValues::Integer = RealFunctions::floor(total);",
 		"in m : ScalarValues::Integer = 2;",
 	} {
 		wantLine(t, r.Notation, line)
@@ -384,20 +384,20 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 	wantNote(t, r, "_cc", migrate.Approximated, "the JavaCC body is written as v2 assignments")
 	wantNote(t, r, "_o2", migrate.Approximated, "the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it")
 	wantNote(t, r, "_sinkw", migrate.Approximated, "it is declared admitting no value: 'idle', which feeds it, produces no value")
-	wantNote(t, r, "_sink", migrate.Approximated, "this.total must hold a value, so it is assigned only when w, which may hold none, holds one")
-	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign this.total := w; }")
+	wantNote(t, r, "_sink", migrate.Approximated, "the JavaScript body is translated to v2; total must hold a value, so it is assigned only when w, which may hold none, holds one")
+	wantLine(t, r.Notation, "if w->SequenceFunctions::notEmpty() { assign total := w; }")
 	wantNote(t, r, "_o3", migrate.Approximated, "the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q'")
 	// A console print is left out of a translated body, and a body of prints alone is an empty action.
 	wantNote(t, r, "_log", migrate.Approximated, "the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
 	wantNote(t, r, "_shout", migrate.Approximated, "the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model")
-	wantLine(t, r.Notation, "assign this.ticks := this.ticks + 1;")
+	wantLine(t, r.Notation, "assign ticks := ticks + 1;")
 	wantLine(t, r.Notation, "action shout;")
 	wantNoLine(t, r.Notation, "print(")
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
-	wantVerdict(t, s.RunAction("Meter::Measure", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.peak", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth", "this.ticks"}).Lines, "\n")
+	wantVerdict(t, s.RunAction("Meter::measure", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::measure", []string{"Meter"}, 1, seedOf(1), []string{"this.total", "this.peak", "this.half", "this.ratio", "this.floored", "this.rounded", "this.quarter", "this.eighth", "this.ticks"}).Lines, "\n")
 	for _, want := range []string{"this.total: 1 run(s), min 4.0", "this.peak: 1 run(s), min 3.0", "this.half: 1 run(s), min 3", "this.ratio: 1 run(s), min 2.0", "this.floored: 1 run(s), min 0.5", "this.rounded: 1 run(s), min 0", "this.quarter: 1 run(s), min 1", "this.eighth: 1 run(s), min 0.875", "this.ticks: 1 run(s), min 8"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -420,10 +420,10 @@ func TestTranslatedOutputPinsFeedTheirFlows(t *testing.T) {
 func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	r := migrateXMI(t, "meter")
 	for _, line := range []string{
-		`assign this.label := "` + "\U0001F600" + `";`,
-		`assign this.lit := this.label == "` + "\U0001F600" + `";`,
-		"assign this.count := 9007199254740991;",
-		"assign this.dial := this.hand;",
+		`assign label := "` + "\U0001F600" + `";`,
+		`assign lit := label == "` + "\U0001F600" + `";`,
+		"assign count := 9007199254740991;",
+		"assign dial := hand;",
 		"attribute cube : ScalarValues::Real default = -(total ** 3);",
 		"ref part shown : Gauge default = if (count > 0) ? dial else hand;",
 		`/* default value not migrated: {JavaScript} count > 0 ? dial : hand — the types at "count > 0 ? dial : hand" disagree: the expression is a Gauge, not the Needle wanted */`,
@@ -433,10 +433,10 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 		"/* default value not migrated: {JavaScript} -total ** 2 — the construct \"-total **\" is outside the translated subset: JavaScript parenthesizes a unary operand of `**` */",
 		`/* default value not migrated: {JavaScript} ready or enabled — the text "or" is not expression syntax: text follows the expression */`,
 		`/* default value not migrated: {JavaScript} Math.sqrt(total) — the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted */`,
-		"in limit : ScalarValues::Integer default = this.count + 1;",
+		"in limit : ScalarValues::Integer default = count + 1;",
 		"/* guard not migrated: [{JavaScript} ready and enabled] — the text \"and\" is not expression syntax: text follows the expression */",
 		"/* body not migrated (the text \"and\" is not expression syntax: a statement ends at `;` or a newline) {JavaScript}:",
-		"assign this.flag := this.ready and this.enabled;",
+		"assign flag := ready and enabled;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -452,7 +452,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 	wantNoLine(t, r.Notation, "assign this.count := this.mode;")
 	wantNoLine(t, r.Notation, "assign this.mode := this.dial;")
 	wantNoLine(t, r.Notation, "assign this.count := 9007199254740993;")
-	if strings.Count(string(r.Notation), `assign this.lit := this.label == "`+"\U0001F600"+`";`) != 1 {
+	if strings.Count(string(r.Notation), `assign lit := label == "`+"\U0001F600"+`";`) != 1 {
 		t.Errorf("the Java == on strings is written beside its equals:\n%s", r.Notation)
 	}
 	wantNoLine(t, r.Notation, "ref part pointer : Needle default = if (count > 0) ? dial else hand;")
@@ -481,8 +481,8 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
-	wantVerdict(t, s.RunAction("Meter::Flip", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Flip", []string{"Meter"}, 1, seedOf(1), []string{"this.count", "this.lit"}).Lines, "\n")
+	wantVerdict(t, s.RunAction("Meter::flip", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::flip", []string{"Meter"}, 1, seedOf(1), []string{"this.count", "this.lit"}).Lines, "\n")
 	for _, want := range []string{"this.count: 1 run(s), min 9007199254740991", "this.lit: true ×1"} {
 		if !strings.Contains(runs, want) {
 			t.Errorf("runs lack %q:\n%s", want, runs)
@@ -496,7 +496,7 @@ func TestNonScalarFeaturesAndScriptLiterals(t *testing.T) {
 // collection function over it translates and runs.
 func TestPluralPathsStayCollections(t *testing.T) {
 	r := migrateXMI(t, "meter")
-	wantLine(t, r.Notation, "assign this.total := this.cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
+	wantLine(t, r.Notation, "assign total := cells.reading->ControlFunctions::reduce { in x; in y; RealFunctions::max(x, y) };")
 	wantLine(t, r.Notation, "action ticking : Gauge::Tick;")
 	wantNoLine(t, r.Notation, "assign this.total := this.cells.reading + 1;")
 	wantNoLine(t, r.Notation, "assign this.cells.reading := 1;")
@@ -507,10 +507,10 @@ func TestPluralPathsStayCollections(t *testing.T) {
 	wantNote(t, r, "_peak", migrate.Mapped, "the JavaScript body is translated to v2")
 	for id, want := range map[string]string{
 		"_spread":  `the types at "+" disagree: an operand is a collection, not a number`,
-		"_reset":   `the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
+		"_reset":   `the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects`,
 		"_calib":   `the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects`,
 		"_span":    `the types at "total =" disagree: one side is a collection and the other a single value`,
-		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context",
+		"_ticking": "its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; the behavior belongs to Gauge and runs here in the caller's context",
 	} {
 		wantNote(t, r, id, migrate.Approximated, want)
 	}
@@ -530,8 +530,8 @@ func TestPluralPathsStayCollections(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%instantiate Meter")
-	wantVerdict(t, s.RunAction("Meter::Sweep", "Meter"))
-	runs := strings.Join(s.RunRuns("Meter::Sweep", []string{"Meter"}, 1, seedOf(1), []string{"this.total"}).Lines, "\n")
+	wantVerdict(t, s.RunAction("Meter::sweep", "Meter"))
+	runs := strings.Join(s.RunRuns("Meter::sweep", []string{"Meter"}, 1, seedOf(1), []string{"this.total"}).Lines, "\n")
 	if want := "this.total: 1 run(s), min 3"; !strings.Contains(runs, want) {
 		t.Errorf("runs lack %q:\n%s", want, runs)
 	}

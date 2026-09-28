@@ -10,7 +10,7 @@ part def Rig {
         action 'set last' {
             in value[0..1];
             if value->SequenceFunctions::notEmpty() {
-                assign this.last := value;
+                assign last := value;
             }
         }
         first 'set last' then final;

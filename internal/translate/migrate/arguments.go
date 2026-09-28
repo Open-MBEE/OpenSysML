@@ -72,13 +72,11 @@ func (a *activity) behaviorCallRefusal(n *sysmlv1.Element) (why string, v Verdic
 		return theBehavior + qualifiedName(b) + " it calls has no v2 declaration", Unmapped, true
 	}
 	switch cat, _ := a.m.classify(b); cat {
-	case catCalcDef:
-		return "", Mapped, false
-	case catActionDef:
+	case catCalcDef, catActionDef:
 	default:
 		return theBehavior + qualifiedName(b) + " is written as a " + cat.keyword() + ", which an action cannot call", Unmapped, true
 	}
-	if c := a.m.contextOf(b); c != nil {
+	if c := a.m.contextOf(b); c != nil && !(c.owner && c.evaluated && !c.used && !c.bound) {
 		if expr, cnote := a.callContext(n, c); expr == "" {
 			return a.uncontexted(b, cnote), Approximated, true
 		}

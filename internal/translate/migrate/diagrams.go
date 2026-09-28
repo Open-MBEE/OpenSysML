@@ -332,7 +332,8 @@ func (m *migration) shadows(scopes []*sysmlv1.Element, name string) bool {
 // exposures sorts what a diagram shows into the elements its view exposes,
 // deduplicated in shown order, and the counts of what it cannot.
 type exposures struct {
-	refs []string
+	refs  []string
+	names map[string]bool
 	// drawn counts shown members of the form's subject, drawn by its graph.
 	drawn int
 	// unwritten counts shown elements nothing written stands for.
@@ -349,6 +350,19 @@ func (x exposures) exposed(ref string) bool {
 		}
 	}
 	return false
+}
+
+// shadows reports whether a view exposure uses name.
+func (x exposures) shadows(name string) bool {
+	return x.names[name]
+}
+
+// diagramLayoutAttribute qualifies an attribute when a view exposure shadows it.
+func diagramLayoutAttribute(prefix, definition, name, value string, x exposures) string {
+	if x.shadows(name) {
+		return ":>> " + prefix + definition + "::" + name + " = " + value
+	}
+	return name + " = " + value
 }
 
 // inGraph reports whether el is part of the graph a view of form f draws: within
@@ -494,6 +508,11 @@ func (m *migration) writeView(v *view) {
 	d, host := v.d, v.host
 	form := m.formOf(d)
 	x := m.exposures(d, host, form)
+	for _, scope := range scopeChain(host) {
+		for name := range m.viewNames[scope] {
+			x.names[name] = true
+		}
+	}
 	render := form.rendering
 	kind := diagramKind(d)
 	note := article(strings.ToLower(kind)) + kind + " written as a view rendered " + render
@@ -525,6 +544,9 @@ func (m *migration) writeView(v *view) {
 	untyped := d.Kind == "" && d.UMLKind == ""
 	for _, td := range v.tables {
 		m.lowerTable(td)
+		if td.written() {
+			x.names[td.doc] = true
+		}
 	}
 	geo := m.viewGeometry(v, x, form)
 	switch {
@@ -583,12 +605,15 @@ func (m *migration) writeView(v *view) {
 // scope of the view's host. A view of a form drawing a graph exposes the
 // behavior whose graph it is in place of the shown nodes and edges it draws.
 func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form viewForm) exposures {
-	var x exposures
+	x := exposures{names: map[string]bool{}}
 	seen := map[string]bool{}
 	add := func(ref string) {
 		if !seen[ref] {
 			seen[ref] = true
 			x.refs = append(x.refs, ref)
+			if name := exposureName(ref); name != "" {
+				x.names[name] = true
+			}
 		}
 	}
 	if form.subject != nil {
@@ -615,6 +640,31 @@ func (m *migration) exposures(d *sysmlv1.Diagram, host *sysmlv1.Element, form vi
 		}
 	}
 	return x
+}
+
+// exposureName returns the unqualified name at the end of an exposure reference.
+func exposureName(ref string) string {
+	start := 0
+	quoted := false
+	for i := 0; i < len(ref); i++ {
+		switch {
+		case ref[i] == '\'' && quoted && i+1 < len(ref) && ref[i+1] == '\'':
+			i++
+		case ref[i] == '\'':
+			quoted = !quoted
+		case !quoted && i+1 < len(ref) && ref[i:i+2] == "::":
+			start = i + 2
+			i++
+		}
+	}
+	name := ref[start:]
+	if name == "*" || name == "**" {
+		return ""
+	}
+	if len(name) >= 2 && name[0] == '\'' && name[len(name)-1] == '\'' {
+		name = strings.ReplaceAll(name[1:len(name)-1], "''", "'")
+	}
+	return name
 }
 
 // exposure names, from scope, what stands for e: the library type a primitive
@@ -803,6 +853,11 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 			dangling++
 			continue
 		}
+		if vertexBase(el) != "" && !m.vertexWritten(el) {
+			s.PlacementsUnexposed++
+			unexposed++
+			continue
+		}
 		ref := m.exposure(el, v.host)
 		if ref == "" || !m.places(x, form, el, ref) {
 			s.PlacementsUnexposed++
@@ -816,8 +871,14 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		seen[ref] = true
 		s.PlacementsWritten++
 		written++
-		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { x = %s; y = %s; width = %s; height = %s; }",
-			prefix, ref, layoutNumber(p.X), layoutNumber(p.Y), layoutNumber(p.Width), layoutNumber(p.Height)))
+		attrs := []string{
+			diagramLayoutAttribute(prefix, "Layout", "x", layoutNumber(p.X), x),
+			diagramLayoutAttribute(prefix, "Layout", "y", layoutNumber(p.Y), x),
+			diagramLayoutAttribute(prefix, "Layout", "width", layoutNumber(p.Width), x),
+			diagramLayoutAttribute(prefix, "Layout", "height", layoutNumber(p.Height), x),
+		}
+		placements = append(placements, fmt.Sprintf("metadata %sLayout about %s { %s; }",
+			prefix, ref, strings.Join(attrs, "; ")))
 		grow(p.X+p.Width, p.Y+p.Height)
 	}
 	reasons := map[string]int{}
@@ -854,7 +915,8 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 		reasons[routeWritten]++
 		m.routeKinds.add(kind, routeWritten)
 		var b strings.Builder
-		b.WriteString("metadata " + prefix + "Route about " + ref + " { points = (")
+		b.WriteString("metadata " + prefix + "Route about " + ref + " { ")
+		b.WriteString(diagramLayoutAttribute(prefix, "Route", "points", "(", x))
 		for i, n := range c.Points {
 			if i > 0 {
 				b.WriteString(", ")
@@ -872,7 +934,7 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	for tag, n := range rec.Unsupported {
 		s.Unsupported[tag] += n
 	}
-	dress := m.viewDressing(v, form, prefix, func(id string) string {
+	dress := m.viewDressing(v, form, prefix, x, func(id string) string {
 		if ref, ok := refOf[id]; ok {
 			return ref
 		}
@@ -883,8 +945,12 @@ func (m *migration) viewGeometry(v *view, x exposures, form viewForm) viewGeomet
 	}
 	geo := viewGeometry{pictures: dress.pictures, underlaid: dress.underlaid, undrawn: dress.undrawn, lost: dress.lost}
 	if size {
-		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { unit = \"px\"; width = %s; height = %s; }",
-			prefix, layoutNumber(maxX), layoutNumber(maxY)))
+		attrs := []string{
+			diagramLayoutAttribute(prefix, "Canvas", "unit", `"px"`, x),
+			diagramLayoutAttribute(prefix, "Canvas", "width", layoutNumber(maxX), x),
+			diagramLayoutAttribute(prefix, "Canvas", "height", layoutNumber(maxY), x),
+		}
+		geo.lines = append(geo.lines, fmt.Sprintf("@%sCanvas { %s; }", prefix, strings.Join(attrs, "; ")))
 	}
 	geo.lines = append(geo.lines, placements...)
 	geo.lines = append(geo.lines, routes...)

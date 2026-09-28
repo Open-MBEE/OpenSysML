@@ -57,9 +57,14 @@ applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`
-and `add_action` accept input and output pairs.
+and `add_action` accept input and output pairs. `add_perform_action` writes
+`perform action name : Type`, and `add_perform(owner, action)` writes
+`perform <action>;` — a perform usage named by the action usage it references,
+for example `add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
 
 Use `opensysml.loads(text, language="kerml")` for inline KerML content.
+
+Each `load` or `loads` parses **one document as a model of its own**: a `private import Base::*;` in `chapter.sysml` does not resolve while `base.sysml` is only a neighbour on disk, and `load` refuses a directory. The service parses a model of several files as one with its `ParseSources` RPC (the `parse_sources` capability), which the Go (`ParseFiles`/`ParseDocuments`), Java (`parseSources`) and Julia (`parse_sources`) clients wrap; this client does not wrap it yet, so a multi-file model is loaded from Python by concatenating the files into one `loads` call. A root package named like a standard library package (`Base`, `Requirements`, …) is a separate hazard: from another document a qualified name starting with it resolves to the library, as the `library-root-name` warning says.
 
 Every call goes through the `sysml-grpc` service, which `opensysml` starts automatically from
 the first place it finds one; the guide below describes how to install it there.

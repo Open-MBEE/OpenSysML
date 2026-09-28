@@ -35,7 +35,7 @@ package Structure {
             first gain then 'set speed';
             action 'set speed' {
                 in value;
-                assign this.speed := value;
+                assign speed := value;
             }
             succession finish first 'set speed' then final;
             action final terminate;

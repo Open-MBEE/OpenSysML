@@ -120,6 +120,9 @@ func (ctx *Context) BehaviorNamed(inst *Instance, name string) (*ObjectBehavior,
 // under that member or one redefinition makes the same feature: a start reached twice, or
 // a classifier renaming a running behavior, attaches nothing.
 func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool {
+	if inFlight, ok := ctx.attachingBehaviors[inst]; ok && inFlight[member] {
+		return true
+	}
 	for _, b := range inst.behaviors {
 		if b.member == member {
 			return true
@@ -133,6 +136,23 @@ func (ctx *Context) runsBound(inst *Instance, member, typ *symbols.Symbol) bool 
 		}
 	}
 	return false
+}
+
+// attachBehavior marks member's behavior on inst as under way, so an
+// initialization re-scanning the object's types does not attach it again;
+// behaviorAttached clears the mark when the attach ends, kept or failed.
+func (ctx *Context) attachBehavior(inst *Instance, member *symbols.Symbol) {
+	if ctx.attachingBehaviors == nil {
+		ctx.attachingBehaviors = make(map[*Instance]map[*symbols.Symbol]bool)
+	}
+	if ctx.attachingBehaviors[inst] == nil {
+		ctx.attachingBehaviors[inst] = make(map[*symbols.Symbol]bool)
+	}
+	ctx.attachingBehaviors[inst][member] = true
+}
+
+func (ctx *Context) behaviorAttached(inst *Instance, member *symbols.Symbol) {
+	delete(ctx.attachingBehaviors[inst], member)
 }
 
 // ExhibitedState returns the machine the object exhibits, and false when it
@@ -654,7 +674,9 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			if ctx.trace != nil {
 				ctx.trace.RecordBehaviorStart(decl.behavior.Kind.String(), decl.behavior.Name, inst.ID)
 			}
+			ctx.attachBehavior(inst, decl.member)
 			behavior, err := ctx.attachClassifierBehavior(inst, decl)
+			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
 				return err
 			}

@@ -82,10 +82,10 @@ part def Reactor {
     attribute limit : ScalarValues::Real default = RealFunctions::min(power * 2, 5);
     attribute started : ScalarValues::Real default = 0.0;
     attribute label : ScalarValues::String;
-    action def Cycle {
+    action cycle {
         first start then mark;
         action mark {
-            assign this.started := localClock.currentTime;
+            assign started := localClock.currentTime;
         }
         first mark then 'loop';
         action 'loop' {
@@ -125,7 +125,7 @@ part def Reactor {
         }
         first mixed then python;
         action python {
-            assign this.power := this.power + 1;
+            assign power := power + 1;
         }
         first python then partial;
         action partial {
@@ -158,7 +158,7 @@ part def Reactor {
         action gain {
             in x : ScalarValues::Real = 1.5;
             out y : ScalarValues::Real;
-            assign y := x * this.power;
+            assign y := x * power;
         }
         first gain then bare;
         action bare {

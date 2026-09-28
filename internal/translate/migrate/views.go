@@ -120,6 +120,18 @@ func (m *migration) featuringDef(u *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
+// usageChain spells the feature path from definition d to its nested usage u.
+func (m *migration) usageChain(u, d *sysmlv1.Element) string {
+	var path []string
+	for cur := u; cur != nil && cur != d; cur = cur.Parent {
+		path = append(path, writeName(m.nameFor(cur)))
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	return strings.Join(path, ".")
+}
+
 // taggedViewpoints satisfies the viewpoints the «View» stereotype's viewpoint
 // tag names, in either spelling the profile has used, when a Conform does not.
 func (m *migration) taggedViewpoints(e *sysmlv1.Element) {
@@ -233,12 +245,20 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 			}
 			pl.write(m.v2Name(c))
 			view, exposed := c, s
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
+			m.extras[view] = append(m.extras[view], func() {
+				ref := m.exposeRef(view, exposed)
+				m.recordViewExposure(view, exposed, ref)
+				m.w.line("expose " + ref + ";")
+			})
 		}
 		for _, d := range diagrams {
 			pl.write(m.v2Name(c))
 			view, shown := c, d
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
+			m.extras[view] = append(m.extras[view], func() {
+				ref := m.viewRef(m.viewOf[shown], view)
+				m.recordViewExposure(view, nil, ref)
+				m.w.line("expose " + ref + ";")
+			})
 		}
 	}
 	pl.failed = total - len(pl.targets)
@@ -266,6 +286,51 @@ func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
 		return ref + "::**"
 	}
 	return ref
+}
+
+// recordViewExposure records the names introduced into a view by an exposure.
+func (m *migration) recordViewExposure(view, exposed *sysmlv1.Element, ref string) {
+	switch {
+	case strings.HasSuffix(ref, "::*"):
+		m.recordWildcardViewExposure(view, exposed, false)
+	case strings.HasSuffix(ref, "::**"):
+		m.recordWildcardViewExposure(view, exposed, true)
+	default:
+		m.recordExposedViewName(view, exposureName(ref))
+	}
+}
+
+// recordWildcardViewExposure records names imported by a wildcard exposure.
+func (m *migration) recordWildcardViewExposure(view, exposed *sysmlv1.Element, recursive bool) {
+	if exposed == nil {
+		return
+	}
+	var record func(*sysmlv1.Element)
+	record = func(member *sysmlv1.Element) {
+		if !m.written(member) {
+			return
+		}
+		m.recordExposedViewName(view, m.nameOf(member))
+		if recursive {
+			for _, child := range member.Children {
+				record(child)
+			}
+		}
+	}
+	for _, member := range exposed.Children {
+		record(member)
+	}
+}
+
+// recordExposedViewName records an exposed name in the view's namespace.
+func (m *migration) recordExposedViewName(view *sysmlv1.Element, name string) {
+	if name == "" {
+		return
+	}
+	if m.viewNames[view] == nil {
+		m.viewNames[view] = map[string]bool{}
+	}
+	m.viewNames[view][name] = true
 }
 
 // absentNote says what an unresolved reference to id was: notation the tool

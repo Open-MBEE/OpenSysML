@@ -11,16 +11,17 @@ package test {
 
 		action def Point {
 			in az : Real;
+			in ref context : Telescope;
 			first start then 'set azimuth';
 			action 'set azimuth' {
 				in value;
-				assign this.azimuth := value;
+				assign context.azimuth := value;
 			}
 			bind 'set azimuth'.value = az;
 			first 'set azimuth' then done;
 		}
 
-		action point : Point;
+		action point : Point { in ref :>> context = this; }
 	}
 
 	part def Station {
@@ -29,25 +30,27 @@ package test {
 
 		action def Face {
 			in az : Real;
+			in ref context : Station;
 			first start then turn;
 			action turn {
-				assign this.azimuth := az;
+				assign context.azimuth := az;
 			}
 			first turn then done;
 		}
 
 		action def Observe {
+			in ref context : Station;
 			first start then pick;
 			action pick {
 				out result : Real;
 				assign result := 45.0;
 			}
 			first pick then pt;
-			perform action pt ::> tel.point;
+			perform action pt : Telescope::Point ::> context.tel.point;
 			flow pick.result to pt.az;
 			first pt then own;
 			action own : Face {
-				in az = 90.0;
+				in az = 90.0; in ref :>> context = Observe::context;
 			}
 			first own then done;
 		}
@@ -56,7 +59,7 @@ package test {
 			entry; then observing;
 
 			state observing {
-				entry action observe : Observe;
+				entry action observe : Observe { in ref :>> context = this; }
 			}
 			state pointed;
 

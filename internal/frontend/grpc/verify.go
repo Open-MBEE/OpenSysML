@@ -206,7 +206,7 @@ func namedFQN(idx *symbols.Index, sym *symbols.Symbol) string {
 		if s.OwnerScope == nil {
 			break
 		}
-		s = s.OwnerScope.Owner()
+		s = s.OwnerScope.OwningElement()
 	}
 	return idx.GetFQN(sym)
 }

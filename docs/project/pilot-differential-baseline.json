@@ -10,7 +10,7 @@
       {
         "name": "pilot-sysml-validator",
         "source": "scripts/pilot-sysml-validator/ValidateSysML.java",
-        "sourceDigest": "sha256:3855d223162d6ece6a08b5e1bc9388ff2706bd52e7f3373be31c7e8abc0a22bb",
+        "sourceDigest": "sha256:fe6dc20d8723bb5022322b5701b98d13d90a560882c0970b90aa7305073f60ad",
         "release": "2026-08 (jupyter-sysml-kernel 0.62.0)"
       },
       {
@@ -61,7 +61,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:9c6076ce0461ef1da3f78ae43148589e97d620bf933d7234642a84852f43b563"
+        "digest": "sha256:d4572d53fabf769532e416d0f82f0ae615fdc7fe48b86c17f976338a1e759696"
       },
       {
         "name": "probes",
@@ -71,7 +71,7 @@
         "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
       }
     ],
-    "recorded": "2026-09-27"
+    "recorded": "2026-09-28"
   },
   "totals": {
     "files": 380,

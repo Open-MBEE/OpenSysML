@@ -40,9 +40,9 @@ The protocols and what the service serves on a single port are described in
 - **In MATLAB or GNU Octave: `+opensysml`.** The same thin client for the environments a
   modeler already runs; Octave 7+ is the tested path.
 
-The Go, Python, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
+The Go, Java, Julia and MATLAB clients each reach every RPC the service has — the Julia
 and MATLAB ones through `call`/`callRaw` under the wrapped functions, so nothing on the wire is
-out of reach; the Node and Rust clients cover the v1 subset described below.
+out of reach — and the Python client every one but `ParseSources`; the Node and Rust clients cover the v1 subset described below.
 
 ## What the newer surfaces cover
 
