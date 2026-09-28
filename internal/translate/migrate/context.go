@@ -8,11 +8,21 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 )
 
-// behaviorContext is the object an activity acts on when its owner is not it: the
-// classifier whose ports its actions go through, taken as a reference parameter.
+// behaviorContext is the object an activity acts on, taken as a reference
+// parameter: the classifier whose ports its actions go through when its owner
+// is not it, or the owner's own classifier for a def, whose `this` is the def's
+// own occurrence rather than the object it runs on.
 type behaviorContext struct {
 	name       string
 	classifier *sysmlv1.Element
+	// holder is the def declaring the parameter, for the `Def::context` form a
+	// nested call binds it by, where a bare name would be shadowed.
+	holder *sysmlv1.Element
+	// owner is whether the object is the def's own classifier, spelled for `this`.
+	owner bool
+	// used is whether the def's body spelled it; bound whether a usage bound it.
+	// The parameter is written when either holds once the body is evaluated.
+	used, bound, evaluated bool
 }
 
 // contextVisit is an activity the context search has reached: its visit index, the
@@ -35,10 +45,22 @@ const (
 )
 
 func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
-	if b == nil || b.Type != "Activity" {
+	if b == nil || m.asUsage[b] {
 		return nil
 	}
 	if c, settled := m.contexts[b]; settled {
+		return c
+	}
+	for cur := b; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+			// Under a usage's body the object's features resolve on this.
+			m.contexts[b] = nil
+			return nil
+		}
+	}
+	if b.Type != "Activity" {
+		c := m.ownerContext(b)
+		m.contexts[b] = c
 		return c
 	}
 	if m.visiting[b] != nil {
@@ -46,7 +68,273 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 		return nil
 	}
 	m.visitContext(b)
+	if m.contexts[b] == nil {
+		m.contexts[b] = m.ownerContext(b)
+	}
 	return m.contexts[b]
+}
+
+// contextThroughPorts reports whether c is a context reached through ports: an
+// object other than the def's owner, which a usage's this cannot stand for.
+func contextThroughPorts(c *behaviorContext) bool {
+	return c != nil && !c.owner
+}
+
+// ownerContext is the context a def takes for the object its body acts on: its
+// own classifier, whose features the body reads through the parameter since
+// the def's `this` is its own occurrence; nil when e is no def or in no
+// classifier.
+func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
+	if e == nil || !defScope(e) {
+		return nil
+	}
+	for cur := e; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] {
+			// Inside a usage's body the object's features resolve on this.
+			return nil
+		}
+	}
+	owner := classifierOf(e)
+	if owner == nil {
+		return nil
+	}
+	if c, ok := m.ownerCtx[e]; ok {
+		return c
+	}
+	c := &behaviorContext{name: m.freshName(e, "context"), classifier: owner, holder: e, owner: true}
+	m.ownerCtx[e] = c
+	return c
+}
+
+// defScope reports whether e is written as a def whose `this` is its own
+// occurrence: a behavior or operation declared as a member, not an inline body
+// of a state, transition or operation.
+func defScope(e *sysmlv1.Element) bool {
+	switch e.Role {
+	case "entry", "exit", "doActivity", "effect", "method", "guard":
+		return false
+	}
+	return isBehavior(e) || e.Type == "Operation" || e.Type == "Reception"
+}
+
+// enclosingDef is the def e's body is written inside: the innermost enclosing
+// element declared as a member; nil in a usage of the object or a bare member
+// of the classifier, where the object's features resolve bare.
+func (m *migration) enclosingDef(e *sysmlv1.Element) *sysmlv1.Element {
+	for cur := e; cur != nil; cur = cur.Parent {
+		if op := m.methodOf[cur]; op != nil {
+			return op
+		}
+		if defScope(cur) {
+			return cur
+		}
+		switch cur.Type {
+		case "Package", "Model", "Profile":
+			return nil
+		default:
+			if m.contextClassifier(cur) == cur {
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// defContext is the context parameter the def enclosing e declares for the
+// object its `this` does not reach — the spelling of `this` — nil when no def
+// encloses e, or the def's context is another object than its owner.
+func (m *migration) defContext(e *sysmlv1.Element) *behaviorContext {
+	if c := m.contextOf(m.enclosingDef(e)); c != nil && c.owner {
+		return c
+	}
+	return nil
+}
+
+// selfContext is the context parameter the def enclosing e declares, whatever
+// object it is: what a call inside binds on to the next behavior. Nil outside
+// a def taking one.
+func (m *migration) selfContext(e *sysmlv1.Element) *behaviorContext {
+	return m.contextOf(m.enclosingDef(e))
+}
+
+// thisName spells `this` where e's body is written: the enclosing def's
+// context parameter, or this itself inside the object's usages.
+func (m *migration) thisName(e *sysmlv1.Element) string {
+	if c := m.selfContext(e); c != nil {
+		return m.contextSpelling(c, e)
+	}
+	return "this"
+}
+
+// selfPrefix spells the start of a path on the object the def enclosing e acts
+// on — its context parameter followed by a dot — or nothing outside such a def,
+// where `this` and the object's features resolve in scope.
+func (m *migration) selfPrefix(e *sysmlv1.Element) string {
+	if c := m.selfContext(e); c != nil {
+		return m.contextSpelling(c, e) + "."
+	}
+	return ""
+}
+
+// ownerPrefix spells the start of a feature path on `this` where e's body is
+// written: the def's context parameter followed by a dot inside a def, or
+// nothing inside the object's usages, whose scope resolves its features bare.
+func (m *migration) ownerPrefix(e *sysmlv1.Element) string {
+	if c := m.defContext(e); c != nil {
+		return m.contextSpelling(c, e) + "."
+	}
+	return ""
+}
+
+// contextSpelling spells def c's context parameter where e's body is written.
+// The parameter resolves by its bare name anywhere inside the def's own scope:
+// in the def's body, in usages nested in it, and in the transitions, regions
+// and pseudostates a state machine's bodies hang from; a state usage's own
+// context redefinition names the same object. Where e is not inside the def,
+// the parameter takes the def's qualified name.
+func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) string {
+	if e == nil {
+		return m.qualifiedContext(c, e)
+	}
+	cur := e
+	for cur != nil && cur != c.holder {
+		if op := m.methodOf[cur]; op != nil {
+			cur = op
+			continue
+		}
+		cur = cur.Parent
+	}
+	if cur != c.holder {
+		return m.qualifiedContext(c, e)
+	}
+	c.used = true
+	return writeName(c.name)
+}
+
+// respellThis rewrites an expression built on `this` — `this` itself or a
+// `this.f` path — for the body e is written in.
+func (m *migration) respellThis(expr string, e *sysmlv1.Element) string {
+	if expr == "this" {
+		return m.thisName(e)
+	}
+	if strings.HasPrefix(expr, "this.") {
+		rest := strings.TrimPrefix(expr, "this.")
+		if c := m.selfContext(e); c != nil {
+			return m.contextSpelling(c, e) + "." + rest
+		}
+		if owner := m.contextClassifier(e); owner != nil {
+			// Inside a usage the feature resolves bare — unless a nearer
+			// declaration hides it, when the path goes through the owning def.
+			first, _, _ := strings.Cut(rest, ".")
+			visible, _ := m.visibleFrom(e)
+			if members, _ := m.membersOf(owner, memberAny); members[first] != nil && members[first] != visible[first] {
+				return m.ref(owner, e) + "::" + rest
+			}
+		}
+		return rest
+	}
+	return expr
+}
+
+// anchorExpr spells a path rooted at a member of the context object — a
+// swimlane's represented property written without `this` — where e's body is
+// written: through the context parameter inside a def, bare inside a usage.
+func (m *migration) anchorExpr(expr string, e *sysmlv1.Element) string {
+	if expr == "this" || strings.HasPrefix(expr, "this.") {
+		root := m.respellThis(expr, e)
+		if root == "this" && m.selfContext(e) == nil {
+			// Inside a usage `this` is the usage's own occurrence; as the root
+			// of a member path the object has no name — spell the member bare.
+			return ""
+		}
+		return root
+	}
+	return m.selfPrefix(e) + expr
+}
+
+// joinDot joins a member path's root and step, keeping a lone root or step.
+func joinDot(root, step string) string {
+	if root == "" {
+		return step
+	}
+	return root + "." + step
+}
+
+// callBodyExpr respells an expression written for e's body so it still reads
+// the names it names from inside a call usage's body, where the def's members —
+// the context parameter and its others — are not in the call's own scope: a
+// bare name there is spelled qualified through its owner.
+func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
+	if c := m.selfContext(e); c != nil {
+		name := writeName(c.name)
+		if expr == name {
+			return m.qualifiedContext(c, e)
+		}
+		if strings.HasPrefix(expr, name+".") {
+			return m.qualifiedContext(c, e) + expr[len(name):]
+		}
+	}
+	first, _, _ := strings.Cut(expr, ".")
+	if d := m.enclosingDef(e); d != nil && !m.asUsage[d] {
+		if visible, _ := m.membersOf(d, memberAny); visible[first] != nil {
+			return m.ref(d, e) + "::" + expr
+		}
+	}
+	if owner := m.contextClassifier(e); owner != nil {
+		if visible, _ := m.membersOf(owner, memberAny); visible[first] != nil {
+			// Inside a usage's call body a bare name is the call's own; the
+			// object's feature is spelled qualified through its def.
+			return m.ref(owner, e) + "::" + expr
+		}
+	}
+	return expr
+}
+
+// qualifiedContext writes a def's context parameter as it is named from inside
+// its own body, where a call's own redefinition would shadow the bare name.
+func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element) string {
+	c.used = true
+	return m.ref(c.holder, scope) + "::" + writeName(c.name)
+}
+
+// contextBody is the member list of a usage of callee whose body binds only
+// the callee's context parameter: the redefinition preceded by redeclarations
+// of all of callee's parameters in order, which a body holding only the
+// redefinition would leave invisible to flows and references naming them, and
+// whose positions the redefinition would otherwise be read as redeclaring.
+func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
+	var members []string
+	for _, p := range m.actionParameters(callee) {
+		dir, _ := parameterDirection(p)
+		members = append(members, dir+" "+writeName(m.nameOf(p)))
+	}
+	return append(members, ins)
+}
+
+// contextIns writes the redefinition by which a usage of a behavior taking a
+// context binds it to the object scope runs on: `in ref :>> context = expr`,
+// the object qualified from the enclosing def or `this`; "" when the behavior
+// takes none that any use declared, or the object is not one to bind, with the
+// note contextBinding gives then.
+func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins, note string) {
+	if c == nil {
+		return "", ""
+	}
+	if c.owner && c.evaluated && !c.used && !c.bound {
+		// A def already written, whose body never read its owner: no parameter
+		// was declared, so nothing binds it.
+		return "", ""
+	}
+	self, selfType := "this", m.contextClassifier(scope)
+	if dc := m.selfContext(scope); dc != nil {
+		self, selfType = m.qualifiedContext(dc, scope), dc.classifier
+	}
+	expr, cnote := m.contextBinding(c, selfType, self)
+	if expr == "" {
+		return "", cnote
+	}
+	c.bound = true
+	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
 }
 
 // visitContext reaches b and, through it, the behaviors it calls; once every call
@@ -133,7 +421,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 		}
 		return nil
 	}
-	return &behaviorContext{name: m.freshName(b, "context"), classifier: c}
+	return &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b}
 }
 
 // providesAny reports whether an object of owner is, or holds one part that is,
@@ -158,6 +446,18 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 		case "ReadStructuralFeatureAction", "AddStructuralFeatureValueAction", "RemoveStructuralFeatureValueAction", "ClearStructuralFeatureAction":
 			if f := m.model.Ref(e, "structuralFeature"); f != nil && m.hasFeature(c, f) {
 				uses = true
+			}
+		case "OpaqueAction":
+			// A body written in its own language reads a feature by its name.
+			if body, _ := opaqueBody(e); body != "" {
+				if toks, err := lexOpaque(body); err == nil {
+					members, _ := m.membersOf(c, memberAny)
+					for _, t := range toks {
+						if t.kind == tokIdent && members[t.text] != nil {
+							uses = true
+						}
+					}
+				}
 			}
 		}
 	})
@@ -336,22 +636,42 @@ func (m *migration) mostSpecific(cs []*sysmlv1.Element) *sysmlv1.Element {
 }
 
 // contextParameter declares the reference parameter an activity takes for the
-// object whose ports its actions go through, or reports why none is written.
+// object its actions act on, or reports why none is written. A def's own
+// context parameter is written only once the body or a call settled on it.
 func (m *migration) contextParameter(b *sysmlv1.Element) {
-	c := m.contextOf(b)
+	c := m.selfContext(b)
 	if c == nil {
 		if note := m.contextNotes[b]; note != "" {
 			m.add(b, Approximated, "", note)
 		}
 		return
 	}
+	if c.owner && !c.used && !c.bound {
+		return
+	}
 	m.w.line("in ref " + writeName(c.name) + " : " + m.ref(c.classifier, b) + ";")
+	if c.owner {
+		m.add(b, Mapped, "", "acts on its owner "+qualifiedName(c.classifier)+", which it takes as its parameter "+c.name+", since its this is the def's own occurrence")
+		return
+	}
 	note := "acts on a " + qualifiedName(c.classifier) + " through its ports, which it takes as its parameter " + c.name
 	if owner := classifierOf(b); owner != nil {
 		m.add(b, Approximated, "", note+" rather than its owner "+qualifiedName(owner)+", which is no such object and holds no one part that is: v1 ran it on whichever object called it")
 		return
 	}
 	m.add(b, Mapped, "", note)
+}
+
+// bodyWithContext writes e's body after its parameters were written, declaring
+// the context parameter the body's reads and the calls passing the object on
+// settled: it is evaluated by the time the parameter is decided.
+func (m *migration) bodyWithContext(e *sysmlv1.Element, body func()) {
+	inner := m.w.captureAt(body)
+	if c := m.contextOf(e); c != nil {
+		c.evaluated = true
+	}
+	m.contextParameter(e)
+	_, _ = m.w.buf().WriteString(inner)
 }
 
 // enclosingActivity is the activity whose object the nodes written for e act
@@ -365,12 +685,21 @@ func enclosingActivity(e *sysmlv1.Element) *sysmlv1.Element {
 	return nil
 }
 
-// self writes the object the activity's actions act on: this, or the context parameter.
+// self writes the object the activity's actions act on: this, or the context
+// parameter as it is spelled where the activity's body is written.
 func (a *activity) self() string {
 	if a.ctx != nil {
-		return writeName(a.ctx.name)
+		return a.m.contextSpelling(a.ctx, a.act)
 	}
 	return "this"
+}
+
+// markSelf notes that the activity's context parameter is spelled where the
+// caller is writing output, so the def declares it.
+func (a *activity) markSelf() {
+	if a.ctx != nil {
+		a.ctx.used = true
+	}
 }
 
 // selfType is the classifier of the object the activity acts on, nil when none is known.
@@ -392,6 +721,9 @@ func (a *activity) hasPort(port *sysmlv1.Element) bool {
 func (a *activity) on(obj, member string) string {
 	if obj == "this" {
 		return member
+	}
+	if a.ctx != nil && obj == a.self() {
+		a.markSelf()
 	}
 	return strings.TrimPrefix(obj, "this.") + "." + member
 }
@@ -448,22 +780,28 @@ func (a *activity) unshadowed(path string) string {
 // the activity acts on: nothing for this, whose ports the action's scope sees.
 func (a *activity) viaPrefix() string {
 	if a.ctx != nil {
-		return writeName(a.ctx.name) + "."
+		return a.m.contextSpelling(a.ctx, a.act) + "."
 	}
 	return ""
 }
 
-// contextArgument writes the object bound to a called behavior's context parameter:
-// the caller's object when it is one, else its one part that is.
+// contextArgument writes the object bound to a called behavior's context
+// parameter: the caller's object — its context parameter qualified from the
+// def — when it is one, else its one part that is.
 func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
-	return a.m.contextBinding(c, a.selfType(), a.self())
+	self := a.self()
+	if a.ctx != nil {
+		self = a.m.qualifiedContext(a.ctx, a.def)
+	}
+	expr, note = a.m.contextBinding(c, a.selfType(), self)
+	return expr, note
 }
 
 // callContext is contextArgument for the call behavior action n: the object its
 // swimlane names as the performer when there is one, else the caller's.
 func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, note string) {
 	if l, _, _ := a.m.lanePerformer(n); l != nil {
-		return a.m.contextBinding(c, l.typ, l.expr)
+		return a.m.contextBinding(c, l.typ, a.m.callBodyExpr(a.m.respellThis(l.expr, a.def), a.def))
 	}
 	return a.contextArgument(c)
 }

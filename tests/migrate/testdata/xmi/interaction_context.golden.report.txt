@@ -1,0 +1,28 @@
+# SysML v1 to v2 migration report: interaction_context.xmi
+# migrated 22 element(s): 21 mapped, 1 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (1)
+Interaction	Rig::Pair	_pair	-> Rig::Pair	(written as a scenario of 1 step, one per message in occurrence order; the lifelines' own behavior is not part of it; acts on its owner Rig, which it takes as its parameter context, since its this is the def's own occurrence; also run as the do action of 'on'; the behavior acts on a Rig through its parameter context, which is bound to Duty::context.rig, the caller's one part that is one)
+
+## mapped (21)
+«Block» Class	Ctrl	_ctrl	-> Ctrl
+Property	Ctrl::got	_got	-> Ctrl::got
+Model	Model	_m	(the root model's members are written at the top level)
+Signal	Ping	_ping	-> Ping
+«Block» Class	Plant	_plant	-> Plant
+StateMachine	Plant::Duty	_duty	-> Plant::Duty	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
+Region	Plant::Duty::main	_dReg	(the one region is written as the body of its owner)
+FinalState	Plant::Duty::main::<FinalState>	_dEnd	-> done
+Pseudostate	Plant::Duty::main::<Pseudostate>	_dInit	(written as the entry of the region)
+Transition	Plant::Duty::main::<Transition>	_t1
+Transition	Plant::Duty::main::<Transition>	_t2
+State	Plant::Duty::main::on	_on	-> on
+Property	Plant::rig	_pRig	-> Plant::rig
+«Block» Class	Rig	_rig	-> Rig
+MessageOccurrenceSpecification	Rig::Pair::<MessageOccurrenceSpecification>	_sP	-> ping	(the occurrence orders the step ping)
+MessageOccurrenceSpecification	Rig::Pair::<MessageOccurrenceSpecification>	_rP	-> ping	(the occurrence orders the step ping)
+Lifeline	Rig::Pair::a	_la	-> context.ctrl	(the lifeline stands for context.ctrl, which the steps address)
+Lifeline	Rig::Pair::b	_lb	-> context.other	(the lifeline stands for context.other, which the steps address)
+Message	Rig::Pair::ping	_mP	-> ping	(written as a send to context.other)
+Property	Rig::ctrl	_rCtrl	-> Rig::ctrl
+Property	Rig::other	_rOther	-> Rig::other

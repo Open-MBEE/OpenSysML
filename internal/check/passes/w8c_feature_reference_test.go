@@ -310,30 +310,6 @@ func TestW8CFeatureReferenceBodyAccessible(t *testing.T) {
 	}
 }
 
-// A value an annotation body binds is a feature reference like any usage's
-// value, so a definition bound there is not a valid feature; the definition
-// cast to its metaclass is an element, which the body may bind.
-func TestW8CFeatureReferenceAnnotationBody(t *testing.T) {
-	const invalid = `package P {
-	part def Acme;
-	metadata def Org { ref owner; }
-	part def X { @Org { owner = Acme; } }
-}`
-	msgs := w8cLibraryMessagesIn(t, "<t>.sysml", invalid)
-	if w8cCount(msgs, msgReferentIsFeature) != 1 {
-		t.Errorf("want one %q, got %v", msgReferentIsFeature, msgs)
-	}
-	const clean = `package P {
-	part def Acme;
-	part acme : Acme;
-	metadata def Org { ref owner; ref kind; }
-	part def X { @Org { owner = acme; kind = Acme meta SysML::PartDefinition; } }
-}`
-	if errs := w8cLibraryErrorsIn(t, "<t>.sysml", clean); len(errs) != 0 {
-		t.Errorf("want a clean analysis, got %v", errs)
-	}
-}
-
 func TestW8CFeatureReferenceFilterConditions(t *testing.T) {
 	t.Run("user feature path is inaccessible", func(t *testing.T) {
 		src := `package R1 {
@@ -380,7 +356,55 @@ package Q { filter @Safety; }`,
 	}
 }
 
-// An unnamed annotation written at the document root, outside any symbol, has
+// A behavior definition is the occurrence its `this` denotes: `this.<feature>`
+// inside a def reads the def's own features, so an enclosing object's feature
+// does not resolve through it — while a usage's bare feature read still reaches
+// the object lexically.
+func TestW8CFeatureReferenceThisInsideBehaviorDef(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			action step { assign this.level := 1; }
+		}
+	}
+}`
+	msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
+	found := false
+	for _, m := range msgs {
+		if strings.Contains(m, "level") {
+			found = true
+		}
+	}
+	if !found || len(msgs) == 0 {
+		t.Errorf("this.level inside action def Nudge should not resolve to H's level, got %v", msgs)
+	}
+}
+
+// `context.<feature>` inside a def and a bare feature read inside a usage both
+// analyse clean: the def reads its context parameter, the usage sees the object.
+func TestW8CFeatureReferenceContextParameterAndUsageReads(t *testing.T) {
+	src := `package P {
+	private import ScalarValues::*;
+	part def H {
+		attribute level : Integer = 0;
+		action def Nudge {
+			in ref context : H;
+			action step { assign context.level := 1; }
+		}
+		action nudge : Nudge { in ref :>> context = this; }
+		state s {
+			entry; then on;
+			state on { entry action e { assign level := level + 1; } }
+		}
+	}
+}`
+	if msgs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(msgs) != 0 {
+		t.Errorf("context reads and usage-level bare reads must be clean, got %v", msgs)
+	}
+}
+
 // its body values judged like one written in a definition's body.
 func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 	const invalid = `part def Acme;

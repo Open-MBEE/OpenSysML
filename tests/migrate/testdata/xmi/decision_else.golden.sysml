@@ -2,11 +2,12 @@ package Recovery {
     part def Retrier {
         attribute attempts : ScalarValues::Integer default = 0;
         action def Recover {
+            in ref context : Retrier;
             first start then 'decide';
             decide 'decide';
             else 'merge';
             comment /* Retries until the budget is spent. */
-            first 'decide' if this.attempts < 3 then retry;
+            first 'decide' if context.attempts < 3 then retry;
             action retry {
                 /* body not migrated (the body is empty) */
             }

@@ -21,7 +21,7 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"#StateMachines::shallowHistory state last;",
 		"#StateMachines::deepHistory state deepest;",
 		"transition first last then Prep;",
-		"state Cell : CellMachine;",
+		"state Cell : CellMachine { in ref :>> context = Line::context; }",
 		"#StateMachines::junction state route;",
 		"fork spread;",
 		"join gather;",
@@ -29,10 +29,12 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 		"state regions parallel {",
 		"transition first Work::Run accept Stop then Idle;",
 		"transition first Idle accept Resume then Work::Run;",
-		"transition first Pause accept Resume\n            do action log { }\n            then Work::last;",
+		"transition first Pause accept Resume",
+		"do action log { }",
+		"then Work::last;",
 		"transition first Idle accept Enter then Cell::warmStart;",
 		"transition first Cell::spent then Idle;",
-		"transition first route if this.count < 2 then Work;",
+		"transition first route if context.count < 2 then Work;",
 		"transition first route then done;",
 		"transition first spread then Both::regions::a::A1;",
 		"transition first spread then Both::regions::b::B1;",
@@ -187,6 +189,30 @@ func TestStateMachineCrossRegionTransitionsAndPseudostates(t *testing.T) {
 // 21 Deep→Fast, 22 Fast→Out, 23 Start→Run, 24 Run→Leave, 25 Out→Prep, 31 Sync entry,
 // 32 Sync exit, 33/34 A1 entry/exit, 35/36 B1 entry/exit, 37 A1→Gather, 38 B1→Gather,
 // 41 Idle→Start, 42 Idle→Deep, 43 Leave→Idle, 44 Work→Idle, 46 Gather→Idle.
+
+// testdata/xmi/submachine_params.xmi: a submachine state whose body holds an
+// entry action redeclares the submachine's parameters each on its own line
+// before the context redefinition, so positionally they keep their declared
+// order.
+func TestSubmachineStateBlockRedeclaresParameters(t *testing.T) {
+	r := migrateFixtureFile(t, "submachine_params")
+	for _, line := range []string{
+		"state Cell : CellMachine {",
+		"in x;",
+		"in ref :>> context = Line::context;",
+		"entry action tally {",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	notation := string(r.Notation)
+	in := strings.Index(notation, "in x;")
+	ref := strings.Index(notation, "in ref :>> context = Line::context;")
+	entry := strings.Index(notation, "entry action tally")
+	if !(in >= 0 && in < ref && ref < entry) {
+		t.Errorf("the redeclared parameter must precede the context redefinition and the entry:\n%s", notation)
+	}
+}
+
 func TestCompositeStateConnectionPointsKeepTheUMLOrder(t *testing.T) {
 	r := migrateFixtureFile(t, "station_points")
 	for _, line := range []string{
@@ -564,7 +590,7 @@ func TestTargetlessInternalTransitionsStayInTheirSource(t *testing.T) {
 	for _, line := range []string{
 		"transition first Idle accept Ping",
 		"do action {",
-		"assign this.pings := this.pings + 1;",
+		"assign context.pings := context.pings + 1;",
 		"then Idle;",
 		"/* not migrated: Transition (_itJump) — an internal transition targets 'Busy', not its source 'Idle'; whether it stays or moves cannot be told */",
 		"/* not migrated: Transition (_itPick) — the source (_ipick) is a Pseudostate, and only a state has an internal transition */",
@@ -891,7 +917,7 @@ const guardedEntryApplications = `
 // the owning state's entry behavior falsifying it does not turn the route.
 func TestGuardedEntryPointRouteIsKept(t *testing.T) {
 	r := migrateDocument(t, guardedEntryMachine, guardedEntryApplications)
-	for _, line := range []string{"#StateMachines::junction state arm;", "transition first Work::arm if this.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
+	for _, line := range []string{"#StateMachines::junction state arm;", "transition first Work::arm if context.armed then W2;", "transition first Idle accept Go then Work::arm;"} {
 		if !strings.Contains(string(r.Notation), line) {
 			t.Errorf("missing %q in:\n%s", line, r.Notation)
 		}
@@ -1522,4 +1548,25 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	wantNote(t, r, "_through", migrate.Unmapped, "leads from the entry point straight to the exit point")
 	wantNote(t, r, "_tThrough", migrate.Unmapped, "the source 'Through' has no v2 form")
 	wantNote(t, r, "_tSkip", migrate.Unmapped, "the target 'Through' has no v2 form")
+}
+
+// testdata/xmi/operation_extra_params.xmi: a usage binding only the context of
+// an operation whose method declares a parameter matching none of the
+// operation's redeclares that parameter too, before the context redefinition.
+func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
+	r := migrateFixtureFile(t, "operation_extra_params")
+	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = Drive::context; }")
+}
+
+// testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the
+// block and its part bind the callee's context through the calling def's own
+// context parameter, qualified so it is not read as the call's redefinition.
+func TestSwimlaneCallContextQualifiesThroughTheDef(t *testing.T) {
+	r := migrateFixtureFile(t, "swimlane_context_calls")
+	for _, line := range []string{
+		"perform action hit ::> Host::hit;",
+		"perform action tune ::> Host::engine.tune;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
 }

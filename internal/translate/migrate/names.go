@@ -153,6 +153,29 @@ func (m *migration) take(owner *sysmlv1.Element, name string) {
 	m.taken[owner][name] = true
 }
 
+// identifierSuffix turns a name into the tail of a compound identifier: its
+// letters, digits and underscores, each run after a dropped rune capitalized.
+func identifierSuffix(name string) string {
+	var b strings.Builder
+	upper := true
+	for _, r := range name {
+		switch {
+		case unicode.IsLetter(r) || r == '_' || (unicode.IsDigit(r) && b.Len() > 0):
+			if upper {
+				r = unicode.ToUpper(r)
+			}
+			b.WriteRune(r)
+			upper = false
+		default:
+			upper = true
+		}
+	}
+	if b.Len() == 0 {
+		return "Signal"
+	}
+	return b.String()
+}
+
 func lowerFirst(s string) string {
 	r, n := utf8.DecodeRuneInString(s)
 	if n == 0 {
@@ -217,6 +240,9 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 			cur = op
 		}
 		segs = append([]segment{{name: m.nameFor(cur), feature: m.isUsage(cur), elem: cur}}, segs...)
+		if within, ok := m.nestedIn[cur]; ok {
+			segs = append([]segment{{name: within, feature: true}}, segs...)
+		}
 	}
 	return segs
 }

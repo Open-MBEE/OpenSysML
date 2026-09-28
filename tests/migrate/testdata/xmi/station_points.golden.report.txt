@@ -9,7 +9,7 @@ Transition	Station::Cycle::main::Work::steps::<Transition>	_tThrough	(the source
 
 ## approximated (26)
 Class	Station	_station	-> Station	(a plain UML class without «Block» is written as a part def)
-StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(the classifier behavior is run by every object of Station as its usage cycle)
+StateMachine	Station::Cycle	_cycle	-> Station::Cycle	(acts on its owner Station, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Station as its usage cycle)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_goEff	-> Station::Cycle::unnamed::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_diveEff	-> Station::Cycle::unnamed2::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)
 OpaqueBehavior	Station::Cycle::main::<Transition>::<OpaqueBehavior>	_leaveEff	-> Station::Cycle::unnamed3::unnamed	(the JavaScript body is translated to v2; the JavaScript body is written as v2 assignments)

@@ -310,7 +310,12 @@ library's metadata spellings — `#StateMachines::junction state x;`,
 added to each package that holds one, so the output is conforming SysML v2 by
 default. Pass `-strict` (see
 [Strict conformance](03-command-line.md#strict-conformance)) and the migration still
-writes only notation a pinned grammar admits:
+writes only notation a pinned grammar admits: the pseudostates keep their
+`StateMachines` metadata spellings, while a deferred signal becomes standard
+notation — an `item` buffer the state's do action fills from an accept loop
+while the state is active, substates included, and its exit action sends back
+to the object once the state is left. Either way the state is annotated
+`@MigrationMetadata::DeferredEvent`, naming the deferred signal:
 
 ```console
 $ sysml Project.xmi -strict -convert sysml -o Project.sysml
@@ -318,8 +323,12 @@ $ sysml -strict -validate Project.sysml
 ✓ Project.sysml: no errors
 ```
 
-What a strict migration refuses is listed in the reference under
+What a strict migration refuses, and how it encodes a deferred signal, is described in the
+reference under
 [Portable output with `-strict`](../reference/sysml-v1-migration.md#portable-output-with--strict).
+In both modes a state that defers a signal is annotated
+`@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }`, so a reader sees what was
+deferred without reading the encoding.
 
 ## Publishing a migrated document with Cameo-style diagrams
 

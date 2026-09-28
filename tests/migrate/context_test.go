@@ -88,13 +88,13 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 		"action 'take ack' accept Ack via context.rx;",
 		"action await : Await;",
 		"bind await.context = this;",
-		"do action : Await { in context = this; }",
+		"do action : Await { in ref :>> context = Life::context; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_takeTr", migrate.Approximated, "the signal arrives at the port rx over the document's connectors or declarations, so the action accepts via it; an action accepts through one route, and one sent to the object itself is not taken")
-	wantNote(t, r, "_callAwait", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to this")
-	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to this")
+	wantNote(t, r, "_callAwait", migrate.Mapped, "")
+	wantNote(t, r, "_await", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context; also run as the do action of 'waiting'; the behavior acts on a Host through its parameter context, which is bound to Life::context")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
@@ -219,10 +219,8 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 	for _, line := range []string{
 		"action def Relay {",
 		"in ref context : Host;",
-		"action hit : Hit;",
-		"bind hit.context = context;",
-		"action relay : Controller::Relay;",
-		"bind relay.context = this;",
+		"action hit : Hit { in ref :>> context = Relay::context; }",
+		"action relay : Controller::Relay { in ref :>> context = Run::context; }",
 		"send new Ping(a, b) via context.tx;",
 		"flow two.result to 'send ping'.a;",
 		"flow two.result to 'send ping'.b;",
@@ -233,8 +231,8 @@ func TestOwnedActivityBorrowsTheContextItsCallsNeed(t *testing.T) {
 		wantNoLine(t, r.Notation, line)
 	}
 	wantNote(t, r, "_relay", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")
-	wantNote(t, r, "_callHit", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to context")
-	wantNote(t, r, "_callRelay", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to this; the behavior belongs to Controller and runs here in the caller's context")
+	wantNote(t, r, "_callHit", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Relay::context")
+	wantNote(t, r, "_callRelay", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Run::context; the behavior belongs to Controller and runs here in the caller's context")
 	wantNote(t, r, "_split", migrate.Approximated, "the node routes data only: the flows through it are written from their sources to the pins it leads to")
 	wantNote(t, r, "_ho1", migrate.Approximated, "the flow into (_split) is written from its sources to the pins the node leads to")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
@@ -261,8 +259,12 @@ const hostlessCaller = `
         <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ran0" value="0"/>
       </ownedAttribute>
       <ownedBehavior xmi:type="uml:Activity" xmi:id="_drive" name="Drive">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_outP" name="r" direction="out"/>
         <node xmi:type="uml:InitialNode" xmi:id="_di"/>
-        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRelay2" name="relay" behavior="_relay"/>
+        <node xmi:type="uml:ActivityParameterNode" xmi:id="_outN" name="r" parameter="_outP"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRelay2" name="relay" behavior="_relay">
+          <result xmi:type="uml:OutputPin" xmi:id="_relayOut" name="result"/>
+        </node>
         <node xmi:type="uml:ValueSpecificationAction" xmi:id="_one" name="one">
           <value xmi:type="uml:LiteralInteger" xmi:id="_oneV" value="1"/>
           <result xmi:type="uml:OutputPin" xmi:id="_oneOut" name="result"/>
@@ -274,6 +276,7 @@ const hostlessCaller = `
         <edge xmi:type="uml:ControlFlow" xmi:id="_de1" source="_di" target="_callRelay2"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_de2" source="_callRelay2" target="_one"/>
         <edge xmi:type="uml:ObjectFlow" xmi:id="_dof" source="_oneOut" target="_setVal"/>
+        <edge xmi:type="uml:ObjectFlow" xmi:id="_rflow" source="_relayOut" target="_outN"/>
         <edge xmi:type="uml:ControlFlow" xmi:id="_de3" source="_set" target="_df"/>
       </ownedBehavior>
       <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_clife" name="Life">
@@ -300,11 +303,13 @@ func TestCallsFromObjectsLackingTheCalleesContextAreNotPerformed(t *testing.T) {
 		"action relay {",
 		"/* not migrated: CallBehaviorAction 'relay' — " + why + "; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing */",
 		"/* do action Hit is not run: " + why + " */",
+		"bind r = relay.result;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "action relay : Controller::Relay;\n        first relay then one;\n        action one")
 	wantNote(t, r, "_callRelay2", migrate.Approximated, why+"; v1 runs Controller::Relay on the caller's object, which lacks the ports it goes through, so the action carries the token and performs nothing")
+	wantNote(t, r, "_rflow", migrate.Approximated, "the flow is written, but its source 'relay' is not migrated and produces no value")
 	wantNote(t, r, "_hitting", migrate.Approximated, "its do action Hit is not run: "+why)
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
@@ -414,24 +419,21 @@ func TestActivitiesCallingEachOtherShareTheContextTheCycleNeeds(t *testing.T) {
 				"action def Knock {",
 				"in ref context : Host;",
 				"send new Ping() via context.tx;",
-				"action again : Again;",
-				"bind again.context = context;",
+				"action again : Again { in ref :>> context = Knock::context; }",
 				"action def Again {",
-				"action knock : Controller::Knock;",
-				"bind knock.context = context;",
-				"bind knock.context = this;",
+				"action knock : Controller::Knock { in ref :>> context = Again::context; }",
 			} {
 				wantLine(t, r.Notation, line)
 			}
 			wantNoLine(t, r.Notation, "via this.tx")
 			wantNoLine(t, r.Notation, "in ref context : Controller;")
-			if n := strings.Count(string(r.Notation), "in ref context : Host;"); n != 2 {
-				t.Errorf("the Host context parameter is declared %d times, want 2 (Knock and Again):\n%s", n, r.Notation)
+			if n := strings.Count(string(r.Notation), "in ref context : Host;"); n != 3 {
+				t.Errorf("the Host context parameter is declared %d times, want 3 (Run, Knock and Again):\n%s", n, r.Notation)
 			}
 			wantNote(t, r, "_knock", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller, which is no such object and holds no one part that is: v1 ran it on whichever object called it")
 			wantNote(t, r, "_again", migrate.Mapped, "acts on a Host through its ports, which it takes as its parameter context")
-			wantNote(t, r, "_callAgain", migrate.Mapped, "the behavior acts on a Host through its parameter context, which is bound to context")
-			wantNote(t, r, "_callKnock", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to context; the behavior belongs to Controller and runs here in the caller's context")
+			wantNote(t, r, "_callAgain", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Knock::context")
+			wantNote(t, r, "_callKnock", migrate.Approximated, "the behavior acts on a Host through its parameter context, which is bound to Again::context; the behavior belongs to Controller and runs here in the caller's context")
 			if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 				t.Errorf("%v", diags)
 			}

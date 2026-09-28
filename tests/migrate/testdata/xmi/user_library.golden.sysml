@@ -17,7 +17,7 @@ part def Recorder {
         action get {
             in list : ScalarValues::String[0..*] ordered nonunique = "n=3";
             in index : ScalarValues::Integer = 1;
-            out result : ScalarValues::String;
+            out result : ScalarValues::String[0..1];
             /* not migrated: CallBehaviorAction 'get' — the behavior fUML_Library::PrimitiveBehaviors::ListFunctions::ListGet it calls has no v2 declaration */
         }
         first get then final;

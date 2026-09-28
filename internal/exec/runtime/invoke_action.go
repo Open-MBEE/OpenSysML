@@ -330,7 +330,7 @@ func (f *calleeFrame) clone() bodyFrame { c := *f; return &c }
 // listener, if any, takes each write to the outputs of either.
 func (ctx *Context) beginOrJoinCallee(inv actionInvocation, sym *symbols.Symbol, self *Instance, inputs map[string]Value, listener *outputListener) (*calleeFrame, error) {
 	if inv.chain != nil {
-		exec, err := performanceOf(sym, self, inputs)
+		exec, err := ctx.performanceOf(sym, self, inputs)
 		if err != nil {
 			return nil, err
 		}
@@ -426,7 +426,18 @@ func actionCandidates(
 	var ok bool
 	switch {
 	case inv.chain != nil:
-		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, inv.chain)
+		// A `::>` target is written in the usage's head, so it resolves in the
+		// scope enclosing the usage (as the document walk resolves it), not the
+		// usage's own scope where a parameter the typed def declares, such as
+		// the context parameter, would shadow the enclosing def's. A caller
+		// already passing the enclosing scope needs no walk.
+		chainScope := scope
+		if owner := scope.Owner(); owner != nil && owner.Decl == inv.referrer {
+			if parent := scope.Parent(); parent != nil {
+				chainScope = parent
+			}
+		}
+		sym, ok = ctx.resolveReferenceTarget(chainScope, inv.referrer, inv.chain)
 	case inv.referrer != nil:
 		sym, ok = ctx.resolveReferenceTarget(scope, inv.referrer, target)
 	case inv.expr != nil:
@@ -515,11 +526,18 @@ type actionParameter struct {
 	// Direction is the parameter's declared direction, which decides whether the
 	// caller writes it, reads it back, or both.
 	Direction ast.FeatureDirection
+	// IsReference marks a `ref` parameter, which binds an object reference; a
+	// `::>` performance's performer supplies it, never a like-named feature of
+	// the caller's frame.
+	IsReference bool
 	// Optional reports whether an invocation may bind no argument to the parameter: it
 	// or a parameter it redefines gives a value, or its multiplicity admits none.
 	Optional bool
 	// IsResult marks the `return` parameter, what the action's value read yields.
 	IsResult bool
+	// Symbol is the parameter's declaration, from which its declared default
+	// and type are read.
+	Symbol *symbols.Symbol
 }
 
 // actionParametersOf returns an action's parameters in invocation order: its own, then
@@ -531,13 +549,47 @@ func (ctx *Context) actionParametersOf(sym *symbols.Symbol) []actionParameter {
 			continue
 		}
 		params = append(params, actionParameter{
-			Name:      param.Symbol.Name,
-			Direction: param.Direction,
-			Optional:  ctx.model.semantics.OptionalParameter(param.Symbol),
-			IsResult:  param.IsResult,
+			Name:        param.Symbol.Name,
+			Direction:   param.Direction,
+			IsReference: isReferenceUsage(param.Symbol),
+			Optional:    ctx.model.semantics.OptionalParameter(param.Symbol),
+			IsResult:    param.IsResult,
+			Symbol:      param.Symbol,
 		})
 	}
 	return params
+}
+
+// performerSeedsRef reports whether the object a behavior runs on supplies an
+// unbound ref input: only when the parameter declares no default of its own —
+// which the binding resolves instead — and, when it declares a type, the
+// performer conforms to it.
+func (ctx *Context) performerSeedsRef(param actionParameter, performer *Instance) bool {
+	return param.Symbol == nil || ctx.performerSeedsRefParam(param.Symbol, performer)
+}
+
+// performerSuppliesRef reports whether a `::>` performance fills a `ref` input
+// without the caller's like-named binding: the performer seeds it, or a
+// declared default — such as the usage's `in ref :>> context = this` — resolves
+// once it runs on the performer. A ref neither supplies keeps the caller's.
+func (ctx *Context) performerSuppliesRef(param actionParameter, performer *Instance) bool {
+	if param.Symbol != nil {
+		if value, _ := ctx.model.semantics.ParameterDefault(param.Symbol); value != nil {
+			return true
+		}
+	}
+	return ctx.performerSeedsRef(param, performer)
+}
+
+// performerSeedsRefParam is performerSeedsRef on the parameter's own symbol.
+func (ctx *Context) performerSeedsRefParam(param *symbols.Symbol, performer *Instance) bool {
+	if value, _ := ctx.model.semantics.ParameterDefault(param); value != nil {
+		return false
+	}
+	if typ := ctx.extractType(param); typ != nil && !ctx.instanceConforms(performer, typ) {
+		return false
+	}
+	return true
 }
 
 // ActionInputNames is the action's `in` and `inout` parameter names in

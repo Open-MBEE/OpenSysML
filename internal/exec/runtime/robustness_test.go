@@ -69,7 +69,7 @@ func TestRuntimeRobustness(t *testing.T) {
 	t.Run("state_do_body_accept_waits_for_the_message", testStateDoBodyAcceptWaitsForTheMessage)
 	t.Run("state_do_body_accept_is_decided_for_a_send", testStateDoBodyAcceptIsDecidedForASend)
 	t.Run("state_do_body_accept_yields_to_a_transition", testStateDoBodyAcceptYieldsToATransition)
-	t.Run("state_do_body_accept_goes_on_across_a_substate_transition", testStateDoBodyAcceptGoesOnAcrossASubstateTransition)
+	t.Run("state_do_body_accept_yields_to_a_substate_transition", testStateDoBodyAcceptYieldsToASubstateTransition)
 	t.Run("state_do_body_accept_yields_to_a_substate_transition_leaving_it", testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt)
 	t.Run("state_do_body_accept_follows_the_transition_chosen", testStateDoBodyAcceptFollowsTheTransitionChosen)
 	t.Run("state_do_body_accept_yields_to_an_open_choice", testStateDoBodyAcceptYieldsToAnOpenChoice)
@@ -13424,8 +13424,10 @@ func testStandaloneActionWritingAPerformerFeature(t *testing.T) {
 	}
 }
 
-// `this` in a body written on its own names the performance itself, which no
-// object owns, so a feature of the performer is not reachable through it.
+// `this` in a body written on its own names the performance itself, so a write
+// through it lands on the performance — and is refused when the performed
+// action declares no such feature; the performer's like-named feature is not
+// reachable through it.
 func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 	src := `
 	package test {
@@ -13442,8 +13444,11 @@ func testStandaloneActionNamingThisOfAnUnownedPerformance(t *testing.T) {
 		}
 	}`
 	_, _, err := instantiateWithLibraries(t, src, "test::Host")
-	if !errors.Is(err, ErrThisNotAnObject) {
-		t.Fatalf("error = %v, want ErrThisNotAnObject", err)
+	if err == nil {
+		t.Fatal("expected writing a feature the performance does not declare to fail")
+	}
+	if !strings.Contains(err.Error(), "touched") {
+		t.Errorf("error should name the refused feature, got: %v", err)
 	}
 }
 
@@ -14815,11 +14820,12 @@ func testStateDoBodyAcceptYieldsToATransition(t *testing.T) {
 	}
 }
 
-// testStateDoBodyAcceptGoesOnAcrossASubstateTransition: a signal a transition
-// between two substates of the active state accepts is one the state's own do
-// behavior, parked at an accept for it, goes on with too — the state stays active
-// across that transition — and Decide reports both, before.
-func testStateDoBodyAcceptGoesOnAcrossASubstateTransition(t *testing.T) {
+// testStateDoBodyAcceptYieldsToASubstateTransition: a signal a transition between
+// two substates of the active state accepts goes to the transition alone: the
+// state's own do behavior, parked at an accept for it, stays parked — the state
+// stays active, so the behavior takes the next occurrence — and Decide reports
+// just the transition, before.
+func testStateDoBodyAcceptYieldsToASubstateTransition(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
 	attribute def Go;
@@ -14846,23 +14852,41 @@ func testStateDoBodyAcceptGoesOnAcrossASubstateTransition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition shift"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition shift"}}
 	if !reflect.DeepEqual(decision, want) {
-		t.Errorf("Decide(Go) = %+v, want %+v: the transition and the do behavior of the state it stays in both take it", decision, want)
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition takes it alone, the do behavior of the state it stays in not too", decision, want)
 	}
 	ctx.PostMessage(goMsg)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
-		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
 		t.Errorf("state %s with %d messages in flight, want right with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of right alone, the do behavior still parked at its accept", total)
+	}
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Fatal("the do behavior must still be parked at its accept with nothing due")
+	}
+	decision, err = exec.Decide(goMsg)
+	if err != nil {
+		t.Fatalf("Decide(Go) again: %v", err)
+	}
+	want = Decision{Resumes: []string{"do behavior of state active"}}
+	if !reflect.DeepEqual(decision, want) {
+		t.Errorf("Decide(Go) again = %+v, want %+v: no transition accepts it in right, so the do behavior takes it", decision, want)
+	}
+	ctx.PostMessage(goMsg)
+	if err := exec.ProcessNextEvent(); err != nil {
+		t.Fatalf("dispatch the second message: %v", err)
+	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
-		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+		t.Errorf("total = %v, want 11: the do behavior's count on the second occurrence", total)
 	}
 	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
 		t.Error("the do behavior has ended; nothing of it must remain due")
@@ -14925,9 +14949,9 @@ func testStateDoBodyAcceptYieldsToASubstateTransitionLeavingIt(t *testing.T) {
 
 // testStateDoBodyAcceptFollowsTheTransitionChosen: a substate with two transitions
 // enabled for the signal, one between the enclosing state's substates and one out
-// of it. The one the policy chooses (the first declared) stays inside, so the
-// enclosing do behavior goes on with the signal, the alternative leaving
-// notwithstanding; Decide names the same transition and resume.
+// of it. The one the policy chooses (the first declared) stays inside, and takes
+// the signal alone all the same, the enclosing do behavior staying parked;
+// Decide names the same transition and no resume.
 func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
@@ -14957,23 +14981,26 @@ func testStateDoBodyAcceptFollowsTheTransitionChosen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition shift"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition shift"}}
 	if !reflect.DeepEqual(decision, want) {
-		t.Errorf("Decide(Go) = %+v, want %+v: the transition chosen stays in the state, whose do behavior takes it too", decision, want)
+		t.Errorf("Decide(Go) = %+v, want %+v: the transition chosen takes it alone", decision, want)
 	}
 	ctx.PostMessage(goMsg)
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("dispatch the message: %v", err)
 	}
 	dispatch, ok := exec.LastDispatch()
-	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
-		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed, as decided", dispatch, ok)
+	if !ok || !dispatch.Fired || dispatch.Deferred || len(dispatch.Resumed) != 0 {
+		t.Errorf("dispatch = %+v, %v; want the transition fired and no do behavior resumed, as decided", dispatch, ok)
 	}
 	if activeLeaf(exec) != "right" || len(ctx.PendingMessages()) != 0 {
 		t.Errorf("state %s with %d messages in flight, want right with the one message consumed", activeLeaf(exec), len(ctx.PendingMessages()))
 	}
-	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(11)) {
-		t.Errorf("total = %v, want 11: the do behavior's count, then the entry of right", total)
+	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(1)) {
+		t.Errorf("total = %v, want 1: the entry of right alone, the do behavior still parked", total)
+	}
+	if exec.HasPendingDoWork() || exec.HasPendingSignal() {
+		t.Error("the do behavior must still be parked at its accept with nothing due")
 	}
 }
 
@@ -15104,24 +15131,29 @@ func testStateDoBodyAcceptYieldsToATransitionIntoItsRegion(t *testing.T) {
 
 // testStateDoBodyAcceptRunsBeforeTheChoiceReads: the do behaviors go on with the
 // signal (one node, then yield) before the chosen transition fires, and a choice
-// on its route reads its guards only then, so a do behavior that rewrites the
-// guard on its way sends the transition down the branch the rewritten data selects.
+// on its route reads its guards only then, so a do behavior in a sibling region
+// that rewrites the guard on its way sends the transition down the branch the
+// rewritten data selects.
 func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	src := `
 	private import ScalarValues::*;
 	attribute def Go;
-	state def Waiter {
+	state def Waiter parallel {
 		attribute total : Integer = 0;
 		attribute stay : Boolean = true;
-		entry; then active;
-		state active {
-			do action work {
-				first start;
-				then action reader accept Go;
-				then action flip assign stay := false;
-				then action count assign total := total + 10;
-				then done;
+		state watcher {
+			entry; then work;
+			state work {
+				do action work {
+					first start;
+					then action reader accept Go;
+					then action flip assign stay := false;
+					then action count assign total := total + 10;
+					then done;
+				}
 			}
+		}
+		state active {
 			entry; then left;
 			state left;
 			choice pick;
@@ -15139,7 +15171,7 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decide(Go): %v", err)
 	}
-	want := Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state active"}}
+	want := Decision{Fires: []string{"transition route"}, Resumes: []string{"do behavior of state work"}}
 	if !reflect.DeepEqual(decision, want) {
 		t.Errorf("Decide(Go) = %+v, want %+v", decision, want)
 	}
@@ -15151,8 +15183,9 @@ func testStateDoBodyAcceptRunsBeforeTheChoiceReads(t *testing.T) {
 	if !ok || !dispatch.Fired || dispatch.Deferred || !reflect.DeepEqual(dispatch.Resumed, want.Resumes) {
 		t.Errorf("dispatch = %+v, %v; want the transition fired and the do behavior resumed as decided", dispatch, ok)
 	}
-	if activeLeaf(exec) != "other" || len(ctx.PendingMessages()) != 0 {
-		t.Errorf("state %s with %d messages in flight, want other with the one message consumed: the choice read stay after the do behavior cleared it", activeLeaf(exec), len(ctx.PendingMessages()))
+	assertRegionConfig(t, exec, map[string]string{"watcher": "work", "active": "other"})
+	if len(ctx.PendingMessages()) != 0 {
+		t.Errorf("%d messages in flight, want the one message consumed: the choice read stay after the do behavior cleared it", len(ctx.PendingMessages()))
 	}
 	if total := exec.StateData()["total"]; !valueEqual(total, integerValue(100)) {
 		t.Errorf("total = %v, want 100: the entry of other, the do behavior yielded after flip with count still to run", total)

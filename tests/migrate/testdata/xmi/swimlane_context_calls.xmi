@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_engine" name="Engine">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rpm" name="rpm">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      </ownedAttribute>
+      <ownedOperation xmi:type="uml:Operation" xmi:id="_opTune" name="Tune" method="_tuning"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tuning" name="Tuning" specification="_opTune">
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_trset" name="set rpm" structuralFeature="_rpm" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_trv" name="value"/>
+        </node>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_hits" name="hits">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_hits0" value="0.0"/>
+      </ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pengine" name="engine" aggregation="composite" type="_engine"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_hit" name="Hit">
+        <node xmi:type="uml:AddStructuralFeatureValueAction" xmi:id="_hset" name="mark hit" structuralFeature="_hits" isReplaceAll="true">
+          <value xmi:type="uml:InputPin" xmi:id="_hv" name="value"/>
+        </node>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_selfLane" name="host" represents="_host" node="_callHit _callTune"/>
+        <group xmi:type="uml:ActivityPartition" xmi:id="_partLane" name="engine" represents="_pengine" node="_callCheck"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_init"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callHit" name="hit" behavior="_hit"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callTune" name="tune" behavior="_tuning"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callCheck" name="check" behavior="_hit"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e1" source="_init" target="_callHit"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e2" source="_callHit" target="_callTune"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_e3" source="_callTune" target="_callCheck"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_else" name="Else">
+      <node xmi:type="uml:InitialNode" xmi:id="_elseI"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callRun" name="run" behavior="_run"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callTune2" name="tune" behavior="_tuning"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_elseE1" source="_elseI" target="_callRun"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_elseE2" source="_callRun" target="_callTune2"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

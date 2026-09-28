@@ -1,0 +1,26 @@
+part def Boiler {
+    attribute level : ScalarValues::Real default = 0.0;
+    action def Adjust {
+        in ref context : Boiler;
+        in x : ScalarValues::Real[0..1];
+        in y : ScalarValues::Real[0..1];
+        first start then 'set level';
+        action 'set level' {
+            in value[0..1];
+            if value->SequenceFunctions::notEmpty() {
+                assign context.level := value;
+            }
+        }
+        bind 'set level'.value = x;
+    }
+    action adjust : Adjust;
+    action def Drive {
+        in ref context : Boiler;
+        /* not migrated: ControlFlow (_drE) — the edge leads to 'adjust', which never fires: no value reaches its input pin 'target' */
+        action adjust : Adjust { in x; in y; in ref :>> context = Drive::context; }
+    }
+}
+action def Reach {
+    first start then adjust;
+    action adjust : Boiler::Adjust;
+}
