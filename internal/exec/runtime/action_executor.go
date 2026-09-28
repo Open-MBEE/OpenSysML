@@ -217,7 +217,7 @@ func newActionExecutorOn(
 	self, occurrence *Instance,
 ) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances: performances{ctx: ctx, self: self, behavior: action},
+		performances: performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
 		action:       action,
 		performed:    performed,
 		tool:         tool,
@@ -231,6 +231,7 @@ func newActionExecutorOn(
 
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
+	exec.performances.thisOccurrence = exec.materializeOccurrence
 	exec.features = exec.performanceFeatures()
 	exec.root = exec.newRootFrame()
 	exec.owner = exec
@@ -1131,11 +1132,25 @@ func (e *ActionExecutor) NodeNames() []string {
 // initializeAttributes fills the features no supplied input holds: from the occurrence's
 // slots, else the declared defaults in order, each evaluated where it was declared.
 func (e *ActionExecutor) initializeAttributes() error {
-	if e.occurrence != nil {
-		for _, attr := range e.features {
-			if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
-				continue
-			}
+	var ec *EvalContext
+	var endStep func()
+	evalDefaults := func() *EvalContext {
+		if ec == nil {
+			ec = e.evalContextFor(e.root, e.graph.Scope)
+			endStep = ec.beginStep()
+		}
+		return ec
+	}
+	defer func() {
+		if endStep != nil {
+			endStep()
+		}
+	}()
+	for _, attr := range e.features {
+		if _, held := e.root.data[e.root.key(attr.Name)]; held || e.dynamics.ownsFeature(attr.Name) {
+			continue
+		}
+		if e.occurrence != nil {
 			fv, err := e.occurrence.GetFeatureValue(e.ctx, attr.Name)
 			if err != nil {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
@@ -1146,23 +1161,21 @@ func (e *ActionExecutor) initializeAttributes() error {
 				if err := e.streamInitialOutput(attr.Name, value); err != nil {
 					return err
 				}
+				continue
 			}
 		}
-		return nil
-	}
-
-	ec := e.evalContextFor(e.root, e.graph.Scope)
-	defer ec.beginStep()()
-	for _, attr := range e.features {
-		if attr.Value == nil || e.dynamics.ownsFeature(attr.Name) {
+		if attr.Value == nil {
+			if e.bindContextDefault(attr) {
+				continue
+			}
 			continue
 		}
-		if _, held := e.root.data[e.root.key(attr.Name)]; held {
-			continue
-		}
-		value, err := ec.evalIn(attr.Scope).Eval(attr.Value)
+		value, err := evalDefaults().evalIn(attr.Scope).Eval(attr.Value)
 		if err != nil {
 			return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
+		}
+		if value, err = e.mirrorOccurrence(attr.Name, value); err != nil {
+			return err
 		}
 		e.root.data[e.root.key(attr.Name)] = value
 		if err := e.streamInitialOutput(attr.Name, value); err != nil {
@@ -1171,6 +1184,35 @@ func (e *ActionExecutor) initializeAttributes() error {
 	}
 
 	return nil
+}
+
+// bindContextDefault binds an unbound `in ref` parameter of a behavior started on an
+// object to that object, when the object is of the type the parameter declares: a
+// performance started on an instance answers `in ref :>> context` with the instance
+// itself rather than a fresh unnamed one. It reports whether the parameter took the
+// object.
+func (e *ActionExecutor) bindContextDefault(attr lower.Attribute) bool {
+	if e.self == nil {
+		return false
+	}
+	usage, ok := attr.Node.(*ast.Usage)
+	if !ok || !usage.IsReference || (attr.Direction != ast.DirIn && attr.Direction != ast.DirInOut) {
+		return false
+	}
+	scope := attr.Scope
+	if scope == nil {
+		scope = e.graph.Scope
+	}
+	param, ok := resolve.FeatureSymbolInScope(scope, []string{attr.Name})
+	if !ok || !e.ctx.performerSeedsRefParam(param, e.self) {
+		return false
+	}
+	value, err := e.mirrorOccurrence(attr.Name, Value{Kind: ValInstance, Instance: e.self.ID})
+	if err != nil {
+		return false
+	}
+	e.root.data[e.root.key(attr.Name)] = value
+	return true
 }
 
 // streamInitialOutput carries the initial value of an output or inout to the listeners,
@@ -1199,6 +1241,36 @@ func (e *ActionExecutor) assignAround(string, Value) (bool, error) {
 	return false, nil
 }
 
+// materializeOccurrence materializes the performance occurrence `this` denotes
+// the first time a definition run directly denotes it, seeding it with the
+// values the performance's own features already hold so it is authoritative
+// from then on; a run of a usage, whose occurrence the usage materializes or
+// none, has none of its own to make.
+func (e *ActionExecutor) materializeOccurrence() (*Instance, error) {
+	if e.occurrence != nil {
+		return e.occurrence, nil
+	}
+	if !isBehaviorDefKind(e.action.Kind) {
+		return nil, nil
+	}
+	inst, err := e.ctx.materialize(e.action, 0, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, attr := range e.features {
+		if value, held := e.root.data[e.root.key(attr.Name)]; held {
+			if err := inst.SetFeatureValue(e.ctx, attr.Name, value); err != nil {
+				return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
+					ErrActionPerformanceOccurrence, attr.Name, inst.ID, err)
+			}
+		}
+	}
+	e.occurrence = inst
+	e.performances.occurrence = inst
+	e.ctx.beginPerformanceLife(inst, e.ctx.newActivation())
+	return inst, nil
+}
+
 // returnAround holds nothing either.
 func (e *ActionExecutor) returnAround(string, Value) (bool, error) {
 	return false, nil
@@ -1212,21 +1284,35 @@ func (e *ActionExecutor) runOwnFlow(perf *actionFrame) error {
 // endsOwn allows a terminate to end the action's own performance.
 func (e *ActionExecutor) endsOwn() bool { return true }
 
+// mirrorOccurrence writes value to the feature name declares on the
+// occurrence the run materialized and returns the value it holds after the
+// write, the path every store to a declared feature takes once the occurrence
+// exists; with none, or a name it does not declare, it leaves value untouched.
+func (e *ActionExecutor) mirrorOccurrence(name string, value Value) (Value, error) {
+	if e.occurrence == nil || !e.declaresAttribute(name) {
+		return value, nil
+	}
+	if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
+		return value, fmt.Errorf("%w: write %s of object #%d: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
+	if err != nil {
+		return value, fmt.Errorf("%w: read %s of object #%d after write: %w",
+			ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+	}
+	return fv.HeldValue(), nil
+}
+
 // setFeature writes into the action's feature space, through the performance
 // occurrence for a feature the action declares: the occurrence is authoritative
 // for those, and data mirrors what it holds after the write.
 func (e *ActionExecutor) setFeature(name string, value Value) error {
+	var err error
 	if e.occurrence != nil && e.declaresAttribute(name) {
-		if err := e.occurrence.SetFeatureValue(e.ctx, name, value); err != nil {
-			return fmt.Errorf("%w: write %s of object #%d: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
+		if value, err = e.mirrorOccurrence(name, value); err != nil {
+			return err
 		}
-		fv, err := e.occurrence.GetFeatureValue(e.ctx, name)
-		if err != nil {
-			return fmt.Errorf("%w: read %s of object #%d after write: %w",
-				ErrActionPerformanceOccurrence, name, e.occurrence.ID, err)
-		}
-		value = fv.HeldValue()
 	} else if err := e.ctx.checkNamedWrite(e.graph.Scope, actionLabelPrefix+symbolText(e.action), name, &value); err != nil {
 		// No occurrence holds this feature, so its declaration is checked here
 		// rather than by the write to that occurrence.

@@ -135,7 +135,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	r := migrateDocument(t, missionActivity, missionApplications)
 	for _, line := range []string{
 		"part def Mission {",
-		"action def Acquire {",
+		"action acquire {",
 		"first start then stamp;",
 		"fork 'fork';",
 		"action wait accept after 3.0 [SI::s];",
@@ -162,8 +162,8 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Mission::Acquire"))
-	runs := meta(t, s, "%runs 20 1 Mission::Acquire")
+	wantVerdict(t, s.RunAction("Mission::acquire"))
+	runs := meta(t, s, "%runs 20 1 Mission::acquire")
 	if !strings.Contains(runs, "20 run(s)") || strings.Contains(runs, "error") {
 		t.Errorf("Monte Carlo runs of the migrated activity:\n%s", runs)
 	}
@@ -523,8 +523,8 @@ func TestParallelControlFlowsAreEachWritten(t *testing.T) {
 	r := migrateDocument(t, parallelEdges, `
   <sysml:Block xmi:id="_s1" base_Class="_retrier"/>`)
 	for _, line := range []string{
-		"first 'decide' if this.attempts < 3 then Retry;",
-		"first 'decide' if this.manualOverride then Retry;",
+		"first 'decide' if context.attempts < 3 then Retry;",
+		"first 'decide' if context.manualOverride then Retry;",
 		"else 'merge';",
 		"first Retry then 'fork';",
 		"fork 'fork';",
@@ -635,9 +635,9 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"state Busy {",
 		"entry; then Warm;",
 		"transition first Warm accept after 2.0 [SI::s] then Hot;",
-		"state Cool : Cooling;",
+		"state Cool : Cooling { in ref :>> context = Control::context; }",
 		"transition start2 first Idle accept Go",
-		"assign this.count := this.count + 1;",
+		"assign context.count := context.count + 1;",
 		"then Busy;",
 		"transition first Busy accept after 2.0 [SI::s] then Cool;",
 		"transition first Cool accept Go then done;",
@@ -789,7 +789,7 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"action point {",
 		"in az : ScalarValues::Real;",
 		"action 'set azimuth' {",
-		"assign this.azimuth := value;",
+		"assign azimuth := value;",
 		"bind 'set azimuth'.value = az;",
 		"abstract action def Park;",
 		"action def Go {",
@@ -798,8 +798,8 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		"perform action go : Go;",
 		"calc def Twice {",
 		"x * 2.0",
-		"out result = this.tel;",
-		"send new Go() to this.tel;",
+		"out result = tel;",
+		"send new Go() to tel;",
 		"action 'wait Ack' accept Ack;",
 		"out result = 90.0;",
 		"action park : Park;",

@@ -131,15 +131,15 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"defer Door;",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Door; }",
 		"entry action cool {",
-		"assign this.temperature := 20.0;",
+		"assign context.temperature := 20.0;",
 		"state On {",
 		"exit action count {",
-		"assign this.cycles := this.cycles + 1;",
+		"assign context.cycles := context.cycles + 1;",
 		"entry; then regions;",
 		"state regions parallel {",
 		"state heating {",
 		"entry; then Warming;",
-		"transition first Warming accept when this.temperature > 200.0 then Hot;",
+		"transition first Warming accept when context.temperature > 200.0 then Hot;",
 		"state lighting {",
 		"entry; then Lit;",
 		"transition first Lit accept after 0.5 [SI::s] then Dark;",
@@ -150,7 +150,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 		"transition first Off accept TurnOn then On;",
 		"transition first On accept TurnOff then choice;",
 		"transition first On accept Door then choice;",
-		"transition first choice if this.cycles >= 3 then done;",
+		"transition first choice if context.cycles >= 3 then done;",
 		"transition first choice then Resting;",
 		"transition first Resting accept at instant then Off;",
 		"transition first Resting accept Door then Resting;",
@@ -166,7 +166,7 @@ func TestStateMachineWithOrthogonalRegionsAndGuards(t *testing.T) {
 	wantNote(t, r, "_tOff", migrate.Approximated, "written as 2 transitions, one per trigger")
 	wantNote(t, r, "_tRested", migrate.Mapped, "")
 	wantNote(t, r, "_tSelf", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Resting")
-	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when this.temperature > 200.0")
+	wantNote(t, r, "_hotEv", migrate.Mapped, "written where a trigger refers to it, as accept when context.temperature > 200.0")
 	wantNote(t, r, "_noon", migrate.Approximated, "written where a trigger refers to it, as accept at instant; the absolute time is an instant on the simulation clock")
 	wantNote(t, r, "_dDoor", migrate.Approximated, "written as defer Door, an OpenSysML extension of the notation that the runtime executes; the state is annotated @MigrationMetadata::DeferredEvent")
 	wantNote(t, r, "_doorEv", migrate.Approximated, "written where a trigger refers to it, as defer Door, an OpenSysML extension of the notation")
@@ -366,7 +366,7 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 		"then receiveAlarm;",
 		"then receiveBeep;",
 		"action run {",
-		"assign this.ticks := this.ticks + 1;",
+		"assign context.ticks := context.ticks + 1;",
 		"action receiveAlarm accept keptAlarm : Alarm;",
 		"then action keepAlarm { assign deferredAlarm := SequenceFunctions::including(deferredAlarm, receiveAlarm.keptAlarm); }",
 		"then receiveAlarm;",
@@ -376,7 +376,7 @@ func TestStrictDeferredSignalsAreKeptAndReplayed(t *testing.T) {
 		"metadata MigrationMetadata::SynthesizedName about split, run, receiveAlarm, keepAlarm, receiveBeep, keepBeep;",
 		"exit action flush {",
 		"action leave {",
-		"assign this.exits := this.exits + 1;",
+		"assign context.exits := context.exits + 1;",
 		"then for keptAlarm in deferredAlarm { send keptAlarm to self; }",
 		"then action clearAlarm { assign deferredAlarm := (); }",
 		"then for keptBeep in deferredBeep { send keptBeep to self; }",
@@ -570,8 +570,8 @@ func TestStrictDeferredSignalsAreKeptByEveryRoute(t *testing.T) {
 		"then action clearCmd { assign deferredCmd := (); }",
 		"then for keptPing in deferredPing { send keptPing to self; }",
 		"then action clearPing { assign deferredPing := (); }",
-		"transition first Waiting accept Cmd if this.armed then Working;",
-		"transition first Waiting accept Cmd via inbox if this.armed then Working;",
+		"transition first Waiting accept Cmd if context.armed then Working;",
+		"transition first Waiting accept Cmd via context.inbox if context.armed then Working;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -626,7 +626,7 @@ func TestStrictDeferralKeepsRoutesAPortTransitionSkips(t *testing.T) {
 		"action receiveCmd accept keptCmd : Cmd;",
 		"then action keepCmd { assign deferredCmd := SequenceFunctions::including(deferredCmd, receiveCmd.keptCmd); }",
 		"for keptCmd in deferredCmd { send keptCmd to self; }",
-		"transition first Waiting accept Cmd via inbox then Working;",
+		"transition first Waiting accept Cmd via context.inbox then Working;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -877,7 +877,7 @@ func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
 		"state Off {",
 		"item deferred : Door[*] ordered;",
 		"action receive accept kept : Door;",
-		"transition first Off if this.ready then Done;",
+		"transition first Off if context.ready then Done;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
@@ -1426,11 +1426,11 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 	for _, line := range []string{
 		"action handshake {",
 		"/* duration constraint on request not migrated — the duration constraint has no interval */",
-		"action request send new Request(n = 7) to this.b;",
+		"action request send new Request(n = 7) to b;",
 		"first start then request;",
 		"action wait accept after RandomFunctions::uniform(2.0, 4.0) [SI::s];",
 		"first request then wait;",
-		"action reply send new Reply() to this.a;",
+		"action reply send new Reply() to a;",
 		"first wait then reply;",
 		"first reply then done;",
 	} {
@@ -1440,8 +1440,8 @@ func TestInteractionMigratesToAScenarioOfSends(t *testing.T) {
 		t.Errorf("an interaction carrying a call was written as a scenario:\n%s", r.Notation)
 	}
 	wantNote(t, r, "_hs", migrate.Approximated, "written as a scenario of 2 steps, one per message in occurrence order")
-	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to this.b")
-	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for this.a, which the steps address")
+	wantNote(t, r, "_mReq", migrate.Mapped, "written as a send to b")
+	wantNote(t, r, "_la", migrate.Mapped, "the lifeline stands for a, which the steps address")
 	wantNote(t, r, "_hsDur", migrate.Approximated, "the time from request, written as the wait wait before reply")
 	wantNote(t, r, "_hsDur2", migrate.Unmapped, "the duration constraint has no interval")
 	wantNote(t, r, "_rpc", migrate.Unmapped, "the message 'call' names no operation")
@@ -1530,7 +1530,7 @@ const timedApplications = `
 func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 	r := migrateDocument(t, timedInteraction, timedApplications)
 	for _, line := range []string{
-		"action request send new Request() to this.b;",
+		"action request send new Request() to b;",
 		"first start then request;",
 		"fork timing;",
 		"first request then timing;",
@@ -1538,12 +1538,12 @@ func TestSpanningDurationConstraintCountsTheStepsBetween(t *testing.T) {
 		"first timing then wait;",
 		"action wait2 accept after 4.0 [SI::s];",
 		"first timing then wait2;",
-		"action probe send new Probe() to this.b;",
+		"action probe send new Probe() to b;",
 		"first wait2 then probe;",
 		"join waitEnd;",
 		"first probe then waitEnd;",
 		"first wait then waitEnd;",
-		"action reply send new Reply() to this.a;",
+		"action reply send new Reply() to a;",
 		"first waitEnd then reply;",
 		"first reply then done;",
 		"/* duration constraint on reply not migrated — the time it measures from request to reply is not written: steps of other fragments lie between them, so no wait forked after the one can be joined before the other */",
@@ -1755,22 +1755,22 @@ func TestNestedRepliesAnswerTheirOwnCalls(t *testing.T) {
 	for _, line := range []string{
 		"perform action outer ::> motor.spin { in rpm = 30.0; }",
 		"perform action inner ::> motor.spin { in rpm = 40.0; }",
-		"assign this.ctrl.got := inner.result;",
-		"assign this.ctrl.'first' := outer.result;",
+		"assign ctrl.got := inner.result;",
+		"assign ctrl.'first' := outer.result;",
 		"action either {",
-		"if this.mode == 1 {",
-		"assign this.ctrl.got := spin.result;",
+		"if mode == 1 {",
+		"assign ctrl.got := spin.result;",
 		"else {",
-		"assign this.ctrl.'first' := spin.result;",
+		"assign ctrl.'first' := spin.result;",
 		"/* not migrated: Interaction 'Twice' — the message 'late' answers no call of Spin between its lifelines before it */",
 		"/* not migrated: Interaction 'Crossed' — the combined fragment (_xpar) the message 'beside' answers no call of Spin between its lifelines before it */",
 	} {
 		wantLine(t, r.Notation, line)
 	}
-	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to this.ctrl")
-	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to this.ctrl")
-	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
-	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to this.ctrl")
+	wantNote(t, r, "_nmRb", migrate.Mapped, "written as the assignment of the call inner's results to ctrl")
+	wantNote(t, r, "_nmRa", migrate.Mapped, "written as the assignment of the call outer's results to ctrl")
+	wantNote(t, r, "_emR1", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
+	wantNote(t, r, "_emR2", migrate.Mapped, "written as the assignment of the call spin's results to ctrl")
 	wantNote(t, r, "_twice", migrate.Unmapped, "the message 'late' answers no call of Spin between its lifelines before it")
 	wantNote(t, r, "_pmR", migrate.Approximated, "the result result is not bound: the reply is not in the fragment of the call it answers")
 	wantNote(t, r, "_crossed", migrate.Unmapped, "the message 'beside' answers no call of Spin between its lifelines before it")
@@ -1921,7 +1921,7 @@ const inoutApplications = `
 // value the callee gives the parameter is written back to what the argument named.
 func TestCallArgumentsKeepTheParameterDirection(t *testing.T) {
 	r := migrateDocument(t, inoutCall, inoutApplications)
-	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = this.level; }")
+	wantLine(t, r.Notation, "perform action bump ::> counter.bump { inout level = Bench::level; }")
 	wantNoLine(t, r.Notation, "{ in level = this.level; }")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)

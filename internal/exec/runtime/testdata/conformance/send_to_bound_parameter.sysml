@@ -13,12 +13,13 @@ package SendToBoundParameter {
 		attribute got : Integer = 0;
 
 		state def Listen {
+			in ref context : Worker;
 			entry; then idle;
 			state idle;
-			transition first idle accept g : Go do assign this.got := g.n then idle;
+			transition first idle accept g : Go do assign context.got := g.n then idle;
 		}
 
-		exhibit state listen : Listen;
+		exhibit state listen : Listen { in ref :>> context = this; }
 	}
 
 	part def Crew {
@@ -46,14 +47,15 @@ package SendToBoundParameter {
 		}
 
 		action def Round {
+			in ref context : Host;
 			first start;
-			then action toRight : Notify { in recipient = this.right; in n = 7; }
-			then action toLeft : Notify { in recipient = this.left; in n = 3; }
-			then action toCrew : Brief { in team = this.crew; }
+			then action toRight : Notify { in recipient = context.right; in n = 7; }
+			then action toLeft : Notify { in recipient = context.left; in n = 3; }
+			then action toCrew : Brief { in team = context.crew; }
 			then done;
 		}
 
-		perform action round : Round;
+		perform action round : Round { in ref :>> context = this; }
 	}
 
 	part host : Host;

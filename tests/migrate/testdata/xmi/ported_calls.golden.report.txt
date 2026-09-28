@@ -48,7 +48,7 @@ Property	Drive::spare	_sparePart	-> Drive::spare
 Port	Drive::split	_split	-> Drive::split
 Model	Model	_m	(the root model's members are written at the top level)
 «Block» Class	Motor	_motor	-> Motor
-Operation	Motor::Spin	_spin	-> Motor::Spin	(its owner's usage spin performs it, as a call on an object does)
+Operation	Motor::Spin	_spin	-> Motor::Spin	(acts on its owner Motor, which it takes as its parameter context, since its this is the def's own occurrence; its owner's usage spin performs it, as a call on an object does)
 Parameter	Motor::Spin::rpm	_spinRpm	-> Motor::Spin::rpm
 Activity	Motor::Spinning	_spinning	-> Motor::Spin	(written as the body of the operation Motor::Spin, whose method it is)
 ObjectFlow	Motor::Spinning::<ObjectFlow>	_spOf

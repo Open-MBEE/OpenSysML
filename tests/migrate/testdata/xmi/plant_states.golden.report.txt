@@ -7,7 +7,7 @@ Trigger	Plant::Line::main::<Transition>::<Trigger>	_trNever	(the time event's ti
 TimeEvent	never	_never	(the time event's time is not written: the instant "next Tuesday" is neither a number with a time unit nor an expression: not v2 expression syntax)
 
 ## approximated (6)
-StateMachine	Plant::Line	_line	-> Plant::Line	(the classifier behavior is run by every object of Plant as its usage line)
+StateMachine	Plant::Line	_line	-> Plant::Line	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Plant as its usage line)
 Transition	Plant::Line::main::<Transition>	_tBump	(the target 'Prep' lies in another region and is named by its path Work::Prep; a local transition is written external: the composite state Work exits and re-enters where v1 stayed in it, running its exit and entry behaviors)
 Trigger	Plant::Line::main::<Transition>::<Trigger>	_trDawn	(the absolute time is an instant on the simulation clock, which starts at 0.0 [SI::s])
 OpaqueBehavior	Plant::Line::main::<Transition>::log	_resumeLog	-> Plant::Line::unnamed::log	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model; the JavaScript body is written as v2 assignments)
@@ -35,7 +35,7 @@ Model	Model	_m	(the root model's members are written at the top level)
 Signal	Next	_next	-> Next
 Signal	Ping	_ping	-> Ping
 «Block» Class	Plant	_plant	-> Plant
-StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine
+StateMachine	Plant::CellMachine	_cell	-> Plant::CellMachine	(acts on its owner Plant, which it takes as its parameter context, since its this is the def's own occurrence)
 Region	Plant::CellMachine::cell	_rc	(the one region is written as the body of its owner)
 Pseudostate	Plant::CellMachine::cell::<Pseudostate>	_initC	(written as the entry of the region)
 Transition	Plant::CellMachine::cell::<Transition>	_tCi

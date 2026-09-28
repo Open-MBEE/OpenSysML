@@ -22,9 +22,15 @@ type performances struct {
 	self  *Instance
 	root  *actionFrame
 	owner performanceOwner
+	// occurrence is the performance instance the root frame runs as, when the
+	// performed usage materialized one: `this` inside a behavior def denotes it.
+	occurrence *Instance
 	// behavior is the action or state machine the trace names as making what
 	// these performances send and draw; nil for a body no behavior owns.
 	behavior *symbols.Symbol
+	// thisOccurrence materializes the performance occurrence `this` denotes the
+	// first time a directly run definition denotes it; nil where none can be.
+	thisOccurrence func() (*Instance, error)
 	// flow is the executor holding the tokens these performances run under, which a
 	// terminate drops when it ends one of them.
 	flow *ActionExecutor
@@ -67,6 +73,9 @@ type actionFrame struct {
 	// outer are the frames around a root performance its bodies read but no performance
 	// holds, outermost first: a state machine's data and its states' attributes.
 	outer []frame
+	// perfs runs the performances this performance belongs to, so a write
+	// through its frame lands on the run's own path (setFrameFeature).
+	perfs *performances
 	// live counts the tokens still running in this performance's flow, which a
 	// fork inside it raises and a join or a retiring token lowers.
 	live int
@@ -196,6 +205,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
 		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
 	e.declareRootFeatures(root)
@@ -298,6 +308,7 @@ func (e *performances) beginPerformance(
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
+		perfs:       e,
 		run:         e.ctx.newRun(),
 	}
 	if perf.scope == nil {
@@ -1023,6 +1034,8 @@ func lookupEnclosing(perf *actionFrame, name string) (Value, bool) {
 // every frame around it in reach, innermost last.
 func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	for _, f := range perf.lexicalFrames() {
 		ec.pushFrame(f)
 	}
@@ -1035,6 +1048,8 @@ func (e *performances) evalContextFor(perf *actionFrame, scope *symbols.Scope) *
 // only by names resolving to them.
 func (e *performances) evalContextAround(perf *actionFrame, scope *symbols.Scope) *EvalContext {
 	ec := NewEvalContextIn(e.ctx, scope, e.self)
+	ec.occurrence = e.occurrence
+	ec.thisOccurrence = e.thisOccurrence
 	ec.inBehaviorBody = true
 	if perf.parent != nil {
 		for _, f := range perf.parent.lexicalFrames() {
@@ -1241,6 +1256,33 @@ func (e *performances) bindOutputPins(perf *actionFrame) error {
 			if err := writeThroughChain(ec, end.OtherChain, end.OtherFeature, value); err != nil {
 				return fmt.Errorf("%w: %s is bound to %s: %w",
 					ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+			}
+			continue
+		}
+		if end.OtherFeature != "" {
+			// A qualified path (`Bench::level`, `Probe::count`) names a feature on
+			// the object its qualifier denotes: the performance running that def,
+			// else the object the binding joins.
+			ec := e.bindingEndContext(end)
+			if written, err := ec.writeFrameFeature(end.OtherOwner, end.OtherFeatureSym, value); err != nil {
+				return fmt.Errorf("%w: %s is bound to %s: %w",
+					ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+			} else if written {
+				continue
+			}
+			target := ec.self
+			switch {
+			case target != nil && ec.ctx.isOrSpecializes(target.Type, end.OtherOwner) && target.FeatureValues[end.OtherFeature] != nil:
+				if err := target.SetFeatureValue(e.ctx, end.OtherFeature, value); err != nil {
+					return fmt.Errorf("%w: %s is bound to %s: %w",
+						ErrBindingEnd, end.pinText(), bindingEndText(end.Other), err)
+				}
+				e.ctx.noteObjectWrite(target, end.OtherFeature, value)
+			case end.FromValue:
+			default:
+				return fmt.Errorf("%w: %s is bound to %s: %w",
+					ErrBindingEnd, end.pinText(), bindingEndText(end.Other),
+					fmt.Errorf("names no object typed by %s to write on", end.OtherOwner.Name))
 			}
 			continue
 		}
@@ -1511,19 +1553,6 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			inputs[name] = value
 		}
 	}
-	if inv.expr == nil {
-		for _, name := range in {
-			if _, bound := inputs[name]; bound {
-				continue
-			}
-			if value, ok := lookupEnclosing(perf, name); ok {
-				inputs[name] = value
-			}
-		}
-	}
-	if err := checkInputsBound(inv, params, inputs); err != nil {
-		return nil, err
-	}
 	performer := e.self
 	if inv.chain != nil {
 		ec := e.evalContextAround(perf, nodeScope(perf.flow, perf.node))
@@ -1531,6 +1560,43 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		if performer, err = e.ctx.performerOf(ec, inv, e.self); err != nil {
 			return nil, err
 		}
+	}
+	if inv.expr == nil {
+		// A `::>` performance binds its `ref` inputs to the object it is
+		// performed on or to a default resolved on it; a like-named feature
+		// of the caller is the argument only for a `ref` input the performer
+		// cannot supply.
+		refInputs := make(map[string]bool)
+		if inv.chain != nil {
+			for _, param := range params {
+				if param.IsReference && e.ctx.performerSuppliesRef(param, performer) {
+					refInputs[param.Name] = true
+				}
+			}
+		}
+		for _, name := range in {
+			if _, bound := inputs[name]; bound || refInputs[name] {
+				continue
+			}
+			if value, ok := lookupEnclosing(perf, name); ok {
+				inputs[name] = value
+			}
+		}
+	}
+	if inv.chain != nil {
+		// A `::>` performance binds its `ref` inputs to the performer, which
+		// bindContextDefault resolves once it runs on that object — but only
+		// the ones the performer may supply: a declared default binds instead.
+		for _, param := range params {
+			if param.IsReference {
+				if _, bound := inputs[param.Name]; !bound && e.ctx.performerSeedsRef(param, performer) {
+					inputs[param.Name] = Value{Kind: ValInstance, Instance: performer.ID}
+				}
+			}
+		}
+	}
+	if err := checkInputsBound(inv, params, inputs); err != nil {
+		return nil, err
 	}
 
 	sort.Strings(out)
@@ -1595,7 +1661,15 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	return frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	if f.perfs != nil {
+		// A qualified write lands on the run's own path: the declaration check,
+		// the performance occurrence, and the flows streaming the written pin.
+		fr.write = func(_ frame, name string, value Value) error {
+			return f.perfs.setFrameFeature(f, name, value)
+		}
+	}
+	return fr
 }
 
 // cloneUnreceived copies the unreceived streams of a frame, queues included.

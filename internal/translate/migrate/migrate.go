@@ -161,6 +161,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		snapshots:     map[*sysmlv1.Element]snapshotTyping{},
 		contexts:      map[*sysmlv1.Element]*behaviorContext{},
 		contextNotes:  map[*sysmlv1.Element]string{},
+		ownerCtx:      map[*sysmlv1.Element]*behaviorContext{},
 		visiting:      map[*sysmlv1.Element]*contextVisit{},
 		invokers:      map[*sysmlv1.Element][]*sysmlv1.Element{},
 		unvalued:      map[*sysmlv1.Element]bool{},
@@ -385,6 +386,9 @@ type migration struct {
 	// parameter; contextNotes says why an activity naming ports of several gets none.
 	contexts     map[*sysmlv1.Element]*behaviorContext
 	contextNotes map[*sysmlv1.Element]string
+	// ownerCtx holds the context a def declares for the object its owner is,
+	// which its `this` does not reach.
+	ownerCtx map[*sysmlv1.Element]*behaviorContext
 	// visiting is the search settling contexts: each activity it has reached and
 	// not settled, and the order it reached them in.
 	visiting map[*sysmlv1.Element]*contextVisit
@@ -729,6 +733,25 @@ func (m *migration) prepare() {
 	}
 	m.admitAbsent(laned)
 	m.planUsages(behaviors)
+	for n := range m.opaque {
+		// Translated before usages were decided; a usage body spells bare.
+		for cur := n; cur != nil; cur = cur.Parent {
+			if m.asUsage[cur] {
+				delete(m.opaque, n)
+				break
+			}
+		}
+	}
+	for b := range m.contexts {
+		// Settled before usages were decided; under a usage the object's
+		// features resolve on this, so no context parameter is taken.
+		for cur := b; cur != nil; cur = cur.Parent {
+			if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+				delete(m.contexts, b)
+				break
+			}
+		}
+	}
 	for _, d := range m.allocations {
 		m.placeAllocation(d)
 	}
@@ -1247,6 +1270,10 @@ func (m *migration) classifierBody(e *sysmlv1.Element, cat category, header stri
 	}
 	if behaviorCategory(cat) {
 		m.w.block(header, func() { m.behaviorBody(e, cat) })
+		if c := m.contexts[e]; c != nil {
+			// Written now: a context parameter can no longer be declared.
+			c.evaluated = true
+		}
 		if e.Type == "Operation" && !m.asUsage[e] {
 			m.operationFeature(e)
 		}

@@ -309,6 +309,9 @@ func TestRejectsNonXMI(t *testing.T) {
 var constructFixtures = []string{
 	"plant_states",
 	"station_points",
+	"submachine_params",
+	"operation_extra_params",
+	"swimlane_context_calls",
 	"rig_interactions",
 	"heater_receptions",
 	"ported_calls",
@@ -350,6 +353,8 @@ var constructFixtures = []string{
 	"table_homonyms",
 	"relation_subtypes",
 	"decision_else",
+	"calc_context",
+	"interaction_context",
 }
 
 // migrateFixtureFile migrates testdata/xmi/<name>.xmi.

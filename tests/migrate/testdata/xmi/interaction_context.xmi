@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_ctrl" name="Ctrl">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_got" name="got">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_got0" value="0.0"/>
+      </ownedAttribute>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rCtrl" name="ctrl" type="_ctrl" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_rOther" name="other" type="_ctrl" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Interaction" xmi:id="_pair" name="Pair">
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_la" name="a" represents="_rCtrl"/>
+        <lifeline xmi:type="uml:Lifeline" xmi:id="_lb" name="b" represents="_rOther"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_sP" covered="_la" message="_mP"/>
+        <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="_rP" covered="_lb" message="_mP"/>
+        <message xmi:type="uml:Message" xmi:id="_mP" name="ping" messageSort="asynchSignal" signature="_ping" sendEvent="_sP" receiveEvent="_rP"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_plant" name="Plant">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pRig" name="rig" type="_rig" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_duty" name="Duty">
+        <region xmi:type="uml:Region" xmi:id="_dReg" name="main">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_dInit" kind="initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_on" name="on" doActivity="_pair"/>
+          <subvertex xmi:type="uml:FinalState" xmi:id="_dEnd"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t1" source="_dInit" target="_on"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t2" source="_on" target="_dEnd"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+
+  </uml:Model>
+
+  <sysml:Block xmi:id="_s1" base_Class="_ctrl"/>
+  <sysml:Block xmi:id="_s2" base_Class="_rig"/>
+  <sysml:Block xmi:id="_s3" base_Class="_plant"/>
+</xmi:XMI>
