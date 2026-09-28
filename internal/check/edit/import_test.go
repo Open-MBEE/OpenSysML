@@ -178,10 +178,38 @@ func TestAddImportIntoEmptyBody(t *testing.T) {
 	model := loadContent(t, "import.sysml", "package P { }\n")
 	requireClean(t, model)
 	result := applyOne(t, model, AddImport("P", "", "ScalarValues::*", false, false, nil))
-	requireClean(t, loadContent(t, "import.sysml", string(result.Content)))
-	if !strings.Contains(string(result.Content), "private import ScalarValues::*;") {
-		t.Fatalf("import missing:\n%s", result.Content)
+	want := "package P {\n    private import ScalarValues::*;\n}\n"
+	if got := string(result.Content); got != want {
+		t.Fatalf("content = %q, want %q", got, want)
 	}
+	requireClean(t, loadContent(t, "import.sysml", string(result.Content)))
+}
+
+func TestAddImportsThenMemberFromSingleLineBody(t *testing.T) {
+	model := loadContent(t, "import.sysml", "package ToasterDemo { }\n")
+	requireClean(t, model)
+	result, err := Apply(model, []Operation{
+		AddImport("ToasterDemo", "", "ScalarValues::*", false, false, nil),
+		AddImport("ToasterDemo", "", "SI::*", false, false, nil),
+		AddImport("ToasterDemo", "", "ISQ::*", false, false, nil),
+		AddImport("ToasterDemo", "", "MeasurementReferences::*", false, false, nil),
+		{Kind: OpAddMember, Owner: "ToasterDemo", MemberKind: "attribute", MemberName: "efficiency", Type: "DimensionOneValue"},
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	want := "package ToasterDemo {\n" +
+		"    private import ScalarValues::*;\n" +
+		"    private import SI::*;\n" +
+		"    private import ISQ::*;\n" +
+		"    private import MeasurementReferences::*;\n" +
+		"    attribute efficiency : DimensionOneValue;\n" +
+		"}\n"
+	got := string(result.Content)
+	if got != want {
+		t.Fatalf("content = %q, want %q", got, want)
+	}
+	requireClean(t, loadContent(t, "import.sysml", got))
 }
 
 func TestAddImportIntoBodylessOwner(t *testing.T) {

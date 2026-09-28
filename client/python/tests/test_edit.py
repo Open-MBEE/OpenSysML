@@ -1204,7 +1204,7 @@ class TestEditRoundTripAgainstRealService:
                 model.edit().add_import("P", "ScalarValues::*").apply()
 
     def test_imports_author_typed_members_that_resolve_downstream(self, real_service):
-        source = "package ToasterDemo {\n}\n"
+        source = "package ToasterDemo { }\n"
         target = (
             "package ToasterDemo {\n"
             "    private import ScalarValues::*;\n"
@@ -1239,12 +1239,9 @@ class TestEditRoundTripAgainstRealService:
             )
 
             def element_pairs(conversion):
-                elements = json.loads(str(conversion))
-                if isinstance(elements, dict):
-                    elements = elements.get("elements", list(elements.values()))
                 return sorted(
                     (element.get("@type"), element.get("qualifiedName"))
-                    for element in elements
+                    for element in json.loads(str(conversion))
                 )
 
             expected = conn.load_from_content(target)

@@ -452,6 +452,9 @@ func (m Model) memberInsertion(owner ast.Node, text string) insertion {
 		closeIndent := string(m.Source.Bytes()[lineStart:closeOffset])
 		if closeIndent != "" && !onlyWhitespace([]byte(closeIndent)) {
 			lineStart = closeOffset
+			for lineStart > 0 && (m.Source.Bytes()[lineStart-1] == ' ' || m.Source.Bytes()[lineStart-1] == '\t') {
+				lineStart--
+			}
 			closeIndent = ownerIndent
 		}
 		prefix := "\n"
