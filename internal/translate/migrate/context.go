@@ -945,7 +945,7 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr st
 		cat, _ := m.classify(c)
 		if cat == catView || cat == catViewpoint {
 			if d := m.featuringDef(c); d != nil && (selfType == d || m.inherits(selfType, d)) {
-				return self + "." + m.usageChain(c, d), ""
+				return self + "." + m.usageChain(c, d), nil, ""
 			}
 		}
 	}
