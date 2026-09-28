@@ -675,7 +675,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 				return nil, err
 			}
 			for _, name := range shape.ParamNames {
-				if value, held := start.env.lookup(name); held {
+				if value, held := start.occurrence.params.lookup(name); held {
 					if err := inst.SetFeatureValue(ctx, name, value); err != nil {
 						return nil, fmt.Errorf("%w: seed %s of object #%d: %w",
 							ErrActionPerformanceOccurrence, name, inst.ID, err)
@@ -830,6 +830,11 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape, run: ctx.newRun()}
 	env.write = calcFeatureWriter(ctx, shape, occurrence)
 	ec.pushFrame(env)
+	if occurrence != nil {
+		// The frame's vars are shared, so a `this` materializing mid-binding
+		// seeds the inputs already bound — env is not the run's until returned.
+		occurrence.params = env
+	}
 
 	// A usage declared in a behavior's body is written in that body, so its own
 	// bindings see the values the evaluation reading it holds, and none of the

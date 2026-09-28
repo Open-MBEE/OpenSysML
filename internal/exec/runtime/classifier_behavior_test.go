@@ -2962,6 +2962,11 @@ package test {
 		in required : Integer;
 		return : Integer = required;
 	}
+	analysis def Read {
+		in n : Integer;
+		in early : Boolean = this == this;
+		return : Integer = this.n;
+	}
 	analysis def Failing {
 		out who = this;
 		out bad : Real = 1.0 / 0.0;
@@ -3036,6 +3041,20 @@ package test {
 	}
 	if len(result.Outputs) != 1 || !result.Outputs[0].Value.Const.Bool {
 		t.Errorf("Ready() = %+v, want true: the default's this is the run's occurrence", result.Outputs)
+	}
+
+	// A `this` materialized by a later parameter's default seeds the inputs the
+	// run bound first — early binds nothing so its default's `this` reads the
+	// occurrence while n is already bound — so this.n reads what the call passed.
+	read, readScope := calcByName(t, root, "test", "Read")
+	readResult, err := ctx.RunAnalysis(read, AnalysisArgs{
+		Positional: []Value{constInt(7)},
+	}, readScope, nil)
+	if err != nil {
+		t.Fatalf("Read(7): %v", err)
+	}
+	if len(readResult.Outputs) != 1 || readResult.Outputs[0].Value.Const.Int != 7 {
+		t.Errorf("Read(7) = %+v, want 7: the occurrence seeded the earlier input", readResult.Outputs)
 	}
 
 	// A run that fails binding ends the occurrence an earlier parameter's `this`
