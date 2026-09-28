@@ -58,10 +58,10 @@ func notationDiagnostics(t *testing.T, name, src string) (*ast.RootNamespace, *s
 	}
 	idx := newTestIndexFromDoc(name, root)
 	ctx := NewContext(name, idx, nil)
-	ctx.Batch = &kit.Batch{
+	ctx.InBatch(&kit.Batch{
 		Documents: []string{name},
 		Source:    source.TextOf(map[string]*source.SourceFile{name: sf}, nil),
-	}
+	})
 	return root, sf, (NonstandardNotationPass{}).Run(ctx, name, root)
 }
 
@@ -276,5 +276,133 @@ func TestNotationFixQualifiesCollidingNames(t *testing.T) {
 		if oldShape[i] != newShape[i] {
 			t.Fatalf("rewritten graph shape %v != %v\n%s", newShape, oldShape, fixed)
 		}
+	}
+}
+
+// TestNotationFixQuotesUnrestrictedNames: a name that writes as a quoted
+// unrestricted name stays quoted in the rewrite, both for a pseudostate's
+// name and for a deferred trigger's target.
+func TestNotationFixQuotesUnrestrictedNames(t *testing.T) {
+	oldForm := `package P {
+	item def 'Alert Event';
+	state def M {
+		entry; then a;
+		state a {
+			defer 'Alert Event';
+		}
+		choice 'pick point';
+	}
+}`
+
+	_, sf, diags := notationDiagnostics(t, "a.sysml", oldForm)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+	for _, want := range []string{
+		"#deferred ref : 'Alert Event';",
+		"#choice state 'pick point';",
+	} {
+		if !strings.Contains(fixed, want) {
+			t.Fatalf("fixed text lacks %q:\n%s", want, fixed)
+		}
+	}
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+	}
+}
+
+// TestNotationFixQualifiesShadowedAnnotations: a member named like the
+// annotation in an enclosing body shadows it, so the fix spells the metadata
+// qualified and adds no import, as it does for a same-named member.
+func TestNotationFixQualifiesShadowedAnnotations(t *testing.T) {
+	src := `package P {
+	item def choice;
+	attribute def deferred;
+	item def Ping;
+	state def M {
+		entry; then a;
+		state a {
+			defer Ping;
+		}
+		choice pick;
+	}
+}`
+
+	_, sf, diags := notationDiagnostics(t, "a.sysml", src)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
+	}
+	for _, d := range diags {
+		if len(d.Fixes) != 1 || len(d.Fixes[0].Edits) != 1 {
+			t.Fatalf("shadowed fix %q should carry the replacement edit alone: %+v", d.Message, d.Fixes)
+		}
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+	for _, want := range []string{
+		"#StateMachines::deferred ref : Ping;",
+		"#StateMachines::choice state pick;",
+	} {
+		if !strings.Contains(fixed, want) {
+			t.Fatalf("fixed text lacks %q:\n%s", want, fixed)
+		}
+	}
+	if strings.Contains(fixed, "import StateMachines") {
+		t.Fatalf("a qualified fix needs no import:\n%s", fixed)
+	}
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+	}
+}
+
+// TestNotationFixMovesDeferOutOfAChain: a `defer` rewritten in place inside a
+// positional chain would leave `then` without a member it can sequence from,
+// so the fix deletes the defer member's line and writes the ref ahead of the
+// member the chain leaves.
+func TestNotationFixMovesDeferOutOfAChain(t *testing.T) {
+	src := `package P {
+	item def Ping;
+	state def M {
+		entry;
+		defer Ping;
+		then a;
+		state a;
+	}
+}`
+
+	_, sf, diags := notationDiagnostics(t, "a.sysml", src)
+	// The `then` after `defer` is itself an extension finding; the defer
+	// member's fix carries the delete and insert edits.
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics %+v, want 2", len(diags), diags)
+	}
+	var fixes int
+	for _, d := range diags {
+		fixes += len(d.Fixes)
+	}
+	if fixes != 1 {
+		t.Fatalf("got %d fixes, want the defer member's one: %+v", fixes, diags)
+	}
+	fixed := applyFixes(t, sf.Bytes(), diags)
+	for _, want := range []string{
+		"#deferred ref : Ping;\n\t\tentry;",
+		"entry;\n\t\tthen a;",
+		"private import StateMachines::*;",
+	} {
+		if !strings.Contains(fixed, want) {
+			t.Fatalf("fixed text lacks %q:\n%s", want, fixed)
+		}
+	}
+	if strings.Contains(fixed, "defer Ping;") {
+		t.Fatalf("the defer member was not deleted:\n%s", fixed)
+	}
+
+	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+	if len(fixedDiags) != 0 {
+		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
 	}
 }

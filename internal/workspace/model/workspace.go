@@ -684,7 +684,7 @@ func (w *Workspace) semanticsLocked() (*resolve.Resolver, *semantics.Model) {
 // Caller holds the lock.
 func (w *Workspace) sharedLocked() passes.Shared {
 	resolver, sem := w.semanticsLocked()
-	return passes.Shared{Resolver: resolver, Model: sem, Gathers: w.gathers}
+	return passes.Shared{Resolver: resolver, Model: sem, Gathers: w.gathers, Source: w.sourceText()}
 }
 
 // resolverOver is a fresh resolver over idx with a semantic model attached: for

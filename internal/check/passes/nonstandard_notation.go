@@ -49,8 +49,9 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		severity:    notationSeverity(ctx.Options.Conformance),
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 		doc:         name,
+		lookup:      ctx.Source,
 	}
-	if ctx.Batch != nil {
+	if w.lookup == nil && ctx.Batch != nil {
 		w.lookup = ctx.Batch.Source
 	}
 	w.bodies = append(w.bodies, bodyFrame{members: root.Members, namespaceish: true})
@@ -138,7 +139,7 @@ func hasParseError(diags []diag.Diagnostic) bool {
 // bodies its members carry.
 func (w *notationWalker) walk(members []ast.Node) {
 	var previous ast.Node
-	for _, member := range members {
+	for i, member := range members {
 		unwrapped := kit.UnwrapMembership(member)
 		w.targetSuccession(unwrapped, previous)
 		if !isMemberAttachedSuccession(unwrapped) {
@@ -187,7 +188,7 @@ func (w *notationWalker) walk(members []ast.Node) {
 		case *ast.PseudostateNode:
 			w.pseudostate(n)
 		case *ast.DeferMember:
-			w.deferredMember(n)
+			w.deferredMember(n, members, i)
 		case *ast.InitialNode:
 			// `first a then b { … }` ends in the succession's UsageBody (SysML.xtext:1698).
 			w.walkDeclaration(n.Members, n)
@@ -410,13 +411,14 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	if !ok {
 		return
 	}
-	written := fmt.Sprintf("`%s %s;`", n.Keyword, n.Name)
-	replacement := fmt.Sprintf("#%s state %s;", annotation, n.Name)
+	name := source.NameText(n.Name)
+	written := fmt.Sprintf("`%s %s;`", n.Keyword, name)
+	replacement := fmt.Sprintf("#%s state %s;", annotation, name)
 	needsImport := true
-	if n.Name == annotation {
+	if n.Name == annotation || w.shadowsAnnotation(annotation) {
 		// A member named like the annotation would shadow it, so the
 		// metadata is spelled qualified and no import is needed.
-		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, n.Name)
+		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, name)
 		needsImport = false
 	}
 	importNote := ""
@@ -440,20 +442,21 @@ var pseudostateAnnotations = map[ast.PseudostateKind]string{
 
 // deferredMember reports `defer <event>[, <event>]*;`, which the StateMachines
 // library writes as one `#deferred ref : <event>;` per trigger.
-func (w *notationWalker) deferredMember(n *ast.DeferMember) {
+func (w *notationWalker) deferredMember(n *ast.DeferMember, members []ast.Node, i int) {
 	refs := make([]string, 0, len(n.Triggers))
 	spelled := make([]string, 0, len(n.Triggers))
 	needsImport := false
+	// A member named `deferred` in an enclosing body shadows the metadata, so
+	// the annotation is spelled qualified for every ref and needs no import.
+	qualified := w.shadowsAnnotation("deferred")
 	for _, trigger := range n.Triggers {
 		name := deferredRefTarget(trigger)
 		if name == "" {
 			continue
 		}
 		spelled = append(spelled, triggerText(trigger))
-		// A signal named `deferred` resolves ahead of the metadata, so the
-		// annotation is spelled qualified for it and needs no import.
-		if name == "deferred" {
-			refs = append(refs, "`#StateMachines::deferred ref : deferred;`")
+		if name == "deferred" || qualified {
+			refs = append(refs, fmt.Sprintf("`#StateMachines::deferred ref : %s;`", name))
 		} else {
 			needsImport = true
 			refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
@@ -471,7 +474,128 @@ func (w *notationWalker) deferredMember(n *ast.DeferMember) {
 	w.extensionFix(keywordSpan(n, "defer"), fmt.Sprintf(
 		"`defer %s;` is an OpenSysML extension; write %s%s",
 		strings.Join(spelled, ", "), strings.Join(refs, " and "), importNote),
-		"DeferredMetadata", needsImport, diag.Replace(n.Span(), w.deferredRefLines(n, refs)))
+		"DeferredMetadata", needsImport, w.deferEdits(n, members, i, refs)...)
+}
+
+// deferEdits rewrites the defer member in place, or, when a positional chain
+// follows it, deletes the member and writes the refs ahead of the member the
+// chain leaves, so the succession still sequences from it.
+func (w *notationWalker) deferEdits(n *ast.DeferMember, members []ast.Node, i int, refs []string) []diag.Edit {
+	if i+1 < len(members) && positionalChainMember(kit.UnwrapMembership(members[i+1])) {
+		if start := chainStartMember(members, i); start != nil {
+			return []diag.Edit{w.deleteMemberEdit(n, members[i+1]), w.insertRefsEdit(start, refs)}
+		}
+	}
+	return []diag.Edit{diag.Replace(n.Span(), w.deferredRefLines(n, refs))}
+}
+
+// positionalChainMember reports whether member sequences positionally from the
+// member before it: a one-name target succession or a sourceless transition.
+func positionalChainMember(member ast.Node) bool {
+	if targetSuccessionKeyword(member) != "" {
+		return true
+	}
+	tr, ok := member.(*ast.TransitionMember)
+	return ok && tr.Source == nil
+}
+
+// chainStartMember returns the member the positional chain defer sits inside
+// hangs from, nil when it hangs from nothing the refs can be written before.
+func chainStartMember(members []ast.Node, i int) ast.Node {
+	j := i
+	for j > 0 {
+		m := kit.UnwrapMembership(members[j-1])
+		if !positionalChainMember(m) && !isMemberAttachedSuccession(m) {
+			break
+		}
+		j--
+	}
+	if j == 0 {
+		return nil
+	}
+	return members[j-1]
+}
+
+// deleteMemberEdit deletes the defer member: the whole line, newline included,
+// when the source lookup shows nothing else on it, else its own span.
+func (w *notationWalker) deleteMemberEdit(n *ast.DeferMember, next ast.Node) diag.Edit {
+	span := n.Span()
+	if w.lookup != nil {
+		prefix := w.lookup(w.doc, source.Span{Offset: 0, Len: span.Offset})
+		line := prefix[strings.LastIndex(prefix, "\n")+1:]
+		gap := w.lookup(w.doc, source.Span{Offset: span.End(), Len: next.Span().Offset - span.End()})
+		if k := strings.IndexByte(gap, '\n'); k >= 0 && strings.TrimSpace(line) == "" && strings.TrimSpace(gap[:k]) == "" {
+			start := span.Offset - len(line)
+			return diag.Replace(source.Span{Offset: start, Len: span.End() + k + 1 - start}, "")
+		}
+	}
+	return diag.Replace(span, "")
+}
+
+// insertRefsEdit writes the `#deferred ref` members ahead of member: each on
+// its own line indented like member's when the lookup reads it, else inline.
+func (w *notationWalker) insertRefsEdit(member ast.Node, refs []string) diag.Edit {
+	lines := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		lines = append(lines, strings.Trim(ref, "`"))
+	}
+	offset := member.Span().Offset
+	if w.lookup != nil {
+		indent := w.indentOf(offset)
+		return diag.Insert(offset, strings.Join(lines, "\n"+indent)+"\n"+indent)
+	}
+	return diag.Insert(offset, strings.Join(lines, " ")+" ")
+}
+
+// shadowsAnnotation reports whether a member of an enclosing body declares
+// keyword as its name, which the written annotation would resolve to first.
+func (w *notationWalker) shadowsAnnotation(keyword string) bool {
+	for _, body := range w.bodies {
+		for _, member := range body.members {
+			if memberDeclaredName(kit.UnwrapMembership(member)) == keyword {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// memberDeclaredName is the name a member declares, "" when it declares none.
+func memberDeclaredName(member ast.Node) string {
+	switch n := member.(type) {
+	case *ast.Namespace:
+		return n.Ident.Name
+	case *ast.Package:
+		return n.Ident.Name
+	case *ast.Alias:
+		return n.Ident.Name
+	case *ast.PrefixMetadata:
+		return n.Ident.Name
+	case *ast.MultiplicityDecl:
+		return n.Ident.Name
+	case *ast.SubjectMember:
+		return n.Ident.Name
+	case *ast.CrossFeatureMember:
+		return n.Ident.Name
+	case *ast.AssumeMember:
+		return n.Ident.Name
+	case *ast.RequireMember:
+		return n.Ident.Name
+	case *ast.Definition:
+		return n.Ident.Name
+	case *ast.Usage:
+		name, _ := ast.EffectiveName(n)
+		return name
+	case *ast.PseudostateNode:
+		return n.Name
+	case *ast.InitialNode:
+		return n.Name()
+	case *ast.SubstateMember:
+		return n.Name
+	case *ast.TransitionMember:
+		return n.Name
+	}
+	return ""
 }
 
 // deferredRefLines spells the `#deferred ref` members a `defer` member rewrites
@@ -527,7 +651,8 @@ func triggerText(trigger ast.Node) string {
 	return ""
 }
 
-// qualifiedNameText spells a qualified name as `A::B::c`.
+// qualifiedNameText spells a qualified name as `A::B::c`, quoting each
+// segment that cannot be written as a basic name.
 func qualifiedNameText(qn *ast.QualifiedName) string {
 	if qn == nil {
 		return ""
@@ -536,14 +661,13 @@ func qualifiedNameText(qn *ast.QualifiedName) string {
 	for _, p := range qn.Parts {
 		parts = append(parts, p.Text)
 	}
-	return strings.Join(parts, "::")
+	return source.QualifiedNameOf(parts)
 }
 
 // extensionFix reports one construct as an OpenSysML extension and attaches the
 // fix rewriting it: the member's own replacement plus the library import when
 // needsImport and no enclosing body already makes the metadata visible.
-func (w *notationWalker) extensionFix(span source.Span, message, metadata string, needsImport bool, replace diag.Edit) {
-	edits := []diag.Edit{replace}
+func (w *notationWalker) extensionFix(span source.Span, message, metadata string, needsImport bool, edits ...diag.Edit) {
 	if needsImport {
 		if edit, ok := w.stateMachinesImport(metadata); ok {
 			edits = append(edits, edit)
