@@ -95,7 +95,7 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 		}
 	}
 	owner := classifierOf(e)
-	if owner == nil || !m.definitionEnd(owner) {
+	if owner == nil || !m.contextClassifierWritable(owner) {
 		return nil
 	}
 	if c, ok := m.ownerCtx[e]; ok {
@@ -104,6 +104,18 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	c := &behaviorContext{name: m.freshName(e, "context"), classifier: owner, holder: e, owner: true}
 	m.ownerCtx[e] = c
 	return c
+}
+
+// contextClassifierWritable reports whether a context parameter can name c: typed by
+// the definition c is written as, or specializing the view or viewpoint usage it is.
+func (m *migration) contextClassifierWritable(c *sysmlv1.Element) bool {
+	if m.asUsage[c] {
+		return false
+	}
+	if cat, _ := m.classify(c); cat == catView || cat == catViewpoint {
+		return true
+	}
+	return m.definitionEnd(c)
 }
 
 // defScope reports whether e is written as a def whose `this` is its own
@@ -404,7 +416,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	how := "its actions go through ports of "
 	eligible := make([]*sysmlv1.Element, 0, len(owners))
 	for _, owner := range owners {
-		if m.definitionEnd(owner) {
+		if m.contextClassifierWritable(owner) {
 			eligible = append(eligible, owner)
 		}
 	}

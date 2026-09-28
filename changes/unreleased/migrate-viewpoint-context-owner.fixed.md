@@ -1,0 +1,1 @@
+- **The SysML v1 migrator preserves a context parameter specializing a viewpoint when its ports give an activity its context.** Nested calls bind it at their call sites instead of dropping the parameter.
