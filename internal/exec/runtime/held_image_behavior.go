@@ -514,7 +514,7 @@ func (m *materializing) runOf(at int) *runState {
 func (m *materializing) actionExecutor(e *ActionExecutor, img *imagedAction) error {
 	frames := make([]*actionFrame, len(img.frames))
 	for i := range frames {
-		frames[i] = &actionFrame{}
+		frames[i] = &actionFrame{perfs: &e.performances}
 	}
 	frameAt := func(at int) *actionFrame {
 		if at < 0 {

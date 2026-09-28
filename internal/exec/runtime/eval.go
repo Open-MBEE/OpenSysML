@@ -925,9 +925,10 @@ func (ec *EvalContext) frameFeatureValue(qualifier, sym *symbols.Symbol) (Value,
 }
 
 // writeFrameFeature is frameFeatureValue for a write: value goes into the innermost
-// frame whose run or owner qualifies by qualifier, under the name it binds sym by,
-// and into the run's occurrence when one is already materialized, so `this.x` and
-// `Run::x` keep landing on the same storage.
+// frame whose run or owner qualifies by qualifier, under the name it binds sym by.
+// A frame carrying its run's write path lands the write there — checked, mirrored
+// into the run's occurrence, and streamed as the run's own statements write it — so
+// `this.x` and `Run::x` keep landing on the same storage.
 func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value Value) (bool, error) {
 	for i := len(ec.frames) - 1; i >= 0; i-- {
 		f := ec.frames[i]
@@ -939,24 +940,19 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 			if !ok {
 				continue
 			}
-			f.set(name, value)
-			// The run this frame binds may hold the feature in its own `this`
-			// occurrence: write there too, as the run's host mirrors its writes,
-			// but only the feature the occurrence already holds, and only this
-			// frame's run — never an enclosing calc's occurrence.
-			if oc := f.occurrence; oc != nil && oc.inst != nil {
-				if _, holds := oc.inst.FeatureValues[sym.Name]; holds {
-					if err := oc.inst.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
-						return true, err
-					}
-				}
+			if f.write != nil {
+				return true, f.write(name, value)
 			}
+			f.set(name, value)
 			return true, nil
 		}
 		// A frame of an action or state performance qualifies by the behavior it
 		// runs, as it does for reads.
 		if !f.runs(ec.ctx, qualifier) {
 			continue
+		}
+		if f.write != nil {
+			return true, f.write(sym.Name, value)
 		}
 		f.set(sym.Name, value)
 		// The run's occurrence holds this feature once materialized — take it from

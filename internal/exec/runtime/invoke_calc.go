@@ -686,7 +686,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	frame.slots.reset(shape.ParamNames)
 	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
-	locals.occurrence = occurrence
+	locals.write = calcFeatureWriter(ctx, shape, occurrence, &locals)
 	ec := &frame.ec
 	*ec = EvalContext{
 		ctx:        ctx,

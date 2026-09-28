@@ -19,9 +19,11 @@ type frame struct {
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
 	owner *calcShape
-	// occurrence is the run's own `this` occurrence — the same box the run's host
-	// mirrors into — so a qualified write through this frame lands on it too.
-	occurrence *calcOccurrence
+	// write is the run's own write path for a feature the frame binds — checked
+	// against its declaration and mirrored or streamed the way the run's
+	// statements write it — nil where the frame is a snapshot or plain bindings,
+	// which a write lands in directly.
+	write func(name string, value Value) error
 	// performed is the action whose performance a snapshot copied its bindings from,
 	// so the copy still answers for a run of that action without the live perf.
 	performed *symbols.Symbol
@@ -115,7 +117,7 @@ func (f frame) performs() *symbols.Symbol {
 // withVars is the frame holding vars in place of its own, still answering for
 // the same run and performance.
 func (f frame) withVars(vars map[string]Value) frame {
-	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, occurrence: f.occurrence, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
+	return frame{vars: vars, aliases: f.aliases, perf: f.perf, owner: f.owner, write: f.write, performed: f.performed, run: f.run, merged: f.merged, firing: f.firing}
 }
 
 // lookup finds name in the frame: a slot binding it, else the map.

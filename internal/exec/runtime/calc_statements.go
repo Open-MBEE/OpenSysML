@@ -67,6 +67,7 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		firedBreakpoints: make(map[breakpointVisit]bool),
 	}
 	h.flow.flow = h.flow
+	root.perfs = &h.flow.performances
 	h.perfs = &h.flow.performances
 	h.env = engine.env
 	engine.env.perf = root
@@ -141,6 +142,26 @@ func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lowe
 
 // mirrorOccurrence carries a write to a declared feature into the occurrence
 // `this` materialized for, as bindCalcParameters mirrors bound inputs.
+// calcFeatureWriter is a calc run's frame write path for a feature its bindings
+// hold: a qualified write lands the way the body's own assignments do — checked
+// against the declaration, bound in the frame, and mirrored into the run's
+// occurrence when `this` materialized and holds the feature.
+func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence, f *frame) func(string, Value) error {
+	return func(name string, value Value) error {
+		if err := ctx.checkNamedWrite(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
+			return err
+		}
+		f.set(name, value)
+		if occ == nil || occ.inst == nil {
+			return nil
+		}
+		if _, ok := occ.inst.FeatureValues[name]; !ok {
+			return nil
+		}
+		return occ.inst.SetFeatureValue(ctx, name, value)
+	}
+}
+
 func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 	if h.occ != nil && h.occ.inst != nil {
 		if _, ok := h.occ.inst.FeatureValues[name]; ok {

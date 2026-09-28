@@ -2502,6 +2502,75 @@ func TestQualifiedAssignWritesTheQualifiersObject(t *testing.T) {
 	}
 }
 
+// qualifiedStreamFixture streams a qualified write along a flow out of the
+// performance: only the run's own write path carries it to the caller's pin.
+const qualifiedStreamFixture = `
+	package test {
+		private import ScalarValues::*;
+		part def Host {
+		}
+		action def Outer {
+			out result : Integer;
+			action step { assign Outer::result := 5; }
+			first step;
+		}
+		action def Sees {
+			out seen : Integer;
+			action o : Outer;
+			action sink { in v : Integer; assign Sees::seen := v; }
+			flow o.result to sink.v;
+			first o then sink;
+		}
+		action def BadQualified {
+			out result : Integer;
+			action step { assign BadQualified::result := "text"; }
+			first step;
+		}
+		action def BadLocal {
+			out result : Integer;
+			action step { assign result := "text"; }
+			first step;
+		}
+	}
+`
+
+// A qualified write inside a performance lands on the run's own write path: the
+// caller's flow sees the streamed value, and the declaration check rejects a
+// wrong-typed write the same as an unqualified one does.
+func TestQualifiedWriteStreamsLikeARunWrite(t *testing.T) {
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, qualifiedStreamFixture))
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	sees := oneSymbol(t, idx, "test::Sees")
+	results, err := ctx.ExecuteActionPerformedBy(sees, inst, nil)
+	if err != nil {
+		t.Fatalf("run Sees on Host: %v", err)
+	}
+	if got := results["seen"]; got.Const.Int != 5 {
+		t.Errorf("seen = %v, want 5: Outer::result streamed out of the performance like `assign result` would", got)
+	}
+
+	badQualified := oneSymbol(t, idx, "test::BadQualified")
+	_, errQ := ctx.ExecuteActionPerformedBy(badQualified, inst, nil)
+	badLocal := oneSymbol(t, idx, "test::BadLocal")
+	_, errL := ctx.ExecuteActionPerformedBy(badLocal, inst, nil)
+	if errQ == nil {
+		t.Error("BadQualified: want a declaration error for a wrong-typed qualified write")
+	} else if errL == nil {
+		t.Fatalf("BadLocal: want a declaration error for the unqualified write, got none")
+	} else {
+		// Both name the same write; only the action the executor reports differs.
+		q := errQ.Error()[strings.Index(errQ.Error(), "assignment"):]
+		l := errL.Error()[strings.Index(errL.Error(), "assignment"):]
+		if q != l {
+			t.Errorf("qualified error %q differs from the unqualified %q", errQ, errL)
+		}
+	}
+}
+
 // qualifiedWriteFixture runs a state machine whose entry materializes this and
 // then writes its own attribute through its qualified name: `this` stays live.
 const qualifiedWriteFixture = `
@@ -2748,6 +2817,12 @@ const calcDefThisFixture = `
 			assign Probe::n := 5;
 			return : Integer = this.n;
 		}
+		calc def NestedProbe {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			if true { assign NestedProbe::n := 5; }
+			return : Integer = this.n;
+		}
 		action def Step { out n : Integer = 5; }
 		analysis def Shadow {
 			attribute early : Boolean = this == this;
@@ -2827,6 +2902,17 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	}
 	if got.Const.Int != 5 {
 		t.Errorf("Probe() = %s, want 5: the qualified write mirrored into the occurrence", FormatTraceValue(got))
+	}
+
+	// The same write from a nested body reaches the enclosing run's bindings
+	// through the frame's own write path: the occurrence gets n there too.
+	nested, nestedScope := calcByName(t, root, "test", "NestedProbe")
+	got, err = ctx.InvokeCalc(nested, nil, nestedScope)
+	if err != nil {
+		t.Fatalf("NestedProbe(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("NestedProbe() = %s, want 5: the enclosing frame's write mirrored into the occurrence", FormatTraceValue(got))
 	}
 }
 

@@ -92,6 +92,7 @@ func (e *StateExecutor) behaviorHost(behavior lower.StateBehavior, firing *firin
 	host.flow.driven.exec = host.flow
 	host.flow.driven.caller = &e.driven
 	host.perfs = &host.flow.performances
+	host.perfs.root.perfs = host.perfs
 	return host
 }
 

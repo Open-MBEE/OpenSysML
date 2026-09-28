@@ -73,6 +73,9 @@ type actionFrame struct {
 	// outer are the frames around a root performance its bodies read but no performance
 	// holds, outermost first: a state machine's data and its states' attributes.
 	outer []frame
+	// perfs runs the performances this performance belongs to, so a write
+	// through its frame lands on the run's own path (setFrameFeature).
+	perfs *performances
 	// live counts the tokens still running in this performance's flow, which a
 	// fork inside it raises and a join or a retiring token lowers.
 	live int
@@ -202,6 +205,7 @@ func (e *ActionExecutor) newRootFrame() *actionFrame {
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
 		subactions:  make(map[ast.Node]*actionFrame),
+		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
 	e.declareRootFeatures(root)
@@ -304,6 +308,7 @@ func (e *performances) beginPerformance(
 		connections: parent.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
+		perfs:       e,
 		run:         e.ctx.newRun(),
 	}
 	if perf.scope == nil {
@@ -1656,7 +1661,15 @@ func checkInputsBound(inv actionInvocation, params []actionParameter, inputs map
 // performanceFrame is the frame an evaluation reads a performance's values
 // through, which also answers for the nodes of its flow.
 func performanceFrame(f *actionFrame) frame {
-	return frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	fr := frame{vars: f.data, aliases: f.aliases, perf: f, run: f.run}
+	if f.perfs != nil {
+		// A qualified write lands on the run's own path: the declaration check,
+		// the performance occurrence, and the flows streaming the written pin.
+		fr.write = func(name string, value Value) error {
+			return f.perfs.setFrameFeature(f, name, value)
+		}
+	}
+	return fr
 }
 
 // cloneUnreceived copies the unreceived streams of a frame, queues included.
