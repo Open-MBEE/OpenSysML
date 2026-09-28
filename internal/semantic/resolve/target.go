@@ -279,6 +279,19 @@ func (r *Resolver) ResolveRedefinitionTarget(scope *symbols.Scope, decl ast.Node
 	return r.resolveTarget(scope, target, referenceFilter(decl, target))
 }
 
+// ProbeRedefinitionTarget is ResolveRedefinitionTarget for a semantic query:
+// what a feature inherits is asked while other names resolve, some of them
+// imports whose members are suspended meanwhile. A miss there is not the
+// redefinition's to report or remember; the document walk resolves it itself.
+func (r *Resolver) ProbeRedefinitionTarget(scope *symbols.Scope, decl ast.Node, target ast.Node) (*symbols.Symbol, bool) {
+	var (
+		sym *symbols.Symbol
+		ok  bool
+	)
+	r.aside(func() { sym, ok = r.ResolveRedefinitionTarget(scope, decl, target) })
+	return sym, ok
+}
+
 // Reference describes one occurrence of a name to resolve on its own, outside a
 // document walk: which scope it is written in, the declaration that refers to it
 // when it is a reference subsetting's target, and the feature chain it is the
