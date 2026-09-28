@@ -1840,7 +1840,13 @@ deferral: in v1 the transition wins only while its guard holds or its substate i
 and the signal is deferred otherwise; the standard leaves open which of a transition and a do
 action's accept takes an occurrence both could, which the OpenSysML runtime settles for the
 transition whenever it fires — out of the deferring state or out of a substate within it — and
-for the accept loop otherwise; the note names the transition. Only a transition the migration
+for the accept loop otherwise; the note names the transition. A transition out of a state
+enclosing the deferring one, or out of a state in a region beside its own, that accepts the
+signal is one v1's deferral takes precedence over while the deferring state is active; the
+standard encoding cannot hold a signal back from either, so the enclosing state's transition
+takes each occurrence it can fire on, and a transition of another region fires on an occurrence
+the loop keeps as well — the note names the transition, so the difference is on record. Only a
+transition the migration
 writes takes a signal: one it refuses — into a final state of another region, a state of
 another machine, a vertex whose ends it refuses, or, under `-strict`, a pseudostate with no v2
 form such as a choice — takes none, so the deferral keeps every route it would have accepted

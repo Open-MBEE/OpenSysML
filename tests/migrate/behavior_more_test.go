@@ -2273,3 +2273,111 @@ func TestOneSidedDurationIntervalsAreNotFixedWaits(t *testing.T) {
 	wantNote(t, r, "_odcBelow", migrate.Unmapped, "the interval's min is not written: the duration has no expression, so the interval is open below")
 	wantClean(t, "t.sysml", r)
 }
+
+// A transition out of an enclosing state, or out of a state in a region
+// beside the deferring state's, that accepts the deferred signal is one v1's
+// deferral takes precedence over; the standard encoding cannot hold the
+// signal back from it, so the note names the transition, and the model runs
+// as the note says: the enclosing state's transition takes the occurrence,
+// and the sibling region's fires on one the loop keeps as well.
+func TestDeferralNotesTransitionsItCannotOutrank(t *testing.T) {
+	const enclosing = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_mach" name="Machine" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_outer" name="Outer">
+            <region xmi:type="uml:Region" xmi:id="_ro">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_oinit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_wait" name="Waiting">
+                <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dPing" event="_pingEv"/>
+              </subvertex>
+              <subvertex xmi:type="uml:State" xmi:id="_open" name="Opened"/>
+              <transition xmi:type="uml:Transition" xmi:id="_to0" source="_oinit" target="_wait"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_wait" target="_open">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_pinged" name="Pinged"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_outer"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tPing" source="_outer" target="_pinged">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trPing" event="_pingEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, enclosing, `<sysml:Block xmi:id="_b1" base_Class="_mach"/>`, migrate.Options{})
+	wantNoLine(t, r.Notation, "defer Ping;")
+	wantLine(t, r.Notation, "item deferred : Ping[*] ordered;")
+	wantNote(t, r, "_dPing", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
+	wantNote(t, r, "_dPing", migrate.Approximated, "the transition (_tPing) out of the enclosing state 'Outer' accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
+	wantClean(t, "deferralEnclosingTransition", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Machine")
+	meta(t, s, "%state Machine::Run")
+	meta(t, s, "%send Ping")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "Pinged"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Pinged") || strings.Contains(out, "deferred = [Instance") {
+		t.Errorf("the Ping sent while Waiting did not take the enclosing state's transition alone:\n%s", out)
+	}
+
+	const sibling = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEv" signal="_ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEv" signal="_go"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_mach" name="Machine" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_both" name="Both">
+            <region xmi:type="uml:Region" xmi:id="_left" name="left">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_linit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_lwait" name="LWait">
+                <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dPing" event="_pingEv"/>
+              </subvertex>
+              <subvertex xmi:type="uml:State" xmi:id="_ldone" name="LDone"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tl0" source="_linit" target="_lwait"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tGo" source="_lwait" target="_ldone">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trGo" event="_goEv"/>
+              </transition>
+            </region>
+            <region xmi:type="uml:Region" xmi:id="_right" name="right">
+              <subvertex xmi:type="uml:Pseudostate" xmi:id="_rinit"/>
+              <subvertex xmi:type="uml:State" xmi:id="_rwait" name="RWait"/>
+              <subvertex xmi:type="uml:State" xmi:id="_rping" name="RPing"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tr0" source="_rinit" target="_rwait"/>
+              <transition xmi:type="uml:Transition" xmi:id="_tPing" source="_rwait" target="_rping">
+                <trigger xmi:type="uml:Trigger" xmi:id="_trPing" event="_pingEv"/>
+              </transition>
+            </region>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_both"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r = migrateDocumentOptions(t, sibling, `<sysml:Block xmi:id="_b1" base_Class="_mach"/>`, migrate.Options{})
+	wantNoLine(t, r.Notation, "defer Ping;")
+	wantLine(t, r.Notation, "item deferred : Ping[*] ordered;")
+	wantNote(t, r, "_dPing", migrate.Approximated, "the transition (_tPing) out of 'RWait', in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
+	wantClean(t, "deferralSiblingRegionTransition", r)
+
+	s = session(t, r)
+	meta(t, s, "%instantiate Machine")
+	meta(t, s, "%state Machine::Run")
+	meta(t, s, "%send Ping")
+	for i := 0; i < 4 && !strings.Contains(meta(t, s, "%current"), "RPing"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "RPing") || !strings.Contains(out, "deferred = [Instance") {
+		t.Errorf("the Ping sent while LWait was active did not both fire the sibling region's transition and stay kept:\n%s", out)
+	}
+}

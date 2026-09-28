@@ -1160,6 +1160,13 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 				note = joinNotes(note, "the transition "+describe(t)+" out of the state accepts the signal too, which in v1 takes precedence over deferring it only while its guard holds; the standard leaves open which of the transition and the accept loop takes the signal, which the runtime settles for the transition when its guard holds and the loop otherwise")
 			}
 		}
+		if t, enclosing := s.outrankedBy(v, k.sig); t != nil {
+			if enclosing {
+				note = joinNotes(note, "the transition "+describe(t)+" out of the enclosing state "+describe(s.m.model.Ref(t, "source"))+" accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of an enclosing state, so that transition takes each occurrence it can fire on and the accept loop keeps the rest")
+			} else {
+				note = joinNotes(note, "the transition "+describe(t)+" out of "+describe(s.m.model.Ref(t, "source"))+", in a region beside the state's, accepts the signal too, which in v1 the deferral takes precedence over while the state is active; the standard encoding cannot hold a signal back from a transition of another region, so that transition fires on each occurrence it can, which the accept loop keeps as well")
+			}
+		}
 		if t := k.completion; t != nil {
 			note = joinNotes(note, "the guarded completion transition "+describe(t)+" leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
 		}
@@ -1434,6 +1441,70 @@ func (s *stateRegion) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.E
 	}
 	walk(v)
 	return always, contested
+}
+
+// outrankedBy returns a transition a trigger referring to signal sig fires
+// out of a state enclosing v, or out of a vertex in a region beside the one
+// holding v, and whether it leaves an enclosing state. In v1 the deferral
+// takes precedence over either while v is active; the standard encoding holds
+// the signal back from neither. nil when none.
+func (s *stateRegion) outrankedBy(v, sig *sysmlv1.Element) (t *sysmlv1.Element, enclosing bool) {
+	m := s.m
+	accepts := func(t *sysmlv1.Element) bool {
+		if !s.transitionWritten(t) {
+			return false
+		}
+		for _, tr := range t.Owned("trigger") {
+			if ev := m.model.Ref(tr, "event"); ev != nil && ev.Type == "SignalEvent" && m.signalsMeet(sig, m.model.Ref(ev, "signal")) {
+				return true
+			}
+		}
+		return false
+	}
+	var within func(e *sysmlv1.Element) *sysmlv1.Element
+	within = func(e *sysmlv1.Element) *sysmlv1.Element {
+		for _, t := range m.outgoing[e] {
+			if accepts(t) {
+				return t
+			}
+		}
+		for _, r := range e.Owned("region") {
+			for _, sub := range r.Owned("subvertex") {
+				if t := within(sub); t != nil {
+					return t
+				}
+			}
+		}
+		return nil
+	}
+	for cur := v; cur.Parent != nil && cur.Parent.Type == "Region"; cur = cur.Parent.Parent {
+		region := cur.Parent
+		owner := region.Parent
+		if owner == nil {
+			break
+		}
+		if owner.Type == "State" {
+			for _, t := range m.outgoing[owner] {
+				if accepts(t) {
+					return t, true
+				}
+			}
+		}
+		for _, r := range owner.Owned("region") {
+			if r == region {
+				continue
+			}
+			for _, sub := range r.Owned("subvertex") {
+				if t := within(sub); t != nil {
+					return t, false
+				}
+			}
+		}
+		if owner.Type != "State" {
+			break
+		}
+	}
+	return nil, false
 }
 
 // transitionWritten reports whether transition t is one the output writes, so
