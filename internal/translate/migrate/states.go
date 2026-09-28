@@ -21,12 +21,22 @@ const (
 // StateMachines metadata usage for choice/junction/history — qualified so a
 // member named like the metadata cannot shadow it — the standard literal for
 // fork/join.
-func pseudostateLine(kw, name string) string {
+func pseudostateLine(prefix, kw, name string) string {
 	switch kw {
 	case "choice", "junction", "shallowHistory", "deepHistory":
-		return "#StateMachines::" + kw + " state " + name + ";"
+		return "#" + prefix + "StateMachines::" + kw + " state " + name + ";"
 	}
 	return kw + " " + name + ";"
+}
+
+// stateMachinesPrefix is "$::" when a member written as `StateMachines` hides
+// the library package from the scope a clause is written in, so the metadata
+// reference names it from the root.
+func (m *migration) stateMachinesPrefix(scope *sysmlv1.Element) string {
+	if m.shadowsLibrary("StateMachines", scope) {
+		return "$::"
+	}
+	return ""
 }
 
 // useStateMachines adds `private import StateMachines::*;` to the body of the
@@ -40,7 +50,8 @@ func (m *migration) useStateMachines() {
 				return
 			}
 			m.stateMachinesUsed[e] = true
-			m.extras[e] = append(m.extras[e], func() { m.w.line("private import StateMachines::*;") })
+			prefix := m.stateMachinesPrefix(e)
+			m.extras[e] = append(m.extras[e], func() { m.w.line("private import " + prefix + "StateMachines::*;") })
 			return
 		}
 	}
@@ -807,7 +818,7 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "choice", "junction":
 			name := writeName(s.name(v))
 			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine(pseudoKind(v), name))
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), pseudoKind(v), name))
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a #StateMachines::"+pseudoKind(v)+" state pseudostate, whose guarded transitions the runtime reads when it is reached; an unguarded one is its else branch")
 		case "fork", "join":
@@ -818,13 +829,13 @@ func (s *stateRegion) vertex(v *sysmlv1.Element) {
 		case "shallowHistory":
 			name := writeName(s.name(v))
 			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine("shallowHistory", name))
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "shallowHistory", name))
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a `#StateMachines::shallowHistory state` shallow history, which re-enters the substate active when its state was last left")
 		case "deepHistory":
 			name := writeName(s.name(v))
 			s.m.useStateMachines()
-			s.m.w.line(pseudostateLine("deepHistory", name))
+			s.m.w.line(pseudostateLine(s.m.stateMachinesPrefix(v.Parent), "deepHistory", name))
 			s.m.madeUp(v, name)
 			s.m.add(v, Mapped, name, "written as a `#StateMachines::deepHistory state` deep history, which re-enters the innermost states active when its state was last left")
 		case "terminate":
@@ -878,7 +889,7 @@ func (m *migration) statePoints(v *sysmlv1.Element) int {
 			if f.kw == "junction" {
 				m.useStateMachines()
 			}
-			m.w.line(pseudostateLine(f.kw, name))
+			m.w.line(pseudostateLine(m.stateMachinesPrefix(m.scope), f.kw, name))
 			m.madeUp(cp, name)
 			m.add(cp, Mapped, name, f.note)
 			written++
@@ -1128,7 +1139,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	if !s.m.strict {
 		s.m.useStateMachines()
 		for _, k := range out.kept {
-			clause := "#StateMachines::deferred ref : " + s.m.ref(k.sig, v)
+			clause := "#" + s.m.stateMachinesPrefix(v) + "StateMachines::deferred ref : " + s.m.ref(k.sig, v)
 			out.lines = append(out.lines, clause+";")
 			note := "written as " + clause + ", the StateMachines library's deferred-event metadata; the state is annotated @" + deferredEventFQN
 			s.m.add(k.trigger, Mapped, "", note)

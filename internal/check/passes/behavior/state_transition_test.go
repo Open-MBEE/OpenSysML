@@ -646,3 +646,35 @@ func TestEntryActionTransitionIntoPseudostateIsNotAVertex(t *testing.T) {
 	}
 }`, behavior.CodeEndpointNotOfMachine, "begin")
 }
+
+// TestImplicitSourcePseudostateBothSpellings: a sourceless transition hangs
+// the same diagnostic on a pseudostate whether it is spelled with the keyword
+// or with the StateMachines metadata the fixes write.
+func TestImplicitSourcePseudostateBothSpellings(t *testing.T) {
+	for _, tc := range []struct{ name, decl string }{
+		{"keyword", "join sync;"},
+		{"metadata", "#StateMachines::junction state sync;"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+	state def M {
+		entry; then init;
+		state init;
+		transition first init then sync;
+		` + tc.decl + `
+		transition then active;
+		state active;
+	}
+}`
+			var hits int
+			for _, d := range transitionDiags(t, src) {
+				if d.Code == behavior.CodeTransitionSourceNotVertex {
+					hits++
+				}
+			}
+			if hits != 1 {
+				t.Errorf("got %d %s findings, want 1", hits, behavior.CodeTransitionSourceNotVertex)
+			}
+		})
+	}
+}

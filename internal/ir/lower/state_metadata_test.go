@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"errors"
 	"reflect"
 	"sort"
 	"strings"
@@ -176,5 +177,73 @@ func TestMetadataDeferredRefKeepsTheChainSource(t *testing.T) {
 	}
 	if got := entryTransitionShape(gNew); !reflect.DeepEqual(got, []string{"a"}) {
 		t.Errorf("entry transitions are %v, want [a]", got)
+	}
+}
+
+// TestPseudostateMetadataRootedSpelling: `#$::StateMachines::choice` names the
+// library package from the root, past a `StateMachines` member that hides it —
+// the spelling the fixes and migrator write when the name is taken.
+func TestPseudostateMetadataRootedSpelling(t *testing.T) {
+	src := "package StateMachines {}\n" +
+		"package M {\n state m {\n #$::StateMachines::choice state pick;\n }\n}\n"
+	p := parser.New(source.New("m.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := libs.NewModelIndex()
+	idx.AddDocument("m.sysml", root)
+	idx.ExpandWildcardImports()
+	pkg, ok := idx.DocumentRoot("m.sysml").LookupLocal("M")
+	if !ok {
+		t.Fatal("package M not indexed")
+	}
+	u, ok := pkg.Scope.LookupLocal("m")
+	if !ok {
+		t.Fatal("state m not indexed")
+	}
+	usage, ok := u.Decl.(*ast.Usage)
+	if !ok || len(usage.Members) != 1 {
+		t.Fatalf("state m has members %v, want one", usage.Members)
+	}
+	member, ok := unwrapMembership(usage.Members[0]).(*ast.Usage)
+	if !ok {
+		t.Fatalf("member is %T, want a usage", usage.Members[0])
+	}
+	kind, ok := PseudostateMetadata(resolve.New(idx), u.Scope, member)
+	if !ok || kind != ast.PseudostateChoice {
+		t.Fatalf("PseudostateMetadata = %v, %v, want choice", kind, ok)
+	}
+}
+
+// TestPseudostateIsNotATransitionSource: a transition whose source succession
+// hangs on a pseudostate is refused the same either spelling of it.
+func TestPseudostateIsNotATransitionSource(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"keyword", "entry; then a; state a; choice pick; transition then ready; state ready;"},
+		{"metadata", "entry; then a; state a; #StateMachines::choice state pick; transition then ready; state ready;"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g, err := metadataStateGraph(t, "", tc.body)
+			var src *TransitionSourceError
+			if !errors.As(err, &src) {
+				t.Fatalf("error is %v (graph %v), want a TransitionSourceError", err, g)
+			}
+		})
+	}
+}
+
+// TestParallelRegionOfOnlyAPseudostate: a parallel region holding a pseudostate
+// and no substate needs no initial state, either spelling of the pseudostate.
+func TestParallelRegionOfOnlyAPseudostate(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"keyword", "entry; then regions; state regions parallel { state r1 { choice pick; } state r2 { entry; then s2; state s2; } }"},
+		{"metadata", "entry; then regions; state regions parallel { state r1 { #StateMachines::choice state pick; } state r2 { entry; then s2; state s2; } }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := metadataStateGraph(t, "", tc.body); err != nil {
+				t.Fatalf("lowering: %v", err)
+			}
+		})
 	}
 }

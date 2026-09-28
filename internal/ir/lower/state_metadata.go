@@ -60,6 +60,18 @@ func DeferredMetadata(resolver *resolve.Resolver, scope *symbols.Scope, usage *a
 	return false
 }
 
+// IsStateSourceDecl is IsStateSource for a declaration as written: a state
+// usage carrying a StateMachines pseudostate annotation is no transition
+// source, as the pseudostate it lowers to is not.
+func IsStateSourceDecl(resolver *resolve.Resolver, scope *symbols.Scope, source ast.Node) bool {
+	if usage, ok := source.(*ast.Usage); ok {
+		if _, annotated := PseudostateMetadata(resolver, scope, usage); annotated {
+			return false
+		}
+	}
+	return IsStateSource(source)
+}
+
 // pseudostateKindOf is PseudostateMetadata through the graph's own resolver.
 func (g *StateGraph) pseudostateKindOf(usage *ast.Usage, scope *symbols.Scope) (ast.PseudostateKind, bool) {
 	return PseudostateMetadata(g.resolver, scope, usage)

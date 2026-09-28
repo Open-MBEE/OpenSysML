@@ -376,7 +376,7 @@ func (c *transitionChecker) checkImplicitSource(m *machine, scope *symbols.Scope
 		c.report(n.Span(), CodeNoTransitionSource, err.Error())
 		return
 	}
-	if m.vertices[source] && lower.IsStateSource(source) {
+	if m.vertices[source] && lower.IsStateSourceDecl(c.resolver, scope, source) {
 		m.markLeft(source, nil)
 		return
 	}
@@ -385,7 +385,7 @@ func (c *transitionChecker) checkImplicitSource(m *machine, scope *symbols.Scope
 		return
 	}
 	// A state of the body that is no vertex is a region of a parallel state.
-	region := resolve.IsVertex(source) && !isMarker(source) && lower.IsStateSource(source)
+	region := resolve.IsVertex(source) && !isMarker(source) && lower.IsStateSourceDecl(c.resolver, scope, source)
 	c.report(n.Span(), CodeTransitionSourceNotVertex,
 		(&lower.TransitionSourceError{Source: source, Region: region}).Error())
 }
@@ -401,7 +401,7 @@ func (c *transitionChecker) checkEntryTransition(m *machine, scope *symbols.Scop
 		return
 	}
 	sym, ok := c.resolver.EndpointSymbol(scope, n.Target)
-	if ok && m.vertices[sym.Decl] && !lower.IsStateSource(sym.Decl) {
+	if ok && m.vertices[sym.Decl] && !lower.IsStateSourceDecl(c.resolver, scope, sym.Decl) {
 		c.report(n.Target.Span(), CodeEntryTransitionTarget, (&lower.EntryTransitionTargetError{Target: sym.Decl}).Error())
 	}
 }

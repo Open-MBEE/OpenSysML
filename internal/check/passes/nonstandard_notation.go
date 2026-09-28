@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes/kit"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -50,6 +52,8 @@ func (NonstandardNotationPass) Run(ctx *Context, name string, root *ast.RootName
 		keywordName: keywordNameSpans(ctx.ParseDiagnostics),
 		doc:         name,
 		lookup:      ctx.Source,
+		root:        ctx.Index.DocumentRoot(name),
+		resolver:    ctx.Resolver(),
 	}
 	if w.lookup == nil && ctx.Batch != nil {
 		w.lookup = ctx.Batch.Source
@@ -104,6 +108,10 @@ type notationWalker struct {
 	// bodies stacks the member lists enclosing the member being walked, so a
 	// fix can see the imports already written and where a new one belongs.
 	bodies []bodyFrame
+	// root and resolver read whether the name `StateMachines` still reaches the
+	// library package, nil where the run carries no index.
+	root     *symbols.Scope
+	resolver *resolve.Resolver
 }
 
 // bodyFrame is one enclosing member list: the members it declares and whether
@@ -415,7 +423,13 @@ func (w *notationWalker) pseudostate(n *ast.PseudostateNode) {
 	written := fmt.Sprintf("`%s %s;`", n.Keyword, name)
 	replacement := fmt.Sprintf("#%s state %s;", annotation, name)
 	needsImport := true
-	if n.Name == annotation || w.shadowsAnnotation(annotation) {
+	switch {
+	case w.shadowsStateMachines():
+		// A `StateMachines` member hides the library package, so the
+		// metadata is spelled from the root and no import is needed.
+		replacement = fmt.Sprintf("#$::StateMachines::%s state %s;", annotation, name)
+		needsImport = false
+	case n.Name == annotation || w.shadowsAnnotation(annotation):
 		// A member named like the annotation would shadow it, so the
 		// metadata is spelled qualified and no import is needed.
 		replacement = fmt.Sprintf("#StateMachines::%s state %s;", annotation, name)
@@ -447,8 +461,13 @@ func (w *notationWalker) deferredMember(n *ast.DeferMember, members []ast.Node, 
 	spelled := make([]string, 0, len(n.Triggers))
 	needsImport := false
 	// A member named `deferred` in an enclosing body shadows the metadata, so
-	// the annotation is spelled qualified for every ref and needs no import.
-	qualified := w.shadowsAnnotation("deferred")
+	// the annotation is spelled qualified for every ref and needs no import;
+	// a `StateMachines` member hides the library itself, spelled `$::`.
+	prefix := "StateMachines::"
+	if w.shadowsStateMachines() {
+		prefix = "$::StateMachines::"
+	}
+	qualified := prefix != "StateMachines::" || w.shadowsAnnotation("deferred")
 	for _, trigger := range n.Triggers {
 		name := deferredRefTarget(trigger)
 		if name == "" {
@@ -456,7 +475,7 @@ func (w *notationWalker) deferredMember(n *ast.DeferMember, members []ast.Node, 
 		}
 		spelled = append(spelled, triggerText(trigger))
 		if name == "deferred" || qualified {
-			refs = append(refs, fmt.Sprintf("`#StateMachines::deferred ref : %s;`", name))
+			refs = append(refs, fmt.Sprintf("`#%sdeferred ref : %s;`", prefix, name))
 		} else {
 			needsImport = true
 			refs = append(refs, fmt.Sprintf("`#deferred ref : %s;`", name))
@@ -558,6 +577,20 @@ func (w *notationWalker) shadowsAnnotation(keyword string) bool {
 		}
 	}
 	return false
+}
+
+// shadowsStateMachines reports whether a `StateMachines` member hides the
+// library package the annotation spellings name: one declared in an enclosing
+// body, or one the name resolves to that is not it.
+func (w *notationWalker) shadowsStateMachines() bool {
+	if w.shadowsAnnotation("StateMachines") {
+		return true
+	}
+	if w.root == nil || w.resolver == nil {
+		return false
+	}
+	sym, ok := w.resolver.ReadQualified(w.root, ast.QualifiedNameOf("StateMachines")).Symbol()
+	return ok && sym != nil && symbols.FQNOf(sym) != "StateMachines"
 }
 
 // memberDeclaredName is the name a member declares, "" when it declares none.

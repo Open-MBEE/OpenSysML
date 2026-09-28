@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -404,5 +405,51 @@ func TestNotationFixMovesDeferOutOfAChain(t *testing.T) {
 	_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
 	if len(fixedDiags) != 0 {
 		t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+	}
+}
+
+// TestNotationFixSpellsRootedWhenStateMachinesIsTaken: a `StateMachines`
+// member hides the library package the annotation names, so the fix spells the
+// metadata `$::`-rooted and adds no import, whether the member sits beside the
+// machine's package or inside the machine's own.
+func TestNotationFixSpellsRootedWhenStateMachinesIsTaken(t *testing.T) {
+	for _, tc := range []struct{ name, src string }{
+		{"sibling package", `package StateMachines {}
+package P {
+	state def M {
+		entry; then a;
+		state a;
+		choice pick;
+	}
+}`},
+		{"enclosing package", `package P {
+	package StateMachines {}
+	state def M {
+		entry; then a;
+		state a;
+		choice pick;
+	}
+}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, sf, diags := notationDiagnostics(t, "a.sysml", tc.src)
+			if len(diags) != 1 {
+				t.Fatalf("got %d diagnostics %+v, want 1", len(diags), diags)
+			}
+			fixed := applyFixes(t, sf.Bytes(), diags)
+			if !strings.Contains(fixed, "#$::StateMachines::choice state pick;") {
+				t.Fatalf("fixed text lacks the rooted spelling:\n%s", fixed)
+			}
+			if strings.Contains(fixed, "import ") {
+				t.Fatalf("a rooted fix needs no import:\n%s", fixed)
+			}
+			_, _, fixedDiags := notationDiagnostics(t, "b.sysml", fixed)
+			if len(fixedDiags) != 0 {
+				t.Fatalf("fixed text still reports %+v:\n%s", fixedDiags, fixed)
+			}
+			if got := graphShape(stateGraphOf(t, "b.sysml", fixed, "M")); !reflect.DeepEqual(got, []string{"choice:pick", "state:a:defer=0"}) {
+				t.Fatalf("fixed text lowers to %v, want [choice:pick state:a:defer=0]", got)
+			}
+		})
 	}
 }

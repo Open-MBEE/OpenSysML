@@ -995,8 +995,20 @@ func (g *StateGraph) stateless(region *ast.StateRegion) bool {
 	if g.RegionState[region] == nil {
 		return false
 	}
+	scope := g.declaredIn[region]
 	for _, member := range region.States {
-		if isParallelRegionMember(unwrapMembership(member)) {
+		actual := unwrapMembership(member)
+		// A metadata pseudostate or deferred reference is no substate, however
+		// the usage carrying it is spelled.
+		if usage, ok := actual.(*ast.Usage); ok {
+			if _, annotated := g.pseudostateKindOf(usage, scope); annotated {
+				continue
+			}
+			if g.deferredRefOf(usage, scope) {
+				continue
+			}
+		}
+		if isParallelRegionMember(actual) {
 			return false
 		}
 	}
@@ -1604,7 +1616,7 @@ func lowerTransitionMember(graph *StateGraph, member *ast.TransitionMember, body
 			return nil, err
 		}
 		vertex, ok := graph.findVertex(decl)
-		if !ok || !IsStateSource(decl) {
+		if !ok || !IsStateSource(vertex) {
 			state := graph.findStateDecl(decl)
 			return nil, &TransitionSourceError{Source: decl, Region: state != nil && graph.HiddenRegionOf[state] != nil}
 		}

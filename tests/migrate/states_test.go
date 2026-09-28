@@ -1570,3 +1570,25 @@ func TestSwimlaneCallContextQualifiesThroughTheDef(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 }
+
+// TestStateMachinesPackageShadowsTheLibrary: a package named StateMachines in
+// the model hides the library package the metadata spellings name, so the
+// import and the pseudostate spelling reach it $::-rooted.
+func TestStateMachinesPackageShadowsTheLibrary(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Package" xmi:id="_p" name="P">
+      <packagedElement xmi:type="uml:Package" xmi:id="_lib" name="StateMachines"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="_c" name="C" classifierBehavior="_sm">
+        <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="M">
+          <region xmi:type="uml:Region" xmi:id="_rg" name="r">
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_i"/>
+            <subvertex xmi:type="uml:State" xmi:id="_s" name="S"/>
+            <subvertex xmi:type="uml:Pseudostate" xmi:id="_pk" name="pick" kind="choice"/>
+            <transition xmi:type="uml:Transition" xmi:id="_t0" source="_i" target="_s"/>
+          </region>
+        </ownedBehavior>
+      </packagedElement>
+    </packagedElement>`, `<sysml:Block xmi:id="_cb" base_Class="_c"/>`)
+	wantLine(t, r.Notation, "private import $::StateMachines::*;")
+	wantLine(t, r.Notation, "#$::StateMachines::choice state pick;")
+}
