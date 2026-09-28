@@ -307,7 +307,7 @@
             "add_member": {
               "owner": "Demo::Host",
               "kind": "exhibit",
-              "name": "idle"
+              "name": "appliance.idle"
             }
           },
           {
@@ -343,7 +343,7 @@
             "constraint { x > 0 }",
             "assert not constraint notPositive { x <= 0 }",
             "exhibit state shown : Machine;",
-            "exhibit idle;",
+            "exhibit appliance.idle;",
             "entry action entryWork : Work;",
             "do action doWork : Work;",
             "exit action exitWork : Work;"

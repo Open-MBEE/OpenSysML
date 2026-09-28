@@ -4,7 +4,10 @@ package Demo {
     state def Machine {
         state active;
     }
-    part def Host {
+    part def Appliance {
         state idle : Machine;
+    }
+    part def Host {
+        part appliance : Appliance;
     }
 }
