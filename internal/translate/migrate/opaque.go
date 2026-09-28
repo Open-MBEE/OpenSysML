@@ -1024,17 +1024,6 @@ func (p *opaqueParser) declarable(kw, name string) *refusal {
 	return nil
 }
 
-// declaredNames is the set of names the declarations among toks give locals.
-func declaredNames(toks []token) map[string]bool {
-	names := map[string]bool{}
-	for i, t := range toks[:max(len(toks)-1, 0)] {
-		if declares(t) && toks[i+1].kind == tokIdent {
-			names[toks[i+1].text] = true
-		}
-	}
-	return names
-}
-
 // declares reports whether tok begins a declaration of a local.
 func declares(tok token) bool {
 	return tok.kind == tokIdent && (tok.text == "var" || tok.text == "let" || tok.text == "const")

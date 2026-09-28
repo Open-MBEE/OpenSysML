@@ -272,8 +272,27 @@ func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) stri
 	if cur != c.holder {
 		return withChain(m.qualifiedContext(c, e))
 	}
-	c.used = true
+	m.markUsed(&c.used)
 	return withChain(writeName(c.name))
+}
+
+// markUsed marks a context parameter as used by a name spelled through it,
+// remembering the mark so that a body the translator refuses after spelling
+// some of its names can unmark what it marked: the def declares the parameter
+// only for names it writes.
+func (m *migration) markUsed(used *bool) {
+	if !*used {
+		*used = true
+		m.marked = append(m.marked, used)
+	}
+}
+
+// unmark undoes the marks made since there were n of them.
+func (m *migration) unmark(n int) {
+	for _, used := range m.marked[n:] {
+		*used = false
+	}
+	m.marked = m.marked[:n]
 }
 
 // respellThis rewrites an expression built on `this` — `this` itself or a
@@ -358,7 +377,7 @@ func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 // qualifiedContext writes a def's context parameter as it is named from inside
 // its own body, where a call's own redefinition would shadow the bare name.
 func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element) string {
-	c.used = true
+	m.markUsed(&c.used)
 	return m.contextName(c, scope)
 }
 
@@ -411,7 +430,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 		return "", cnote
 	}
 	if dc != nil {
-		dc.used = true
+		m.markUsed(&dc.used)
 	}
 	c.bound = true
 	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
@@ -669,19 +688,24 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 // bodyReads reports whether an opaque body, read where scope's names resolve,
 // names a feature of the classifier c as the writer spells it: a name the
 // translator resolves reading the body — as statements or as one expression —
-// none being a local the body declares; or, for a body it does not translate,
-// each bare name but the locals declared. A name after a dot is a member of
-// what precedes it, not a read of its own; a name reads c directly or through
-// a swimlane over one of its parts.
+// none being a local the body declares; or, for a body in a language it does
+// not read, each name the body copied as v2 syntax reads. A body the writer
+// keeps as a comment reads nothing. A name after a dot is a member of what
+// precedes it, not a read of its own; a name reads c directly or through a
+// swimlane over one of its parts.
 func (m *migration) bodyReads(body, lang string, scope, c *sysmlv1.Element, statements bool) bool {
+	body = strings.TrimSpace(body)
 	if body == "" || scope == nil {
 		return false
 	}
 	s := m.bodyScope(scope)
 	s.probe = true
-	names, ok := s.namesRead(body, lang, statements)
-	if !ok {
-		names = bareNames(body)
+	names, ok, final := s.namesRead(body, lang, statements)
+	switch {
+	case final:
+		return false
+	case !ok:
+		names = m.v2Names(body, lang, scope, statements)
 	}
 	for _, name := range names {
 		if s.readsFeatureOf(name, c) {
@@ -691,19 +715,31 @@ func (m *migration) bodyReads(body, lang string, scope, c *sysmlv1.Element, stat
 	return false
 }
 
-// bareNames lists the identifiers of body that follow no dot, less the names
-// its declarations give locals.
-func bareNames(body string) []string {
-	toks, err := lexOpaque(body)
-	if err != nil {
+// v2Names lists the first step of every name a body the writer copies as v2
+// syntax reads at scope — the features its statements assign and the roots of
+// its expressions — none when the writer refuses the body and keeps it as a comment.
+func (m *migration) v2Names(body, lang string, scope *sysmlv1.Element, statements bool) []string {
+	var names []string
+	roots := func(refs []reference) {
+		for _, r := range refs {
+			if !r.global && r.local == "" && len(r.steps) > 0 {
+				names = append(names, r.steps[0].name)
+			}
+		}
+	}
+	if !statements {
+		if refs, ok, _ := m.v2Refs(body, lang, scope); ok {
+			roots(refs)
+		}
+		return names
+	}
+	assigns, ok, _ := m.v2Assignments(body, lang, scope)
+	if !ok {
 		return nil
 	}
-	declared := declaredNames(toks)
-	var names []string
-	for i, t := range toks {
-		if t.kind == tokIdent && !declared[t.text] && !(i > 0 && toks[i-1].isPunct(".")) {
-			names = append(names, t.text)
-		}
+	for _, a := range assigns {
+		names = append(names, a.name)
+		roots(a.refs)
 	}
 	return names
 }
@@ -962,7 +998,7 @@ func (a *activity) self() string {
 // caller is writing output, so the def declares it.
 func (a *activity) markSelf() {
 	if a.ctx != nil {
-		a.ctx.used = true
+		a.m.markUsed(&a.ctx.used)
 	}
 }
 
@@ -1089,7 +1125,7 @@ func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 	}
 	expr, note = a.m.contextBinding(c, selfType, self)
 	if expr != "" && a.ctx != nil {
-		a.ctx.used = true
+		a.m.markUsed(&a.ctx.used)
 	}
 	return expr, note
 }

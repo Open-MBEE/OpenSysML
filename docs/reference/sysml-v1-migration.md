@@ -1030,7 +1030,9 @@ block's features lexically instead and names them bare (`assign level := value;`
 resolves to one of them wherever the body carries it — an opaque action's body, a guard on a
 control flow, a pin's value — the block's own features and, through a swimlane over one of its
 parts, that part's (`context.'ESW Seq'.i` in a definition, `'ESW Seq'.i` in a usage) alike; a
-name the body declares as a local (`let count = 1;`) reads nothing of the block. A definition
+name the body declares as a local (`let count = 1;`) reads nothing of the block, and neither
+does a body the writer keeps as a comment — a guard or an action outside the translated subset —
+since nothing written reads through it. A definition
 reading its owner acts on the owner, over the ports of another block its actions name: a send
 through such a port loses the port and the report says so. The block is otherwise the one whose
 ports the activity or the behaviors it calls

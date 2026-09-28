@@ -282,13 +282,13 @@ func (s *bodyScope) readsFeatureOf(name string, c *sysmlv1.Element) bool {
 // namesRead lists the first step of every name the translator resolves reading
 // body as the writer does — as the statements of an action, else as one
 // expression — a local the body declares being none. ok is false when the
-// translator does not read the body through: the language is none it
-// translates, or it refuses the body, whether the writer then reads it as v2
-// syntax or keeps it as a comment; either way its names are read bare.
-func (s *bodyScope) namesRead(body, lang string, statements bool) (names []string, ok bool) {
+// translator does not read the body through: final then tells whether it
+// refused the body for good, the writer keeping it as a comment, or the writer
+// reads the body as v2 syntax instead, the language being none it translates.
+func (s *bodyScope) namesRead(body, lang string, statements bool) (names []string, ok, final bool) {
 	d := dialectOf(lang)
 	if d == dialectNone || statements && !d.script() {
-		return nil, false
+		return nil, false, false
 	}
 	r := &nameReads{s: s}
 	var err *refusal
@@ -298,9 +298,9 @@ func (s *bodyScope) namesRead(body, lang string, statements bool) (names []strin
 		_, err = translateExpr(body, lang, r, wanted{})
 	}
 	if err != nil {
-		return nil, false
+		return nil, false, err.final(lang)
 	}
-	return r.names, true
+	return r.names, true, false
 }
 
 // nameReads answers a body's names as the scope does, listing the first step
@@ -483,11 +483,15 @@ func (m *migration) notedAs(scope *sysmlv1.Element, v Verdict, note string) {
 
 // translatedExpr translates an opaque body as one expression read at scope
 // yielding what want asks for; the note is for the report and the refusal is
-// returned when the body has no v2 form, with the v2 text checked to parse.
+// returned when the body has no v2 form, with the v2 text checked to parse. A
+// body the translator refuses is kept as a comment, so the context parameters
+// spelling it marked used are unmarked again.
 func (m *migration) translatedExpr(body, lang string, scope *sysmlv1.Element, want wanted) (expr, note string, err *refusal) {
 	s := m.bodyScope(scope)
+	marked := len(m.marked)
 	expr, err = m.translateIn(body, lang, s, want)
 	if err != nil {
+		m.unmark(marked)
 		return "", "", err
 	}
 	return expr, s.note(lang), nil
@@ -510,16 +514,22 @@ func (m *migration) translateIn(body, lang string, sc featureResolver, want want
 // translatedStatements translates an opaque body as the statements of an action
 // body read at scope, each checked to parse; otherwise notes the assignments made
 // only when a value read admitting none holds one and the console prints left out.
+// As translatedExpr does, it unmarks what a refused body spelled.
 func (m *migration) translatedStatements(body, lang string, scope *sysmlv1.Element) (lines []string, note, otherwise string, err *refusal) {
 	s := m.bodyScope(scope)
+	marked := len(m.marked)
 	lines, notes, err := translateStatements(body, lang, s)
-	if err != nil {
-		return nil, "", "", err
-	}
-	for _, line := range lines {
-		if !parseStatement(line) {
-			return nil, "", "", &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+	if err == nil {
+		for _, line := range lines {
+			if !parseStatement(line) {
+				err = &refusal{kind: refusedSyntax, token: body, why: "its translation " + strconv.Quote(line) + " is not v2 syntax"}
+				break
+			}
 		}
+	}
+	if err != nil {
+		m.unmark(marked)
+		return nil, "", "", err
 	}
 	if note = s.note(lang); note == "" {
 		note = "the body is translated to v2"

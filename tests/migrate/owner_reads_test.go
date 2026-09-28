@@ -605,3 +605,83 @@ func TestOwnerReadsThroughASwimlaneOutweighAnotherBlocksPorts(t *testing.T) {
 	wantNote(t, r, "_callProbe", migrate.Approximated, "which is left unbound: the caller is a Host, which is no Controller and has no part that is one")
 	wantClean(t, "lane-port", r)
 }
+
+// discardedGuardModel is the block Controller, whose activity Probe decides on
+// a JavaScript guard the translator refuses (it calls a function) before it
+// sends through the Host's port, and whose activity Watch decides on a guard in
+// a language the translator does not read, copied as the v2 syntax it already
+// is; both guards name the Controller's attribute status.
+const discardedGuardModel = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status">` + booleanHref + `
+        <defaultValue xmi:type="uml:LiteralBoolean" xmi:id="_status0" value="false"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_probe" name="Probe">
+        <node xmi:type="uml:InitialNode" xmi:id="_pi"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_pdec" name="decide"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_psend" name="send ping" signal="_ping" onPort="_tx"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_pf" name="done"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe1" source="_pi" target="_pdec"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe2" source="_pdec" target="_psend">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_pg"><language>JavaScript</language><body>status &amp;&amp; unknownCall()</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe3" source="_pdec" target="_pf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe4" source="_psend" target="_pf"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_watch" name="Watch">
+        <node xmi:type="uml:InitialNode" xmi:id="_wi"/>
+        <node xmi:type="uml:DecisionNode" xmi:id="_wdec" name="decide"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_wsend" name="send ping" signal="_ping" onPort="_tx"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_wf" name="done"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_we1" source="_wi" target="_wdec"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_we2" source="_wdec" target="_wsend">
+          <guard xmi:type="uml:OpaqueExpression" xmi:id="_wg"><language>OCL</language><body>status</body></guard>
+        </edge>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_we3" source="_wdec" target="_wf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_we4" source="_wsend" target="_wf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callProbe" name="probe" behavior="_probe"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callWatch" name="watch" behavior="_watch"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_callProbe"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_callProbe" target="_callWatch"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re3" source="_callWatch" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const discardedGuardApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_controller"/>
+  <sysml:Block xmi:id="_b2" base_Class="_host"/>`
+
+// A guard the writer keeps as a comment reads nothing: the def sending through
+// another block's port keeps that block as its context, its edge written
+// unguarded. A guard in a language the translator does not read, copied as
+// the v2 syntax it is, reads what it names: that def acts on its owner, and
+// the guard spells the attribute through the context.
+func TestADiscardedGuardReadsNothingOfTheOwner(t *testing.T) {
+	r := migrateDocument(t, discardedGuardModel, discardedGuardApplications)
+	for _, line := range []string{
+		"action def Probe {",
+		"in ref context : Host;",
+		"send new Ping() via context.tx;",
+		"action def Watch {",
+		"in ref context : Controller;",
+		"if context.status then 'send ping';",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"context.status && unknownCall()", "context.probe"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_pe2", migrate.Approximated, "is kept as a comment and the edge written unguarded")
+	wantNote(t, r, "_probe", migrate.Approximated, "acts on a Host through its ports, which it takes as its parameter context rather than its owner Controller")
+	wantNote(t, r, "_watch", migrate.Mapped, "acts on its owner Controller, which it takes as its parameter context")
+	wantNote(t, r, "_wsend", migrate.Approximated, "the port Host::tx is no port of the object the sender acts on")
+	wantClean(t, "discarded-guard", r)
+}

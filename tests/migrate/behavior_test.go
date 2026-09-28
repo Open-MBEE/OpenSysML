@@ -135,7 +135,7 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 	r := migrateDocument(t, missionActivity, missionApplications)
 	for _, line := range []string{
 		"part def Mission {",
-		"action acquire {",
+		"action def Acquire {",
 		"first start then stamp;",
 		"fork 'fork';",
 		"action wait accept after 3.0 [SI::s];",
@@ -162,8 +162,8 @@ func TestActivityMigratesToAnExecutableActionDef(t *testing.T) {
 
 	s := session(t, r)
 	meta(t, s, "%seed 1")
-	wantVerdict(t, s.RunAction("Mission::acquire"))
-	runs := meta(t, s, "%runs 20 1 Mission::acquire")
+	wantVerdict(t, s.RunAction("Mission::Acquire"))
+	runs := meta(t, s, "%runs 20 1 Mission::Acquire")
 	if !strings.Contains(runs, "20 run(s)") || strings.Contains(runs, "error") {
 		t.Errorf("Monte Carlo runs of the migrated activity:\n%s", runs)
 	}
