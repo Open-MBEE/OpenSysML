@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -604,6 +605,24 @@ func (w *Workspace) LookupQualified(fqn string) []*symbols.Symbol {
 	out := make([]*symbols.Symbol, len(syms))
 	copy(out, syms)
 	return out
+}
+
+// StateGraph lowers the state machine sym declares through the workspace's
+// shared resolver, so library-typed members the lowering reads — StateMachines
+// metadata among them — resolve as the runtime's lowering resolves them.
+func (w *Workspace) StateGraph(sym *symbols.Symbol) (*lower.StateGraph, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	scope := sym.Scope
+	if scope == nil {
+		scope = sym.OwnerScope
+	}
+	var graph *lower.StateGraph
+	var err error
+	w.queryLocked("", func(resolver *resolve.Resolver, _ *semantics.Model) {
+		graph, err = lower.ToStateGraphWithEndpoints(sym.Decl, scope, lower.NewLibraryStateTypes(resolver))
+	})
+	return graph, err
 }
 
 // TopLevelSymbols returns the symbols declared at the root of the index as seen
