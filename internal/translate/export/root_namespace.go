@@ -31,16 +31,24 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 	namespace, memberships := rootNamespaceIDs(graph, roots)
 	// The wrapped graph is the source's triples with the wrapper's inserted, so
 	// it is assembled as a list and never rebuilds a set of the source's triples.
-	// An inserted triple is kept only if neither the source nor an earlier
-	// insertion states it, so the list holds each triple once.
+	// Each triple keeps the place it first takes, as adding them one by one to a
+	// graph would: an inserted triple the source states later is skipped there,
+	// and one the source stated earlier is not inserted again. Every inserted
+	// triple is about the namespace, a membership or a root, so only the source
+	// triples about those are remembered.
 	triples := make([]rdf.Triple, 0, graph.Len()+8*len(roots)+8)
-	added := map[rdf.Triple]bool{}
+	placed := map[rdf.Triple]bool{}
+	wrapperSubjects := map[rdf.Term]bool{namespace: true}
+	for i, root := range roots {
+		wrapperSubjects[root] = true
+		wrapperSubjects[memberships[i]] = true
+	}
 	add := func(subject, predicate, object rdf.Term) {
 		t := rdf.Triple{Subject: subject, Predicate: predicate, Object: object}
-		if added[t] || graph.Has(t) {
+		if placed[t] {
 			return
 		}
-		added[t] = true
+		placed[t] = true
 		triples = append(triples, t)
 	}
 	sysml := rdf.SysMLTerm
@@ -68,6 +76,12 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		owned[root.Value] = i
 	}
 	for _, triple := range graph.Triples() {
+		if wrapperSubjects[triple.Subject] {
+			if placed[triple] {
+				continue
+			}
+			placed[triple] = true
+		}
 		triples = append(triples, triple)
 		if i, ok := owned[triple.Subject.Value]; ok {
 			delete(owned, triple.Subject.Value)

@@ -102,3 +102,53 @@ func TestRootNamespaceGraphHoldsEachTripleOnce(t *testing.T) {
 		t.Errorf("adding a held triple grew the graph from %d to %d", n, wrapped.Len())
 	}
 }
+
+// A source triple the wrapper also inserts keeps the place it first takes: the
+// wrapper's when the source states it later, the source's when earlier, as
+// adding the triples one by one to a graph places them (review finding).
+func TestRootNamespaceKeepsEachTriplesFirstPlace(t *testing.T) {
+	p := rdf.ElementIRIForID("P")
+	ns := rdf.IRI(p.Value + RootNamespaceSuffix)
+	membership := rdf.IRI(p.Value + rdf.OwningMembershipSuffix)
+	sysml := rdf.SysMLTerm
+	typeOf := rdf.Triple{Subject: p, Predicate: rdf.IRI(rdf.RDFType), Object: sysml("Package")}
+	name := rdf.Triple{Subject: p, Predicate: sysml(pDeclaredName), Object: rdf.String("P")}
+	owningNamespace := rdf.Triple{Subject: p, Predicate: sysml(pOwningNamespace), Object: ns}
+	owner := rdf.Triple{Subject: p, Predicate: sysml(pOwner), Object: ns}
+	owningRelationship := rdf.Triple{Subject: p, Predicate: sysml(pOwningRelationship), Object: membership}
+	owningMembership := rdf.Triple{Subject: p, Predicate: sysml(pOwningMembership), Object: membership}
+	for _, c := range []struct {
+		name   string
+		source []rdf.Triple
+		want   []rdf.Triple
+	}{
+		{"stated later", []rdf.Triple{typeOf, name, owningNamespace},
+			[]rdf.Triple{typeOf, owner, owningNamespace, owningRelationship, owningMembership, name}},
+		{"stated first", []rdf.Triple{owningNamespace, typeOf, name},
+			[]rdf.Triple{owningNamespace, owner, owningRelationship, owningMembership, typeOf, name}},
+	} {
+		g := rdf.NewGraph()
+		for _, triple := range c.source {
+			g.AddTriple(triple)
+		}
+		wrapped, err := withRootNamespace(g)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []rdf.Triple
+		for _, triple := range wrapped.Triples() {
+			if triple.Subject == p {
+				got = append(got, triple)
+			}
+		}
+		if len(got) != len(c.want) {
+			t.Errorf("%s: P has %d triples, want %d: %v", c.name, len(got), len(c.want), got)
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("%s: P's triple %d is %v, want %v", c.name, i, got[i].Predicate.Value, c.want[i].Predicate.Value)
+			}
+		}
+	}
+}
