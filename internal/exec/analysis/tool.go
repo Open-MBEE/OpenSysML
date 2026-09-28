@@ -35,8 +35,8 @@ type ComputeAsk struct {
 	used func(ToolUse)
 }
 
-// ran reports a tool call's use to the asker, when one listens.
-func (a *ComputeAsk) ran(use ToolUse) {
+// Ran reports a tool call's use to the asker, when one listens.
+func (a *ComputeAsk) Ran(use ToolUse) {
 	if a.used != nil {
 		a.used(use)
 	}
@@ -56,7 +56,7 @@ type toolEngine struct {
 // the executable is found and refuses through Covers while it is not. An invocation or reply
 // block not yet checked by a manifest load is checked here; a faulty one refuses every question.
 func NewTool(entry ToolEntry) External {
-	e := toolEngine{entry: entry, look: lookExecutable, timeout: toolTimeoutFromEnv, limit: outputLimitFromEnv}
+	e := toolEngine{entry: entry, look: lookExecutable, timeout: ToolTimeoutFromEnv, limit: OutputLimitFromEnv}
 	dir, at := "", e.Name()
 	if entry.File != "" {
 		dir, at = filepath.Dir(entry.File), entry.File
@@ -188,7 +188,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}
 	failed := func(err error) (Result, error) {
 		use.Failed = err.Error()
-		q.Compute.ran(*use)
+		q.Compute.Ran(*use)
 		return Result{}, err
 	}
 	timeout := e.timeout()
@@ -212,7 +212,7 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 		values = append(values, Evaluation{Name: name, Value: value})
 	}
 	sort.Slice(values, func(i, j int) bool { return values[i].Name < values[j].Name })
-	q.Compute.ran(*use)
+	q.Compute.Ran(*use)
 	return Result{
 		Question: q,
 		Engine:   e.Name(),
@@ -225,9 +225,9 @@ func (e toolEngine) Run(ctx context.Context, _ *Model, q Question, _ Budget) (Re
 	}, nil
 }
 
-// renderReply spells a reply's outputs canonically, by variable name, as it was written
+// RenderReply spells a reply's outputs canonically, by variable name, as it was written
 // and before binding: two invocations of equal inputs compare by it.
-func renderReply(reply map[string]runtime.ToolValue) string {
+func RenderReply(reply map[string]runtime.ToolValue) string {
 	parts := make([]string, 0, len(reply))
 	for variable, v := range reply {
 		part := variable + "="
@@ -260,7 +260,7 @@ func renderValue(v runtime.ToolValue) string {
 // outputLimit is the bound on one reply, OutputLimitEnv's unless the engine was built without it.
 func (e toolEngine) outputLimit() int {
 	if e.limit == nil {
-		return outputLimitFromEnv()
+		return OutputLimitFromEnv()
 	}
 	return e.limit()
 }
@@ -283,7 +283,7 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 	cmd := exec.CommandContext(tctx, path, process.args...) // #nosec G204 -- the manifest names the executable; the arguments are values
 	cmd.Env, cmd.Dir = process.env, process.dir
 	cmd.Stdin = bytes.NewReader(process.stdin)
-	stdout, stderr := newBoundedBuffer(limit, cancel), newBoundedBuffer(limit, cancel)
+	stdout, stderr := NewBoundedBuffer(limit, cancel), NewBoundedBuffer(limit, cancel)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cmd.WaitDelay = time.Second
 	err := cmd.Run()
@@ -305,7 +305,7 @@ func (e toolEngine) invoke(ctx context.Context, path string, process *composed, 
 		if e.entry.Reply != nil && e.entry.Reply.Format == ReplyExitCode && errors.As(err, &exitErr) && exitErr.ExitCode() >= 0 {
 			return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes(), exit: exitErr.ExitCode()}, nil
 		}
-		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolProcessFailed, Detail: processDetail(path, err, stderr.Bytes())}
+		return nil, &runtime.ToolError{Tool: tool, Kind: runtime.ToolProcessFailed, Detail: ProcessDetail(path, err, stderr.Bytes())}
 	}
 	return &execution{stdout: stdout.Bytes(), stderr: stderr.Bytes()}, nil
 }
@@ -326,7 +326,7 @@ func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *compose
 		if err != nil {
 			return nil, "", err
 		}
-		return parsed, renderReply(parsed), nil
+		return parsed, RenderReply(parsed), nil
 	}
 	var outputs map[string]runtime.ToolValue
 	var faults map[string]error
@@ -362,7 +362,7 @@ func (e toolEngine) read(call *runtime.ToolCall, ex *execution, process *compose
 			bound[variable] = value
 		}
 	}
-	return bound, renderReply(outputs), nil
+	return bound, RenderReply(outputs), nil
 }
 
 // replySource is the reply's bytes: standard output, or the file a `file:` source names —
@@ -429,8 +429,8 @@ func (e toolEngine) replySource(ex *execution, process *composed) ([]byte, error
 	return data, nil
 }
 
-// processDetail spells a failed process: how it exited and what it wrote to standard error.
-func processDetail(path string, err error, stderr []byte) string {
+// ProcessDetail spells a failed process: how it exited and what it wrote to standard error.
+func ProcessDetail(path string, err error, stderr []byte) string {
 	detail := path + ": " + err.Error()
 	if text := strings.TrimSpace(string(stderr)); text != "" {
 		detail += ": " + text

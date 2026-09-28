@@ -146,9 +146,15 @@ func (l Listing) OriginText() string {
 	if l.Version != "" {
 		b.WriteString(" " + l.Version)
 	}
-	fmt.Fprintf(&b, ": %s from %s", l.Kind, l.File)
+	fmt.Fprintf(&b, ": %s", l.Kind)
+	if l.File != "" {
+		fmt.Fprintf(&b, " from %s", l.File)
+	}
 	if l.Command != "" {
-		b.WriteString(", runs " + l.Command)
+		if l.File != "" {
+			b.WriteString(",")
+		}
+		b.WriteString(" runs " + l.Command)
 	}
 	if l.Kind == KindEngine {
 		b.WriteString(", not admitted")

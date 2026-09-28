@@ -4,11 +4,13 @@ package engines
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
+	"github.com/Open-MBEE/OpenSysML/internal/exec/fmi"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/smt"
 )
 
-// Default returns the build's registry: run, explore, check, sweep, solve and smt.
-// Smt registers whether or not a solver is found and refuses through Covers.
+// Default returns the build's registry: run, explore, check, sweep, solve, smt and
+// tool:fmi. Smt registers whether or not a solver is found and refuses through Covers;
+// tool:fmi whether or not OPENSYSML_FMI_RUNNER names a runner.
 func Default() *analysis.Registry {
 	r := analysis.Default()
 	register(r)
@@ -31,6 +33,9 @@ func DefaultFromEnv(workspaces ...string) (*analysis.Registry, error) {
 // none of the framework's own carries, so no registration can be refused.
 func register(r *analysis.Registry) {
 	if err := r.Register(smt.New(nil)); err != nil {
+		panic(err)
+	}
+	if err := r.Register(fmi.New(nil)); err != nil {
 		panic(err)
 	}
 }

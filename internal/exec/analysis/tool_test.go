@@ -228,7 +228,7 @@ func TestToolEngineCoversItsOwnComputationsOnly(t *testing.T) {
 func TestToolTimeoutFromEnv(t *testing.T) {
 	for text, want := range map[string]time.Duration{"": DefaultToolTimeout, "soon": DefaultToolTimeout, "-1s": DefaultToolTimeout, "0": DefaultToolTimeout, "250ms": 250 * time.Millisecond, " 2m ": 2 * time.Minute} {
 		t.Setenv(ToolTimeoutEnv, text)
-		if got := toolTimeoutFromEnv(); got != want {
+		if got := ToolTimeoutFromEnv(); got != want {
 			t.Errorf("%s=%q: %v, want %v", ToolTimeoutEnv, text, got, want)
 		}
 	}

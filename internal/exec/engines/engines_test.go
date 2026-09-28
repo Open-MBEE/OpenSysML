@@ -25,7 +25,7 @@ func names(r *analysis.Registry) string {
 // stays open to more.
 func TestDefaultHoldsTheFrameworksEnginesAndSMT(t *testing.T) {
 	r := Default()
-	want := strings.Join([]string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName}, ", ")
+	want := strings.Join([]string{analysis.CheckEngineName, analysis.ExploreEngineName, analysis.RunEngineName, analysis.SMTEngineName, analysis.SolveEngineName, analysis.SweepEngineName, analysis.ToolEngineName("fmi")}, ", ")
 	if got := names(r); got != want {
 		t.Fatalf("engines %s, want %s", got, want)
 	}
@@ -101,7 +101,13 @@ func TestDefaultFromEnvAddsTheManifestsTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := names(r); got != names(Default())+", tool:Zed" {
+	want := names(Default())
+	if analysis.ToolEngineName("Zed") < analysis.ToolEngineName("fmi") {
+		want = strings.Replace(want, analysis.ToolEngineName("fmi"), analysis.ToolEngineName("Zed")+", "+analysis.ToolEngineName("fmi"), 1)
+	} else {
+		want += ", " + analysis.ToolEngineName("Zed")
+	}
+	if got := names(r); got != want {
 		t.Fatalf("engines %s, want the build's and tool:Zed", got)
 	}
 	t.Setenv(analysis.ToolsEnv, filepath.Join(dir, "none"))
