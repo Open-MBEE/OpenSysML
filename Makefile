@@ -213,7 +213,7 @@ test: ## Run Go tests with race detection and coverage
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
-test-shard: ## Run one CI shard of `make test` (SHARD=runtime|model|export|rest)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|model|export|rest)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic $$pkgs
 	if [ "$(SHARD)" = rest ]; then go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...; fi

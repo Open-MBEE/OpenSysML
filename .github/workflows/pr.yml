@@ -90,8 +90,8 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # The WebAssembly gate runs the wasm binaries under Node; Node 22's WASI host
-      # crashes on them, so the version is pinned rather than the runner's default.
+      # Other race-shard tests may shell out to Node, so keep Node 24; the WASI gate needs it.
+      # Node 22's WASI host crashes on the wasm binaries.
       - name: Set up Node
         uses: actions/setup-node@v4
         with:

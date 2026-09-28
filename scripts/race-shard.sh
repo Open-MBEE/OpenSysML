@@ -19,7 +19,9 @@ smt="$module/internal/exec/smt"
 export="$module/tests/export"
 model="$module/tests/model"
 passes="$module/internal/check/passes"
-named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes")
+# tests/wasm runs in the WebAssembly gate job, not a race shard.
+wasm="$module/tests/wasm"
+named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$wasm")
 
 case "$shard" in
   runtime|model|export|rest) ;;
