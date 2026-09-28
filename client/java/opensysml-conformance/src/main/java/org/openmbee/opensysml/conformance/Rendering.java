@@ -12,6 +12,7 @@ import org.openmbee.opensysml.Standing;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.Verdict;
+import org.openmbee.opensysml.WitnessAssignment;
 import org.openmbee.opensysml.VerificationVerdict;
 import org.openmbee.opensysml.internal.Protos;
 import org.openmbee.opensysml.proto.AttributeInfo;
@@ -123,6 +124,25 @@ final class Rendering {
     verdict.error().ifPresent(builder::setError);
     verdict.requirementId().ifPresent(builder::setRequirementId);
     verdict.instancePath().ifPresent(builder::setInstancePath);
+    verdict.question().ifPresent(builder::setQuestion);
+    verdict.status().ifPresent(builder::setStatus);
+    verdict.witness().forEach(assignment -> builder.addWitness(witness(assignment)));
+    return builder.build();
+  }
+
+  /**
+   * A witness assignment.
+   *
+   * @param assignment the immutable assignment
+   * @return the generated assignment
+   */
+  static org.openmbee.opensysml.proto.WitnessAssignment witness(WitnessAssignment assignment) {
+    org.openmbee.opensysml.proto.WitnessAssignment.Builder builder =
+        org.openmbee.opensysml.proto.WitnessAssignment.newBuilder()
+            .setFeature(assignment.feature())
+            .setUnit(assignment.unit())
+            .setExact(assignment.exact());
+    assignment.value().ifPresent(value -> builder.setValue(value(value)));
     return builder.build();
   }
 
@@ -141,6 +161,7 @@ final class Rendering {
       case WRONG_KIND -> org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_WRONG_KIND;
       case AMBIGUOUS_SUBJECT ->
           org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_AMBIGUOUS_SUBJECT;
+      case UNDECIDED -> org.openmbee.opensysml.proto.FailureReason.FAILURE_REASON_UNDECIDED;
       case UNKNOWN -> throw new IllegalStateException("no rendering for an unknown failure reason");
     };
   }
