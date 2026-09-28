@@ -32,7 +32,7 @@ esac
 packages=$(go list ./...)
 for package in "${named_packages[@]}"; do
   if ! grep -Fxq -- "$package" <<<"$packages"; then
-    echo "error: shard $shard names $package, which is not a package of this module" >&2
+    echo "error: scripts/race-shard.sh names $package, which is not a package of this module" >&2
     exit 1
   fi
 done
