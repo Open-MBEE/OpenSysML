@@ -16,7 +16,7 @@ const (
 )
 
 // compileColumns compiles Project's columns argument: a sequence of
-// Column(name, expression) and RelatedColumn(...) invocations into a
+// Column(name, expression|cell|path) and RelatedColumn(...) invocations into a
 // planned column sequence.
 func (c *compiler) compileColumns(
 	query *symbols.Symbol,
@@ -75,7 +75,7 @@ func (c *compiler) compileColumn(
 	default:
 		return Expression{}, invalid
 	}
-	nameNode, expressionNode, err := c.columnArguments(query, owner, invocation)
+	nameNode, expressionNode, cellNode, pathNode, err := c.columnArguments(query, owner, invocation)
 	if err != nil {
 		return Expression{}, err
 	}
@@ -83,16 +83,72 @@ func (c *compiler) compileColumn(
 	if err != nil {
 		return Expression{}, err
 	}
-	if expressionNode == nil {
-		return Expression{}, &Error{
-			Kind:      ErrorMissingArgument,
-			Query:     symbols.FQNOf(query),
-			Target:    columnFQN,
-			Parameter: "expression",
-			Origin:    symbols.NodeOrigin(owner.DocName, node),
+	provided := 0
+	for _, argument := range []ast.Node{expressionNode, cellNode, pathNode} {
+		if argument != nil {
+			provided++
 		}
 	}
-	expression, _, err := c.compileColumnExpression(query, owner, name, expressionNode)
+	if provided != 1 {
+		return Expression{}, &Error{
+			Kind:   ErrorColumnSource,
+			Query:  symbols.FQNOf(query),
+			Target: name,
+			Origin: symbols.NodeOrigin(owner.DocName, node),
+		}
+	}
+	var expression Expression
+	switch {
+	case expressionNode != nil:
+		expression, _, err = c.compileColumnExpression(query, owner, name, expressionNode, nil)
+	case cellNode != nil:
+		body, ok := cellNode.(*ast.BodyExpr)
+		if !ok || len(body.Params) != 1 || body.Params[0].Type == nil || body.Result == nil {
+			return Expression{}, &Error{
+				Kind:   ErrorUnsupportedExpression,
+				Query:  symbols.FQNOf(query),
+				Target: name,
+				Origin: symbols.NodeOrigin(owner.DocName, cellNode),
+			}
+		}
+		rowType, ok := c.resolver.ResolveQualified(symbols.BodyExprScope(owner.Scope, body), body.Params[0].Type)
+		if !ok || rowType == nil {
+			return Expression{}, &Error{
+				Kind:      ErrorUnknownColumnProperty,
+				Query:     symbols.FQNOf(query),
+				Target:    name,
+				Parameter: body.Params[0].Type.Text(),
+				Origin:    symbols.NodeOrigin(owner.DocName, body.Params[0].Type),
+			}
+		}
+		expression, _, err = c.compileColumnExpression(query, owner, name, body.Result, &columnRow{name: body.Params[0].Name, typeSymbol: rowType})
+	case pathNode != nil:
+		literal, ok := pathNode.(*ast.LiteralString)
+		if ok {
+			var text string
+			text, err = strconv.Unquote(literal.Value)
+			if err == nil {
+				var segments []string
+				segments, ok = source.MemberPathSegments(text)
+				if ok {
+					expression = Expression{
+						operation: OperationRowMember,
+						target:    source.MemberPathOf(segments),
+						origin:    symbols.NodeOrigin(owner.DocName, pathNode),
+					}
+				}
+			}
+		}
+		if !ok || err != nil {
+			return Expression{}, &Error{
+				Kind:      ErrorUnsupportedExpression,
+				Query:     symbols.FQNOf(query),
+				Target:    name,
+				Parameter: "path",
+				Origin:    symbols.NodeOrigin(owner.DocName, pathNode),
+			}
+		}
+	}
 	if err != nil {
 		return Expression{}, err
 	}
@@ -123,16 +179,16 @@ func (c *compiler) columnName(query, owner *symbols.Symbol, nameNode ast.Node) (
 	return name, nil
 }
 
-// columnArguments normalizes Column's positional or named arguments into the
-// name expression and the optional column expression.
+// columnArguments normalizes Column's positional or named arguments into its
+// name and computed-column source.
 func (c *compiler) columnArguments(
 	query *symbols.Symbol,
 	owner *symbols.Symbol,
 	invocation *ast.InvocationExpr,
-) (ast.Node, ast.Node, error) {
+) (ast.Node, ast.Node, ast.Node, ast.Node, error) {
 	if len(invocation.Args) > 0 {
 		if len(invocation.NamedArgs) > 0 || len(invocation.Args) > 2 {
-			return nil, nil, &Error{
+			return nil, nil, nil, nil, &Error{
 				Kind:   ErrorArgumentCount,
 				Query:  symbols.FQNOf(query),
 				Target: columnFQN,
@@ -143,9 +199,9 @@ func (c *compiler) columnArguments(
 		if len(invocation.Args) == 2 {
 			expression = invocation.Args[1]
 		}
-		return invocation.Args[0], expression, nil
+		return invocation.Args[0], expression, nil, nil, nil
 	}
-	var name, expression ast.Node
+	var name, expression, cell, path ast.Node
 	for _, arg := range invocation.NamedArgs {
 		argName := arg.Name.Text()
 		var slot *ast.Node
@@ -154,8 +210,12 @@ func (c *compiler) columnArguments(
 			slot = &name
 		case "expression":
 			slot = &expression
+		case "cell":
+			slot = &cell
+		case "path":
+			slot = &path
 		default:
-			return nil, nil, &Error{
+			return nil, nil, nil, nil, &Error{
 				Kind:      ErrorUnknownArgument,
 				Query:     symbols.FQNOf(query),
 				Target:    columnFQN,
@@ -164,7 +224,7 @@ func (c *compiler) columnArguments(
 			}
 		}
 		if *slot != nil {
-			return nil, nil, &Error{
+			return nil, nil, nil, nil, &Error{
 				Kind:      ErrorDuplicateArgument,
 				Query:     symbols.FQNOf(query),
 				Target:    columnFQN,
@@ -175,7 +235,7 @@ func (c *compiler) columnArguments(
 		*slot = arg.Value
 	}
 	if name == nil {
-		return nil, nil, &Error{
+		return nil, nil, nil, nil, &Error{
 			Kind:      ErrorMissingArgument,
 			Query:     symbols.FQNOf(query),
 			Target:    columnFQN,
@@ -183,7 +243,12 @@ func (c *compiler) columnArguments(
 			Origin:    symbols.NodeOrigin(owner.DocName, invocation),
 		}
 	}
-	return name, expression, nil
+	return name, expression, cell, path, nil
+}
+
+type columnRow struct {
+	name       string
+	typeSymbol *symbols.Symbol
 }
 
 // compileColumnExpression compiles a per-row calc expression into the plan's
@@ -194,9 +259,19 @@ func (c *compiler) compileColumnExpression(
 	owner *symbols.Symbol,
 	column string,
 	node ast.Node,
+	row *columnRow,
 ) (Expression, semantics.PrimType, error) {
 	switch expression := node.(type) {
 	case *ast.FeatureReference:
+		if row != nil && !expression.Name.Global && len(expression.Name.Parts) == 1 && expression.Name.Parts[0].Text == row.name {
+			return Expression{}, semantics.PrimUnknown, &Error{
+				Kind:      ErrorUnsupportedExpression,
+				Query:     symbols.FQNOf(query),
+				Target:    column,
+				Parameter: row.name,
+				Origin:    symbols.NodeOrigin(owner.DocName, expression),
+			}
+		}
 		return c.compileColumnReference(query, owner, column, expression)
 	case *ast.LiteralString:
 		return c.literalExpression(owner, node, LiteralString, expression.Value, "").expression,
@@ -220,9 +295,9 @@ func (c *compiler) compileColumnExpression(
 		return c.literalExpression(owner, node, LiteralNull, "null", "").expression,
 			semantics.PrimUnknown, nil
 	case *ast.OperatorExpr:
-		return c.compileColumnOperator(query, owner, column, expression)
+		return c.compileColumnOperator(query, owner, column, expression, row)
 	case *ast.FeatureChainExpr:
-		return c.compileColumnChain(query, owner, column, expression)
+		return c.compileColumnChain(query, owner, column, expression, row)
 	default:
 		return Expression{}, semantics.PrimUnknown, &Error{
 			Kind:   ErrorUnsupportedExpression,
@@ -278,6 +353,7 @@ func (c *compiler) compileColumnChain(
 	owner *symbols.Symbol,
 	column string,
 	expression *ast.FeatureChainExpr,
+	row *columnRow,
 ) (Expression, semantics.PrimType, error) {
 	unsupported := func() error {
 		return &Error{
@@ -290,6 +366,40 @@ func (c *compiler) compileColumnChain(
 	head, members, ok := columnChainParts(expression)
 	if !ok {
 		return Expression{}, semantics.PrimUnknown, unsupported()
+	}
+	if row != nil && !head.Global && len(head.Parts) == 1 && head.Parts[0].Text == row.name {
+		if len(members) == 0 {
+			return Expression{}, semantics.PrimUnknown, unsupported()
+		}
+		if len(members) == 1 && len(members[0].Parts) == 1 {
+			if target, ok := c.model.LookupMember(row.typeSymbol, members[0].Parts[0].Text); ok {
+				return Expression{
+					operation:    OperationRowProperty,
+					target:       target.Name,
+					value:        declaringTypeFQN(target),
+					multiplicity: c.featureMultiplicity(target),
+					origin:       symbols.NodeOrigin(owner.DocName, expression),
+				}, c.staticPrimType(target), nil
+			}
+			return Expression{}, semantics.PrimUnknown, &Error{
+				Kind:      ErrorUnknownColumnProperty,
+				Query:     symbols.FQNOf(query),
+				Target:    column,
+				Parameter: members[0].Text(),
+				Origin:    symbols.NodeOrigin(owner.DocName, expression),
+			}
+		}
+		var segments []string
+		for _, member := range members {
+			for _, part := range member.Parts {
+				segments = append(segments, part.Text)
+			}
+		}
+		return Expression{
+			operation: OperationRowMember,
+			target:    source.MemberPathOf(segments),
+			origin:    symbols.NodeOrigin(owner.DocName, expression),
+		}, semantics.PrimUnknown, nil
 	}
 	var segments []string
 	declaring := ""
@@ -384,6 +494,7 @@ func (c *compiler) compileColumnOperator(
 	owner *symbols.Symbol,
 	column string,
 	expression *ast.OperatorExpr,
+	row *columnRow,
 ) (Expression, semantics.PrimType, error) {
 	arity := 0
 	switch expression.Operator {
@@ -412,7 +523,7 @@ func (c *compiler) compileColumnOperator(
 	arguments := make([]Argument, 0, arity)
 	kinds := make([]semantics.PrimType, 0, arity)
 	for _, operand := range expression.Operands {
-		compiled, kind, err := c.compileColumnExpression(query, owner, column, operand)
+		compiled, kind, err := c.compileColumnExpression(query, owner, column, operand, row)
 		if err != nil {
 			return Expression{}, semantics.PrimUnknown, err
 		}

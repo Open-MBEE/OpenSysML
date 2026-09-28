@@ -53,8 +53,7 @@ library package DocumentQueries {
 
 	/* The properties of a Verdicts row, for Project and column expressions
 	 * (`Verdict::verdict`); a row also answers its assertion's own properties by
-	 * name. The assertion and the carrier it was checked on are elements, so a
-	 * Column expression cannot read them; project them by name instead. */
+	 * name. */
 	attribute def Verdict {
 		ref assertion : Element[1];
 		attribute kind : String[1];
@@ -192,12 +191,14 @@ library package DocumentQueries {
 		return result : Element[0..*] ordered;
 	}
 
-	/* One computed table column: an explicit name plus a calc expression
-	 * evaluated on each projected row element. */
+	/* One computed table column: exactly one of expression, cell, or path.
+	 * expression is evaluated in query scope; cell receives each row as its
+	 * parameter; path reads a dotted member path from the row. */
 	attribute def ColumnSpec;
 
-	/* A column expression references row properties by their declared
-	 * feature (e.g. Subsystem::mass), supports +, -, *, / arithmetic,
+	/* A cell reads row properties through its typed row parameter
+	 * (e.g. row.mass); an expression uses query-scope features such as
+	 * Subsystem::mass. Both support +, -, *, / arithmetic,
 	 * string concatenation with +, and ?? for absent-value defaults.
 	 * A feature chain (e.g. stat.runs or 'Monte Carlo'.runs) reads a
 	 * feature of a member nested in the row element, each segment
@@ -215,6 +216,8 @@ library package DocumentQueries {
 	calc def Column {
 		in name : String[1];
 		in expression : ScalarValue[0..1];
+		in calc cell[0..1] { in row : Base::Anything[1]; return : ScalarValue[0..1]; }
+		in path : String[0..1];
 		return result : ColumnSpec[1];
 	}
 
