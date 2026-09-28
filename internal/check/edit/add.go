@@ -377,7 +377,12 @@ func writeMember(op Operation, kind memberKind) string {
 	case "return":
 		prefix = append(prefix, "return")
 	case "ref":
-		prefix = append(prefix, "ref")
+		// A direction already marks the usage's parameter nature, so a
+		// directed ref spells without the keyword (`in x : T;`). Abstract
+		// directed refs keep it: the parser reads `in abstract x` as a usage.
+		if op.Direction == "" || op.IsAbstract {
+			prefix = append(prefix, "ref")
+		}
 	default:
 		prefix = append(prefix, op.MemberKind)
 	}

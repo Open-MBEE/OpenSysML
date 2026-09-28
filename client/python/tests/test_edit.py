@@ -7,6 +7,7 @@ trip itself — load, set a value, apply, save, load the saved file and ask what
 the value is now — which is the part a mock cannot tell you anything about.
 """
 
+import json
 import os
 import subprocess
 import time
@@ -78,6 +79,28 @@ MODEL = """package Demo {
 """
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+
+def _elements_by_qname(conversion):
+    """Describe each api-json element by its @type, qualifiedName and the
+    qualified names (or @type, when anonymous) of the elements it relates to,
+    so two spellings of one model compare independent of element ids."""
+    elements = json.loads(str(conversion))
+    by_id = {el["@id"]: el for el in elements if isinstance(el, dict) and "@id" in el}
+
+    def describe(el):
+        rels = []
+        for key, value in sorted(el.items()):
+            refs = value if isinstance(value, list) else [value]
+            for ref in refs:
+                if isinstance(ref, dict) and "@id" in ref and ref["@id"] in by_id:
+                    other = by_id[ref["@id"]]
+                    rels.append((key, other.get("qualifiedName") or other.get("@type")))
+        return (el.get("@type"), el.get("qualifiedName"), tuple(sorted(rels)))
+
+    return sorted(describe(el) for el in elements if isinstance(el, dict))
+
+
 GRPC_BINARIES = (
     os.path.join(REPO_ROOT, "bin", "sysml-grpc"),
     os.path.join(os.path.expanduser("~"), ".opensysml", "bin", "sysml-grpc"),
@@ -1040,7 +1063,7 @@ class TestEditRoundTripAgainstRealService:
             edited = str(result)
             assert edited == (
                 "calc def C { in x : ScalarValues::Real; "
-                "in ref power : ScalarValues::Real; x * 2 }\n"
+                "in power : ScalarValues::Real; x * 2 }\n"
             )
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
@@ -1052,9 +1075,36 @@ class TestEditRoundTripAgainstRealService:
                 "A", "out", "response", type="ScalarValues::Real"
             ).apply()
             edited = str(result)
-            assert "out ref response : ScalarValues::Real;" in edited
+            assert "out response : ScalarValues::Real;" in edited
             again = conn.load_from_content(edited)
             assert again.ok, [str(d) for d in again.errors]
+
+    def test_editor_spelling_matches_written_equivalents(self, real_service):
+        """Editor-built `specializes` and directed parameters yield the same
+        elements as the directly written `:>` and `in x : T` spellings."""
+        with Connection(port=real_service, auto_start=False) as conn:
+            built = conn.load_from_content(
+                "package P {\n    part def A;\n    action def Do;\n}\n"
+            )
+            result = (
+                built.edit()
+                .add_part_def("P", "B", specializes=["P::A"])
+                .add_parameter("P::Do", "in", "x", type="ScalarValues::Real")
+                .apply()
+            )
+            edited = conn.load_from_content(str(result))
+            assert edited.ok, [str(d) for d in edited.errors]
+            written = conn.load_from_content(
+                "package P {\n"
+                "    part def A;\n"
+                "    part def B :> A;\n"
+                "    action def Do {\n"
+                "        in x : ScalarValues::Real;\n"
+                "    }\n"
+                "}\n"
+            )
+            assert _elements_by_qname(edited.to_api_json()) == \
+                _elements_by_qname(written.to_api_json())
 
     def test_state_transitions_round_trip(self, real_service):
         source = (
@@ -1111,9 +1161,9 @@ class TestEditRoundTripAgainstRealService:
                 return_expression="power * duration * efficiency",
             ).apply()
             edited = str(result)
-            assert "in ref power : ISQ::PowerValue;" in edited
-            assert "in ref duration : ISQ::TimeValue;" in edited
-            assert "in ref efficiency : ScalarValues::Real;" in edited
+            assert "in power : ISQ::PowerValue;" in edited
+            assert "in duration : ISQ::TimeValue;" in edited
+            assert "in efficiency : ScalarValues::Real;" in edited
             assert (
                 "return : ISQ::EnergyValue = power * duration * efficiency;"
                 in edited

@@ -70,7 +70,7 @@ func TestAddMemberModifiers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Apply: %v", err)
 		}
-		const want = "calc def C { in x : ScalarValues::Real; in ref y : ScalarValues::Real; x * 2 }\n"
+		const want = "calc def C { in x : ScalarValues::Real; in y : ScalarValues::Real; x * 2 }\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}
@@ -84,7 +84,7 @@ func TestAddMemberModifiers(t *testing.T) {
 			abstract  bool
 			want      string
 		}{
-			{name: "directional", direction: "in", want: "in ref x : T;"},
+			{name: "directional", direction: "in", want: "in x : T;"},
 			{name: "undirected", want: "ref x : T;"},
 			{name: "directional abstract", direction: "in", abstract: true, want: "in abstract ref x : T;"},
 		} {
@@ -105,7 +105,14 @@ func TestAddMemberModifiers(t *testing.T) {
 					t.Fatalf("lookup P::x = %d symbols, want 1", len(matches))
 				}
 				usage, ok := matches[0].Decl.(*ast.Usage)
-				if !ok || !usage.IsReference {
+				if !ok {
+					t.Fatalf("P::x declaration = %#v, want a usage", matches[0].Decl)
+				}
+				if tc.direction != "" && !tc.abstract {
+					if usage.Direction != ast.DirIn {
+						t.Fatalf("P::x direction = %v, want in", usage.Direction)
+					}
+				} else if !usage.IsReference {
 					t.Fatalf("P::x declaration = %#v, want a reference usage", matches[0].Decl)
 				}
 				requireClean(t, parsed)
@@ -124,7 +131,7 @@ func TestAddMemberModifiers(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Apply: %v", err)
 				}
-				want := src + "  in ref y : ScalarValues::Real;\n" + comment + "\n  x * 2\n}\n"
+				want := src + "  in y : ScalarValues::Real;\n" + comment + "\n  x * 2\n}\n"
 				if got := string(res.Content); got != want {
 					t.Fatalf("content = %q, want %q", got, want)
 				}
@@ -143,7 +150,7 @@ func TestAddMemberModifiers(t *testing.T) {
 			t.Fatalf("Apply: %v", err)
 		}
 		const want = "calc def C {\n  in x : ScalarValues::Real; // input\n" +
-			"  in ref y : ScalarValues::Real;\n  x * 2\n}\n"
+			"  in y : ScalarValues::Real;\n  x * 2\n}\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}
@@ -159,7 +166,7 @@ func TestAddMemberModifiers(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Apply: %v", err)
 		}
-		const want = "constraint def K { in x : ScalarValues::Real; in ref y : ScalarValues::Real; x > 0 }\n"
+		const want = "constraint def K { in x : ScalarValues::Real; in y : ScalarValues::Real; x > 0 }\n"
 		if got := string(res.Content); got != want {
 			t.Fatalf("content = %q, want %q", got, want)
 		}
