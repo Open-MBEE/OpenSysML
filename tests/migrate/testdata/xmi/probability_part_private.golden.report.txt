@@ -1,0 +1,27 @@
+# SysML v1 to v2 migration report: probability_part_private.xmi
+# migrated 21 element(s): 16 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+
+## approximated (5)
+Activity	Mission::Sub::Run	_run	-> Mission::Sub::Run	(acts on its owner Mission::Sub, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Mission::Sub as its usage run)
+ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_eb	(the edge carries no «Probability»: it is weighted 0.75, its share of what the marked branches leave of 1)
+«Probability» ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_ea	(the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Base::mission, is a private feature of Mission::Base, which v2 does not inherit, so it cannot be named on the object; a run no longer reads the property, so an object whose value differs is still weighted by the default)
+OpaqueAction	Mission::Sub::Run::Inner::a	_a	-> a	(the body is kept as a comment: the body is empty)
+OpaqueAction	Mission::Sub::Run::Inner::b	_b	-> b	(the body is kept as a comment: the body is empty)
+
+## mapped (16)
+«Block» Class	Mission	_mission	-> Mission
+«Block» Class	Mission::Base	_base	-> Mission::Base
+Property	Mission::Base::mission	_mpart	-> Mission::Base::mission
+«Block» Class	Mission::Sub	_sub	-> Mission::Sub
+ActivityFinalNode	Mission::Sub::Run::<ActivityFinalNode>	_rf	-> final
+ControlFlow	Mission::Sub::Run::<ControlFlow>	_re1
+InitialNode	Mission::Sub::Run::<InitialNode>	_ri	-> start
+Activity	Mission::Sub::Run::Inner	_inner	-> Mission::Sub::Run::Inner
+ActivityFinalNode	Mission::Sub::Run::Inner::<ActivityFinalNode>	_if	-> final
+ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_fa
+ControlFlow	Mission::Sub::Run::Inner::<ControlFlow>	_fb
+DecisionNode	Mission::Sub::Run::Inner::<DecisionNode>	_decide	-> 'decide'
+InitialNode	Mission::Sub::Run::Inner::<InitialNode>	_ii	-> start
+CallBehaviorAction	Mission::Sub::Run::call	_call	-> call
+Property	Mission::pr	_pr	-> Mission::pr
+Model	Model	_m	(the root model's members are written at the top level)
