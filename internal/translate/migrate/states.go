@@ -78,6 +78,9 @@ func (m *migration) nameMachine(sm *sysmlv1.Element) map[string]bool {
 		return used
 	}
 	used := inheritedStateNamesSet()
+	for name := range inheritedStateNames {
+		m.take(sm, name)
+	}
 	m.regionUsed[sm] = used
 	m.indexTransitions(sm)
 	for _, cp := range sm.Owned("connectionPoint") {
@@ -139,6 +142,9 @@ func (m *migration) nameRegion(r, owner *sysmlv1.Element, used map[string]bool) 
 	for _, v := range r.Owned("subvertex") {
 		if v.Type == "State" {
 			m.nameVertex(v, owner, used)
+			for name := range inheritedStateNames {
+				m.take(v, name)
+			}
 			inner := inheritedStateNamesSet()
 			m.stateUsed[v] = inner
 			m.namePoints(v, inner)
@@ -470,9 +476,14 @@ func writtenRegions(owner *sysmlv1.Element) []*sysmlv1.Element {
 	return out
 }
 
-// vertexWritten reports whether vertex v is written as a member of its state def's
-// body: its machine is written and nameMachine named it, which skips what no region writes.
+// vertexWritten reports whether v is written as a member of its state definition's body.
+// It excludes vertices refused by strict migration, even if nameMachine named them.
 func (m *migration) vertexWritten(v *sysmlv1.Element) bool {
+	return m.vertexNamed(v) && m.extensionVertex(v) == ""
+}
+
+// vertexNamed reports whether nameMachine assigned v a name, independent of whether it is written.
+func (m *migration) vertexNamed(v *sysmlv1.Element) bool {
 	sm := machineOf(v)
 	if sm == nil || !m.written(sm) {
 		return false
@@ -1600,14 +1611,13 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 			including = "$::" + including
 		}
 		for _, k := range d.kept {
-			sig := s.m.ref(k.sig, v)
 			for _, l := range k.loops {
 				via := ""
 				if l.port != nil {
 					via = " via " + s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
 				}
 				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
-				s.m.w.line("action " + receive + " accept " + payload + " : " + sig + via + ";")
+				s.m.w.line("action " + receive + " accept " + payload + " : " + s.m.acceptSignalRef(k.sig, v, payload) + via + ";")
 				s.m.w.line("then action " + keep + " { assign " + writeName(k.buffer) + " := " + including + "(" + writeName(k.buffer) + ", " + receive + "." + payload + "); }")
 				s.m.w.line("then " + receive + ";")
 				s.m.w.madeUp(receive)

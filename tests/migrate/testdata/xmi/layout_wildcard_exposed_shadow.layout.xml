@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packet>
+  <metadata><mtipVersion>2022x v1.0.0</mtipVersion></metadata>
+  <data>
+    <attributes _dtype="dict">
+      <attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Model</attribute></attribute>
+    </attributes>
+    <id _dtype="dict"><cameo _dtype="str">_m</cameo></id>
+    <relationships _dtype="dict"/>
+    <type _dtype="str">sysml.Model</type>
+  </data>
+  <data>
+    <attributes _dtype="dict">
+      <attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Layout</attribute></attribute>
+    </attributes>
+    <id _dtype="dict"><cameo _dtype="str">_diag_layout</cameo></id>
+    <relationships _dtype="dict">
+      <element _dtype="list">
+        <element _dtype="dict" key="0">
+          <relationship_metadata _dtype="dict"><top _dtype="int">-20</top><bottom _dtype="int">-100</bottom><left _dtype="int">10</left><right _dtype="int">210</right></relationship_metadata>
+          <id _dtype="str">_blk_vehicle</id><type _dtype="str">sysml.Block</type>
+        </element>
+        <element _dtype="dict" key="1">
+          <relationship_metadata _dtype="dict"><top _dtype="int">-140</top><bottom _dtype="int">-180</bottom><left _dtype="int">240</left><right _dtype="int">340</right></relationship_metadata>
+          <id _dtype="str">_prop_engine</id><type _dtype="str">sysml.Property</type>
+        </element>
+      </element>
+    </relationships>
+    <type _dtype="str">sysml.InternalBlockDiagram</type>
+  </data>
+</packet>

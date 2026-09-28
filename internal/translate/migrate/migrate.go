@@ -142,6 +142,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		placeholders:  map[*sysmlv1.Element]bool{},
 		nodeEnds:      map[*sysmlv1.Element]*placement{},
 		extras:        map[*sysmlv1.Element][]func(){},
+		viewNames:     map[*sysmlv1.Element]map[string]bool{},
 		flows:         map[*sysmlv1.Element][]*sysmlv1.Element{},
 		outcomes:      map[*sysmlv1.Element]*flowOutcome{},
 		unplaced:      map[*sysmlv1.Element]*placement{},
@@ -332,6 +333,8 @@ type migration struct {
 	// extras are members other elements contribute to a body: a Satisfy is
 	// written inside the block that satisfies.
 	extras map[*sysmlv1.Element][]func()
+	// viewNames records the simple names imported into each view by its exposures.
+	viewNames map[*sysmlv1.Element]map[string]bool
 	// viewOf plans each diagram's view; hosted lists the views each body opens with.
 	viewOf map[*sysmlv1.Diagram]*view
 	hosted map[*sysmlv1.Element][]*view

@@ -226,6 +226,9 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 // probabilityProperty is the property the «Probability» on the edge e of body
 // names, as probability resolves it; nil when it carries none or a number.
 func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Element {
+	if m.strict {
+		return nil
+	}
 	s := probability(e)
 	if s == nil {
 		return nil
