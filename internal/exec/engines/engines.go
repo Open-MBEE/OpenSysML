@@ -18,19 +18,27 @@ func Default() *analysis.Registry {
 }
 
 // DefaultFromEnv returns the build's registry with every entry of the manifests
-// OPENSYSML_TOOLS and OPENSYSML_ENGINES name, as analysis.DefaultFromEnv reads them; a
-// manifest that cannot be read, or lies under one of the workspaces, is a ManifestError.
+// OPENSYSML_TOOLS and OPENSYSML_ENGINES name, as analysis.ExternalsFromEnv reads them;
+// a manifest that cannot be read, or lies under one of the workspaces, is a
+// ManifestError, and an entry that names an engine already registered is a
+// DuplicateEngineError — a manifest's `fmi` or `smt` is refused, not panicked over.
 func DefaultFromEnv(workspaces ...string) (*analysis.Registry, error) {
-	r, err := analysis.DefaultFromEnv(workspaces...)
+	r := Default()
+	externals, err := analysis.ExternalsFromEnv(workspaces...)
 	if err != nil {
 		return nil, err
 	}
-	register(r)
+	for _, e := range externals {
+		if err := r.Register(e); err != nil {
+			return nil, err
+		}
+	}
 	return r, nil
 }
 
 // register adds the engines of other packages; their names are distinct constants
-// none of the framework's own carries, so no registration can be refused.
+// none of the framework's own carries, so no registration of a built-in can be
+// refused — a manifest engine's can, and is a DuplicateEngineError at DefaultFromEnv.
 func register(r *analysis.Registry) {
 	if err := r.Register(smt.New(nil)); err != nil {
 		panic(err)
