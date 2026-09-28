@@ -25,6 +25,7 @@ const (
 	mSubsetting                      = "Subsetting"
 	mSpecialization                  = "Specialization"
 	mRedefinition                    = "Redefinition"
+	mFlowEnd                         = "FlowEnd"
 	mMultiplicityRange               = "MultiplicityRange"
 	mMembership                      = "Membership"
 	mConjugatedPortDefinition        = "ConjugatedPortDefinition"

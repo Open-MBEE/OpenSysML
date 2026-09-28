@@ -428,6 +428,9 @@ func (d *decoder) standardEnds(el *element) ([]string, bool, error) {
 
 // standardEndText renders one owned connector end from its structural target.
 func (d *decoder) standardEndText(end rdf.Term, in *element) (string, error) {
+	if d.metaclass(end) == mFlowEnd {
+		return d.flowEndText(end, in)
+	}
 	target, ok, err := d.standardEndTarget(end, in)
 	if err != nil {
 		return "", err
@@ -595,6 +598,12 @@ func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, erro
 	if err != nil {
 		return nil, err
 	}
+	return d.segmentsText(segments, in)
+}
+
+// segmentsText spells the segments of a chain as written in in, each resolved
+// from the one before it.
+func (d *decoder) segmentsText(segments []rdf.Term, in *element) ([]string, error) {
 	parts := make([]string, 0, len(segments))
 	operand := ""
 	for _, segment := range segments {
@@ -618,6 +627,53 @@ func (d *decoder) standardChainText(chain rdf.Term, in *element) ([]string, erro
 		operand = target.qname
 	}
 	return parts, nil
+}
+
+// flowEndText renders a FlowEnd (SysML.xtext FlowEnd) as the chain it was
+// written as: the features its ReferenceSubsetting names, if any, then the
+// feature its FlowFeature redefines. `a.p.fuel` subsets a.p and redefines fuel.
+func (d *decoder) flowEndText(end rdf.Term, in *element) (string, error) {
+	refuse := func(note string) (string, error) {
+		return "", &UnsupportedError{What: fmt.Sprintf("the flow end <%s> of <%s>", end.Value, in.iri), Note: note}
+	}
+	var segments []rdf.Term
+	target, ok, err := d.standardEndTarget(end, in)
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		isChain, err := d.chainFeatureTerm(target)
+		if err != nil {
+			return "", err
+		}
+		if isChain {
+			if segments, err = d.chainSegments(target); err != nil {
+				return "", err
+			}
+		} else {
+			segments = []rdf.Term{target}
+		}
+	}
+	var redefined []rdf.Term
+	for _, feature := range d.graph.Objects(end, rdf.SysML+pOwnedFeature) {
+		redefined = append(redefined, d.graph.Objects(feature, rdf.SysML+relationshipProperty[ast.RelRedefines])...)
+	}
+	if len(redefined) != 1 {
+		return refuse(fmt.Sprintf("its FlowFeature redefines %d features, and a flow end names exactly one", len(redefined)))
+	}
+	parts, err := d.segmentsText(append(segments, redefined[0]), in)
+	if err != nil {
+		return "", err
+	}
+	text := strings.Join(parts, ".")
+	mult, err := d.endMultiplicity(end, in)
+	if err != nil {
+		return "", err
+	}
+	if mult != "" {
+		text = mult + " " + text
+	}
+	return text, nil
 }
 
 // standardEndName renders an end's declared name and ReferencesKeyword.

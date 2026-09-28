@@ -56,6 +56,7 @@ literal-for-object-property FeatureChaining target                           # R
 # 3. Metaclass names this tool writes into the SysML namespace that the 202407
 # rendering does not declare at all.
 unknown-class FlowUsage -                        # 202407 names this metaclass FlowConnectionUsage; SysML.owl declares no FlowUsage
+unknown-class FlowEnd -                          # 202407 names this metaclass ItemFlowEnd; SysML.owl declares no FlowEnd
 unknown-class TerminateActionUsage -             # SysML.owl declares no TerminateActionUsage at all (no Terminate* class exists in it)
 unknown-class ClassUsage -                       # a KerML `class` written as a usage; SysML.owl declares Class, a classifier, and no ClassUsage
 unknown-class IndividualDefinition -             # `individual def`, standardly an OccurrenceDefinition with isIndividual; SysML.owl declares no IndividualDefinition
