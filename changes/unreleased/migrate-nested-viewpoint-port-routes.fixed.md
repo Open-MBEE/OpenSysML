@@ -1,0 +1,1 @@
+- **The SysML v1 migrator routes sends through the ports of a viewpoint or view nested in the object an activity acts on.** A block's own activity sends via `context.Review.tx`, and an activity using ports of sibling viewpoints takes a context typed by their shared definition instead of losing both routes.

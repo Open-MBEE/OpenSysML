@@ -489,6 +489,14 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	c := m.mostSpecific(owners)
 	if c == nil {
 		if len(owners) > 1 {
+			types := make([]*sysmlv1.Element, 0, len(owners))
+			for _, owner := range owners {
+				declared, _, _ := m.contextDeclaration(owner)
+				types = addOwner(types, declared)
+			}
+			if d := m.mostSpecific(types); d != nil && !slices.Contains(owners, d) {
+				return &behaviorContext{name: m.freshName(b, "context"), classifier: d, holder: b}
+			}
 			names := make([]string, len(owners))
 			for i, o := range owners {
 				names[i] = qualifiedName(o)
@@ -807,6 +815,34 @@ func (a *activity) selfType() *sysmlv1.Element {
 func (a *activity) hasPort(port *sysmlv1.Element) bool {
 	t := a.selfType()
 	return t != nil && a.m.written(port) && a.m.hasFeature(t, port)
+}
+
+// portPath spells port from an object of c: its own port, or a port of a view or
+// viewpoint c features, through that usage's path; false when neither.
+func (m *migration) portPath(c, port *sysmlv1.Element) (string, bool) {
+	if c == nil || !m.written(port) {
+		return "", false
+	}
+	if m.hasFeature(c, port) {
+		return writeName(m.nameFor(port)), true
+	}
+	u := port.Parent
+	if !m.written(u) {
+		return "", false
+	}
+	cat, _ := m.classify(u)
+	if cat != catView && cat != catViewpoint {
+		return "", false
+	}
+	d := m.featuringDef(u)
+	if d == nil || c != d && !m.inherits(c, d) {
+		return "", false
+	}
+	return m.usageChain(u, d) + "." + writeName(m.nameFor(port)), true
+}
+
+func (a *activity) portPath(port *sysmlv1.Element) (string, bool) {
+	return a.m.portPath(a.selfType(), port)
 }
 
 // on writes a member of the object obj holds as a perform or an accept names it:
