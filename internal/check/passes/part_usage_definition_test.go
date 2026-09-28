@@ -61,6 +61,12 @@ part def B :> A {
 			want: []string{"3: " + msgPartUsagePartDefinition, "6: " + msgPartUsagePartDefinition},
 		},
 		{
+			name: "part typed by a flow def",
+			src: `flow def F;
+part p : F;`,
+			want: []string{"2: " + msgPartUsagePartDefinition},
+		},
+		{
 			name: "variant part typed by an item def",
 			src: `item def I;
 part def PD;
