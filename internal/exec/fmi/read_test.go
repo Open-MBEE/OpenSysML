@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -248,5 +249,19 @@ func TestRefusesMalformedDescriptions(t *testing.T) {
 				t.Fatalf("ParseModelDescription = %v, want ModelDescriptionError", err)
 			}
 		})
+	}
+}
+
+// TestDescriptionBeyondTheBound: a modelDescription.xml spilling past
+// maxModelDescriptionBytes reads as a malformed description, not a truncated one.
+func TestDescriptionBeyondTheBound(t *testing.T) {
+	old := maxModelDescriptionBytes
+	maxModelDescriptionBytes = 16
+	defer func() { maxModelDescriptionBytes = old }()
+	path := writeFMU(t, "big.fmu", fixtureXML(t, "bouncingball-2.0.xml"), "x86_64-linux")
+	_, err := Read(path)
+	var mde *ModelDescriptionError
+	if !errors.As(err, &mde) || !strings.Contains(err.Error(), "bound") {
+		t.Fatalf("Read = %v, want a ModelDescriptionError naming the bound", err)
 	}
 }

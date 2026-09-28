@@ -2,6 +2,7 @@ package fmi
 
 import (
 	"archive/zip"
+	"errors"
 	"io"
 	"os"
 	"sort"
@@ -45,6 +46,10 @@ func describeArchive(archive *zip.Reader) (*Description, error) {
 			}
 			data, err := drainClose(rc)
 			if err != nil {
+				var mde *ModelDescriptionError
+				if errors.As(err, &mde) {
+					return nil, err
+				}
 				return nil, &ModelDescriptionError{Detail: "modelDescription.xml cannot be read", Err: err}
 			}
 			description = data

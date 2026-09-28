@@ -407,8 +407,21 @@ func firstOf(first, second string) string {
 	return second
 }
 
-// drainClose reads a file entry of the archive fully.
+// maxModelDescriptionBytes bounds one archive's modelDescription.xml; a
+// description beyond it is refused as malformed rather than read. A variable,
+// not a constant, so the tests can lower it.
+var maxModelDescriptionBytes int64 = 64 << 20
+
+// drainClose reads a file entry of the archive fully, refusing one that spills
+// past maxModelDescriptionBytes.
 func drainClose(rc io.ReadCloser) ([]byte, error) {
 	defer rc.Close() // the read below is the only use; a close error cannot lose data
-	return io.ReadAll(rc)
+	data, err := io.ReadAll(io.LimitReader(rc, maxModelDescriptionBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxModelDescriptionBytes {
+		return nil, &ModelDescriptionError{Detail: fmt.Sprintf("modelDescription.xml exceeds the %d-byte bound", maxModelDescriptionBytes)}
+	}
+	return data, nil
 }

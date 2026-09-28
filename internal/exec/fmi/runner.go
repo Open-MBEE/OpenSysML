@@ -146,6 +146,9 @@ func inputValue(call *runtime.ToolCall, in runtime.ToolInput, d *Description, v 
 		if len(v.Dimensions) != 1 || !v.Dimensions[0].HasStart {
 			return nil, fault(fmt.Sprintf("a sequence was sent for %s, which is not a fixed one-dimensional array", v.Name))
 		}
+		if uint64(len(in.Value.Items)) != v.Dimensions[0].Start {
+			return nil, fault(fmt.Sprintf("%d values were sent for %s, whose dimension holds %d", len(in.Value.Items), v.Name, v.Dimensions[0].Start))
+		}
 		items := make([]any, 0, len(in.Value.Items))
 		for _, item := range in.Value.Items {
 			if item.Unit == "" {
@@ -231,12 +234,15 @@ func replyOf(call *runtime.ToolCall, d *Description, stdout, stderr []byte) (map
 	if reply.Error != nil {
 		return nil, &RunnerError{Message: *reply.Error, Stderr: strings.TrimSpace(string(stderr))}
 	}
+	if reply.Time == nil {
+		return nil, malformed("the runner answered no time")
+	}
+	if math.IsNaN(*reply.Time) || math.IsInf(*reply.Time, 0) {
+		return nil, malformed(fmt.Sprintf("the runner answered a non-finite time %v", *reply.Time))
+	}
 	outputs := make(map[string]runtime.ToolValue, len(call.Outputs))
 	for _, out := range call.Outputs {
 		if out.Variable == "fmi:time" {
-			if reply.Time == nil {
-				return nil, malformed("the runner answered no time")
-			}
 			outputs[out.Variable] = runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValReal, Real: *reply.Time}}
 			continue
 		}

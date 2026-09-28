@@ -47,6 +47,10 @@ type engine struct {
 	descriptions map[string]cached
 }
 
+// maxCachedDescriptions bounds the description cache: inserting a 65th clears
+// the map rather than let it grow for every FMU a workspace ever touched.
+const maxCachedDescriptions = 64
+
 // cached is one description held against the file it was read from.
 type cached struct {
 	desc *Description
@@ -216,6 +220,9 @@ func (e *engine) describe(path string) (*Description, error) {
 		return c.desc, c.err
 	}
 	d, err := Read(path)
+	if len(e.descriptions) >= maxCachedDescriptions {
+		clear(e.descriptions)
+	}
 	e.descriptions[path] = cached{desc: d, err: err, size: info.Size(), mod: info.ModTime()}
 	return d, err
 }

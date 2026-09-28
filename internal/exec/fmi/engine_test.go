@@ -360,6 +360,7 @@ func TestProtocolBreaks(t *testing.T) {
 		"not json":       `hello`,
 		"wrong protocol": `{"protocol": 9, "outputs": {"h": 1.0, "v": 0.0}}`,
 		"missing output": `{"protocol": 1, "time": 3.0, "outputs": {"h": 1.0}}`,
+		"no time":        `{"protocol": 1, "outputs": {"h": 1.0, "v": 0.0}}`,
 		"wrong type":     `{"protocol": 1, "time": 3.0, "outputs": {"h": "high", "v": 0.0}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -523,4 +524,37 @@ func invokeCalcNamed(t *testing.T, p *probe, name string, e analysis.Engine) (ru
 		t.Fatalf("%s not indexed", name)
 	}
 	return p.context(registryWith(t, e)).InvokeCalc(sym, nil, p.pkg)
+}
+
+// TestEngineRefusesArrayLengthMismatch: a sequence of the wrong length fails
+// before the runner starts.
+func TestEngineRefusesArrayLengthMismatch(t *testing.T) {
+	fmu := writeFMU(t, "arrays.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="3.0" modelName="Arrays" instantiationToken="{arrays}">
+  <CoSimulation modelIdentifier="Arrays"/>
+  <ModelVariables>
+    <Float64 name="u" valueReference="1" causality="input" start="1 2"><Dimension start="2"/></Float64>
+    <Float64 name="y" valueReference="2" causality="output"><Dimension start="2"/></Float64>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	p := parseProbe(t, fmt.Sprintf(`package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+
+	calc def A {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		in u : Real[3] nonunique = (1.0, 2.0, 3.0) { @ToolVariable { name = "u"; } }
+		return y : Real[2] nonunique { @ToolVariable { name = "y"; } }
+	}
+
+	calc a : A { }
+}`, fileURI(fmu)))
+	_, err := invokeCalcNamed(t, p, "A", engineFor(t))
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
+		t.Fatalf("InvokeCalc = %v, want a ToolError of kind unsent input", err)
+	}
+	if !strings.Contains(fault.Detail, "dimension holds 2") {
+		t.Fatalf("refusal = %q, want it to name the sent and expected lengths", fault.Detail)
+	}
 }

@@ -152,7 +152,8 @@ The reply is either the result or the error:
 {"protocol":1,"error":"the FMU failed to initialize"}
 ```
 
-`time` is the simulated time the outputs were read at; `outputs` maps each requested name to
+`time` is the simulated time the outputs were read at — a successful reply must carry a
+finite one; `outputs` maps each requested name to
 its value — a JSON number for `Real`, `Integer` and `Enumeration`, `true`/`false` for
 `Boolean`, a string for `String`. An `error` reply fails the performance as a
 `*fmi.RunnerError`; any other protocol violation — no reply, a wrong protocol version, a value
