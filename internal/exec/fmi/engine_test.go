@@ -404,6 +404,35 @@ func TestEngineRefusesANullOutput(t *testing.T) {
 	}
 }
 
+// TestEngineConvertsExperimentTimes: a measured experiment time reaches the FMU
+// in seconds, and a measured tolerance is refused — it is a plain number.
+func TestEngineConvertsExperimentTimes(t *testing.T) {
+	fmu := writeFMU(t, "units.fmu", unitsFMU, "x86_64-linux")
+	uri := fileURI(fmu)
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 60.0, "outputs": {"h": 2.0}}`)
+	p := parseProbe(t, fmt.Sprintf(unitsDriver, uri,
+		`in stopTime : DurationValue = 1 [min] { @ToolVariable { name = "fmi:stopTime"; } }`))
+	if _, err := invokeCalcNamed(t, p, "Conv", engineFor(t)); err != nil {
+		t.Fatalf("InvokeCalc: %v", err)
+	}
+	request, err := os.ReadFile(filepath.Join(os.TempDir(), "fmirunner-request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf(`{"protocol":1,"fmu":%q,"interface":"coSimulation","experiment":{"startTime":0,"stopTime":60},"start":{},"outputs":["h"]}`, fmu)
+	if strings.TrimSpace(string(request)) != want {
+		t.Fatalf("request =\n%s\nwant\n%s", request, want)
+	}
+	p = parseProbe(t, fmt.Sprintf(unitsDriver, uri,
+		`in tolerance : LengthValue = 0.5 [m] { @ToolVariable { name = "fmi:tolerance"; } }`))
+	_, err = invokeCalcNamed(t, p, "Conv", engineFor(t))
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
+		t.Fatalf("InvokeCalc = %v, want a ToolError of kind unsent input", err)
+	}
+}
+
 // TestTimeout: a runner that never answers is cut off.
 func TestTimeout(t *testing.T) {
 	t.Setenv(analysis.ToolTimeoutEnv, "150ms")

@@ -83,7 +83,11 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 	}
 	for _, in := range call.Inputs {
 		if strings.HasPrefix(in.Variable, "fmi:") {
-			n, err := reservedNumber(call, in)
+			unit := ""
+			if in.Variable != "fmi:tolerance" {
+				unit = "s"
+			}
+			n, err := reservedNumber(call, in, unit)
 			if err != nil {
 				return nil, err
 			}
@@ -120,13 +124,28 @@ func requestOf(call *runtime.ToolCall, d *Description, fmu string) ([]byte, erro
 	return json.Marshal(request)
 }
 
-// reservedNumber is the number a reserved fmi: input carries: Real or Integer.
-func reservedNumber(call *runtime.ToolCall, in runtime.ToolInput) (float64, error) {
-	switch in.Value.Value.Kind {
+// reservedNumber is the number a reserved fmi: input carries: Real or Integer,
+// converted to unit when the value was sent measured — the experiment times
+// read as seconds, so a time sent in minutes converts; a measured tolerance is
+// refused, the tolerance being a plain number.
+func reservedNumber(call *runtime.ToolCall, in runtime.ToolInput, unit string) (float64, error) {
+	value := in.Value.Value
+	if in.Value.Unit != "" {
+		if unit == "" {
+			return 0, &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
+				Detail: fmt.Sprintf("%s (%s): %s is measured in %s, but %s is a plain number", in.Variable, in.Parameter, displayValue(in.Value), in.Value.Unit, in.Variable)}
+		}
+		num, err := call.ConvertInput(in, unit)
+		if err != nil {
+			return 0, err
+		}
+		value = num
+	}
+	switch value.Kind {
 	case semantics.ValReal:
-		return in.Value.Value.Real, nil
+		return value.Real, nil
 	case semantics.ValInt:
-		return float64(in.Value.Value.Int), nil
+		return float64(value.Int), nil
 	}
 	return 0, &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
 		Detail: fmt.Sprintf("%s (%s): %s is not a number", in.Variable, in.Parameter, displayValue(in.Value))}
