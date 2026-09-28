@@ -124,7 +124,7 @@ func (m *migration) featuringDef(u *sysmlv1.Element) *sysmlv1.Element {
 func (m *migration) usageChain(u, d *sysmlv1.Element) string {
 	var path []string
 	for cur := u; cur != nil && cur != d; cur = cur.Parent {
-		path = append(path, writeName(m.nameOf(cur)))
+		path = append(path, writeName(m.nameFor(cur)))
 	}
 	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
 		path[i], path[j] = path[j], path[i]

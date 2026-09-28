@@ -154,6 +154,46 @@ func TestFeaturedViewpointContextIsTypedByItsDefinition(t *testing.T) {
 	}
 }
 
+func TestFeaturedUnnamedViewpointContextPath(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_vp">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_send" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_send"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_send" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_vpStereotype" base_Class="_vp"/>`)
+	notation := string(r.Notation)
+	for _, bad := range []string{"context..", "context.''"} {
+		if strings.Contains(notation, bad) {
+			t.Errorf("notation contains %q:\n%s", bad, notation)
+		}
+	}
+	var viewpointName string
+	for _, line := range strings.Split(notation, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "viewpoint ") && strings.HasSuffix(line, " {") {
+			viewpointName = strings.TrimSuffix(strings.TrimPrefix(line, "viewpoint "), " {")
+			break
+		}
+	}
+	if viewpointName == "" {
+		t.Fatalf("notation has no named viewpoint:\n%s", notation)
+	}
+	wantLine(t, r.Notation, "send new Ping() via context."+viewpointName+".tx;")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
 func TestFeaturedViewpointOwnActivityReachesItsPorts(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
