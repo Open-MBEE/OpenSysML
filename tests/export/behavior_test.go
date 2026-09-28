@@ -396,6 +396,67 @@ func TestFirstThenLinksItsSourceLikeASuccession(t *testing.T) {
 	}
 }
 
+// A member-attached `then done;` is one SuccessionAsUsage (SysML.xtext
+// TargetSuccessionMember): its target end's ReferenceSubsetting reaches the
+// library's Actions::Action::done, the same end `succession first x then done;`
+// states outright — not a Membership the end would reference, which
+// ReferenceSubsetting cannot target.
+func TestThenDoneIsOneSuccessionToLibraryDone(t *testing.T) {
+	src := "package P {\n    action def Step;\n    action def A {\n        first start;\n" +
+		"        then action a : Step;\n        then done;\n    }\n}\n"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph := string(turtle)
+	done := "<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>"
+	if strings.Contains(graph, "sysml:memberElement "+done) {
+		t.Errorf("`then done;` should state no Membership of the library's done:\n%s", graph)
+	}
+	if n := strings.Count(graph, "a sysml:SuccessionAsUsage ;"); n != 2 {
+		t.Errorf("want the two `then` successions alone, found %d SuccessionAsUsage:\n%s", n, graph)
+	}
+	for _, want := range []string{
+		"sysml:targetFeature " + done,
+		"sysml:referencedFeature " + done,
+		`sysx:endForm "then"`,
+	} {
+		if !strings.Contains(graph, want) {
+			t.Errorf("the `then done` succession should state %s:\n%s", want, graph)
+		}
+	}
+	if strings.Contains(graph, "sysx:targetMember") {
+		t.Errorf("`then done;` has no member to target: it is an end of the succession:\n%s", graph)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation from the mapping alone: %v\n%s", err, turtle)
+	}
+	if string(back) != src {
+		t.Fatalf("the notation changed\n--- want ---\n%s\n--- got ---\n%s", src, back)
+	}
+}
+
+// The previous shape's output — a `done` Membership the succession targets
+// through sysx:targetMember — still reads back as `then done;`.
+func TestSupersededThenDoneMembershipReadsBack(t *testing.T) {
+	turtle, err := os.ReadFile(filepath.Join("testdata", "superseded", "then_done_membership.ttl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("old.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("the superseded shape should still convert: %v", err)
+	}
+	canonical, err := os.ReadFile(filepath.Join("testdata", "convert", "then_after_members.canonical.golden.sysml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(back) != string(canonical) {
+		t.Errorf("the superseded shape did not read back as the same notation:\n%s", back)
+	}
+}
+
 func TestTransitionEndpointRepresentationsAgreeWhenEqual(t *testing.T) {
 	src := `package P {
 	state def M {

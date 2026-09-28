@@ -222,6 +222,10 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 			target := connectorEndSpec{owner: owner, slot: "end1", index: 1, ends: 2, noCollapse: true}
 			if n.Target != nil {
 				target.target = n.Target
+			} else if _, done := n.TargetMember.(*ast.FinalNode); done {
+				// `then done;` targets the library's Actions::Action::done, the
+				// same end `succession first x then done;` states outright.
+				target.targetTerm = e.libraryReference(libraryDone)
 			} else if n.TargetMember != nil {
 				if fqn, ok := e.fqn[n.TargetMember]; ok {
 					target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
@@ -507,6 +511,12 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	}
 	for _, end := range ends {
 		if qualifiedText(end.end.name) == "" {
+			if _, done := end.end.member.(*ast.FinalNode); done {
+				// `then done;` reaches the library's Actions::Action::done
+				// feature, which an explicit succession end names outright.
+				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
+				continue
+			}
 			fqn, ok := e.fqn[end.end.member]
 			if !ok {
 				return &UnsupportedError{
@@ -1001,6 +1011,14 @@ func (d *decoder) successionHead(el *element) (string, error) {
 		return "if " + guard + " then " + target, nil
 	}
 	if form, _ := d.stringOf(el, rdf.OpenSysML+xEndForm); form == formThen || positionalSource {
+		// `then done;` names the library's final node positionally: the
+		// notation reads it back without a reference, so no spelling is checked.
+		if term, ok := d.graph.Object(rdf.IRI(el.iri), rdf.SysML+pTargetFeature); ok && term.IsIRI() {
+			if done, err := d.referencedElement(term.Value); err == nil && done.qname == qualifiedText(libraryDone) {
+				delete(d.wanted.references, nameKey{member: el.qname, target: done.qname})
+				return "then done", nil
+			}
+		}
 		// The source end is the member written before, which this form leaves
 		// unwritten.
 		return "then " + target, nil

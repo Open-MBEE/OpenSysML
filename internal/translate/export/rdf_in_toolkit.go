@@ -9,7 +9,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // deriveNormativeGraph completes a graph written in the normative element form
@@ -618,35 +617,6 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			graph.Add(subject, rdf.OpenSysMLTerm(xSourceMember), previous)
 		}
 		switch {
-		case source.Value == "" && target.Value != "" && libraryDoneID(target):
-			// `then done` targets a Membership of Actions::Action::done (SysML.xtext
-			// ActionTargetMember); state the member the reader writes it as.
-			membership := rdf.IRI(subject.Value + "_done")
-			graph.Add(membership, rdf.IRI(rdf.RDFType), rdf.SysMLTerm(mMembership))
-			metaclasses[membership] = rdf.SysML + mMembership
-			graph.Add(membership, rdf.SysMLTerm(pMemberElement), target)
-			graph.Add(membership, rdf.SysMLTerm(pOwningRelatedElement), owner)
-			graph.Add(membership, rdf.SysMLTerm(pMembershipOwningNamespace), owner)
-			graph.Add(membership, rdf.OpenSysMLTerm(xDeclaredKeyword), rdf.String("done"))
-			graph.Add(subject, rdf.OpenSysMLTerm(xEndForm), rdf.String(formThen))
-			graph.Add(subject, rdf.OpenSysMLTerm(xTargetMember), membership)
-			memberOwner[membership.Value] = owner
-			ownerMembers[owner.Value] = insertBefore(members, membership, subject)
-			// The graph's order placed the other members; the new one takes
-			// its position by index, so every member states one.
-			for i, m := range ownerMembers[owner.Value] {
-				if meta(m) != "" {
-					graph.Add(m, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-				}
-				if ms, ok := memberMembership[m.Value]; ok {
-					graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-				}
-				for _, ms := range graph.Objects(owner, rdf.SysML+pOwnedRelationship) {
-					if meta(ms) == mMembership && firstIRI(graph, ms, pMemberElement) == m {
-						graph.Add(ms, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(i))
-					}
-				}
-			}
 		case target.Value != "" && target != next:
 			graph.Add(subject, rdf.SysMLTerm(pTargetFeature), target)
 			if source.Value == "" {
@@ -1410,24 +1380,6 @@ func canonicalName(name string) string {
 		return name
 	}
 	return source.QualifiedNameOf(segments)
-}
-
-// libraryDoneID reports whether term carries the normative id of Actions::Action::done.
-func libraryDoneID(term rdf.Term) bool {
-	el, ok := identity.LibraryCatalog(libs.NewModelIndex()).Element(rdf.LocalName(term.Value))
-	return ok && el.FQN == qualifiedText(libraryDone)
-}
-
-// insertBefore returns members with term inserted ahead of before.
-func insertBefore(members []rdf.Term, term, before rdf.Term) []rdf.Term {
-	out := make([]rdf.Term, 0, len(members)+1)
-	for _, m := range members {
-		if m == before {
-			out = append(out, term)
-		}
-		out = append(out, m)
-	}
-	return out
 }
 
 // underSubaction reports whether a StateSubactionMembership owns subject or

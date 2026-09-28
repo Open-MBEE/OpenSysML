@@ -714,10 +714,25 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		if preceding != nil {
 			e.preceding[node] = preceding
 		}
-		h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
-			lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
-		if err := e.encodeMember(h, owner); err != nil {
-			return err
+		// The FinalNode a member-attached `then` introduces is its edge's
+		// target end, not a member of its own: `then done;` is one
+		// SuccessionAsUsage reaching the library's done feature. The edge
+		// carries the node's lines, the text `then done;` was written as.
+		encodes := true
+		if _, done := node.(*ast.FinalNode); done && i+1 < len(kept) {
+			if next, _ := unwrapMember(kept[i+1]); next != nil {
+				if edge, ok := next.(*ast.SuccessionEdge); ok && edge.TargetMember == node {
+					encodes = false
+					regions[i+1] = regions[i]
+				}
+			}
+		}
+		if encodes {
+			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i,
+				lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
+			if err := e.encodeMember(h, owner); err != nil {
+				return err
+			}
 		}
 		if ast.IsSuccessionSource(node) {
 			last, beforeLast = node, last

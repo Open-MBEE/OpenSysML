@@ -543,10 +543,14 @@ pilot's XMI of the standard library (`scripts/download-pilot-library-xmi.sh`):
 - `multiplicity m [1..*];` is a `sysml:MultiplicityRange` owned through an
   `OwningMembership` like any member, its bounds owned as for an inline bound
   (KerML 1.0 § 8.3.4.11.2 `MultiplicityRange`), `sysx:declaredKeyword "multiplicity"`.
-- `first x;` is a `sysml:Membership` of the member the body starts at, and
-  `done;` a `sysml:Membership` of the library's `Actions::Action::done`
-  (SysML.xtext `InitialNodeMember`; `first x then y` is the
+- `first x;` is a `sysml:Membership` of the member the body starts at, and a
+  `done;` written on its own a `sysml:Membership` of the library's
+  `Actions::Action::done` (SysML.xtext `InitialNodeMember`; `first x then y` is the
   `SuccessionAsUsage` it sequences). `sysx:declaredKeyword` keeps the keyword.
+  `then done;` declares no member of its own: it is one `SuccessionAsUsage`
+  whose target end reference-subsets the library's `Actions::Action::done`
+  (SysML.xtext `TargetSuccessionMember`) — the same end
+  `succession first x then done;` states.
 - An `if` branch is a `sysml:ActionUsage` the `IfActionUsage` owns through a
   `ParameterMembership`, after the `ParameterMembership` that owns its
   condition (SysML v2 1.0 § 8.3.17.10 `IfActionUsage::thenAction`/`elseAction`), with
@@ -1198,7 +1202,8 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 |---|---|---|
 | `first x;` in an action body | `sysml:Membership` with `sysx:declaredKeyword "first"` | `sysml:memberElement` and `sysml:sourceFeature` (the member the flow starts at — a reference, not a name it declares), `sysx:hasBody` and the members of its body. Read, a `sysx:InitialNode` from an older graph is the same member |
 | `first x then y { … }` in an action body (the succession x → y, which marks no start) | `sysml:SuccessionAsUsage` with `sysx:declaredKeyword "first"` | `sysml:sourceFeature` (x, a reference), `sysml:targetFeature` (y), `sysx:guard`, `sysx:hasBody` and the members of its body |
-| `done;` | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`; `then done;` is a `SuccessionAsUsage` targeting the same. Read, a `sysx:FinalNode` from an older graph is the same member |
+| `done;` written on its own | `sysml:Membership` with `sysx:declaredKeyword "done"` | `sysml:memberElement`, the library's `Actions::Action::done`. Read, a `sysx:FinalNode` from an older graph is the same member |
+| `then done;` | `sysml:SuccessionAsUsage` with `sysx:endForm "then"` | its target end's `ReferenceSubsetting` reaches the library's `Actions::Action::done` — `sysml:targetFeature` states the same — and no member is declared for the node. Read, an older graph's `done` Membership targeted through `sysx:targetMember` writes back as `then done;` |
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;` | `sysml:AssignmentActionUsage` | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
