@@ -343,7 +343,7 @@ type viewDressing struct {
 
 // viewDressing plans the Picture of each pasted image written, the Style of each symbol drawn
 // in its own look (refOf naming its element), the Note of each text box, and counts the free rest.
-func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf func(string) string) viewDressing {
+func (m *migration) viewDressing(v *view, form viewForm, prefix string, x exposures, refOf func(string) string) viewDressing {
 	d := v.d
 	if !d.Drawn {
 		return viewDressing{}
@@ -399,7 +399,7 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, refOf fu
 					refs = append(refs, ref)
 				}
 			}
-			body := noteBody(text, sym.Bounds)
+			body := noteBody(prefix, x, text, sym.Bounds)
 			if len(refs) == 0 {
 				if len(anchors[sym]) > 0 {
 					freed++
@@ -522,9 +522,15 @@ func noteText(sym *sysmlv1.Symbol, m *migration) string {
 }
 
 // noteBody writes the attribute block of a Note annotation.
-func noteBody(text string, b *sysmlv1.Bounds) string {
-	return fmt.Sprintf("{ text = %s; x = %s; y = %s; width = %s; height = %s; }",
-		stringLiteral(text), layoutNumber(b.X), layoutNumber(b.Y), layoutNumber(b.Width), layoutNumber(b.Height))
+func noteBody(prefix string, x exposures, text string, b *sysmlv1.Bounds) string {
+	attrs := []string{
+		diagramLayoutAttribute(prefix, "Note", "text", stringLiteral(text), x),
+		diagramLayoutAttribute(prefix, "Note", "x", layoutNumber(b.X), x),
+		diagramLayoutAttribute(prefix, "Note", "y", layoutNumber(b.Y), x),
+		diagramLayoutAttribute(prefix, "Note", "width", layoutNumber(b.Width), x),
+		diagramLayoutAttribute(prefix, "Note", "height", layoutNumber(b.Height), x),
+	}
+	return "{ " + strings.Join(attrs, "; ") + "; }"
 }
 
 // styledSymbol reports whether a symbol makes any presentation choice of its own.

@@ -110,12 +110,14 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 	// Views open the body: a calc def's must end in its result expression.
 	m.views(e)
 	switch {
-	case e.Type == "Operation":
-		m.bodyWithContext(e, func() { m.operationBody(e) })
+	case m.contextLeads(e, cat):
+		if e.Type == "Operation" {
+			m.bodyWithContext(e, func() { m.operationBody(e) })
+		} else {
+			m.bodyWithContext(e, func() { m.calcBody(e) })
+		}
 	case cat == catStateDef:
 		m.stateMachineBody(e)
-	case cat == catCalcDef:
-		m.bodyWithContext(e, func() { m.calcBody(e) })
 	case e.Type == "Interaction":
 		m.parameters(e, e)
 		m.bodyWithContext(e, func() { m.interactionBody(e) })
@@ -217,6 +219,11 @@ func (m *migration) parameters(e, scope *sysmlv1.Element) {
 	for _, p := range e.Owned("ownedParameter") {
 		m.parameter(p, scope, nil)
 	}
+}
+
+// contextLeads keeps call-site parameter order aligned with definition writing.
+func (m *migration) contextLeads(e *sysmlv1.Element, cat category) bool {
+	return e != nil && (e.Type == "Operation" || cat == catCalcDef)
 }
 
 // realizeParameters pairs a method's parameters with its operation's by position:
@@ -1022,7 +1029,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))
 	m.w.line(firstKw + from + thenKw + trig + ";")
-	m.w.line(actionKw + trig + " accept " + payload + " : " + m.ref(route.sig, route.owner) + via + ";")
+	m.w.line(actionKw + trig + " accept " + payload + " : " + m.acceptSignalRef(route.sig, route.owner, payload) + via + ";")
 	last := trig
 	method := route.method
 	switch {

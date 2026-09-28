@@ -297,18 +297,23 @@ func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element)
 	return m.ref(c.holder, scope) + "::" + writeName(c.name)
 }
 
-// contextBody is the member list of a usage of callee whose body binds only
-// the callee's context parameter: the redefinition preceded by redeclarations
-// of all of callee's parameters in order, which a body holding only the
-// redefinition would leave invisible to flows and references naming them, and
-// whose positions the redefinition would otherwise be read as redeclaring.
+// contextBody orders a usage's parameter redeclarations and context binding
+// as the callee's definition does.
 func (m *migration) contextBody(callee *sysmlv1.Element, ins string) []string {
 	var members []string
+	cat, _ := m.classify(callee)
+	leads := m.contextLeads(callee, cat)
+	if leads {
+		members = append(members, ins)
+	}
 	for _, p := range m.actionParameters(callee) {
 		dir, _ := parameterDirection(p)
 		members = append(members, dir+" "+writeName(m.nameOf(p)))
 	}
-	return append(members, ins)
+	if !leads {
+		members = append(members, ins)
+	}
+	return members
 }
 
 // contextIns writes the redefinition by which a usage of a behavior taking a
@@ -649,17 +654,22 @@ func (m *migration) contextParameter(b *sysmlv1.Element) {
 	if c.owner && !c.used && !c.bound {
 		return
 	}
-	m.w.line("in ref " + writeName(c.name) + " : " + m.ref(c.classifier, b) + ";")
+	typing := m.typing(c.classifier)
+	m.w.line("in ref " + writeName(c.name) + typing + m.ref(c.classifier, b) + ";")
+	usageNote := ""
+	if typing == " :> " {
+		usageNote = " its context classifier is written as a usage, so the parameter specializes it rather than being typed by it"
+	}
 	if c.owner {
-		m.add(b, Mapped, "", "acts on its owner "+qualifiedName(c.classifier)+", which it takes as its parameter "+c.name+", since its this is the def's own occurrence")
+		m.add(b, Mapped, "", "acts on its owner "+qualifiedName(c.classifier)+", which it takes as its parameter "+c.name+", since its this is the def's own occurrence"+usageNote)
 		return
 	}
 	note := "acts on a " + qualifiedName(c.classifier) + " through its ports, which it takes as its parameter " + c.name
 	if owner := classifierOf(b); owner != nil {
-		m.add(b, Approximated, "", note+" rather than its owner "+qualifiedName(owner)+", which is no such object and holds no one part that is: v1 ran it on whichever object called it")
+		m.add(b, Approximated, "", note+usageNote+" rather than its owner "+qualifiedName(owner)+", which is no such object and holds no one part that is: v1 ran it on whichever object called it")
 		return
 	}
-	m.add(b, Mapped, "", note)
+	m.add(b, Mapped, "", note+usageNote)
 }
 
 // bodyWithContext writes e's body after its parameters were written, declaring

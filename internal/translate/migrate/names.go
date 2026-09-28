@@ -247,6 +247,17 @@ func (m *migration) path(e *sysmlv1.Element) []segment {
 	return segs
 }
 
+func (m *migration) acceptSignalRef(sig, scope *sysmlv1.Element, payload string) string {
+	if payload == "" || payload != writeName(m.nameFor(sig)) {
+		return m.ref(sig, scope)
+	}
+	path := m.path(sig)
+	if len(path) == 1 {
+		return "$::" + writeName(path[0].name)
+	}
+	return m.qualifiedFrom(path, scopeChain(scope), false)
+}
+
 // isUsage says whether e is written as a usage whose members are features of
 // it: a view or viewpoint, a property, or a behavior written as its block's
 // action usage. A feature owned by one is reached by a feature chain, not a

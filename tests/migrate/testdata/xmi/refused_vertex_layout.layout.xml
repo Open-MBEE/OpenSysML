@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<packet>
+  <metadata><mtipVersion>2022x v1.0.0</mtipVersion></metadata>
+  <data>
+    <attributes _dtype="dict"><attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Model</attribute></attribute></attributes>
+    <id _dtype="dict"><cameo _dtype="str">_m</cameo></id>
+    <relationships _dtype="dict"/>
+    <type _dtype="str">sysml.Model</type>
+  </data>
+  <data>
+    <attributes _dtype="dict"><attribute _dtype="dict" key="name"><attribute _dtype="str" key="value">Modes</attribute></attribute></attributes>
+    <id _dtype="dict"><cameo _dtype="str">_diagram_modes</cameo></id>
+    <relationships _dtype="dict">
+      <element _dtype="list">
+        <element _dtype="dict" key="0"><relationship_metadata _dtype="dict"><top _dtype="int">0</top><bottom _dtype="int">-40</bottom><left _dtype="int">0</left><right _dtype="int">100</right></relationship_metadata><id _dtype="str">_idle</id><type _dtype="str">sysml.State</type></element>
+        <element _dtype="dict" key="1"><relationship_metadata _dtype="dict"><top _dtype="int">-50</top><bottom _dtype="int">-90</bottom><left _dtype="int">120</left><right _dtype="int">220</right></relationship_metadata><id _dtype="str">_junction</id><type _dtype="str">sysml.Pseudostate</type></element>
+        <element _dtype="dict" key="2"><relationship_metadata _dtype="dict"><top _dtype="int">-100</top><bottom _dtype="int">-140</bottom><left _dtype="int">240</left><right _dtype="int">340</right></relationship_metadata><id _dtype="str">_choice</id><type _dtype="str">sysml.Pseudostate</type></element>
+      </element>
+      <diagramConnector _dtype="list">
+        <diagramConnector _dtype="dict" key="0"><relationship_metadata _dtype="dict"><supplierPoint _dtype="dict"><xCoordinate _dtype="int">120</xCoordinate><yCoordinate _dtype="int">70</yCoordinate></supplierPoint><clientPoint _dtype="dict"><xCoordinate _dtype="int">100</xCoordinate><yCoordinate _dtype="int">20</yCoordinate></clientPoint><breakPoint _dtype="list"/></relationship_metadata><id _dtype="str">_t_junction</id><type _dtype="str">sysml.Transition</type></diagramConnector>
+        <diagramConnector _dtype="dict" key="1"><relationship_metadata _dtype="dict"><supplierPoint _dtype="dict"><xCoordinate _dtype="int">240</xCoordinate><yCoordinate _dtype="int">120</yCoordinate></supplierPoint><clientPoint _dtype="dict"><xCoordinate _dtype="int">220</xCoordinate><yCoordinate _dtype="int">70</yCoordinate></clientPoint><breakPoint _dtype="list"/></relationship_metadata><id _dtype="str">_t_choice</id><type _dtype="str">sysml.Transition</type></diagramConnector>
+        <diagramConnector _dtype="dict" key="2"><relationship_metadata _dtype="dict"><supplierPoint _dtype="dict"><xCoordinate _dtype="int">100</xCoordinate><yCoordinate _dtype="int">20</yCoordinate></supplierPoint><clientPoint _dtype="dict"><xCoordinate _dtype="int">340</xCoordinate><yCoordinate _dtype="int">120</yCoordinate></clientPoint><breakPoint _dtype="list"/></relationship_metadata><id _dtype="str">_t_idle</id><type _dtype="str">sysml.Transition</type></diagramConnector>
+      </diagramConnector>
+    </relationships>
+    <type _dtype="str">sysml.StateMachineDiagram</type>
+  </data>
+</packet>

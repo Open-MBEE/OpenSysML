@@ -120,6 +120,15 @@ func TestUnownedActivityAcceptsViaThePortsOfTheBlocksRunningIt(t *testing.T) {
 	}
 }
 
+func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
+	r := migrateFixtureFile(t, "viewpoint_context")
+	wantLine(t, r.Notation, "in ref context :> 'Review Viewpoint';")
+	if !strings.Contains(string(r.Notation), "in ref :>> context = Review::context;") {
+		t.Errorf("nested call does not bind the viewpoint-owned context:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_review", migrate.Mapped, "its context classifier is written as a usage, so the parameter specializes it rather than being typed by it")
+}
+
 // borrowedContext is a package-owned activity Hit sending Ping(a, b) through a
 // Host's port tx, fed by one value through a fork into the two argument pins; a
 // Controller, which is no Host and holds none, owns Relay, which only calls Hit;

@@ -5,6 +5,39 @@ import (
 	"testing"
 )
 
+func TestDiagramLayoutAttributesQualifyExposedNames(t *testing.T) {
+	x := exposures{names: map[string]bool{"height": true, "points": true}}
+	for _, tc := range []struct {
+		prefix, definition, name, value, want string
+	}{
+		{"DiagramLayout::", "Layout", "height", "40", ":>> DiagramLayout::Layout::height = 40"},
+		{"DiagramLayout::", "Route", "points", "(1, 2)", ":>> DiagramLayout::Route::points = (1, 2)"},
+		{"DiagramLayout::", "Canvas", "height", "80", ":>> DiagramLayout::Canvas::height = 80"},
+		{"DiagramLayout::", "Note", "height", "20", ":>> DiagramLayout::Note::height = 20"},
+		{"$::DiagramLayout::", "Layout", "width", "60", "width = 60"},
+	} {
+		if got := diagramLayoutAttribute(tc.prefix, tc.definition, tc.name, tc.value, x); got != tc.want {
+			t.Errorf("diagramLayoutAttribute(%q, %q, %q) = %q, want %q", tc.definition, tc.name, tc.value, got, tc.want)
+		}
+	}
+}
+
+func TestExposureNameUsesFinalUnquotedSegment(t *testing.T) {
+	for _, tc := range []struct {
+		ref, want string
+	}{
+		{"Scale::height", "height"},
+		{"Scale::'Height::Sample'", "Height::Sample"},
+		{"Scale::'John''s Height'", "John's Height"},
+		{"Scale::*", ""},
+		{"Scale::**", ""},
+	} {
+		if got := exposureName(tc.ref); got != tc.want {
+			t.Errorf("exposureName(%q) = %q, want %q", tc.ref, got, tc.want)
+		}
+	}
+}
+
 // diagramModel wraps members beside package Sys (_sys) holding block Pump
 // (_pump) with attribute rate (_rate), a tool extension holding diagrams, and
 // the stereotype applications applied.

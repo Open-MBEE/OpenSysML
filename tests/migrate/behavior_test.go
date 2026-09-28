@@ -455,6 +455,30 @@ func TestPropertyBackedProbabilitiesAreReferences(t *testing.T) {
 	})
 }
 
+func TestStrictPropertyProbabilityUsesOnlyLiteralDefaults(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "decision_property_probability", migrate.Options{Strict: true})
+	for _, line := range []string{
+		"first 'with default' then defaulted { @Stochastic::Probability { p = 0.25; } }",
+		"first 'with default' then remainder { @Stochastic::Probability { p = 0.75; } }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "p = pDefault") || strings.Contains(string(r.Notation), "p = pMissing") {
+		t.Errorf("strict output retains a dynamic probability property:\n%s", r.Notation)
+	}
+	wantNote(t, r, "_eDefault", migrate.Approximated, "the default of property Chooser::pDefault")
+	wantNote(t, r, "_eMissing", migrate.Approximated, "has no finite numeric literal default")
+	if errs := errorsMode(t, "decision_property_probability.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict probability migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
+func TestAcceptPayloadNameDoesNotShadowSignalType(t *testing.T) {
+	r := migrateFixtureFile(t, "accept_payload_name")
+	wantLine(t, r.Notation, "accept s3 : AccProbe::s3")
+	wantLine(t, r.Notation, "accept AccProbe::start")
+}
+
 // widerChooser is a block whose decision weights are properties typed by the
 // wider numeric value types Complex and Number rather than Real.
 const widerChooser = `

@@ -233,12 +233,20 @@ func (m *migration) placeExpose(d *sysmlv1.Element) {
 			}
 			pl.write(m.v2Name(c))
 			view, exposed := c, s
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.exposeRef(view, exposed) + ";") })
+			ref := m.exposeRef(view, exposed)
+			m.recordViewExposure(view, exposed, ref)
+			m.extras[view] = append(m.extras[view], func() {
+				m.w.line("expose " + ref + ";")
+			})
 		}
 		for _, d := range diagrams {
 			pl.write(m.v2Name(c))
 			view, shown := c, d
-			m.extras[view] = append(m.extras[view], func() { m.w.line("expose " + m.viewRef(m.viewOf[shown], view) + ";") })
+			m.extras[view] = append(m.extras[view], func() {
+				ref := m.viewRef(m.viewOf[shown], view)
+				m.recordViewExposure(view, nil, ref)
+				m.w.line("expose " + ref + ";")
+			})
 		}
 	}
 	pl.failed = total - len(pl.targets)
@@ -266,6 +274,48 @@ func (m *migration) exposeRef(view, s *sysmlv1.Element) string {
 		return ref + "::**"
 	}
 	return ref
+}
+
+func (m *migration) recordViewExposure(view, exposed *sysmlv1.Element, ref string) {
+	switch {
+	case strings.HasSuffix(ref, "::*"):
+		m.recordWildcardViewExposure(view, exposed, false)
+	case strings.HasSuffix(ref, "::**"):
+		m.recordWildcardViewExposure(view, exposed, true)
+	default:
+		m.recordExposedViewName(view, exposureName(ref))
+	}
+}
+
+func (m *migration) recordWildcardViewExposure(view, exposed *sysmlv1.Element, recursive bool) {
+	if exposed == nil {
+		return
+	}
+	var record func(*sysmlv1.Element)
+	record = func(member *sysmlv1.Element) {
+		if !m.written(member) {
+			return
+		}
+		m.recordExposedViewName(view, m.nameOf(member))
+		if recursive {
+			for _, child := range member.Children {
+				record(child)
+			}
+		}
+	}
+	for _, member := range exposed.Children {
+		record(member)
+	}
+}
+
+func (m *migration) recordExposedViewName(view *sysmlv1.Element, name string) {
+	if name == "" {
+		return
+	}
+	if m.viewExposedNames[view] == nil {
+		m.viewExposedNames[view] = map[string]bool{}
+	}
+	m.viewExposedNames[view][name] = true
 }
 
 // absentNote says what an unresolved reference to id was: notation the tool

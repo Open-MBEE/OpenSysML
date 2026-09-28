@@ -1539,12 +1539,16 @@ func TestStrictMigrationWritesNoExtensionNotation(t *testing.T) {
 	wantNote(t, r, "_leaveEff", migrate.Unmapped, "its transition is not written")
 }
 
-// testdata/xmi/operation_extra_params.xmi: a usage binding only the context of
-// an operation whose method declares a parameter matching none of the
-// operation's redeclares that parameter too, before the context redefinition.
+// testdata/xmi/operation_extra_params.xmi: a usage binding an operation's
+// context redeclares its method-only parameter after the leading context.
 func TestOperationUsageRedeclaresUnmatchedMethodParameters(t *testing.T) {
 	r := migrateFixtureFile(t, "operation_extra_params")
-	wantLine(t, r.Notation, "action adjust : Adjust { in x; in y; in ref :>> context = Drive::context; }")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x; in y; }")
+}
+
+func TestOperationUsageWritesContextBeforeOutputParameters(t *testing.T) {
+	r := migrateFixtureFile(t, "operation_context_out")
+	wantLine(t, r.Notation, "action adjust : Adjust { in ref :>> context = Drive::context; in x; out result; }")
 }
 
 // testdata/xmi/swimlane_context_calls.xmi: calls in partitions representing the
