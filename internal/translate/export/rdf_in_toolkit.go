@@ -796,6 +796,21 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 			return q
 		}
 		q := qualify(base, name, 0)
+		// A name an earlier sibling of the same owner already took is not an
+		// identity: the later member is addressed by its position, as the
+		// mapping names a member declared unnamed.
+		for i, member := range ownerMembers[owner.Value] {
+			if member != subject {
+				continue
+			}
+			for _, earlier := range ownerMembers[owner.Value][:i] {
+				if prior := nameOf(earlier); prior != "" && prior == q {
+					q = qualify(base, "", i)
+					break
+				}
+			}
+			break
+		}
 		qname[subject.Value] = q
 		return q
 	}

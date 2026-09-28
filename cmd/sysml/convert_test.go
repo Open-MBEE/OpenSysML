@@ -53,12 +53,22 @@ const sampleModel = `package Demo {
 }
 `
 
-// refusedModel declares one name twice in a namespace, which the RDF mapping
-// refuses: a name identifies an element in the graph.
+// refusedModel names a body member the positional name a duplicate of its
+// sibling takes, which the RDF mapping refuses: the position identifies an
+// element in the graph.
 const refusedModel = `package Demo {
-    part def Seat;
-    part seat : Seat;
-    part seat : Seat;
+    part def Dup;
+    part def '@2';
+    part def Dup;
+}
+`
+
+// duplicateModel declares one name twice in a namespace: the mapping keeps
+// both, the later one identified by its position.
+const duplicateModel = `package P {
+ private import ScalarValues::*;
+ part def A { attribute x : Real; }
+ part def A { attribute y : Real; }
 }
 `
 
@@ -277,10 +287,45 @@ func TestConvertRDFIsMarkedExperimental(t *testing.T) {
 
 	refused := runCommand(t, exec.Command(binary, behavior, "-convert", "ttl"))
 	if refused.status == 0 {
-		t.Fatalf("expected the mapping to refuse the duplicate declaration:\n%s", refused.stdout)
+		t.Fatalf("expected the mapping to refuse the position-name collision:\n%s", refused.stdout)
 	}
 	if !strings.Contains(refused.stderr, "RDF conversion — Turtle and the API's JSON element form alike — is experimental") {
 		t.Errorf("a refusal is the experimental behavior, but was not marked:\n%s", refused.stderr)
+	}
+}
+
+// TestConvertDuplicateMemberNames converts a model declaring one name twice
+// in a namespace: the later member is exported as its own element, identified
+// by its position.
+func TestConvertDuplicateMemberNames(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	model := filepath.Join(dir, "model.sysml")
+	if err := os.WriteFile(model, []byte(duplicateModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runCommand(t, exec.Command(binary, model, "-convert", "json"))
+	if res.status != 0 {
+		t.Fatalf("the duplicate-name model was refused: %s%s", res.stdout, res.stderr)
+	}
+	var elements []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &elements); err != nil {
+		t.Fatalf("the JSON conversion did not parse: %v\n%s", err, res.stdout)
+	}
+	var defs []map[string]any
+	for _, el := range elements {
+		if el["@type"] == "PartDefinition" && el["declaredName"] == "A" {
+			defs = append(defs, el)
+		}
+	}
+	if len(defs) != 2 {
+		t.Fatalf("got %d `part def A` elements, want 2:\n%s", len(defs), res.stdout)
+	}
+	if defs[0]["@id"] == defs[1]["@id"] {
+		t.Errorf("the two `part def A` share an @id %v", defs[0]["@id"])
+	}
+	if defs[0]["qualifiedName"] != "P::A" || defs[1]["qualifiedName"] != "P::@2" {
+		t.Errorf("qualified names are %v and %v, want P::A and P::@2", defs[0]["qualifiedName"], defs[1]["qualifiedName"])
 	}
 }
 

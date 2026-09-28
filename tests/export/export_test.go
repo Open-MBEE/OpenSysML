@@ -2181,14 +2181,29 @@ func TestSuccessionOnNonUsageIsASyntaxError(t *testing.T) {
 	}
 }
 
-// A qualified name identifies an element, so two members of one namespace
-// sharing a name would merge into a single subject.
-func TestDuplicateNameIsUnsupported(t *testing.T) {
+// Two members of one namespace sharing a name convert as separate elements:
+// the first keeps the qualified name, the later is identified by its position.
+func TestDuplicateNameConverts(t *testing.T) {
 	src := "package P {\n\tpart def A;\n\tpart def A;\n}"
+	out, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("a duplicate name was refused: %v", err)
+	}
+	for _, want := range []string{`sysml:qualifiedName "P::A"`, `sysml:qualifiedName "P::@1"`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the Turtle lacks %s:\n%s", want, out)
+		}
+	}
+}
+
+// A member named the positional name a duplicate of its sibling takes cannot
+// convert: the position would identify two elements.
+func TestPositionalNameCollisionIsUnsupported(t *testing.T) {
+	src := "package P {\n\tpart def A;\n\tpart def '@2';\n\tpart def A;\n}"
 	_, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
-		t.Fatalf("want an UnsupportedError for a duplicate name, got %v", err)
+		t.Fatalf("want an UnsupportedError for a position-name collision, got %v", err)
 	}
 }
 

@@ -571,8 +571,9 @@ func (e *encoder) provenance(subject rdf.Term, node ast.Node) {
 }
 
 // collect walks the tree recording every qualified name it declares. A name
-// declared twice in one namespace is reported: the qualified name is an
-// element's identity in the graph, so two such members would merge into one.
+// declared twice in one namespace is not an identity: the first member keeps
+// the qualified name, as the language's own naming rule fixes it, and each
+// later one is identified by its position, like a member declared unnamed.
 func (e *encoder) collect(members []ast.Node, owner string) error {
 	for i, member := range e.kept(members) {
 		node, _ := unwrapMember(member)
@@ -581,13 +582,21 @@ func (e *encoder) collect(members []ast.Node, owner string) error {
 		if fqn == "" {
 			continue
 		}
-		e.fqn[node] = fqn
-		if e.declared[fqn] {
+		// A member whose own name is taken is identified by its position, as
+		// one declared unnamed already is; a body member may then be named
+		// `'@N'`, the position name either takes, and that cannot represent.
+		positional := name == ""
+		if name != "" && e.declared[fqn] {
+			fqn = qualify(owner, "", i)
+			positional = true
+		}
+		if positional && e.declared[fqn] {
 			return &UnsupportedError{
-				What: fmt.Sprintf("the duplicate declaration of %q at %s", name, e.where(node)),
-				Note: "a name identifies an element in the graph, so two members of one namespace cannot share it",
+				What: fmt.Sprintf("the declaration of %q at %s", name, e.where(node)),
+				Note: fmt.Sprintf("it is identified by its position as %s, which a sibling member is named, and merging two elements into one subject would be a different model", fqn),
 			}
 		}
+		e.fqn[node] = fqn
 		e.declared[fqn] = true
 		if err := e.collect(children, fqn); err != nil {
 			return err
@@ -831,8 +840,13 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 // the member whose expression body declares it when h.local names it.
 func (e *encoder) encodeMember(h memberHead, owner string) error {
 	node, ownerTerm, index := h.node, h.owner, h.index
-	name, _ := declaredNameAndMembers(node)
-	fqn := qualify(owner, name, index)
+	// collect has already fixed this member's qualified name: a name a
+	// sibling of the same owner declared first is addressed by position there.
+	fqn, collected := e.fqn[node]
+	if !collected {
+		name, _ := declaredNameAndMembers(node)
+		fqn = qualify(owner, name, index)
+	}
 	subject := h.local
 	local := subject.Value != ""
 	// within is the member the expressions written here are part of.

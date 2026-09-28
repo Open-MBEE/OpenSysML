@@ -1751,9 +1751,18 @@ prefix carrying a name, an `about` clause or a body (the grammar's
 `@` introduces a member of its own, so the parser reports the missing `;` or
 `{` after `@Safety` — and it is refused at the parser, before conversion.
 
-**A name declared twice in one namespace is refused.** An element's derived id
-is the encoding of its qualified name, so `part def A; part def A;` in one
-container would merge into a single subject. The duplicate is reported instead.
+**A name declared twice in one namespace is not an element's identity.** The
+first member with the name keeps the qualified name, as the language's own
+naming rule fixes it, and each later one is identified by its position among
+the owner's members — `Demo::Dup` then `Demo::@2` for two `part def Dup` at
+positions 0 and 2 — the same name a member declared unnamed takes. Both are
+`sysml:declaredName "Dup"`, each its own element with its own membership, and
+the name resolution pass still reports the duplicate as a warning; SysML has
+no reopening of a declaration within a namespace, so merge the declarations
+into one (or rename) rather than rely on the position. The one shape refused
+is a member named the positional name another member takes — `part def '@2';`
+beside the second `part def Dup;`, or beside an unnamed member at position 2 —
+since the position would then identify two elements.
 
 A shorthand relationship declares no name of its own: the `result` in `bind result = x;`
 and the `x` in `first x;` name the end the statement relates. Those elements are

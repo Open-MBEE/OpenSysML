@@ -187,9 +187,8 @@ and [`examples/repl-behavioral-demo.sysml`](../../examples/repl-behavioral-demo.
 also convert, as do all of the `parser_features_demo_*.kerml` files. The
 behavior written in a body converts too: states, regions, substates, action nodes, assignments,
 transitions and the result expression a calculation ends in all have a mapping. Conversion is
-refused for constructs the notation could not be rebuilt from, such as a name shared by two
-members of one namespace. A refusal names the construct where conversion stopped and says why
-the graph could not carry it:
+refused for constructs the notation could not be rebuilt from. A refusal names the construct where
+conversion stopped and says why the graph could not carry it:
 
 ```bash
 $ sysml examples/parser_features_demo_action_semantics.sysml -convert ttl -o /tmp/action-semantics.ttl; echo $?
@@ -198,22 +197,25 @@ wrote /tmp/action-semantics.ttl (ttl, 84121 bytes)
 0
 ```
 
-For example, two members of one namespace sharing a name are refused, since the name is what
-identifies an element in the graph:
+Two members of one namespace sharing a name export as separate elements: the first keeps the
+qualified name and each later one is identified by its position among the owner's members, the same
+name an element declared unnamed takes. The duplicate is still reported as a warning when the model
+is analyzed — SysML has no reopening of a declaration within a namespace, so merge the declarations
+into one (or rename) rather than relying on the position. What is refused is a member named the
+positional name a duplicate or an unnamed member takes:
 
 ```sysml
-package P {
-  part def D {
-    attribute x : ScalarValues::Real;
-    attribute x : ScalarValues::Integer;
-  }
+package Demo {
+  part def Dup;
+  part def '@2';
+  part def Dup;
 }
 ```
 
 ```bash
 $ sysml dup.sysml -convert ttl; echo $?
 note: RDF conversion is experimental: the mapping covers model structure and the behavior its bodies state, refuses what it cannot write back, and its vocabulary may change without a compatibility path; see docs/reference/rdf-mapping.md § Status
-sysml: cannot convert the duplicate declaration of "x" at dup.sysml:4:5: a name identifies an element in the graph, so two members of one namespace cannot share it
+sysml: cannot convert the declaration of "Dup" at dup.sysml:4:3: it is identified by its position as Demo::@2, which a sibling member is named, and merging two elements into one subject would be a different model
 2
 ```
 
