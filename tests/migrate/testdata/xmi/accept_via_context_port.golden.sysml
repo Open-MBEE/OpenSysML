@@ -16,8 +16,21 @@ part def Receiver {
         in ref context : Receiver;
         entry; then Waiting;
         state Waiting {
-            #StateMachines::deferred ref : Ping;
             @MigrationMetadata::DeferredEvent { ref :>> signal : Ping; }
+            item deferred : Ping[*] ordered;
+            do action buffer {
+                first start then 'receive via p';
+                action 'receive via p' accept 'kept via p' : Ping via context.p;
+                then action 'keep via p' { assign deferred := SequenceFunctions::including(deferred, 'receive via p'.'kept via p'); }
+                then 'receive via p';
+                metadata MigrationMetadata::SynthesizedName about 'receive via p', 'keep via p';
+            }
+            exit action flush {
+                for kept in deferred { send kept to self; }
+                then action clear { assign deferred := (); }
+                metadata MigrationMetadata::SynthesizedName about clear;
+            }
+            metadata MigrationMetadata::SynthesizedName about deferred, buffer, flush;
         }
         state Done;
         transition first Waiting accept Go via context.p then Done;
@@ -57,4 +70,3 @@ part def Rig {
     part receiver : Receiver;
     connect sender.'out' to receiver.p;
 }
-private import StateMachines::*;

@@ -1,13 +1,14 @@
 # SysML v1 to v2 migration report: accept_via_context_port.xmi
-# migrated 38 element(s): 35 mapped, 3 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
+# migrated 38 element(s): 33 mapped, 5 approximated, 0 unmapped (0 skipped as profile, library or notation-only content, 0 as model elements nothing refers to)
 
-## approximated (3)
+## approximated (5)
+SignalEvent	<SignalEvent>	_pingEvent	(deferred by 'Waiting' through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self; written where a trigger refers to it, as accept Ping)
 Activity	ActivityReceiver::Await	_await	-> ActivityReceiver::Await	(acts on its owner ActivityReceiver, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of ActivityReceiver as its usage await)
 StateMachine	Receiver::Life	_life	-> Receiver::Life	(acts on its owner Receiver, which it takes as its parameter context, since its this is the def's own occurrence; the classifier behavior is run by every object of Receiver as its usage life)
+Trigger	Receiver::Life::<Region>::Waiting::<Trigger>	_deferred	(kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush: the standard SysML v2 encoding of a deferred signal, which the state's @MigrationMetadata::DeferredEvent annotation records; the trigger accepts via the port p it names; an occurrence that arrived at a port is sent back to the object itself, which a trigger naming no port accepts)
 Reception	Receiver::Ping	_reception	-> Receiver::ping	(written as an action usage accepting Ping, which its owner performs as ping from creation, accepting the signal again after each; the reception has no method, so it only accepts the signal; the signal arrives at the port p over the document's connectors or declarations, so the reception is also written accepting via each)
 
-## mapped (35)
-SignalEvent	<SignalEvent>	_pingEvent	(written where a trigger refers to it, as #StateMachines::deferred ref : Ping, the StateMachines library's deferred-event metadata; written where a trigger refers to it, as accept Ping)
+## mapped (33)
 SignalEvent	<SignalEvent>	_goEvent	(written where a trigger refers to it, as accept Go)
 «InterfaceBlock» Class	ActivityReceiver	_activityReceiver	-> ActivityReceiver
 ActivityFinalNode	ActivityReceiver::Await::<ActivityFinalNode>	_awaitFinal	-> final
@@ -27,7 +28,6 @@ Transition	Receiver::Life::<Region>::<Transition>	_finish	(the trigger accepts v
 Trigger	Receiver::Life::<Region>::<Transition>::<Trigger>	_finishTrigger	(the trigger accepts via the port p it names)
 State	Receiver::Life::<Region>::Done	_done	-> Done
 State	Receiver::Life::<Region>::Waiting	_waiting	-> Waiting
-Trigger	Receiver::Life::<Region>::Waiting::<Trigger>	_deferred	(written as #StateMachines::deferred ref : Ping, the StateMachines library's deferred-event metadata; the state is annotated @MigrationMetadata::DeferredEvent)
 Port	Receiver::p	_p	-> Receiver::p
 «Block» Class	Rig	_rig	-> Rig
 Connector	Rig::<Connector>	_link

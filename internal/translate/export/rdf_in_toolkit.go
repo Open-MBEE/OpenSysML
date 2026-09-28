@@ -398,9 +398,12 @@ func deriveNormativeGraph(graph *rdf.Graph, metaclasses map[rdf.Term]string) (*r
 		if owner.Value == "" {
 			continue
 		}
+		// A verification's reference is the satisfy form's: the RequirementUsage a
+		// RequirementVerificationMembership owns subsets the requirement it names.
+		verifies := meta(firstIRI(graph, owner, pOwningRelationship, pOwningMembership)) == mRequirementVerificationMembership
 		property, ok := collapsedOf(m,
 			graph.HasProperty(owner, rdf.OpenSysML+xEndForm),
-			meta(owner) == "SatisfyRequirementUsage")
+			meta(owner) == "SatisfyRequirementUsage" || verifies)
 		if !ok {
 			continue
 		}

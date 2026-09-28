@@ -182,7 +182,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 60;
+        attribute passCount : Integer = 61;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -234,6 +234,7 @@ package OpenSysMLPipeline {
         part typeRelationships : ConstraintCheck { attribute :>> goType = "TypeRelationshipsPass"; }
         part conjugatedSpecialization : TypeCheck { attribute :>> goType = "W11EConjugatedSpecializationPass"; }
         part implicitBase : ConstraintCheck { attribute :>> goType = "ImplicitBasePass"; }
+        part partUsageDefinition : ConstraintCheck { attribute :>> goType = "PartUsageDefinitionPass"; }
         part multiplicityBounds : ConstraintCheck { attribute :>> goType = "MultiplicityBoundsPass"; }
         part referenceSubsetting : ConstraintCheck { attribute :>> goType = "ReferenceSubsettingPass"; }
         part topLevelImports : ConstraintCheck { attribute :>> goType = "TopLevelImportPass"; }

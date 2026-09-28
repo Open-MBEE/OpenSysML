@@ -742,21 +742,15 @@ func (m *migration) prepare() {
 	m.planUsages(behaviors)
 	for n := range m.opaque {
 		// Translated before usages were decided; a usage body spells bare.
-		for cur := n; cur != nil; cur = cur.Parent {
-			if m.asUsage[cur] {
-				delete(m.opaque, n)
-				break
-			}
+		if m.inUsageBody(n) {
+			delete(m.opaque, n)
 		}
 	}
 	for b := range m.contexts {
 		// Settled before usages were decided; under a usage the object's
 		// features resolve on this, so no context parameter is taken.
-		for cur := b; cur != nil; cur = cur.Parent {
-			if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
-				delete(m.contexts, b)
-				break
-			}
+		if m.inUsageBody(b) {
+			delete(m.contexts, b)
 		}
 	}
 	for _, d := range m.allocations {
