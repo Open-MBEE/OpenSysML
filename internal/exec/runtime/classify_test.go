@@ -2492,6 +2492,98 @@ func TestClassifyChainReachesAWrittenPart(t *testing.T) {
 	}
 }
 
+// A classifier's valued chain reaches the object a later write installs under
+// a feature it governs, the way a redefining body reaches a written value;
+// whichever order classify and the write come in, the written object reads
+// the chain and the discarded bound object keeps its own value.
+func TestClassifyChainReachesAPostClassifyWrite(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`
+	read99 := func(t *testing.T, ctx *Context, idx *symbols.Index, top *Instance) {
+		t.Helper()
+		mid := readInstance(t, ctx, top, "mid")
+		leaf := readInstance(t, ctx, mid, "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 99.0 {
+			t.Fatalf("top.mid.leaf.value = %v, want the chain's 99.0", got)
+		}
+		existing := instantiateQualified(t, ctx, idx, "test::existing")
+		if mid == existing {
+			t.Fatalf("top.mid lost the written object, want it kept")
+		}
+		exLeaf := readInstance(t, ctx, existing, "leaf")
+		exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+			t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+		}
+	}
+	t.Run("classify_then_write", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		top := instantiateQualified(t, ctx, idx, "test::top")
+		if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(top, Sport): %v", err)
+		}
+		written := instantiateQualified(t, ctx, idx, "test::Mid")
+		if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		read99(t, ctx, idx, top)
+	})
+	t.Run("write_then_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		top := instantiateQualified(t, ctx, idx, "test::top")
+		written := instantiateQualified(t, ctx, idx, "test::Mid")
+		if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+			t.Fatalf("SetFeatureValue(mid): %v", err)
+		}
+		if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(top, Sport): %v", err)
+		}
+		read99(t, ctx, idx, top)
+	})
+}
+
+// A type-only chain below a governed feature applies to the object a write
+// installs after classifying, as a redefining body's restated type does.
+func TestClassifyChainTypesAPostClassifyWrite(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def SportLeaf :> Leaf;
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { part :>> mid.leaf : SportLeaf; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(top, Sport): %v", err)
+	}
+	written := instantiateQualified(t, ctx, idx, "test::Mid")
+	if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+		t.Fatalf("SetFeatureValue(mid): %v", err)
+	}
+	mid := readInstance(t, ctx, top, "mid")
+	leaf := readInstance(t, ctx, mid, "leaf")
+	if !ctx.instanceConforms(leaf, idx.LookupQualified("test::SportLeaf")[0]) {
+		t.Fatalf("leaf is no SportLeaf, want the chain's restated type")
+	}
+}
+
 // Two chains one classifier's body declares for the same path do what two
 // same-named redefining members do: the later wins, whether the leaf was
 // already materialized or materializes after.

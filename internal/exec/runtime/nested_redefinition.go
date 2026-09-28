@@ -238,10 +238,12 @@ func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *
 // applyPendingToHeld applies the nested redefinitions a type of inst declares
 // below fv's feature to the objects val holds that inst owns through fv: a
 // composite feature owns the objects it holds however they arrived, so a bound
-// or written object reads the chain a redefining body would give it. A
-// governed feature materialized a fresh object the chain already rode down.
-func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Value) error {
-	if fv.Feature == nil || fv.Feature.GovernedByChain || !ctx.ownsHeld(fv.Feature) {
+// or written object reads the chain a redefining body would give it. For a
+// declared value a governed feature materialized a fresh object the chain
+// already rode down, so holdDeclared skips it; holdWritten passes written to
+// still reach the object a write installs under the governed feature.
+func (ctx *Context) applyPendingToHeld(inst *Instance, fv *FeatureValue, val Value, written bool) error {
+	if fv.Feature == nil || (!written && fv.Feature.GovernedByChain) || !ctx.ownsHeld(fv.Feature) {
 		return nil
 	}
 	for _, p := range ctx.pendingNestedRedefinitions(inst, fv.Feature.Name) {
