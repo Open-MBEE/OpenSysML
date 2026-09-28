@@ -874,8 +874,12 @@ func (d *decoder) noteSegments(parents map[string][]rdf.Term) error {
 	return nil
 }
 
-// noteSegment records every feature chain segment node reaches in wanted.
+// noteSegment records every feature chain segment node reaches in wanted, and
+// every segment of a flow end, which its FlowFeature ends.
 func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) error {
+	if d.metaclass(node) == mFlowEnd {
+		return d.noteFlowEnd(node)
+	}
 	segments, err := d.chainSegments(node)
 	if err != nil {
 		return err
@@ -907,6 +911,37 @@ func (d *decoder) noteSegment(node rdf.Term, parents map[string][]rdf.Term) erro
 			return err
 		}
 		d.recordSegment(operand, name, target.qname, owners)
+		operand = target.qname
+	}
+	return nil
+}
+
+// noteFlowEnd records the segments a flow end is written as in the connector
+// that owns it.
+func (d *decoder) noteFlowEnd(end rdf.Term) error {
+	connector, ok := d.graph.Object(end, rdf.SysML+pOwner)
+	if !ok {
+		return nil
+	}
+	owner, ok := d.byIRI[connector.Value]
+	if !ok {
+		return nil
+	}
+	segments, err := d.flowEndSegments(end, owner)
+	if err != nil {
+		return err
+	}
+	operand := ""
+	for _, segment := range segments {
+		if segment.IsLiteral() {
+			operand = ""
+			continue
+		}
+		target, name, err := d.namedMember(segment)
+		if err != nil {
+			return err
+		}
+		d.recordSegment(operand, name, target.qname, []*element{owner})
 		operand = target.qname
 	}
 	return nil

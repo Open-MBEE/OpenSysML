@@ -3,6 +3,9 @@ package export_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 const flowEndModel = `package F {
@@ -57,5 +60,65 @@ func TestFlowEndsAreFlowEnds(t *testing.T) {
 		if !strings.Contains(notation, want) {
 			t.Errorf("the notation should contain %q:\n%s", want, notation)
 		}
+	}
+}
+
+// An end whose first segment a nearer declaration shadows is qualified from
+// the graph alone, so it still names what it named: a flow's end, and a
+// connection's end chain the same way (review finding).
+func TestShadowedEndChainsKeepTheirTargets(t *testing.T) {
+	const model = `package S {
+    item def Fuel;
+    part def Tank { out item fuel : Fuel; }
+    part def Engine { in item fuel : Fuel; }
+    part t : Tank;
+    part e : Engine;
+    package Inner {
+        part t : Tank;
+        flow S::t.fuel to e.fuel;
+    }
+    package Wired {
+        part t : Tank;
+        connect S::t.fuel to e.fuel;
+    }
+}
+`
+	_, back := graphOnlyRoundTrip(t, "s.sysml", []byte(model))
+	for _, want := range []string{"flow S::t.fuel to e.fuel;\n", "connect S::t.fuel to e.fuel;\n"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("the notation should contain %q:\n%s", want, back)
+		}
+	}
+}
+
+// A FlowEnd that owns its FlowFeature only through the FeatureMembership, with
+// no ownedFeature stated, still reads back (review finding).
+func TestFlowEndFeatureFoundThroughItsMembership(t *testing.T) {
+	turtle, err := convert.Convert("f.sysml", []byte(flowEndModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := rdf.ParseTurtle(withoutLayout(t, turtle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stripped := rdf.NewGraph()
+	dropped := 0
+	for _, triple := range g.Triples() {
+		if triple.Predicate == rdf.SysMLTerm("ownedFeature") && strings.HasSuffix(triple.Object.Value, "_pff") {
+			dropped++
+			continue
+		}
+		stripped.AddTriple(triple)
+	}
+	if dropped == 0 {
+		t.Fatal("no FlowFeature was stated through ownedFeature, so dropping it proves nothing")
+	}
+	back, err := convert.Convert("f.ttl", rdf.WriteTurtle(stripped), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("a flow end with a membership-only FlowFeature did not read back: %v", err)
+	}
+	if !strings.Contains(string(back), "flow of Fuel from a.p.fuel to b.p.fuel;\n") {
+		t.Errorf("the flow did not read back as written:\n%s", back)
 	}
 }
