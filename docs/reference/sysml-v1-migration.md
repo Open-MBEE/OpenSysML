@@ -260,6 +260,7 @@ returned over the service yet.
 | State `deferrableTrigger` on a SignalEvent a transition out of the state itself accepts without a guard, under `-strict` | the annotation alone by the routes the transition accepts by (all of them when its trigger names no port): in v1 the transition takes precedence over the deferral, so the signal is never kept there; a route the transition does not accept by, such as the object itself when the trigger names one port, keeps its accept loop. A transition on a general of the deferred signal accepts it too, as a v2 `accept` typed by the general does | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent a transition out of the state accepts under a guard, or a transition out of a substate accepts, or a transition accepts a specialization of, under `-strict` | the standard encoding: the signal is kept while the guard is false or the substate inactive, or when the occurrence is not of the specialization, the transition taking it otherwise | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent, the state having an unguarded completion transition, under `-strict` | the annotation and a comment: the accept loop that would keep the signal never completes, so the completion transition would never fire | **unmapped** |
+| State `deferrableTrigger` on a SignalEvent, the state having an internal transition, under `-strict` | the standard encoding; the self transition the internal one becomes exits and re-enters the state, so the exit action sends the kept occurrences to self and the restarted accept loop keeps them again | approximated (the note names the transition) |
 | State `deferrableTrigger` on a SignalEvent, the state having only guarded completion transitions, under `-strict` | the standard encoding; the accept loop never completes, so the completion transition never fires and the state leaves by triggered transitions alone | approximated |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
 | `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
@@ -1818,9 +1819,15 @@ deferral: in v1 the transition wins only while its guard holds or its substate i
 and the signal is deferred otherwise; the standard leaves open which of a transition and a do
 action's accept takes an occurrence both could, which the OpenSysML runtime settles for the
 transition whenever it fires — out of the deferring state or out of a substate within it — and
-for the accept loop otherwise; the note names the transition. A transition `-strict` does not write, into a pseudostate with no v2 form such as a
-choice, takes no signal, so the deferral keeps every route it would have accepted by; nor does
-such a completion transition drop the deferral.
+for the accept loop otherwise; the note names the transition. A transition `-strict` does not write — into a pseudostate with no v2 form such as a
+choice, a final state of another region, a state of another machine, or one whose ends the
+migration refuses — takes no signal, so the deferral keeps every route it would have accepted
+by; nor does such a completion transition drop the deferral. An internal transition of the
+state is written as a self transition, which exits and re-enters the state where v1 stayed in
+it: the exit action sends the kept occurrences to self, and the accept loop, started again by
+the re-entry, keeps them again unless a transition then accepts them — so the buffer survives
+the internal transition, though its occurrences pass through dispatch once more (the note says
+so).
 
 The `@MigrationMetadata::DeferredEvent` annotation is written in both modes, so a consumer sees
 what the state deferred without reading the encoding; `MigrationMetadata` is a bundled

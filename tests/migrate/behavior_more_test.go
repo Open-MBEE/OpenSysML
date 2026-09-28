@@ -776,6 +776,9 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
             <trigger xmi:type="uml:Trigger" xmi:id="_trPick" event="_doorEv"/>
           </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tDone" source="_off" target="_pick"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tFar" source="_off" target="_far">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trFar" event="_doorEv"/>
+          </transition>
           <transition xmi:type="uml:Transition" xmi:id="_tPicked" source="_pick" target="_idle"/>
           <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
             <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
@@ -785,10 +788,18 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
           </transition>
         </region>
       </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm2" name="Aside">
+        <region xmi:type="uml:Region" xmi:id="_r1">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init2"/>
+          <subvertex xmi:type="uml:State" xmi:id="_far" name="Far"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t2" source="_init2" target="_far"/>
+        </region>
+      </ownedBehavior>
     </packagedElement>`
 	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
 	wantNoLine(t, r.Notation, "defer Door;")
 	wantNoLine(t, r.Notation, "choice pick;")
+	wantNoLine(t, r.Notation, "accept Door then Far;")
 	wantNoLine(t, r.Notation, "/* not migrated: defer Door; — the completion transition (_tDone) leaves the state once its do action ends, which the accept loop that would keep Door never lets it, so the deferral is dropped */")
 	for _, line := range []string{
 		"state Off {",
@@ -800,6 +811,7 @@ func TestStrictDeferralOutlivesTransitionWithNoForm(t *testing.T) {
 	wantNote(t, r, "_dDoor", migrate.Approximated, "kept in the item deferred by the accept loop of the do action buffer while the state is active, and sent to self by the exit action flush")
 	wantNote(t, r, "_tPick", migrate.Unmapped, "the target 'pick' has no v2 form")
 	wantNote(t, r, "_tDone", migrate.Unmapped, "the target 'pick' has no v2 form")
+	wantNote(t, r, "_tFar", migrate.Unmapped, "")
 	wantClean(t, "deferralTargetNoForm", r)
 
 	s := session(t, r)
@@ -886,6 +898,94 @@ func TestStrictDeferralOutlivesGuardedCompletionTransition(t *testing.T) {
 	meta(t, s, "%step")
 	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Off") || !strings.Contains(out, "Off.deferred = [Instance") {
 		t.Errorf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Ajar") {
+		t.Errorf("the kept Door was not replayed once Off exited:\n%s", out)
+	}
+}
+
+// Under -strict, an internal transition of a deferring state, written as a
+// self transition, exits and re-enters the state: the exit action sends the
+// kept occurrences to self, and the restarted accept loop keeps them again, so
+// they are replayed once the state truly exits.
+func TestStrictDeferralSurvivesInternalTransition(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_door" name="Door"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_tick" name="Tick"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_doorEv" signal="_door"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_tickEv" signal="_tick"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ticks" name="ticks">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_ticks0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_off" name="Off">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dDoor" event="_doorEv"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ajar" name="Ajar"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_off"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tTick" kind="internal" source="_off" target="_off">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trTick" event="_tickEv"/>
+            <effect xmi:type="uml:OpaqueBehavior" xmi:id="_tickFx">
+              <language>JavaScript</language>
+              <body>ticks = ticks + 1;</body>
+            </effect>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_off" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tAjar" source="_idle" target="_ajar">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trAjar" event="_doorEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	wantNoLine(t, r.Notation, "defer Door;")
+	for _, line := range []string{
+		"item deferred : Door[*] ordered;",
+		"action receive accept kept : Door;",
+		"transition first Off accept Tick",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_dDoor", migrate.Approximated, "the internal transition (_tTick) is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
+	wantNote(t, r, "_tTick", migrate.Approximated, "an internal transition is written as a self transition, which exits and re-enters Off")
+	wantClean(t, "deferralInternalTransition", r)
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	meta(t, s, "%send Door")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Fatalf("the Door sent while Off was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Tick")
+	for i := 0; i < 8; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%eval in #1 : ticks"); !strings.Contains(out, "= 1") {
+		t.Fatalf("the internal transition did not run its effect:\n%s", out)
+	}
+	out := meta(t, s, "%current")
+	if !strings.Contains(out, "Current state: Off") {
+		t.Fatalf("the internal transition did not stay in Off:\n%s", out)
+	}
+	if !strings.Contains(out, "Off.deferred = [Instance") {
+		t.Errorf("the Door kept before the internal transition was not kept again after it:\n%s", out)
 	}
 	meta(t, s, "%send Stop")
 	for i := 0; i < 6 && !strings.Contains(meta(t, s, "%current"), "Current state: Ajar"); i++ {

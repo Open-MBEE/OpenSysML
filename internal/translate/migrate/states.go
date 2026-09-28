@@ -1088,7 +1088,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		out.declared = append(out.declared, sig)
 		if s.m.strict {
 			s.routeDeferral(k)
-			always, contested := s.m.acceptsOutOf(v, sig)
+			always, contested := s.acceptsOutOf(v, sig)
 			if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
 				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
 				s.m.add(d, Approximated, "", note)
@@ -1098,7 +1098,7 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 				k.info = joinNotes(k.info, taken)
 			}
 			k.contested = contested
-			alwaysDone, guardedDone := s.m.completionOutOf(v)
+			alwaysDone, guardedDone := s.completionOutOf(v)
 			if alwaysDone != nil {
 				note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
 				out.lines = append(out.lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
@@ -1141,6 +1141,9 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		if t := k.completion; t != nil {
 			note = joinNotes(note, "the guarded completion transition "+describe(t)+" leaves the state once its do action ends, which the accept loop never lets it: the state keeps the signal, and leaves only by a transition a trigger fires")
+		}
+		if t := s.internalOutOf(v); t != nil {
+			note = joinNotes(note, "the internal transition "+describe(t)+" is written as a self transition, which exits and re-enters the state where v1 stayed in it: the exit action sends the kept occurrences to self, and the accept loop, started again, keeps them again unless a transition then accepts them")
 		}
 		s.m.add(k.trigger, Approximated, "", note)
 		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the standard SysML v2 encoding, an accept loop keeping the signal while the state is active and an exit action sending it to self")
@@ -1326,11 +1329,12 @@ func (m *migration) nestedBehaviorName(b, owner *sysmlv1.Element, used map[strin
 // first other, which takes the signal only while its guard holds or while the
 // vertex it leaves is active, so the state keeps the signal the rest of the
 // time. nil when no transition accepts.
-func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Element, contested *sysmlv1.Element) {
+func (s *stateRegion) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Element, contested *sysmlv1.Element) {
+	m := s.m
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		for _, t := range m.outgoing[e] {
-			if !m.targetHasForm(t) {
+			if !s.transitionWritten(t) {
 				continue
 			}
 			for _, tr := range t.Owned("trigger") {
@@ -1355,15 +1359,31 @@ func (m *migration) acceptsOutOf(v, sig *sysmlv1.Element) (always []*sysmlv1.Ele
 	return always, contested
 }
 
-// targetHasForm reports whether transition t leads somewhere the output can
-// name, so the transition is written and accepts its trigger: not a vertex
-// outside the document, nor a pseudostate with no v2 form.
-func (m *migration) targetHasForm(t *sysmlv1.Element) bool {
-	tgt := m.model.Ref(t, "target")
-	if tgt == nil || tgt.IsProxy() {
+// transitionWritten reports whether transition t is one the output writes, so
+// it accepts its trigger or completes its source: its ends resolve as
+// transitionEnds requires, and its target is one target names — a state of the
+// machine, a final state of the transition's own region, or a pseudostate with
+// a v2 form.
+func (s *stateRegion) transitionWritten(t *sysmlv1.Element) bool {
+	src, tgt := s.m.model.Ref(t, "source"), s.m.model.Ref(t, "target")
+	internal := t.Attrs["kind"] == "internal"
+	if internal && tgt == nil && len(s.m.model.Unresolved(t, "target")) == 0 {
+		tgt = src
+	}
+	if src == nil || tgt == nil || tgt.IsProxy() || pseudoKind(src) == "initial" {
 		return false
 	}
-	return tgt.Type != "Pseudostate" || (m.extensionVertex(tgt) == "" && m.points[tgt].why == "")
+	if internal && (src.Type != "State" || tgt != src) {
+		return false
+	}
+	switch tgt.Type {
+	case "FinalState":
+		return tgt.Parent == t.Parent
+	case "Pseudostate":
+		return s.m.extensionVertex(tgt) == "" && s.m.points[tgt].why == ""
+	}
+	_, ok := s.path(tgt)
+	return ok
 }
 
 // signalConforms reports whether every occurrence of signal sig is one of
@@ -1410,14 +1430,26 @@ func (m *migration) acceptsGeneralOf(t, sig *sysmlv1.Element) bool {
 	return false
 }
 
+// internalOutOf returns the first internal transition of state v the output
+// writes, as a self transition that exits and re-enters the state. nil when none.
+func (s *stateRegion) internalOutOf(v *sysmlv1.Element) *sysmlv1.Element {
+	for _, t := range s.m.outgoing[v] {
+		if t.Attrs["kind"] == "internal" && len(t.Owned("trigger")) > 0 && s.transitionWritten(t) {
+			return t
+		}
+	}
+	return nil
+}
+
 // completionOutOf returns the transitions out of state v that no trigger
 // fires, which v1 takes when the state's do activity completes: always is one
 // under no guard or a true one, which then leaves for certain; guarded is one
 // under any other guard, which may leave the state active. A transition the
-// output does not write, its target having no form, is none. nil when none.
-func (m *migration) completionOutOf(v *sysmlv1.Element) (always, guarded *sysmlv1.Element) {
+// output does not write is none. nil when none.
+func (s *stateRegion) completionOutOf(v *sysmlv1.Element) (always, guarded *sysmlv1.Element) {
+	m := s.m
 	for _, t := range m.outgoing[v] {
-		if len(t.Owned("trigger")) > 0 || t.Attrs["kind"] == "internal" || !m.targetHasForm(t) {
+		if len(t.Owned("trigger")) > 0 || t.Attrs["kind"] == "internal" || !s.transitionWritten(t) {
 			continue
 		}
 		if g := m.guardOf(t); g == nil || trueLiteral(firstOwned(g, "specification")) {
