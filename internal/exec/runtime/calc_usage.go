@@ -828,7 +828,7 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	}
 
 	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape, run: ctx.newRun()}
-	env.write = calcFeatureWriter(ctx, shape, occurrence, &env)
+	env.write = calcFeatureWriter(ctx, shape, occurrence)
 	ec.pushFrame(env)
 
 	// A usage declared in a behavior's body is written in that body, so its own

@@ -1665,7 +1665,7 @@ func performanceFrame(f *actionFrame) frame {
 	if f.perfs != nil {
 		// A qualified write lands on the run's own path: the declaration check,
 		// the performance occurrence, and the flows streaming the written pin.
-		fr.write = func(name string, value Value) error {
+		fr.write = func(_ frame, name string, value Value) error {
 			return f.perfs.setFrameFeature(f, name, value)
 		}
 	}

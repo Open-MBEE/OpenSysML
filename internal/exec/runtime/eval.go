@@ -941,7 +941,7 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 				continue
 			}
 			if f.write != nil {
-				return true, f.write(name, value)
+				return true, f.write(f, name, value)
 			}
 			f.set(name, value)
 			return true, nil
@@ -952,7 +952,7 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 			continue
 		}
 		if f.write != nil {
-			return true, f.write(sym.Name, value)
+			return true, f.write(f, sym.Name, value)
 		}
 		f.set(sym.Name, value)
 		// The run's occurrence holds this feature once materialized — take it from

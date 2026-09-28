@@ -22,8 +22,9 @@ type frame struct {
 	// write is the run's own write path for a feature the frame binds — checked
 	// against its declaration and mirrored or streamed the way the run's
 	// statements write it — nil where the frame is a snapshot or plain bindings,
-	// which a write lands in directly.
-	write func(name string, value Value) error
+	// which a write lands in directly. f is the frame the write lands in, so a
+	// frame derived by withVars still writes its own bindings.
+	write func(f frame, name string, value Value) error
 	// performed is the action whose performance a snapshot copied its bindings from,
 	// so the copy still answers for a run of that action without the live perf.
 	performed *symbols.Symbol

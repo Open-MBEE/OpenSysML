@@ -698,7 +698,7 @@ func (ctx *Context) analysisVerdict(kind, name string, check conditionCheck, con
 // its features by qualified name (`MassCase::result`) and its steps' pins (`step.out`).
 func (run *calcRun) bindingsFrame(ctx *Context) frame {
 	f := frame{vars: run.bindings(ctx), perf: run.perf, owner: run.shape, run: run.env.run}
-	f.write = calcFeatureWriter(ctx, run.shape, run.occurrence, &f)
+	f.write = calcFeatureWriter(ctx, run.shape, run.occurrence)
 	return f
 }
 
