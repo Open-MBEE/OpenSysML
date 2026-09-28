@@ -1042,7 +1042,7 @@ func (m *migration) invariant(inv *sysmlv1.Element) {
 	m.unmapped(inv, note)
 }
 
-// deferral is a deferrable trigger a state keeps, with the members a strict
+// deferral is a deferrable trigger a state keeps, with the members the
 // migration encodes it through: its buffer item and its accept loop.
 type deferral struct {
 	trigger, event, sig *sysmlv1.Element
@@ -1068,22 +1068,24 @@ type deferralLoop struct {
 	receive, keep, payload string
 }
 
-// deferrals is what a state defers and how it is written: `defer Sig;` lines by
-// default, or under -strict the members of the buffering do and flushing exit actions.
+// deferrals is what a state defers and how it is written: the members of the
+// buffering do and flushing exit actions that keep each deferred signal.
 type deferrals struct {
 	// declared is every signal the state's triggers defer, which its
 	// annotations name whether or not the state keeps the signal.
 	declared []*sysmlv1.Element
 	kept     []*deferral
-	lines    []string
+	// lines are the comments the state's body opens with, one per deferral
+	// dropped.
+	lines []string
 	// split forks the accept loops beside the state's own do behavior, run;
 	// exitRun is the state's own exit behavior inside flush.
 	buffer, split, run, flush, exitRun string
 }
 
-// encoded reports whether the state's body carries the standard encoding.
+// encoded reports whether the state's body carries the encoding: it keeps a signal.
 func (d *deferrals) encoded() bool {
-	return d.buffer != ""
+	return len(d.kept) > 0
 }
 
 // deferredEventFQN names the library metadata marking a deferred signal.
@@ -1091,7 +1093,10 @@ const deferredEventFQN = "MigrationMetadata::DeferredEvent"
 
 // deferrals reads a state's deferrable triggers: v2 defers the signal a
 // transition would accept, so no other event kind can be, and a signal a
-// transition out of the state accepts is never deferred, the transition winning.
+// transition out of the state accepts is never deferred, the transition
+// winning. Only a transition the output writes counts, so in a migration that
+// writes a pseudostate a transition into it takes the signal, while in one
+// that refuses the pseudostate it does not.
 func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 	out := &deferrals{}
 	for _, d := range v.Owned("deferrableTrigger") {
@@ -1113,44 +1118,30 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 		}
 		k := &deferral{trigger: d, event: ev, sig: sig}
 		out.declared = append(out.declared, sig)
-		if s.m.strict {
-			s.routeDeferral(k)
-			always, contested := s.acceptsOutOf(v, sig)
-			if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
-				note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
-				s.m.add(d, Approximated, "", note)
-				s.m.add(ev, Approximated, "", "deferred by "+describe(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
-				continue
-			} else if taken != "" {
-				k.info = joinNotes(k.info, taken)
-			}
-			k.contested = contested
-			alwaysDone, guardedDone := s.completionOutOf(v)
-			if alwaysDone != nil {
-				note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
-				out.lines = append(out.lines, commentLines("not migrated: defer "+s.m.ref(sig, v)+"; — "+note)...)
-				s.m.add(d, Unmapped, "", note)
-				s.m.add(ev, Unmapped, "", note)
-				continue
-			}
-			k.completion = guardedDone
+		s.routeDeferral(k)
+		always, contested := s.acceptsOutOf(v, sig)
+		if t, taken := s.takeRoutes(k, always); len(k.loops) == 0 {
+			note := "the transition " + describe(t) + " out of the state accepts the signal, which in v1 takes precedence over deferring it, so the state does not keep it; its @" + deferredEventFQN + " annotation records the deferral"
+			s.m.add(d, Approximated, "", note)
+			s.m.add(ev, Approximated, "", "deferred by "+describe(v)+", which the state's @"+deferredEventFQN+" annotation records; the state does not keep the signal, the transition "+describe(t)+" accepting it")
+			continue
+		} else if taken != "" {
+			k.info = joinNotes(k.info, taken)
 		}
+		k.contested = contested
+		alwaysDone, guardedDone := s.completionOutOf(v)
+		if alwaysDone != nil {
+			note := "the completion transition " + describe(alwaysDone) + " leaves the state once its do action ends, which the accept loop that would keep " + qualifiedName(sig) + " never lets it, so the deferral is dropped"
+			out.lines = append(out.lines, commentLines("not migrated: deferrableTrigger "+describe(d)+" on "+qualifiedName(sig)+" — "+note)...)
+			s.m.add(d, Unmapped, "", note)
+			s.m.add(ev, Unmapped, "", note)
+			continue
+		}
+		k.completion = guardedDone
 		out.kept = append(out.kept, k)
 	}
-	if s.m.strict {
-		s.foldDeferrals(v, out)
-	}
+	s.foldDeferrals(v, out)
 	if len(out.kept) == 0 {
-		return out
-	}
-	if !s.m.strict {
-		for _, k := range out.kept {
-			clause := "defer " + s.m.ref(k.sig, v)
-			out.lines = append(out.lines, clause+";")
-			note := "written as " + clause + ", an OpenSysML extension of the notation that the runtime executes; the state is annotated @" + deferredEventFQN
-			s.m.add(k.trigger, Approximated, "", note)
-			s.m.add(k.event, Approximated, "", "written where a trigger refers to it, as "+clause+", an OpenSysML extension of the notation")
-		}
 		return out
 	}
 	s.nameDeferrals(v, do, exit, out)
@@ -1550,8 +1541,8 @@ func (s *stateRegion) completionOutOf(v *sysmlv1.Element) (always, guarded *sysm
 }
 
 // deferredHead writes what a state's body opens with for its deferrals: the
-// `defer` lines, the annotation naming each deferred signal, and under
-// -strict the item buffering each.
+// comment for each dropped, the annotation naming each deferred signal, and
+// the item buffering each kept.
 func (s *stateRegion) deferredHead(v *sysmlv1.Element, d *deferrals) {
 	s.m.w.lines(d.lines)
 	prefix := ""
