@@ -58,6 +58,17 @@ func (cc *constraintChecker) addRedefineDiag(target ast.Node, msg, code string) 
 // to specialize.
 func (cc *constraintChecker) sameFeaturingType(sym, redefined *symbols.Symbol) bool {
 	mine := cc.featuringContexts(sym)
+	// A member of a metadata annotation body is featured by the annotation
+	// usage its body scope hangs off, not the metaclass stamped on that scope
+	// for member lookup; restating a metaclass feature is a restatement, not a
+	// redefinition within the metaclass.
+	if sym.OwnerScope != nil {
+		if _, isBody := sym.OwnerScope.Node().(*ast.PrefixMetadata); isBody && sym.OwnerScope.BodyLocal() {
+			if usage := sym.OwnerScope.Parent().MemberDeclaring(sym.OwnerScope.Node()); usage != nil {
+				mine = []*symbols.Symbol{usage}
+			}
+		}
+	}
 	theirs := cc.featuringContexts(redefined)
 	if len(mine) == 0 || len(theirs) == 0 {
 		return false
