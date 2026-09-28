@@ -68,9 +68,14 @@ jobs:
         run: scripts/ci-changed-areas.sh "origin/$BASE_REF" HEAD | tee -a "$GITHUB_OUTPUT"
 
   race-tests:
-    name: Go race tests
+    name: Go race tests (${{ matrix.shard }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
+    # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh).
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [runtime, model, export, rest]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -98,6 +103,7 @@ jobs:
       # Pinned by digest, so a substituted asset is not run. The release binary rather
       # than `go run` keeps buf's own module tree out of the checksum-database path.
       - name: Install buf
+        if: matrix.shard == 'rest'
         run: |
           curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
             https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
@@ -109,6 +115,7 @@ jobs:
       # classes, so without this check the committed stubs can drift from the schema.
       # `git add -N` puts a regenerated file the commit had deleted into the diff.
       - name: Verify the committed Go and Java stubs are current
+        if: matrix.shard == 'rest'
         run: |
           make proto-buf BUF=buf
           git add -N api/proto \
@@ -213,9 +220,45 @@ jobs:
         run: ./scripts/download-pilot-library-xmi.sh
 
       # Per-package timeout: under -race the runtime package runs 22-29 minutes on
-      # these runners. Matches `make test`.
+      # these runners. Matches `make test-shard`.
       - name: Run Go race tests
-        run: make test
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: make test-shard SHARD="$SHARD"
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.shard }}
+          path: coverage.txt
+          if-no-files-found: error
+
+  race-coverage:
+    name: Go race coverage
+    needs: race-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    # The shard package sets are disjoint, so their blocks concatenate under one mode line.
+    steps:
+      - name: Download shard profiles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: shards
+
+      - name: Merge the shard profiles
+        run: |
+          set -euo pipefail
+          profiles=(shards/coverage-*/coverage.txt)
+          # One per race-tests shard.
+          if [ "${#profiles[@]}" -ne 4 ]; then echo "error: expected 4 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          for f in "${profiles[@]}"; do
+            [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
+          done
+          { echo "mode: atomic"; for f in "${profiles[@]}"; do tail -n +2 "$f"; done; } > coverage.txt
+          wc -l coverage.txt
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -649,6 +692,7 @@ jobs:
       - pdf-toolchain
       - python-test
       - race-tests
+      - race-coverage
       - rust-test
       - static-and-integrity
       - vscode-extension
@@ -673,6 +717,7 @@ jobs:
           PDF_TOOLCHAIN_RESULT: ${{ needs.pdf-toolchain.result }}
           PYTHON_TEST_RESULT: ${{ needs.python-test.result }}
           RACE_TESTS_RESULT: ${{ needs.race-tests.result }}
+          RACE_COVERAGE_RESULT: ${{ needs.race-coverage.result }}
           RUST_TEST_RESULT: ${{ needs.rust-test.result }}
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
@@ -692,6 +737,7 @@ jobs:
              ! ok "$PDF_TOOLCHAIN_RESULT" ||
              ! ok "$PYTHON_TEST_RESULT" ||
              ! ok "$RACE_TESTS_RESULT" ||
+             ! ok "$RACE_COVERAGE_RESULT" ||
              ! ok "$RUST_TEST_RESULT" ||
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
              ! ok "$VSCODE_EXTENSION_RESULT" ||
@@ -709,6 +755,7 @@ jobs:
             echo "pdf-toolchain=$PDF_TOOLCHAIN_RESULT"
             echo "python-test=$PYTHON_TEST_RESULT"
             echo "race-tests=$RACE_TESTS_RESULT"
+            echo "race-coverage=$RACE_COVERAGE_RESULT"
             echo "rust-test=$RUST_TEST_RESULT"
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
