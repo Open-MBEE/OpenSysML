@@ -20,7 +20,7 @@ const MigrationNotice = "SysML v1 migration is experimental: the mapping covers 
 // status in.
 const FMINotice = "FMI model import is experimental: an FMU's model description becomes a calc " +
 	"def, its variables, experiment and outputs the parameters and @ToolVariable bindings, " +
-	"structural parameters, arrays, Binary and Clock values comments where they stood, and " +
+	"structural parameters, multi-dimensional and structural arrays, Binary and Clock values comments where they stood, and " +
 	"what the import writes may change without a compatibility path; see docs/reference/fmi.md"
 
 // IsExperimental reports whether a conversion between these formats goes

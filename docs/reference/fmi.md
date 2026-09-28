@@ -22,6 +22,8 @@ parameter, in document order:
 package BouncingBall {
 	private import ScalarValues::*;
 	private import AnalysisTooling::*;
+	private import ISQ::*;
+	private import SI::*;
 
 	calc def BouncingBall {
 		doc /* A bouncing ball. */
@@ -30,15 +32,15 @@ package BouncingBall {
 			uri = "file:///opt/fmus/bouncingball.fmu";
 		}
 		// parameters and inputs of the model, in document order
-		in g : Real = -9.81 { @ToolVariable { name = "g"; } }
+		in g : AccelerationValue = -9.81 [m/s^2] { @ToolVariable { name = "g"; } }
 		in e : Real = 0.7 { @ToolVariable { name = "e"; } }
 		// the simulation experiment
 		in startTime : Real = 0.0 { @ToolVariable { name = "fmi:startTime"; } }
 		in stopTime : Real = 3.0 { @ToolVariable { name = "fmi:stopTime"; } }
 		in stepSize : Real = 0.01 { @ToolVariable { name = "fmi:stepSize"; } }
 		// outputs at stopTime
-		return h : Real { @ToolVariable { name = "h"; } }
-		out v : Real { @ToolVariable { name = "v"; } }
+		return h : LengthValue { @ToolVariable { name = "h"; } }
+		out v : SpeedValue { @ToolVariable { name = "v"; } }
 	}
 }
 ```
@@ -51,11 +53,48 @@ package BouncingBall {
 - **Outputs** — `output` and `calculatedParameter` causality — are `out` parameters; the first
   is the `return`. A description with no outputs gets `return time : Real` bound to `fmi:time`.
 - **Types** map `Real`→`Real`, `Integer` and `Enumeration`→`Integer`, `Boolean`→`Boolean`,
-  `String`→`String`. Names that are not valid SysML identifiers, or collide with a keyword or
-  another parameter, are sanitized and suffixed; every parameter's `@ToolVariable` records the
-  FMU name it binds.
-- **Skipped** variables — structural parameters, arrays, `Binary` and `Clock` values — leave a
-  `//` comment where they would have stood rather than disappearing silently.
+  `String`→`String` — but a `Real` variable whose unit resolves (below) types as an ISQ
+  quantity type instead. Names that are not valid SysML identifiers, or collide with a
+  keyword or another parameter, are sanitized and suffixed; every parameter's `@ToolVariable`
+  records the FMU name it binds.
+- **Skipped** variables — structural parameters, multi-dimensional and structurally
+  dimensioned arrays, `Binary` and `Clock` values — leave a `//` comment where they would
+  have stood rather than disappearing silently.
+
+### Units
+
+A `Real` variable's unit is resolved to base-dimension exponents — first through the
+description's `UnitDefinitions`/`BaseUnit` (FMI 2 and 3), then a declared type's unit, then
+by parsing the unit name itself as a product of the base symbols `kg m s A K mol cd rad`
+(FMI 1.0 and unitless-defined names; `N` is not parsed — only base symbols are). A unit that
+resolves is required to be **coherent**: a `BaseUnit` with `factor` ≠ 1 or `offset` ≠ 0
+(`km`, `degC`) resolves no type and stays a number, its name kept as a comment.
+
+A resolved unit spells a KerML unit expression in a fixed order — `kg m s A K mol cd rad`,
+positives then `/` negatives (`m/s^2`, `kg*m/s^2`, `1/s` for `s^-1`) — and the parameter
+types as the ISQ value type of that dimension when the table holds one (`LengthValue`,
+`MassValue`, `DurationValue`, `ElectricCurrentValue`, `ThermodynamicTemperatureValue`,
+`AmountOfSubstanceValue`, `LuminousIntensityValue`, `AreaValue`, `VolumeValue`,
+`SpeedValue`, `AccelerationValue`, `FrequencyValue`, `ForceValue`, `PressureValue`,
+`EnergyValue`, `PowerValue`, `ElectricChargeValue`, `ElectricPotentialValue`,
+`ResistanceValue`, `CapacitanceValue`, `InductanceValue`, `MassDensityValue`,
+`AngularVelocityValue`, `MassFlowRateValue`, `VolumeFlowRateValue`), else
+`ScalarQuantityValue` — a quantity fixing no dimension. The generated package adds
+`private import ISQ::*;` and `private import SI::*;` only when a unit typed a parameter.
+An `in` value sent in another unit of the same dimension is converted to the variable's
+coherent unit before it is sent (`[km]` to metres); a quantity-typed parameter against a
+variable that resolves no unit is refused.
+
+### Arrays
+
+FMI 3.0 one-dimensional arrays with a **fixed** `start` dimension import as ordered
+collections — `in u : Real[3] nonunique = (1.0, 2.0, 3.0)` (`nonunique` because an FMU
+array may hold repeated values); without a start value the `=` clause is left off. Array
+elements type as plain `Real`: a sequence of measured values has no SysML literal, so an
+array variable's unit stays a comment. Dimensions declared by `valueReference`
+(structural) and multi-dimensional arrays are skipped with a comment. In the protocol,
+`start` sends the array as a JSON list and `outputs` answers one the same way; a reply of
+the wrong length is a protocol break.
 
 `uri` is the path the FMU was read from (as a `file:` URL); edit it to where the FMU will sit
 when the calc runs. `fmu` is input-only — it is read and imported, never written — so
@@ -95,7 +134,7 @@ output, nothing else on stdout:
 ```json
 {"protocol":1,"fmu":"/abs/path/model.fmu","interface":"coSimulation",
  "experiment":{"startTime":0.0,"stopTime":3.0,"stepSize":0.01},
- "start":{"g":-9.81,"e":0.7},"outputs":["h","v"]}
+ "start":{"g":-9.81,"e":0.7,"u":[1.0,2.0,3.0]},"outputs":["h","v","y"]}
 ```
 
 - `protocol` is `1`. `fmu` is the archive's absolute path. `interface` is `coSimulation`,
@@ -109,7 +148,7 @@ output, nothing else on stdout:
 The reply is either the result or the error:
 
 ```json
-{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43}}
+{"protocol":1,"time":3.0,"outputs":{"h":0.0,"v":-29.43,"y":[2.7,5.4,8.1]}}
 {"protocol":1,"error":"the FMU failed to initialize"}
 ```
 
@@ -159,8 +198,10 @@ $ sysml -calc 'BouncingBall::BouncingBall' bouncing.sysml
 - The runner is external and the FMU is never loaded in-process: no FMI calls cross into
   OpenSysML, so a co-simulation runs one `doStep`-style exchange per evaluation through the
   runner you provide.
-- Structural parameters, array variables, `Binary` and `Clock` values are not imported;
-  `local` and `independent` variables are read but not bound.
-- Unit names recorded on FMU variables annotate the imported parameters and are checked on
-  inputs; they are not projected as SysML quantity types.
+- Structural parameters, multi-dimensional and structurally dimensioned array variables,
+  `Binary` and `Clock` values are not imported; `local` and `independent` variables are
+  read but not bound.
+- A `Real` variable's unit projects as an ISQ quantity type only when it resolves to
+  coherent base exponents; non-coherent units (`km`, `degC`) and array element units stay
+  comments, and an input measured in such a unit is refused rather than converted.
 - `fmu` is an input format only.
