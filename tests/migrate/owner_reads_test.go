@@ -431,3 +431,153 @@ func TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst(t *testing.T) {
 	wantNoLine(t, first.Notation, "in ref context : A;")
 	wantClean(t, "caller-part", first)
 }
+
+// An activity of no classifier calling a def that reads its owner takes that
+// owner as its own context: v1 runs the def on the caller's object, so the
+// caller's is one of the owner, which it performs the callee on.
+func TestCallerOfNoClassifierTakesTheCalleesOwnerAsContext(t *testing.T) {
+	a, _ := callerBlocks("")
+	r := migrateDocument(t, a+`
+    <packagedElement xmi:type="uml:Activity" xmi:id="_bench" name="Bench">
+      <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+      <node xmi:type="uml:CallBehaviorAction" xmi:id="_callInspect" name="inspect" behavior="_inspect"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callInspect"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callInspect" target="_bf"/>
+    </packagedElement>`, `<sysml:Block xmi:id="_b1" base_Class="_a"/>`)
+	for _, line := range []string{
+		"action inspect {",
+		"assign status := status + 1;",
+		"action def Bench {",
+		"in ref context : A;",
+		"perform action inspect ::> context.inspect;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "caller-of-no-classifier", r)
+}
+
+// cycleModel is a block whose activities A and B call each other: A reads the
+// block's attribute, B reads nothing, and A is a state's do activity, which
+// keeps it a def.
+const cycleModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_timer" name="Timer">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_t" name="t">` + realHref + `
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_t0" value="0.0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_a" name="A">
+        <node xmi:type="uml:InitialNode" xmi:id="_ai"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_tick" name="tick">
+          <language>JavaScript</language>
+          <body>t = t + 1.0;</body>
+        </node>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callB" name="b" behavior="_b"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_af"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae1" source="_ai" target="_tick"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae2" source="_tick" target="_callB"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ae3" source="_callB" target="_af"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_b" name="B">
+        <node xmi:type="uml:InitialNode" xmi:id="_bi"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callA" name="a" behavior="_a"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_bf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be1" source="_bi" target="_callA"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_be2" source="_callA" target="_bf"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_lr">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_linit"/>
+          <subvertex xmi:type="uml:State" xmi:id="_ticking" name="ticking" doActivity="_a"/>
+          <transition xmi:type="uml:Transition" xmi:id="_lt0" source="_linit" target="_ticking"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A member of a cycle of calls that reads nothing of the owner itself still
+// binds the context a fellow member takes for its reads, so it takes the owner
+// as its own context rather than binding the fellow's to its own occurrence.
+func TestCycleMembersBindTheContextAFellowMemberReadsThrough(t *testing.T) {
+	r := migrateDocument(t, cycleModel, `<sysml:Block xmi:id="_b1" base_Class="_timer"/>`)
+	for _, line := range []string{
+		"action def A {",
+		"assign context.t := context.t + 1.0;",
+		"action b : B { in ref :>> context = A::context; }",
+		"action def B {",
+		"action a : A { in ref :>> context = B::context; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "bind a.context = this;")
+	if n := strings.Count(string(r.Notation), "in ref context : Timer;"); n != 3 {
+		t.Errorf("A, B and Life declare %d context parameters, want 3:\n%s", n, r.Notation)
+	}
+	wantNote(t, r, "_b", migrate.Mapped, "acts on its owner Timer, which it takes as its parameter context")
+	wantNote(t, r, "_callA", migrate.Approximated, "which is bound to B::context")
+	wantClean(t, "cycle", r)
+}
+
+// lanePortModel is the block Controller, whose activity Probe sets the
+// attribute of its part sensor through a swimlane over it and sends a signal
+// through the port of the unrelated block Host, whose activity Run calls Probe.
+const lanePortModel = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_sensor" name="Sensor">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_v" name="v">` + integerHref + `
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_v0" value="0"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_controller" name="Controller">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_sens" name="sensor" type="_sensor" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_probe" name="Probe">
+        <group xmi:type="uml:ActivityPartition" xmi:id="_lane" name="sensor" represents="_sens" node="_set"/>
+        <node xmi:type="uml:InitialNode" xmi:id="_pi"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_set" name="set" inPartition="_lane">
+          <language>JavaScript</language>
+          <body>v = 1;</body>
+        </node>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_psend" name="send ping" signal="_ping" onPort="_tx"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_pf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe1" source="_pi" target="_set"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe2" source="_set" target="_psend"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_pe3" source="_psend" target="_pf"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_callProbe" name="probe" behavior="_probe"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_callProbe"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_callProbe" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+const lanePortApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_sensor"/>
+  <sysml:Block xmi:id="_b2" base_Class="_controller"/>
+  <sysml:Block xmi:id="_b3" base_Class="_host"/>`
+
+// A def reading its owner through a swimlane over one of the owner's parts
+// acts on the owner, as one reading the owner's features directly does, and so
+// takes the owner as its context over the ports of another block it also goes
+// through: the reads are qualified by the context, the send loses its port and
+// says so, and a caller in the other block reports the context it cannot bind.
+func TestOwnerReadsThroughASwimlaneOutweighAnotherBlocksPorts(t *testing.T) {
+	r := migrateDocument(t, lanePortModel, lanePortApplications)
+	for _, line := range []string{
+		"action def Probe {",
+		"in ref context : Controller;",
+		"assign context.sensor.v := 1;",
+		"send new Ping();",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"in ref context : Host;", "via context.tx", "context.probe"} {
+		wantNoLine(t, r.Notation, line)
+	}
+	wantNote(t, r, "_probe", migrate.Mapped, "acts on its owner Controller, which it takes as its parameter context")
+	wantNote(t, r, "_psend", migrate.Approximated, "the port Host::tx is no port of the object the sender acts on")
+	wantNote(t, r, "_callProbe", migrate.Approximated, "which is left unbound: the caller is a Host, which is no Controller and has no part that is one")
+	wantClean(t, "lane-port", r)
+}

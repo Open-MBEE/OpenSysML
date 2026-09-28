@@ -23,9 +23,8 @@ type behaviorContext struct {
 	// owner is whether the object is the def's own classifier, spelled for `this`.
 	owner bool
 	// implied is whether only the body's own reads or bindings call for it,
-	// none of its actions going through ports or performed by a swimlane's
-	// object: a caller is then not held to name an object of the owner for
-	// the def.
+	// none of its actions going through ports: a caller is then not held to
+	// name an object of the classifier for the def. Settled once, with the def.
 	implied bool
 	// used is whether the def's body spelled it; bound whether a usage bound it.
 	// The parameter is written when either holds once the body is evaluated.
@@ -421,7 +420,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 // visitContext reaches b and, through it, the behaviors it calls; once every call
 // from b leads back no earlier than b, b and the cycle it heads are settled.
 func (m *migration) visitContext(b *sysmlv1.Element) {
-	v := &contextVisit{index: len(m.visits), low: len(m.visits), owners: addOwner(m.namedPortOwners(b), m.laneOwner(b))}
+	v := &contextVisit{index: len(m.visits), low: len(m.visits), owners: m.namedPortOwners(b)}
 	m.visiting[b] = v
 	m.visits = append(m.visits, b)
 	for _, c := range m.calledActivities(b) {
@@ -461,16 +460,77 @@ func (m *migration) visitContext(b *sysmlv1.Element) {
 	for i, e := range members {
 		decided[i] = m.decideContext(e, owners)
 	}
-	for i, e := range members {
-		if owner := classifierOf(e); decided[i] == nil && owner != nil && (m.usesFeaturesOf(e, owner) || m.providesAny(owner, implied)) {
-			// The body reads its owner, or binds a callee's context to it or to
-			// one of its parts: the def takes the owner as its own context.
+	// A member whose body reads its owner, or binds a callee's context to it or
+	// to one of its parts, takes the owner as its own context; the fellow members
+	// calling it then bind that, until no member's need is new to the cycle.
+	for settled := false; !settled; {
+		settled = true
+		for i, e := range members {
+			owner := classifierOf(e)
+			if decided[i] != nil || owner == nil || !(m.usesFeaturesOf(e, owner) || m.providesAny(owner, implied)) {
+				continue
+			}
 			if decided[i] = m.ownerContext(e); decided[i] != nil {
 				decided[i].implied = true
+				implied = addOwner(implied, owner)
+				settled = false
 			}
+		}
+	}
+	for i, e := range members {
+		if decided[i] == nil && len(owners) == 0 {
+			decided[i] = m.impliedContext(e, implied)
 		}
 		m.contexts[e] = decided[i]
 	}
+}
+
+// impliedContext is the context a behavior of no classifier takes for the
+// behaviors it calls that act on their owners for their own reads: the one of
+// those classifiers an object of which is, or holds a part that is, an object of
+// each of the others, since nothing else the behavior has could be bound to them.
+// A behavior of a classifier binds them to its own object instead, or not at all.
+func (m *migration) impliedContext(b *sysmlv1.Element, implied []*sysmlv1.Element) *behaviorContext {
+	if classifierOf(b) != nil {
+		return nil
+	}
+	var eligible []*sysmlv1.Element
+	for _, c := range implied {
+		if m.definitionEnd(c) {
+			eligible = append(eligible, c)
+		}
+	}
+	if len(eligible) == 0 {
+		return nil
+	}
+	if c := m.encompassing(eligible); c != nil {
+		return &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b, implied: true}
+	}
+	names := make([]string, len(eligible))
+	for i, c := range eligible {
+		names[i] = qualifiedName(c)
+	}
+	m.contextNotes[b] = "the behaviors it calls act on " + strings.Join(names, " and ") +
+		", none of which is or holds a part that is each of the others, so no one object is written for them to act on"
+	return nil
+}
+
+// encompassing is the classifier among cs an object of which is, or holds one
+// part that is, an object of every other; nil when none is.
+func (m *migration) encompassing(cs []*sysmlv1.Element) *sysmlv1.Element {
+	for _, c := range cs {
+		holds := true
+		for _, o := range cs {
+			if expr, _ := m.objectOf(o, c, "this"); o != c && expr == "" {
+				holds = false
+				break
+			}
+		}
+		if holds {
+			return c
+		}
+	}
+	return nil
 }
 
 // reach records the context of a behavior the visit's calls lead to: the
@@ -689,23 +749,6 @@ func (m *migration) namedPortOwners(b *sysmlv1.Element) []*sysmlv1.Element {
 		}
 	})
 	return owners
-}
-
-// laneOwner is the classifier owning b when a partition of b represents its
-// object or one of its parts: the lane's object performs the nodes it holds, so
-// the def acts on an object of the owner as one going through its ports does,
-// and a caller names an object of it for the def; nil when no partition does.
-func (m *migration) laneOwner(b *sysmlv1.Element) *sysmlv1.Element {
-	owner := classifierOf(b)
-	if owner == nil || b.Type != "Activity" {
-		return nil
-	}
-	for _, l := range m.lanesOf(b).all {
-		if l.expr != "" {
-			return owner
-		}
-	}
-	return nil
 }
 
 // calledActivities lists the activities the call actions of b name, once each.
