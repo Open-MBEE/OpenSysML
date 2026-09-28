@@ -9,11 +9,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// LibraryRootNamePass reports a top-level member named like a standard
-// library package: a qualified name starting with it can resolve to the
-// library package instead, as the OMG pilot's index does where the library
-// is indexed first, so the name is a portability hazard. The warning is not
-// an error: the specification allows same-named roots.
+// LibraryRootNamePass reports a top-level member, alias included, named like
+// a standard library package: a qualified name starting with it can resolve
+// to the library package instead, as the OMG pilot's index does where the
+// library is indexed first, so the name is a portability hazard. The warning
+// is not an error: the specification allows same-named roots.
 type LibraryRootNamePass struct{}
 
 func (LibraryRootNamePass) Level() PassLevel { return LevelNameResolution }
@@ -32,7 +32,7 @@ func (LibraryRootNamePass) Run(ctx *Context, name string, root *ast.RootNamespac
 	var diags []diag.Diagnostic
 	seen := map[source.Span]bool{}
 	rootScope.ForEachMember(func(sym *symbols.Symbol) bool {
-		for _, key := range w9cKeysOf(sym) {
+		for _, key := range libraryRootKeys(sym) {
 			if seen[key.span] {
 				continue
 			}
@@ -54,4 +54,20 @@ func (LibraryRootNamePass) Run(ctx *Context, name string, root *ast.RootNamespac
 	})
 	sort.SliceStable(diags, func(i, j int) bool { return diags[i].Span.Offset < diags[j].Span.Offset })
 	return diags
+}
+
+// libraryRootKeys is w9cKeysOf plus the alias case w9cIdentOf does not carry:
+// other W9C passes share those helpers, whose contract must not move for this.
+func libraryRootKeys(sym *symbols.Symbol) []w9cKey {
+	if d, ok := sym.Decl.(*ast.Alias); ok {
+		var out []w9cKey
+		if d.Ident.ShortName != "" {
+			out = append(out, w9cKey{name: d.Ident.ShortName, span: d.Ident.ShortNameSpan})
+		}
+		if d.Ident.Name != "" && d.Ident.Name != d.Ident.ShortName {
+			out = append(out, w9cKey{name: d.Ident.Name, span: d.Ident.NameSpan})
+		}
+		return out
+	}
+	return w9cKeysOf(sym)
 }
