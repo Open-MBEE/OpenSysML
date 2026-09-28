@@ -880,6 +880,19 @@ tell it from a v1 node the source merely left unnamed: no diagram symbol stands 
 and a positioned rendering draws the edges through it as one, where an unnamed v1 fork is drawn
 as its bar.
 
+A top-level declaration named like a standard library root package — `Requirements`, `Views`,
+`ScalarValues`, and the rest — is renamed, since a qualified name starting with that name would
+resolve to the library package instead: a bare identifier becomes `<name>Model` (`Requirements`
+writes as `package RequirementsModel`), any other name gains `" Model"`, and a taken result adds
+` 2`, ` 3`, … until it is free. References into the package follow the rename, the declaration is
+annotated `metadata MigrationMetadata::LibraryNameAvoided about <written> { sourceName = "<source>"; }`
+once per renamed root at the document's top level, and its report entry is approximated with the
+note `written as <written> since a root package named <source> would be hidden by the standard
+library's <source>`. An opaque expression copied verbatim has its references through the
+renamed root rewritten to the new name too, wherever a nearer element does not take the source
+name. A nested package keeps its name: only a top-level declaration hides the
+library root.
+
 **Activities.** The nodes are written first, then the edges. A node's name is its v1 name when
 it has one, else its kind (`call`, `decide`, `fork`, …) made unique within the activity. A
 call action is `action call : Def;`, so the callee's flow runs as a nested performance; its pins

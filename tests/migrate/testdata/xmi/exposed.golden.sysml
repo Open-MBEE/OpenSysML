@@ -5,15 +5,16 @@ package Structure {
         view 'Vehicle Internals' {
             expose Vehicle;
             expose serial;
-            render $::Views::asInterconnectionDiagram;
+            render Views::asInterconnectionDiagram;
         }
     }
     part def Wheel;
 }
-package Views {
+package ViewsModel {
     view 'Vehicle Overview' {
         expose Structure::Vehicle;
         expose Structure::Vehicle::spare;
-        render $::Views::asTreeDiagram;
+        render Views::asTreeDiagram;
     }
 }
+metadata MigrationMetadata::LibraryNameAvoided about ViewsModel { sourceName = "Views"; }
