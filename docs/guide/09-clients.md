@@ -14,10 +14,10 @@ starts and stops on its own.
 | Java | `org.openmbee:opensysml-client` | Connect, over the JDK's own HTTP client | [Java API](../reference/java-api.md) |
 | Rust | `opensysml` | Connect, blocking, with no async runtime | [Rust API](../reference/rust-api.md) |
 
-They do not all cover the same ground. Go and Python expose every RPC the service offers, and the
-Java client does too — `parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
+They do not all cover the same ground. Go and Java expose every RPC the service offers —
+`parseSources`, `convert`, `applyEdits`, `runSweep`, `runDocumentQuery` and
 `renderDocument` beside the v1 surface and its execution, verification, calculation, analysis and
-query methods; Node and Rust cover
+query methods — and Python every one but `ParseSources`; Node and Rust cover
 that smaller v1 surface (parse, look up a symbol, evaluate, instantiate), and of
 those two only Node has an escape hatch to the rest, through the generated Connect client it
 exposes. Only Python and Go are published so far.
@@ -505,6 +505,10 @@ model.ok                       # False if the model uses OpenSysML notation
 A service that predates the field raises `MissingCapabilityError` rather than silently answering
 the default question. Support is advertised as `strict_conformance` in
 `Connection.server_info().capabilities`.
+
+### Models of several files
+
+`load` and `loads` each parse one document, and that document is the whole model: an import of a package another file declares does not resolve, and `load` refuses a directory. The service's `ParseSources` RPC (capability `parse_sources`) parses several documents as one model, so such an import is satisfied and diagnostics name the file they came from; [the Go](../reference/api.md), [Java](../reference/java-api.md) and [Julia](../reference/julia-api.md) clients wrap it, and the Python client does not yet. Until it does, concatenate the files into one `loads` call.
 
 ### Inspecting symbols
 
