@@ -1026,7 +1026,10 @@ it stands where `Nudge` declares `delta` — so the context redefinition goes la
 the declared ones. A usage the block owns —
 states, nested actions, entry/do/exit actions, transition guards and effects — sees the
 block's features lexically instead and names them bare (`assign level := value;`), a bare
-`this` value staying `this`. The block is the one whose ports the activity or the behaviors it calls
+`this` value staying `this`. A read of the block's features is any name the migration
+resolves to one of them wherever the body carries it — an opaque action's body, a guard on a
+control flow, a pin's value — the block's own features and, through a swimlane over one of its
+parts, that part's (`context.'ESW Seq'.i` in a definition, `'ESW Seq'.i` in a usage) alike. The block is the one whose ports the activity or the behaviors it calls
 name; activities calling each other in a cycle name the ports of the whole cycle and take the
 same block. An activity naming ports of several blocks none of which specializes the others
 takes no parameter, and the report says which blocks; an activity naming none accepts through
