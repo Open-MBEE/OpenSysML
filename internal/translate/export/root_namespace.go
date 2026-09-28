@@ -29,45 +29,53 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 		}
 	}
 	namespace, memberships := rootNamespaceIDs(graph, roots)
-	out := rdf.NewGraph()
-	for prefix, iri := range graph.Prefixes {
-		out.Prefixes[prefix] = iri
+	// The wrapped graph is the source's triples with the wrapper's inserted, so
+	// it is assembled as a list and never rebuilds a set of the source's triples.
+	// An inserted triple is kept only if neither the source nor an earlier
+	// insertion states it, so the list holds each triple once.
+	triples := make([]rdf.Triple, 0, graph.Len()+8*len(roots)+8)
+	added := map[rdf.Triple]bool{}
+	add := func(subject, predicate, object rdf.Term) {
+		t := rdf.Triple{Subject: subject, Predicate: predicate, Object: object}
+		if added[t] || graph.Has(t) {
+			return
+		}
+		added[t] = true
+		triples = append(triples, t)
 	}
 	sysml := rdf.SysMLTerm
-	out.Add(namespace, rdf.IRI(rdf.RDFType), sysml(mNamespace))
-	out.Add(namespace, sysml(pElementID), rdf.String(rdf.LocalName(namespace.Value)))
+	add(namespace, rdf.IRI(rdf.RDFType), sysml(mNamespace))
+	add(namespace, sysml(pElementID), rdf.String(rdf.LocalName(namespace.Value)))
 	for i, root := range roots {
 		membership := memberships[i]
-		out.Add(namespace, sysml(pOwnedRelationship), membership)
-		out.Add(namespace, sysml(pOwnedMembership), membership)
-		out.Add(namespace, sysml(pOwnedMember), root)
+		add(namespace, sysml(pOwnedRelationship), membership)
+		add(namespace, sysml(pOwnedMembership), membership)
+		add(namespace, sysml(pOwnedMember), root)
 	}
 	for i, root := range roots {
 		membership := memberships[i]
-		out.Add(membership, rdf.IRI(rdf.RDFType), sysml(mOwningMembership))
-		out.Add(membership, sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
-		out.Add(membership, sysml(pOwner), namespace)
-		out.Add(membership, sysml(pMemberElement), root)
-		out.Add(membership, sysml(pOwnedMemberElement), root)
-		out.Add(membership, sysml(pOwnedRelatedElement), root)
-		out.Add(membership, sysml(pOwningRelatedElement), namespace)
-		out.Add(membership, sysml(pMembershipOwningNamespace), namespace)
+		add(membership, rdf.IRI(rdf.RDFType), sysml(mOwningMembership))
+		add(membership, sysml(pElementID), rdf.String(rdf.LocalName(membership.Value)))
+		add(membership, sysml(pOwner), namespace)
+		add(membership, sysml(pMemberElement), root)
+		add(membership, sysml(pOwnedMemberElement), root)
+		add(membership, sysml(pOwnedRelatedElement), root)
+		add(membership, sysml(pOwningRelatedElement), namespace)
+		add(membership, sysml(pMembershipOwningNamespace), namespace)
 	}
 	owned := map[string]int{}
 	for i, root := range roots {
 		owned[root.Value] = i
 	}
 	for _, triple := range graph.Triples() {
+		triples = append(triples, triple)
 		if i, ok := owned[triple.Subject.Value]; ok {
 			delete(owned, triple.Subject.Value)
-			out.AddTriple(triple)
-			out.Add(triple.Subject, sysml(pOwner), namespace)
-			out.Add(triple.Subject, sysml(pOwningNamespace), namespace)
-			out.Add(triple.Subject, sysml(pOwningRelationship), memberships[i])
-			out.Add(triple.Subject, sysml(pOwningMembership), memberships[i])
-			continue
+			add(triple.Subject, sysml(pOwner), namespace)
+			add(triple.Subject, sysml(pOwningNamespace), namespace)
+			add(triple.Subject, sysml(pOwningRelationship), memberships[i])
+			add(triple.Subject, sysml(pOwningMembership), memberships[i])
 		}
-		out.AddTriple(triple)
 	}
 	if len(roots) > 1 {
 		for _, c := range []struct {
@@ -78,9 +86,10 @@ func withRootNamespace(graph *rdf.Graph) (*rdf.Graph, error) {
 			if err != nil {
 				return nil, err
 			}
-			out.Add(namespace, rdf.AnnotationJSONTerm(c.key), rdf.String(text))
+			add(namespace, rdf.AnnotationJSONTerm(c.key), rdf.String(text))
 		}
 	}
+	out := rdf.NewGraphOf(triples, graph.Prefixes)
 	return out, nil
 }
 

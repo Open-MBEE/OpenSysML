@@ -39,11 +39,15 @@ type collection struct {
 	key     string
 	members []Term
 	bare    bool // the graph also states the members as typed triples
+	// inOrder: the typed triples already state the members in annotation order,
+	// so the graph needs no rewriting for this collection.
+	inOrder bool
 }
 
 // ReconcileCollections returns a graph whose sysml: triples state every annotated
 // collection in annotation order: materialized if annotation-only, checked if both.
-// A graph without annotations is returned as it is.
+// A graph without annotations, or whose typed triples already state every
+// annotated collection in annotation order, is returned as it is.
 func ReconcileCollections(graph *Graph) (*Graph, error) {
 	var annotations []Triple
 	for _, triple := range graph.Triples() {
@@ -60,12 +64,19 @@ func ReconcileCollections(graph *Graph) (*Graph, error) {
 	}
 	ids := subjectsByID(graph)
 	settled := map[pair]collection{}
+	unchanged := true
 	for _, triple := range annotations {
 		c, err := reconcileCollection(graph, ids, triple.Subject, strings.TrimPrefix(triple.Predicate.Value, AnnotationJSON))
 		if err != nil {
 			return nil, err
 		}
 		settled[pair{c.subject, SysML + c.key}] = c
+		unchanged = unchanged && c.bare && c.inOrder
+	}
+	// Every collection is checked and already stated in annotation order, as the
+	// encoder writes them: rewriting the graph would copy it unchanged.
+	if unchanged {
+		return graph, nil
 	}
 	out := NewGraph()
 	for label, ns := range graph.Prefixes {
@@ -148,10 +159,12 @@ func reconcileCollection(graph *Graph, ids map[string][]Term, subject Term, key 
 	}
 	// Both agree; the annotation carries the order.
 	used := make([]bool, len(bare))
+	c.inOrder = true
 	for _, want := range annotation {
 		for i, have := range spelled {
 			if !used[i] && have == want {
 				used[i] = true
+				c.inOrder = c.inOrder && i == len(c.members)
 				c.members = append(c.members, bare[i])
 				break
 			}
