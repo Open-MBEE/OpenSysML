@@ -271,12 +271,18 @@ var memberKindTypes = map[string]string{
 	"feature": "class", "step": "behavior", "expr": "function", "bool": "predicate",
 	"subject": "part def", "actor": "part def", "stakeholder": "part def", "objective": "requirement def",
 	"ref": "part def", "return": "part def", "perform action": "action def",
+	"assert constraint": "constraint def", "assert not constraint": "constraint def",
+	"exhibit state": "state def", "entry action": "action def",
+	"do action": "action def", "exit action": "action def",
 }
 
 // memberKindOwners pairs each kind only some bodies offer with a member of P
 // whose body does; every other kind goes into P itself.
 var memberKindOwners = map[string]string{
 	"subject": "P::R", "actor": "P::R", "stakeholder": "P::R", "objective": "P::U",
+	"assert constraint": "P::Host", "assert not constraint": "P::Host",
+	"exhibit state": "P::Host", "exhibit": "P::Vehicle",
+	"entry action": "P::State", "do action": "P::State", "exit action": "P::State",
 }
 
 // TestEveryMemberKindWrites drives each registered kind through the parser and
@@ -290,7 +296,7 @@ func TestEveryMemberKindWrites(t *testing.T) {
 		}
 		for _, kind := range kinds {
 			t.Run(name+"/"+kind, func(t *testing.T) {
-				src := "package P {\n    action def A {\n        action a0;\n    }\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
+				src := "package P {\n    action def A {\n        action a0;\n    }\n    constraint def Assertion;\n    state def State { state child; }\n    part def Base { state s : State; }\n    part def Vehicle :> Base;\n    part def Host;\n    calc def C {}\n    requirement def R;\n    use case def U;\n}\n"
 				if lang == source.KindKerML {
 					src = "package P {\n    behavior A {\n        step s0;\n    }\n}\n"
 				}
@@ -319,6 +325,10 @@ func TestEveryMemberKindWrites(t *testing.T) {
 						"    use case def U;\n    part def X {\n        action run : A;\n    }\n    part def B {\n        part x : X;\n    }\n", 1)
 					op.Owner = "P::B"
 					op.MemberName = "x.run"
+				}
+				if kind == "exhibit" {
+					op.Owner = "P::Vehicle"
+					op.MemberName = "s"
 				}
 				m := loadContent(t, name, src)
 				requireClean(t, m)

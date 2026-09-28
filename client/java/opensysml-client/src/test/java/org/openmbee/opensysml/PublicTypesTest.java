@@ -731,6 +731,15 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddTransition.of("Demo::S", "idle", "toasting"),
         Capabilities.TRANSITION_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "assert constraint", "bounded"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "constraint", "bounded").withBodyExpression("x > 1"),
+        Capabilities.CONSTRAINT_BODY_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo::S", "do action", "run"),
+        Capabilities.STATE_ACTION_AUTHORING);
   }
 
   @Test

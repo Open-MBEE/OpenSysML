@@ -75,6 +75,8 @@ type Operation struct {
 	Redefines    []string
 	IsDefault    bool
 	Direction    string
+	// BodyExpression is the condition a constraint-kind member states in its body.
+	BodyExpression string
 	// From and To are the ends of an OpAddConnection, written as the notation
 	// references features (`a.p`, `A::b`).
 	From    string

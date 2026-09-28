@@ -872,6 +872,9 @@ message AddMemberEdit {
   bool is_default = 10;
   // Optional usage direction: "in", "out" or "inout".
   string direction = 11;
+  // Optional condition stated in a constraint-kind member's body, as in
+  // "constraint c { <expr> }"; distinct from value, which writes "= <expr>".
+  string body_expression = 13;
 }
 
 // AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.

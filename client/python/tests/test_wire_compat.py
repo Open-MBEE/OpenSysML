@@ -357,6 +357,7 @@ def test_edit_messages_pin_their_field_numbers():
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
             "is_abstract": 8, "redefines": 9, "is_default": 10, "direction": 11,
+            "body_expression": 13,
         },
         "AddConnectionEdit": {
             "owner": 1, "kind": 2, "from_end": 3, "to_end": 4, "name": 5, "type": 6,

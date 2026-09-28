@@ -740,6 +740,9 @@ final class Api {
         if (!add.getDirection().isEmpty()) {
           member = member.withDirection(add.getDirection());
         }
+        if (!add.getBodyExpression().isEmpty()) {
+          member = member.withBodyExpression(add.getBodyExpression());
+        }
         yield member;
       }
       case ADD_CONNECTION -> {

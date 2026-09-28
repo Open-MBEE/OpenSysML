@@ -1028,6 +1028,7 @@ public final class Protos {
       add.addAllRedefines(addMember.redefines());
       add.setIsDefault(addMember.isDefault());
       add.setDirection(addMember.direction());
+      addMember.bodyExpression().ifPresent(add::setBodyExpression);
       builder.setAddMember(add);
     } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
       org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =

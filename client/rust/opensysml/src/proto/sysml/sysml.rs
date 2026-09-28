@@ -1051,6 +1051,10 @@ pub struct AddMemberEdit {
     /// Optional usage direction: "in", "out" or "inout".
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
+    /// Optional condition stated in a constraint-kind member's body, as in
+    /// "constraint c { <expr> }"; distinct from value, which writes "= <expr>".
+    #[prost(string, tag="13")]
+    pub body_expression: ::prost::alloc::string::String,
 }
 /// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

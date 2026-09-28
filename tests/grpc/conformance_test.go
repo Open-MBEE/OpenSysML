@@ -118,6 +118,7 @@ type conformanceEditOperation struct {
 	Redefines         []string `json:"redefines,omitempty"`
 	IsDefault         bool     `json:"is_default,omitempty"`
 	Direction         string   `json:"direction,omitempty"`
+	BodyExpression    string   `json:"body_expression,omitempty"`
 	Requirement       string   `json:"requirement,omitempty"`
 	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
 	TransitionSource  string   `json:"source,omitempty"`
@@ -236,6 +237,7 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
+					BodyExpression: op.BodyExpression,
 				}},
 			})
 		case "add_connection":

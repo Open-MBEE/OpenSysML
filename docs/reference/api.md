@@ -85,7 +85,9 @@ A service advertising `apply_edits` without `edit_documents` (`CapabilityEditDoc
 capability before reading `Documents`, `Referrers` or an applied edit's `Document`.
 
 `add_member` accepts the existing `specializes`, type, multiplicity and value fields, plus
-`is_abstract`, `redefines`, `is_default` and `direction`. Abstract and directional notation is
+`body_expression`, `is_abstract`, `redefines`, `is_default` and `direction`. `body_expression`
+writes a constraint condition in `{ ... }`, distinct from `value`, which writes a feature value
+with `= ...`; when both are present they are emitted in that order. Abstract and directional notation is
 limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
 references, while `is_default` requires a value. The `ref` and `return` kinds are also available
 for SysML members, as are the perform-action usages (SysML v2 §7.17.6): `perform action` writes
@@ -94,7 +96,12 @@ is the feature reference to the performed action usage (`t.heat`, `Pkg::x.run`) 
 named by the action it references, so the name is checked as a feature reference, resolved from
 the owner's scope, and the last segment is what the member-name-taken check refuses a duplicate
 of. `perform` takes the reference alone: a type, multiplicity, value, specializes, redefines,
-direction or abstract flag is refused. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
+direction or abstract flag is refused. Constraint definitions and usages accept `body_expression`;
+`assert constraint` and `assert not constraint` also accept it, and may omit the name when a type or
+body is supplied. `exhibit state` adds a typed state usage, while `exhibit` names an existing state
+usage by reference. `entry action`, `do action` and `exit action` add state subactions, with at most
+one of each kind in a state body. These assertion, exhibit and state-action kinds are SysML-only.
+A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
@@ -107,6 +114,9 @@ and `type` fields:
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
+An `add_member` with `body_expression` or an asserted-constraint kind requires `authoring` and
+`constraint_body_authoring`. `exhibit state`, `exhibit`, and state subaction kinds require
+`authoring` and `state_action_authoring`.
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
@@ -154,11 +164,16 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 ## Python authoring
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
-specializes=None, abstract=False, redefines=None, default=False, direction=None)`
+specializes=None, abstract=False, redefines=None, default=False, direction=None,
+expression=None)`
 and its typed `add_*` helpers create declarations while preserving untouched
 source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint`, `add_assume_constraint`, `add_transition` and
-`add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
+`add_entry_transition`. `add_constraint_def` and `add_constraint` use
+`expression=` for a constraint body (`{ ... }`), while `value=` writes a feature
+value (`= ...`). `add_assert_constraint` supports an optional type and negation;
+`add_exhibit_state`, `add_exhibit` and `add_state_action` author state exhibits
+and `entry`/`do`/`exit` subactions. The calculation helpers accept `inputs`, `return_type`
 and `return_expression`; a return expression requires a return type and is
 bound to the result parameter, not written as a `return <expr>;` statement.
 Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.

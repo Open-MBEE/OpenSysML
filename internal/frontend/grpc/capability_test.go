@@ -117,6 +117,22 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"constraint body authoring", CapabilityConstraintBodyAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{{
+					Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+						Owner: "P", Kind: "constraint", Name: "c", BodyExpression: "true",
+					}},
+				}},
+			})
+			return err
+		}},
+		{"state action authoring", CapabilityStateActionAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addMemberOp("P::S", "do action", "a")},
+			})
+			return err
+		}},
 		{"member modifiers", CapabilityMemberModifiers, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
 				Operations: []*pb.EditOperation{{

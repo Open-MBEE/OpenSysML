@@ -258,6 +258,106 @@
       }
     },
     {
+      "id": "apply_edits/constraint_bodies_assertions_exhibits_and_state_actions_are_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "constraint_body_authoring",
+        "state_action_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_constraint_body.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "constraint def",
+              "name": "C",
+              "body_expression": "true"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "constraint",
+              "body_expression": "x > 0"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "assert not constraint",
+              "name": "notPositive",
+              "body_expression": "x <= 0"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Host",
+              "kind": "exhibit state",
+              "name": "shown",
+              "type": "Machine"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Host",
+              "kind": "exhibit",
+              "name": "idle"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "entry action",
+              "name": "entryWork",
+              "type": "Work"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "do action",
+              "name": "doWork",
+              "type": "Work"
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo::Machine",
+              "kind": "exit action",
+              "name": "exitWork",
+              "type": "Work"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "constraint def C { true }",
+            "constraint { x > 0 }",
+            "assert not constraint notPositive { x <= 0 }",
+            "exhibit state shown : Machine;",
+            "exhibit idle;",
+            "entry action entryWork : Work;",
+            "do action doWork : Work;",
+            "exit action exitWork : Work;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 8
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_rename_of_an_unreferenced_element_is_applied",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

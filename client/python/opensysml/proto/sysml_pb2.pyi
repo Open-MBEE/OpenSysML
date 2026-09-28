@@ -750,7 +750,7 @@ class EditOperation(_message.Message):
     def __init__(self, set_value: _Optional[_Union[SetValueEdit, _Mapping]] = ..., rename: _Optional[_Union[RenameEdit, _Mapping]] = ..., add_member: _Optional[_Union[AddMemberEdit, _Mapping]] = ..., delete: _Optional[_Union[DeleteEdit, _Mapping]] = ..., move: _Optional[_Union[MoveEdit, _Mapping]] = ..., add_connection: _Optional[_Union[AddConnectionEdit, _Mapping]] = ..., add_satisfy: _Optional[_Union[AddSatisfyEdit, _Mapping]] = ..., add_requirement_constraint: _Optional[_Union[AddRequirementConstraintEdit, _Mapping]] = ..., add_transition: _Optional[_Union[AddTransitionEdit, _Mapping]] = ...) -> None: ...
 
 class AddMemberEdit(_message.Message):
-    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction")
+    __slots__ = ("owner", "kind", "name", "type", "multiplicity", "value", "specializes", "is_abstract", "redefines", "is_default", "direction", "body_expression")
     OWNER_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -762,6 +762,7 @@ class AddMemberEdit(_message.Message):
     REDEFINES_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
     DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    BODY_EXPRESSION_FIELD_NUMBER: _ClassVar[int]
     owner: str
     kind: str
     name: str
@@ -773,7 +774,8 @@ class AddMemberEdit(_message.Message):
     redefines: _containers.RepeatedScalarFieldContainer[str]
     is_default: bool
     direction: str
-    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ...) -> None: ...
+    body_expression: str
+    def __init__(self, owner: _Optional[str] = ..., kind: _Optional[str] = ..., name: _Optional[str] = ..., type: _Optional[str] = ..., multiplicity: _Optional[str] = ..., value: _Optional[str] = ..., specializes: _Optional[_Iterable[str]] = ..., is_abstract: _Optional[bool] = ..., redefines: _Optional[_Iterable[str]] = ..., is_default: _Optional[bool] = ..., direction: _Optional[str] = ..., body_expression: _Optional[str] = ...) -> None: ...
 
 class AddSatisfyEdit(_message.Message):
     __slots__ = ("owner", "requirement", "satisfying_feature", "is_asserted", "is_negated")

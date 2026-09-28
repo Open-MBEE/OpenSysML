@@ -72,7 +72,8 @@ class EditProtosTest {
                 .withAbstract(true)
                 .withRedefines(List.of("Demo::A::old"))
                 .withDefault(true)
-                .withDirection("in"));
+                .withDirection("in")
+                .withBodyExpression("x > 1"));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
@@ -81,6 +82,7 @@ class EditProtosTest {
     assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
     assertTrue(full.getAddMember().getIsDefault());
     assertEquals("in", full.getAddMember().getDirection());
+    assertEquals("x > 1", full.getAddMember().getBodyExpression());
   }
 
   @Test

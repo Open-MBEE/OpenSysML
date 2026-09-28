@@ -251,4 +251,26 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDirectionBytes();
+
+  /**
+   * <pre>
+   * Optional condition stated in a constraint-kind member's body, as in
+   * "constraint c { &lt;expr&gt; }"; distinct from value, which writes "= &lt;expr&gt;".
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bodyExpression.
+   */
+  java.lang.String getBodyExpression();
+  /**
+   * <pre>
+   * Optional condition stated in a constraint-kind member's body, as in
+   * "constraint c { &lt;expr&gt; }"; distinct from value, which writes "= &lt;expr&gt;".
+   * </pre>
+   *
+   * <code>string body_expression = 13 [json_name = "bodyExpression"];</code>
+   * @return The bytes for bodyExpression.
+   */
+  com.google.protobuf.ByteString
+      getBodyExpressionBytes();
 }

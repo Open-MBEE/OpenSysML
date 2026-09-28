@@ -880,6 +880,8 @@ public final class Model {
     boolean requestsSatisfyAuthoring = false;
     boolean requestsRequirementConstraintAuthoring = false;
     boolean requestsTransitionAuthoring = false;
+    boolean requestsConstraintBodyAuthoring = false;
+    boolean requestsStateActionAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
@@ -901,6 +903,17 @@ public final class Model {
               || addMember.kind().equals("ref")
               || addMember.kind().equals("return"))) {
         requestsMemberModifiers = true;
+      }
+      if (edit instanceof Edit.AddMember addMember) {
+        requestsConstraintBodyAuthoring =
+            requestsConstraintBodyAuthoring
+                || addMember.bodyExpression().isPresent()
+                || addMember.kind().equals("assert constraint")
+                || addMember.kind().equals("assert not constraint");
+        requestsStateActionAuthoring =
+            requestsStateActionAuthoring
+                || List.of("exhibit state", "exhibit", "entry action", "do action", "exit action")
+                    .contains(addMember.kind());
       }
       if (edit instanceof Edit.AddSatisfy) {
         requestsSatisfyAuthoring = true;
@@ -929,6 +942,12 @@ public final class Model {
     }
     if (requestsTransitionAuthoring) {
       connection.capabilities().require(Capabilities.TRANSITION_AUTHORING);
+    }
+    if (requestsConstraintBodyAuthoring) {
+      connection.capabilities().require(Capabilities.CONSTRAINT_BODY_AUTHORING);
+    }
+    if (requestsStateActionAuthoring) {
+      connection.capabilities().require(Capabilities.STATE_ACTION_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

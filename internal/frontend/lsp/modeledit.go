@@ -66,27 +66,28 @@ type applyModelEditParams struct {
 // with no Layout, a setRoute with no or an empty Route, a setCanvas with no
 // Canvas and a setStyle with no Style clear the annotation.
 type modelEditOperation struct {
-	Kind         string               `json:"kind"`
-	Target       string               `json:"target,omitempty"`
-	Declaration  *protocol.Range      `json:"declaration,omitempty"`
-	DeclaredIn   protocol.DocumentURI `json:"declaredIn,omitempty"`
-	Digest       string               `json:"digest,omitempty"`
-	Value        string               `json:"value,omitempty"`
-	NewName      string               `json:"newName,omitempty"`
-	Owner        string               `json:"owner,omitempty"`
-	MemberKind   string               `json:"memberKind,omitempty"`
-	Name         string               `json:"name,omitempty"`
-	Type         string               `json:"type,omitempty"`
-	Multiplicity string               `json:"multiplicity,omitempty"`
-	Specializes  []string             `json:"specializes,omitempty"`
-	From         string               `json:"from,omitempty"`
-	To           string               `json:"to,omitempty"`
-	Cascade      bool                 `json:"cascade,omitempty"`
-	View         string               `json:"view,omitempty"`
-	Layout       *modelEditLayout     `json:"layout,omitempty"`
-	Route        []renderPoint        `json:"route,omitempty"`
-	Canvas       *renderCanvas        `json:"canvas,omitempty"`
-	Style        *renderStyle         `json:"style,omitempty"`
+	Kind           string               `json:"kind"`
+	Target         string               `json:"target,omitempty"`
+	Declaration    *protocol.Range      `json:"declaration,omitempty"`
+	DeclaredIn     protocol.DocumentURI `json:"declaredIn,omitempty"`
+	Digest         string               `json:"digest,omitempty"`
+	Value          string               `json:"value,omitempty"`
+	BodyExpression string               `json:"bodyExpression,omitempty"`
+	NewName        string               `json:"newName,omitempty"`
+	Owner          string               `json:"owner,omitempty"`
+	MemberKind     string               `json:"memberKind,omitempty"`
+	Name           string               `json:"name,omitempty"`
+	Type           string               `json:"type,omitempty"`
+	Multiplicity   string               `json:"multiplicity,omitempty"`
+	Specializes    []string             `json:"specializes,omitempty"`
+	From           string               `json:"from,omitempty"`
+	To             string               `json:"to,omitempty"`
+	Cascade        bool                 `json:"cascade,omitempty"`
+	View           string               `json:"view,omitempty"`
+	Layout         *modelEditLayout     `json:"layout,omitempty"`
+	Route          []renderPoint        `json:"route,omitempty"`
+	Canvas         *renderCanvas        `json:"canvas,omitempty"`
+	Style          *renderStyle         `json:"style,omitempty"`
 }
 
 // modelEditLayout is a node's geometry as setLayout writes it, in the units
@@ -341,6 +342,7 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 	case EditAddMember:
 		out := modeledit.AddMember(op.Owner, op.MemberKind, op.Name)
 		out.Type, out.Multiplicity, out.Value, out.Specializes = op.Type, op.Multiplicity, op.Value, op.Specializes
+		out.BodyExpression = op.BodyExpression
 		return out, nil
 	case EditAddConnection:
 		out := modeledit.AddConnection(op.Owner, op.MemberKind, op.From, op.To, op.Name)

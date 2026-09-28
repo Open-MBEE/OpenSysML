@@ -83,7 +83,8 @@ public sealed interface Edit {
       boolean isAbstract,
       List<String> redefines,
       boolean isDefault,
-      String direction)
+      String direction,
+      Optional<String> bodyExpression)
       implements Edit {
 
     public AddMember(
@@ -94,7 +95,24 @@ public sealed interface Edit {
         Optional<String> multiplicity,
         Optional<String> value,
         List<String> specializes) {
-      this(owner, kind, name, type, multiplicity, value, specializes, false, List.of(), false, "");
+      this(owner, kind, name, type, multiplicity, value, specializes,
+          false, List.of(), false, "", Optional.empty());
+    }
+
+    public AddMember(
+        String owner,
+        String kind,
+        String name,
+        Optional<String> type,
+        Optional<String> multiplicity,
+        Optional<String> value,
+        List<String> specializes,
+        boolean isAbstract,
+        List<String> redefines,
+        boolean isDefault,
+        String direction) {
+      this(owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction, Optional.empty());
     }
 
     /**
@@ -118,6 +136,7 @@ public sealed interface Edit {
       specializes = List.copyOf(specializes);
       redefines = List.copyOf(redefines);
       Objects.requireNonNull(direction, "direction");
+      Objects.requireNonNull(bodyExpression, "bodyExpression");
     }
 
     /**
@@ -131,7 +150,7 @@ public sealed interface Edit {
     public static AddMember of(String owner, String kind, String name) {
       return new AddMember(
           owner, kind, name, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
-          false, List.of(), false, "");
+          false, List.of(), false, "", Optional.empty());
     }
 
     /**
@@ -143,7 +162,7 @@ public sealed interface Edit {
     public AddMember withType(String type) {
       return new AddMember(
           owner, kind, name, Optional.of(type), multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /**
@@ -155,7 +174,7 @@ public sealed interface Edit {
     public AddMember withMultiplicity(String multiplicity) {
       return new AddMember(
           owner, kind, name, type, Optional.of(multiplicity), value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /**
@@ -167,7 +186,7 @@ public sealed interface Edit {
     public AddMember withValue(String value) {
       return new AddMember(
           owner, kind, name, type, multiplicity, Optional.of(value), specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /**
@@ -179,28 +198,35 @@ public sealed interface Edit {
     public AddMember withSpecializes(List<String> specializes) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /** The same member declared abstract. */
     public AddMember withAbstract(boolean isAbstract) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /** The same member declared with redefinition targets. */
     public AddMember withRedefines(List<String> redefines) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
     }
 
     /** The same member's value declared with the {@code default} keyword. */
     public AddMember withDefault(boolean isDefault) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, bodyExpression);
+    }
+
+    /** The same member stating an expression in its body. */
+    public AddMember withBodyExpression(String bodyExpression) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction, Optional.of(bodyExpression));
     }
 
     /** The same member declared with a usage direction. */

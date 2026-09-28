@@ -120,6 +120,26 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
 			missing:      CapabilityAuthoring,
 		},
+		{
+			name: "constraint body",
+			operation: AddMember{
+				Owner: "Demo", Kind: "constraint", Name: "c", BodyExpression: "true",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "assert constraint",
+			operation:    AddMember{Owner: "Demo", Kind: "assert constraint", Name: "c"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityConstraintBodyAuthoring,
+		},
+		{
+			name:         "state behavior kind",
+			operation:    AddMember{Owner: "Demo::S", Kind: "do action", Name: "run"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityStateActionAuthoring,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -139,13 +159,15 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	memberOperation, err := editToProto(AddMember{
 		Owner: "Demo", Kind: "attribute", Name: "x", IsAbstract: true,
 		Redefines: []string{"Demo::old"}, IsDefault: true, Direction: "in",
+		BodyExpression: "x > 1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	member := memberOperation.GetAddMember()
 	if member == nil || !member.GetIsAbstract() || !member.GetIsDefault() ||
-		member.GetDirection() != "in" || len(member.GetRedefines()) != 1 ||
+		member.GetDirection() != "in" || member.GetBodyExpression() != "x > 1" ||
+		len(member.GetRedefines()) != 1 ||
 		member.GetRedefines()[0] != "Demo::old" {
 		t.Fatalf("AddMember mapping = %+v", member)
 	}

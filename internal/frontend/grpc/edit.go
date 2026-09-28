@@ -60,6 +60,16 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsConstraintBodyAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityConstraintBodyAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsStateActionAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityStateActionAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -226,6 +236,31 @@ func requestsMemberModifiers(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsConstraintBodyAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add != nil && (add.GetBodyExpression() != "" ||
+			add.GetKind() == "assert constraint" || add.GetKind() == "assert not constraint") {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsStateActionAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		add := operation.GetAddMember()
+		if add == nil {
+			continue
+		}
+		switch add.GetKind() {
+		case "exhibit state", "exhibit", "entry action", "do action", "exit action":
+			return true
+		}
+	}
+	return false
+}
+
 func requestsConnectionAuthoring(operations []*pb.EditOperation) bool {
 	for _, operation := range operations {
 		if _, ok := operation.GetOperation().(*pb.EditOperation_AddConnection); ok {
@@ -284,6 +319,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Redefines = append([]string(nil), add.GetRedefines()...)
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
+			member.BodyExpression = add.GetBodyExpression()
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection

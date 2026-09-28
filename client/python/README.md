@@ -50,10 +50,16 @@ connection-like usages; `add_allocation` and `add_flow` are typed helpers.
 options, and supports the SysML `ref` and `return` kinds where they are admitted.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
-requirement statements and state transitions. These operations preflight their
-dedicated `member_modifiers`, `satisfy_authoring`,
-`requirement_constraint_authoring` or `transition_authoring` capability as
-applicable.
+requirement statements and state transitions. `add_constraint_def` and
+`add_constraint` accept `expression=` for a constraint body (`{ ... }`), while
+`value=` writes a feature value (`= ...`). `add_assert_constraint` optionally
+negates the assertion; `add_exhibit_state` and `add_exhibit` author state
+exhibits; `add_state_action` accepts `entry`, `do` or `exit`. Constraint-body
+and state-behavior edits preflight `constraint_body_authoring` and
+`state_action_authoring`, respectively, alongside `authoring`.
+These operations also preflight their dedicated `member_modifiers`,
+`satisfy_authoring`, `requirement_constraint_authoring` or `transition_authoring`
+capability as applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

@@ -194,6 +194,8 @@ type AddMember struct {
 	IsDefault bool
 	// Direction is an optional usage direction: "in", "out" or "inout".
 	Direction string
+	// BodyExpression is the optional condition stated in a constraint-kind member's body.
+	BodyExpression string
 }
 
 // AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
@@ -441,6 +443,14 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 				operation.Kind == "ref" || operation.Kind == "return" {
 				required[CapabilityMemberModifiers] = true
 			}
+			if operation.BodyExpression != "" ||
+				operation.Kind == "assert constraint" || operation.Kind == "assert not constraint" {
+				required[CapabilityConstraintBodyAuthoring] = true
+			}
+			switch operation.Kind {
+			case "exhibit state", "exhibit", "entry action", "do action", "exit action":
+				required[CapabilityStateActionAuthoring] = true
+			}
 		case AddConnection:
 			required[CapabilityAuthoring] = true
 			required[CapabilityConnectionAuthoring] = true
@@ -463,6 +473,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+			CapabilityConstraintBodyAuthoring, CapabilityStateActionAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -537,17 +548,18 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 		}}}, nil
 	case AddMember:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
-			Owner:        operation.Owner,
-			Kind:         operation.Kind,
-			Name:         operation.Name,
-			Type:         operation.Type,
-			Multiplicity: operation.Multiplicity,
-			Value:        operation.Value,
-			Specializes:  append([]string(nil), operation.Specializes...),
-			IsAbstract:   operation.IsAbstract,
-			Redefines:    append([]string(nil), operation.Redefines...),
-			IsDefault:    operation.IsDefault,
-			Direction:    operation.Direction,
+			Owner:          operation.Owner,
+			Kind:           operation.Kind,
+			Name:           operation.Name,
+			Type:           operation.Type,
+			Multiplicity:   operation.Multiplicity,
+			Value:          operation.Value,
+			Specializes:    append([]string(nil), operation.Specializes...),
+			IsAbstract:     operation.IsAbstract,
+			Redefines:      append([]string(nil), operation.Redefines...),
+			IsDefault:      operation.IsDefault,
+			Direction:      operation.Direction,
+			BodyExpression: operation.BodyExpression,
 		}}}, nil
 	case AddSatisfy:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{

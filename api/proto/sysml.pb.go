@@ -4282,9 +4282,12 @@ type AddMemberEdit struct {
 	// Whether the value uses the default assignment keyword.
 	IsDefault bool `protobuf:"varint,10,opt,name=is_default,json=isDefault,proto3" json:"is_default,omitempty"`
 	// Optional usage direction: "in", "out" or "inout".
-	Direction     string `protobuf:"bytes,11,opt,name=direction,proto3" json:"direction,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Direction string `protobuf:"bytes,11,opt,name=direction,proto3" json:"direction,omitempty"`
+	// Optional condition stated in a constraint-kind member's body, as in
+	// "constraint c { <expr> }"; distinct from value, which writes "= <expr>".
+	BodyExpression string `protobuf:"bytes,13,opt,name=body_expression,json=bodyExpression,proto3" json:"body_expression,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *AddMemberEdit) Reset() {
@@ -4390,6 +4393,13 @@ func (x *AddMemberEdit) GetIsDefault() bool {
 func (x *AddMemberEdit) GetDirection() string {
 	if x != nil {
 		return x.Direction
+	}
+	return ""
+}
+
+func (x *AddMemberEdit) GetBodyExpression() string {
+	if x != nil {
+		return x.BodyExpression
 	}
 	return ""
 }
@@ -9795,7 +9805,7 @@ const file_sysml_proto_rawDesc = "" +
 	"addSatisfy\x12c\n" +
 	"\x1aadd_requirement_constraint\x18\b \x01(\v2#.sysml.AddRequirementConstraintEditH\x00R\x18addRequirementConstraint\x12A\n" +
 	"\x0eadd_transition\x18\t \x01(\v2\x18.sysml.AddTransitionEditH\x00R\raddTransitionB\v\n" +
-	"\toperation\"\xb9\x02\n" +
+	"\toperation\"\xe2\x02\n" +
 	"\rAddMemberEdit\x12\x14\n" +
 	"\x05owner\x18\x01 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x12\n" +
@@ -9810,7 +9820,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\n" +
 	"is_default\x18\n" +
 	" \x01(\bR\tisDefault\x12\x1c\n" +
-	"\tdirection\x18\v \x01(\tR\tdirection\"\xb7\x01\n" +
+	"\tdirection\x18\v \x01(\tR\tdirection\x12'\n" +
+	"\x0fbody_expression\x18\r \x01(\tR\x0ebodyExpression\"\xb7\x01\n" +
 	"\x0eAddSatisfyEdit\x12\x14\n" +
 	"\x05owner\x18\x01 \x01(\tR\x05owner\x12 \n" +
 	"\vrequirement\x18\x02 \x01(\tR\vrequirement\x12-\n" +

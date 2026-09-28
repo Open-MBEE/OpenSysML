@@ -17,6 +17,8 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+    CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
@@ -958,6 +960,8 @@ class Connection:
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
                 ``('add_connection', owner, kind, from_end, to_end, name, type)``
+                and add-member tuples of 8, 12 or 13 fields; the last carries
+                modifiers and an optional constraint ``body_expression``.
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -979,6 +983,8 @@ class Connection:
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
+        requests_constraint_body_authoring = False
+        requests_state_action_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -991,9 +997,9 @@ class Connection:
                 operation.rename.target = target
                 operation.rename.new_name = text
             elif kind == 'add_member':
-                if len(operation_data) not in (8, 12):
+                if len(operation_data) not in (8, 12, 13):
                     raise ValueError(
-                        "malformed add_member operation: expected 8 or 12 fields"
+                        "malformed add_member operation: expected 8, 12 or 13 fields"
                     )
                 (
                     _, owner, member_kind, name, type_name, multiplicity, value,
@@ -1006,7 +1012,8 @@ class Connection:
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
                 add.specializes.extend(specializes)
                 if modifiers:
-                    abstract, redefines, default, direction = modifiers
+                    abstract, redefines, default, direction = modifiers[:4]
+                    expression = modifiers[4] if len(modifiers) == 5 else ""
                     if not isinstance(abstract, bool) or not isinstance(default, bool):
                         raise ValueError(
                             "malformed add_member modifiers: abstract and default must be bool"
@@ -1019,6 +1026,10 @@ class Connection:
                         raise ValueError(
                             "malformed add_member modifiers: direction must be notation text"
                         )
+                    if not isinstance(expression, str):
+                        raise ValueError(
+                            "malformed add_member operation: expression must be notation text"
+                        )
                     add.is_abstract = abstract
                     add.redefines.extend(redefines)
                     add.is_default = default
@@ -1027,6 +1038,34 @@ class Connection:
                         abstract or bool(redefines) or default or bool(direction)
                         or member_kind in ("ref", "return")
                     )
+                    add.body_expression = expression
+                else:
+                    add.body_expression = ""
+                if len(operation_data) == 13 and not modifiers:
+                    raise ValueError("malformed add_member operation: missing modifiers")
+                body_expression = operation_data[12] if len(operation_data) == 13 else ""
+                if body_expression and not isinstance(body_expression, str):
+                    raise ValueError(
+                        "malformed add_member operation: expression must be notation text"
+                    )
+                if body_expression:
+                    add.body_expression = body_expression
+                if body_expression or member_kind in ("assert constraint", "assert not constraint"):
+                    require(
+                        info,
+                        CAPABILITY_CONSTRAINT_BODY_AUTHORING,
+                        upgrade_remedy(CAPABILITY_CONSTRAINT_BODY_AUTHORING),
+                    )
+                    requests_constraint_body_authoring = True
+                if member_kind in (
+                    "exhibit state", "exhibit", "entry action", "do action", "exit action"
+                ):
+                    require(
+                        info,
+                        CAPABILITY_STATE_ACTION_AUTHORING,
+                        upgrade_remedy(CAPABILITY_STATE_ACTION_AUTHORING),
+                    )
+                    requests_state_action_authoring = True
             elif kind == 'add_connection':
                 if len(operation_data) != 7:
                     raise ValueError(
@@ -1144,6 +1183,10 @@ class Connection:
                 upgrade_remedy(CAPABILITY_MEMBER_MODIFIERS),
             )
             requested_capabilities.append(CAPABILITY_MEMBER_MODIFIERS)
+        if requests_constraint_body_authoring:
+            requested_capabilities.append(CAPABILITY_CONSTRAINT_BODY_AUTHORING)
+        if requests_state_action_authoring:
+            requested_capabilities.append(CAPABILITY_STATE_ACTION_AUTHORING)
         with translate_rpc_errors(
             unimplemented=self._capability_refusal(requested_capabilities)
         ):

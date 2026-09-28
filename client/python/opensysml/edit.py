@@ -293,12 +293,13 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None):
+                   default=False, direction=None, expression=None):
         """Add one declaration, using strings for all SysML/KerML notation."""
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
         for label, text in (("kind", kind), ("type", type),
-                            ("multiplicity", multiplicity), ("value", value)):
+                            ("multiplicity", multiplicity), ("value", value),
+                            ("expression", expression)):
             if text is not None and not isinstance(text, str):
                 raise TypeError(
                     f"{label} must be notation text, not "
@@ -318,8 +319,10 @@ class Editor:
         base = ("add_member", owner, kind, name, type or "", multiplicity or "",
                 value or "", list(specializes))
         if (abstract or redefines or default or direction is not None
-                or kind in ("ref", "return")):
+                or kind in ("ref", "return") or expression is not None):
             base += (abstract, list(redefines), default, direction or "")
+        if expression is not None:
+            base += (expression,)
         self._add(base)
         return self
 
@@ -670,6 +673,24 @@ class Editor:
         the member is named by the action it references."""
         return self.add_member(owner, "perform", action)
 
+    def add_exhibit_state(self, owner, name, type=None):
+        """Add an ``exhibit state`` usage."""
+        return self.add_member(owner, "exhibit state", name, type=type)
+
+    def add_exhibit(self, owner, state):
+        """Add an ``exhibit <state>;`` usage named by its referenced state."""
+        return self.add_member(owner, "exhibit", state)
+
+    def add_state_action(self, owner, kind, name, type=None):
+        """Add an ``entry``, ``do`` or ``exit`` action to a state body."""
+        if not isinstance(kind, str):
+            raise TypeError(
+                f"kind must be notation text, not {kind.__class__.__name__}"
+            )
+        if kind not in ("entry", "do", "exit"):
+            raise ValueError("kind must be 'entry', 'do' or 'exit'")
+        return self.add_member(owner, f"{kind} action", name, type=type)
+
     def add_state_def(self, owner, name, **kwargs):
         """Add a ``state def`` declaration."""
         return self.add_member(owner, "state def", name, **kwargs)
@@ -678,13 +699,33 @@ class Editor:
         """Add a ``state`` declaration."""
         return self.add_member(owner, "state", name, **kwargs)
 
-    def add_constraint_def(self, owner, name, **kwargs):
-        """Add a ``constraint def`` declaration."""
-        return self.add_member(owner, "constraint def", name, **kwargs)
+    def add_constraint_def(self, owner, name, expression=None, **kwargs):
+        """Add a ``constraint def``; ``expression=`` writes ``{ … }`` while
+        ``value=`` writes a feature value with ``= …``."""
+        return self.add_member(
+            owner, "constraint def", name, expression=expression, **kwargs
+        )
 
-    def add_constraint(self, owner, name, **kwargs):
-        """Add a ``constraint`` declaration."""
-        return self.add_member(owner, "constraint", name, **kwargs)
+    def add_constraint(self, owner, name, expression=None, **kwargs):
+        """Add a ``constraint``; ``expression=`` writes ``{ … }`` while
+        ``value=`` writes a feature value with ``= …``."""
+        return self.add_member(
+            owner, "constraint", name, expression=expression, **kwargs
+        )
+
+    def add_assert_constraint(
+        self, owner, name=None, type=None, expression=None, negated=False
+    ):
+        """Add an asserted constraint usage, optionally negated."""
+        if not isinstance(negated, bool):
+            raise TypeError("negated must be bool")
+        return self.add_member(
+            owner,
+            "assert not constraint" if negated else "assert constraint",
+            "" if name is None else name,
+            type=type,
+            expression=expression,
+        )
 
     def add_requirement_def(self, owner, name, **kwargs):
         """Add a ``requirement def`` declaration."""
