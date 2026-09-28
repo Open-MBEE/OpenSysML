@@ -15,6 +15,8 @@ import (
 type behaviorContext struct {
 	name       string
 	classifier *sysmlv1.Element
+	declared   *sysmlv1.Element
+	chain      string
 	// holder is the def declaring the parameter, for the `Def::context` form a
 	// nested call binds it by, where a bare name would be shadowed.
 	holder *sysmlv1.Element
@@ -23,6 +25,14 @@ type behaviorContext struct {
 	// used is whether the def's body spelled it; bound whether a usage bound it.
 	// The parameter is written when either holds once the body is evaluated.
 	used, bound, evaluated bool
+}
+
+// objectType is the classifier the parameter's object is: the definition it is typed by.
+func (c *behaviorContext) objectType() *sysmlv1.Element {
+	if c.declared != nil {
+		return c.declared
+	}
+	return c.classifier
 }
 
 // contextVisit is an activity the context search has reached: its visit index, the
@@ -98,28 +108,43 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	if owner == nil {
 		return nil
 	}
-	if writable, _ := m.contextClassifierWritable(owner, e); !writable {
+	declared, chain, _ := m.contextDeclaration(owner)
+	if declared == nil {
 		return nil
 	}
 	if c, ok := m.ownerCtx[e]; ok {
 		return c
 	}
 	c := &behaviorContext{name: m.freshName(e, "context"), classifier: owner, holder: e, owner: true}
+	if declared != owner {
+		c.declared = declared
+		c.chain = chain
+	}
 	m.ownerCtx[e] = c
 	return c
 }
 
-// contextClassifierWritable reports whether scope can name c as a context classifier
-// or specialize its view or viewpoint usage, and why not when it cannot.
-func (m *migration) contextClassifierWritable(c, scope *sysmlv1.Element) (bool, string) {
+// contextDeclaration is how a context parameter holds an object of c: the classifier it
+// is written with and the feature path from that object to c; nil with why when none can.
+func (m *migration) contextDeclaration(c *sysmlv1.Element) (declared *sysmlv1.Element, chain, why string) {
 	if m.asUsage[c] {
-		return false, ""
+		return nil, "", ""
 	}
 	if cat, _ := m.classify(c); cat == catView || cat == catViewpoint {
-		note := m.featuredNote(c, scope)
-		return note == "", note
+		d := m.featuringDef(c)
+		if d == nil {
+			return c, "", ""
+		}
+		if !m.definitionEnd(d) {
+			defCat, _ := m.classify(d)
+			return nil, "", "the " + cat.keyword() + " " + qualifiedName(c) + " is a feature of the " + defCat.keyword() + " " + qualifiedName(d) + ", which cannot type a context parameter"
+		}
+		return d, m.usageChain(c, d), ""
 	}
-	return m.definitionEnd(c), ""
+	if m.definitionEnd(c) {
+		return c, "", ""
+	}
+	return nil, "", ""
 }
 
 // defScope reports whether e is written as a def whose `this` is its own
@@ -209,8 +234,14 @@ func (m *migration) ownerPrefix(e *sysmlv1.Element) string {
 // context redefinition names the same object. Where e is not inside the def,
 // the parameter takes the def's qualified name.
 func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) string {
+	withChain := func(name string) string {
+		if c.chain != "" {
+			return name + "." + c.chain
+		}
+		return name
+	}
 	if e == nil {
-		return m.qualifiedContext(c, e)
+		return withChain(m.qualifiedContext(c, e))
 	}
 	cur := e
 	for cur != nil && cur != c.holder {
@@ -221,10 +252,10 @@ func (m *migration) contextSpelling(c *behaviorContext, e *sysmlv1.Element) stri
 		cur = cur.Parent
 	}
 	if cur != c.holder {
-		return m.qualifiedContext(c, e)
+		return withChain(m.qualifiedContext(c, e))
 	}
 	c.used = true
-	return writeName(c.name)
+	return withChain(writeName(c.name))
 }
 
 // respellThis rewrites an expression built on `this` — `this` itself or a
@@ -348,7 +379,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 	}
 	self, selfType := "this", m.contextClassifier(scope)
 	if dc := m.selfContext(scope); dc != nil {
-		self, selfType = m.qualifiedContext(dc, scope), dc.classifier
+		self, selfType = m.qualifiedContext(dc, scope), dc.objectType()
 	}
 	expr, cnote := m.contextBinding(c, selfType, self)
 	if expr == "" {
@@ -421,10 +452,11 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	eligible := make([]*sysmlv1.Element, 0, len(owners))
 	notes := make([]string, 0, len(owners))
 	for _, owner := range owners {
-		if writable, note := m.contextClassifierWritable(owner, b); writable {
+		declared, _, why := m.contextDeclaration(owner)
+		if declared != nil {
 			eligible = append(eligible, owner)
-		} else if note != "" {
-			notes = append(notes, note)
+		} else if why != "" {
+			notes = append(notes, why)
 		}
 	}
 	if len(owners) > 0 && len(eligible) == 0 {
@@ -466,7 +498,13 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 		}
 		return nil
 	}
-	return &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b}
+	declared, chain, _ := m.contextDeclaration(c)
+	ctx := &behaviorContext{name: m.freshName(b, "context"), classifier: c, holder: b}
+	if declared != c {
+		ctx.declared = declared
+		ctx.chain = chain
+	}
+	return ctx
 }
 
 // providesAny reports whether an object of owner is, or holds one part that is,
@@ -694,10 +732,15 @@ func (m *migration) contextParameter(b *sysmlv1.Element) {
 	if c.owner && !c.used && !c.bound {
 		return
 	}
-	typing := m.typing(c.classifier)
-	m.w.line("in ref " + writeName(c.name) + typing + m.ref(c.classifier, b) + ";")
+	objectType := c.objectType()
+	typing := m.typing(objectType)
+	m.w.line("in ref " + writeName(c.name) + typing + m.ref(objectType, b) + ";")
 	usageNote := ""
-	if typing == " :> " {
+	if c.chain != "" {
+		cat, _ := m.classify(c.classifier)
+		defCat, _ := m.classify(c.declared)
+		usageNote = " its context classifier is a feature of the " + defCat.keyword() + " " + qualifiedName(c.declared) + ", so the parameter is typed by that definition and reaches the " + cat.keyword() + " as " + writeName(c.name) + "." + c.chain
+	} else if typing == " :> " {
 		usageNote = " its context classifier is written as a usage, so the parameter specializes it rather than being typed by it"
 	}
 	if c.owner {
@@ -840,10 +883,12 @@ func (a *activity) viaPrefix() string {
 // def — when it is one, else its one part that is.
 func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
 	self := a.self()
+	selfType := a.selfType()
 	if a.ctx != nil {
 		self = a.m.qualifiedContext(a.ctx, a.def)
+		selfType = a.ctx.objectType()
 	}
-	expr, note = a.m.contextBinding(c, a.selfType(), self)
+	expr, note = a.m.contextBinding(c, selfType, self)
 	return expr, note
 }
 
@@ -861,7 +906,7 @@ func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, no
 // one, else its one part that is.
 func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
-	expr, why := m.objectOf(c.classifier, selfType, self)
+	expr, why := m.objectOf(c.objectType(), selfType, self)
 	if expr == "" {
 		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: " + why
 	}
@@ -878,6 +923,14 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, w
 		return "", "the caller acts on no object"
 	case selfType == c || m.inherits(selfType, c):
 		return self, ""
+	}
+	if c != nil {
+		cat, _ := m.classify(c)
+		if cat == catView || cat == catViewpoint {
+			if d := m.featuringDef(c); d != nil && (selfType == d || m.inherits(selfType, d)) {
+				return self + "." + m.usageChain(c, d), ""
+			}
+		}
 	}
 	var parts []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {

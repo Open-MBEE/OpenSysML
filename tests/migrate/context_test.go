@@ -129,7 +129,7 @@ func TestViewpointActivityContextSpecializesUsage(t *testing.T) {
 	wantNote(t, r, "_review", migrate.Mapped, "its context classifier is written as a usage, so the parameter specializes it rather than being typed by it")
 }
 
-func TestNestedViewpointContextIsNotNamedFromOutsideItsDefinition(t *testing.T) {
+func TestFeaturedViewpointContextIsTypedByItsDefinition(t *testing.T) {
 	r := migrateDocument(t, `
     <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
       <nestedClassifier xmi:type="uml:Class" xmi:id="_vp" name="Review Viewpoint">
@@ -146,11 +146,42 @@ func TestNestedViewpointContextIsNotNamedFromOutsideItsDefinition(t *testing.T) 
     </packagedElement>`, `
   <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
   <sysml:Viewpoint xmi:id="_vpStereotype" base_Class="_vp"/>`)
-	wantLine(t, r.Notation, "part def Host {")
-	wantLine(t, r.Notation, "viewpoint 'Review Viewpoint' {")
-	wantLine(t, r.Notation, "port tx;")
-	wantNoLine(t, r.Notation, "in ref context")
-	wantNote(t, r, "_inspect", migrate.Approximated, "is a feature of the part def Host, which only its members can name")
+	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "send new Ping() via context.'Review Viewpoint'.tx;")
+	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
+func TestFeaturedViewpointOwnActivityReachesItsPorts(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+          <node xmi:type="uml:InitialNode" xmi:id="_inspectStart"/>
+          <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing" name="send ping" signal="_ping" onPort="_tx"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_inspectFinish"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_inspectStartFlow" source="_inspectStart" target="_sendPing"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_inspectFinishFlow" source="_sendPing" target="_inspectFinish"/>
+        </ownedBehavior>
+      </nestedClassifier>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_runStart"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_inspectCall" name="inspect" behavior="_inspect"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_runFinish"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runStartFlow" source="_runStart" target="_inspectCall"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_runFinishFlow" source="_inspectCall" target="_runFinish"/>
+      </ownedBehavior>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
+	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "send new Ping() via context.Review.tx;")
+	wantLine(t, r.Notation, "in ref :>> context = Run::context;")
+	wantNote(t, r, "_inspect", migrate.Mapped, "is a feature of the part def Host")
 	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
 	}
