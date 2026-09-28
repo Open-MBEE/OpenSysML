@@ -272,19 +272,22 @@ func (p *pictures) underlaid() (sandwiched, under, covered int) {
 
 // pictureLine writes p's Picture annotation: file, bounds, the pasted file's
 // name as alt text, and above when it lies over an element symbol.
-func pictureLine(prefix string, p picture) string {
+func pictureLine(prefix string, p picture, x exposures) string {
 	b := p.sym.Bounds
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "@%sPicture { location = %s; x = %s; y = %s; width = %s; height = %s;",
-		prefix, stringLiteral(p.location), layoutNumber(b.X), layoutNumber(b.Y), layoutNumber(b.Width), layoutNumber(b.Height))
+	attrs := []string{
+		diagramLayoutAttribute(prefix, "Picture", "location", stringLiteral(p.location), x),
+		diagramLayoutAttribute(prefix, "Picture", "x", layoutNumber(b.X), x),
+		diagramLayoutAttribute(prefix, "Picture", "y", layoutNumber(b.Y), x),
+		diagramLayoutAttribute(prefix, "Picture", "width", layoutNumber(b.Width), x),
+		diagramLayoutAttribute(prefix, "Picture", "height", layoutNumber(b.Height), x),
+	}
 	if alt := pastedAlt(p.sym.Attachment); alt != "" {
-		fmt.Fprintf(&sb, " alt = %s;", stringLiteral(alt))
+		attrs = append(attrs, diagramLayoutAttribute(prefix, "Picture", "alt", stringLiteral(alt), x))
 	}
 	if p.above {
-		sb.WriteString(" above = true;")
+		attrs = append(attrs, diagramLayoutAttribute(prefix, "Picture", "above", "true", x))
 	}
-	sb.WriteString(" }")
-	return sb.String()
+	return "@" + prefix + "Picture { " + strings.Join(attrs, "; ") + "; }"
 }
 
 // pastedAlt is the pasted file's name without its directories and extension.
@@ -378,7 +381,7 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, x exposu
 	drawn := map[*sysmlv1.Symbol]bool{}
 	for _, p := range pics.drawn {
 		drawn[p.sym] = true
-		dress.lines = append(dress.lines, pictureLine(prefix, p))
+		dress.lines = append(dress.lines, pictureLine(prefix, p, x))
 	}
 	styledRefs := map[string]bool{}
 	for _, sym := range d.Symbols {
@@ -427,7 +430,7 @@ func (m *migration) viewDressing(v *view, form viewForm, prefix string, x exposu
 			if sym.Style.NoFill && sym.Style.Fill == "" {
 				s.Unsupported["USE_FILL_COLOR"]++
 			}
-			if line := styleLine(prefix, ref, sym.Style); line != "" {
+			if line := styleLine(prefix, ref, sym.Style, x); line != "" {
 				dress.lines = append(dress.lines, line)
 			}
 		}
@@ -541,29 +544,29 @@ func styledSymbol(sym *sysmlv1.Symbol) bool {
 
 // styleLine writes the Style annotation of ref from a symbol's own choices; ""
 // when none of them is one DiagramLayout::Style carries.
-func styleLine(prefix, ref string, st sysmlv1.Style) string {
+func styleLine(prefix, ref string, st sysmlv1.Style, x exposures) string {
 	var attrs []string
 	if st.Fill != "" {
-		attrs = append(attrs, "fill = "+stringLiteral(st.Fill)+";")
+		attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "fill", stringLiteral(st.Fill), x)+";")
 	}
 	if st.Pen != "" {
-		attrs = append(attrs, "line = "+stringLiteral(st.Pen)+";")
+		attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "line", stringLiteral(st.Pen), x)+";")
 	}
 	if st.Text != "" {
-		attrs = append(attrs, "text = "+stringLiteral(st.Text)+";")
+		attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "text", stringLiteral(st.Text), x)+";")
 	}
 	if f := st.Font; f != nil {
 		if f.Name != "" {
-			attrs = append(attrs, "font = "+stringLiteral(f.Name)+";")
+			attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "font", stringLiteral(f.Name), x)+";")
 		}
 		if f.Size > 0 {
-			attrs = append(attrs, "fontSize = "+layoutNumber(f.Size)+";")
+			attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "fontSize", layoutNumber(f.Size), x)+";")
 		}
 		if f.Bold {
-			attrs = append(attrs, "bold = true;")
+			attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "bold", "true", x)+";")
 		}
 		if f.Italic {
-			attrs = append(attrs, "italic = true;")
+			attrs = append(attrs, diagramLayoutAttribute(prefix, "Style", "italic", "true", x)+";")
 		}
 	}
 	if len(attrs) == 0 {

@@ -2406,7 +2406,7 @@ func (m *migration) written(e *sysmlv1.Element) bool {
 		return em.name != "" && m.reaches(em.owner)
 	}
 	if vertexBase(e) != "" {
-		return m.vertexNamed(e)
+		return m.vertexWritten(e)
 	}
 	if e.Type == "Region" && e.Role == "region" {
 		return m.regionWritten(e)

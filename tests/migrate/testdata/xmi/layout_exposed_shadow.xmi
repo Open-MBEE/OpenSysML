@@ -22,6 +22,12 @@
         <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_points" name="points">
           <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
         </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_text" name="text">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#String"/>
+        </ownedAttribute>
+        <ownedAttribute xmi:type="uml:Property" xmi:id="_prop_width" name="width">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        </ownedAttribute>
       </packagedElement>
     </packagedElement>
     <xmi:Extension extender="Example UML Tool 1.0">
@@ -38,7 +44,10 @@
                   <usedElements>_blk_scale</usedElements>
                   <usedElements>_prop_height</usedElements>
                   <usedElements>_prop_points</usedElements>
+                  <usedElements>_prop_text</usedElements>
+                  <usedElements>_prop_width</usedElements>
                 </diagramContents>
+                <binaryObject streamContentID="BINARY-layout_exposed_shadow"/>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
           </xmi:Extension>

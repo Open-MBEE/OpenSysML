@@ -6,7 +6,7 @@ import (
 )
 
 func TestDiagramLayoutAttributesQualifyExposedNames(t *testing.T) {
-	x := exposures{names: map[string]bool{"height": true, "points": true}}
+	x := exposures{names: map[string]bool{"height": true, "points": true, "text": true, "width": true}}
 	for _, tc := range []struct {
 		prefix, definition, name, value, want string
 	}{
@@ -14,7 +14,9 @@ func TestDiagramLayoutAttributesQualifyExposedNames(t *testing.T) {
 		{"DiagramLayout::", "Route", "points", "(1, 2)", ":>> DiagramLayout::Route::points = (1, 2)"},
 		{"DiagramLayout::", "Canvas", "height", "80", ":>> DiagramLayout::Canvas::height = 80"},
 		{"DiagramLayout::", "Note", "height", "20", ":>> DiagramLayout::Note::height = 20"},
-		{"$::DiagramLayout::", "Layout", "width", "60", "width = 60"},
+		{"DiagramLayout::", "Style", "text", `"red"`, `:>> DiagramLayout::Style::text = "red"`},
+		{"DiagramLayout::", "Picture", "width", "60", ":>> DiagramLayout::Picture::width = 60"},
+		{"$::DiagramLayout::", "Layout", "scale", "60", "scale = 60"},
 	} {
 		if got := diagramLayoutAttribute(tc.prefix, tc.definition, tc.name, tc.value, x); got != tc.want {
 			t.Errorf("diagramLayoutAttribute(%q, %q, %q) = %q, want %q", tc.definition, tc.name, tc.value, got, tc.want)

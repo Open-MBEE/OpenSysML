@@ -31,6 +31,7 @@
                   <usedElements>_t_choice</usedElements>
                   <usedElements>_t_idle</usedElements>
                 </diagramContents>
+                <binaryObject streamContentID="BINARY-refused_vertex_layout"/>
               </diagram:DiagramRepresentationObject>
             </diagramRepresentation>
           </xmi:Extension>

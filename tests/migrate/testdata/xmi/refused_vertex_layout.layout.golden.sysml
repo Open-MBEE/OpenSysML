@@ -9,6 +9,8 @@ part def Controller {
             metadata DiagramLayout::Route about 'Idle then junction' { points = (100, 20, 120, 70); }
             metadata DiagramLayout::Route about 'junction then choice' { points = (220, 70, 240, 120); }
             metadata DiagramLayout::Route about 'choice then Idle' { points = (340, 120, 100, 20); }
+            metadata DiagramLayout::Style about Controller::Modes::junction { fill = "#E1E1C3"; }
+            metadata DiagramLayout::Note about Controller::Modes::junction { text = "Junction note"; x = 350; y = 40; width = 120; height = 30; }
             render Views::asInterconnectionDiagram;
         }
         entry; then Idle;
