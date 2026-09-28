@@ -60,6 +60,6 @@ class TestPerformedActionUnboundInput:
     def test_kindless_parameter_is_a_reference_usage(self):
         """A parameter declared with no kind keyword is a referenceUsage."""
         model = self.conn.load_from_content(MODEL)
-        symbol = model._symbol_by_id("P::ApplyHeat::energy")
+        symbol = model.find("P::ApplyHeat::energy")
         assert symbol is not None
         assert symbol.kind == "referenceUsage"
