@@ -1,6 +1,7 @@
 package model_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
@@ -55,7 +56,12 @@ package App {
 `
 	ws := model.NewWorkspace()
 	ws.Open("redef.sysml", []byte(src), 1)
-	if len(ws.Diagnostics("redef.sysml")) == 0 {
-		t.Fatal("`nope` names nothing v inherits; expected an unresolved-reference diagnostic")
+	at := strings.Index(src, ":>> nope") + len(":>> ")
+	diags := ws.Diagnostics("redef.sysml")
+	for _, d := range diags {
+		if d.Span.Offset == at && strings.HasPrefix(d.Message, "unresolved reference: nope") {
+			return
+		}
 	}
+	t.Fatalf("`nope` names nothing v inherits; expected an unresolved-reference diagnostic at offset %d, got %v", at, diags)
 }
