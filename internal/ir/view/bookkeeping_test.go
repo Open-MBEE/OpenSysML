@@ -82,6 +82,9 @@ func TestSynthesizedNamesAreReadFromTheModel(t *testing.T) {
 			if node.Kind == "metadata" {
 				t.Errorf("%s: synthesized-name marker drawn as node %q : %q", view, node.Name, node.Type)
 			}
+			if node.StandIn {
+				t.Errorf("%s: node %q is a stand-in, yet nothing marks it one", view, node.Name)
+			}
 		}
 		names := nodeNames(rendering.Roots)
 		for _, name := range authored {

@@ -15,14 +15,14 @@ digraph "MachineViews::vehicleStates" {
     penwidth=1;
     margin=8;
     subgraph "cluster_n0" {
-      label=<<font point-size="9">«state def»</font><br/><b>VehicleStates</b>>;
+      label="";
       style="rounded,filled";
       fillcolor="#FFFFCC:#FFFFF2";
       gradientangle=0;
       color="#5B5B59";
       penwidth=1;
       "n0" [shape=point, style=invis, width=0, height=0, label=""];
-      "n5" [shape=point, fillcolor=black, label=""];
+      "n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
       "n1" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>off</b>>];
       subgraph "cluster_n2" {
         label=<<b>operating</b>>;
@@ -32,7 +32,7 @@ digraph "MachineViews::vehicleStates" {
         color="#5B5B59";
         penwidth=1;
         "n2" [shape=point, style=invis, width=0, height=0, label=""];
-        "n6" [shape=point, fillcolor=black, label=""];
+        "n6" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
         "n3" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>idle</b>>];
         "n4" [style="rounded,filled", fillcolor="#FFFFCC:#FFFFF2", color="#5B5B59", label=<<b>moving</b>>];
       }
@@ -42,6 +42,6 @@ digraph "MachineViews::vehicleStates" {
   "n6" -> "n3";
   "n1" -> "n2" [lhead="cluster_n2"];
   "n2" -> "n1" [ltail="cluster_n2"];
-  "n3" -> "n4" [label="accept Signal [temperature > 0]"];
+  "n3" -> "n4" [label="Signal [temperature > 0]"];
   "n4" -> "n3";
 }

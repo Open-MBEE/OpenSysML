@@ -208,18 +208,68 @@ func displayText(raw string) string {
 
 // head is the first line of a node's diagram label: its name, followed by
 // " : Type" for a typed usage, each type by the name it ends in. A node with no
-// shown name leads with " : Type" alone when typed, else with its kind.
+// shown name leads with " : Type" alone when typed, else with its Text — what
+// it does, when the renderer found that — else with its kind.
 func (l labeller) head(node *Node) string {
 	switch name, typ := shown(node), node.Type; {
+	case name == "" && typ == "" && node.Text != "":
+		return l.text(node.Text)
 	case name == "" && typ == "":
 		return node.Kind
 	case name == "":
-		return ": " + displayText(source.ReferenceEndNames(typ))
+		return l.typeText(node)
 	case typ == "":
-		return displayText(l.name(node))
+		return l.text(l.name(node))
 	default:
-		return displayText(l.name(node) + " : " + source.ReferenceEndNames(typ))
+		return l.text(l.name(node) + " : " + source.ReferenceEndNames(typ))
 	}
+}
+
+// typeText is a node's type as its label writes it, `: Type`, by the name it ends in.
+func (l labeller) typeText(node *Node) string {
+	return ": " + l.text(source.ReferenceEndNames(node.Type))
+}
+
+// text is notation text as a label shows it: escapes decoded, and in Cameo's
+// look the names bare, as Cameo's names carry no quotes.
+func (l labeller) text(raw string) string {
+	if l.skin.cameo {
+		raw = bareNames(raw)
+	}
+	return displayText(raw)
+}
+
+// bareNames drops the quotes off every unrestricted name in notation text, whose
+// escapes stay for displayText to decode; a string literal's text is kept whole.
+func bareNames(text string) string {
+	if !strings.ContainsRune(text, '\'') {
+		return text
+	}
+	var b strings.Builder
+	b.Grow(len(text))
+	var quote byte
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case quote != 0 && c == '\\' && i+1 < len(text):
+			b.WriteByte(c)
+			i++
+			b.WriteByte(text[i])
+		case quote == 0 && (c == '\'' || c == '"'):
+			quote = c
+			if c == '"' {
+				b.WriteByte(c)
+			}
+		case quote == c:
+			quote = 0
+			if c == '"' {
+				b.WriteByte(c)
+			}
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
 }
 
 // headLines is the head split at the line breaks its escapes decode to, each
@@ -229,9 +279,25 @@ func (l labeller) headLines(node *Node) []string {
 }
 
 // keyworded reports whether a node's label has a keyword line, the kind in
-// guillemets after the head: every node whose head is not the kind itself.
+// guillemets after the head: every node whose head is a name or a type. A head
+// saying what the node does stands alone, as the kind is nothing beside it.
 func keyworded(node *Node) bool {
 	return shown(node) != "" || node.Type != ""
+}
+
+// headed reports whether a node's head says something of the node's own — a
+// name, a type or what it does — rather than its kind alone.
+func headed(node *Node) bool {
+	return keyworded(node) || node.Text != ""
+}
+
+// keyworded reports whether the skin writes a node's keyword line: Cameo shows
+// none on a state or an action, whose notation says their kind already.
+func (l labeller) keyworded(node *Node) bool {
+	if l.skin.cameo && (node.Kind == "state" || node.Kind == "action") {
+		return false
+	}
+	return keyworded(node)
 }
 
 // lines is a node's diagram label in the graphical notation's order: the
@@ -239,32 +305,72 @@ func keyworded(node *Node) bool {
 // is a single line: a name that escapes a line break heads several entries.
 func (l labeller) lines(node *Node) []string {
 	lines := l.headLines(node)
-	if keyworded(node) {
+	if l.keyworded(node) {
 		lines = append(lines, "«"+node.Kind+"»")
 	}
-	if node.Detail != "" {
-		if l.skin.cameo && node.Kind == "state" {
-			return append(lines, cameoStateDetails(node.Detail)...)
-		}
+	switch {
+	case node.Detail == "":
+	case l.skin.cameo && node.Kind == "state":
+		lines = append(lines, cameoStateDetails(node.Detail)...)
+	case l.skin.cameo:
+		lines = append(lines, bareNames(node.Detail))
+	default:
 		lines = append(lines, node.Detail)
 	}
 	return lines
 }
 
 // cameoStateDetails splits a state's detail into Cameo's compartment lines, one
-// per behaviour, and drops the `initial` marker the initial dot already draws.
+// per behaviour and one per deferred trigger, `Ping / defer` as UML writes it,
+// and drops the `initial` marker the initial dot already draws. The detail is
+// split as notation, so a name quoting a comma stays one; the names are bare.
 func cameoStateDetails(detail string) []string {
 	var lines []string
-	for _, part := range strings.Split(detail, ", ") {
+	deferring := false
+	for _, part := range splitNotation(detail, ", ") {
+		part = bareNames(part)
+		keyword := stateDetailKeyword(part)
+		if keyword {
+			deferring = false
+		}
 		switch {
 		case part == "initial":
-		case len(lines) > 0 && !stateDetailKeyword(part):
+		case strings.HasPrefix(part, "defers "):
+			deferring = true
+			lines = append(lines, strings.TrimPrefix(part, "defers ")+" / defer")
+		case deferring:
+			lines = append(lines, part+" / defer")
+		case len(lines) > 0 && !keyword:
 			lines[len(lines)-1] += ", " + part
 		default:
 			lines = append(lines, part)
 		}
 	}
 	return lines
+}
+
+// splitNotation splits notation text at every sep outside its quoted names and
+// string literals, escapes within them stepped over.
+func splitNotation(text, sep string) []string {
+	var parts []string
+	var quote byte
+	start := 0
+	for i := 0; i < len(text); i++ {
+		switch c := text[i]; {
+		case quote != 0 && c == '\\':
+			i++
+		case quote != 0 && c == quote:
+			quote = 0
+		case quote != 0:
+		case c == '\'' || c == '"':
+			quote = c
+		case strings.HasPrefix(text[i:], sep):
+			parts = append(parts, text[start:i])
+			i += len(sep) - 1
+			start = i + 1
+		}
+	}
+	return append(parts, text[start:])
 }
 
 // stateDetailKeyword reports whether a detail part opens a behaviour line.

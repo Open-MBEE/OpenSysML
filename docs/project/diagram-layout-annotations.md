@@ -270,13 +270,25 @@ the lowering finds those through the scope tree, so a definition in another docu
 out of its reach, which the rendering reports as a notice rather than drawing a partial
 flow.
 
+An inherited node is one declaration drawn once per body that inherits it — the library's
+`start` and `done` in every action, a definition's states in each usage typed by it — so
+its `Layout` resolves per body (`semantics.MemberLayoutOf`): the sites naming the node as
+that body's member apply first (`about Acquire::start`, or `about start` stated where
+`Acquire` is the nearest namespace having a `start`), then the declaring body's — an inline
+`@Layout` on the node, `about Base::s`, or an unqualified `about s` no other namespace
+resolves — which every inheriting body falls back to. A site naming the node as another
+body's never positions this one. The validation pass judges each site by the body it names
+(`MemberLayoutOwner`): sites for two bodies are no duplicates of each other, and a site is
+placed when the rendering draws the node as that body's — as any body's, for the declaring
+body's sites.
+
 ### Validation (a constraint-tier pass)
 
 `internal/check/passes/diagram_layout.go`, `DiagramLayoutPass`, source `constraint`:
 
 | Code | Severity | When |
 |---|---|---|
-| `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, or a `Route` on one it draws no edge for. In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
+| `diagram-layout-unplaced` | warning | A `Layout` on an element the rendering draws no node for, a `Route` on one it draws no edge for, or a `Style` or `Note` on one it draws as neither (a note anchors to a node or to an edge). In a view's body the judge is what that view's rendering actually draws (`Route about Loop::pump` in an interconnection view: a part is a node, not an edge; `Layout about Spare::valve` in a view exposing `Loop` only: nothing is drawn for it); for an element-level annotation, every kind this build produces (`Route` on a `part def`, `Layout` on a dependency). A package is a node of the containment tree, so a `Layout` on one is placed. |
 | `diagram-layout-value` | error | `Route.points` of odd length (waypoints are x, y pairs), a `Canvas` binding one of `width` and `height` without the other (an extent is a pair, and `0` is an extent), a `Picture` without its `location`, `x` and `y`, or `width` and `height`, with an empty `location`, a `location` that is a URL (`scheme://…` or `data:…`) or a `width` or `height` that is not positive, or a binding that is not a constant of the attribute's kind (`null`, a pair where one number is due). A value of another type than the attribute's (`collapsed = 1`, a String among the points) is the type checker's `cannot bind` error, as for any bound value, and one the model cannot evaluate is `metadata-value-not-evaluable`. |
 | `diagram-layout-canvas` | error | A `Canvas` annotating anything that is not a view, or one about a view stated outside that view's body (`metadata Canvas about V { … }` beside `V`, or in another view): it sizes nothing. A `Picture` annotating anything that is not a view: it is drawn on no surface. |
 | `diagram-layout-duplicate` | warning | Two `about` annotations of one kind for one element in one view's body; the first stated applies. A `Note` or a `Picture` is never a duplicate: every one is drawn. |
