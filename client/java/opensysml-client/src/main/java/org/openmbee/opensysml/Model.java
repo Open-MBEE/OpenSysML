@@ -492,7 +492,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyConstraint(String symbolId) {
-    return verifyConstraint(symbolId, Optional.empty());
+    return verifyConstraint(symbolId, Optional.empty(), VerifyOptions.defaults());
   }
 
   /**
@@ -508,16 +508,57 @@ public final class Model {
    */
   public Verification verifyConstraint(String symbolId, String subjectSymbolId) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    return verifyConstraint(symbolId, Optional.of(subjectSymbolId));
+    return verifyConstraint(symbolId, Optional.of(subjectSymbolId), VerifyOptions.defaults());
   }
 
-  private Verification verifyConstraint(String symbolId, Optional<String> subjectSymbolId) {
+  /**
+   * Answers a question about a constraint against the model's declared values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @param options the question to ask: an evaluation (the default), {@code holds} or
+   *     {@code satisfiable}, as {@link VerifyOptions} spells them
+   * @return its verdict, its status the answer the question got
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification}, or the
+   *     question is not an evaluation and the service does not advertise
+   *     {@code verification_questions}
+   */
+  public Verification verifyConstraint(String symbolId, VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifyConstraint(symbolId, Optional.empty(), options);
+  }
+
+  /**
+   * Answers a question about a constraint against an object's values.
+   *
+   * @param symbolId qualified name of the constraint definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the constraint on
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyConstraint(
+      String symbolId, String subjectSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
+    Objects.requireNonNull(options, "options");
+    return verifyConstraint(symbolId, Optional.of(subjectSymbolId), options);
+  }
+
+  private Verification verifyConstraint(
+      String symbolId, Optional<String> subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifyConstraintRequest.Builder request =
         VerifyConstraintRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifyConstraintResponse response =
         connection.call(
             "VerifyConstraint", request.build(), VerifyConstraintResponse.getDefaultInstance());
@@ -535,7 +576,7 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Verification verifyRequirement(String symbolId) {
-    return verifyRequirement(symbolId, Optional.empty());
+    return verifyRequirement(symbolId, Optional.empty(), VerifyOptions.defaults());
   }
 
   /**
@@ -551,16 +592,55 @@ public final class Model {
    */
   public Verification verifyRequirement(String symbolId, String subjectSymbolId) {
     Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
-    return verifyRequirement(symbolId, Optional.of(subjectSymbolId));
+    return verifyRequirement(symbolId, Optional.of(subjectSymbolId), VerifyOptions.defaults());
   }
 
-  private Verification verifyRequirement(String symbolId, Optional<String> subjectSymbolId) {
+  /**
+   * Answers a question about a requirement's constraints against the model's declared values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, with what the verification cases verifying it answered
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyRequirement(String symbolId, VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifyRequirement(symbolId, Optional.empty(), options);
+  }
+
+  /**
+   * Answers a question about a requirement's constraints against an object's values.
+   *
+   * @param symbolId qualified name of the requirement definition or usage
+   * @param subjectSymbolId qualified name of the part definition or usage to instantiate and verify
+   *     the requirement on
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return its verdict, about that object
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Verification verifyRequirement(
+      String symbolId, String subjectSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(subjectSymbolId, NAME_SUBJECT_SYMBOL_ID);
+    Objects.requireNonNull(options, "options");
+    return verifyRequirement(symbolId, Optional.of(subjectSymbolId), options);
+  }
+
+  private Verification verifyRequirement(
+      String symbolId, Optional<String> subjectSymbolId, VerifyOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifyRequirementRequest.Builder request =
         VerifyRequirementRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId);
     subjectSymbolId.ifPresent(request::setSubjectSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifyRequirementResponse response =
         connection.call(
             "VerifyRequirement", request.build(), VerifyRequirementResponse.getDefaultInstance());
@@ -577,7 +657,22 @@ public final class Model {
    * @throws CapabilityException if the service does not advertise {@code verification}
    */
   public Satisfaction verifySatisfaction() {
-    return verifySatisfaction(Optional.empty());
+    return verifySatisfaction(Optional.empty(), VerifyOptions.defaults());
+  }
+
+  /**
+   * Answers a question about every {@code satisfy} assertion in the model.
+   *
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Satisfaction verifySatisfaction(VerifyOptions options) {
+    Objects.requireNonNull(options, "options");
+    return verifySatisfaction(Optional.empty(), options);
   }
 
   /**
@@ -592,15 +687,35 @@ public final class Model {
    */
   public Satisfaction verifySatisfaction(String scopeSymbolId) {
     Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
-    return verifySatisfaction(Optional.of(scopeSymbolId));
+    return verifySatisfaction(Optional.of(scopeSymbolId), VerifyOptions.defaults());
   }
 
-  private Satisfaction verifySatisfaction(Optional<String> scopeSymbolId) {
+  /**
+   * Answers a question about the {@code satisfy} assertions within one element.
+   *
+   * @param scopeSymbolId qualified name of the package, definition or usage whose assertions are
+   *     asked about
+   * @param options the question to ask, as {@link VerifyOptions} spells it
+   * @return one verdict per assertion, in declaration order
+   * @throws ModelException if the service could not answer at all
+   * @throws ServiceException if the service does not hold this model
+   * @throws CapabilityException if the service does not advertise {@code verification} or, for a
+   *     question that is not an evaluation, {@code verification_questions}
+   */
+  public Satisfaction verifySatisfaction(String scopeSymbolId, VerifyOptions options) {
+    Objects.requireNonNull(scopeSymbolId, "scopeSymbolId");
+    Objects.requireNonNull(options, "options");
+    return verifySatisfaction(Optional.of(scopeSymbolId), options);
+  }
+
+  private Satisfaction verifySatisfaction(Optional<String> scopeSymbolId, VerifyOptions options) {
     connection.capabilities().require(Capabilities.VERIFICATION);
+    requireQuestion(options);
     VerifySatisfactionRequest.Builder request =
         VerifySatisfactionRequest.newBuilder().setModelHash(hash);
     scopeSymbolId.ifPresent(request::setSymbolId);
     engine.ifPresent(request::setEngine);
+    questionField(options).ifPresent(request::setQuestion);
     VerifySatisfactionResponse response =
         connection.call(
             "VerifySatisfaction", request.build(), VerifySatisfactionResponse.getDefaultInstance());
@@ -1113,6 +1228,21 @@ public final class Model {
     if (!error.isEmpty()) {
       throw new ModelException(error, reason, Protos.diagnostics(diagnostics));
     }
+  }
+
+  // The question as sent: absent for an evaluation, which every service reads as such.
+  private static Optional<String> questionField(VerifyOptions options) {
+    if (options.question().isEmpty()
+        || options.question().equals(VerifyOptions.QUESTION_EVALUATE)) {
+      return Optional.empty();
+    }
+    return Optional.of(options.question());
+  }
+
+  // Refuse to send a question a service without verification_questions would evaluate instead.
+  private void requireQuestion(VerifyOptions options) {
+    questionField(options)
+        .ifPresent(question -> connection.capabilities().require(Capabilities.VERIFICATION_QUESTIONS));
   }
 
   private SymbolResponse symbolResponse(String symbolId) {

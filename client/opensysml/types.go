@@ -14,6 +14,7 @@ const (
 	CapabilityTypeFacts                      = sysmlgrpc.CapabilityTypeFacts
 	CapabilityConvert                        = sysmlgrpc.CapabilityConvert
 	CapabilityVerification                   = sysmlgrpc.CapabilityVerification
+	CapabilityVerificationQuestions          = sysmlgrpc.CapabilityVerificationQuestions
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery

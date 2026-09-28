@@ -23,6 +23,9 @@ public final class Capabilities {
   /** A verification, satisfaction or analysis response carries what a case body answered. */
   public static final String VERIFICATION_VERDICTS = "verification_verdicts";
 
+  /** The verification RPCs answer {@code holds} and {@code satisfiable} questions, reporting a verdict's status and witness. */
+  public static final String VERIFICATION_QUESTIONS = "verification_questions";
+
   /** An analysis response carries each call the run made to a calc held as a value, such as a trade study's evaluation of every alternative. */
   public static final String CASE_EVALUATIONS = "case_evaluations";
 
