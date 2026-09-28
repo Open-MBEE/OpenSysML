@@ -2844,6 +2844,11 @@ package test {
 		in ready : Boolean = this == this;
 		return : Boolean = ready;
 	}
+	analysis def Unbindable {
+		in early : Boolean = this == this;
+		in required : Integer;
+		return : Integer = required;
+	}
 	analysis def Failing {
 		out who = this;
 		out bad : Real = 1.0 / 0.0;
@@ -2918,6 +2923,33 @@ package test {
 	}
 	if len(result.Outputs) != 1 || !result.Outputs[0].Value.Const.Bool {
 		t.Errorf("Ready() = %+v, want true: the default's this is the run's occurrence", result.Outputs)
+	}
+
+	// A run that fails binding ends the occurrence an earlier parameter's `this`
+	// read already materialized — the instance is the only new one the failed
+	// run left behind.
+	before := make(map[int64]bool, len(ctx.instances))
+	for id := range ctx.instances {
+		before[id] = true
+	}
+	unbindable, unbindableScope := calcByName(t, root, "test", "Unbindable")
+	_, err = ctx.RunAnalysis(unbindable, AnalysisArgs{}, unbindableScope, nil)
+	if err == nil {
+		t.Fatal("Unbindable(): want a binding error for the unprovided input")
+	}
+	var occID int64
+	for id, inst := range ctx.instances {
+		if !before[id] && inst.Type.Name == "Unbindable" {
+			occID = id
+		}
+	}
+	if occID == 0 {
+		t.Fatal("Unbindable(): the `this` read in the earlier parameter materialized no occurrence")
+	}
+	// A life begun inside binding still shows began: 0 to a top-level caller, so
+	// Ended — the activation the run's end stamps — is what must be set.
+	if life, ok := ctx.OccurrenceLife(occID); !ok || life.Ended == 0 {
+		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the unbound run's occurrence ended", occID, life, ok)
 	}
 }
 

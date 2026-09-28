@@ -705,6 +705,13 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 	}
 	start.ec, start.nested, start.env, err = ctx.bindCalcUsage(shape, reader, args, start.occurrence)
 	if err != nil {
+		// A definition run that fails to bind never runs, so its occurrence —
+		// materialized already if an earlier parameter read `this` — ends with
+		// it; a usage's symbol-cached object is no run's to end.
+		if isBehaviorDefKind(shape.Sym.Kind) && start.occurrence.inst != nil {
+			start.occurrence.ended = true
+			ctx.endPerformanceLife(start.occurrence.inst)
+		}
 		return nil, err
 	}
 	start.inputs = boundInputs(shape, start.env)
