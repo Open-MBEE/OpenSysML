@@ -2742,6 +2742,12 @@ const calcDefThisFixture = `
 			assign n := 5;
 			return : Integer = this.n;
 		}
+		calc def Probe {
+			in early : Boolean = this == this;
+			attribute n : Integer = 0;
+			assign Probe::n := 5;
+			return : Integer = this.n;
+		}
 		action def Step { out n : Integer = 5; }
 		analysis def Shadow {
 			attribute early : Boolean = this == this;
@@ -2811,6 +2817,17 @@ func TestInvokeCalcDefReadsThis(t *testing.T) {
 	if len(result.Outputs) != 1 || result.Outputs[0].Value.Const.Int != 0 {
 		t.Errorf("Shadow() = %+v, want 0: the block-local write stayed out of the occurrence", result.Outputs)
 	}
+
+	// A qualified write to the body's own feature lands on the occurrence:
+	// Probe::n is the occurrence's n, which this.n then reads.
+	probe, probeScope := calcByName(t, root, "test", "Probe")
+	got, err = ctx.InvokeCalc(probe, nil, probeScope)
+	if err != nil {
+		t.Fatalf("Probe(): %v", err)
+	}
+	if got.Const.Int != 5 {
+		t.Errorf("Probe() = %s, want 5: the qualified write mirrored into the occurrence", FormatTraceValue(got))
+	}
 }
 
 // Each run of a case definition is its own occurrence: `this.n` reads the input
@@ -2822,6 +2839,10 @@ package test {
 		in n : Integer;
 		out who = this;
 		return : Integer = this.n;
+	}
+	analysis def Ready {
+		in ready : Boolean = this == this;
+		return : Boolean = ready;
 	}
 	analysis def Failing {
 		out who = this;
@@ -2886,6 +2907,17 @@ package test {
 	}
 	if life, ok := ctx.OccurrenceLife(failID); !ok || life.Alive() {
 		t.Errorf("OccurrenceLife(#%d) = %v, %v; want the failed run's occurrence ended", failID, life, ok)
+	}
+
+	// A parameter default written `this` reads the run's own occurrence — made
+	// on that first read — so `this == this` binds true.
+	ready, readyScope := calcByName(t, root, "test", "Ready")
+	result, err = ctx.RunAnalysis(ready, AnalysisArgs{}, readyScope, nil)
+	if err != nil {
+		t.Fatalf("Ready(): %v", err)
+	}
+	if len(result.Outputs) != 1 || !result.Outputs[0].Value.Const.Bool {
+		t.Errorf("Ready() = %+v, want true: the default's this is the run's occurrence", result.Outputs)
 	}
 }
 

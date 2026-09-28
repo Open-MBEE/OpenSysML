@@ -813,6 +813,12 @@ func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args ca
 	if ec.trace != nil {
 		ec.trace.RecordCalculationEnter(shape.Kind, shape.Name)
 	}
+	// A parameter default written `this` reads the run's own occurrence, made on
+	// that first read, as an invoked def's does; the run's bindings then mirror
+	// into it through bindCalcParameters.
+	if occurrence != nil {
+		ec.occurrence, ec.thisOccurrence = occurrence.inst, occurrence.materializeOccurrence
+	}
 
 	env := frame{vars: make(map[string]Value, len(shape.Params)), aliases: shape.Aliases, owner: shape, run: ctx.newRun()}
 	ec.pushFrame(env)
