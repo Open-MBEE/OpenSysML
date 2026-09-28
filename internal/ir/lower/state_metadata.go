@@ -19,20 +19,30 @@ var pseudostateMetadataFQN = map[string]ast.PseudostateKind{
 	"StateMachines::DeepHistoryMetadata":    ast.PseudostateDeepHistory,
 }
 
-// annotationSymbol resolves the metadata definition an annotation names in its
-// member's scope, alias-tolerantly; nil without a resolver or a resolution.
-func annotationSymbol(resolver *resolve.Resolver, scope *symbols.Scope, a semantics.MetadataAnnotation) *symbols.Symbol {
+// annotationSymbol resolves the metadata definition an annotation names in the
+// annotated usage's own scope, then its member's, alias-tolerantly; nil without
+// a resolver or a resolution.
+func annotationSymbol(resolver *resolve.Resolver, scope *symbols.Scope, usage *ast.Usage, a semantics.MetadataAnnotation) *symbols.Symbol {
 	if resolver == nil || a.Node == nil || a.Node.Type == nil {
 		return nil
 	}
-	sym, ok := resolver.ReadQualified(scope, a.Node.Type).Symbol()
-	if !ok || sym == nil {
-		return nil
+	// The annotated usage owns the annotation, so its own scope reads before
+	// the enclosing one, as the semantics tier reads it.
+	scopes := []*symbols.Scope{childScope(scope, usage)}
+	if scopes[0] != scope {
+		scopes = append(scopes, scope)
 	}
-	if target, ok := resolver.ResolveAliasTarget(sym); ok && target != nil {
-		sym = target
+	for _, s := range scopes {
+		sym, ok := resolver.ReadQualified(s, a.Node.Type).Symbol()
+		if !ok || sym == nil {
+			continue
+		}
+		if target, ok := resolver.ResolveAliasTarget(sym); ok && target != nil {
+			sym = target
+		}
+		return sym
 	}
-	return sym
+	return nil
 }
 
 // PseudostateMetadata reports the pseudostate kind usage declares by carrying a
@@ -41,7 +51,7 @@ func annotationSymbol(resolver *resolve.Resolver, scope *symbols.Scope, a semant
 // the annotation's spelling.
 func PseudostateMetadata(resolver *resolve.Resolver, scope *symbols.Scope, usage *ast.Usage) (ast.PseudostateKind, bool) {
 	for _, a := range semantics.MetadataAnnotationsOf(usage) {
-		sym := annotationSymbol(resolver, scope, a)
+		sym := annotationSymbol(resolver, scope, usage, a)
 		if kind, ok := pseudostateMetadataFQN[symbols.FQNOf(sym)]; ok {
 			return kind, true
 		}
@@ -53,7 +63,7 @@ func PseudostateMetadata(resolver *resolve.Resolver, scope *symbols.Scope, usage
 // annotation (`#deferred ref : Ping;`).
 func DeferredMetadata(resolver *resolve.Resolver, scope *symbols.Scope, usage *ast.Usage) bool {
 	for _, a := range semantics.MetadataAnnotationsOf(usage) {
-		if symbols.FQNOf(annotationSymbol(resolver, scope, a)) == deferredEventsMetadataFQN {
+		if symbols.FQNOf(annotationSymbol(resolver, scope, usage, a)) == deferredEventsMetadataFQN {
 			return true
 		}
 	}

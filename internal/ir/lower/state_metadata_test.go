@@ -247,3 +247,43 @@ func TestParallelRegionOfOnlyAPseudostate(t *testing.T) {
 		})
 	}
 }
+
+// TestMetadataLocalAliasSpelling: an alias declared in the annotated usage's
+// own body types the annotation as the library metadata it targets, which the
+// graph reads the same as the spelling that names the metadata directly.
+func TestMetadataLocalAliasSpelling(t *testing.T) {
+	gOld, err := metadataStateGraph(t, "", "state a; state b; choice pick;")
+	if err != nil {
+		t.Fatalf("keyword form lowers: %v", err)
+	}
+	gNew, err := metadataStateGraph(t, "",
+		"state a; state b; #localChoice state pick { alias localChoice for StateMachines::ChoiceMetadata; }")
+	if err != nil {
+		t.Fatalf("alias form lowers: %v", err)
+	}
+	if got, want := pseudostateShape(gNew), pseudostateShape(gOld); !reflect.DeepEqual(got, want) {
+		t.Fatalf("pseudostates are %v, want %v", got, want)
+	}
+	if got := pseudostateShape(gNew); !reflect.DeepEqual(got, []string{"choice:pick"}) {
+		t.Fatalf("pseudostates are %v, want [choice:pick]", got)
+	}
+}
+
+func TestMetadataLocalAliasDeferred(t *testing.T) {
+	prelude := "item def Ping;"
+	gOld, err := metadataStateGraph(t, prelude, "entry; then a; state a { #deferred ref : Ping; }")
+	if err != nil {
+		t.Fatalf("direct form lowers: %v", err)
+	}
+	gNew, err := metadataStateGraph(t, prelude,
+		"entry; then a; state a { #localDeferred ref : Ping { alias localDeferred for StateMachines::DeferredMetadata; } }")
+	if err != nil {
+		t.Fatalf("alias form lowers: %v", err)
+	}
+	if got, want := deferredShape(gNew), deferredShape(gOld); !reflect.DeepEqual(got, want) {
+		t.Fatalf("deferrals are %v, want %v", got, want)
+	}
+	if len(deferredShape(gNew)) == 0 {
+		t.Fatal("the alias-spelled deferred ref records no deferral")
+	}
+}

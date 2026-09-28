@@ -678,3 +678,34 @@ func TestImplicitSourcePseudostateBothSpellings(t *testing.T) {
 		})
 	}
 }
+
+// TestImplicitSourceLocalAliasPseudostate: a sourceless transition reads the
+// local-alias spelling of a pseudostate the same as the direct one.
+func TestImplicitSourceLocalAliasPseudostate(t *testing.T) {
+	for _, tc := range []struct{ name, decl string }{
+		{"direct", "#StateMachines::junction state sync;"},
+		{"alias", "#localJoin state sync { alias localJoin for StateMachines::JunctionMetadata; }"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package test {
+	state def M {
+		entry; then init;
+		state init;
+		transition first init then sync;
+		` + tc.decl + `
+		transition then active;
+		state active;
+	}
+}`
+			var hits int
+			for _, d := range transitionDiags(t, src) {
+				if d.Code == behavior.CodeTransitionSourceNotVertex {
+					hits++
+				}
+			}
+			if hits != 1 {
+				t.Errorf("got %d %s findings, want 1", hits, behavior.CodeTransitionSourceNotVertex)
+			}
+		})
+	}
+}
