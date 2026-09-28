@@ -111,6 +111,15 @@ part b :> a;`},
 		{name: "unresolved type", src: `part p : Nope;`},
 		{name: "item usage typed by an item def", src: `item def I;
 item i : I;`},
+		{name: "typed by a connection def", src: `connection def CD;
+part c : CD;`},
+		{name: "typed by an interface def", src: `interface def ID;
+part i : ID;`},
+		{name: "typed by a view def", src: `view def VD;
+part v : VD;`},
+		{name: "inheriting a connection def through subsetting", src: `connection def CD;
+part c : CD;
+part d :> c;`},
 		{name: "bare variant reference of a variation action", src: `action def AD;
 action a {
 	variation action va : AD {

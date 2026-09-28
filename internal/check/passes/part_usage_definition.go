@@ -55,7 +55,7 @@ func (c *partUsageDefinitionChecker) check(sym *symbols.Symbol) {
 		return
 	}
 	for _, typ := range types {
-		if typ != nil && typ.Kind == symbols.SymbolPartDef {
+		if typ != nil && defKindSpecializes(typ.Kind, symbols.SymbolPartDef) {
 			return
 		}
 	}
