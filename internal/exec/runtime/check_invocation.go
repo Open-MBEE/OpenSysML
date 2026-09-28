@@ -315,6 +315,9 @@ func (inv *Invocation) executors() []checkedExecutor {
 		execs = append(execs, exec)
 	}
 	for _, behavior := range ctx.objectBehaviors {
+		if behavior.Err != nil {
+			continue
+		}
 		switch {
 		case behavior.State != nil && !slices.Contains(inv.States, behavior.State):
 			execs = append(execs, behavior.State)

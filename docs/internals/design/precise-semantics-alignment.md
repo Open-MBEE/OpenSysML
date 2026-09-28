@@ -995,8 +995,13 @@ declared under that name through the scope tree (`action_graph.go:namesStartable
 vehicle.start;` where `Vehicle` declares `action start : Launch;` performs that action
 (`TestPerformOfDeclaredStartActionStaysPerform`). The fUML referee's emitter takes the
 second path for an active class, so `ActiveClassBehaviorSender` runs the reference's order:
-create, start, send. One pool per machine rather than per object (SM1) is the one structural
-difference, and it is the v2 one. **agrees.**
+create, start, send. A performed action whose start or run fails for a required `in`
+parameter bound by nothing (`ErrUnboundParameter`) is recorded on the performance itself —
+`ObjectBehavior.Err` marks it ended for good: no step, no message, no restart — rather than
+failing the object's creation, so `P::slow.cycleTime` evaluates past `toastBread`'s refusal;
+every other failure, and every failure of a merely-declared behavior's explicit start, still
+fails the creation or the start as before. One pool per machine rather than per object (SM1)
+is the one structural difference, and it is the v2 one. **agrees.**
 
 **SM44. The machine ends; the object does not.** fUML §8.8.1: a classifier behavior completing
 does not destroy its object; the object persists, receives occurrences, and handles them with

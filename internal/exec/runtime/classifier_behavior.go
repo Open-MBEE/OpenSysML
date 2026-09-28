@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -42,6 +43,12 @@ type ObjectBehavior struct {
 	State *StateExecutor
 	// Action is the action the object performs, nil for an exhibited machine.
 	Action *ActionExecutor
+	// Err is the error a performed action bound by the object's type failed with,
+	// recorded rather than failing the object's creation.
+	Err error
+	// typeBound marks the behavior bound by the object's type at materialization
+	// or restart, rather than started by an explicit `perform obj.beh.start`.
+	typeBound bool
 }
 
 // Describe names the behavior and the object running it, for diagnostics.
@@ -678,8 +685,12 @@ func (ctx *Context) startBehaviorsOf(inst *Instance) error {
 			behavior, err := ctx.attachClassifierBehavior(inst, decl)
 			ctx.behaviorAttached(inst, decl.member)
 			if err != nil {
-				return err
+				if behavior == nil || !errors.Is(err, ErrUnboundParameter) {
+					return err
+				}
+				behavior.Err = fmt.Errorf("%s: %w", behavior.Describe(), err)
 			}
+			behavior.typeBound = true
 			behavior.binding = i
 			inst.behaviors = append(inst.behaviors, behavior)
 			ctx.behaviorsAttached++
@@ -885,7 +896,13 @@ func (ctx *Context) drainObjectBehaviors() error {
 			ctx.trace.RecordBehaviorRun(behavior.Kind.String(), behavior.Name, behavior.Object.ID)
 		}
 		if err := behavior.run(); err != nil {
-			return fmt.Errorf("%s: %w", behavior.Describe(), err)
+			wrapped := fmt.Errorf("%s: %w", behavior.Describe(), err)
+			if behavior.typeBound && behavior.Kind == lower.PerformedAction && errors.Is(err, ErrUnboundParameter) {
+				behavior.Err = wrapped
+				behavior.leaveClock()
+				continue
+			}
+			return wrapped
 		}
 	}
 }
@@ -948,6 +965,9 @@ func (ctx *Context) nextRunnableBehavior() (*ObjectBehavior, bool) {
 // is not work materialization waits for, and an execution that reached its end
 // takes no step whatever is left addressed to it.
 func (b *ObjectBehavior) hasPendingWork() bool {
+	if b.Err != nil {
+		return false
+	}
 	switch {
 	case b.State != nil:
 		return !b.State.State().Ended() && (b.State.HasDueEvent() || b.State.HasPendingSignal())
@@ -1002,8 +1022,10 @@ func (ctx *Context) attachClassifierBehavior(inst *Instance, decl classifierBeha
 			begin = (*ActionExecutor).initialize
 		}
 		if err := ctx.startAction(exec, begin); err != nil {
-			exec.Release()
-			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
+			// A performed action that fails to start is returned with the error
+			// for a type-bound start to record; an explicit start fails it.
+			behavior.Action = exec
+			return behavior, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, symbolText(inst.Type), err)
 		}
 		behavior.Action = exec
 	default:
