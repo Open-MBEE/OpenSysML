@@ -33,7 +33,6 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}}
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
-	c.checkAnnotationBodies(rootScope, root)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
 	return c.diags
 }
@@ -96,26 +95,19 @@ func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
 	case *ast.Usage:
 		c.checkDeclaredChains(sym, d)
 		c.checkBindingEnds(sym, d)
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != ast.RelVia {
+				continue
+			}
+			if target, ok := rel.Target.(*ast.QualifiedName); ok {
+				scope := c.cc.resolver.RelationshipScope(sym.OwnerScope, sym.Scope, rel)
+				c.checkVia(refSite{sym: sym}, scope, target)
+			}
+		}
 		c.walkExpr(refSite{sym: sym}, scope, d.Value)
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	case *ast.Definition:
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
-	}
-	c.checkAnnotationBodies(semantics.AnnotationScope(sym), sym.Decl)
-}
-
-// checkAnnotationBodies visits what an unnamed annotation written on decl
-// declares in its body, at any depth: no symbol owns such a body, so the
-// symbol walk does not reach the values it binds.
-func (c *featureReferenceChecker) checkAnnotationBodies(scope *symbols.Scope, decl ast.Node) {
-	if scope == nil {
-		return
-	}
-	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
-		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
-			c.checkAnnotationBodies(body, a.Node)
-			kit.ForEachBodySymbol(body, c.checkSymbol)
-		}
 	}
 }
 
@@ -186,6 +178,7 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkExpr(site, body, n.Until)
 		c.walkMembers(site, body, n.Body)
 	case *ast.TransitionMember:
+		c.checkVia(site, scope, n.Via)
 		if change, ok := n.Trigger.(*ast.ChangeEvent); ok {
 			c.walkExpr(site, scope, change.Condition)
 		}
@@ -219,7 +212,15 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		c.walkMembers(site, childScopeOr(scope, m), ast.NodeBodyMembers(m))
 	case *ast.SendStatement:
 		c.walkExpr(site, scope, n.Message)
-		c.walkExpr(site, scope, n.Target)
+		if n.IsVia {
+			if target, ok := n.Target.(*ast.QualifiedName); ok {
+				c.checkVia(site, scope, target)
+			} else {
+				c.walkExpr(site, scope, n.Target)
+			}
+		} else {
+			c.walkExpr(site, scope, n.Target)
+		}
 		c.walkExpr(site, scope, n.Receiver)
 		c.walkMembers(site, childScopeOr(scope, n), n.Members)
 	case *ast.EntryMember:
@@ -233,6 +234,35 @@ func (c *featureReferenceChecker) walkMember(site refSite, scope *symbols.Scope,
 		// body whose result is its last expression.
 		c.walkExpr(site, scope, m)
 	}
+}
+
+// checkVia checks only the head of a via path. Chained segments are features
+// of that head and are resolved by the routing semantics rather than this
+// accessibility rule.
+func (c *featureReferenceChecker) checkVia(site refSite, scope *symbols.Scope, qn *ast.QualifiedName) {
+	if qn == nil || len(qn.Parts) == 0 {
+		return
+	}
+	end := len(qn.Parts)
+	for i, part := range qn.Parts {
+		if part.Chained {
+			end = i
+			break
+		}
+	}
+	if end == 0 {
+		return
+	}
+	head := &ast.QualifiedName{
+		Global: qn.Global,
+		Parts:  append([]ast.NameSegment(nil), qn.Parts[:end]...),
+	}
+	head.NodeSpan = qn.Span()
+	if target, ok := c.cc.resolver.ResolveTarget(scope, head); ok &&
+		site.sym != nil && target.OwnerScope == site.sym.Scope {
+		return
+	}
+	c.checkReferent(site, scope, head, qn.Span())
 }
 
 // walkConstraintBody visits a nested constraint's body from the constraint usage

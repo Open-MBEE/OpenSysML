@@ -12,21 +12,22 @@ package test {
 		action def Spin {
 			in rpm : Real;
 			out result : Real;
+			in ref context : Motor;
 			first start then 'set speed';
 			action 'set speed' {
 				in value;
-				assign this.speed := value;
+				assign context.speed := value;
 			}
 			bind 'set speed'.value = rpm;
 			first 'set speed' then 'read speed';
 			action 'read speed' {
-				out result = this.speed;
+				out result = context.speed;
 			}
 			bind result = 'read speed'.result;
 			first 'read speed' then done;
 		}
 
-		action spin : Spin;
+		action spin : Spin { in rpm; out result; in ref :>> context = this; }
 	}
 
 	part def Drive {
@@ -38,11 +39,12 @@ package test {
 		attribute got : Real default = 0.0;
 
 		action def Spinup {
+			in ref context : Rig;
 			first start then sp;
-			perform action sp : Motor::Spin ::> drive.motor.spin { in rpm = 30.0; }
+			perform action sp : Motor::Spin ::> context.drive.motor.spin { in rpm = 30.0; }
 			first sp then keep;
 			action keep {
-				assign this.got := sp.result;
+				assign context.got := sp.result;
 			}
 			first keep then done;
 		}
@@ -51,7 +53,7 @@ package test {
 			entry; then spinning;
 
 			state spinning {
-				entry action spinup : Spinup;
+				entry action spinup : Spinup { in ref :>> context = this; }
 			}
 			state spun;
 

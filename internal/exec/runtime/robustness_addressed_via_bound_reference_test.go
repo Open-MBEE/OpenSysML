@@ -41,11 +41,12 @@ func hostAddressing(send string) string {
 				then done;
 			}
 			action def Round {
+				in ref context : Host;
 				first start;
-				then action fire : Fire { in ref dev = this.device; }
+				then action fire : Fire { in ref dev = context.device; }
 				then done;
 			}
-			perform action round : Round;
+			perform action round : Round { in ref :>> context = this; }
 		}
 	}`
 }

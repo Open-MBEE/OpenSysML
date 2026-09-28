@@ -88,7 +88,13 @@ capability before reading `Documents`, `Referrers` or an applied edit's `Documen
 `is_abstract`, `redefines`, `is_default` and `direction`. Abstract and directional notation is
 limited to grammar-admitted member kinds; `redefines` is only for usages and takes lexical feature
 references, while `is_default` requires a value. The `ref` and `return` kinds are also available
-for SysML members. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
+for SysML members, as are the perform-action usages (SysML v2 §7.17.6): `perform action` writes
+`perform action <name> : <ActionDef>;` and `perform` writes `perform <ref>;`, for which `name`
+is the feature reference to the performed action usage (`t.heat`, `Pkg::x.run`) — the usage is
+named by the action it references, so the name is checked as a feature reference, resolved from
+the owner's scope, and the last segment is what the member-name-taken check refuses a duplicate
+of. `perform` takes the reference alone: a type, multiplicity, value, specializes, redefines,
+direction or abstract flag is refused. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`

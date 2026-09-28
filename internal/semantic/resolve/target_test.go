@@ -84,3 +84,200 @@ func TestResolveTargetUnknown(t *testing.T) {
 		t.Fatalf("unknown target must not resolve")
 	}
 }
+
+func TestViaRouteMembersDoNotResolveOutward(t *testing.T) {
+	const name = "via.sysml"
+	src := `package P {
+		item def Go;
+		part def Owner {
+			port p;
+		}
+		part def Scope {
+			part other {
+				port p;
+			}
+			state def Life {
+				in ref context : Owner;
+				state ready;
+				state done;
+				transition first ready accept Go via context.p then done;
+				transition first done accept Go via context.other.p then ready;
+			}
+		}
+	}`
+	p := parser.New(source.New(name, []byte(src)))
+	rootNode := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc(name, rootNode)
+	r := New(idx)
+	r.ResolveDocument(name, rootNode)
+
+	root := idx.DocumentRoot(name)
+	pkg, _ := root.LookupLocal("P")
+	if pkg == nil {
+		t.Fatal("fixture is missing package P")
+	}
+	owner, _ := pkg.Scope.LookupLocal("Owner")
+	scope, _ := pkg.Scope.LookupLocal("Scope")
+	if owner == nil || scope == nil {
+		t.Fatal("fixture is missing Owner or Scope")
+	}
+	life, _ := scope.Scope.LookupLocal("Life")
+	if life == nil {
+		t.Fatal("fixture is missing Scope::Life")
+	}
+	context, _ := life.Scope.LookupLocal("context")
+	if context == nil {
+		t.Fatal("fixture is missing Life.context")
+	}
+	ownerPort, _ := owner.Scope.LookupLocal("p")
+	outerOther, _ := scope.Scope.LookupLocal("other")
+	if outerOther == nil {
+		t.Fatal("fixture is missing Scope.other")
+	}
+	outerPort, _ := outerOther.Scope.LookupLocal("p")
+	if ownerPort == nil || outerPort == nil {
+		t.Fatal("fixture must contain both Owner.p and the unrelated Scope.other.p")
+	}
+
+	lifeDef, ok := life.Scope.Node().(*ast.Definition)
+	if !ok {
+		t.Fatalf("Life scope node = %T, want *ast.Definition", life.Scope.Node())
+	}
+	var positive, negative *ast.QualifiedName
+	addRoute := func(qn *ast.QualifiedName) {
+		if len(qn.Parts) == 2 && qn.Parts[0].Text == "context" && qn.Parts[1].Text == "p" {
+			positive = qn
+		}
+		if len(qn.Parts) == 3 && qn.Parts[0].Text == "context" &&
+			qn.Parts[1].Text == "other" && qn.Parts[2].Text == "p" {
+			negative = qn
+		}
+	}
+	for _, member := range lifeDef.Members {
+		switch m := member.(type) {
+		case *ast.TransitionMember:
+			if m.Via != nil {
+				addRoute(m.Via)
+			}
+		case *ast.Membership:
+			if transition, ok := m.Member.(*ast.TransitionMember); ok && transition.Via != nil {
+				addRoute(transition.Via)
+			}
+		}
+	}
+
+	if positive == nil {
+		t.Fatal("fixture is missing via context.p")
+	}
+	if got, ok := r.PartSymbol(positive, 0); !ok || got != context {
+		t.Errorf("context.p head = %v, want context parameter %v", got, context)
+	}
+	if got, ok := r.PartSymbol(positive, 1); !ok || got != ownerPort {
+		t.Errorf("context.p member = %v, want Owner.p %v", got, ownerPort)
+	}
+
+	if negative == nil {
+		t.Fatal("fixture is missing via context.other.p")
+	}
+	if got, ok := r.PartSymbol(negative, 0); !ok || got != context {
+		t.Errorf("context.other.p head = %v, want context parameter %v", got, context)
+	}
+	if got, ok := r.PartSymbol(negative, 1); ok {
+		t.Errorf("context.other.p resolved `other` as %v; it must not bind Scope.other", got)
+	}
+	if got, ok := r.PartSymbol(negative, 2); ok {
+		t.Errorf("context.other.p resolved `p` as %v; it must stay unresolved", got)
+	}
+}
+
+func TestSendViaBodyRouteMembersDoNotResolveOutward(t *testing.T) {
+	const name = "send-via-body.sysml"
+	src := `package P {
+		attribute def Integer;
+		item def Go {
+			in x : Integer;
+		}
+		part def Owner {
+			port p;
+		}
+		part def Scope {
+			part other {
+				port p;
+			}
+			action def A {
+				in ref context : Owner;
+				action sendPositive send new Go(1) via context.p { in x = 2; }
+				action sendNegative send new Go(1) via context.other.p { in x = 2; }
+			}
+		}
+	}`
+	p := parser.New(source.New(name, []byte(src)))
+	rootNode := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc(name, rootNode)
+	r := New(idx)
+	r.ResolveDocument(name, rootNode)
+
+	root := idx.DocumentRoot(name)
+	pkg, _ := root.LookupLocal("P")
+	owner, _ := pkg.Scope.LookupLocal("Owner")
+	scope, _ := pkg.Scope.LookupLocal("Scope")
+	if owner == nil || scope == nil {
+		t.Fatal("fixture is missing Owner or Scope")
+	}
+	action, _ := scope.Scope.LookupLocal("A")
+	if action == nil {
+		t.Fatal("fixture is missing Scope::A")
+	}
+	context, _ := action.Scope.LookupLocal("context")
+	if context == nil {
+		t.Fatal("fixture is missing A.context")
+	}
+	ownerPort, _ := owner.Scope.LookupLocal("p")
+	outerOther, _ := scope.Scope.LookupLocal("other")
+	if outerOther == nil {
+		t.Fatal("fixture is missing Scope.other")
+	}
+	outerPort, _ := outerOther.Scope.LookupLocal("p")
+	if ownerPort == nil || outerPort == nil {
+		t.Fatal("fixture must contain both Owner.p and the unrelated Scope.other.p")
+	}
+
+	var positive, negative *ast.QualifiedName
+	for _, ref := range References(rootNode, root) {
+		if !ref.Via || ref.QN == nil {
+			continue
+		}
+		parts := ref.QN.Parts
+		if len(parts) == 2 && parts[0].Text == "context" && parts[1].Text == "p" {
+			positive = ref.QN
+		}
+		if len(parts) == 3 && parts[0].Text == "context" &&
+			parts[1].Text == "other" && parts[2].Text == "p" {
+			negative = ref.QN
+		}
+	}
+	if positive == nil || negative == nil {
+		t.Fatalf("send via references = %v, want context.p and context.other.p", References(rootNode, root))
+	}
+	if got, ok := r.PartSymbol(positive, 0); !ok || got != context {
+		t.Errorf("context.p head = %v, want context parameter %v", got, context)
+	}
+	if got, ok := r.PartSymbol(positive, 1); !ok || got != ownerPort {
+		t.Errorf("context.p member = %v, want Owner.p %v", got, ownerPort)
+	}
+	if got, ok := r.PartSymbol(negative, 0); !ok || got != context {
+		t.Errorf("context.other.p head = %v, want context parameter %v", got, context)
+	}
+	if got, ok := r.PartSymbol(negative, 1); ok {
+		t.Errorf("context.other.p resolved `other` as %v; it must not bind Scope.other", got)
+	}
+	if got, ok := r.PartSymbol(negative, 2); ok {
+		t.Errorf("context.other.p resolved `p` as %v; it must stay unresolved", got)
+	}
+}

@@ -1,0 +1,13 @@
+{
+  "type": "instance",
+  "instantiate": "test::top",
+  "slots": {
+    "mid.scale": {"type": "Real", "value": 4.0},
+    "mid.leaf.value": {"type": "Real", "value": 99.0},
+    "mid.leaf.other": {"type": "Real", "value": 5.0}
+  },
+  "constraints": {
+    "readsLeaf": true,
+    "readsScale": true
+  }
+}

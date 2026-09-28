@@ -11,11 +11,11 @@ part def Motor {
         first start then 'set speed';
         action 'set speed' {
             in value;
-            assign this.speed := value;
+            assign speed := value;
         }
         first 'set speed' then 'read speed';
         action 'read speed' {
-            out result = this.speed;
+            out result = speed;
         }
         bind 'set speed'.value = rpm;
         bind result = 'read speed'.result;
@@ -48,13 +48,13 @@ part def Rig {
         perform action spin ::> drive.motor.spin { in rpm = 30.0; in times = 2; }
         first start then spin;
         action spun {
-            assign this.ctrl.got := spin.result;
+            assign ctrl.got := spin.result;
         }
         first spin then spun;
         action alt {
-            if this.mode == 1 {
+            if mode == 1 {
                 action altOp1 {
-                    action go send new Go(n = 3) to this.drive.motor;
+                    action go send new Go(n = 3) to drive.motor;
                     first start then go;
                     first go then done;
                 }
@@ -81,14 +81,14 @@ part def Rig {
         fork par;
         first 'loop' then par;
         action parOp12 {
-            action parEnd send new Go(n = 4) to this.drive.motor;
+            action parEnd send new Go(n = 4) to drive.motor;
             first start then parEnd;
             first parEnd then done;
         }
         first par then parOp12;
         first parOp12 then parEnd2;
         action parOp2 {
-            action parOp1 send new Done() to this.ctrl;
+            action parOp1 send new Done() to ctrl;
             first start then parOp1;
             first parOp1 then done;
         }
@@ -96,9 +96,9 @@ part def Rig {
         first parOp2 then parEnd2;
         join parEnd2;
         action opt {
-            if this.ctrl.got > 10.0 {
+            if ctrl.got > 10.0 {
                 action optOp1 {
-                    /* not migrated: Message 'new' — the message creates the object this.drive.motor, which exists for as long as its owner does */
+                    /* not migrated: Message 'new' — the message creates the object drive.motor, which exists for as long as its owner does */
                     first start then done;
                 }
             }

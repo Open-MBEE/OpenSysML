@@ -212,8 +212,8 @@ jobs:
       - name: Download the pilot library XMI
         run: ./scripts/download-pilot-library-xmi.sh
 
-      # Per-package timeout: under -race, passes and model run within 1% of go's 10m
-      # default. Matches `make test`.
+      # Per-package timeout: under -race the runtime package runs 22-29 minutes on
+      # these runners. Matches `make test`.
       - name: Run Go race tests
         run: make test
 

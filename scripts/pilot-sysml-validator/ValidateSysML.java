@@ -18,6 +18,7 @@ import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.xtext.diagnostics.Severity;
+import org.eclipse.xtext.resource.IResourceServiceProvider;
 import org.eclipse.xtext.util.CancelIndicator;
 import org.eclipse.xtext.validation.CheckMode;
 import org.eclipse.xtext.validation.IResourceValidator;
@@ -33,11 +34,13 @@ import org.omg.sysml.xtext.xmi.SysMLxStandaloneSetup;
 import com.google.inject.Injector;
 
 /**
- * Runs the pilot's own SysMLValidator over .sysml files loaded into one resource set,
- * reporting Xtext issues on stderr in GNU format: file:line:column: severity: message.
+ * Loads .sysml and .kerml files into one resource set and validates each file with its own
+ * language's pilot validator; .kerml files use KerMLValidator as in ValidateKerML.
  *
- * <p>The SysML twin of ValidateKerML: a genuine batch load, as opposed to the accumulating
- * SysMLInteractive session the DeciSym CLI drives one file at a time.
+ * <p>This is a genuine batch load: every file is read before any is validated, unlike the
+ * accumulating SysMLInteractive session the DeciSym CLI drives one file at a time.
+ *
+ * <p>Reports Xtext issues on stderr in GNU format: file:line:column: severity: message.
  */
 public final class ValidateSysML extends SysMLUtil {
 
@@ -101,7 +104,14 @@ public final class ValidateSysML extends SysMLUtil {
     private void validateInputs() {
         for (Input input : inputs) {
             try {
-                for (Issue issue : validator.validate(input.resource, CheckMode.ALL, CancelIndicator.NullImpl)) {
+                IResourceServiceProvider resourceServiceProvider =
+                        IResourceServiceProvider.Registry.INSTANCE
+                                .getResourceServiceProvider(input.resource.getURI());
+                IResourceValidator resourceValidator = resourceServiceProvider == null
+                        ? validator
+                        : resourceServiceProvider.getResourceValidator();
+                for (Issue issue : resourceValidator.validate(
+                        input.resource, CheckMode.ALL, CancelIndicator.NullImpl)) {
                     int line = issue.getLineNumber() == null ? 1 : issue.getLineNumber();
                     int column = issue.getColumn() == null ? 1 : issue.getColumn();
                     report(input.file, line, column, issue.getSeverity(), issue.getMessage());
@@ -167,7 +177,8 @@ public final class ValidateSysML extends SysMLUtil {
             if (Files.isDirectory(path)) {
                 try (Stream<Path> walk = Files.walk(path)) {
                     walk.filter(Files::isRegularFile)
-                            .filter(p -> p.toString().endsWith(SYSML_EXTENSION))
+                            .filter(p -> p.toString().endsWith(SYSML_EXTENSION)
+                                    || p.toString().endsWith(KERML_EXTENSION))
                             .sorted()
                             .forEach(files::add);
                 }
@@ -179,7 +190,8 @@ public final class ValidateSysML extends SysMLUtil {
     }
 
     private static void usage() {
-        STDERR.println("usage: validate-sysml --library DIR [--root DIR] FILE...");
+        STDERR.println("usage: validate-sysml --library DIR [--root DIR] FILE|DIR...");
+        STDERR.println("FILE may end in .sysml or .kerml; DIR is walked for both.");
     }
 
     public static void main(String[] args) {
@@ -217,8 +229,9 @@ public final class ValidateSysML extends SysMLUtil {
 
             List<Path> files = collect(inputs);
             for (Path file : files) {
-                if (!file.toString().endsWith(SYSML_EXTENSION)) {
-                    STDERR.println("Error: File must have .sysml extension: " + file);
+                if (!file.toString().endsWith(SYSML_EXTENSION)
+                        && !file.toString().endsWith(KERML_EXTENSION)) {
+                    STDERR.println("Error: File must have .sysml or .kerml extension: " + file);
                     System.exit(2);
                 }
                 if (!Files.isRegularFile(file)) {
@@ -227,7 +240,7 @@ public final class ValidateSysML extends SysMLUtil {
                 }
             }
             if (files.isEmpty()) {
-                STDERR.println("Warning: No .sysml files found");
+                STDERR.println("Warning: No .sysml or .kerml files found");
                 System.exit(0);
             }
 

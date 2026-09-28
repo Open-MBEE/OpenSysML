@@ -286,8 +286,17 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (lifelineRef, string) {
 		default:
 			return lifelineRef{}, standsFor + describe(rep) + ", which " + qualifiedName(s.context) + " reaches as both " + paths[0] + " and " + paths[1]
 		}
-		ref = lifelineRef{line: line, path: s.self + "." + paths[0], chain: paths[0], typ: s.m.model.Ref(rep, "type")}
-		if s.self != "this" {
+		self := s.self
+		if self == "this" {
+			// Inside the def the object is its context parameter, not this.
+			self = s.m.thisName(s.e)
+			if self == "this" {
+				// Inside a usage the object has no name: its parts spell bare.
+				self = ""
+			}
+		}
+		ref = lifelineRef{line: line, path: joinDot(self, paths[0]), chain: paths[0], typ: s.m.model.Ref(rep, "type")}
+		if self != "this" {
 			ref.chain = ref.path
 		}
 	default:
@@ -634,7 +643,7 @@ func (s *scenario) bindArguments(msg *sysmlv1.Element, targets []*sysmlv1.Elemen
 		}
 		bound[t] = true
 		if kind == "parameter" {
-			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), expr))
+			args = append(args, s.m.parameterBinding(t, s.m.nameOf(t), s.m.callBodyExpr(expr, s.e)))
 		} else {
 			args = append(args, writeName(s.m.nameOf(t))+" = "+expr)
 		}

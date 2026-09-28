@@ -3,7 +3,7 @@
 
 ## approximated (37)
 ControlFlow	Meter::Arm::<ControlFlow>	_a2	(the guard [{JavaScript} ready and enabled] is kept as a comment and the edge written unguarded: the text "and" is not expression syntax: text follows the expression)
-Parameter	Meter::Arm::armed	_armed	-> Meter::Arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
+Parameter	Meter::Arm::armed	_armed	-> Meter::arm::armed	(default value not migrated: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Arm::fuse	_fuse	-> fuse	(the body is kept as a comment: the text "and" is not expression syntax: a statement ends at `;` or a newline)
 OpaqueAction	Meter::Flip::alias	_alias	-> 'alias'	(the body is kept as a comment: the construct "==" is outside the translated subset: Java compares strings by identity with `==`, which a comparison of their values does not reproduce; `equals` compares their content)
 OpaqueAction	Meter::Flip::bump	_bump	-> bump	(the body is kept as a comment: the types at "+" disagree: an operand is a Mode, not a number)
@@ -12,26 +12,26 @@ OpaqueAction	Meter::Flip::match	_match	-> match	(the body is kept as a comment: 
 OpaqueAction	Meter::Flip::narrow	_narrow	-> narrow	(the body is kept as a comment: the types at "hand =" disagree: a Gauge is assigned to the Needle hand holds)
 OpaqueAction	Meter::Flip::pick	_pick	-> pick	(the body is kept as a comment: the types at "count =" disagree: a Mode is assigned to the Integer count holds)
 OpaqueAction	Meter::Measure::cc	_cc	-> cc	(the JavaCC body is written as v2 assignments)
-ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::Measure::judge.ok	(the value pin's value {JavaScript} Math.sqrt(total) is not written: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
+ValuePin	Meter::Measure::judge::ok	_judgeok	-> Meter::measure::judge.ok	(the value pin's value {JavaScript} Math.sqrt(total) is not written: the types at "Math.sqrt(total)" disagree: the expression is a Real, not the Boolean wanted)
 OpaqueAction	Meter::Measure::log	_log	-> log	(the JavaScript body is translated to v2; the console print print(…) is left out, as it writes to the tool's console and changes nothing of the model; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model)
 OpaqueAction	Meter::Measure::shout	_shout	-> shout	(the JavaScript body is translated to v2; the console print println(…) is left out, as it writes to the tool's console and changes nothing of the model)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o2	(the flow is kept as a comment: the body of 'idle' never assigns 'z', so no value leaves it)
 ObjectFlow	Meter::Skip::<ObjectFlow>	_o3	(the flow is kept as a comment: its source 'dark' is not migrated, so no value reaches 'q')
 OpaqueAction	Meter::Skip::dark	_dark	-> dark	(the body is kept as a comment: the statement assigns q, which nothing visible from Meter::Skip::dark is called (language Python))
-OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; this.total must hold a value, so it is assigned only when w, which may hold none, holds one)
-InputPin	Meter::Skip::drain::w	_drainw	-> Meter::Skip::drain.w	(it is declared admitting no value: 'dark', which feeds it, produces no value)
-OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; this.total must hold a value, so it is assigned only when w, which may hold none, holds one)
-InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::Skip::sink.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
+OpaqueAction	Meter::Skip::drain	_drain	-> drain	(the JavaScript body is translated to v2; total must hold a value, so it is assigned only when w, which may hold none, holds one)
+InputPin	Meter::Skip::drain::w	_drainw	-> Meter::skip::drain.w	(it is declared admitting no value: 'dark', which feeds it, produces no value)
+OpaqueAction	Meter::Skip::sink	_sink	-> sink	(the JavaScript body is translated to v2; total must hold a value, so it is assigned only when w, which may hold none, holds one)
+InputPin	Meter::Skip::sink::w	_sinkw	-> Meter::skip::sink.w	(it is declared admitting no value: 'idle', which feeds it, produces no value)
 ActivityPartition	Meter::Sweep::bank	_bank_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents a Bank through the part Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 ActivityPartition	Meter::Sweep::banks	_banks_lane	(a partition names who performs its nodes; it is kept as a comment; the partition represents Meter::banks, but the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
 OpaqueAction	Meter::Sweep::calib	_calib	-> calib	(the body is kept as a comment: the construct "reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
 OpaqueAction	Meter::Sweep::charge	_charge	-> charge	(the body is kept as a comment: the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::charge is called level)
-OpaqueAction	Meter::Sweep::reset	_reset	-> reset	(the body is kept as a comment: the construct "cells.reading" is outside the translated subset: this.cells is a collection, so the assignment would write through several objects)
+OpaqueAction	Meter::Sweep::reset	_reset	-> reset	(the body is kept as a comment: the construct "cells.reading" is outside the translated subset: cells is a collection, so the assignment would write through several objects)
 OpaqueAction	Meter::Sweep::settle	_settle	-> settle	(the body is kept as a comment: the name "level" resolves to nothing readable: nothing visible from Meter::Sweep::settle is called level)
 OpaqueAction	Meter::Sweep::span	_span	-> span	(the body is kept as a comment: the types at "total =" disagree: one side is a collection and the other a single value)
 OpaqueAction	Meter::Sweep::spread	_spread	-> spread	(the body is kept as a comment: the types at "+" disagree: an operand is a collection, not a number)
 OpaqueAction	Meter::Sweep::tally	_tally	-> tally	(the body is kept as a comment: the construct "banks.level" is outside the translated subset: the multiplicity of Meter::banks is not written in numbers, so whether it holds one value cannot be told)
-CallBehaviorAction	Meter::Sweep::ticking	_ticking	-> ticking	(its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior belongs to Gauge and runs here in the caller's context)
+CallBehaviorAction	Meter::Sweep::ticking	_ticking	-> ticking	(its swimlane represents this.cells, a collection of objects, so none of them performs the call, which runs in the caller's context; the behavior acts on a Gauge through its parameter context, which is left unbound: the caller is a Meter, which is no Gauge and has 5 parts that are one, so no one of them is chosen; the behavior belongs to Gauge and runs here in the caller's context)
 Property	Meter::banks	_banks	-> Meter::banks	(multiplicity 1..n is not a range of natural numbers and is not written)
 Property	Meter::gain	_gain	-> Meter::gain	(default value not migrated: the call "total" is not in the translated function table)
 Property	Meter::lit	_lit	-> Meter::lit	(default value not migrated: the text "or" is not expression syntax: text follows the expression)
@@ -49,13 +49,13 @@ ActivityFinalNode	Gauge::Tick::<ActivityFinalNode>	_tfinal	-> final
 InitialNode	Gauge::Tick::<InitialNode>	_tinit	-> start
 Property	Gauge::reading	_reading	-> Gauge::reading
 «Block» Class	Meter	_meter	-> Meter
-Activity	Meter::Arm	_arm	-> Meter::Arm	(the JavaScript body is translated to v2)
+Activity	Meter::Arm	_arm	-> Meter::arm	(written as an action usage of Meter, which a call on an object performs, so its body runs on the object and reaches its features; the JavaScript body is translated to v2)
 ActivityFinalNode	Meter::Arm::<ActivityFinalNode>	_afinal	-> final
 ControlFlow	Meter::Arm::<ControlFlow>	_a3
 InitialNode	Meter::Arm::<InitialNode>	_ainit	-> start
 OpaqueAction	Meter::Arm::latch	_latch	-> latch	(the JavaScript body is translated to v2)
-Parameter	Meter::Arm::limit	_limit	-> Meter::Arm::limit
-Activity	Meter::Flip	_flip	-> Meter::Flip
+Parameter	Meter::Arm::limit	_limit	-> Meter::arm::limit
+Activity	Meter::Flip	_flip	-> Meter::flip	(written as an action usage of Meter, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Meter::Flip::<ActivityFinalNode>	_ffinal	-> final
 ControlFlow	Meter::Flip::<ControlFlow>	_f2
 ControlFlow	Meter::Flip::<ControlFlow>	_f3
@@ -70,7 +70,7 @@ InitialNode	Meter::Flip::<InitialNode>	_finit	-> start
 OpaqueAction	Meter::Flip::same	_same	-> same	(the Java body is translated to v2)
 OpaqueAction	Meter::Flip::smile	_smile	-> smile	(the JavaScript body is translated to v2)
 OpaqueAction	Meter::Flip::widen	_widen	-> widen	(the JavaScript body is translated to v2)
-Activity	Meter::Measure	_measure	-> Meter::Measure
+Activity	Meter::Measure	_measure	-> Meter::measure	(written as an action usage of Meter, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Meter::Measure::<ActivityFinalNode>	_final	-> final
 ControlFlow	Meter::Measure::<ControlFlow>	_c2
 ControlFlow	Meter::Measure::<ControlFlow>	_c3
@@ -82,24 +82,24 @@ ControlFlow	Meter::Measure::<ControlFlow>	_c6
 InitialNode	Meter::Measure::<InitialNode>	_init	-> start
 ObjectFlow	Meter::Measure::<ObjectFlow>	_o1
 OpaqueAction	Meter::Measure::judge	_judge	-> judge	(the JavaScript body is translated to v2)
-ValuePin	Meter::Measure::judge::m	_judgem	-> Meter::Measure::judge.m
-ValuePin	Meter::Measure::judge::n	_judgen	-> Meter::Measure::judge.n
+ValuePin	Meter::Measure::judge::m	_judgem	-> Meter::measure::judge.m
+ValuePin	Meter::Measure::judge::n	_judgen	-> Meter::measure::judge.n
 OpaqueAction	Meter::Measure::quarterly	_quarterly	-> quarterly	(the Java 1.8.0_202 body is translated to v2)
 OpaqueAction	Meter::Measure::record	_record	-> record	(the JavaScript body is translated to v2)
-InputPin	Meter::Measure::record::v	_recordv	-> Meter::Measure::record.v
+InputPin	Meter::Measure::record::v	_recordv	-> Meter::measure::record.v
 OpaqueAction	Meter::Measure::sense	_sense	-> sense	(the JavaScript body is translated to v2)
-ValuePin	Meter::Measure::sense::x	_sensex	-> Meter::Measure::sense.x
-OutputPin	Meter::Measure::sense::y	_sensey	-> Meter::Measure::sense.y
+ValuePin	Meter::Measure::sense::x	_sensex	-> Meter::measure::sense.x
+OutputPin	Meter::Measure::sense::y	_sensey	-> Meter::measure::sense.y
 OpaqueAction	Meter::Measure::split	_split	-> split	(the Java body is translated to v2)
-Activity	Meter::Skip	_skip	-> Meter::Skip
+Activity	Meter::Skip	_skip	-> Meter::skip	(written as an action usage of Meter, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Meter::Skip::<ActivityFinalNode>	_sfinal	-> final
 ControlFlow	Meter::Skip::<ControlFlow>	_s2
 ControlFlow	Meter::Skip::<ControlFlow>	_s3
 InitialNode	Meter::Skip::<InitialNode>	_sinit	-> start
-OutputPin	Meter::Skip::dark::q	_darkq	-> Meter::Skip::dark.q
+OutputPin	Meter::Skip::dark::q	_darkq	-> Meter::skip::dark.q
 OpaqueAction	Meter::Skip::idle	_idle	-> idle	(the JavaScript body is translated to v2)
-OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::Skip::idle.z
-Activity	Meter::Sweep	_sweep	-> Meter::Sweep
+OutputPin	Meter::Skip::idle::z	_idlez	-> Meter::skip::idle.z
+Activity	Meter::Sweep	_sweep	-> Meter::sweep	(written as an action usage of Meter, which a call on an object performs, so its body runs on the object and reaches its features)
 ActivityFinalNode	Meter::Sweep::<ActivityFinalNode>	_wfinal	-> final
 ControlFlow	Meter::Sweep::<ControlFlow>	_w2
 ControlFlow	Meter::Sweep::<ControlFlow>	_w3

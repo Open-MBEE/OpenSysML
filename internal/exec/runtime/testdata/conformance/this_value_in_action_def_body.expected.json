@@ -1,0 +1,8 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "test::Heater",
+  "slots": {
+    "flag": {"type": "Boolean", "value": true}
+  }
+}

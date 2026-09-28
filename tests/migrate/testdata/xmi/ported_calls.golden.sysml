@@ -3,11 +3,12 @@ part def Motor {
     attribute speed : ScalarValues::Real default = 0.0;
     port cmd : MotorCmd;
     action def Spin {
+        in ref context : Motor;
         in rpm : ScalarValues::Real;
         first start then 'set speed';
         action 'set speed' {
             in value;
-            assign this.speed := value;
+            assign context.speed := value;
         }
         bind 'set speed'.value = rpm;
     }
@@ -31,7 +32,7 @@ part def Drive {
         perform action 'spin over p' ::> motor.spin;
         first 'spin over p' then 'read motor';
         action 'read motor' {
-            out result = this.motor;
+            out result = motor;
         }
         first 'read motor' then 'fork';
         fork 'fork';

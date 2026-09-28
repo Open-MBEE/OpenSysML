@@ -56,7 +56,7 @@ part def Recorder {
         action 'after' {
             in x : ScalarValues::Integer[0..1];
             in y : ScalarValues::Integer = 1;
-            out result : ScalarValues::Integer;
+            out result : ScalarValues::Integer[0..1];
             /* not migrated: CallBehaviorAction 'after' — the pin 'x' it passes for the parameter x of fUML IntegerFunctions::plus, which must hold a value, receives none: 'position', which feeds it, produces no value; v1 never fires the call, so the action carries the token and performs nothing */
         }
         first 'after' then join2;
@@ -74,7 +74,7 @@ part def Recorder {
         flow 'first'.result to second.seq;
         flow second.result to size.seq;
         flow second.result to position.seq;
-        /* flow position.result to 'after'.x not written: 'position' is not migrated and produces no value */
+        flow position.result to 'after'.x;
         flow concat.result to print.value;
         metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
         metadata MigrationMetadata::StandIn about 'fork', fork2, 'join', join2;

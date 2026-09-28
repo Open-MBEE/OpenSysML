@@ -399,8 +399,7 @@ const externalMethodCall = `
 func TestMethodCallersKeepTheOperationADefinition(t *testing.T) {
 	r := migrateDocument(t, externalMethodCall, `<sysml:Block xmi:id="_b1" base_Class="_motor"/>`)
 	wantLine(t, r.Notation, "action def Spin {")
-	wantLine(t, r.Notation, "action spin : Motor::Spin;")
-	wantNoLine(t, r.Notation, "action spin;")
+	wantLine(t, r.Notation, "action spin : Spin;")
 	wantClean(t, "t.sysml", r)
 }
 

@@ -42,11 +42,12 @@ func hostWiring(param, binding string) string {
 				then done;
 			}
 			action def Round {
+				in ref context : Host;
 				first start;
-				then action fire : Fire { in ref dev = this.device; ` + binding + ` }
+				then action fire : Fire { in ref dev = context.device; ` + binding + ` }
 				then done;
 			}
-			perform action round : Round;
+			perform action round : Round { in ref :>> context = this; }
 		}
 	}`
 }

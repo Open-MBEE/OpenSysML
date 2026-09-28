@@ -13,37 +13,40 @@ package test {
 		part sensor : Sensor;
 
 		action def Cycle {
+			in ref context : Station;
 			action def Sample {
-				perform action read ::> sensor.sample;
+				in ref context : Station;
+				perform action read ::> context.sensor.sample;
 				action sum {
-					assign this.last := this.sensor.reading;
-					assign this.total := this.total + this.last;
+					assign context.last := context.sensor.reading;
+					assign context.total := context.total + context.last;
 				}
 				first start then read;
 				first read then sum;
 			}
 
-			action sample : Sample;
+			action sample : Sample { in ref :>> context = Cycle::context; }
 			action count {
-				assign this.cycles := this.cycles + 1;
+				assign context.cycles := context.cycles + 1;
 			}
 			first start then sample;
 			first sample then count;
 		}
 
-		perform action cycle : Cycle;
+		perform action cycle : Cycle { in ref :>> context = this; }
 	}
 
 	part def Sensor {
 		attribute reading : Real = 0.0;
 
 		action def Read {
+			in ref context : Sensor;
 			action bump {
-				assign this.reading := this.reading + 1.5;
+				assign context.reading := context.reading + 1.5;
 			}
 			first start then bump;
 		}
 
-		action sample : Read;
+		action sample : Read { in ref :>> context = this; }
 	}
 }
