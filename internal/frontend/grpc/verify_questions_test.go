@@ -297,6 +297,50 @@ func TestVerifyQuestionsSatisfaction(t *testing.T) {
 	}
 }
 
+// TestVerifyQuestionsPinsNoSubObjectFeature: a subject's redefinition never
+// pins a feature a longer chain names through a sub-object — `vehicle.sub.power`
+// is sub's power, not the subject's, so `deepLimit` is violated with
+// `vehicle.sub.power` in the witness.
+func TestVerifyQuestionsPinsNoSubObjectFeature(t *testing.T) {
+	requireSolver(t)
+	srv := mustNewService(t, 10)
+	source := `package P {
+	private import ScalarValues::*;
+	part def Thing { attribute power : Real; part sub : Thing; }
+	requirement def DeepLimit {
+		subject vehicle : Thing;
+		require constraint { vehicle.sub.power <= 4.0 }
+	}
+	requirement deepLimit : DeepLimit;
+	part craft : Thing { attribute :>> power = 5.0; }
+	part analysis { assert satisfy deepLimit by craft; }
+}
+`
+	hash := mustVerifyModel(t, srv, source, "verify-satisfy-deep")
+	resp, err := srv.VerifySatisfaction(context.Background(), &pb.VerifySatisfactionRequest{
+		ModelHash: hash, Question: "holds",
+	})
+	if err != nil {
+		t.Fatalf("VerifySatisfaction: %v", err)
+	}
+	if len(resp.Verdicts) != 1 {
+		t.Fatalf("got %d verdicts, want the one assertion's: %v", len(resp.Verdicts), resp.Verdicts)
+	}
+	v := resp.Verdicts[0]
+	if v.Status != statusViolated {
+		t.Fatalf("verdict is status=%q error=%q, want violated — a false proof pins sub.power", v.Status, v.Error)
+	}
+	var saw bool
+	for _, w := range v.Witness {
+		if strings.HasSuffix(w.Feature, "vehicle.sub.power") {
+			saw = true
+		}
+	}
+	if !saw {
+		t.Fatalf("witness %+v names no vehicle.sub.power", v.Witness)
+	}
+}
+
 // TestVerifyQuestionsPinsNoChainVarOnAnotherObject: the subject's redefinition
 // pins the def-scope feature, never a chain var naming the same feature on
 // another object — c is violated with a witness where other.power < 5, only

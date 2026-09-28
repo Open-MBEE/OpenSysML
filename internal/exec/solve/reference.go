@@ -218,10 +218,18 @@ func (t *translator) variableOf(
 	}
 	v := t.declare(variableName(t, chain), sort, target, dimension)
 	if v.Root == nil {
+		var steps []*symbols.Symbol
 		for _, step := range chain {
 			if featureDecl(step) {
-				v.Root = step
-				break
+				steps = append(steps, step)
+			}
+		}
+		// Only a chain of exactly [object, feature] is a pin candidate: a longer
+		// chain's root indexes into a sub-object, never the pinned object.
+		if len(steps) >= 1 {
+			v.Root = steps[0]
+			if len(steps) > 2 {
+				v.Root = nil
 			}
 		}
 	}
