@@ -87,6 +87,25 @@ It was the first of the two bridges, and since F6 the SysML side works the same 
 resource set per root, diagnostics printed relative to the corpus root, no ordering to emulate
 and no basename batching.
 
+The SysML bridge also reads `.kerml` files — named on the command line or found by walking a
+directory — into the same resource set, and validates each file with its own language's
+validator, looked up from the resource's URI: a `.kerml` file gets the pilot's
+`KerMLResourceValidator`, exactly as `validate-kerml` gives it (over `kerml-examples` the two
+bridges print identical diagnostics). That is what a model checked together with the OpenSysML
+libraries needs: two of them, `RandomFunctions.kerml` and `OpenSysMLMathFunctions.kerml`, are
+KerML, and a model that calls `RandomFunctions::uniform` would otherwise report every such call
+as `Couldn't resolve reference to Element 'RandomFunctions::uniform'` plus `Must invoke a
+behavior or a behavioral feature`. Pass the whole library directory:
+
+```bash
+build/pilot-sysml-validator/validate-sysml-batch model.sysml \
+    "internal/workspace/libs/stdlib/OpenSysML Libraries"
+```
+
+This harness still hands each language to its own bridge (a `.kerml` file of a root goes to
+`validate-kerml`), so the committed baseline's verdicts are unchanged by this; only the bridge's
+source digest in its provenance moved.
+
 EMF renders object references with an identity hash code and an absolute `file:` URI, which
 would differ between runs and machines; the bridge rewrites those to the display path, so
 repeated runs are byte-identical.

@@ -1778,6 +1778,11 @@ standard forms stay: `fork`, `join`, an entry point's default entry and a machin
 points are written as before. The default migration is unchanged — it writes the extension
 notation, which the runtime executes and the validator reports as a warning.
 
+To check strict output against the pinned pilot implementation, validate it together with the
+whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated
+Monte Carlo analyses call, is KerML); see
+[Pilot differential](../project/pilot-differential.md#the-kerml-side-of-the-bridge).
+
 #### Deferred signals under `-strict`
 
 A v1 state that defers a signal keeps every occurrence arriving while it is active and
