@@ -1157,19 +1157,22 @@ func (s *stateRegion) deferrals(v, do, exit *sysmlv1.Element) *deferrals {
 // foldDeferrals drops from a deferral every loop another deferral of the
 // state, on the same signal or a general of it, accepts by too: the general's
 // loop keeps those occurrences already, and two loops would keep them twice.
-// A deferral left with no loop is reported as kept by the other.
+// A deferral left with no loop is reported as kept by the deferral its loops
+// went to that itself keeps a loop, through any folded away in between.
 func (s *stateRegion) foldDeferrals(v *sysmlv1.Element, d *deferrals) {
-	kept := d.kept[:0]
-	for i, k := range d.kept {
-		var by *deferral
-		for j, g := range d.kept {
+	by := map[*deferral]*deferral{}
+	all := d.kept
+	var kept []*deferral
+	stays := map[*deferral]bool{}
+	for i, k := range all {
+		for j, g := range all {
 			if i == j || !s.m.signalConforms(k.sig, g.sig) || (g.sig == k.sig && j > i) {
 				continue
 			}
 			loops := k.loops[:0]
 			for _, l := range k.loops {
 				if g.hasRoute(l.port) {
-					by = g
+					by[k] = g
 					continue
 				}
 				loops = append(loops, l)
@@ -1178,11 +1181,20 @@ func (s *stateRegion) foldDeferrals(v *sysmlv1.Element, d *deferrals) {
 		}
 		if len(k.loops) > 0 {
 			kept = append(kept, k)
+			stays[k] = true
+		}
+	}
+	for _, k := range all {
+		if stays[k] {
 			continue
 		}
-		note := "kept by the accept loop of the deferral of " + qualifiedName(by.sig) + " in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice"
+		g := by[k]
+		for !stays[g] {
+			g = by[g]
+		}
+		note := "kept by the accept loop of the deferral of " + qualifiedName(g.sig) + " in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice"
 		s.m.add(k.trigger, Approximated, "", note)
-		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the deferral of "+qualifiedName(by.sig)+", whose accept loop keeps every occurrence of the signal")
+		s.m.add(k.event, Approximated, "", "deferred by "+describe(v)+" through the deferral of "+qualifiedName(g.sig)+", whose accept loop keeps every occurrence of the signal")
 	}
 	d.kept = kept
 }

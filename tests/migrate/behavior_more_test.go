@@ -1070,14 +1070,19 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 // A state deferring a signal and a general of it, or the same signal twice,
 // keeps each occurrence once: the general's accept loop takes every occurrence
 // of the specialization, so the specialization gets no loop of its own, and a
-// second trigger on one signal folds into the first.
+// second trigger on one signal folds into the first. Through a chain of
+// generals the note names the deferral whose loop is written.
 func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
 	const machine = `
-    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gNotif" general="_event"/>
+    </packagedElement>
     <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm">
       <generalization xmi:type="uml:Generalization" xmi:id="_gAlarm" general="_notif"/>
     </packagedElement>
     <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv" signal="_notif"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv2" signal="_notif"/>
     <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
@@ -1090,6 +1095,7 @@ func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dAlarm" event="_alarmEv"/>
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif" event="_notifEv"/>
             <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif2" event="_notifEv2"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dEvent" event="_eventEv"/>
           </subvertex>
           <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
           <subvertex xmi:type="uml:State" xmi:id="_once" name="Once"/>
@@ -1111,17 +1117,19 @@ func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
 	for _, line := range []string{
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
 		"@MigrationMetadata::DeferredEvent { ref :>> signal : Notification; }",
-		"item deferred : Notification[*] ordered;",
-		"action receive accept kept : Notification;",
+		"item deferred : Event[*] ordered;",
+		"action receive accept kept : Event;",
 	} {
 		wantLine(t, r.Notation, line)
 	}
 	wantNoLine(t, r.Notation, "item deferredAlarm : Alarm[*] ordered;")
 	wantNoLine(t, r.Notation, "item deferredNotification : Notification[*] ordered;")
-	wantNote(t, r, "_dNotif", migrate.Approximated, "kept in the item deferred by the accept loop")
-	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept by the accept loop of the deferral of Notification in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice")
-	wantNote(t, r, "_dNotif2", migrate.Approximated, "kept by the accept loop of the deferral of Notification in the same state")
-	wantNote(t, r, "_alarmEv", migrate.Approximated, "deferred by 'Busy' through the deferral of Notification")
+	wantNoLine(t, r.Notation, "item deferredEvent : Event[*] ordered;")
+	wantNote(t, r, "_dEvent", migrate.Approximated, "kept in the item deferred by the accept loop")
+	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice")
+	wantNote(t, r, "_dNotif", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state")
+	wantNote(t, r, "_dNotif2", migrate.Approximated, "kept by the accept loop of the deferral of Event in the same state")
+	wantNote(t, r, "_alarmEv", migrate.Approximated, "deferred by 'Busy' through the deferral of Event")
 	wantClean(t, "deferralOverlap", r)
 
 	s := session(t, r)
