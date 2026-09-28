@@ -1038,3 +1038,50 @@ func assertQueryError(t *testing.T, err error, want QueryErrorKind) {
 		t.Errorf("status code = %s, want %s", got, connect.CodeInvalidArgument)
 	}
 }
+
+// Every spelling of a metadata usage declares a queryable element: the
+// `metadata` spelling and the `@Tag;` / `@Tag { ... }` prefix spellings alike,
+// the unnamed ones identified by position.
+func TestQueryReportsMetadataUsages(t *testing.T) {
+	model := `package Q {
+	metadata def Tag;
+	part def S { @Tag; }
+	part def T { metadata Tag; }
+	part def U { @ m : Tag; }
+	part def V { @Tag { doc /* about V */ } }
+}`
+	t.Run("metadata usages", func(t *testing.T) {
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{
+			Where: primitive(QueryPropType, opEqual, false, "MetadataUsage"),
+		})
+		want := []string{"Q::S::@0", "Q::T::@0", "Q::U::m", "Q::V::@0"}
+		if len(resp.Elements) != len(want) {
+			t.Fatalf("metadata usage elements = %d, want %d: %v", len(resp.Elements), len(want), resp.Elements)
+		}
+		for i, element := range resp.Elements {
+			if element.Id != want[i] {
+				t.Errorf("element[%d].Id = %q, want %q", i, element.Id, want[i])
+			}
+			if element.Type != "MetadataUsage" {
+				t.Errorf("element[%d].Type = %q, want MetadataUsage", i, element.Type)
+			}
+		}
+	})
+	t.Run("documentation nested in a metadata body", func(t *testing.T) {
+		_, _, resp := runQueryOnSource(t, model, &pb.Query{
+			Where: primitive(QueryPropType, opEqual, false, "Documentation"),
+		})
+		want := []string{"Q::V::@0::@0"}
+		if len(resp.Elements) != len(want) {
+			t.Fatalf("documentation elements = %d, want %d: %v", len(resp.Elements), len(want), resp.Elements)
+		}
+		for i, element := range resp.Elements {
+			if element.Id != want[i] {
+				t.Errorf("element[%d].Id = %q, want %q", i, element.Id, want[i])
+			}
+			if element.Type != "Documentation" {
+				t.Errorf("element[%d].Type = %q, want Documentation", i, element.Type)
+			}
+		}
+	})
+}

@@ -33,7 +33,6 @@ func (FeatureReferencePass) Run(ctx *Context, name string, root *ast.RootNamespa
 	}}
 	w := &kit.Walker{Ctx: ctx}
 	w.Walk(rootScope, c.checkSymbol)
-	c.checkAnnotationBodies(rootScope, root)
 	c.walkFilters(rootScope, make(map[*symbols.Scope]bool))
 	return c.diags
 }
@@ -100,22 +99,6 @@ func (c *featureReferenceChecker) checkSymbol(sym *symbols.Symbol) {
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
 	case *ast.Definition:
 		c.walkMembers(refSite{sym: sym, inBody: true}, scope, d.Members)
-	}
-	c.checkAnnotationBodies(semantics.AnnotationScope(sym), sym.Decl)
-}
-
-// checkAnnotationBodies visits what an unnamed annotation written on decl
-// declares in its body, at any depth: no symbol owns such a body, so the
-// symbol walk does not reach the values it binds.
-func (c *featureReferenceChecker) checkAnnotationBodies(scope *symbols.Scope, decl ast.Node) {
-	if scope == nil {
-		return
-	}
-	for _, a := range semantics.MetadataAnnotationsWritten(decl) {
-		if body := kit.UnnamedMetadataBody(scope, a.Node); body != nil {
-			c.checkAnnotationBodies(body, a.Node)
-			kit.ForEachBodySymbol(body, c.checkSymbol)
-		}
 	}
 }
 
