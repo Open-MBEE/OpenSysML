@@ -1046,7 +1046,7 @@ func TestQueryReportsMetadataUsages(t *testing.T) {
 	model := `package Q {
 	metadata def Tag;
 	part def S { @Tag; }
-	part def T { metadata Tag; }
+	part def T { metadata Tag { doc /* about T */ } }
 	part def U { @ m : Tag; }
 	part def V { @Tag { doc /* about V */ } }
 }`
@@ -1069,18 +1069,24 @@ func TestQueryReportsMetadataUsages(t *testing.T) {
 	})
 	t.Run("documentation nested in a metadata body", func(t *testing.T) {
 		_, _, resp := runQueryOnSource(t, model, &pb.Query{
-			Where: primitive(QueryPropType, opEqual, false, "Documentation"),
+			Where:  primitive(QueryPropType, opEqual, false, "Documentation"),
+			Select: []string{QueryPropOwner},
 		})
-		want := []string{"Q::V::@0::@0"}
+		want := map[string]string{"Q::T::@0::@0": "Q::T::@0", "Q::V::@0::@0": "Q::V::@0"}
 		if len(resp.Elements) != len(want) {
 			t.Fatalf("documentation elements = %d, want %d: %v", len(resp.Elements), len(want), resp.Elements)
 		}
-		for i, element := range resp.Elements {
-			if element.Id != want[i] {
-				t.Errorf("element[%d].Id = %q, want %q", i, element.Id, want[i])
+		for _, element := range resp.Elements {
+			wantOwner, ok := want[element.Id]
+			if !ok {
+				t.Errorf("unexpected documentation element %q", element.Id)
+				continue
 			}
 			if element.Type != "Documentation" {
-				t.Errorf("element[%d].Type = %q, want Documentation", i, element.Type)
+				t.Errorf("element %q Type = %q, want Documentation", element.Id, element.Type)
+			}
+			if got := element.Properties[QueryPropOwner]; got != wantOwner {
+				t.Errorf("element %q owner = %q, want %q", element.Id, got, wantOwner)
 			}
 		}
 	})

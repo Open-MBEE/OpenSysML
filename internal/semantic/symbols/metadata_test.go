@@ -153,3 +153,48 @@ func TestUnnamedPrefixMetadataUsageIsAMember(t *testing.T) {
 		t.Fatal("V's metadata usage is missing its body scope")
 	}
 }
+
+// OwningElement reports the member declaring a scope's node — for a metadata
+// body the annotation usage, even once resolution stamps the metaclass as the
+// scope's owner for member lookup.
+func TestOwningElementReportsTheDeclaringMember(t *testing.T) {
+	root := build(t, `metadata def Tag;
+	part def V { @Tag { doc /* x */ } }
+	part def T { part inner; }
+`)
+	v, ok := root.LookupLocal("V")
+	if !ok {
+		t.Fatal("part def V not found")
+	}
+	var usage, tagDef *Symbol
+	root.ForEachMember(func(sym *Symbol) bool {
+		if sym.Name == "Tag" {
+			tagDef = sym
+		}
+		return true
+	})
+	v.Scope.ForEachMember(func(sym *Symbol) bool {
+		if sym.Kind == SymbolMetadataUsage {
+			usage = sym
+			return false
+		}
+		return true
+	})
+	if usage == nil || usage.Scope == nil {
+		t.Fatal("V's metadata usage or its body scope not found")
+	}
+	if tagDef == nil {
+		t.Fatal("Tag not found")
+	}
+	usage.Scope.SetOwner(tagDef)
+	if got := usage.Scope.OwningElement(); got != usage {
+		t.Fatalf("body scope OwningElement = %v, want the metadata usage", got)
+	}
+	t2, ok := root.LookupLocal("T")
+	if !ok {
+		t.Fatal("part def T not found")
+	}
+	if got := t2.Scope.OwningElement(); got != t2.Scope.Owner() {
+		t.Fatalf("part def body OwningElement = %v, want Owner %v", got, t2.Scope.Owner())
+	}
+}
