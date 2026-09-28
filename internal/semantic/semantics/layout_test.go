@@ -100,6 +100,144 @@ func TestLayoutOfFirstViewLocalAnnotationWins(t *testing.T) {
 	}
 }
 
+// The `start` every action body inherits is one library element, so a Layout
+// about `A::start` positions A's start alone, and one about clause naming
+// two owners' starts keeps each owner's namespace apart.
+func TestMemberLayoutOfKeepsInheritedMembersApartByOwner(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def A { action a; first start then a; }
+		action def B { action b; first start then b; }
+		action def C { action c; first start then c; }
+		view v {
+			expose A; expose B; expose C;
+			metadata Layout about A::start { x = 10; y = 10; width = 15; height = 15; }
+			metadata Layout about B::start, C::start { x = 20; y = 20; width = 15; height = 15; }
+		}
+	`)
+	view := sym(t, p, "v")
+	for _, tc := range []struct {
+		owner string
+		x     float64
+	}{{"A", 10}, {"B", 20}, {"C", 20}} {
+		site, ok := m.MemberLayoutOf(view, sym(t, p, tc.owner), "start")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Fatalf("MemberLayoutOf(v, %s, start) = %+v, %v", tc.owner, site, ok)
+		}
+		if !sameElement(site.Via, sym(t, p, tc.owner)) {
+			t.Errorf("MemberLayoutOf(v, %s, start) reached start via %v", tc.owner, site.Via)
+		}
+	}
+	start, ok := m.LookupMember(sym(t, p, "A"), "start")
+	if !ok {
+		t.Fatal("A has no start")
+	}
+	if sites := m.LayoutSitesOf(start); len(sites) != 3 {
+		t.Fatalf("LayoutSitesOf(start) has %d sites, want 3", len(sites))
+	}
+}
+
+// A Layout stated on an inherited member itself positions it in every body
+// inheriting it, after one naming the member as the body's: qualified through
+// the body, or stated unqualified in the body. A member the body declares
+// itself resolves as any element does.
+func TestMemberLayoutOfFallsBackToInheritedMembersOwnLayout(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s { @Layout { x = 1; y = 1; } } }
+		action def A :> Base { action a; first s then a; }
+		action def B :> Base { action b; first s then b; metadata Layout about s { x = 20; y = 20; } }
+		action def C :> Base { action c; first s then c; }
+		action def D { action s { @Layout { x = 4; y = 4; } } }
+		view v {
+			expose A; expose B; expose C; expose D;
+			metadata Layout about A::s { x = 10; y = 10; }
+		}
+	`)
+	view := sym(t, p, "v")
+	for _, tc := range []struct {
+		owner string
+		x     float64
+	}{{"A", 10}, {"B", 20}, {"C", 1}, {"D", 4}} {
+		site, ok := m.MemberLayoutOf(view, sym(t, p, tc.owner), "s")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Errorf("MemberLayoutOf(v, %s, s) = %+v, %v, want x = %v", tc.owner, site, ok, tc.x)
+		}
+	}
+}
+
+// A Layout naming a member through an inheriting body, or stated unqualified in
+// one, positions that body's member alone: neither the declaring body's nor an
+// enclosing body's that inherits the member too. One stated unqualified where no
+// body but the declaring one has the member is the declaring body's, which every
+// inheriting body falls back to.
+func TestMemberLayoutOfKeepsTheDeclaringMemberApartFromInheritors(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s; first s then done; }
+		action def A :> Base {
+			action a; first s then a;
+			action def N :> Base { action n; first s then n; metadata Layout about s { x = 30; y = 30; } }
+		}
+		action def B :> Base { action b; first s then b; }
+		view v {
+			expose Base; expose A; expose A::N; expose B;
+			metadata Layout about B::s { x = 20; y = 20; }
+		}
+		view w { expose Base; expose A; expose B; private import Base::*; metadata Layout about s { x = 40; y = 40; } }
+	`)
+	for _, tc := range []struct {
+		view, owner string
+		x           float64
+		found       bool
+	}{
+		{"v", "B", 20, true},
+		{"v", "A::N", 30, true},
+		{"v", "Base", 0, false},
+		{"v", "A", 0, false},
+		{"w", "Base", 40, true},
+		{"w", "A", 40, true},
+		{"w", "B", 40, true},
+	} {
+		owner := sym(t, p, strings.Split(tc.owner, "::")[0])
+		if rest := strings.Split(tc.owner, "::")[1:]; len(rest) > 0 {
+			owner = sym(t, owner.Scope, rest[0])
+		}
+		site, ok := m.MemberLayoutOf(sym(t, p, tc.view), owner, "s")
+		if ok != tc.found || ok && (site.Layout == nil || site.Layout.X != tc.x) {
+			t.Errorf("MemberLayoutOf(%s, %s, s) = %+v, %v, want x = %v, %v", tc.view, tc.owner, site, ok, tc.x, tc.found)
+		}
+	}
+}
+
+// A view's own site wins over one applying in every view whichever body each
+// names: a view positioning an inherited member through the declaring body
+// overrides a Layout stated outside any view through the inheriting body, and
+// outside that view the latter applies.
+func TestMemberLayoutOfPrefersTheViewsSiteOverAnyOwnersGlobalOne(t *testing.T) {
+	m, p := layoutModel(t, `
+		private import DiagramLayout::*;
+		action def Base { action s; first s then done; }
+		action def A :> Base { action a; first s then a; }
+		metadata Layout about A::s { x = 10; y = 10; }
+		view v { expose A; metadata Layout about Base::s { x = 20; y = 20; } }
+		view w { expose A; }
+	`)
+	a := sym(t, p, "A")
+	for _, tc := range []struct {
+		view string
+		x    float64
+	}{{"v", 20}, {"w", 10}} {
+		site, ok := m.MemberLayoutOf(sym(t, p, tc.view), a, "s")
+		if !ok || site.Layout == nil || site.Layout.X != tc.x {
+			t.Errorf("MemberLayoutOf(%s, A, s) = %+v, %v, want x = %v", tc.view, site, ok, tc.x)
+		}
+	}
+	if site, ok := m.MemberLayoutOf(nil, a, "s"); !ok || site.Layout == nil || site.Layout.X != 10 {
+		t.Errorf("MemberLayoutOf(nil, A, s) = %+v, %v, want x = 10", site, ok)
+	}
+}
+
 func TestRouteOfReadsWaypointPairs(t *testing.T) {
 	m, p := layoutModel(t, `
 		private import DiagramLayout::*;

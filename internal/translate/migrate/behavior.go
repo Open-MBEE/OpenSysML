@@ -128,7 +128,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.opaqueBehaviorBody(e, e)
 	}
 	m.stereotypeAnnotations(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
@@ -412,6 +412,9 @@ func (m *migration) v2Expr(text, lang string, scope *sysmlv1.Element) (expr stri
 	if missing := m.invisible(refs, scope); missing != "" {
 		return "", false, missing + langNote(lang)
 	}
+	visible, _ := m.visibleFrom(scope)
+	text = m.renamedRoots(text, refs, visible, nil)
+	refs, _ = exprRefs(text)
 	return m.qualifySelf(text, refs, scope), true, ""
 }
 

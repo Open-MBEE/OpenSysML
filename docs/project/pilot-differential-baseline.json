@@ -54,14 +54,14 @@
         "dir": "tests/testdata",
         "origin": "ours",
         "files": 18,
-        "digest": "sha256:e94ae1ca4106335c99633228ca4ebd5b8f5c70a09040590646b660c2cbb2d366"
+        "digest": "sha256:0bf9cc92df5634289ecb4d8a49016aeac48d637a69f4452ba27fb36ac2fb3152"
       },
       {
         "name": "examples",
         "dir": "examples",
         "origin": "ours",
         "files": 45,
-        "digest": "sha256:4da82ecb1004258d34382d59c3f816c4212c20f7b600a8476fd2f6be6b8ebb4b"
+        "digest": "sha256:027097b1740e6f7f90d9b8f4b7c95da0b84edd1b7aff924afa90e27f0fc718e4"
       },
       {
         "name": "probes",

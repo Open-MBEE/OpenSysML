@@ -37,6 +37,7 @@ part def Gate {
                     /* not migrated: DestroyObjectAction 'drop log' — no v2 form for a UML DestroyObjectAction */
                 }
                 metadata MigrationMetadata::SynthesizedName about 'fork';
+                metadata MigrationMetadata::StandIn about 'fork';
             }
             do action poll {
                 /* body not migrated (the statement "CALL POLL(count)" is not an assignment of a v2 expression (language Fortran)) {Fortran}:

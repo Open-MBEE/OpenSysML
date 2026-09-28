@@ -286,6 +286,7 @@ package OpenSysMLPipeline {
         part redefinitionConformance : ConstraintCheck { attribute :>> goType = "RedefinitionConformancePass"; }
         part shortNameDistinguishability : NameResolutionCheck { attribute :>> goType = "W9CShortNameDistinguishabilityPass"; }
         part userStandardLibrary : NameResolutionCheck { attribute :>> goType = "W9CUserStandardLibraryPass"; }
+        part libraryRootName : NameResolutionCheck { attribute :>> goType = "LibraryRootNamePass"; }
         part inheritedNameConflicts : TypeCheck { attribute :>> goType = "W9CInheritedNameConflictPass"; }
         part boundFeatureTypes : TypeCheck { attribute :>> goType = "W9CBoundFeatureTypesPass"; }
         part usageTyping : TypeCheck { attribute :>> goType = "W11AUsageTypingPass"; }

@@ -234,9 +234,9 @@ func TestDiagramLayoutUnplaceableInlineAnnotationsWarn(t *testing.T) {
 		"Layout positions dependency P::feeds", "no rendering draws as a node")
 }
 
-// A Style colours a node or an edge, a Note is drawn beside a node or free in a
-// view; each is judged like a Layout, and two Notes about one element are both
-// drawn rather than duplicates.
+// A Style colours a node or an edge, a Note is drawn beside a node, beside an
+// edge or free in a view; each is judged like a Layout, and two Notes about one
+// element are both drawn rather than duplicates.
 func TestDiagramLayoutStyleAndNoteAnnotations(t *testing.T) {
 	src := layoutModel(`	part def Pump;
 	part def Tank;
@@ -254,6 +254,7 @@ func TestDiagramLayoutStyleAndNoteAnnotations(t *testing.T) {
 		metadata Note about Loop::pump { text = "first"; x = 10; y = 10; }
 		metadata Note about Loop::pump { text = "second"; x = 20; y = 20; }
 		metadata Note about Loop::supply { text = "on an edge"; x = 30; y = 30; }
+		metadata Note about Pump { text = "on nothing drawn"; x = 40; y = 40; }
 		metadata Style about Loop::tank { fill = "orange"; }
 	}
 `)
@@ -263,9 +264,9 @@ func TestDiagramLayoutStyleAndNoteAnnotations(t *testing.T) {
 	}
 	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 11,
 		"Style colours dependency P::feeds", "no rendering draws as a node or an edge")
-	wantLayoutDiag(t, src, diags[1], diag.SeverityWarning, "diagram-layout-unplaced", 19,
-		"Note annotates connection P::Loop::supply", "does not draw as a node")
-	wantLayoutDiag(t, src, diags[2], diag.SeverityError, "diagram-layout-value", 20,
+	wantLayoutDiag(t, src, diags[1], diag.SeverityWarning, "diagram-layout-unplaced", 20,
+		"Note annotates part def P::Pump", "does not draw as a node or an edge")
+	wantLayoutDiag(t, src, diags[2], diag.SeverityError, "diagram-layout-value", 21,
 		`fill of Style is "orange", not a colour written #RRGGBB`)
 }
 
@@ -385,6 +386,57 @@ func TestDiagramLayoutViewLocalAnnotationsFollowInheritedBehavior(t *testing.T) 
 	if diags := layoutDiags(t, src); len(diags) != 0 {
 		t.Fatalf("got %d diagnostics, want none: %v", len(diags), diags)
 	}
+}
+
+// Every action body inherits one start from the library; a Layout naming it as
+// one body's positions that body's start alone, so the checker judges it by
+// whether the view draws that body, not by whether it draws any start.
+func TestDiagramLayoutInheritedMemberJudgedByItsOwner(t *testing.T) {
+	src := layoutModel(`	action def Acquire {
+		first start then measure;
+		action measure;
+	}
+	action def Track {
+		first start then follow;
+		action follow;
+	}
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose Track;
+		metadata Layout about Track::start { x = 1; y = 1; }
+		metadata Layout about Acquire::start { x = 2; y = 2; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 15,
+		"Layout positions", "start", "action rendering of view P::flow does not draw as a node")
+}
+
+// One action node inherited by several bodies is drawn once per body, so a
+// Layout naming it as each drawn body's is no duplicate of another's, one
+// naming it as the declaring body's is placed by any body drawing it, and one
+// naming it as an undrawn body's is unplaced.
+func TestDiagramLayoutInheritedNodesJudgedPerBody(t *testing.T) {
+	src := layoutModel(`	action def Base { action s; first start then s; }
+	action def A :> Base { action a; first s then a; }
+	action def B :> Base { action b; first s then b; }
+	action def C :> Base { action c; first s then c; }
+	view flow : StandardViewDefinitions::ActionFlowView {
+		expose A; expose B;
+		metadata Layout about A::s { x = 10; y = 10; }
+		metadata Layout about B::s { x = 20; y = 20; }
+		metadata Layout about Base::s { x = 1; y = 1; }
+		metadata Layout about C::s { x = 30; y = 30; }
+	}
+`)
+	diags := layoutDiags(t, src)
+	if len(diags) != 1 {
+		t.Fatalf("got %d diagnostics, want 1: %v", len(diags), diags)
+	}
+	wantLayoutDiag(t, src, diags[0], diag.SeverityWarning, "diagram-layout-unplaced", 13,
+		"Layout positions", "P::Base::s", "action rendering of view P::flow does not draw as a node")
 }
 
 func TestDiagramLayoutDuplicateViewLocalAnnotationWarnsOnTheSecond(t *testing.T) {

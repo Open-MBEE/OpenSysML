@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/mtip"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/simresults"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
@@ -130,82 +131,86 @@ func FromModel(name string, model *sysmlv1.Model) *Result {
 // model it can and reports the rest.
 func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	m := &migration{
-		model:        model,
-		report:       &Report{Source: name, Exporter: model.Exporter},
-		results:      &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
-		w:            &writer{},
-		names:        map[*sysmlv1.Element]string{},
-		synthesized:  map[*sysmlv1.Element]bool{},
-		nodeNames:    map[*sysmlv1.Element]string{},
-		declared:     map[*sysmlv1.Element]bool{},
-		placeholders: map[*sysmlv1.Element]bool{},
-		nodeEnds:     map[*sysmlv1.Element]*placement{},
-		extras:       map[*sysmlv1.Element][]func(){},
-		flows:        map[*sysmlv1.Element][]*sysmlv1.Element{},
-		outcomes:     map[*sysmlv1.Element]*flowOutcome{},
-		unplaced:     map[*sysmlv1.Element]*placement{},
-		satisfied:    map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
-		framed:       map[*sysmlv1.Element]bool{},
-		taken:        map[*sysmlv1.Element]map[string]bool{},
-		parallel:     map[*sysmlv1.Element]string{},
-		exposed:      map[*sysmlv1.Element]string{},
-		methodOf:     map[*sysmlv1.Element]*sysmlv1.Element{},
-		endNames:     map[*sysmlv1.Element]string{},
-		realizes:     map[*sysmlv1.Element]*sysmlv1.Element{},
-		opUsage:      map[*sysmlv1.Element]string{},
-		deciding:     map[*sysmlv1.Element]bool{},
-		bounded:      map[*sysmlv1.Element][]*sysmlv1.Element{},
-		allocated:    map[*sysmlv1.Element][]*sysmlv1.Element{},
-		triggered:    map[*sysmlv1.Element]bool{},
-		snapshots:    map[*sysmlv1.Element]snapshotTyping{},
-		contexts:     map[*sysmlv1.Element]*behaviorContext{},
-		contextNotes: map[*sysmlv1.Element]string{},
-		visiting:     map[*sysmlv1.Element]*contextVisit{},
-		invokers:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		unvalued:     map[*sysmlv1.Element]bool{},
-		dryOut:       map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
-		admitsNone:   map[*sysmlv1.Element]string{},
-		rules:        map[*sysmlv1.Element]ruleForm{},
-		carrierOf:    map[*sysmlv1.Element]*carrier{},
-		carrierNotes: map[*sysmlv1.Element]string{},
-		indexed:      map[string]int{},
-		userProfiles: map[*sysmlv1.Element]bool{},
-		defsWritten:  map[*sysmlv1.Element]bool{},
-		files:        map[string][]byte{},
-		fileContents: map[string]string{},
-		pending:      map[*sysmlv1.Element]*pendingNotes{},
-		regionUsed:   map[*sysmlv1.Element]map[string]bool{},
-		vertexNames:  map[*sysmlv1.Element]string{},
-		points:       map[*sysmlv1.Element]pointForm{},
-		incoming:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		outgoing:     map[*sysmlv1.Element][]*sysmlv1.Element{},
-		instant:      map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
-		self:         "this",
-		lanes:        map[*sysmlv1.Element]*lanes{},
-		routes:       map[[2]*sysmlv1.Element]partRoute{},
-		usageOf:      map[*sysmlv1.Element]string{},
-		asUsage:      map[*sysmlv1.Element]bool{},
-		pins:         map[*sysmlv1.Element]pinDecl{},
-		opaque:       map[*sysmlv1.Element]*opaqueResult{},
-		viewOf:       map[*sysmlv1.Diagram]*view{},
-		hosted:       map[*sysmlv1.Element][]*view{},
-		tableOf:      map[*sysmlv1.Table]*tableDoc{},
-		pictureOf:    map[*sysmlv1.Diagram]*pictures{},
-		buried:       map[*sysmlv1.Element]bool{},
-		actors:       map[*sysmlv1.Element]*actorLink{},
-		monteCarlo:   map[*sysmlv1.Element]*monteCarloCase{},
-		strict:       opts.Strict,
-		layout:       opts.Layout,
-		layoutSource: opts.LayoutSource,
-		layoutByID:   map[string]*mtip.Diagram{},
-		diagramIDs:   map[string]bool{},
-		layoutJoined: map[string]bool{},
-		shownEdges:   map[*sysmlv1.Element]bool{},
-		edgeMembers:  map[*sysmlv1.Element]edgeMember{},
-		objectives:   map[*sysmlv1.Element]string{},
-		routeKinds:   routeKinds{},
+		model:         model,
+		report:        &Report{Source: name, Exporter: model.Exporter},
+		results:       &simresults.Results{Source: name, Configurations: []simresults.ConfigurationResults{}},
+		w:             &writer{},
+		names:         map[*sysmlv1.Element]string{},
+		synthesized:   map[*sysmlv1.Element]bool{},
+		nodeNames:     map[*sysmlv1.Element]string{},
+		declared:      map[*sysmlv1.Element]bool{},
+		placeholders:  map[*sysmlv1.Element]bool{},
+		nodeEnds:      map[*sysmlv1.Element]*placement{},
+		extras:        map[*sysmlv1.Element][]func(){},
+		flows:         map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outcomes:      map[*sysmlv1.Element]*flowOutcome{},
+		unplaced:      map[*sysmlv1.Element]*placement{},
+		satisfied:     map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		framed:        map[*sysmlv1.Element]bool{},
+		taken:         map[*sysmlv1.Element]map[string]bool{},
+		parallel:      map[*sysmlv1.Element]string{},
+		exposed:       map[*sysmlv1.Element]string{},
+		methodOf:      map[*sysmlv1.Element]*sysmlv1.Element{},
+		endNames:      map[*sysmlv1.Element]string{},
+		realizes:      map[*sysmlv1.Element]*sysmlv1.Element{},
+		opUsage:       map[*sysmlv1.Element]string{},
+		deciding:      map[*sysmlv1.Element]bool{},
+		bounded:       map[*sysmlv1.Element][]*sysmlv1.Element{},
+		allocated:     map[*sysmlv1.Element][]*sysmlv1.Element{},
+		triggered:     map[*sysmlv1.Element]bool{},
+		snapshots:     map[*sysmlv1.Element]snapshotTyping{},
+		contexts:      map[*sysmlv1.Element]*behaviorContext{},
+		contextNotes:  map[*sysmlv1.Element]string{},
+		visiting:      map[*sysmlv1.Element]*contextVisit{},
+		invokers:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		unvalued:      map[*sysmlv1.Element]bool{},
+		dryOut:        map[*sysmlv1.Element]map[*sysmlv1.Element]bool{},
+		admitsNone:    map[*sysmlv1.Element]string{},
+		rules:         map[*sysmlv1.Element]ruleForm{},
+		carrierOf:     map[*sysmlv1.Element]*carrier{},
+		carrierNotes:  map[*sysmlv1.Element]string{},
+		indexed:       map[string]int{},
+		verdicts:      map[*sysmlv1.Element]Verdict{},
+		userProfiles:  map[*sysmlv1.Element]bool{},
+		defsWritten:   map[*sysmlv1.Element]bool{},
+		files:         map[string][]byte{},
+		fileContents:  map[string]string{},
+		pending:       map[*sysmlv1.Element]*pendingNotes{},
+		regionUsed:    map[*sysmlv1.Element]map[string]bool{},
+		vertexNames:   map[*sysmlv1.Element]string{},
+		points:        map[*sysmlv1.Element]pointForm{},
+		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		outgoing:      map[*sysmlv1.Element][]*sysmlv1.Element{},
+		instant:       map[*sysmlv1.Element]map[*sysmlv1.Element]instantValue{},
+		self:          "this",
+		lanes:         map[*sysmlv1.Element]*lanes{},
+		routes:        map[[2]*sysmlv1.Element]partRoute{},
+		usageOf:       map[*sysmlv1.Element]string{},
+		asUsage:       map[*sysmlv1.Element]bool{},
+		pins:          map[*sysmlv1.Element]pinDecl{},
+		opaque:        map[*sysmlv1.Element]*opaqueResult{},
+		libraryClash:  map[*sysmlv1.Element]string{},
+		clashBySource: map[string]*sysmlv1.Element{},
+		viewOf:        map[*sysmlv1.Diagram]*view{},
+		hosted:        map[*sysmlv1.Element][]*view{},
+		tableOf:       map[*sysmlv1.Table]*tableDoc{},
+		pictureOf:     map[*sysmlv1.Diagram]*pictures{},
+		buried:        map[*sysmlv1.Element]bool{},
+		actors:        map[*sysmlv1.Element]*actorLink{},
+		monteCarlo:    map[*sysmlv1.Element]*monteCarloCase{},
+		strict:        opts.Strict,
+		layout:        opts.Layout,
+		layoutSource:  opts.LayoutSource,
+		layoutByID:    map[string]*mtip.Diagram{},
+		diagramIDs:    map[string]bool{},
+		layoutJoined:  map[string]bool{},
+		shownEdges:    map[*sysmlv1.Element]bool{},
+		edgeMembers:   map[*sysmlv1.Element]edgeMember{},
+		objectives:    map[*sysmlv1.Element]string{},
+		routeKinds:    routeKinds{},
 	}
 	m.w.marker = m.synthesizedNames
+	m.w.standInMarker = m.standInNames
 	m.imageBase, _ = imageBaseURL(opts.ImageBaseURL)
 	if opts.Layout != nil {
 		m.layoutSummary = &LayoutSummary{
@@ -237,6 +242,7 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 	for _, root := range model.Roots {
 		m.root(root)
 	}
+	m.libraryNameNotes()
 	for _, extra := range m.extras[nil] {
 		extra()
 	}
@@ -420,6 +426,9 @@ type migration struct {
 	// indexed locates each element's report entry by id, so an element that
 	// several writers account for is reported once.
 	indexed map[string]int
+	// verdicts is each reported element's verdict, kept per element: indexed
+	// cannot hold two elements sharing an id, an empty one included.
+	verdicts map[*sysmlv1.Element]Verdict
 	// pending holds the notes on elements annotated before their report entry exists.
 	pending map[*sysmlv1.Element]*pendingNotes
 	// files are the images written beside the notation by relative path;
@@ -449,6 +458,12 @@ type migration struct {
 	pins map[*sysmlv1.Element]pinDecl
 	// opaque memoizes what each opaque action's body translates to.
 	opaque map[*sysmlv1.Element]*opaqueResult
+	// libraryClash holds the source name of a top-level declaration renamed
+	// because it collided with a standard library root package.
+	libraryClash map[*sysmlv1.Element]string
+	// clashBySource finds that declaration by its source name, so text copied
+	// verbatim can still resolve through it.
+	clashBySource map[string]*sysmlv1.Element
 	// monteCarlo memoizes the analysis def written beside each block; nil for one without.
 	monteCarlo map[*sysmlv1.Element]*monteCarloCase
 	// mcRecorded lazily lists the written individuals that record an analysis;
@@ -527,7 +542,11 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if v == Mapped {
 			v = Approximated
 		}
-		note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
+		if src, clash := m.libraryClash[e]; clash {
+			note = joinNotes(note, "written as "+n+" since a root package named "+src+" would be hidden by the standard library's "+src)
+		} else {
+			note = joinNotes(note, "written as "+n+" since a sibling is also named "+e.Name)
+		}
 	}
 	if i, ok := m.indexed[e.ID]; ok && e.ID != "" {
 		en := &m.report.Entries[i]
@@ -540,12 +559,14 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		if !strings.Contains(en.Note, note) {
 			en.Note = joinNotes(en.Note, note)
 		}
+		m.verdicts[e] = en.Verdict
 		return
 	}
 	m.indexed[e.ID] = len(m.report.Entries)
 	m.report.Entries = append(m.report.Entries, Entry{
 		ID: e.ID, Kind: kindOf(e), Name: qualifiedName(e), Target: target, Verdict: v, Note: note,
 	})
+	m.verdicts[e] = v
 }
 
 // weaker reports whether verdict a says less was migrated than b.
@@ -575,6 +596,9 @@ func (m *migration) prepare() {
 	var walk func(e *sysmlv1.Element)
 	walk = func(e *sysmlv1.Element) {
 		m.distinguish(e)
+		if e.Parent == nil {
+			m.avoidLibraryRoots(e)
+		}
 		m.framedComments(e)
 		if simulationConfig(e) != nil {
 			configs = append(configs, e)
@@ -704,6 +728,75 @@ func (m *migration) prepare() {
 	m.planViews()
 	for _, a := range associations {
 		m.nameEnds(a)
+	}
+}
+
+// avoidLibraryRoots renames a top-level declaration named like a standard
+// library root package: a qualified name starting with that name resolves to
+// the library package, which the standard loads first, so a reference into the
+// written one would fail. The source name is kept for the report and for the
+// LibraryNameAvoided metadata line. It runs for root r after the top level has
+// been distinguished, before anything derives names from the old ones.
+func (m *migration) avoidLibraryRoots(r *sysmlv1.Element) {
+	var decls []*sysmlv1.Element
+	if m.flattened(r) {
+		for _, c := range r.Children {
+			if !ownerWritten(c.Role) {
+				decls = append(decls, c)
+			}
+		}
+	} else if !m.isLibrary(r) {
+		decls = append(decls, r)
+	}
+	for _, e := range decls {
+		if m.isLibrary(e) {
+			continue
+		}
+		src := m.nameOf(e)
+		if src == "" || !m.libraryPackage(src) {
+			continue
+		}
+		base := src + " Model"
+		if source.IsIdentifier(src) && !source.IsKeyword(src) {
+			base = src + "Model"
+		}
+		fresh := base
+		for i := 2; m.nameTaken(nil, fresh) || m.libraryPackage(fresh); i++ {
+			fresh = fmt.Sprintf("%s %d", base, i)
+		}
+		m.names[e], m.libraryClash[e] = fresh, src
+		m.clashBySource[src] = e
+	}
+}
+
+// libraryNameNotes writes, at the document's top level, one
+// LibraryNameAvoided metadata usage per declaration avoidLibraryRoots renamed,
+// naming the written declaration and recording the name its source model gave.
+func (m *migration) libraryNameNotes() {
+	if len(m.libraryClash) == 0 {
+		return
+	}
+	type renamed struct {
+		fresh, src string
+	}
+	var list []renamed
+	for e, src := range m.libraryClash {
+		switch v, ok := m.verdicts[e]; {
+		case !ok, v == Unmapped, v == Skipped:
+			// renamed but never written as a declaration: the fresh
+			// name would resolve to nothing.
+			continue
+		}
+		list = append(list, renamed{fresh: m.names[e], src: src})
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].fresh < list[j].fresh })
+	prefix := ""
+	if m.shadowsLibrary("MigrationMetadata", nil) {
+		prefix = "$::"
+	}
+	for _, r := range list {
+		m.w.line("metadata " + prefix + "MigrationMetadata::LibraryNameAvoided about " + writeName(r.fresh) +
+			" { sourceName = " + stringLiteral(r.src) + "; }")
 	}
 }
 
@@ -918,7 +1011,7 @@ func (m *migration) body(e *sysmlv1.Element) {
 	m.scope = e
 	m.comments(e)
 	m.members(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
@@ -1700,7 +1793,7 @@ func (m *migration) verificationBody(e *sysmlv1.Element) {
 	}
 	m.views(e)
 	m.stereotypeAnnotations(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
@@ -1771,7 +1864,7 @@ func (m *migration) association(e *sysmlv1.Element) {
 		}
 		m.views(e)
 		m.stereotypeAnnotations(e)
-		m.w.markMadeUp(m.synthesizedNames)
+		m.w.markMadeUp()
 		m.scope = saved
 	})
 	m.madeUp(e, writeName(name))
@@ -2033,7 +2126,7 @@ func (m *migration) feature(p *sysmlv1.Element) {
 			extra()
 		}
 		m.stereotypeAnnotations(p)
-		m.w.markMadeUp(m.synthesizedNames)
+		m.w.markMadeUp()
 		m.scope = saved
 	})
 	if name != "" {

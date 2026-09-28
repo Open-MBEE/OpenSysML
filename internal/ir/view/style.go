@@ -160,10 +160,13 @@ const (
 	cameoBlockLine  = "#99795C"
 )
 
-// A Cameo fork or join bar drawn with no stated box, in points.
+// A Cameo fork or join bar, and a decision or merge diamond, drawn with no
+// stated box, in points.
 const (
-	cameoBarWidth  = 60
-	cameoBarHeight = 5
+	cameoBarWidth      = 60
+	cameoBarHeight     = 5
+	cameoDiamondWidth  = 24
+	cameoDiamondHeight = 12
 )
 
 // cameoFill is the Cameo gradient a node of the kind is filled with, and its
