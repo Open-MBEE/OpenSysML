@@ -457,6 +457,30 @@ func TestCallerOfNoClassifierTakesTheCalleesOwnerAsContext(t *testing.T) {
 	wantClean(t, "caller-of-no-classifier", r)
 }
 
+// A part holding a collection of a block's objects, or a number of them its
+// bounds do not tell, is no one object to bind a context to or perform a usage
+// on: the caller binds nothing, and says so, rather than binding the collection.
+func TestACollectionOfPartsIsNoOneObjectForAContext(t *testing.T) {
+	a, b := callerBlocks(`
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ba" name="a" type="_a" aggregation="composite">
+        <lowerValue xmi:type="uml:LiteralInteger" xmi:id="_bal" value="0"/>
+        <upperValue xmi:type="uml:LiteralUnlimitedNatural" xmi:id="_bau" value="*"/>
+      </ownedAttribute>`)
+	r := migrateDocument(t, a+b, callerApplications)
+	for _, line := range []string{
+		"part a : A[0..*];",
+		"action def Inspect {",
+		"in ref context : A;",
+		"action def Run {",
+		"which is left unbound: the caller is a B, which is no A and holds them only as the collection a, no one object of which is chosen",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"in ref context : B;", "context.a", "::> a.inspect"} {
+		wantNoLine(t, r.Notation, line)
+	}
+}
+
 // cycleModel is a block whose activities A and B call each other: A reads the
 // block's attribute, B reads nothing, and A is a state's do activity, which
 // keeps it a def.

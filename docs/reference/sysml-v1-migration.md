@@ -1041,7 +1041,8 @@ the ports the signals it waits for arrive at, on the blocks whose behaviors run 
 definition reading its owner holds nothing over its callers: a definition of the same block
 calling it binds its own parameter (`in ref :>> context = Caller::context;`, the block's
 activities calling each other in a cycle all taking the block); one of another block binds
-the block's object among its parts, or leaves the parameter unbound and the report says so;
+the block's object among its parts — one part holding one object, never a collection or a
+part whose bounds do not tell — or leaves the parameter unbound and the report says so;
 one no block owns takes the block as its own parameter, the block holding as parts the
 owners of whatever else it calls — v1 ran the callee on the caller's object, so the caller's
 is one of the block.

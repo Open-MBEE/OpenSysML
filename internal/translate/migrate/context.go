@@ -521,7 +521,7 @@ func (m *migration) encompassing(cs []*sysmlv1.Element) *sysmlv1.Element {
 	for _, c := range cs {
 		holds := true
 		for _, o := range cs {
-			if expr, _ := m.objectOf(o, c, "this"); o != c && expr == "" {
+			if expr, _, _ := m.objectOf(o, c, "this"); o != c && expr == "" {
 				holds = false
 				break
 			}
@@ -1116,9 +1116,12 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 }
 
 // objectOf finds, from an activity acting on self of selfType, the one object
-// of classifier c in reach: self itself, or self's one part that is a c, which
-// part is then returned too. The last result completes a sentence: how the
-// object was found, or why none was.
+// of classifier c in reach: self itself, or self's one part that is a c and
+// holds one object, which part is then returned too. A part holding a
+// collection, or a number of objects the bounds do not tell, is no one object;
+// when it is the caller's only part that is a c it is still returned, with no
+// expr, so the caller can say what it holds. The last result completes a
+// sentence: how the object was found, or why none was.
 func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr string, part *sysmlv1.Element, why string) {
 	kind := qualifiedName(c)
 	switch {
@@ -1135,21 +1138,35 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr st
 			}
 		}
 	}
-	var parts []*sysmlv1.Element
+	var parts, collections []*sysmlv1.Element
 	for _, f := range m.attributesOf(selfType) {
 		if f.Type != "Property" || !m.written(f) {
 			continue
 		}
 		if t := m.model.Ref(f, "type"); t != nil && (t == c || m.inherits(t, c)) {
-			parts = append(parts, f)
+			if manyValued(f) || unreadableBounds(f) {
+				collections = append(collections, f)
+			} else {
+				parts = append(parts, f)
+			}
 		}
 	}
-	if len(parts) == 1 {
+	switch {
+	case len(parts) == 1:
 		return self + "." + writeName(m.nameFor(parts[0])), parts[0], ", the caller's one part that is one"
-	}
-	why = "has no part that is one"
-	if len(parts) > 1 {
+	case len(parts) > 1:
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
+	case len(collections) > 0:
+		names := make([]string, len(collections))
+		for i, f := range collections {
+			names[i] = writeName(m.nameFor(f))
+		}
+		why = "holds them only as the collection " + strings.Join(names, " and ") + ", no one object of which is chosen"
+		if len(collections) == 1 {
+			part = collections[0]
+		}
+	default:
+		why = "has no part that is one"
 	}
-	return "", nil, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", part, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }
