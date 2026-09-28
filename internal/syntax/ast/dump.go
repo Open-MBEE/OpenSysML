@@ -614,9 +614,8 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 			b.WriteString(` emptyBody=true`)
 		}
 		kids := make([]Node, 0, len(v.Effect)+2)
-		// A trigger written as a bare name — `accept 'Ground Station Ping'` —
-		// is the signal it names, which reads better beside the ends than as a
-		// nameless child.
+		// Keep bare-name injected-signal triggers written with `when` beside
+		// the ends; typed `accept` payload usages remain children.
 		if qn, ok := v.Trigger.(*QualifiedName); ok {
 			fmt.Fprintf(b, ` trigger=%q`, qnString(qn))
 		} else if v.Trigger != nil {

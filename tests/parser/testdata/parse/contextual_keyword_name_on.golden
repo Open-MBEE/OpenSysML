@@ -13,7 +13,10 @@
             (ConnectorEnd target="off"
               (*ast.QualifiedName)))
           (SubstateMember name="off")
-          (TransitionMember source="" target="on" trigger="OnSignal")
+          (TransitionMember source="" target="on"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=OnSignal
+                (*ast.QualifiedName))))
           (Membership visibility="default"
             (Usage kind="state" name="on" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
               (EntryMember
@@ -22,8 +25,14 @@
               (ExitMember
                 (Membership visibility="default"
                   (Usage kind="action" name="dark" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit")))))
-          (TransitionMember source="" target="off" trigger="OffSignal")
-          (TransitionMember source="on" target="off" trigger="OffSignal")))
+          (TransitionMember source="" target="off"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=OffSignal
+                (*ast.QualifiedName))))
+          (TransitionMember source="on" target="off"
+            (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=OffSignal
+                (*ast.QualifiedName))))))
       (Membership visibility="default"
         (Definition kind="part" abstract=false variation=false name="Lamp"
           (Membership visibility="default"
