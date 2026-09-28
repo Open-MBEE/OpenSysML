@@ -598,7 +598,7 @@ def test_move_request_is_exact(fake_service):
         ("add_behavior", "behavior"), ("add_function", "function"),
         ("add_predicate", "predicate"), ("add_interaction", "interaction"),
         ("add_metaclass", "metaclass"), ("add_calc_def", "calc def"),
-        ("add_calc", "calc"),
+        ("add_calc", "calc"), ("add_perform_action", "perform action"),
     ],
 )
 def test_every_typed_helper_uses_service_kind(fake_service, method, kind):
@@ -608,6 +608,20 @@ def test_every_typed_helper_uses_service_kind(fake_service, method, kind):
     with Connection(port=port, auto_start=False) as conn:
         getattr(conn.load_from_content(MODEL).edit(), method)("Demo::SC", "New").apply()
     assert service.requests[0].operations[0].add_member.kind == kind
+
+
+def test_add_perform_names_the_performed_action_by_reference(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content(MODEL).edit().add_perform(
+            "Demo::SC", "t.heat"
+        ).apply()
+    operation = service.requests[0].operations[0]
+    assert operation.WhichOneof("operation") == "add_member"
+    assert operation.add_member.kind == "perform"
+    assert operation.add_member.name == "t.heat"
 
 
 def test_authoring_capability_gates_add_delete_and_move(fake_service):
@@ -1156,6 +1170,45 @@ class TestEditRoundTripAgainstRealService:
                 "Demo::System", "a", "b", name="alloc1"
             ).apply()
         assert "allocation alloc1 allocate a to b;" in str(result)
+
+    def test_authoring_adds_perform_action_usages(self, real_service):
+        source = (
+            "package Demo {\n"
+            "    action def ToastBread;\n"
+            "    part def Toaster {\n"
+            "        action heat : ToastBread;\n"
+            "    }\n"
+            "    part def Kitchen {\n"
+            "        part t : Toaster;\n"
+            "    }\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            declared = model.edit().add_perform_action(
+                "Demo::Kitchen", "toast", type="ToastBread"
+            ).apply()
+            result = (
+                conn.load_from_content(str(declared))
+                .edit()
+                .add_perform("Demo::Kitchen", "t.heat")
+                .apply()
+            )
+            edited = str(result)
+            assert "perform action toast : ToastBread;" in edited
+            assert "perform t.heat;" in edited
+            again = conn.load_from_content(edited)
+            assert again.ok, [str(d) for d in again.errors]
+
+    def test_add_member_accepts_the_perform_action_kind(self, real_service):
+        """``perform action`` is a member kind, not an illegal kind."""
+        source = "package Demo { action def ToastBread; part def Kitchen; }"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = model.edit().add_member(
+                "Demo::Kitchen", "perform action", "heat", type="ToastBread"
+            ).apply()
+            assert "perform action heat : ToastBread;" in str(result)
 
     def test_a_value_is_added_to_a_feature_that_had_none(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

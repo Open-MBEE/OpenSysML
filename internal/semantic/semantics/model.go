@@ -40,6 +40,7 @@ type Model struct {
 	memberSources map[*symbols.Symbol][]*symbols.Symbol
 	lookupOrder   map[*symbols.Symbol][]lookupSource    // name-lookup order
 	contributed   map[*symbols.Symbol][]*symbols.Symbol // memoized contributors
+	nestedRedefs  map[*symbols.Symbol][]NestedRedefinition
 	primTypes     map[*symbols.Symbol]PrimType
 	scalars       map[*symbols.Symbol]PrimType // stdlib scalar symbols, resolved once
 	params        map[*symbols.Symbol]behaviorParameters
@@ -54,6 +55,8 @@ type Model struct {
 	ends       map[*symbols.Symbol][]connectorEnd
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
+	// referential memoizes a parameter's referentiality (see shape.go).
+	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
@@ -152,6 +155,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		memberSources:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
 		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
+		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
 		primTypes:           make(map[*symbols.Symbol]PrimType),
 		params:              make(map[*symbols.Symbol]behaviorParameters),
 		invocations:         make(map[invocationKey]*InvocationSelection),
@@ -159,6 +163,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		composed:            make(map[composedKey][]*symbols.Symbol),
 		ends:                make(map[*symbols.Symbol][]connectorEnd),
 		subtracting:         make(map[*symbols.Symbol]bool),
+		referential:         make(map[*symbols.Symbol]bool),
 		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
 		computingUsageBase:  make(map[*symbols.Symbol]bool),

@@ -51,6 +51,8 @@ var memberKinds = map[string]memberKind{
 	"calc":             {languages: sysmlOnly, typed: true},
 	"action def":       {languages: sysmlOnly, definition: true},
 	"action":           {languages: sysmlOnly, typed: true},
+	"perform action":   {languages: sysmlOnly, typed: true},
+	"perform":          {languages: sysmlOnly},
 	"state def":        {languages: sysmlOnly, definition: true},
 	"state":            {languages: sysmlOnly, typed: true},
 	"occurrence def":   {languages: sysmlOnly, definition: true},
@@ -143,6 +145,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				op.MemberKind, m.Source.Kind(), m.Source.Name()),
 		}
 	}
+	performName := ""
 	if op.MemberName == "" {
 		switch {
 		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
@@ -156,6 +159,12 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				Message: "an empty member name requires redefines targets or kind return",
 			}
 		}
+	} else if op.MemberKind == "perform" {
+		last, err := checkFeatureReference(i, "performed action", op.MemberName)
+		if err != nil {
+			return splice{}, err
+		}
+		performName = last
 	} else if err := checkName(i, op.MemberName); err != nil {
 		e := err.(*Error)
 		e.Failure = FailureInvalidName
@@ -240,7 +249,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message: fmt.Sprintf("definition kind %q cannot carry redefines targets; use specializes", op.MemberKind),
 		}
 	}
-	if len(op.Redefines) > 0 && op.MemberKind == "metadata" {
+	if len(op.Redefines) > 0 && (op.MemberKind == "metadata" || op.MemberKind == "perform") {
 		return splice{}, &Error{
 			Failure: FailureIllegalKind, OperationIndex: i,
 			Message: fmt.Sprintf("kind %q cannot carry redefines targets", op.MemberKind),
@@ -290,11 +299,15 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			}
 		}
 	}
-	if op.MemberName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(op.MemberName))) > 0 {
+	takenName := op.MemberName
+	if performName != "" {
+		takenName = performName
+	}
+	if takenName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(takenName))) > 0 {
 		return splice{}, &Error{
 			Failure:        FailureMemberNameTaken,
 			OperationIndex: i,
-			Message:        fmt.Sprintf("%s already declares %q", op.Owner, op.MemberName),
+			Message:        fmt.Sprintf("%s already declares %q", op.Owner, takenName),
 		}
 	}
 	ins := m.memberInsertion(owner, writeMember(op, kind))
@@ -304,7 +317,8 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 func memberPrefixExcluded(kind string) bool {
 	switch kind {
 	case "package", "subject", "actor", "stakeholder", "objective",
-		"fork", "join", "merge", "decide", "metadata", "return":
+		"fork", "join", "merge", "decide", "metadata", "return",
+		"perform", "perform action":
 		return true
 	default:
 		return false
