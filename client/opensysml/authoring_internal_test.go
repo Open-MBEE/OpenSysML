@@ -120,6 +120,18 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
 			missing:      CapabilityAuthoring,
 		},
+		{
+			name:         "sequence operation",
+			operation:    AddSequence{Owner: "Demo::A", Keyword: "then", Ref: "done"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilitySequenceAuthoring,
+		},
+		{
+			name:         "sequence requires authoring",
+			operation:    AddSequence{Owner: "Demo::A", Keyword: "first", Ref: "start"},
+			capabilities: []string{CapabilityApplyEdits, CapabilitySequenceAuthoring},
+			missing:      CapabilityAuthoring,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -196,5 +208,29 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := entryOperation.GetAddTransition(); got == nil ||
 		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
 		t.Fatalf("AddEntryTransition mapping = %+v", got)
+	}
+
+	sequenceOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "then", MemberKind: "action",
+		MemberName: "b", Type: "B", After: "a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sequenceOperation.GetAddSequence(); got == nil ||
+		got.GetOwner() != "Demo::A" || got.GetKeyword() != "then" ||
+		got.GetMemberKind() != "action" || got.GetMemberName() != "b" ||
+		got.GetType() != "B" || got.GetAfter() != "a" || got.GetRef() != "" {
+		t.Fatalf("AddSequence mapping = %+v", got)
+	}
+	refSequenceOperation, err := editToProto(AddSequence{
+		Owner: "Demo::A", Keyword: "first", Ref: "start",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := refSequenceOperation.GetAddSequence(); got == nil ||
+		got.GetKeyword() != "first" || got.GetRef() != "start" {
+		t.Fatalf("AddSequence ref mapping = %+v", got)
 	}
 }

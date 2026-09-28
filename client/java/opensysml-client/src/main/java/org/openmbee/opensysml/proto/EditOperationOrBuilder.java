@@ -145,5 +145,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
 
+  /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   * @return Whether the addSequence field is set.
+   */
+  boolean hasAddSequence();
+  /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   * @return The addSequence.
+   */
+  org.openmbee.opensysml.proto.AddSequenceEdit getAddSequence();
+  /**
+   * <code>.sysml.AddSequenceEdit add_sequence = 14 [json_name = "addSequence"];</code>
+   */
+  org.openmbee.opensysml.proto.AddSequenceEditOrBuilder getAddSequenceOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

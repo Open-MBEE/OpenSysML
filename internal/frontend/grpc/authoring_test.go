@@ -51,6 +51,16 @@ func addTransitionOp(owner, name, source, target, trigger, guard, effect string,
 	}}
 }
 
+func addSequenceOp(owner, keyword, ref, memberKind, memberName, typ, after string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
+		AddSequence: &pb.AddSequenceEdit{
+			Owner: owner, Keyword: keyword, Ref: ref,
+			MemberKind: memberKind, MemberName: memberName,
+			Type: typ, After: after,
+		},
+	}}
+}
+
 func deleteOp(target string, cascade bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_Delete{
 		Delete: &pb.DeleteEdit{Target: target, Cascade: cascade},
@@ -267,6 +277,64 @@ func TestApplyEditsAddConnectionRequiresConnectionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAddSequenceRequiresSequenceAuthoring(t *testing.T) {
+	srv := mustNewServiceWithout(t, CapabilitySequenceAuthoring)
+	ctx := context.Background()
+	hash := mustParsedModel(t, srv, "action def A {\n    action a;\n}\n")
+	_, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addSequenceOp("A", "then", "done", "", "", "", ""),
+		},
+	})
+	if connect.CodeOf(err) != connect.CodeUnimplemented ||
+		!strings.Contains(err.Error(), CapabilitySequenceAuthoring) {
+		t.Fatalf("ApplyEdits refusal = %v, want UNIMPLEMENTED naming %q", err, CapabilitySequenceAuthoring)
+	}
+
+	added, err := srv.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+		ModelHash: hash, Operations: []*pb.EditOperation{addMemberOp("A", "action", "stillSupported")},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits add_member: %v", err)
+	}
+	if added.Error != "" || !strings.Contains(added.Content, "action stillSupported") {
+		t.Fatalf("add_member response = %+v, want the new action", added)
+	}
+}
+
+func TestApplyEditsAddSequence(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "action def A {\n    action a;\n}\n")
+
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addSequenceOp("A", "first", "start", "", "", "", ""),
+			addSequenceOp("A", "then", "", "action", "b", "", "a"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("add sequence call failed: %v", err)
+	}
+	want := "action def A {\n    action a;\n    then action b;\n    first start;\n}\n"
+	if added.Error != "" || added.Content != want {
+		t.Fatalf("add sequence response = %+v\n%s\nwant:\n%s", added, added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addSequenceOp("A", "then", "", "part", "p", "", "")},
+	})
+	if err != nil {
+		t.Fatalf("refused add sequence call failed: %v", err)
+	}
+	if refused.Content != "" || refused.Failure != pb.EditFailure_EDIT_FAILURE_ILLEGAL_KIND {
+		t.Fatalf("bad kind response = %+v", refused)
+	}
+}
+
 func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	srv := mustNewServiceWithout(t, CapabilityTransitionAuthoring)
 	ctx := context.Background()
@@ -327,6 +395,11 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "transition",
 			capability: CapabilityTransitionAuthoring,
 			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
+		},
+		{
+			name:       "sequence",
+			capability: CapabilitySequenceAuthoring,
+			operation:  addSequenceOp("Demo::S", "then", "idle", "", "", "", ""),
 		},
 	}
 	for _, tc := range tests {

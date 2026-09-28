@@ -20,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_SEQUENCE_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -957,7 +958,8 @@ class Connection:
             operations (list[tuple]): ``('set_value', target, value)`` and
                 ``('rename', target, new_name)`` tuples, as
                 :class:`~opensysml.edit.Editor` collects them, along with
-                ``('add_connection', owner, kind, from_end, to_end, name, type)``
+                ``('add_connection', owner, kind, from_end, to_end, name, type)`` and
+                ``('add_sequence', owner, keyword, ref, member_kind, member_name, type, after)``
 
         Returns:
             EditResult: The edited notation and what each operation changed
@@ -979,6 +981,7 @@ class Connection:
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
+        requests_sequence_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -1102,6 +1105,30 @@ class Connection:
                 add.owner, add.name, add.source, add.target = owner, name, source, target
                 add.trigger, add.guard, add.effect = trigger, guard, effect
                 add.initial = initial
+            elif kind == 'add_sequence':
+                if len(operation_data) != 8:
+                    raise ValueError(
+                        "malformed add_sequence operation: expected 8 fields"
+                    )
+                (
+                    _, owner, keyword, ref, member_kind, member_name, type_name, after
+                ) = operation_data
+                if not all(isinstance(text, str) for text in (
+                    owner, keyword, ref, member_kind, member_name, type_name, after
+                )):
+                    raise ValueError("malformed add_sequence operation: fields must be text")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_SEQUENCE_AUTHORING,
+                    upgrade_remedy(CAPABILITY_SEQUENCE_AUTHORING),
+                )
+                requests_authoring = True
+                requests_sequence_authoring = True
+                add = operation.add_sequence
+                add.owner, add.keyword, add.ref = owner, keyword, ref
+                add.member_kind, add.member_name, add.type = member_kind, member_name, type_name
+                add.after = after
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1124,7 +1151,8 @@ class Connection:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, add_transition, delete or move"
+                    f"add_requirement_constraint, add_transition, add_sequence, "
+                    f"delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1138,6 +1166,8 @@ class Connection:
             requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
         if requests_transition_authoring:
             requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
+        if requests_sequence_authoring:
+            requested_capabilities.append(CAPABILITY_SEQUENCE_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

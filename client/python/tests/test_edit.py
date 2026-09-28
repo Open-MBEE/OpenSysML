@@ -24,6 +24,7 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_SEQUENCE_AUTHORING,
     CAPABILITY_EDIT_DOCUMENTS,
     CAPABILITY_INLINE_LANGUAGE,
     MissingCapabilityError,
@@ -96,7 +97,7 @@ def _elements_by_qname(conversion):
                 if isinstance(ref, dict) and "@id" in ref and ref["@id"] in by_id:
                     other = by_id[ref["@id"]]
                     rels.append((key, other.get("qualifiedName") or other.get("@type")))
-        return (el.get("@type"), el.get("qualifiedName"), tuple(sorted(rels)))
+        return (el.get("@type"), el.get("qualifiedName") or "", tuple(sorted(rels)))
 
     return sorted(describe(el) for el in elements if isinstance(el, dict))
 
@@ -498,6 +499,12 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
         (lambda editor: editor.add_transition("Demo::SC", "a", "b"),
          CAPABILITY_TRANSITION_AUTHORING),
+        (lambda editor: editor.add_first("Demo::A", "start"),
+         CAPABILITY_SEQUENCE_AUTHORING),
+        (lambda editor: editor.add_then("Demo::A", ref="done"),
+         CAPABILITY_SEQUENCE_AUTHORING),
+        (lambda editor: editor.add_then("Demo::A", action="b", type="B"),
+         CAPABILITY_SEQUENCE_AUTHORING),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -509,6 +516,68 @@ def test_new_authoring_capabilities_are_preflighted(fake_service, operation, mis
         with pytest.raises(MissingCapabilityError) as error:
             editor.apply()
     assert error.value.capability == missing
+    assert service.requests == []
+
+
+def test_add_first_and_add_then_serialize_and_validate(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_SEQUENCE_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        (
+            conn.load_from_content(MODEL)
+            .edit()
+            .add_first("Demo::A", "start")
+            .add_then("Demo::A", action="b", type="B", after="a")
+            .add_then("Demo::A", ref="done")
+            .apply()
+        )
+    first, declared, ref = service.requests[0].operations
+    assert first.WhichOneof("operation") == "add_sequence"
+    assert (
+        first.add_sequence.owner, first.add_sequence.keyword,
+        first.add_sequence.ref, first.add_sequence.after,
+    ) == ("Demo::A", "first", "start", "")
+    assert (
+        declared.add_sequence.keyword,
+        declared.add_sequence.member_kind,
+        declared.add_sequence.member_name,
+        declared.add_sequence.type,
+        declared.add_sequence.after,
+    ) == ("then", "action", "b", "B", "a")
+    assert (
+        ref.add_sequence.keyword, ref.add_sequence.ref,
+    ) == ("then", "done")
+
+
+def test_add_then_requires_exactly_one_of_ref_and_action():
+    editor = Editor("hash", None)
+    with pytest.raises(ValueError, match="exactly one of ref and action"):
+        editor.add_then("Demo::A")
+    with pytest.raises(ValueError, match="exactly one of ref and action"):
+        editor.add_then("Demo::A", ref="done", action="b")
+    with pytest.raises(TypeError, match="ref must be notation text"):
+        editor.add_then("Demo::A", ref=3)
+    with pytest.raises(TypeError, match="kind must be notation text"):
+        editor.add_then("Demo::A", action="b", kind=3)
+    with pytest.raises(TypeError, match="ref must be notation text"):
+        editor.add_first("Demo::A", None)
+
+
+def test_sequence_requires_authoring_alongside_sequence_capability(fake_service):
+    port, service = fake_service(
+        capabilities=(CAPABILITY_APPLY_EDITS, CAPABILITY_SEQUENCE_AUTHORING)
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        edit = conn.load_from_content(MODEL).edit()
+        edit.add_first("Demo::A", "start")
+        with pytest.raises(MissingCapabilityError) as error:
+            edit.apply()
+    assert error.value.capability == CAPABILITY_AUTHORING
     assert service.requests == []
 
 
@@ -1364,3 +1433,98 @@ class TestEditRoundTripAgainstRealService:
     def test_the_service_reports_the_capability(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
             assert conn.server_info().has(CAPABILITY_APPLY_EDITS)
+
+    def test_sequence_authoring_builds_the_toaster_actions(self, real_service):
+        """Editor-only `first`/`then` ops build the same action bodies as the
+        directly written notation, execute the same, and element-match it."""
+        source = (
+            "package ToasterDemo {\n"
+            "    private import ISQ::*;\n"
+            "    item def Bread;\n"
+            "    item def Toast;\n"
+            "    action def GenerateHeat { in energyIn : ISQ::EnergyValue[0..*]; }\n"
+            "    action def ApplyHeat {\n"
+            "        in bread : Bread;\n"
+            "        in energy : ISQ::EnergyValue[0..*];\n"
+            "        out toast : Toast;\n"
+            "    }\n"
+            "    action def ToastBread {\n"
+            "        in bread : Bread;\n"
+            "        out toast : Toast;\n"
+            "    }\n"
+            "}\n"
+        )
+        target = (
+            "package ToasterDemo {\n"
+            "    private import ISQ::*;\n"
+            "    item def Bread;\n"
+            "    item def Toast;\n"
+            "    action def GenerateHeat { in energyIn : ISQ::EnergyValue[0..*]; }\n"
+            "    action def ApplyHeat {\n"
+            "        in bread : Bread;\n"
+            "        in energy : ISQ::EnergyValue[0..*];\n"
+            "        out toast : Toast;\n"
+            "        first start;\n"
+            "        then action generateHeat : GenerateHeat {\n"
+            "            in energyIn = ApplyHeat::energy;\n"
+            "        }\n"
+            "        then done;\n"
+            "    }\n"
+            "    action def ToastBread {\n"
+            "        in bread : Bread;\n"
+            "        out toast : Toast;\n"
+            "        first start;\n"
+            "        then action applyHeat : ApplyHeat {\n"
+            "            in bread = ToastBread::bread;\n"
+            "        }\n"
+            "        then done;\n"
+            "    }\n"
+            "}\n"
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            result = (
+                model.edit()
+                .add_first("ToasterDemo::ApplyHeat", "start")
+                .add_then(
+                    "ToasterDemo::ApplyHeat",
+                    action="generateHeat", type="GenerateHeat",
+                )
+                .add_parameter(
+                    "ToasterDemo::ApplyHeat::generateHeat",
+                    "in", "energyIn", value="ApplyHeat::energy",
+                )
+                .add_then("ToasterDemo::ApplyHeat", ref="done")
+                .add_first("ToasterDemo::ToastBread", "start")
+                .add_then(
+                    "ToasterDemo::ToastBread",
+                    action="applyHeat", type="ApplyHeat",
+                )
+                .add_parameter(
+                    "ToasterDemo::ToastBread::applyHeat",
+                    "in", "bread", value="ToastBread::bread",
+                )
+                .add_then("ToasterDemo::ToastBread", ref="done")
+                .apply()
+            )
+            edited = str(result)
+            assert edited == target
+            built = conn.load_from_content(edited)
+            assert built.ok, [str(d) for d in built.errors]
+            written = conn.load_from_content(target)
+            assert _elements_by_qname(built.to_api_json()) == \
+                _elements_by_qname(written.to_api_json())
+            assert built.execute_action("ToasterDemo::ToastBread") == \
+                written.execute_action("ToasterDemo::ToastBread")
+
+    def test_sequence_refusals_are_typed(self, real_service):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(
+                "action def A {\n    action a;\n}\npart def P;\n"
+            )
+            with pytest.raises(IllegalMemberKindError):
+                model.edit().add_then("P", ref="done").apply()
+            with pytest.raises(EditTargetError):
+                model.edit().add_then("A", ref="nosuch").apply()
+            with pytest.raises(IllegalMemberKindError):
+                model.edit().add_then("A", action="b", kind="part").apply()

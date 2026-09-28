@@ -396,10 +396,12 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 
 `Edit.AddMember` exposes `withAbstract`, `withRedefines`, `withDefault` and
 `withDirection`; `Edit.AddSatisfy`, `Edit.AddRequirementConstraint` and
-`Edit.AddTransition` expose requirement and state-transition authoring.
-`Edit.AddTransition.entry` constructs an entry transition. The client checks
-`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring` before sending those additions.
+`Edit.AddTransition` expose requirement and state-transition authoring, and
+`Edit.AddSequence` action-body sequencing. `Edit.AddTransition.entry` constructs
+an entry transition; `Edit.AddSequence.first`, `.then` and `.thenMember` write
+`first`/`then` members. The client checks
+`member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring`,
+`transition_authoring` or `sequence_authoring` before sending those additions.
 
 ## Running the tests
 

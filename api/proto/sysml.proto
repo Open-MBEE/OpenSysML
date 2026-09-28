@@ -845,6 +845,7 @@ message EditOperation {
     AddSatisfyEdit add_satisfy = 7;
     AddRequirementConstraintEdit add_requirement_constraint = 8;
     AddTransitionEdit add_transition = 9;
+    AddSequenceEdit add_sequence = 14;
   }
 }
 
@@ -918,6 +919,26 @@ message AddTransitionEdit {
   string effect = 7;
   // Write `entry; then <target>;` instead of a regular transition.
   bool initial = 8;
+}
+
+// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
+message AddSequenceEdit {
+  // Action body receiving the member.
+  string owner = 1;
+  // Sequence keyword: "first" or "then".
+  string keyword = 2;
+  // Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
+  // declares a member instead.
+  string ref = 3;
+  // Usage kind a `then` declares: action, perform action, state, merge,
+  // decide, join or fork; empty when ref names the target.
+  string member_kind = 4;
+  // Optional declared name of the `then`-declared member.
+  string member_name = 5;
+  // Optional typing target of the `then`-declared member.
+  string type = 6;
+  // Optional name of the body member the new member follows.
+  string after = 7;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

@@ -44,6 +44,8 @@ const (
 	OpAddRequirementConstraint
 	// OpAddTransition inserts a transition usage into a state body.
 	OpAddTransition
+	// OpAddSequence inserts a `first`/`then` sequencing member into an action body.
+	OpAddSequence
 )
 
 // Operation is one change to make to a model's source.
@@ -100,6 +102,13 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
+	// SequenceKeyword ("first" or "then"), SequenceRef (the node a bare
+	// `then`/`first` names) and After (the member an OpAddSequence follows)
+	// describe an OpAddSequence; a `then` declaring a member reuses MemberKind,
+	// MemberName and Type.
+	SequenceKeyword string
+	SequenceRef     string
+	After           string
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -166,6 +175,25 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
 		Guard: guard, Effect: effect, Initial: initial,
 	}
+}
+
+// AddFirst inserts `first <ref>;` into an action body.
+func AddFirst(owner, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "first", SequenceRef: ref}
+}
+
+// AddThen inserts `then <ref>;` into an action body, sequencing the member
+// before it to the node ref names.
+func AddThen(owner, ref string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then", SequenceRef: ref}
+}
+
+// AddThenMember inserts `then <kind> <name> : <type>;`, declaring the member
+// the `then` sequences to; kind is action, perform action, state, merge,
+// decide, join or fork, and the control nodes take no type.
+func AddThenMember(owner, kind, name, typ string) Operation {
+	return Operation{Kind: OpAddSequence, Owner: owner, SequenceKeyword: "then",
+		MemberKind: kind, MemberName: name, Type: typ}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -602,6 +630,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddTransition {
 		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddSequence {
+		sp, err := m.addSequenceSplice(i, op)
 		if err != nil {
 			return nil, err
 		}

@@ -134,6 +134,25 @@ class EditProtosTest {
   }
 
   @Test
+  void anAddSequenceEditCarriesItsKeywordAndEnds() {
+    var operation =
+        Protos.proto(
+            Edit.AddSequence.thenMember("Demo::A", "action", "b")
+                .withType("B")
+                .withAfter("a"));
+    assertEquals("Demo::A", operation.getAddSequence().getOwner());
+    assertEquals("then", operation.getAddSequence().getKeyword());
+    assertEquals("action", operation.getAddSequence().getMemberKind());
+    assertEquals("b", operation.getAddSequence().getMemberName());
+    assertEquals("B", operation.getAddSequence().getType());
+    assertEquals("a", operation.getAddSequence().getAfter());
+
+    var first = Protos.proto(Edit.AddSequence.first("Demo::A", "start"));
+    assertEquals("first", first.getAddSequence().getKeyword());
+    assertEquals("start", first.getAddSequence().getRef());
+  }
+
+  @Test
   void anAddConnectionEditCarriesItsEndsAndOptionalFields() {
     var minimal = Protos.proto(Edit.AddConnection.of("Demo::System", "flow", "a.out", "b.in"));
     assertEquals("Demo::System", minimal.getAddConnection().getOwner());

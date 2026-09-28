@@ -315,6 +315,61 @@ public sealed interface Edit {
     }
   }
 
+  /** Inserts a {@code first} or {@code then} sequencing member into an action body. */
+  record AddSequence(
+      String owner,
+      String keyword,
+      Optional<String> ref,
+      Optional<String> memberKind,
+      Optional<String> memberName,
+      Optional<String> type,
+      Optional<String> after)
+      implements Edit {
+
+    public AddSequence {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(keyword, "keyword");
+      Objects.requireNonNull(ref, "ref");
+      Objects.requireNonNull(memberKind, "memberKind");
+      Objects.requireNonNull(memberName, "memberName");
+      Objects.requireNonNull(type, "type");
+      Objects.requireNonNull(after, "after");
+    }
+
+    /** A {@code first <ref>;} member. */
+    public static AddSequence first(String owner, String ref) {
+      return new AddSequence(
+          owner, "first", Optional.of(ref),
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    /** A {@code then <ref>;} member, such as {@code then done;}. */
+    public static AddSequence then(String owner, String ref) {
+      return new AddSequence(
+          owner, "then", Optional.of(ref),
+          Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    }
+
+    /** A {@code then <kind> <name>;} member declaring a new usage. */
+    public static AddSequence thenMember(String owner, String kind, String name) {
+      return new AddSequence(
+          owner, "then", Optional.empty(),
+          Optional.of(kind), Optional.of(name), Optional.empty(), Optional.empty());
+    }
+
+    public AddSequence withRef(String ref) {
+      return new AddSequence(owner, keyword, Optional.of(ref), memberKind, memberName, type, after);
+    }
+
+    public AddSequence withType(String type) {
+      return new AddSequence(owner, keyword, ref, memberKind, memberName, Optional.of(type), after);
+    }
+
+    public AddSequence withAfter(String after) {
+      return new AddSequence(owner, keyword, ref, memberKind, memberName, type, Optional.of(after));
+    }
+  }
+
   /**
    * Inserts a connection-like usage between two feature references.
    *

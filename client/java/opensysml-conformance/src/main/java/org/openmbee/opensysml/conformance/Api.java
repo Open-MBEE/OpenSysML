@@ -798,6 +798,24 @@ final class Api {
         }
         yield transition;
       }
+      case ADD_SEQUENCE -> {
+        org.openmbee.opensysml.proto.AddSequenceEdit add = operation.getAddSequence();
+        Edit.AddSequence sequence =
+            switch (add.getKeyword()) {
+              case "first" -> Edit.AddSequence.first(add.getOwner(), add.getRef());
+              case "then" -> add.getMemberKind().isEmpty()
+                  ? Edit.AddSequence.then(add.getOwner(), add.getRef())
+                  : Edit.AddSequence.thenMember(add.getOwner(), add.getMemberKind(), add.getMemberName());
+              default -> throw new Unsupported("sequence keyword " + add.getKeyword());
+            };
+        if (!add.getType().isEmpty()) {
+          sequence = sequence.withType(add.getType());
+        }
+        if (!add.getAfter().isEmpty()) {
+          sequence = sequence.withAfter(add.getAfter());
+        }
+        yield sequence;
+      }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
       case MOVE ->

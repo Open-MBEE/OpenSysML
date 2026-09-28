@@ -220,6 +220,61 @@
       }
     },
     {
+      "id": "apply_edits/action_sequencing_is_written",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "sequence_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_sequence.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "first",
+              "ref": "start"
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "member_kind": "action",
+              "member_name": "b",
+              "after": "a"
+            }
+          },
+          {
+            "add_sequence": {
+              "owner": "A",
+              "keyword": "then",
+              "ref": "done"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "then action b;",
+            "first start;",
+            "then done;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_requirement_constraint_is_written",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

@@ -376,6 +376,62 @@ class Editor:
         self._add(("add_transition", owner, "", "", target, "", "", "", True))
         return self
 
+    def add_first(self, owner, ref, after=None):
+        """Add ``first <ref>;`` to an action body.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            ref: The node the `first` sequences from, a feature reference such
+                as ``start`` or the name of a member the body declares.
+            after: Optional name of the body member the `first` follows;
+                by default it is appended at the end of the body.
+        """
+        if not isinstance(ref, str):
+            raise TypeError(f"ref must be notation text, not {ref.__class__.__name__}")
+        if after is not None and not isinstance(after, str):
+            raise TypeError(f"after must be a member name, not {after.__class__.__name__}")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_sequence", owner, "first", ref, "", "", "", after or ""))
+        return self
+
+    def add_then(self, owner, ref=None, action=None, type=None, after=None,
+                 kind="action"):
+        """Add ``then <ref>;`` or ``then <kind> <name> : <type>;`` to an action
+        body, sequencing the member after it with the member before it.
+
+        Args:
+            owner: The action body, by qualified name or Symbol.
+            ref: The node the `then` sequences to — a feature reference such
+                as ``done`` or the name of a member the body declares.
+            action: The name of the member the `then` declares, written with
+                `kind` (default ``"action"``) and an optional `type`. Exactly
+                one of `ref` and `action` is required.
+            type: Optional typing target of the declared member.
+            after: Optional name of the body member the `then` follows: the
+                new member sequences from it, and a `then` that previously
+                followed it now sequences from the new member.
+            kind: The usage kind the `then` declares: ``"action"``,
+                ``"perform action"``, ``"state"``, ``"merge"``, ``"decide"``,
+                ``"join"`` or ``"fork"``.
+
+        Raises:
+            TypeError: If a text argument is not a string.
+            ValueError: If both or neither of `ref` and `action` is given.
+        """
+        for label, text in (("ref", ref), ("action", action), ("type", type),
+                            ("after", after), ("kind", kind)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be notation text, not {text.__class__.__name__}")
+        if (ref is None) == (action is None):
+            raise ValueError("exactly one of ref and action is required")
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        if ref is not None:
+            self._add(("add_sequence", owner, "then", ref, "", "", "", after or ""))
+        else:
+            self._add(("add_sequence", owner, "then", "", kind, action,
+                       type or "", after or ""))
+        return self
+
     def add_require_constraint(self, owner, expression, name=None):
         """Add a ``require constraint`` to a requirement-like body."""
         return self.add_requirement_constraint(owner, "require", expression, name)

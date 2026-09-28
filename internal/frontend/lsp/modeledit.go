@@ -31,6 +31,7 @@ const (
 	EditRename        = "rename"
 	EditAddMember     = "addMember"
 	EditAddConnection = "addConnection"
+	EditAddSequence   = "addSequence"
 	EditDelete        = "delete"
 	EditMove          = "move"
 	EditSetLayout     = "setLayout"
@@ -83,6 +84,9 @@ type modelEditOperation struct {
 	To           string               `json:"to,omitempty"`
 	Cascade      bool                 `json:"cascade,omitempty"`
 	View         string               `json:"view,omitempty"`
+	Keyword      string               `json:"keyword,omitempty"`
+	Ref          string               `json:"ref,omitempty"`
+	After        string               `json:"after,omitempty"`
 	Layout       *modelEditLayout     `json:"layout,omitempty"`
 	Route        []renderPoint        `json:"route,omitempty"`
 	Canvas       *renderCanvas        `json:"canvas,omitempty"`
@@ -346,6 +350,13 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		out := modeledit.AddConnection(op.Owner, op.MemberKind, op.From, op.To, op.Name)
 		out.Type = op.Type
 		return out, nil
+	case EditAddSequence:
+		return modeledit.Operation{
+			Kind: modeledit.OpAddSequence, Owner: op.Owner,
+			SequenceKeyword: op.Keyword, SequenceRef: op.Ref,
+			MemberKind: op.MemberKind, MemberName: op.Name,
+			Type: op.Type, After: op.After,
+		}, nil
 	case EditDelete:
 		return modeledit.Delete(op.Target, op.Cascade), nil
 	case EditMove:
@@ -385,7 +396,7 @@ func (op modelEditOperation) operation(content []byte) (modeledit.Operation, err
 		return modeledit.SetStyle(op.Target, op.View, style), nil
 	}
 	return modeledit.Operation{}, fmt.Errorf("kind %q is none of %s", op.Kind,
-		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
+		strings.Join([]string{EditSetValue, EditRename, EditAddMember, EditAddConnection, EditAddSequence, EditDelete, EditMove, EditSetLayout, EditSetRoute, EditSetCanvas, EditSetStyle}, ", "))
 }
 
 // style reads the wire style as the edit layer writes it; nil clears.

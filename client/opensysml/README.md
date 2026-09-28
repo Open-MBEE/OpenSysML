@@ -268,6 +268,9 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `requirement_constraint_authoring`, respectively, alongside `authoring`.
 `AddTransition` also requires `authoring` and `transition_authoring`; use
 `AddEntryTransition` to construct its entry-transition form.
+`AddSequence` requires `authoring` and `sequence_authoring`, and writes
+`first <ref>;`, `then <ref>;` or `then <kind> <name> : <type>;` members in an
+action body; `After` names the member it follows.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

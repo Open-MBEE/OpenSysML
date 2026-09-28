@@ -125,6 +125,9 @@ type conformanceEditOperation struct {
 	Guard             string   `json:"guard,omitempty"`
 	Effect            string   `json:"effect,omitempty"`
 	Initial           bool     `json:"initial,omitempty"`
+	Keyword           string   `json:"keyword,omitempty"`
+	Ref               string   `json:"ref,omitempty"`
+	After             string   `json:"after,omitempty"`
 	Asserted          bool     `json:"is_asserted,omitempty"`
 	Negated           bool     `json:"is_negated,omitempty"`
 	Expression        string   `json:"expression,omitempty"`
@@ -268,6 +271,14 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Name: op.Name, Source: op.TransitionSource,
 					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
 					Effect: op.Effect, Initial: op.Initial,
+				}},
+			})
+		case "add_sequence":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddSequence{AddSequence: &pb.AddSequenceEdit{
+					Owner: op.Owner, Keyword: op.Keyword, Ref: op.Ref,
+					MemberKind: op.MemberKind, MemberName: op.MemberName,
+					Type: op.Type, After: op.After,
 				}},
 			})
 		case "delete":

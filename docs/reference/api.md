@@ -106,18 +106,24 @@ and `type` fields:
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+| `add_sequence` | `owner`, `keyword`, `ref?`, `member_kind?`, `member_name?`, `type?`, `after?` | A `first <ref>;`, `then <ref>;` or `then <member_kind> <member_name> : <type>;` member in an action body's sequencing notation. Exactly one of `ref` and `member_kind` is set for `then`; `first` takes `ref` alone. With `after` naming a member of the body, the member is written right after it: it sequences from that member, and a `then` that previously followed it now sequences from the new member. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`. An `add_member` edit with any new modifier or
+`transition_authoring`; sequence edits require `authoring` and `sequence_authoring`. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
 `if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or
 clauses, and is refused when the state already has an entry action.
+
+Sequence edits write the `first`/`then` forms above and no others: `then` cannot introduce an
+`accept`, `send`, `assign`, `if`, `while`, `for` or `terminate` member, a guarded `if <g> then <x>;`,
+an `else` branch, a two-ended `first a then b;` (write it with `add_connection`/`add_succession`), or
+a source end carrying multiplicity.
 
 ```go
 result, err := client.ApplyEdits(ctx, model, opensysml.Rename{Target: "Lib::Engine", NewName: "Motor"})

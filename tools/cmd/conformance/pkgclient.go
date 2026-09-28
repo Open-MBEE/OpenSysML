@@ -1408,6 +1408,13 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Expression: kind.AddRequirementConstraint.GetExpression(),
 			Name:       kind.AddRequirementConstraint.GetName(),
 		}, true
+	case *pb.EditOperation_AddSequence:
+		return opensysml.AddSequence{
+			Owner: kind.AddSequence.GetOwner(), Keyword: kind.AddSequence.GetKeyword(),
+			Ref: kind.AddSequence.GetRef(), MemberKind: kind.AddSequence.GetMemberKind(),
+			MemberName: kind.AddSequence.GetMemberName(), Type: kind.AddSequence.GetType(),
+			After: kind.AddSequence.GetAfter(),
+		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true
 	default:

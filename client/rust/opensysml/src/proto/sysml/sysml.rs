@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 14")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1013,6 +1013,8 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="14")]
+        AddSequence(super::AddSequenceEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1114,6 +1116,33 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddSequenceEdit inserts a `first` or `then` sequencing member into an action body.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddSequenceEdit {
+    /// Action body receiving the member.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Sequence keyword: "first" or "then".
+    #[prost(string, tag="2")]
+    pub keyword: ::prost::alloc::string::String,
+    /// Node a bare `first <ref>;`/`then <ref>;` names; empty when the `then`
+    /// declares a member instead.
+    #[prost(string, tag="3")]
+    pub r#ref: ::prost::alloc::string::String,
+    /// Usage kind a `then` declares: action, perform action, state, merge,
+    /// decide, join or fork; empty when ref names the target.
+    #[prost(string, tag="4")]
+    pub member_kind: ::prost::alloc::string::String,
+    /// Optional declared name of the `then`-declared member.
+    #[prost(string, tag="5")]
+    pub member_name: ::prost::alloc::string::String,
+    /// Optional typing target of the `then`-declared member.
+    #[prost(string, tag="6")]
+    pub r#type: ::prost::alloc::string::String,
+    /// Optional name of the body member the new member follows.
+    #[prost(string, tag="7")]
+    pub after: ::prost::alloc::string::String,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -1147,6 +1147,8 @@ declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, inclu
 `return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
+`add_first` and `add_then` write `first`/`then` sequencing members in action bodies — `then` takes a
+`ref` to an existing node (`done`, a member name) or `action=`/`kind=`/`type=` for a member it declares.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1247,6 +1249,7 @@ call is made. An `add_connection` edit also requires both `authoring` and
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
+Sequence edits require `sequence_authoring` alongside `authoring`.
 
 ### Querying a model using the standard query model
 

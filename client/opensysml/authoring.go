@@ -247,6 +247,27 @@ func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
+// AddSequence inserts a `first` or `then` sequencing member into an action body.
+type AddSequence struct {
+	// Owner is the action definition or usage receiving the member.
+	Owner string
+	// Keyword is the sequence keyword: "first" or "then".
+	Keyword string
+	// Ref is the node a bare `first <ref>;`/`then <ref>;` names; empty when
+	// the `then` declares a member instead.
+	Ref string
+	// MemberKind is the usage kind a `then` declares: action, perform action,
+	// state, merge, decide, join or fork; empty when Ref names the target.
+	MemberKind string
+	// MemberName is the optional declared name of the `then`-declared member.
+	MemberName string
+	// Type is an optional typing target of the `then`-declared member.
+	Type string
+	// After names the body member the new member follows; empty appends it
+	// at the end of the body.
+	After string
+}
+
 // AddConnection inserts a connection-like usage into a namespace or document root.
 type AddConnection struct {
 	// Owner is the namespace to receive the usage; empty is the document root.
@@ -288,6 +309,7 @@ func (AddRequirementConstraint) isEdit() {
 	/* marker: closed Edit set */
 }
 func (AddTransition) isEdit() { /* marker: closed Edit set */ }
+func (AddSequence) isEdit()   { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
@@ -453,6 +475,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddTransition:
 			required[CapabilityAuthoring] = true
 			required[CapabilityTransitionAuthoring] = true
+		case AddSequence:
+			required[CapabilityAuthoring] = true
+			required[CapabilitySequenceAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -463,6 +488,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+			CapabilitySequenceAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -570,6 +596,14 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
 				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
 				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddSequence:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddSequence{
+			AddSequence: &pb.AddSequenceEdit{
+				Owner: operation.Owner, Keyword: operation.Keyword, Ref: operation.Ref,
+				MemberKind: operation.MemberKind, MemberName: operation.MemberName,
+				Type: operation.Type, After: operation.After,
 			},
 		}}, nil
 	case AddConnection:
