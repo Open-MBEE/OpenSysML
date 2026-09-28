@@ -112,6 +112,42 @@ func TestAddDocumentationToPackageAndConnectorLikeUsages(t *testing.T) {
 	}
 }
 
+func TestAddDocumentationToRelationshipDeclarations(t *testing.T) {
+	for _, tc := range []struct {
+		name, file, content, target, want string
+	}{
+		{"dependency", "doc.sysml",
+			"package P {\n    part def A;\n    part def B;\n    dependency D from A to B;\n}\n", "P::D",
+			"    dependency D from A to B {\n        doc /* Relates. */\n    }\n"},
+		{"dependency with body", "doc.sysml",
+			"package P {\n    part def A;\n    part def B;\n    dependency D from A to B {\n        comment /* Kept. */\n    }\n}\n",
+			"P::D",
+			"    dependency D from A to B {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+		{"multiplicity", "doc.kerml",
+			"package P {\n    multiplicity m [1..2];\n}\n", "P::m",
+			"    multiplicity m [1..2] {\n        doc /* Relates. */\n    }\n"},
+		{"multiplicity with body", "doc.kerml",
+			"package P {\n    multiplicity m [1..2] {\n        comment /* Kept. */\n    }\n}\n", "P::m",
+			"    multiplicity m [1..2] {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+		{"relationship", "doc.kerml",
+			"package P {\n    classifier A;\n    classifier B;\n    specialization S subclassifier A specializes B;\n}\n", "P::S",
+			"    specialization S subclassifier A specializes B {\n        doc /* Relates. */\n    }\n"},
+		{"relationship with body", "doc.kerml",
+			"package P {\n    classifier A;\n    classifier B;\n    specialization S subclassifier A specializes B {\n" +
+				"        comment /* Kept. */\n    }\n}\n", "P::S",
+			"    specialization S subclassifier A specializes B {\n        doc /* Relates. */\n        comment /* Kept. */\n    }\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := loadContent(t, tc.file, tc.content)
+			requireClean(t, m)
+			got := applyContent(t, m, AddDocumentation(tc.target, "Relates."))
+			if !strings.Contains(got, tc.want) {
+				t.Fatalf("content does not contain %q:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestAddDocumentationWritesNameAndLocale(t *testing.T) {
 	m := loadContent(t, "doc.sysml", "package P {\n    part def A;\n}\n")
 	op := AddDocumentation("P::A", "Anglais.")

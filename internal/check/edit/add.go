@@ -603,6 +603,12 @@ func bodyInfo(node ast.Node) (source.Span, bool) {
 		return d.Span(), d.HasBody
 	case *ast.SuccessionEdge:
 		return d.Span(), d.HasBody
+	case *ast.Dependency:
+		return d.Span(), d.HasBody
+	case *ast.MultiplicityDecl:
+		return d.Span(), d.HasBody
+	case *ast.RelationshipMember:
+		return d.Span(), d.HasBody
 	default:
 		return source.Span{}, false
 	}

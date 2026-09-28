@@ -75,7 +75,8 @@ func (m Model) addDocumentationSplice(i int, op Operation) (splice, error) {
 func admitsBody(node ast.Node) bool {
 	switch node.(type) {
 	case *ast.Package, *ast.Namespace, *ast.Definition, *ast.Usage,
-		*ast.SubstateMember, *ast.TransitionMember, *ast.SuccessionEdge:
+		*ast.SubstateMember, *ast.TransitionMember, *ast.SuccessionEdge,
+		*ast.Dependency, *ast.MultiplicityDecl, *ast.RelationshipMember:
 		return true
 	default:
 		return false
