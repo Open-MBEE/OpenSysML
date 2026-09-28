@@ -374,6 +374,36 @@ func TestProtocolBreaks(t *testing.T) {
 	}
 }
 
+// TestEngineRefusesANullOutput: null answered for a String variable is a
+// protocol break, not an empty string.
+func TestEngineRefusesANullOutput(t *testing.T) {
+	fmu := writeFMU(t, "strings.fmu", `<?xml version="1.0" encoding="UTF-8"?>
+<fmiModelDescription fmiVersion="2.0" modelName="Strings" guid="{strings}">
+  <CoSimulation modelIdentifier="Strings"/>
+  <ModelVariables>
+    <ScalarVariable name="s" valueReference="1" causality="output"><String/></ScalarVariable>
+  </ModelVariables>
+</fmiModelDescription>`, "x86_64-linux")
+	scratch(t, "mode.txt", "answer")
+	scratch(t, "reply.json", `{"protocol": 1, "time": 1.0, "outputs": {"s": null}}`)
+	p := parseProbe(t, fmt.Sprintf(`package Drive {
+	private import AnalysisTooling::*;
+	private import ScalarValues::*;
+
+	calc def S {
+		metadata ToolExecution { toolName = "fmi"; uri = "%s"; }
+		return s : String { @ToolVariable { name = "s"; } }
+	}
+
+	calc s : S { }
+}`, fileURI(fmu)))
+	_, err := invokeCalcNamed(t, p, "S", engineFor(t))
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolMalformed {
+		t.Fatalf("InvokeCalc = %v, want a ToolError of kind malformed", err)
+	}
+}
+
 // TestTimeout: a runner that never answers is cut off.
 func TestTimeout(t *testing.T) {
 	t.Setenv(analysis.ToolTimeoutEnv, "150ms")

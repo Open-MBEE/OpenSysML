@@ -329,7 +329,7 @@ func scalarOutput(v Variable, raw json.RawMessage) (runtime.ToolValue, error) {
 		return runtime.ToolValue{Value: semantics.Value{Kind: semantics.ValBool, Bool: b}}, nil
 	case KindString:
 		var s string
-		if err := json.Unmarshal(raw, &s); err != nil {
+		if text == "null" || json.Unmarshal(raw, &s) != nil {
 			return runtime.ToolValue{}, fmt.Errorf("output %q is %s, not a string", v.Name, text)
 		}
 		return runtime.ToolValue{Text: s}, nil
