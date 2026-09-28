@@ -1336,27 +1336,51 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 		return probabilityWeight{}, namesProp + qualifiedName(p) + ", which holds " + mult + " values, not one number"
 	}
 	if a.m.strict {
-		defaults := p.Owned("defaultValue")
-		if len(defaults) == 1 {
-			switch defaults[0].Type {
-			case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
-				_, value, reason := literalNumber(defaults[0])
-				if reason == "" {
-					return probabilityWeight{
-						expr:  computedLiteral(value),
-						value: value,
-						approximation: "under strict the probability is written as " + computedLiteral(value) +
-							", the default of property " + qualifiedName(p) +
-							", since a metadata value must be model-level evaluable; a run no longer reads the property, so an object whose value differs is still weighted by the default",
-					}, ""
-				}
+		return a.defaultWeight(p, "under strict the probability is written as ", ", since a metadata value must be model-level evaluable",
+			"a strict migration writes only model-level evaluable metadata values and ")
+	}
+	holder, why := a.m.propertyHolder(p, a.selfType(), "this")
+	if holder == "" {
+		if why == "" {
+			why = a.noHolder(p)
+		}
+		return a.defaultWeight(p, "the probability is written as ", ", since "+why, why+", so only its default can be written, and ")
+	}
+	read := a.on(a.self()+strings.TrimPrefix(holder, "this"), writeName(a.m.nameOf(p)))
+	return probabilityWeight{expr: a.unshadowed(read), property: p}, ""
+}
+
+// noHolder says why no object the activity acts on holds the property p.
+func (a *activity) noHolder(p *sysmlv1.Element) string {
+	if t := a.selfType(); t != nil {
+		return "the action acts on a " + qualifiedName(t) + ", which neither holds " + qualifiedName(p) + " nor has one part that does"
+	}
+	return "the action acts on no object that holds " + qualifiedName(p)
+}
+
+// defaultWeight weights a branch by the finite numeric default of the property
+// p its «Probability» names, when the value cannot be read from p at run time:
+// written says how the weight is written, why concludes the note, and refused
+// opens the reason when p has no such default.
+func (a *activity) defaultWeight(p *sysmlv1.Element, written, why, refused string) (probabilityWeight, string) {
+	defaults := p.Owned("defaultValue")
+	if len(defaults) == 1 {
+		switch defaults[0].Type {
+		case "LiteralReal", "LiteralInteger", "LiteralUnlimitedNatural":
+			_, value, reason := literalNumber(defaults[0])
+			if reason == "" {
+				return probabilityWeight{
+					expr:  computedLiteral(value),
+					value: value,
+					approximation: written + computedLiteral(value) + ", the default of property " + qualifiedName(p) + why +
+						"; a run no longer reads the property, so an object whose value differs is still weighted by the default",
+				}, ""
 			}
 		}
-		return probabilityWeight{}, "names the property " + qualifiedName(p) +
-			", whose value a run reads when the decision is reached; a strict migration writes only model-level evaluable metadata values and " +
-			qualifiedName(p) + " has no finite numeric literal default"
 	}
-	return probabilityWeight{expr: a.on(a.self(), writeName(a.m.nameOf(p))), property: p}, ""
+	return probabilityWeight{}, "names the property " + qualifiedName(p) +
+		", whose value a run reads when the decision is reached; " + refused +
+		qualifiedName(p) + " has no finite numeric literal default"
 }
 
 // finiteNumber reads text as a finite number written as a v2 real literal.
