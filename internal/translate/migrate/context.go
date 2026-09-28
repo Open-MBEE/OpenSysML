@@ -842,7 +842,7 @@ func (a *activity) on(obj, member string) string {
 // reach; when there is none, an empty step stands where the call was.
 func (a *activity) performUsage(name string, b *sysmlv1.Element) string {
 	owner := b.Parent
-	obj, why := a.m.objectOf(owner, a.selfType(), a.self())
+	obj, _, why := a.m.objectOf(owner, a.selfType(), a.self())
 	if obj == "" {
 		a.m.w.line(actionKw + name + ";")
 		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call"
@@ -922,7 +922,7 @@ func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, no
 // one, else its one part that is.
 func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
-	expr, why := m.objectOf(c.objectType(), selfType, self)
+	expr, _, why := m.objectOf(c.objectType(), selfType, self)
 	if expr == "" {
 		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: " + why
 	}
@@ -930,15 +930,16 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 }
 
 // objectOf finds, from an activity acting on self of selfType, the one object
-// of classifier c in reach: self itself, or self's one part that is a c. The
-// second result completes a sentence: how the object was found, or why none was.
-func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, why string) {
+// of classifier c in reach: self itself, or self's one part that is a c, which
+// part is then returned too. The last result completes a sentence: how the
+// object was found, or why none was.
+func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr string, part *sysmlv1.Element, why string) {
 	kind := qualifiedName(c)
 	switch {
 	case selfType == nil:
-		return "", "the caller acts on no object"
+		return "", nil, "the caller acts on no object"
 	case selfType == c || m.inherits(selfType, c):
-		return self, ""
+		return self, nil, ""
 	}
 	if c != nil {
 		cat, _ := m.classify(c)
@@ -958,11 +959,11 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, w
 		}
 	}
 	if len(parts) == 1 {
-		return self + "." + writeName(m.nameFor(parts[0])), ", the caller's one part that is one"
+		return self + "." + writeName(m.nameFor(parts[0])), parts[0], ", the caller's one part that is one"
 	}
 	why = "has no part that is one"
 	if len(parts) > 1 {
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
 	}
-	return "", "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", nil, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

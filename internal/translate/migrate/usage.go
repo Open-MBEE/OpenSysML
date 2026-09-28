@@ -129,7 +129,7 @@ func (m *migration) reachesUsage(e, owner *sysmlv1.Element) bool {
 	} else if selfType != nil && host.Parent != selfType {
 		return false
 	}
-	obj, _ := m.objectOf(owner, selfType, self)
+	obj, _, _ := m.objectOf(owner, selfType, self)
 	return obj != ""
 }
 
@@ -207,8 +207,10 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 	m.walkActions(body, func(e *sysmlv1.Element) {
 		switch e.Type {
 		case "ControlFlow":
-			if p := m.probabilityProperty(body, e); p != nil && m.propertyHolder(p, owner, "this") != "" {
-				reads = true
+			if p := m.probabilityProperty(body, e); p != nil {
+				if holder, _ := m.propertyHolder(p, owner, "this"); holder != "" {
+					reads = true
+				}
 			}
 		case "CallOperationAction":
 			if op := m.model.Ref(e, "operation"); op != nil && m.asUsage[op] && m.hasFeature(owner, op) {
@@ -250,15 +252,28 @@ func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Eleme
 	return p
 }
 
-// propertyHolder spells the object holding the property p in reach of a body
-// acting on self, an object of selfType: self itself when p is its feature,
-// else its one part that holds one; "" when no object in reach holds p.
-func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) string {
+// propertyHolder spells the one object holding the property p in reach of a
+// body acting on self, an object of selfType: self itself when p is its
+// feature, else its one part that holds one and is one object. It is "" when
+// no object in reach holds p, why then saying so once the part that does holds
+// several objects or a number of them that cannot be told, since a read
+// through such a part is a collection, not one value.
+func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (expr, why string) {
 	if p.Parent == nil || selfType == nil {
-		return ""
+		return "", ""
 	}
-	expr, _ := m.objectOf(p.Parent, selfType, self)
-	return expr
+	expr, part, _ := m.objectOf(p.Parent, selfType, self)
+	if expr == "" || part == nil {
+		return expr, ""
+	}
+	through := "the action acts on a " + qualifiedName(selfType) + ", whose one part that holds " + qualifiedName(p) + ", " + qualifiedName(part) + ", "
+	switch lower, upper, ok := bounds(part); {
+	case !ok:
+		return "", through + "has a multiplicity not written in numbers, so whether it holds one object cannot be told"
+	case upper != 1:
+		return "", through + "holds " + boundsText(lower, upper) + " objects, so a read through it is a collection, not one number"
+	}
+	return expr, ""
 }
 
 // lifelinesOn reports whether a lifeline of the interaction b stands for a part

@@ -1339,10 +1339,12 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 		return a.defaultWeight(p, "under strict the probability is written as ", ", since a metadata value must be model-level evaluable",
 			"a strict migration writes only model-level evaluable metadata values and ")
 	}
-	holder := a.m.propertyHolder(p, a.selfType(), "this")
+	holder, why := a.m.propertyHolder(p, a.selfType(), "this")
 	if holder == "" {
-		return a.defaultWeight(p, "the probability is written as ", ", since "+a.noHolder(p),
-			a.noHolder(p)+", so only its default can be written, and ")
+		if why == "" {
+			why = a.noHolder(p)
+		}
+		return a.defaultWeight(p, "the probability is written as ", ", since "+why, why+", so only its default can be written, and ")
 	}
 	return probabilityWeight{expr: a.on(a.self()+strings.TrimPrefix(holder, "this"), writeName(a.m.nameOf(p))), property: p}, ""
 }
