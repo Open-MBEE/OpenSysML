@@ -81,7 +81,7 @@ func (p *nestedRedefinitionChecker) checkChainSegments(owner *symbols.Symbol, nr
 			continue
 		}
 		if !semantics.IsReferenceUsage(resolved) && !semantics.IsSubjectUsage(resolved) &&
-			!semantics.IsBehaviorParameter(resolved) && resolved.Kind != symbols.SymbolPortUsage {
+			!p.model.ReferentialParameter(resolved) && resolved.Kind != symbols.SymbolPortUsage {
 			continue
 		}
 		p.diags = append(p.diags, diag.Diagnostic{

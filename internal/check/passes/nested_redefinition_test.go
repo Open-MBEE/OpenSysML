@@ -89,6 +89,21 @@ func TestNestedRedefinitionThroughAParameter(t *testing.T) {
 	}
 }
 
+// A chain crossing a data-typed parameter owns a value below it — an attribute
+// parameter keeps the bound data — so the pass reports nothing.
+func TestNestedRedefinitionThroughADataParameter(t *testing.T) {
+	src := `package P {
+		private import ScalarValues::Real;
+		action def A { out attribute output { attribute voltage : Real; } }
+		action run : A {
+			attribute :>> output.voltage = 9.0;
+		}
+	}`
+	if got := nestedDiags(t, src, diag.ConformanceDefault); len(got) != 0 {
+		t.Fatalf("got %+v, want no diagnostics", got)
+	}
+}
+
 // A one-level redefinition and the nested-body form report nothing.
 func TestNestedRedefinitionSilentOnStandard(t *testing.T) {
 	src := `package P {

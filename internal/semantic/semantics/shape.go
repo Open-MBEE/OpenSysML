@@ -402,6 +402,26 @@ func IsBehaviorParameter(sym *symbols.Symbol) bool {
 	return IsParameter(sym) && behaviorLike(sym.Owner())
 }
 
+// ReferentialParameter reports whether a behavior parameter holds no object of
+// its own: an object flows into it, so nothing below it is owned. A data-typed
+// parameter — an attribute or enumeration usage, or one typed by a data type —
+// keeps the value bound to it and is not referential.
+func (m *Model) ReferentialParameter(sym *symbols.Symbol) bool {
+	if !IsBehaviorParameter(sym) {
+		return false
+	}
+	switch sym.Kind {
+	case symbols.SymbolAttributeUsage, symbols.SymbolEnumerationUsage:
+		return false
+	}
+	for _, typ := range m.FeatureTypes(sym) {
+		if m.IsDataType(typ) {
+			return false
+		}
+	}
+	return true
+}
+
 // IsSelf reports whether sym is a thing's `self` feature: Base::Anything::self or a
 // feature restating it, such as DataValue::self or a definition's own redefinition.
 func (m *Model) IsSelf(sym *symbols.Symbol) bool {
