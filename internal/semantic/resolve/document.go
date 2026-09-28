@@ -354,7 +354,7 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		r.ResolveEndpoint(scope, d.Target)
 		r.resolveTrigger(scope, d.Trigger)
 		if d.Via != nil {
-			r.ResolveQualified(scope, d.Via)
+			r.resolveVia(scope, d.Via)
 		}
 		body := symbols.TriggerScope(scope, d)
 		r.resolveExpr(body, d.Guard)
@@ -679,7 +679,11 @@ func (r *Resolver) resolveRelationships(scope *symbols.Scope, decl ast.Node, rel
 
 			// Standard resolution in current scope
 			if qn, ok := target.(*ast.QualifiedName); ok {
-				r.ResolveQualified(scope, qn)
+				if rel.Kind == ast.RelVia {
+					r.resolveVia(scope, qn)
+				} else {
+					r.ResolveQualified(scope, qn)
+				}
 			} else if fc, ok := target.(*ast.FeatureChainExpr); ok {
 				r.resolveFeatureChain(scope, fc)
 			}
@@ -734,6 +738,11 @@ func (r *Resolver) relationshipScope(parent, header *symbols.Scope, rel *ast.Rel
 		}
 	}
 	return parent
+}
+
+// RelationshipScope returns the scope a head relationship target resolves in.
+func (r *Resolver) RelationshipScope(parent, header *symbols.Scope, rel *ast.Relationship) *symbols.Scope {
+	return r.relationshipScope(parent, header, rel)
 }
 
 // resolvesInHeader reports whether a head relationship's target, opening with name,

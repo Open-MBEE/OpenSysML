@@ -643,7 +643,7 @@ func TestStateMachineMigratesToAnExecutableStateDef(t *testing.T) {
 		"transition first Cool accept Go then done;",
 		"state def Cooling {",
 		"state 'in';",
-		"exhibit state control : Control;",
+		"exhibit state control : Control { in ref :>> context = this; }",
 	} {
 		wantLine(t, r.Notation, line)
 	}

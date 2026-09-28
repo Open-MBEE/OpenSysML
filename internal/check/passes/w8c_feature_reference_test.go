@@ -422,3 +422,150 @@ func TestW8CFeatureReferenceRootAnnotationBody(t *testing.T) {
 		t.Errorf("want a clean analysis, got %v", errs)
 	}
 }
+
+func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
+	const want = msgSubsettingFeaturingTypes
+	reject := map[string]string{
+		"nested transition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					state a;
+					state b;
+					transition first a accept E via pin then b;
+				}
+			}
+		}`,
+		"nested action definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					action r accept e : E via pin;
+				}
+			}
+		}`,
+		"nested deferred buffer": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					state s {
+						do action buffer {
+							action r accept e : E via pin;
+						}
+					}
+				}
+			}
+		}`,
+		"send via in nested definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					send new E() via pin;
+				}
+			}
+		}`,
+	}
+	for name, src := range reject {
+		t.Run("reject "+name, func(t *testing.T) {
+			errs := w8cLibraryErrorsIn(t, "<t>.sysml", src)
+			if len(errs) != 1 || errs[0] != want {
+				t.Fatalf("want exactly one %q, got %v", want, errs)
+			}
+		})
+	}
+
+	accept := map[string]string{
+		"transition through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					in ref context : Owner;
+					state a;
+					state b;
+					transition first a accept E via context.pin then b;
+				}
+			}
+		}`,
+		"action through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					in ref context : Owner;
+					action r accept e : E via context.pin;
+				}
+			}
+		}`,
+		"buffer through context": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S {
+					in ref context : Owner;
+					state s {
+						do action buffer {
+							action r accept e : E via context.pin;
+						}
+					}
+				}
+			}
+		}`,
+		"own parameter": `package P {
+			item def E;
+			port def Port;
+			action def A {
+				in ref q : Port;
+				action r accept e : E via q;
+			}
+		}`,
+		"usage-owned parameter": `package P {
+			item def E;
+			port def Port;
+			part def Owner {
+				action def A {
+					action r accept e : E via q {
+						in ref q : Port;
+					}
+				}
+			}
+		}`,
+		"this context chain": `package P {
+			item def E;
+			part def Owner {
+				port x;
+				action def A {
+					in ref context : Owner;
+					action r accept e : E via this.context.x;
+				}
+			}
+		}`,
+		"bare via in a usage body": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				state def S;
+				action def A;
+			}
+			part owner : Owner {
+				exhibit state s : S {
+					action r accept e : E via pin;
+				}
+				perform action a : A {
+					action r2 accept e2 : E via pin;
+				}
+			}
+		}`,
+	}
+	for name, src := range accept {
+		t.Run("accept "+name, func(t *testing.T) {
+			if errs := w8cLibraryErrorsIn(t, "<t>.sysml", src); len(errs) != 0 {
+				t.Fatalf("want a clean fixture, got %v", errs)
+			}
+		})
+	}
+}

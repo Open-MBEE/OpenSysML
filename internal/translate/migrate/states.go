@@ -1604,7 +1604,7 @@ func (s *stateRegion) deferredDo(v, do *sysmlv1.Element, d *deferrals) {
 			for _, l := range k.loops {
 				via := ""
 				if l.port != nil {
-					via = " via " + writeName(s.m.nameFor(l.port))
+					via = " via " + s.m.ownerPrefix(v) + writeName(s.m.nameFor(l.port))
 				}
 				receive, keep, payload := writeName(l.receive), writeName(l.keep), writeName(l.payload)
 				s.m.w.line("action " + receive + " accept " + payload + " : " + sig + via + ";")

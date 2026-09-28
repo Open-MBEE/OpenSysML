@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Signal" xmi:id="_go" name="Go"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_goEvent" signal="_go"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_pingEvent" signal="_ping"/>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver"
+                     classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_reception" name="Ping" signal="_ping"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred"
+                               event="_pingEvent" port="_p"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_done" name="Done"/>
+          <transition xmi:type="uml:Transition" xmi:id="_start"
+                      source="_initial" target="_waiting"/>
+          <transition xmi:type="uml:Transition" xmi:id="_finish"
+                      source="_waiting" target="_done">
+            <trigger xmi:type="uml:Trigger" xmi:id="_finishTrigger"
+                     event="_goEvent" port="_p"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_activityReceiver" name="ActivityReceiver"
+                     classifierBehavior="_await">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_activityPort" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_await" name="Await">
+        <node xmi:type="uml:InitialNode" xmi:id="_awaitInitial"/>
+        <node xmi:type="uml:AcceptEventAction" xmi:id="_accept" name="receive">
+          <trigger xmi:type="uml:Trigger" xmi:id="_acceptTrigger"
+                   event="_pingEvent" port="_activityPort"/>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_awaitFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_awaitFirst"
+              source="_awaitInitial" target="_accept"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_awaitLast"
+              source="_accept" target="_awaitFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_sender" name="Sender">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_out" name="out" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_send" name="Send">
+        <node xmi:type="uml:InitialNode" xmi:id="_sendInitial"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing"
+                  name="send ping" signal="_ping" onPort="_out"/>
+        <node xmi:type="uml:SendSignalAction" xmi:id="_sendGo"
+                  name="send go" signal="_go" onPort="_out"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_sendFinal"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_sendFirst"
+              source="_sendInitial" target="_sendPing"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_sendSecond"
+              source="_sendPing" target="_sendGo"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_sendLast"
+              source="_sendGo" target="_sendFinal"/>
+      </ownedBehavior>
+    </packagedElement>
+
+    <packagedElement xmi:type="uml:Class" xmi:id="_rig" name="Rig">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_senderPart"
+                      name="sender" type="_sender" aggregation="composite"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_receiverPart"
+                      name="receiver" type="_receiver" aggregation="composite"/>
+      <ownedConnector xmi:type="uml:Connector" xmi:id="_link">
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_senderEnd"
+             role="_out" partWithPort="_senderPart"/>
+        <end xmi:type="uml:ConnectorEnd" xmi:id="_receiverEnd"
+             role="_p" partWithPort="_receiverPart"/>
+      </ownedConnector>
+    </packagedElement>
+  </uml:Model>
+
+  <sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>
+  <sysml:Block xmi:id="_senderBlock" base_Class="_sender"/>
+  <sysml:Block xmi:id="_rigBlock" base_Class="_rig"/>
+  <sysml:InterfaceBlock xmi:id="_activityInterface" base_Class="_activityReceiver"/>
+</xmi:XMI>

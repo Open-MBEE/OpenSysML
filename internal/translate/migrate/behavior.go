@@ -144,11 +144,22 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	if b == nil || m.asUsage[b] {
 		return
 	}
+	ins, _ := m.contextIns(m.contextOf(b), c)
 	switch cat {
 	case catStateDef:
-		m.w.line("exhibit state " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := "exhibit state " + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + ins + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	case catActionDef:
-		m.w.line("perform action " + writeName(name) + " : " + m.ref(b, c) + ";")
+		head := "perform action " + writeName(name) + " : " + m.ref(b, c)
+		if ins != "" {
+			m.w.line(head + " { " + ins + "; }")
+		} else {
+			m.w.line(head + ";")
+		}
 	default:
 		return
 	}
@@ -1017,7 +1028,7 @@ func (m *migration) receptionLoop(r *sysmlv1.Element, route *receptionRoute, fro
 	suffix, via := "", ""
 	if port != nil {
 		suffix = " via " + m.nameFor(port)
-		via = " via " + writeName(m.nameFor(port))
+		via = " via " + m.ownerPrefix(r) + writeName(m.nameFor(port))
 	}
 	trig := writeName(freshIn(route.used, "receive"+suffix))
 	payload := writeName(freshIn(route.used, lowerFirst(m.nameFor(route.sig))+suffix))

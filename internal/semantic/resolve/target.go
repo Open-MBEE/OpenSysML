@@ -18,6 +18,41 @@ func (r *Resolver) ResolveTarget(scope *symbols.Scope, target ast.Node) (*symbol
 	return r.resolveTarget(scope, target, nil)
 }
 
+func (r *Resolver) resolveVia(scope *symbols.Scope, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
+	if qn == nil {
+		return nil, false
+	}
+	headEnd := len(qn.Parts)
+	for i, part := range qn.Parts {
+		if part.Chained {
+			headEnd = i
+			break
+		}
+	}
+	if headEnd == len(qn.Parts) {
+		return r.ResolveQualified(scope, qn)
+	}
+	if headEnd == 0 {
+		return nil, false
+	}
+	head := &ast.QualifiedName{
+		NodeBase: qn.NodeBase,
+		Global:   qn.Global,
+		Parts:    append([]ast.NameSegment(nil), qn.Parts[:headEnd]...),
+	}
+	member := &ast.QualifiedName{
+		NodeBase: qn.NodeBase,
+		Parts:    append([]ast.NameSegment(nil), qn.Parts[headEnd:]...),
+	}
+	chain := &ast.FeatureChainExpr{
+		NodeBase: qn.NodeBase,
+		Operand:  head,
+		Member:   member,
+	}
+	target := r.resolveFeatureChain(scope, chain)
+	return target, target != nil
+}
+
 // resolveTarget is ResolveTarget with an optional reference filter, which
 // applies to the leading segment of the target only: the rest of a feature
 // chain is looked up in the preceding segment, not in the enclosing scope.
