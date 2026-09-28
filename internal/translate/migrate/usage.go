@@ -254,10 +254,10 @@ func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Eleme
 
 // propertyHolder spells the one object holding the property p in reach of a
 // body acting on self, an object of selfType: self itself when p is its
-// feature, else its one part that holds one and is one object. It is "" when
-// no object in reach holds p, why then saying so once the part that does holds
-// several objects or a number of them that cannot be told, since a read
-// through such a part is a collection, not one value.
+// feature, else its one part that holds one and is exactly one object. It is
+// "" when no object in reach holds p, why then saying so once the part that
+// does may hold several objects or none, or a number of them that cannot be
+// told, since a read through such a part is not one value.
 func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (expr, why string) {
 	if p.Parent == nil || selfType == nil {
 		return "", ""
@@ -272,6 +272,8 @@ func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) (e
 		return "", through + "has a multiplicity not written in numbers, so whether it holds one object cannot be told"
 	case upper != 1:
 		return "", through + "holds " + boundsText(lower, upper) + " objects, so a read through it is a collection, not one number"
+	case lower != 1:
+		return "", through + "holds " + boundsText(lower, upper) + " objects, so a read through it may find no number"
 	}
 	return expr, ""
 }

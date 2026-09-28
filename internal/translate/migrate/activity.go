@@ -1346,7 +1346,8 @@ func (a *activity) probability(text string) (probabilityWeight, string) {
 		}
 		return a.defaultWeight(p, "the probability is written as ", ", since "+why, why+", so only its default can be written, and ")
 	}
-	return probabilityWeight{expr: a.on(a.self()+strings.TrimPrefix(holder, "this"), writeName(a.m.nameOf(p))), property: p}, ""
+	read := a.on(a.self()+strings.TrimPrefix(holder, "this"), writeName(a.m.nameOf(p)))
+	return probabilityWeight{expr: a.unshadowed(read), property: p}, ""
 }
 
 // noHolder says why no object the activity acts on holds the property p.
