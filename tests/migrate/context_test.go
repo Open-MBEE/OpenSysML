@@ -282,6 +282,35 @@ func TestSiblingViewpointPortsShareTheirDefinitionContext(t *testing.T) {
 	}
 }
 
+func TestHostAndNestedViewpointPortsShareHostContext(t *testing.T) {
+	r := migrateDocument(t, `
+    <packagedElement xmi:type="uml:Class" xmi:id="_host" name="Host">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_tx" name="tx" aggregation="composite"/>
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_review" name="Review">
+        <ownedAttribute xmi:type="uml:Port" xmi:id="_rx" name="rx" aggregation="composite"/>
+      </nestedClassifier>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ack" name="Ack"/>
+    <packagedElement xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+      <node xmi:type="uml:InitialNode" xmi:id="_start"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendPing" name="send ping" signal="_ping" onPort="_tx"/>
+      <node xmi:type="uml:SendSignalAction" xmi:id="_sendAck" name="send ack" signal="_ack" onPort="_rx"/>
+      <node xmi:type="uml:ActivityFinalNode" xmi:id="_finish"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_startFlow" source="_start" target="_sendPing"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_pingFlow" source="_sendPing" target="_sendAck"/>
+      <edge xmi:type="uml:ControlFlow" xmi:id="_finishFlow" source="_sendAck" target="_finish"/>
+    </packagedElement>`, `
+  <sysml:Block xmi:id="_hostBlock" base_Class="_host"/>
+  <sysml:Viewpoint xmi:id="_reviewViewpoint" base_Class="_review"/>`)
+	wantLine(t, r.Notation, "in ref context : Host;")
+	wantLine(t, r.Notation, "send new Ping() via context.tx;")
+	wantLine(t, r.Notation, "send new Ack() via context.Review.rx;")
+	if diags := errors(t, "t.sysml", r.Notation); len(diags) > 0 {
+		t.Errorf("%v", diags)
+	}
+}
+
 // borrowedContext is a package-owned activity Hit sending Ping(a, b) through a
 // Host's port tx, fed by one value through a fork into the two argument pins; a
 // Controller, which is no Host and holds none, owns Relay, which only calls Hit;

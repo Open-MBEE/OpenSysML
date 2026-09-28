@@ -494,7 +494,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 				declared, _, _ := m.contextDeclaration(owner)
 				types = addOwner(types, declared)
 			}
-			if d := m.mostSpecific(types); d != nil && !slices.Contains(owners, d) {
+			if d := m.mostSpecific(types); d != nil {
 				return &behaviorContext{name: m.freshName(b, "context"), classifier: d, holder: b}
 			}
 			names := make([]string, len(owners))
