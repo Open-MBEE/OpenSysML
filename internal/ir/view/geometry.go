@@ -48,6 +48,8 @@ type Style struct {
 // Note is a note box drawn on the canvas, from a DiagramLayout::Note: its text,
 // the node it is anchored to (or the edge, by its end nodes; neither for one
 // free on the surface), the top-left corner of its box and its size when HasSize.
+// Origin is where the Note annotation is stated: one annotation `about` several
+// elements yields a Note per element, all of one Origin, drawn as one box.
 type Note struct {
 	Text          string
 	Anchor        string
@@ -56,6 +58,7 @@ type Note struct {
 	X, Y          float64
 	Width, Height float64
 	HasSize       bool
+	Origin        Origin
 }
 
 // Picture is a DiagramLayout::Picture drawn on the canvas: its file as the view
@@ -132,7 +135,7 @@ func (r *Renderer) notesOf(view, elem *symbols.Symbol, anchor string, out *Rende
 			continue
 		}
 		n := site.Note
-		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize})
+		out.Notes = append(out.Notes, Note{Text: n.Text, Anchor: anchor, X: n.X, Y: n.Y, Width: n.Width, Height: n.Height, HasSize: n.HasSize, Origin: site.Origin()})
 	}
 }
 
@@ -194,6 +197,28 @@ func (r *Renderer) geometryOf(view, elem *symbols.Symbol, out *Rendering) *Geome
 	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
 }
 
+// memberGeometryOf is the Geometry positioning, in view, the member owner has
+// under name — the `start` or `done` a body inherits rather than declares —
+// through a Layout naming it as owner's (`about Acquire::start`).
+func (r *Renderer) memberGeometryOf(view, owner *symbols.Symbol, name string, out *Rendering) *Geometry {
+	if owner == nil {
+		return nil
+	}
+	if member, ok := r.model.LookupMember(owner, name); ok {
+		out.drawn.noteMember(owner, member)
+	}
+	site, ok := r.model.MemberLayoutOf(view, owner, name)
+	if !ok {
+		return nil
+	}
+	r.noteLayoutProblems(site, owner, out)
+	if site.Layout == nil {
+		return nil
+	}
+	l := site.Layout
+	return &Geometry{X: l.X, Y: l.Y, Width: l.Width, Height: l.Height, HasSize: l.HasSize, Collapsed: l.Collapsed}
+}
+
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
@@ -230,6 +255,22 @@ func (r *Renderer) declaredNameSynthesized(elem *symbols.Symbol, decl ast.Node) 
 	return ok && r.model.NameSynthesized(sym)
 }
 
+// declaredStandIn reports whether a migration made up the element decl
+// declares under elem for no element of its source.
+func (r *Renderer) declaredStandIn(elem *symbols.Symbol, decl ast.Node) bool {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	return ok && r.model.StandIn(sym)
+}
+
+// declaredSymbol is the element decl declares under elem, nil when it declares none.
+func (r *Renderer) declaredSymbol(elem *symbols.Symbol, decl ast.Node) *symbols.Symbol {
+	sym, ok := r.model.SymbolDeclaring(documentScope(elem), decl)
+	if !ok {
+		return nil
+	}
+	return sym
+}
+
 // declaredGeometryOf is the Geometry of the node lowered from decl, a state,
 // region or action node declared under elem; nil when decl declares no element.
 func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node, out *Rendering) *Geometry {
@@ -238,6 +279,20 @@ func (r *Renderer) declaredGeometryOf(view, elem *symbols.Symbol, decl ast.Node,
 		return nil
 	}
 	return r.geometryOf(view, node, out)
+}
+
+// nodeGeometryOf is declaredGeometryOf for a graph node drawn as a member of
+// owner under name: one declaration inherited by several bodies is drawn once
+// per body, each positioned by the Layout naming it as that body's. A node owner
+// has under no such name — anonymous, or shadowed — is positioned by its
+// declaration alone.
+func (r *Renderer) nodeGeometryOf(view, elem, owner *symbols.Symbol, decl ast.Node, name string, out *Rendering) *Geometry {
+	if owner != nil && name != "" {
+		if member, ok := r.model.LookupMember(owner, name); ok && member.Decl == decl {
+			return r.memberGeometryOf(view, owner, name, out)
+		}
+	}
+	return r.declaredGeometryOf(view, elem, decl, out)
 }
 
 // canvasOf is the Canvas view states, nil for a view stating none and for a

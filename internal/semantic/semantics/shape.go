@@ -13,12 +13,13 @@ const fqnAnythingSelf = "Base::Anything::self"
 
 // frameRoots names the Kernel features whose restatements stay in the frame: the
 // object's identity, its history (time slices, snapshots, start and end) and the
-// transfers it takes part in, which the runtime tracks itself.
+// transfers it takes part in and their sorting, which the runtime tracks itself.
 var frameRoots = map[string]bool{
-	fqnAnythingSelf:                              true,
-	"Occurrences::Occurrence::timeSlices":        true,
-	"Occurrences::Occurrence::incomingTransfers": true,
-	"Occurrences::Occurrence::outgoingTransfers": true,
+	fqnAnythingSelf:                                 true,
+	"Occurrences::Occurrence::timeSlices":           true,
+	"Occurrences::Occurrence::incomingTransfers":    true,
+	"Occurrences::Occurrence::outgoingTransfers":    true,
+	"Occurrences::Occurrence::incomingTransferSort": true,
 }
 
 // ShapeFeature is one feature of an object's shape: the name it is held under

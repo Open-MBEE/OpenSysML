@@ -51,6 +51,7 @@ part def Rig {
         flow measure.reading to record.value;
         bind sample = measure.reading;
         metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
+        metadata MigrationMetadata::StandIn about 'fork', fork2, 'join', join2;
     }
 }
 dependency Rig::sampling::measure to Rig::probe;

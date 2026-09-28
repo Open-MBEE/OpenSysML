@@ -195,7 +195,7 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 		`"n9" [shape=circle, fillcolor=black, label="", pos="100,257.2!", pin=true, width=0.2, height=0.2];`,
 		`"n10" [shape=doublecircle, fillcolor=black, label="", pos="150,12.8`,
 		`"n9" -> "n1" [pos="e,100,220 100,250 100,250 100,230 100,230"];`,
-		`"n7" -> "n10" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="181.5,45"];`,
+		`"n7" -> "n10" [label="[false]", pos="e,150,20 110,70 110,70 150,70 150,70 150,70 150,30 150,30", lp="118.5,45"];`,
 	} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT of the activity view lacks %q:\n%s", want, dot)
@@ -205,7 +205,8 @@ func TestGoldenControlNodeLayout(t *testing.T) {
 
 // The routes a migrated view carries reach the DOT form as pinned edge splines for each
 // edge kind, labelled by name only where the edge has no text of its own and the name is
-// the source's: one the migration made up, and marked, labels nothing.
+// the source's: one the migration made up, and marked, labels nothing. An object flow
+// runs pin to pin, the pins named beside the action; a label sits inside the canvas.
 func TestMigratedRoutesRenderPinned(t *testing.T) {
 	r := migrateLaidOut(t, "diagram_edges")
 	s := session(t, r)
@@ -213,19 +214,21 @@ func TestMigratedRoutesRenderPinned(t *testing.T) {
 		"Structure::Vehicle::Drive::Driving": {
 			`"n5" -> "n1" [pos="e,60,210 60,180 60,180 60,200 60,200"];`,
 			`"n3" -> "n4" [label="finish", pos="e,60,60 60,20 60,20 60,50 60,50", lp="32.5,40"];`,
-			`[label="result to value", style=dashed, pos="e,110,160 110,80 110,80 140,80 140,80 140,80 140,160 140,160 140,160 120,160 120,160", lp="77.5,120"];`,
+			`"n1.0" [shape=box, label="", xlabel="result", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,134!", pin=true];`,
+			`"n3.0" [shape=box, label="", xlabel="value", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, pos="110,106!", pin=true];`,
+			`"n1.0" -> "n3.0" [style=dashed, pos="e,113.5,112 113.5,128 113.5,128 140,80 140,80 140,80 140,160 140,160 140,160 118.5,121 118.5,121"];`,
 		},
 		"Behavior::Modes::Modes": {
 			`"n1" -> "n2" [label="accept Go", pos="e,110,110 200,110 200,110 120,110 120,110", lp="155,98"];`,
 			`"n2" -> "n3" [label="accept Stop", pos="e,250,90 250,40 250,40 250,80 250,80", lp="203,65"];`,
-			`"n3" -> "n2" [label="accept Go", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="359,65"];`,
-			`"n3" -> "n2" [label="accept Resume", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="374.5,65"];`,
+			`"n3" -> "n2" [label="accept Go", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="281,65"];`,
+			`"n3" -> "n2" [label="accept Resume", pos="e,280,40 280,90 280,90 320,90 320,90 320,90 320,40 320,40 320,40 290,40 290,40", lp="265.5,65"];`,
 		},
 		"Structure::Vehicle::'Vehicle Internals'": {
 			`[label="connection", arrowhead=none, penwidth=3, pos="200,100 200,100 120,100 120,100", lp="160,88"];`,
 			`[label="connection", arrowhead=none, penwidth=3, pos="200,80 200,80 160,60 160,60 160,60 120,80 120,80", lp="192.5,44.5"];`,
 			`[label="drive", arrowhead=none, penwidth=3, pos="200,90 200,90 120,90 120,90", lp="160,78"];`,
-			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10", lp="160,-2"];`,
+			`[label="binding", arrowhead=none, pos="200,10 200,10 120,10 120,10", lp="160,22"];`,
 		},
 	} {
 		rendering, err := s.ViewRendering(view)

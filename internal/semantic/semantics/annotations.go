@@ -42,6 +42,9 @@ type annotation struct {
 	scope *symbols.Scope
 	// about marks an annotation stated elsewhere with an `about` clause.
 	about bool
+	// via is the namespace an `about` clause named the element through
+	// (`about Acquire::start` names start via Acquire); nil for an unqualified one.
+	via *symbols.Symbol
 	// recorded marks an annotation read from an interface record: it has no
 	// node, its document being held without its tree.
 	recorded bool
@@ -143,7 +146,12 @@ func (m *Model) AnnotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if !ok || sym.Kind != symbols.SymbolMetadataUsage || !annotatesOthers(usage) {
 		return nil
 	}
-	return m.annotatedElements(sym.OwnerScope, usage)
+	targets := m.annotatedElements(sym.OwnerScope, usage)
+	out := make([]*symbols.Symbol, len(targets))
+	for i, target := range targets {
+		out[i] = target.sym
+	}
+	return out
 }
 
 // AnnotationFactsOf states the metadata annotating sym as names and constants,
@@ -675,26 +683,39 @@ func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
 		return
 	}
 	a.about = true
-	m.indexAbout(a, m.recordedElements(nil, sym.Facts.About))
+	var targets []aboutTarget
+	for _, target := range m.recordedElements(nil, sym.Facts.About) {
+		targets = append(targets, aboutTarget{sym: target})
+	}
+	m.indexAbout(a, targets)
 }
 
-// indexAbout files a as an annotation of each target.
-func (m *Model) indexAbout(a annotation, targets []*symbols.Symbol) {
+// indexAbout files a as an annotation of each target, through the namespace
+// the target was named by.
+func (m *Model) indexAbout(a annotation, targets []aboutTarget) {
 	for _, target := range targets {
-		if _, known := m.aboutAnnots[target]; !known {
-			m.aboutOrder = append(m.aboutOrder, target)
+		a.via = target.via
+		if _, known := m.aboutAnnots[target.sym]; !known {
+			m.aboutOrder = append(m.aboutOrder, target.sym)
 		}
-		m.aboutAnnots[target] = append(m.aboutAnnots[target], a)
-		if target.Decl != nil {
-			m.aboutByDecl[target.Decl] = append(m.aboutByDecl[target.Decl], a)
+		m.aboutAnnots[target.sym] = append(m.aboutAnnots[target.sym], a)
+		if target.sym.Decl != nil {
+			m.aboutByDecl[target.sym.Decl] = append(m.aboutByDecl[target.sym.Decl], a)
 		}
 	}
 }
 
+// aboutTarget is one element an `about` clause names, with the namespace the
+// clause reached it through when the name was qualified (nil otherwise, and
+// for a recorded clause, whose site reads no layout).
+type aboutTarget struct {
+	sym, via *symbols.Symbol
+}
+
 // annotatedElements resolves the elements a metadata usage's `about` clause
 // names.
-func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []*symbols.Symbol {
-	var out []*symbols.Symbol
+func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []aboutTarget {
+	var out []aboutTarget
 	for _, rel := range u.Relationships {
 		if rel == nil || rel.Kind != ast.RelAnnotates {
 			continue
@@ -703,9 +724,15 @@ func (m *Model) annotatedElements(scope *symbols.Scope, u *ast.Usage) []*symbols
 		if !ok {
 			continue
 		}
-		if target, ok := m.resolver.ResolveQualified(scope, qn); ok && target != nil {
-			out = append(out, target)
+		target, ok := m.resolver.ResolveQualified(scope, qn)
+		if !ok || target == nil {
+			continue
 		}
+		var via *symbols.Symbol
+		if n := len(qn.Parts); n > 1 {
+			via, _ = m.resolver.PartSymbol(qn, n-2)
+		}
+		out = append(out, aboutTarget{sym: target, via: via})
 	}
 	return out
 }
@@ -1242,6 +1269,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return []*symbols.Symbol{sym.OwnerScope.Owner()}, true
+	}
+	// A usage's `nested*` and a definition's `owned*` derive its owned usages of
+	// the metaclass the suffix names (see reflective_usages.go).
+	if elems, ok := m.reflectiveOwnedUsages(sym, feature); ok {
+		return elems, true
 	}
 	return nil, false
 }
