@@ -357,6 +357,12 @@ func (h *stateStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Value
 	return assignThroughChain(ec, h.describe(), s, value)
 }
 
+// assignForeign writes a qualified target naming a feature outside the body's
+// own run: an enclosing run's frame, else the performing object the qualifier types.
+func (h *stateStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
+}
+
 // assignStateAttribute writes an attribute owned by the state running this
 // behavior, or by one enclosing it, and reports whether it did. The value
 // answers to the attribute's declaration as every other write does.

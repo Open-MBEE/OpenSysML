@@ -2571,6 +2571,33 @@ func TestQualifiedWriteStreamsLikeARunWrite(t *testing.T) {
 	}
 }
 
+// A calculation names no object outside its own run: a qualified write to the
+// performing object's feature is an external assignment, rejected outright.
+func TestCalcQualifiedWriteRejectsAnotherObject(t *testing.T) {
+	ctx, idx := contextForSource(t, `package test {
+		private import ScalarValues::*;
+		part def Host { attribute count : Integer = 0; }
+		calc def Bump {
+			assign Host::count := 3;
+			return : Integer = 1;
+		}
+	}`)
+	host := findSymbolByName(idx.DocumentRoot("<test>"), "Host", ast.DefPart)
+	inst, err := ctx.Instantiate(host)
+	if err != nil {
+		t.Fatalf("Instantiate: %v", err)
+	}
+	bump := lookupOne(t, idx, "test::Bump")
+	if _, err := ctx.invokeCalcWithSelf(bump, calcArgs{}, idx.DocumentRoot("<test>"), inst); !errors.Is(err, ErrCalcExternalAssignment) {
+		t.Fatalf("Bump on Host: err = %v; want ErrCalcExternalAssignment", err)
+	}
+	if fv, err := inst.GetFeatureValue(ctx, "count"); err != nil {
+		t.Fatalf("read Host.count: %v", err)
+	} else if got := fv.HeldValue(); got.Const.Int != 0 {
+		t.Errorf("Host.count = %v, want 0: the rejected write changed nothing", got)
+	}
+}
+
 // qualifiedWriteFixture runs a state machine whose entry materializes this and
 // then writes its own attribute through its qualified name: `this` stays live.
 const qualifiedWriteFixture = `

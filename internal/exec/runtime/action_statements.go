@@ -74,6 +74,37 @@ func (h *actionStmtHost) assignChain(ec *EvalContext, s lower.Assign, value Valu
 	return assignThroughChain(ec, h.describe(), s, value)
 }
 
+// assignForeign writes a qualified target naming a feature outside the body's
+// own run: an enclosing run's frame, else the performing object the qualifier types.
+func (h *actionStmtHost) assignForeign(ec *EvalContext, s lower.Assign, value Value) error {
+	return assignQualifiedForeign(ec, s, value, h.describe())
+}
+
+// assignQualifiedForeign is the action and state share of assignForeign: the
+// qualifier names the run or object owning the feature, so the write lands on
+// the frame a run of it binds, else on the performing object it types.
+func assignQualifiedForeign(ec *EvalContext, s lower.Assign, value Value, describe string) error {
+	if written, err := ec.writeFrameFeature(s.Owner, s.Feature, value); err != nil {
+		return err
+	} else if written {
+		return nil
+	}
+	target := ec.self
+	if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
+		if _, ok := target.FeatureValues[s.Target]; !ok {
+			return fmt.Errorf("%s: object #%d (%s) has no feature %s",
+				ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
+		}
+		if err := target.SetFeatureValue(ec.ctx, s.Target, value); err != nil {
+			return err
+		}
+		ec.ctx.noteObjectWrite(target, s.Target, value)
+		return nil
+	}
+	return fmt.Errorf("%s: assignment to %s::%s names no object typed by %s to write on",
+		describe, s.Owner.Name, s.Target, s.Owner.Name)
+}
+
 // performer is the object performing the action this body belongs to.
 func (h *actionStmtHost) performer() *Instance {
 	return h.exec.self

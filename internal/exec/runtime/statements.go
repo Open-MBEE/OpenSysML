@@ -153,6 +153,9 @@ type stmtHost interface {
 	// assignChain writes the feature a chained target names, on the object the
 	// chain reaches; a host with no world outside its body rejects it.
 	assignChain(ec *EvalContext, s lower.Assign, value Value) error
+	// assignForeign writes a qualified target that names no feature of this
+	// body's own run: an enclosing run's frame or the performing object.
+	assignForeign(ec *EvalContext, s lower.Assign, value Value) error
 	// declaredOutput reports whether name is an output feature of the host, whose
 	// assignment binds that output for this activation rather than writing a value
 	// the body merely holds.
@@ -378,25 +381,7 @@ func (e *stmtEngine) execute(stmt lower.Statement) (stmtFlow, error) {
 				}
 				return flowNext, e.host.assignOuter(e.env, s.Target, value, s)
 			}
-			if written, err := ec.writeFrameFeature(s.Owner, s.Feature, value); err != nil {
-				return flowNext, err
-			} else if written {
-				return flowNext, nil
-			}
-			target := ec.self
-			if target != nil && ec.ctx.isOrSpecializes(target.Type, s.Owner) {
-				if _, ok := target.FeatureValues[s.Target]; !ok {
-					return flowNext, fmt.Errorf("%s: object #%d (%s) has no feature %s",
-						ErrNoSuchFeature, target.ID, symbolText(target.Type), s.Target)
-				}
-				if err := target.SetFeatureValue(e.ctx, s.Target, value); err != nil {
-					return flowNext, err
-				}
-				e.ctx.noteObjectWrite(target, s.Target, value)
-				return flowNext, nil
-			}
-			return flowNext, fmt.Errorf("%s: assignment to %s::%s names no object typed by %s to write on",
-				e.host.describe(), s.Owner.Name, s.Target, s.Owner.Name)
+			return flowNext, e.host.assignForeign(ec, s, value)
 		}
 		// An output is bound by the host even when the body's data holds it, so a
 		// second binding is reported; a block-local of the name shadows it.

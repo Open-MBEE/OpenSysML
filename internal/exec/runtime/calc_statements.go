@@ -32,6 +32,9 @@ type calcOccurrence struct {
 	inst        *Instance
 	materialize func() (*Instance, error)
 	ended       bool
+	// params is the run's parameter bindings as they are bound, which a
+	// materialization seeds from; its vars map is shared with the run's frame.
+	params frame
 }
 
 // materializeOccurrence is the invocation's occurrence, made on the first call.
@@ -175,6 +178,13 @@ func (h *calcStmtHost) mirrorOccurrence(name string, value Value) error {
 // an effect outside the calculation, as writing an undeclared name is.
 func (h *calcStmtHost) assignChain(_ *EvalContext, s lower.Assign, _ Value) error {
 	return fmt.Errorf("%w: %s writes a feature of another object", ErrCalcExternalAssignment, s.Chain.Text)
+}
+
+// assignForeign rejects a qualified write naming an object outside the calc's
+// own run for the same reason a chained target is rejected.
+func (h *calcStmtHost) assignForeign(_ *EvalContext, s lower.Assign, _ Value) error {
+	return fmt.Errorf("%w: %s::%s writes a feature of another object",
+		ErrCalcExternalAssignment, s.Owner.Name, s.Target)
 }
 
 // acceptReturn takes the value a `return` yields, which the result parameter
