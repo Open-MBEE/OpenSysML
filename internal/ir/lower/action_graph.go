@@ -1339,8 +1339,14 @@ func lowerStatement(member ast.Node, scope *symbols.Scope) Statement {
 				Scope:       scope,
 			}
 		}
+		// `self` names the sending object, which is where a send addressing no one
+		// goes, so the two forms lower alike.
+		selfTarget := !isPath && target == "self"
+		if selfTarget {
+			target = ""
+		}
 		var targetExpr ast.Node
-		if !m.IsVia {
+		if !m.IsVia && !selfTarget {
 			targetExpr = m.Target
 		}
 		receiver, receiverPath := SendTarget(m.Receiver)

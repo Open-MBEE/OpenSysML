@@ -177,6 +177,8 @@ func FromModelOptions(name string, model *sysmlv1.Model, opts Options) *Result {
 		fileContents:  map[string]string{},
 		pending:       map[*sysmlv1.Element]*pendingNotes{},
 		regionUsed:    map[*sysmlv1.Element]map[string]bool{},
+		stateUsed:     map[*sysmlv1.Element]map[string]bool{},
+		nestedIn:      map[*sysmlv1.Element]string{},
 		vertexNames:   map[*sysmlv1.Element]string{},
 		points:        map[*sysmlv1.Element]pointForm{},
 		incoming:      map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -504,6 +506,11 @@ type migration struct {
 	observed map[*sysmlv1.Element][]*sysmlv1.Element
 	// regionUsed holds the vertex names each region's body has taken.
 	regionUsed map[*sysmlv1.Element]map[string]bool
+	// stateUsed holds the member names each state's body has taken.
+	stateUsed map[*sysmlv1.Element]map[string]bool
+	// nestedIn names the generated action a state's behavior is written
+	// within, for those the strict deferral encoding nests.
+	nestedIn map[*sysmlv1.Element]string
 	// vertexNames gives the v2 name of every vertex a state machine writes.
 	vertexNames map[*sysmlv1.Element]string
 	// points says how each connection point of a composite state is written.
