@@ -288,10 +288,14 @@ func TestContextBoundCallUsesItsLexicalContext(t *testing.T) {
 	r := migrateFixtureFile(t, "context_bound_call")
 	for _, line := range []string{
 		"in ref context : Host;",
-		"action make : Make { in ref :>> context = Run::context; }",
+		"action make : Make { out integer; in ref :>> context = Run::context; }",
+		"flow make.integer to consume.value;",
 		"send new Ping() via context.tx;",
 	} {
 		wantLine(t, r.Notation, line)
+	}
+	if strings.Contains(string(r.Notation), "out '';") {
+		t.Errorf("the unnamed output parameter has an empty redeclaration:\n%s", r.Notation)
 	}
 	if diags := errors(t, "context_bound_call.sysml", r.Notation); len(diags) > 0 {
 		t.Errorf("%v", diags)
