@@ -44,13 +44,19 @@ func (r *Resolver) resolveVia(scope *symbols.Scope, qn *ast.QualifiedName) (*sym
 		NodeBase: qn.NodeBase,
 		Parts:    append([]ast.NameSegment(nil), qn.Parts[headEnd:]...),
 	}
+	headRef := &ast.FeatureReference{NodeBase: qn.NodeBase, Name: head}
 	chain := &ast.FeatureChainExpr{
 		NodeBase: qn.NodeBase,
-		Operand:  &ast.FeatureReference{NodeBase: qn.NodeBase, Name: head},
+		Operand:  headRef,
 		Member:   member,
 	}
+	r.EnterDoc(symbols.DocNameOf(scope))
+	defer r.LeaveDoc()
 	r.Enter()
-	target := r.resolveFeatureChain(scope, chain)
+	var target *symbols.Symbol
+	if operand := r.getOperandSymbol(scope, headRef); operand != nil {
+		target = r.resolveMemberChain(r.chainedFrom(scope, operand), member, chain)
+	}
 	settled := r.Leave()
 	for i := range head.Parts {
 		if name, ok := r.PartName(head, i); ok {
