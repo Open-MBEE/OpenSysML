@@ -678,9 +678,15 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	activation := ctx.newActivation()
 	defer ctx.endActivation(activation)
 
+	// A definition's `this` denotes the occurrence the invocation itself is,
+	// which the first read of it materializes seeded with the parameters bound
+	// so far; the invocation's end ends it. The box is on the locals frame, so a
+	// qualified write through it lands on the same instance the host mirrors to.
+	occurrence := &calcOccurrence{}
 	frame.slots.reset(shape.ParamNames)
 	frame.aliases, frame.owner, frame.run = shape.Aliases, shape, ctx.newRun()
 	locals := frame.locals()
+	locals.occurrence = occurrence
 	ec := &frame.ec
 	*ec = EvalContext{
 		ctx:        ctx,
@@ -691,10 +697,6 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 		activation: activation,
 	}
 
-	// A definition's `this` denotes the occurrence the invocation itself is,
-	// which the first read of it materializes seeded with the parameters bound
-	// so far; the invocation's end ends it.
-	occurrence := &calcOccurrence{}
 	if isBehaviorDefKind(shape.Sym.Kind) {
 		occurrence.materialize = func() (*Instance, error) {
 			if occurrence.inst != nil {

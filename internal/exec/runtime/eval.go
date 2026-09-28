@@ -940,6 +940,17 @@ func (ec *EvalContext) writeFrameFeature(qualifier, sym *symbols.Symbol, value V
 				continue
 			}
 			f.set(name, value)
+			// The run this frame binds may hold the feature in its own `this`
+			// occurrence: write there too, as the run's host mirrors its writes,
+			// but only the feature the occurrence already holds, and only this
+			// frame's run — never an enclosing calc's occurrence.
+			if oc := f.occurrence; oc != nil && oc.inst != nil {
+				if _, holds := oc.inst.FeatureValues[sym.Name]; holds {
+					if err := oc.inst.SetFeatureValue(ec.ctx, sym.Name, value); err != nil {
+						return true, err
+					}
+				}
+			}
 			return true, nil
 		}
 		// A frame of an action or state performance qualifies by the behavior it
