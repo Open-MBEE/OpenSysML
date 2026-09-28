@@ -111,6 +111,13 @@ type featureResolver interface {
 	feature(path []string, write bool) (opaqueRef, *refusal)
 }
 
+// shadowChecker is a featureResolver telling whether a declaration of a name
+// would shadow a feature it resolves without spelling the feature, as
+// resolving the name would; one that is none is asked to resolve it.
+type shadowChecker interface {
+	shadows(name string) bool
+}
+
 // translated is a v2 expression the translator produced, with what it knows
 // of its type (scalar and object as on opaqueRef); atomic is true when it needs
 // no parentheses as an operand, loose is the v2 precedence of its outermost
@@ -326,6 +333,9 @@ type anyScope struct{}
 func (anyScope) feature(path []string, _ bool) (opaqueRef, *refusal) {
 	return opaqueRef{expr: strings.Join(path, ".")}, nil
 }
+
+// shadows is false: answering every name, the scope has no feature of its own.
+func (anyScope) shadows(string) bool { return false }
 
 // tokKind is the kind of a token of an opaque body.
 type tokKind int
@@ -808,7 +818,7 @@ func (p *opaqueParser) statements() ([]string, *refusal) {
 func (p *opaqueParser) statement() ([]string, *refusal) {
 	tok := p.peek(true)
 	switch {
-	case tok.kind == tokIdent && (tok.text == "var" || tok.text == "let" || tok.text == "const"):
+	case declares(tok):
 		return p.declaration()
 	case p.reservedAt(tok, p.i+1):
 		return nil, &refusal{kind: refusedConstruct, token: tok.text}
@@ -1002,13 +1012,32 @@ func (p *opaqueParser) declarable(kw, name string) *refusal {
 	if inheritedActionNames()[name] {
 		return &refusal{kind: refusedConstruct, token: token, why: name + " is a member every action has"}
 	}
-	if _, isAny := p.sc.(anyScope); isAny {
-		return nil
+	shadows := false
+	if sc, ok := p.sc.(shadowChecker); ok {
+		shadows = sc.shadows(name)
+	} else if _, err := p.sc.feature([]string{name}, false); err == nil {
+		shadows = true
 	}
-	if _, err := p.sc.feature([]string{name}, false); err == nil {
+	if shadows {
 		return &refusal{kind: refusedConstruct, token: token, why: name + " is already a feature here, which a declaration would shadow"}
 	}
 	return nil
+}
+
+// declaredNames is the set of names the declarations among toks give locals.
+func declaredNames(toks []token) map[string]bool {
+	names := map[string]bool{}
+	for i, t := range toks[:max(len(toks)-1, 0)] {
+		if declares(t) && toks[i+1].kind == tokIdent {
+			names[toks[i+1].text] = true
+		}
+	}
+	return names
+}
+
+// declares reports whether tok begins a declaration of a local.
+func declares(tok token) bool {
+	return tok.kind == tokIdent && (tok.text == "var" || tok.text == "let" || tok.text == "const")
 }
 
 // step writes `x++` or `x--` as an assignment.

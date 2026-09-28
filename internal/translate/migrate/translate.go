@@ -29,6 +29,7 @@ type bodyScope struct {
 	clash   string // why no lane applies, when partitions of different dimensions hold the scope
 	viaLane bool   // a name resolved against the lane's object
 	clock   string // the clock variable the body reads and who names it; "" when it does not
+	probe   bool   // an analysis asks what the names resolve to: nothing is spelled or recorded
 }
 
 // bodyScope makes the scope an opaque body read at scope is translated in.
@@ -103,7 +104,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 	if r != nil {
 		return opaqueRef{}, r
 	}
-	if path[0] == "this" && len(path) > 1 && m.selfContext(s.scope) == nil {
+	if path[0] == "this" && len(path) > 1 && !s.probe && m.selfContext(s.scope) == nil {
 		// In a usage the object has no name: `this.f` spells bare — or through
 		// the owning def where a nearer declaration shadows the name.
 		expr = m.respellThis("this."+expr, s.scope)
@@ -118,7 +119,7 @@ func (s *bodyScope) feature(path []string, write bool) (opaqueRef, *refusal) {
 		return opaqueRef{}, &refusal{kind: refusedConstruct, token: full,
 			why: carrier + " is a collection, so the assignment would write through several objects"}
 	}
-	if s.lane != nil && s.viaLane {
+	if s.lane != nil && s.viaLane && !s.probe {
 		m.useLane(s.scope, s.lane)
 	}
 	return opaqueRef{
@@ -165,10 +166,16 @@ func (s *bodyScope) thisAnchor(path []string, write bool) featureAnchor {
 	var a featureAnchor
 	switch {
 	case s.lane != nil && s.lane.expr != "" && s.lane.typ != nil:
-		a.expr, a.f, a.plural, a.carrier = m.anchorExpr(s.lane.expr, s.scope), s.lane.typ, s.lane.plural, s.lane.expr
+		a.f, a.plural, a.carrier = s.lane.typ, s.lane.plural, s.lane.expr
+		if !s.probe {
+			a.expr = m.anchorExpr(s.lane.expr, s.scope)
+		}
 		s.viaLane = true
 	case m.contextClassifier(s.scope) != nil:
-		a.expr, a.f = m.thisName(s.scope), m.contextClassifier(s.scope)
+		a.f = m.contextClassifier(s.scope)
+		if !s.probe {
+			a.expr = m.thisName(s.scope)
+		}
 		if c := m.selfContext(s.scope); c != nil {
 			// `this` inside the def is the object its context parameter holds.
 			a.f = c.classifier
@@ -197,7 +204,11 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 	f, viaLane, hidden := s.lookup(name)
 	if viaLane {
 		s.viaLane = true
-		return featureAnchor{expr: joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(f))), f: f, plural: s.lane.plural, carrier: s.lane.expr}
+		a := featureAnchor{f: f, plural: s.lane.plural, carrier: s.lane.expr}
+		if !s.probe {
+			a.expr = joinDot(m.anchorExpr(s.lane.expr, s.scope), writeName(m.nameOf(f)))
+		}
+		return a
 	}
 	// The clock variable is the tool's global; any feature of that name shadows it.
 	if by, clock := m.clockNames()[name]; clock && f == nil && hidden == nil && len(path) == 1 {
@@ -219,6 +230,9 @@ func (s *bodyScope) scopeAnchor(path []string, write bool) featureAnchor {
 			why: "it is " + kindOf(f) + " " + qualifiedName(f) + ", not a feature a body reads"}}
 	}
 	expr := writeName(m.nameOf(f))
+	if s.probe {
+		return featureAnchor{expr: expr, f: f}
+	}
 	if m.ownedByClassifier(f, s.scope) {
 		expr = m.ownerPrefix(s.scope) + expr
 	} else if c := m.selfContext(s.scope); c != nil {
@@ -252,7 +266,7 @@ func (s *bodyScope) readsFeatureOf(name string, c *sysmlv1.Element) bool {
 	if name == "this" {
 		return s.m.contextClassifier(s.scope) == c
 	}
-	if p, _ := s.m.pinNamed(s.scope, name); p != nil {
+	if s.m.pinCalled(s.scope, name) != nil {
 		return false
 	}
 	f, viaLane, _ := s.lookup(name)
@@ -263,6 +277,57 @@ func (s *bodyScope) readsFeatureOf(name string, c *sysmlv1.Element) bool {
 		return s.m.contextClassifier(s.scope) == c
 	}
 	return s.m.hasFeature(c, f)
+}
+
+// namesRead lists the first step of every name the translator resolves reading
+// body as the writer does — as the statements of an action, else as one
+// expression — a local the body declares being none. ok is false when the
+// translator does not read the body through: the language is none it
+// translates, or it refuses the body, whether the writer then reads it as v2
+// syntax or keeps it as a comment; either way its names are read bare.
+func (s *bodyScope) namesRead(body, lang string, statements bool) (names []string, ok bool) {
+	d := dialectOf(lang)
+	if d == dialectNone || statements && !d.script() {
+		return nil, false
+	}
+	r := &nameReads{s: s}
+	var err *refusal
+	if statements {
+		_, _, err = translateStatements(body, lang, r)
+	} else {
+		_, err = translateExpr(body, lang, r, wanted{})
+	}
+	if err != nil {
+		return nil, false
+	}
+	return r.names, true
+}
+
+// nameReads answers a body's names as the scope does, listing the first step
+// of each; a pin of the scope's node, declared only when the node is written,
+// answers as a value of no known type.
+type nameReads struct {
+	s     *bodyScope
+	names []string
+}
+
+func (r *nameReads) feature(path []string, write bool) (opaqueRef, *refusal) {
+	if r.s.m.pinCalled(r.s.scope, path[0]) != nil {
+		return opaqueRef{expr: strings.Join(path, ".")}, nil
+	}
+	r.names = append(r.names, path[0])
+	return r.s.feature(path, write)
+}
+
+func (r *nameReads) shadows(name string) bool { return r.s.shadows(name) }
+
+// shadows reports whether a declaration of name in the body would shadow a
+// feature the scope reads by it, spelling nothing.
+func (s *bodyScope) shadows(name string) bool {
+	probe := *s
+	probe.probe = true
+	_, err := probe.feature([]string{name}, false)
+	return err == nil
 }
 
 // featureSteps resolves each further step of path as a feature of the last object,

@@ -1,6 +1,7 @@
 package migrate_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -290,4 +291,143 @@ func TestGuardsOnTheDefsOwnParametersKeepItsPortContext(t *testing.T) {
 	wantNoLine(t, r.Notation, "in ref context : Controller;")
 	wantNoLine(t, r.Notation, "context.n")
 	wantClean(t, "port-context-guard", r)
+}
+
+// localsModel is a block whose activity Compute declares a local named as the
+// block's attribute, which the translator refuses since the declaration would
+// shadow it, and whose activity Tally reads the attribute into a local.
+const localsModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_counter" name="Counter">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_cnt" name="count">` + integerHref + `
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_cnt0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_compute" name="Compute">
+        <node xmi:type="uml:InitialNode" xmi:id="_cpi"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_cpop" name="bump">
+          <language>JavaScript</language>
+          <body>let count = 1; count += 1;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_cpf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_cpe1" source="_cpi" target="_cpop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_cpe2" source="_cpop" target="_cpf"/>
+      </ownedBehavior>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_tally" name="Tally">
+        <node xmi:type="uml:InitialNode" xmi:id="_tli"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_tlop" name="bump">
+          <language>JavaScript</language>
+          <body>let n = count; count = n + 1;</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_tlf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_tle1" source="_tli" target="_tlop"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_tle2" source="_tlop" target="_tlf"/>
+      </ownedBehavior>
+    </packagedElement>`
+
+// A name a body declares as a local is no read of the owner's feature called
+// the same, so a behavior naming its owner's features only so stays a def
+// without a context parameter; one reading a feature into a local reads the
+// owner, and is written as its usage.
+func TestLocalsABodyDeclaresAreNoReadsOfTheOwner(t *testing.T) {
+	r := migrateDocument(t, localsModel, `<sysml:Block xmi:id="_b1" base_Class="_counter"/>`)
+	for _, line := range []string{
+		"action def Compute {",
+		`the construct "let count" is outside the translated subset: count is already a feature here, which a declaration would shadow`,
+		"action tally {",
+		"attribute n : ScalarValues::Integer;",
+		"assign count := n + 1;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	for _, line := range []string{"in ref context : Counter;", "action compute", "action def Tally"} {
+		wantNoLine(t, r.Notation, line)
+	}
+}
+
+// callerBlocks are two blocks: A, whose activity Inspect assigns A's attribute,
+// and B, whose activity Run calls Inspect; B holds the part given, if any.
+func callerBlocks(part string) (a, b string) {
+	a = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_a" name="A">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_status" name="status">` + integerHref + `
+        <defaultValue xmi:type="uml:LiteralInteger" xmi:id="_status0" value="0"/>
+      </ownedAttribute>
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_inspect" name="Inspect">
+        <node xmi:type="uml:InitialNode" xmi:id="_ii"/>
+        <node xmi:type="uml:OpaqueAction" xmi:id="_mark" name="mark">
+          <language>JavaScript</language>
+          <body>status = status + 1</body>
+        </node>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_if"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ie1" source="_ii" target="_mark"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_ie2" source="_mark" target="_if"/>
+      </ownedBehavior>
+    </packagedElement>`
+	b = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_b" name="B">` + part + `
+      <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+        <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+        <node xmi:type="uml:CallBehaviorAction" xmi:id="_call" name="inspect" behavior="_inspect"/>
+        <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_ri" target="_call"/>
+        <edge xmi:type="uml:ControlFlow" xmi:id="_re2" source="_call" target="_rf"/>
+      </ownedBehavior>
+    </packagedElement>`
+	return a, b
+}
+
+const callerApplications = `
+  <sysml:Block xmi:id="_b1" base_Class="_a"/>
+  <sysml:Block xmi:id="_b2" base_Class="_b"/>`
+
+// sortedLines is the notation's lines, trimmed and sorted, for comparing two
+// documents that declare the same members in different orders.
+func sortedLines(notation []byte) string {
+	lines := strings.Split(string(notation), "\n")
+	for i, l := range lines {
+		lines[i] = strings.TrimSpace(l)
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
+// A def reading its owner takes the owner as its context whether it is reached
+// first from its own block or from a caller in another; the caller does not
+// take the callee's owner as its own context. When the caller's object holds a
+// part that is one, the callee is the part's usage, performed on it.
+func TestCalleeContextIsTheSameWhicheverBlockIsReachedFirst(t *testing.T) {
+	a, b := callerBlocks("")
+	first := migrateDocument(t, a+b, callerApplications)
+	second := migrateDocument(t, b+a, callerApplications)
+	if sortedLines(first.Notation) != sortedLines(second.Notation) {
+		t.Errorf("the blocks migrate differently by order:\n%s\n----\n%s", first.Notation, second.Notation)
+	}
+	for _, line := range []string{
+		"action def Inspect {",
+		"in ref context : A;",
+		"assign context.status := context.status + 1;",
+		"action def Run {",
+		"which is left unbound: the caller is a B, which is no A and has no part that is one",
+	} {
+		wantLine(t, first.Notation, line)
+	}
+	wantNoLine(t, first.Notation, "in ref context : B;")
+
+	a, b = callerBlocks(`
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_ba" name="a" type="_a" aggregation="composite"/>`)
+	first = migrateDocument(t, a+b, callerApplications)
+	second = migrateDocument(t, b+a, callerApplications)
+	if sortedLines(first.Notation) != sortedLines(second.Notation) {
+		t.Errorf("the blocks migrate differently by order:\n%s\n----\n%s", first.Notation, second.Notation)
+	}
+	for _, line := range []string{
+		"part a : A;",
+		"action inspect {",
+		"assign status := status + 1;",
+		"in ref context : B;",
+		"perform action inspect ::> context.a.inspect;",
+	} {
+		wantLine(t, first.Notation, line)
+	}
+	wantNoLine(t, first.Notation, "in ref context : A;")
+	wantClean(t, "caller-part", first)
 }

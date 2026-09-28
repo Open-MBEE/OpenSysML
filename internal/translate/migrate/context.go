@@ -23,8 +23,9 @@ type behaviorContext struct {
 	// owner is whether the object is the def's own classifier, spelled for `this`.
 	owner bool
 	// implied is whether only the body's own reads or bindings call for it,
-	// none of its actions going through ports: a caller is then not held to
-	// name an object of the owner for the def.
+	// none of its actions going through ports or performed by a swimlane's
+	// object: a caller is then not held to name an object of the owner for
+	// the def.
 	implied bool
 	// used is whether the def's body spelled it; bound whether a usage bound it.
 	// The parameter is written when either holds once the body is evaluated.
@@ -83,11 +84,8 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 		return nil
 	}
 	m.visitContext(b)
-	if c := m.contexts[b]; c == nil {
+	if m.contexts[b] == nil {
 		m.contexts[b] = m.ownerContext(b)
-	} else if c.implied {
-		// Asked for first, the behavior's object is what the callers reach.
-		c.implied = false
 	}
 	return m.contexts[b]
 }
@@ -362,6 +360,12 @@ func (m *migration) callBodyExpr(expr string, e *sysmlv1.Element) string {
 // its own body, where a call's own redefinition would shadow the bare name.
 func (m *migration) qualifiedContext(c *behaviorContext, scope *sysmlv1.Element) string {
 	c.used = true
+	return m.contextName(c, scope)
+}
+
+// contextName is qualifiedContext's spelling alone, for a binding that may
+// come to nothing: the parameter is used once the binding is written.
+func (m *migration) contextName(c *behaviorContext, scope *sysmlv1.Element) string {
 	return m.ref(c.holder, scope) + "::" + writeName(c.name)
 }
 
@@ -399,12 +403,16 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 		return "", ""
 	}
 	self, selfType := "this", m.contextClassifier(scope)
-	if dc := m.selfContext(scope); dc != nil {
-		self, selfType = m.qualifiedContext(dc, scope), dc.objectType()
+	dc := m.selfContext(scope)
+	if dc != nil {
+		self, selfType = m.contextName(dc, scope), dc.objectType()
 	}
 	expr, cnote := m.contextBinding(c, selfType, self)
 	if expr == "" {
 		return "", cnote
+	}
+	if dc != nil {
+		dc.used = true
 	}
 	c.bound = true
 	return "in ref :>> " + writeName(c.name) + " = " + expr, cnote
@@ -413,7 +421,7 @@ func (m *migration) contextIns(c *behaviorContext, scope *sysmlv1.Element) (ins,
 // visitContext reaches b and, through it, the behaviors it calls; once every call
 // from b leads back no earlier than b, b and the cycle it heads are settled.
 func (m *migration) visitContext(b *sysmlv1.Element) {
-	v := &contextVisit{index: len(m.visits), low: len(m.visits), owners: m.namedPortOwners(b)}
+	v := &contextVisit{index: len(m.visits), low: len(m.visits), owners: addOwner(m.namedPortOwners(b), m.laneOwner(b))}
 	m.visiting[b] = v
 	m.visits = append(m.visits, b)
 	for _, c := range m.calledActivities(b) {
@@ -585,12 +593,12 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 			}
 		case "OpaqueAction":
 			// A body written in its own language reads a feature by its name.
-			if body, _ := opaqueBody(e); m.bodyReads(body, e, c) {
+			if body, lang := opaqueBody(e); m.bodyReads(body, lang, e, c, true) {
 				uses = true
 			}
 		case "OpaqueExpression":
 			// So does a guard, a value, or any other expression the body carries.
-			if body, _ := opaqueBody(e); m.bodyReads(body, opaqueScope(e), c) {
+			if body, lang := opaqueBody(e); m.bodyReads(body, lang, opaqueScope(e), c, false) {
 				uses = true
 			}
 		}
@@ -599,27 +607,45 @@ func (m *migration) usesFeaturesOf(b, c *sysmlv1.Element) bool {
 }
 
 // bodyReads reports whether an opaque body, read where scope's names resolve,
-// names a feature of the classifier c: a name the writer would spell as a
-// read of c's object, directly or through a swimlane over one of its parts.
-// A name after a dot is a member of what precedes it, not a read of its own.
-func (m *migration) bodyReads(body string, scope, c *sysmlv1.Element) bool {
+// names a feature of the classifier c as the writer spells it: a name the
+// translator resolves reading the body — as statements or as one expression —
+// none being a local the body declares; or, for a body it does not translate,
+// each bare name but the locals declared. A name after a dot is a member of
+// what precedes it, not a read of its own; a name reads c directly or through
+// a swimlane over one of its parts.
+func (m *migration) bodyReads(body, lang string, scope, c *sysmlv1.Element, statements bool) bool {
 	if body == "" || scope == nil {
 		return false
 	}
-	toks, err := lexOpaque(body)
-	if err != nil {
-		return false
-	}
 	s := m.bodyScope(scope)
-	for i, t := range toks {
-		if t.kind != tokIdent || i > 0 && toks[i-1].isPunct(".") {
-			continue
-		}
-		if s.readsFeatureOf(t.text, c) {
+	s.probe = true
+	names, ok := s.namesRead(body, lang, statements)
+	if !ok {
+		names = bareNames(body)
+	}
+	for _, name := range names {
+		if s.readsFeatureOf(name, c) {
 			return true
 		}
 	}
 	return false
+}
+
+// bareNames lists the identifiers of body that follow no dot, less the names
+// its declarations give locals.
+func bareNames(body string) []string {
+	toks, err := lexOpaque(body)
+	if err != nil {
+		return nil
+	}
+	declared := declaredNames(toks)
+	var names []string
+	for i, t := range toks {
+		if t.kind == tokIdent && !declared[t.text] && !(i > 0 && toks[i-1].isPunct(".")) {
+			names = append(names, t.text)
+		}
+	}
+	return names
 }
 
 // opaqueScope is the element whose names an opaque expression's body reads:
@@ -663,6 +689,23 @@ func (m *migration) namedPortOwners(b *sysmlv1.Element) []*sysmlv1.Element {
 		}
 	})
 	return owners
+}
+
+// laneOwner is the classifier owning b when a partition of b represents its
+// object or one of its parts: the lane's object performs the nodes it holds, so
+// the def acts on an object of the owner as one going through its ports does,
+// and a caller names an object of it for the def; nil when no partition does.
+func (m *migration) laneOwner(b *sysmlv1.Element) *sysmlv1.Element {
+	owner := classifierOf(b)
+	if owner == nil || b.Type != "Activity" {
+		return nil
+	}
+	for _, l := range m.lanesOf(b).all {
+		if l.expr != "" {
+			return owner
+		}
+	}
+	return nil
 }
 
 // calledActivities lists the activities the call actions of b name, once each.
@@ -995,13 +1038,16 @@ func (a *activity) viaPrefix() string {
 // parameter: the caller's object — its context parameter qualified from the
 // def — when it is one, else its one part that is.
 func (a *activity) contextArgument(c *behaviorContext) (expr, note string) {
-	self := a.self()
+	self := "this"
 	selfType := a.selfType()
 	if a.ctx != nil {
-		self = a.m.qualifiedContext(a.ctx, a.def)
+		self = a.m.contextName(a.ctx, a.def)
 		selfType = a.ctx.objectType()
 	}
 	expr, note = a.m.contextBinding(c, selfType, self)
+	if expr != "" && a.ctx != nil {
+		a.ctx.used = true
+	}
 	return expr, note
 }
 

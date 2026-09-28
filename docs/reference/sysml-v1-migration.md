@@ -1029,7 +1029,8 @@ block's features lexically instead and names them bare (`assign level := value;`
 `this` value staying `this`. A read of the block's features is any name the migration
 resolves to one of them wherever the body carries it — an opaque action's body, a guard on a
 control flow, a pin's value — the block's own features and, through a swimlane over one of its
-parts, that part's (`context.'ESW Seq'.i` in a definition, `'ESW Seq'.i` in a usage) alike. The block is the one whose ports the activity or the behaviors it calls
+parts, that part's (`context.'ESW Seq'.i` in a definition, `'ESW Seq'.i` in a usage) alike; a
+name the body declares as a local (`let count = 1;`) reads nothing of the block. The block is the one whose ports the activity or the behaviors it calls
 name; activities calling each other in a cycle name the ports of the whole cycle and take the
 same block. An activity naming ports of several blocks none of which specializes the others
 takes no parameter, and the report says which blocks; an activity naming none accepts through
