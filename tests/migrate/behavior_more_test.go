@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/migrate"
 )
 
@@ -593,6 +594,50 @@ func TestClassifierBehaviorContextFollowsInputParameter(t *testing.T) {
 		wantLine(t, r.Notation, line)
 	}
 	wantClean(t, "classifierBehaviorParameterContext", r)
+}
+
+func TestReceptionPortContextForInterfaceBlock(t *testing.T) {
+	const members = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_ping" name="Ping">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pingValue" name="value">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+      </ownedAttribute>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_contract" name="Contract">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_carriedPing" name="ping" type="_ping"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_interfaceOwner" name="IB">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_interfacePort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_interfaceReception" name="R" signal="_ping">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_receptionValue" name="value" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+      </ownedReception>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_blockOwner" name="Owner">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_blockPort" name="p" type="_contract" aggregation="composite"/>
+      <ownedReception xmi:type="uml:Reception" xmi:id="_blockReception" name="R" signal="_ping"/>
+    </packagedElement>`
+	const applications = `
+    <sysml:InterfaceBlock xmi:id="_contractInterface" base_Class="_contract"/>
+    <sysml:FlowProperty xmi:id="_carriedPingFlow" base_Property="_carriedPing" direction="in"/>
+    <sysml:InterfaceBlock xmi:id="_interfaceBlock" base_Class="_interfaceOwner"/>
+    <sysml:Block xmi:id="_block" base_Class="_blockOwner"/>`
+	r := migrateDocumentOptions(t, members, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"action def R {",
+		"in ref context : IB;",
+		"action 'receive via p' accept 'ping via p' : Ping via context.p;",
+		"perform action r : R { in ref :>> context = this; }",
+		"perform action r {",
+		"action 'receive via p' accept 'ping via p' : Ping via p;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "in value;")
+	for _, d := range errorsMode(t, "interfaceBlockReception.sysml", r.Notation, diag.ConformanceStrict) {
+		t.Errorf("%v", d)
+	}
 }
 
 func TestStrictAcceptViaContextPortFixture(t *testing.T) {

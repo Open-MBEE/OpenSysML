@@ -1000,8 +1000,13 @@ func (m *migration) reception(r *sysmlv1.Element) {
 		m.w.block("perform action "+writeName(usage), body)
 		desc = "written as an action usage accepting " + m.nameFor(sig)
 	} else {
-		m.w.block("action def "+writeName(name), body)
-		m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+		m.w.block("action def "+writeName(name), func() { m.bodyWithContext(r, body) })
+		ins, _ := m.contextIns(m.contextOf(r), owner)
+		if ins == "" {
+			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + ";")
+		} else {
+			m.w.line("perform action " + writeName(usage) + " : " + writeName(name) + " { " + ins + "; }")
+		}
 	}
 	m.receptionParameters(r, sig)
 	if route.performed {
