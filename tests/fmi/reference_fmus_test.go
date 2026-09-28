@@ -82,17 +82,18 @@ func fmpyPresent(t *testing.T) {
 	t.Skip("fmpy not installed (pip install opensysml[fmi])")
 }
 
-// runnerScript writes a shim that runs the reference runner module out of the
-// client/python source tree; the minimal tool environment sees only the export
-// the script makes itself.
+// runnerScript writes a shim that runs the reference runner as a script out of
+// the client/python source tree: running the module as a package would import
+// opensysml.__init__, which needs the client's grpc dependency that the runner
+// itself does not. The minimal tool environment sees only what the script does.
 func runnerScript(t *testing.T) string {
 	t.Helper()
-	client, err := filepath.Abs(filepath.Join("..", "..", "client", "python"))
+	runner, err := filepath.Abs(filepath.Join("..", "..", "client", "python", "opensysml", "fmi_runner.py"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(t.TempDir(), "fmi-runner")
-	script := "#!/bin/sh\nexport PYTHONPATH=" + strconv.Quote(client) + "\nexec python3 -m opensysml.fmi_runner\n"
+	script := "#!/bin/sh\nexec python3 " + strconv.Quote(runner) + "\n"
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
