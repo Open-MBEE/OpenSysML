@@ -336,6 +336,7 @@ var constructFixtures = []string{
 	"probability_nested_def_part",
 	"probability_nested_def_part_optional",
 	"probability_nested_def_part_plural",
+	"probability_nested_def_part_uncalled",
 	"probability_part_shadowed",
 	"tree_constraints",
 	"realized_interfaces",

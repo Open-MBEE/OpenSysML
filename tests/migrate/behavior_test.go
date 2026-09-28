@@ -964,6 +964,15 @@ func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
 		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Sub::mission, holds 2 objects, so a read through it is a collection, not one number; a run no longer reads the property, so an object whose value differs is still weighted by the default")
 		run(t, r)
 	})
+	t.Run("held by one part of the object, the def uncalled", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_uncalled")
+		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+	})
 	t.Run("held by a part that may be no object", func(t *testing.T) {
 		r := migrateFixtureFile(t, "probability_nested_def_part_optional")
 		wantLine(t, r.Notation, "part mission : Mission[0..1];")
