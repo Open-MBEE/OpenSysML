@@ -220,6 +220,52 @@
       }
     },
     {
+      "id": "apply_edits/documentation_is_written_on_new_and_existing_declarations",
+      "description": "A doc on a new member and a doc added to an existing declaration ended by a semicolon each open a body whose first member is the delimited comment.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "documentation_authoring"
+      ],
+      "model": {
+        "fixture": "apply_edits_documentation.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_documentation": {
+              "target": "Demo::Bread",
+              "body": "Sliced bread."
+            }
+          },
+          {
+            "add_member": {
+              "owner": "Demo",
+              "kind": "item def",
+              "name": "Toast",
+              "doc": "Browned bread.\nReady to eat."
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "    item def Bread {\n        doc /* Sliced bread. */\n    }\n",
+            "    item def Toast {\n        doc /* Browned bread.\n         * Ready to eat. */\n    }\n"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 2
+        }
+      }
+    },
+    {
       "id": "apply_edits/a_requirement_constraint_is_written",
       "rpc": "ApplyEdits",
       "requires_capabilities": [

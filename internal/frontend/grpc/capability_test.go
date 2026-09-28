@@ -127,6 +127,12 @@ func TestCapabilityGatedRequestsAreRefused(t *testing.T) {
 			})
 			return err
 		}},
+		{"documentation authoring", CapabilityDocumentationAuthoring, func(s *Service) error {
+			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{
+				Operations: []*pb.EditOperation{addDocumentationOp("P", "Text.", false)},
+			})
+			return err
+		}},
 		{"edit documents", CapabilityEditDocuments, func(s *Service) error {
 			_, err := s.ApplyEdits(ctx, &pb.ApplyEditsRequest{Document: "q.sysml"})
 			return err

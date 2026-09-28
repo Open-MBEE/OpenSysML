@@ -43,6 +43,7 @@ private static final long serialVersionUID = 0L;
     redefines_ =
         com.google.protobuf.LazyStringArrayList.emptyList();
     direction_ = "";
+    doc_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -523,6 +524,55 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int DOC_FIELD_NUMBER = 12;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object doc_ = "";
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;`.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  @java.lang.Override
+  public java.lang.String getDoc() {
+    java.lang.Object ref = doc_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      doc_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;`.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getDocBytes() {
+    java.lang.Object ref = doc_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      doc_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -569,6 +619,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(direction_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 11, direction_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(doc_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 12, doc_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -624,6 +677,9 @@ private static final long serialVersionUID = 0L;
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(direction_)) {
       size += com.google.protobuf.GeneratedMessage.computeStringSize(11, direction_);
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(doc_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(12, doc_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -661,6 +717,8 @@ private static final long serialVersionUID = 0L;
         != other.getIsDefault()) return false;
     if (!getDirection()
         .equals(other.getDirection())) return false;
+    if (!getDoc()
+        .equals(other.getDoc())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -700,6 +758,8 @@ private static final long serialVersionUID = 0L;
         getIsDefault());
     hash = (37 * hash) + DIRECTION_FIELD_NUMBER;
     hash = (53 * hash) + getDirection().hashCode();
+    hash = (37 * hash) + DOC_FIELD_NUMBER;
+    hash = (53 * hash) + getDoc().hashCode();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -848,6 +908,7 @@ private static final long serialVersionUID = 0L;
           com.google.protobuf.LazyStringArrayList.emptyList();
       isDefault_ = false;
       direction_ = "";
+      doc_ = "";
       return this;
     }
 
@@ -915,6 +976,9 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00000400) != 0)) {
         result.direction_ = direction_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.doc_ = doc_;
       }
     }
 
@@ -989,6 +1053,11 @@ private static final long serialVersionUID = 0L;
       if (!other.getDirection().isEmpty()) {
         direction_ = other.direction_;
         bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (!other.getDoc().isEmpty()) {
+        doc_ = other.doc_;
+        bitField0_ |= 0x00000800;
         onChanged();
       }
       this.mergeUnknownFields(other.getUnknownFields());
@@ -1074,6 +1143,11 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000400;
               break;
             } // case 90
+            case 98: {
+              doc_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2113,6 +2187,103 @@ private static final long serialVersionUID = 0L;
       checkByteStringIsUtf8(value);
       direction_ = value;
       bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object doc_ = "";
+    /**
+     * <pre>
+     * Optional documentation body, as plain text, written as the declaration's
+     * first body member `doc /&#42; ... *&#47;`.
+     * </pre>
+     *
+     * <code>string doc = 12 [json_name = "doc"];</code>
+     * @return The doc.
+     */
+    public java.lang.String getDoc() {
+      java.lang.Object ref = doc_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        doc_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional documentation body, as plain text, written as the declaration's
+     * first body member `doc /&#42; ... *&#47;`.
+     * </pre>
+     *
+     * <code>string doc = 12 [json_name = "doc"];</code>
+     * @return The bytes for doc.
+     */
+    public com.google.protobuf.ByteString
+        getDocBytes() {
+      java.lang.Object ref = doc_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        doc_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Optional documentation body, as plain text, written as the declaration's
+     * first body member `doc /&#42; ... *&#47;`.
+     * </pre>
+     *
+     * <code>string doc = 12 [json_name = "doc"];</code>
+     * @param value The doc to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDoc(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      doc_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional documentation body, as plain text, written as the declaration's
+     * first body member `doc /&#42; ... *&#47;`.
+     * </pre>
+     *
+     * <code>string doc = 12 [json_name = "doc"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDoc() {
+      doc_ = getDefaultInstance().getDoc();
+      bitField0_ = (bitField0_ & ~0x00000800);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Optional documentation body, as plain text, written as the declaration's
+     * first body member `doc /&#42; ... *&#47;`.
+     * </pre>
+     *
+     * <code>string doc = 12 [json_name = "doc"];</code>
+     * @param value The bytes for doc to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDocBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      doc_ = value;
+      bitField0_ |= 0x00000800;
       onChanged();
       return this;
     }

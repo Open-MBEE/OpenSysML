@@ -740,7 +740,22 @@ final class Api {
         if (!add.getDirection().isEmpty()) {
           member = member.withDirection(add.getDirection());
         }
+        if (!add.getDoc().isEmpty()) {
+          member = member.withDoc(add.getDoc());
+        }
         yield member;
+      }
+      case ADD_DOCUMENTATION -> {
+        org.openmbee.opensysml.proto.AddDocumentationEdit add = operation.getAddDocumentation();
+        Edit.AddDocumentation documentation =
+            Edit.AddDocumentation.of(add.getTarget(), add.getBody()).withReplace(add.getReplace());
+        if (!add.getName().isEmpty()) {
+          documentation = documentation.withName(add.getName());
+        }
+        if (!add.getLocale().isEmpty()) {
+          documentation = documentation.withLocale(add.getLocale());
+        }
+        yield documentation;
       }
       case ADD_CONNECTION -> {
         org.openmbee.opensysml.proto.AddConnectionEdit add = operation.getAddConnection();

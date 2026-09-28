@@ -988,7 +988,7 @@ pub struct ApplyEditsRequest {
 /// EditOperation is one source-preserving change to make.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 11")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
@@ -1013,6 +1013,8 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="11")]
+        AddDocumentation(super::AddDocumentationEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1051,6 +1053,10 @@ pub struct AddMemberEdit {
     /// Optional usage direction: "in", "out" or "inout".
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
+    /// Optional documentation body, as plain text, written as the declaration's
+    /// first body member `doc /* ... */`.
+    #[prost(string, tag="12")]
+    pub doc: ::prost::alloc::string::String,
 }
 /// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1114,6 +1120,27 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddDocumentationEdit adds a `doc /* ... */` as the first body member of an
+/// existing declaration, opening a body for one ended by `;`.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddDocumentationEdit {
+    /// Fully qualified name of the documented declaration.
+    #[prost(string, tag="1")]
+    pub target: ::prost::alloc::string::String,
+    /// Documentation body, as plain text; it may not contain `*/`, and no line
+    /// may begin or end with whitespace.
+    #[prost(string, tag="2")]
+    pub body: ::prost::alloc::string::String,
+    /// Optional declared name of the documentation.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional locale, written as `locale "..."`.
+    #[prost(string, tag="4")]
+    pub locale: ::prost::alloc::string::String,
+    /// Rewrite the one documentation target already owns instead of refusing.
+    #[prost(bool, tag="5")]
+    pub replace: bool,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

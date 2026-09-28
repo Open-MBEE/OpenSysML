@@ -71,6 +71,8 @@ public sealed interface Edit {
    * @param multiplicity a multiplicity, including brackets, such as {@code "[0..*]"}
    * @param value a value expression, written as notation
    * @param specializes specialization targets for a definition
+   * @param doc documentation body text, written as the first body member {@code doc /* ... *}{@code /};
+   *     empty for none
    */
   record AddMember(
       String owner,
@@ -83,7 +85,8 @@ public sealed interface Edit {
       boolean isAbstract,
       List<String> redefines,
       boolean isDefault,
-      String direction)
+      String direction,
+      String doc)
       implements Edit {
 
     public AddMember(
@@ -93,8 +96,24 @@ public sealed interface Edit {
         Optional<String> type,
         Optional<String> multiplicity,
         Optional<String> value,
+        List<String> specializes,
+        boolean isAbstract,
+        List<String> redefines,
+        boolean isDefault,
+        String direction) {
+      this(owner, kind, name, type, multiplicity, value, specializes, isAbstract, redefines,
+          isDefault, direction, "");
+    }
+
+    public AddMember(
+        String owner,
+        String kind,
+        String name,
+        Optional<String> type,
+        Optional<String> multiplicity,
+        Optional<String> value,
         List<String> specializes) {
-      this(owner, kind, name, type, multiplicity, value, specializes, false, List.of(), false, "");
+      this(owner, kind, name, type, multiplicity, value, specializes, false, List.of(), false, "", "");
     }
 
     /**
@@ -118,6 +137,7 @@ public sealed interface Edit {
       specializes = List.copyOf(specializes);
       redefines = List.copyOf(redefines);
       Objects.requireNonNull(direction, "direction");
+      Objects.requireNonNull(doc, "doc");
     }
 
     /**
@@ -131,7 +151,7 @@ public sealed interface Edit {
     public static AddMember of(String owner, String kind, String name) {
       return new AddMember(
           owner, kind, name, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
-          false, List.of(), false, "");
+          false, List.of(), false, "", "");
     }
 
     /**
@@ -143,7 +163,7 @@ public sealed interface Edit {
     public AddMember withType(String type) {
       return new AddMember(
           owner, kind, name, Optional.of(type), multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /**
@@ -155,7 +175,7 @@ public sealed interface Edit {
     public AddMember withMultiplicity(String multiplicity) {
       return new AddMember(
           owner, kind, name, type, Optional.of(multiplicity), value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /**
@@ -167,7 +187,7 @@ public sealed interface Edit {
     public AddMember withValue(String value) {
       return new AddMember(
           owner, kind, name, type, multiplicity, Optional.of(value), specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /**
@@ -179,35 +199,81 @@ public sealed interface Edit {
     public AddMember withSpecializes(List<String> specializes) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /** The same member declared abstract. */
     public AddMember withAbstract(boolean isAbstract) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /** The same member declared with redefinition targets. */
     public AddMember withRedefines(List<String> redefines) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /** The same member's value declared with the {@code default} keyword. */
     public AddMember withDefault(boolean isDefault) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
     }
 
     /** The same member declared with a usage direction. */
     public AddMember withDirection(String direction) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, doc);
+    }
+
+    /** The same member documented with body text, its first body member. */
+    public AddMember withDoc(String doc) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction, doc);
+    }
+  }
+
+  /**
+   * Adds {@code doc /* ... *}{@code /} as the first body member of an existing declaration, opening
+   * a body for one ended by {@code ;}.
+   *
+   * @param target the documented declaration, as {@link Symbol#id()} names it
+   * @param body the documentation text; it may not contain the comment close, and no line may begin
+   *     or end with whitespace
+   * @param name the documentation's declared name, when written
+   * @param locale the documentation's locale, when written
+   * @param replace rewrite the one documentation the target owns instead of refusing
+   */
+  record AddDocumentation(
+      String target, String body, Optional<String> name, Optional<String> locale, boolean replace)
+      implements Edit {
+
+    public AddDocumentation {
+      requireTarget(target);
+      Objects.requireNonNull(body, "body");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(locale, "locale");
+    }
+
+    public static AddDocumentation of(String target, String body) {
+      return new AddDocumentation(target, body, Optional.empty(), Optional.empty(), false);
+    }
+
+    public AddDocumentation withName(String name) {
+      return new AddDocumentation(target, body, Optional.of(name), locale, replace);
+    }
+
+    public AddDocumentation withLocale(String locale) {
+      return new AddDocumentation(target, body, name, Optional.of(locale), replace);
+    }
+
+    public AddDocumentation withReplace(boolean replace) {
+      return new AddDocumentation(target, body, name, locale, replace);
     }
   }
 

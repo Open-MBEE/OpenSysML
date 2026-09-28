@@ -1028,6 +1028,7 @@ public final class Protos {
       add.addAllRedefines(addMember.redefines());
       add.setIsDefault(addMember.isDefault());
       add.setDirection(addMember.direction());
+      add.setDoc(addMember.doc());
       builder.setAddMember(add);
     } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
       org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
@@ -1058,6 +1059,15 @@ public final class Protos {
       addTransition.guard().ifPresent(add::setGuard);
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddDocumentation addDocumentation) {
+      org.openmbee.opensysml.proto.AddDocumentationEdit.Builder add =
+          org.openmbee.opensysml.proto.AddDocumentationEdit.newBuilder()
+              .setTarget(addDocumentation.target())
+              .setBody(addDocumentation.body())
+              .setReplace(addDocumentation.replace());
+      addDocumentation.name().ifPresent(add::setName);
+      addDocumentation.locale().ifPresent(add::setLocale);
+      builder.setAddDocumentation(add);
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()

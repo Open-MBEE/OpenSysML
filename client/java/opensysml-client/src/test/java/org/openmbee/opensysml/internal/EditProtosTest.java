@@ -72,7 +72,8 @@ class EditProtosTest {
                 .withAbstract(true)
                 .withRedefines(List.of("Demo::A::old"))
                 .withDefault(true)
-                .withDirection("in"));
+                .withDirection("in")
+                .withDoc("A value."));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
@@ -81,6 +82,27 @@ class EditProtosTest {
     assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
     assertTrue(full.getAddMember().getIsDefault());
     assertEquals("in", full.getAddMember().getDirection());
+    assertEquals("A value.", full.getAddMember().getDoc());
+    assertEquals("", minimal.getAddMember().getDoc());
+  }
+
+  @Test
+  void anAddDocumentationEditCarriesItsBodyNameLocaleAndReplace() {
+    var minimal = Protos.proto(Edit.AddDocumentation.of("Demo::A", "Text."));
+    assertEquals("Demo::A", minimal.getAddDocumentation().getTarget());
+    assertEquals("Text.", minimal.getAddDocumentation().getBody());
+    assertEquals("", minimal.getAddDocumentation().getName());
+    assertFalse(minimal.getAddDocumentation().getReplace());
+
+    var full =
+        Protos.proto(
+            Edit.AddDocumentation.of("Demo::A", "Text.")
+                .withName("Summary")
+                .withLocale("en")
+                .withReplace(true));
+    assertEquals("Summary", full.getAddDocumentation().getName());
+    assertEquals("en", full.getAddDocumentation().getLocale());
+    assertTrue(full.getAddDocumentation().getReplace());
   }
 
   @Test

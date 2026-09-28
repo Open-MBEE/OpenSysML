@@ -399,7 +399,10 @@ and `SuiteTest.aCorruptedAnswerIsCaught` asserts each corruption is caught:
 `Edit.AddTransition` expose requirement and state-transition authoring.
 `Edit.AddTransition.entry` constructs an entry transition. The client checks
 `member_modifiers`, `satisfy_authoring`, `requirement_constraint_authoring` or
-`transition_authoring` before sending those additions.
+`transition_authoring` before sending those additions. `Edit.AddMember.withDoc` and
+`Edit.AddDocumentation.of(target, body)` (with `withName`, `withLocale` and `withReplace`)
+write documentation on a new or existing declaration, after checking
+`documentation_authoring`.
 
 ## Running the tests
 

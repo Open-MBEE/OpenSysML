@@ -731,6 +731,11 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddTransition.of("Demo::S", "idle", "toasting"),
         Capabilities.TRANSITION_AUTHORING);
+    assertEditCapability(
+        Edit.AddDocumentation.of("Demo::A", "Text."), Capabilities.DOCUMENTATION_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "part def", "A").withDoc("Text."),
+        Capabilities.DOCUMENTATION_AUTHORING);
   }
 
   @Test

@@ -7,6 +7,7 @@ trip itself — load, set a value, apply, save, load the saved file and ask what
 the value is now — which is the part a mock cannot tell you anything about.
 """
 
+import json
 import os
 import subprocess
 import time
@@ -19,6 +20,7 @@ from opensysml.capabilities import (
     CAPABILITY_APPLY_EDITS,
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
+    CAPABILITY_DOCUMENTATION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
@@ -475,6 +477,10 @@ def test_add_member_rejects_invalid_direction_with_type_message(fake_service):
          CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING),
         (lambda editor: editor.add_transition("Demo::SC", "a", "b"),
          CAPABILITY_TRANSITION_AUTHORING),
+        (lambda editor: editor.add_part_def("Demo", "Wheel", doc="A wheel."),
+         CAPABILITY_DOCUMENTATION_AUTHORING),
+        (lambda editor: editor.add_documentation("Demo::SC", "A spacecraft."),
+         CAPABILITY_DOCUMENTATION_AUTHORING),
     ],
 )
 def test_new_authoring_capabilities_are_preflighted(fake_service, operation, missing):
@@ -486,6 +492,109 @@ def test_new_authoring_capabilities_are_preflighted(fake_service, operation, mis
         with pytest.raises(MissingCapabilityError) as error:
             editor.apply()
     assert error.value.capability == missing
+    assert service.requests == []
+
+
+def test_documentation_requests_are_exact(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS,
+            CAPABILITY_AUTHORING,
+            CAPABILITY_MEMBER_MODIFIERS,
+            CAPABILITY_DOCUMENTATION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content(MODEL)
+        (
+            model.edit()
+            .add_part_def("Demo", "Wheel", doc="A wheel.\nRound.")
+            .add_parameter("Demo::SC", "in", "power", type="Real", doc="Power in.")
+            .add_member("Demo::SC", "attribute", "plain")
+            .add_documentation("Demo::SC", "A spacecraft.")
+            .add_documentation(
+                "Demo::SC::unitMass", "Bench mass.",
+                name="Mass", locale="en_US", replace=True,
+            )
+            .apply()
+        )
+    part_def, parameter, plain, documented, replaced = service.requests[0].operations
+    assert part_def.WhichOneof("operation") == "add_member"
+    assert (part_def.add_member.kind, part_def.add_member.name, part_def.add_member.doc) == (
+        "part def", "Wheel", "A wheel.\nRound.",
+    )
+    assert (
+        parameter.add_member.kind, parameter.add_member.direction, parameter.add_member.doc,
+    ) == ("ref", "in", "Power in.")
+    assert plain.add_member.doc == ""
+    assert documented.WhichOneof("operation") == "add_documentation"
+    doc = documented.add_documentation
+    assert (doc.target, doc.body, doc.name, doc.locale, doc.replace) == (
+        "Demo::SC", "A spacecraft.", "", "", False,
+    )
+    doc = replaced.add_documentation
+    assert (doc.target, doc.body, doc.name, doc.locale, doc.replace) == (
+        "Demo::SC::unitMass", "Bench mass.", "Mass", "en_US", True,
+    )
+
+
+@pytest.mark.parametrize("method", [
+    "add_part_def", "add_part", "add_attribute", "add_calc_def", "add_calc",
+    "add_action_def", "add_action", "add_perform_action", "add_state_def",
+    "add_state", "add_constraint_def", "add_constraint", "add_requirement_def",
+    "add_requirement", "add_item_def", "add_port_def",
+])
+def test_every_member_helper_carries_documentation(method):
+    editor = Editor("hash", None)
+    getattr(editor, method)("Demo", "x", doc="Text.")
+    (operation,) = [op for op in editor.operations if op[3] == "x"]
+    assert operation[0] == "add_member"
+    assert operation[-1] == "Text."
+
+
+def test_parameter_return_and_perform_helpers_carry_documentation():
+    editor = Editor("hash", None)
+    editor.add_parameter("Demo::A", "in", "x", doc="In.")
+    editor.add_return("Demo::C", "r", doc="Out.")
+    editor.add_perform("Demo::P", "Demo::A", doc="Done.")
+    assert [op[-1] for op in editor.operations] == ["In.", "Out.", "Done."]
+
+
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda e: e.add_member("Demo", "part", "x", doc=3), "doc must be text, not int"),
+        (lambda e: e.add_documentation("Demo", None), "body must be text, not NoneType"),
+        (lambda e: e.add_documentation("Demo", "b", name=3), "name must be text, not int"),
+        (lambda e: e.add_documentation("Demo", "b", locale=3), "locale must be text, not int"),
+        (lambda e: e.add_documentation("Demo", "b", replace="yes"),
+         "replace must be a bool, not str"),
+    ],
+)
+def test_documentation_arguments_are_type_checked(call, error):
+    editor = Editor("hash", None)
+    with pytest.raises(TypeError) as excinfo:
+        call(editor)
+    assert str(excinfo.value) == error
+    assert len(editor) == 0
+
+
+def test_malformed_documentation_operations_are_refused(fake_service):
+    port, service = fake_service(
+        capabilities=(
+            CAPABILITY_APPLY_EDITS, CAPABILITY_AUTHORING, CAPABILITY_DOCUMENTATION_AUTHORING,
+        )
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        with pytest.raises(ValueError, match="malformed add_documentation operation"):
+            conn.apply_edits("fake-hash", [("add_documentation", "Demo", "b")])
+        with pytest.raises(ValueError, match="malformed add_documentation operation"):
+            conn.apply_edits("fake-hash", [("add_documentation", "Demo", "b", "", "", "no")])
+        with pytest.raises(ValueError, match="doc must be text"):
+            conn.apply_edits("fake-hash", [(
+                "add_member", "Demo", "part", "x", "", "", "", [],
+                False, [], False, "", 3,
+            )])
     assert service.requests == []
 
 
@@ -1299,6 +1408,136 @@ class TestEditRoundTripAgainstRealService:
             with pytest.raises(expected) as excinfo:
                 edit.apply()
         assert str(excinfo.value), "a refusal carried no message"
+
+    @pytest.mark.filterwarnings("ignore::opensysml.conversion.ExperimentalFeatureWarning")
+    def test_the_toaster_tutorial_documentation_is_built_by_the_editor(self, real_service):
+        start = (
+            "package ToasterDemo {\n"
+            "    item def Bread;\n"
+            "    item def Toast;\n"
+            "}\n"
+        )
+        target = (
+            "package ToasterDemo {\n"
+            "    item def Bread {\n"
+            "        doc /* A slice of bread, before toasting. */\n"
+            "    }\n"
+            "    item def Toast;\n"
+            "    action def ToastBread {\n"
+            "        doc /* Transform bread into toast acceptable to its user. */\n"
+            "        in bread : Bread;\n"
+            "        out toast : Toast;\n"
+            "    }\n"
+            "    action def ApplyHeat {\n"
+            "        in duration : ISQ::DurationValue[0..*] {\n"
+            "            doc /* Signal from a control function: how long to apply heat.\n"
+            "             * No control function is modeled in this chapter, so this input\n"
+            "             * is declared and typed but not yet connected to a value. */\n"
+            "        }\n"
+            "    }\n"
+            "}\n"
+        )
+        heat = (
+            "Signal from a control function: how long to apply heat.\n"
+            "No control function is modeled in this chapter, so this input\n"
+            "is declared and typed but not yet connected to a value."
+        )
+        with Connection(port=real_service, auto_start=False) as conn:
+            result = (
+                conn.load_from_content(start).edit()
+                .add_documentation("ToasterDemo::Bread", "A slice of bread, before toasting.")
+                .add_action_def(
+                    "ToasterDemo", "ToastBread",
+                    inputs=[("bread", "Bread")], outputs=[("toast", "Toast")],
+                    doc="Transform bread into toast acceptable to its user.",
+                )
+                .add_action_def("ToasterDemo", "ApplyHeat")
+                .add_parameter(
+                    "ToasterDemo::ApplyHeat", "in", "duration",
+                    type="ISQ::DurationValue", multiplicity="[0..*]", doc=heat,
+                )
+                .apply()
+            )
+            edited = str(result)
+            assert edited == (
+                "package ToasterDemo {\n"
+                "    item def Bread {\n"
+                "        doc /* A slice of bread, before toasting. */\n"
+                "    }\n"
+                "    item def Toast;\n"
+                "    action def ToastBread {\n"
+                "        doc /* Transform bread into toast acceptable to its user. */\n"
+                "        in ref bread : Bread;\n"
+                "        out ref toast : Toast;\n"
+                "    }\n"
+                "    action def ApplyHeat {\n"
+                "        in ref duration : ISQ::DurationValue [0..*] {\n"
+                "            doc /* Signal from a control function: how long to apply heat.\n"
+                "             * No control function is modeled in this chapter, so this input\n"
+                "             * is declared and typed but not yet connected to a value. */\n"
+                "        }\n"
+                "    }\n"
+                "}\n"
+            )
+            built = conn.load_from_content(edited)
+            expected = conn.load_from_content(target)
+            assert built.ok, [str(d) for d in built.errors]
+            assert expected.ok, [str(d) for d in expected.errors]
+
+            def construct(model):
+                return sorted(
+                    (e["@type"], e.get("qualifiedName"), e.get("body"))
+                    for e in json.loads(str(model.to_api_json()))
+                    if e.get("qualifiedName", "").startswith("ToasterDemo")
+                    and e["@type"] in (
+                        "Documentation", "ItemDefinition", "ActionDefinition",
+                        "ReferenceUsage",
+                    )
+                )
+
+            documentation = [e for e in construct(built) if e[0] == "Documentation"]
+            assert [qn for _, qn, _ in documentation] == [
+                "ToasterDemo::ApplyHeat::duration::@0",
+                "ToasterDemo::Bread::@0",
+                "ToasterDemo::ToastBread::@0",
+            ]
+            assert construct(built) == construct(expected)
+
+            def documentation_text(model):
+                return {
+                    e.get("qualifiedName"): e.get("documentation")
+                    for e in model.query(select=["qualifiedName", "documentation"])
+                    if e.get("documentation") is not None
+                }
+
+            assert documentation_text(built) == documentation_text(expected) == {
+                "ToasterDemo::Bread": "A slice of bread, before toasting.",
+                "ToasterDemo::ToastBread":
+                    "Transform bread into toast acceptable to its user.",
+                "ToasterDemo::ApplyHeat::duration": heat,
+            }
+
+    def test_documentation_on_a_body_goes_first_and_is_refused_twice(self, real_service):
+        source = "package P {\n    part def V {\n        attribute m;\n    }\n}\n"
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(source)
+            edited = str(model.edit().add_documentation("P::V", "A vehicle.").apply())
+            assert edited == (
+                "package P {\n    part def V {\n"
+                "        doc /* A vehicle. */\n"
+                "        attribute m;\n    }\n}\n"
+            )
+            documented = conn.load_from_content(edited)
+            with pytest.raises(MemberNameTakenError):
+                documented.edit().add_documentation("P::V", "Again.").apply()
+            replaced = str(
+                documented.edit().add_documentation("P::V", "A car.", replace=True).apply()
+            )
+            assert "doc /* A car. */" in replaced and "A vehicle." not in replaced
+            with pytest.raises(InvalidEditError):
+                model.edit().add_documentation("P::V", "ends */ early").apply()
+            with pytest.raises(EditTargetError):
+                model.edit().add_documentation("P::W", "Nothing.").apply()
 
     def test_overlapping_edits_are_refused(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:

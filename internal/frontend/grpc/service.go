@@ -98,6 +98,10 @@ const CapabilityMemberModifiers = "member_modifiers"
 // CapabilityTransitionAuthoring names the ApplyEdits add_transition operation.
 const CapabilityTransitionAuthoring = "transition_authoring"
 
+// CapabilityDocumentationAuthoring names the ApplyEdits add_documentation
+// operation and the AddMember doc field.
+const CapabilityDocumentationAuthoring = "documentation_authoring"
+
 // CapabilityEditDocuments names the capability of editing a model of several
 // documents as one batch, for a request accepting documents, and of answering
 // each edited document by name in ApplyEditsResponse.documents.
@@ -216,6 +220,7 @@ var capabilities = []string{
 	CapabilityRequirementConstraintAuthoring,
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
+	CapabilityDocumentationAuthoring,
 }
 
 type capabilityAvailability struct {

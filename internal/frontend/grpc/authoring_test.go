@@ -51,6 +51,12 @@ func addTransitionOp(owner, name, source, target, trigger, guard, effect string,
 	}}
 }
 
+func addDocumentationOp(target, body string, replace bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+		AddDocumentation: &pb.AddDocumentationEdit{Target: target, Body: body, Replace: replace},
+	}}
+}
+
 func deleteOp(target string, cascade bool) *pb.EditOperation {
 	return &pb.EditOperation{Operation: &pb.EditOperation_Delete{
 		Delete: &pb.DeleteEdit{Target: target, Cascade: cascade},
@@ -328,6 +334,18 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			capability: CapabilityTransitionAuthoring,
 			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
 		},
+		{
+			name:       "documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation:  addDocumentationOp("Demo::t", "A part.", false),
+		},
+		{
+			name:       "member documentation",
+			capability: CapabilityDocumentationAuthoring,
+			operation: &pb.EditOperation{Operation: &pb.EditOperation_AddMember{
+				AddMember: &pb.AddMemberEdit{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
+			}},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -384,6 +402,55 @@ func TestApplyEditsNewOperationsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestApplyEditsDocumentationRoundTrip(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, "package Demo {\n    item def Bread;\n}\n")
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			{Operation: &pb.EditOperation_AddMember{AddMember: &pb.AddMemberEdit{
+				Owner: "Demo", Kind: "action def", Name: "ToastBread", Doc: "Toast it.\nEvenly.",
+			}}},
+			addDocumentationOp("Demo::Bread", "Sliced.", false),
+			{Operation: &pb.EditOperation_AddDocumentation{AddDocumentation: &pb.AddDocumentationEdit{
+				Target: "Demo", Body: "The demo.", Name: "Summary", Locale: "en",
+			}}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if added.Error != "" {
+		t.Fatalf("edit refused: %s", added.Error)
+	}
+	want := "package Demo {\n    doc Summary locale \"en\" /* The demo. */\n    item def Bread {\n" +
+		"        doc /* Sliced. */\n    }\n    action def ToastBread {\n" +
+		"        doc /* Toast it.\n         * Evenly. */\n    }\n}\n"
+	if added.Content != want {
+		t.Fatalf("content =\n%s\nwant\n%s", added.Content, want)
+	}
+
+	hash = mustParsedModel(t, srv, added.Content)
+	refused, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", false)},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	if refused.Failure != pb.EditFailure_EDIT_FAILURE_MEMBER_NAME_TAKEN {
+		t.Fatalf("second documentation = %+v, want MEMBER_NAME_TAKEN", refused)
+	}
+	replaced, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addDocumentationOp("Demo::Bread", "Again.", true)},
+	})
+	if err != nil || replaced.Error != "" || !strings.Contains(replaced.Content, "doc /* Again. */") ||
+		strings.Contains(replaced.Content, "Sliced.") {
+		t.Fatalf("replaced documentation = %+v, %v", replaced, err)
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -414,6 +481,7 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 		CapabilityMemberModifiers, CapabilityTransitionAuthoring, CapabilityInlineLanguage,
+		CapabilityDocumentationAuthoring,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

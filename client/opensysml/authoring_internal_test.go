@@ -115,6 +115,18 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			missing:      CapabilityTransitionAuthoring,
 		},
 		{
+			name:         "documentation operation",
+			operation:    AddDocumentation{Target: "Demo::r", Body: "A requirement."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
+			name:         "member documentation",
+			operation:    AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "A definition."},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityDocumentationAuthoring,
+		},
+		{
 			name:         "transition requires authoring",
 			operation:    AddTransition{Owner: "Demo::S", Source: "idle", Target: "toasting"},
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
@@ -188,6 +200,24 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 		got.GetTrigger() != "CycleStart" || got.GetGuard() != "ready" ||
 		got.GetEffect() != "action cool" || got.GetInitial() {
 		t.Fatalf("AddTransition mapping = %+v", got)
+	}
+	documentedMember, err := editToProto(AddMember{Owner: "Demo", Kind: "part def", Name: "X", Doc: "Text."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentedMember.GetAddMember(); got == nil || got.GetDoc() != "Text." {
+		t.Fatalf("AddMember doc mapping = %+v", got)
+	}
+	documentationOperation, err := editToProto(AddDocumentation{
+		Target: "Demo::X", Body: "Text.", Name: "Summary", Locale: "en", Replace: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := documentationOperation.GetAddDocumentation(); got == nil ||
+		got.GetTarget() != "Demo::X" || got.GetBody() != "Text." || got.GetName() != "Summary" ||
+		got.GetLocale() != "en" || !got.GetReplace() {
+		t.Fatalf("AddDocumentation mapping = %+v", got)
 	}
 	entryOperation, err := editToProto(AddEntryTransition("Demo::S", "idle"))
 	if err != nil {

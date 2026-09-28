@@ -50,10 +50,14 @@ connection-like usages; `add_allocation` and `add_flow` are typed helpers.
 options, and supports the SysML `ref` and `return` kinds where they are admitted.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
-requirement statements and state transitions. These operations preflight their
+requirement statements and state transitions. `add_member` and every typed helper
+accept `doc="..."`, written as the new member's `doc /* ... */`, and
+`add_documentation(target, body, name=None, locale=None, replace=False)` documents
+an existing declaration, refusing one that already has documentation unless
+`replace=True`. These operations preflight their
 dedicated `member_modifiers`, `satisfy_authoring`,
-`requirement_constraint_authoring` or `transition_authoring` capability as
-applicable.
+`requirement_constraint_authoring`, `transition_authoring` or
+`documentation_authoring` capability as applicable.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

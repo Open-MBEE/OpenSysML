@@ -60,6 +60,11 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsDocumentationAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityDocumentationAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	documents := s.capabilities.has(CapabilityEditDocuments)
 	if req.Document != "" && !documents {
 		return nil, s.requireCapability(CapabilityEditDocuments)
@@ -206,7 +211,7 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
-			*pb.EditOperation_AddTransition,
+			*pb.EditOperation_AddTransition, *pb.EditOperation_AddDocumentation,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -262,6 +267,18 @@ func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsDocumentationAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddDocumentation); ok {
+			return true
+		}
+		if operation.GetAddMember().GetDoc() != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -284,6 +301,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Redefines = append([]string(nil), add.GetRedefines()...)
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
+			member.Doc = add.GetDoc()
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection
@@ -309,6 +327,13 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
 			))
+		case *pb.EditOperation_AddDocumentation:
+			add := op.AddDocumentation
+			doc := edit.AddDocumentation(add.GetTarget(), add.GetBody())
+			doc.DocName = add.GetName()
+			doc.DocLocale = add.GetLocale()
+			doc.ReplaceDoc = add.GetReplace()
+			ops = append(ops, doc)
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

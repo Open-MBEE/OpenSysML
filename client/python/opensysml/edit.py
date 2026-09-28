@@ -8,8 +8,8 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, connection or transition, deleting a declaration, and moving one into
-another namespace.
+member, connection, transition or documentation, deleting a declaration, and
+moving one into another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
@@ -293,8 +293,13 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None):
-        """Add one declaration, using strings for all SysML/KerML notation."""
+                   default=False, direction=None, doc=None):
+        """Add one declaration, using strings for all SysML/KerML notation.
+
+        ``doc`` is plain documentation text, written as the new declaration's
+        first body member ``doc /* ... */``; it may not contain ``*/``, and no
+        line of it may begin or end with whitespace.
+        """
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
         for label, text in (("kind", kind), ("type", type),
@@ -315,12 +320,48 @@ class Editor:
             raise TypeError("default must be bool")
         if direction is not None and not isinstance(direction, str):
             raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
+        if doc is not None and not isinstance(doc, str):
+            raise TypeError(f"doc must be text, not {doc.__class__.__name__}")
         base = ("add_member", owner, kind, name, type or "", multiplicity or "",
                 value or "", list(specializes))
         if (abstract or redefines or default or direction is not None
-                or kind in ("ref", "return")):
+                or kind in ("ref", "return") or doc):
             base += (abstract, list(redefines), default, direction or "")
+        if doc:
+            base += (doc,)
         self._add(base)
+        return self
+
+    def add_documentation(self, target, body, name=None, locale=None, replace=False):
+        """Add ``doc /* body */`` as the first body member of a declaration.
+
+        A declaration ended by ``;`` is given a body. One that already owns
+        documentation is refused unless ``replace`` is true, which rewrites the
+        one it owns (and is refused if it owns several).
+
+        Args:
+            target (str or Symbol): Declaration to document, by FQN/id or symbol
+            body (str): Plain documentation text, as ``Documentation.body``
+                reads back; it may not contain ``*/``, and no line of it may
+                begin or end with whitespace
+            name (str): Optional documentation name, ``doc name /* ... */``
+            locale (str): Optional locale, ``doc locale "en" /* ... */``
+            replace (bool): Rewrite the target's documentation instead of
+                refusing when it has one
+
+        Returns:
+            Editor: self, so operations can be chained
+        """
+        if not isinstance(body, str):
+            raise TypeError(f"body must be text, not {body.__class__.__name__}")
+        for label, text in (("name", name), ("locale", locale)):
+            if text is not None and not isinstance(text, str):
+                raise TypeError(f"{label} must be text, not {text.__class__.__name__}")
+        if not isinstance(replace, bool):
+            raise TypeError(f"replace must be a bool, not {replace.__class__.__name__}")
+        self._add((
+            "add_documentation", _target_id(target), body, name or "", locale or "", replace,
+        ))
         return self
 
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):
@@ -665,10 +706,10 @@ class Editor:
         """Add a ``perform action name : Type`` usage (SysML v2 7.17.6)."""
         return self.add_member(owner, "perform action", name, type=type, **kwargs)
 
-    def add_perform(self, owner, action):
+    def add_perform(self, owner, action, doc=None):
         """Add a ``perform <action>;`` usage naming an existing action usage;
         the member is named by the action it references."""
-        return self.add_member(owner, "perform", action)
+        return self.add_member(owner, "perform", action, doc=doc)
 
     def add_state_def(self, owner, name, **kwargs):
         """Add a ``state def`` declaration."""

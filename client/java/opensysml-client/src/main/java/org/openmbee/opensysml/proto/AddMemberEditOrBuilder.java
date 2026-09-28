@@ -251,4 +251,26 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDirectionBytes();
+
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;`.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The doc.
+   */
+  java.lang.String getDoc();
+  /**
+   * <pre>
+   * Optional documentation body, as plain text, written as the declaration's
+   * first body member `doc /&#42; ... *&#47;`.
+   * </pre>
+   *
+   * <code>string doc = 12 [json_name = "doc"];</code>
+   * @return The bytes for doc.
+   */
+  com.google.protobuf.ByteString
+      getDocBytes();
 }

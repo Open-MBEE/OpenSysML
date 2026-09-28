@@ -95,6 +95,9 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add transitions to state bodies. */
   public static final String TRANSITION_AUTHORING = "transition_authoring";
 
+  /** {@code ApplyEdits} can add documentation to new and existing declarations. */
+  public static final String DOCUMENTATION_AUTHORING = "documentation_authoring";
+
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";
 

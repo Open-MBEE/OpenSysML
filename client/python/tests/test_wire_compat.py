@@ -351,12 +351,13 @@ def test_edit_messages_pin_their_field_numbers():
         "EditOperation": {
             "set_value": 1, "rename": 2, "add_member": 3, "delete": 4, "move": 5,
             "add_connection": 6, "add_satisfy": 7, "add_requirement_constraint": 8,
-            "add_transition": 9,
+            "add_transition": 9, "add_documentation": 11,
         },
         "AddMemberEdit": {
             "owner": 1, "kind": 2, "name": 3, "type": 4,
             "multiplicity": 5, "value": 6, "specializes": 7,
             "is_abstract": 8, "redefines": 9, "is_default": 10, "direction": 11,
+            "doc": 12,
         },
         "AddConnectionEdit": {
             "owner": 1, "kind": 2, "from_end": 3, "to_end": 4, "name": 5, "type": 6,
@@ -371,6 +372,9 @@ def test_edit_messages_pin_their_field_numbers():
         "AddTransitionEdit": {
             "owner": 1, "name": 2, "source": 3, "target": 4, "trigger": 5,
             "guard": 6, "effect": 7, "initial": 8,
+        },
+        "AddDocumentationEdit": {
+            "target": 1, "body": 2, "name": 3, "locale": 4, "replace": 5,
         },
         "DeleteEdit": {"target": 1, "cascade": 2},
         "MoveEdit": {"target": 1, "owner": 2},

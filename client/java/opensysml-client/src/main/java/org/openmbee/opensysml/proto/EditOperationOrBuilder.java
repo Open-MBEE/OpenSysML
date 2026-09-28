@@ -145,5 +145,20 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
 
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   * @return Whether the addDocumentation field is set.
+   */
+  boolean hasAddDocumentation();
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   * @return The addDocumentation.
+   */
+  org.openmbee.opensysml.proto.AddDocumentationEdit getAddDocumentation();
+  /**
+   * <code>.sysml.AddDocumentationEdit add_documentation = 11 [json_name = "addDocumentation"];</code>
+   */
+  org.openmbee.opensysml.proto.AddDocumentationEditOrBuilder getAddDocumentationOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

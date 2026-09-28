@@ -97,6 +97,12 @@ of. `perform` takes the reference alone: a type, multiplicity, value, specialize
 direction or abstract flag is refused. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
 
+`add_member` also takes an optional `doc`: plain text written as the new member's documentation. A
+member that would end in `;` is given a body holding `doc /* ... */`, and one
+whose notation already has a body gets the documentation as its first member. A multi-line text
+is written with ` * ` continuation lines aligned under the opening `/*`, so the `Documentation.body`
+the notation reads back is exactly the text given.
+
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
 and `type` fields:
 
@@ -105,13 +111,15 @@ and `type` fields:
 | `add_connection` | `owner`, `kind`, `from_end`, `to_end`, `name?`, `type?` | A `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML: `connector`, `binding`, `flow`, `succession`) in the owner's body, with `from_end` and `to_end` written as they resolve from the owner's scope (`tank.fuelOut`). |
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
+| `add_documentation` | `target`, `body`, `name?`, `locale?`, `replace` | A `doc [name] [locale "..."] /* body */` as the first member of the declaration `target` names, turning a declaration that ends in `;` into one with a body and leaving every other byte as it was. A target that already owns documentation is refused as a taken member name unless `replace` is set, which rewrites the one it owns (and is refused when it owns several). The body is plain text: empty text, text containing `*/`, and a line with leading or trailing white space (which the comment would not read back) are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`. An `add_member` edit with any new modifier or
+`transition_authoring`; `add_documentation` and an `add_member` with a `doc` require `authoring`
+and `documentation_authoring`. An `add_member` edit with any new modifier or
 the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
 before sending the operation.
 
@@ -154,11 +162,12 @@ by hand decodes the answers by [the wire contract](wire-contract.md).
 ## Python authoring
 
 `Editor.add_member(owner, kind, name, type=None, multiplicity=None, value=None,
-specializes=None, abstract=False, redefines=None, default=False, direction=None)`
-and its typed `add_*` helpers create declarations while preserving untouched
-source bytes. The editor also exposes `add_satisfy`, `add_requirement_constraint`,
-`add_require_constraint`, `add_assume_constraint`, `add_transition` and
-`add_entry_transition`. The calculation helpers accept `inputs`, `return_type`
+specializes=None, abstract=False, redefines=None, default=False, direction=None,
+doc=None)` and its typed `add_*` helpers create declarations while preserving untouched
+source bytes; every helper passes `doc` through. The editor also exposes `add_satisfy`,
+`add_requirement_constraint`, `add_require_constraint`, `add_assume_constraint`,
+`add_transition`, `add_entry_transition` and
+`add_documentation(target, body, name=None, locale=None, replace=False)`. The calculation helpers accept `inputs`, `return_type`
 and `return_expression`; a return expression requires a return type and is
 bound to the result parameter, not written as a `return <expr>;` statement.
 Action helpers accept `inputs` and `outputs`, each a list of `(name, type)` string pairs.

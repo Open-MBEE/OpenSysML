@@ -310,7 +310,17 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 			Message:        fmt.Sprintf("%s already declares %q", op.Owner, takenName),
 		}
 	}
-	ins := m.memberInsertion(owner, writeMember(op, kind))
+	text := writeMember(op, kind)
+	if op.Doc != "" {
+		indent := m.ownerMemberIndent(owner)
+		docIndent := indent + m.indentUnit(owner)
+		doc, err := documentationText(i, "", "", op.Doc, docIndent)
+		if err != nil {
+			return splice{}, err
+		}
+		text = strings.TrimSuffix(text, ";") + " {\n" + docIndent + doc + "\n" + indent + "}"
+	}
+	ins := m.memberInsertion(owner, text)
 	return splice{span: ins.span, text: ins.text, opIndex: i, target: op.Owner}, nil
 }
 
@@ -482,8 +492,14 @@ func isCalculationResultMember(member ast.Node) bool {
 }
 
 func (m Model) memberInsertionBeforeResult(result ast.Node, text string) insertion {
+	return m.memberInsertionBefore(result.Span().Offset, text)
+}
+
+// memberInsertionBefore places text as a member ahead of the one starting at
+// offset: on its own line above that member's leading comments when the member
+// opens its line, else inline before it.
+func (m Model) memberInsertionBefore(offset int, text string) insertion {
 	content := m.Source.Bytes()
-	offset := result.Span().Offset
 	lineStart := offset
 	for lineStart > 0 && content[lineStart-1] != '\n' {
 		lineStart--

@@ -30,6 +30,7 @@ const (
 	CapabilityRequirementConstraintAuthoring = sysmlgrpc.CapabilityRequirementConstraintAuthoring
 	CapabilityMemberModifiers                = sysmlgrpc.CapabilityMemberModifiers
 	CapabilityTransitionAuthoring            = sysmlgrpc.CapabilityTransitionAuthoring
+	CapabilityDocumentationAuthoring         = sysmlgrpc.CapabilityDocumentationAuthoring
 	CapabilityEditDocuments                  = sysmlgrpc.CapabilityEditDocuments
 	CapabilityInlineLanguage                 = sysmlgrpc.CapabilityInlineLanguage
 	CapabilityStrictConformance              = sysmlgrpc.CapabilityStrictConformance

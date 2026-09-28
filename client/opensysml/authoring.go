@@ -194,6 +194,9 @@ type AddMember struct {
 	IsDefault bool
 	// Direction is an optional usage direction: "in", "out" or "inout".
 	Direction string
+	// Doc is optional documentation body text, written as the declaration's
+	// first body member `doc /* ... */`.
+	Doc string
 }
 
 // AddSatisfy inserts a satisfy usage into any package or body that admits behavior usages.
@@ -247,6 +250,22 @@ func AddEntryTransition(owner, target string) AddTransition {
 	return AddTransition{Owner: owner, Target: target, Initial: true}
 }
 
+// AddDocumentation adds `doc /* ... */` as the first body member of an
+// existing declaration, opening a body for one ended by `;`.
+type AddDocumentation struct {
+	// Target is the documented declaration, by qualified name.
+	Target string
+	// Body is the documentation text; it may not contain `*/`, and no line may
+	// begin or end with whitespace.
+	Body string
+	// Name is the documentation's optional declared name.
+	Name string
+	// Locale is the optional locale, written as `locale "..."`.
+	Locale string
+	// Replace rewrites the one documentation Target owns instead of refusing.
+	Replace bool
+}
+
 // AddConnection inserts a connection-like usage into a namespace or document root.
 type AddConnection struct {
 	// Owner is the namespace to receive the usage; empty is the document root.
@@ -291,6 +310,9 @@ func (AddTransition) isEdit() { /* marker: closed Edit set */ }
 func (AddConnection) isEdit() { /* marker: closed Edit set */ }
 func (Delete) isEdit()        { /* marker: closed Edit set */ }
 func (Move) isEdit()          { /* marker: closed Edit set */ }
+func (AddDocumentation) isEdit() {
+	/* marker: closed Edit set */
+}
 
 // EditFailure says why edits were refused.
 type EditFailure int32
@@ -441,6 +463,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 				operation.Kind == "ref" || operation.Kind == "return" {
 				required[CapabilityMemberModifiers] = true
 			}
+			if operation.Doc != "" {
+				required[CapabilityDocumentationAuthoring] = true
+			}
 		case AddConnection:
 			required[CapabilityAuthoring] = true
 			required[CapabilityConnectionAuthoring] = true
@@ -453,6 +478,9 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 		case AddTransition:
 			required[CapabilityAuthoring] = true
 			required[CapabilityTransitionAuthoring] = true
+		case AddDocumentation:
+			required[CapabilityAuthoring] = true
+			required[CapabilityDocumentationAuthoring] = true
 		case Delete, Move:
 			required[CapabilityAuthoring] = true
 		}
@@ -463,6 +491,7 @@ func (c *client) ApplyDocumentEdits(ctx context.Context, model *Model, document 
 			CapabilityAuthoring, CapabilityConnectionAuthoring,
 			CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
 			CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+			CapabilityDocumentationAuthoring,
 		} {
 			if required[capability] {
 				names = append(names, capability)
@@ -548,6 +577,7 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 			Redefines:    append([]string(nil), operation.Redefines...),
 			IsDefault:    operation.IsDefault,
 			Direction:    operation.Direction,
+			Doc:          operation.Doc,
 		}}}, nil
 	case AddSatisfy:
 		return &pb.EditOperation{Operation: &pb.EditOperation_AddSatisfy{
@@ -570,6 +600,13 @@ func editToProto(edit Edit) (*pb.EditOperation, error) {
 				Owner: operation.Owner, Name: operation.Name, Source: operation.Source,
 				Target: operation.Target, Trigger: operation.Trigger, Guard: operation.Guard,
 				Effect: operation.Effect, Initial: operation.Initial,
+			},
+		}}, nil
+	case AddDocumentation:
+		return &pb.EditOperation{Operation: &pb.EditOperation_AddDocumentation{
+			AddDocumentation: &pb.AddDocumentationEdit{
+				Target: operation.Target, Body: operation.Body, Name: operation.Name,
+				Locale: operation.Locale, Replace: operation.Replace,
 			},
 		}}, nil
 	case AddConnection:

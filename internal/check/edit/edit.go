@@ -44,6 +44,9 @@ const (
 	OpAddRequirementConstraint
 	// OpAddTransition inserts a transition usage into a state body.
 	OpAddTransition
+	// OpAddDocumentation adds a `doc` to an existing declaration, or rewrites
+	// the one it owns.
+	OpAddDocumentation
 )
 
 // Operation is one change to make to a model's source.
@@ -100,6 +103,15 @@ type Operation struct {
 	Guard            string
 	Effect           string
 	Initial          bool
+	// Doc is the plain body text of a `doc`: the first body member of the
+	// declaration an OpAddMember writes, or the documentation an
+	// OpAddDocumentation adds to Target. DocName and DocLocale are the
+	// latter's optional identification and locale, and ReplaceDoc has it
+	// rewrite the one documentation Target owns rather than refuse.
+	Doc        string
+	DocName    string
+	DocLocale  string
+	ReplaceDoc bool
 	// NewOwner is the namespace an OpMove moves Target into; empty means the root.
 	NewOwner string
 	// Annotation is the DiagramLayout metadata an OpSetLayout writes, by FQN
@@ -166,6 +178,11 @@ func AddTransition(owner, name, from, to, trigger, guard, effect string, initial
 		TransitionSource: from, TransitionTarget: to, Trigger: trigger,
 		Guard: guard, Effect: effect, Initial: initial,
 	}
+}
+
+// AddDocumentation creates an operation adding a `doc` with body text to target.
+func AddDocumentation(target, body string) Operation {
+	return Operation{Kind: OpAddDocumentation, Target: target, Doc: body}
 }
 
 // Move is an operation making target a member of newOwner, "" for the root.
@@ -602,6 +619,13 @@ func (m Model) splicesFor(i int, op Operation) ([]splice, error) {
 	}
 	if op.Kind == OpAddTransition {
 		sp, err := m.addTransitionSplice(i, op)
+		if err != nil {
+			return nil, err
+		}
+		return []splice{sp}, nil
+	}
+	if op.Kind == OpAddDocumentation {
+		sp, err := m.addDocumentationSplice(i, op)
 		if err != nil {
 			return nil, err
 		}
