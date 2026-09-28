@@ -86,6 +86,19 @@ func TestFMUFormatSurfaces(t *testing.T) {
 	}
 }
 
+// An FMU that names no file — standard input, an inline document — cannot
+// carry a uri: the import is refused instead of writing an unusable one.
+func TestConvertFMUWithNoFileIsRefused(t *testing.T) {
+	data := fmuBytes(t, ballXML)
+	var nf *convert.FMUNotAFileError
+	if _, err := convert.Convert("<stdin>", data, convert.FormatFMU, convert.FormatSysML); !errors.As(err, &nf) {
+		t.Fatalf("Convert from <stdin> = %v, want FMUNotAFileError", err)
+	}
+	if _, err := convert.Convert("<stdin>", data, convert.FormatFMU, convert.FormatSysML); !errors.Is(err, convert.ErrFMUNotAFile) {
+		t.Fatalf("Convert from <stdin> = %v, want ErrFMUNotAFile", err)
+	}
+}
+
 // A file that is not an FMU fails the conversion, not as notation.
 func TestConvertRejectsNonFMU(t *testing.T) {
 	if _, err := convert.Convert("text.fmu", []byte("hello"), convert.FormatFMU, convert.FormatSysML); err == nil {
