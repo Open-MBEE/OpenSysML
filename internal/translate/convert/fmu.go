@@ -57,6 +57,7 @@ func fmuToNotation(name string, data []byte) ([]byte, error) {
 	if _, err := os.Stat(abs); err != nil {
 		return nil, &FMUNotAFileError{Name: name}
 	}
+	// #nosec G304 -- the file is the one the user named for conversion.
 	if onDisk, err := os.ReadFile(abs); err != nil || !bytes.Equal(onDisk, data) {
 		return nil, &FMUChangedError{Name: name}
 	}
