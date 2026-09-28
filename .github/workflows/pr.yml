@@ -493,6 +493,7 @@ jobs:
 
       # The RDF round-trip ratchet over every example on its own, so its
       # per-verdict counts are legible in the log and a skip must not pass.
+      # The round-trip gates stay in the race shards too: their worker pool converts files concurrently.
       - name: Run RDF corpus round-trip gate
         run: |
           set -o pipefail
