@@ -60,6 +60,15 @@ to the service; a name the service does not register is `CodeInvalidArgument`, a
 needs the `engines` capability. `Verdict`, `Calculation` and `Analysis` each carry a `Standing`:
 the `Engine` that answered, the `Strength` of its evidence and the `Bounds` it ran under.
 
+`VerifyConstraint`, `VerifyRequirement` and `VerifySatisfaction` also take `Asking(question)` —
+`QuestionEvaluate` (the default), `QuestionHolds` or `QuestionSatisfiable` — to ask the service's
+solvers rather than evaluate a point: `holds` proves the claim for every assignment the free
+features can take, `satisfiable` finds one. A `Verdict` answers it through `Question` and `Status`
+(`holds` | `violated` | `undecided` | `satisfiable` | `unsatisfiable`), and a violated or
+satisfiable answer carries `Witness`, the free features' replayed values with their units and exact
+spellings; undecided names the reason and reports `ReasonUndecided`. A question other than evaluate
+needs the `verification_questions` capability, checked before anything is sent.
+
 ```go
 exploration, err := client.ExploreAction(ctx, model, "Demo::race", nil)
 for _, outcome := range exploration.Outcomes {
