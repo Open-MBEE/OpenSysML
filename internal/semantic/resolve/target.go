@@ -46,10 +46,25 @@ func (r *Resolver) resolveVia(scope *symbols.Scope, qn *ast.QualifiedName) (*sym
 	}
 	chain := &ast.FeatureChainExpr{
 		NodeBase: qn.NodeBase,
-		Operand:  head,
+		Operand:  &ast.FeatureReference{NodeBase: qn.NodeBase, Name: head},
 		Member:   member,
 	}
+	r.Enter()
 	target := r.resolveFeatureChain(scope, chain)
+	settled := r.Leave()
+	for i := range head.Parts {
+		if name, ok := r.PartName(head, i); ok {
+			r.resolvedPart(qn, i, name)
+		}
+	}
+	for i := range member.Parts {
+		if name, ok := r.PartName(member, i); ok {
+			r.resolvedPart(qn, headEnd+i, name)
+		}
+	}
+	if settled && (target != nil || r.quiet == 0) && r.allVisible == 0 {
+		r.memoize(qn, resolution{sym: target, ok: target != nil})
+	}
 	return target, target != nil
 }
 
@@ -335,6 +350,9 @@ func (r *Resolver) ProbeRedefinitionTarget(scope *symbols.Scope, decl ast.Node, 
 type Reference struct {
 	Scope *symbols.Scope
 	QN    *ast.QualifiedName
+	// Via marks a relationship route, whose chained segments resolve from its
+	// leading name rather than as namespace qualifiers.
+	Via bool
 	// Referrer owns the reference subsetting QN is the target of, if any.
 	Referrer ast.Node
 	// Chain is set when QN is the member of a feature chain, whose segments are
@@ -441,6 +459,9 @@ func (r *Resolver) ResolveReference(ref Reference) (*symbols.Symbol, bool) {
 		)
 		r.InCondition(func() { sym, ok = r.ResolveReference(ref) })
 		return sym, ok
+	}
+	if ref.Via {
+		return r.resolveVia(ref.Scope, ref.QN)
 	}
 	if ref.Chain != nil {
 		if ref.Endpoint {
