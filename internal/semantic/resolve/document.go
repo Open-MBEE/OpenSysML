@@ -363,7 +363,15 @@ func (r *Resolver) resolveBehaviorDecl(scope *symbols.Scope, decl ast.Node) bool
 		return true
 	case *ast.SendStatement:
 		r.resolveExpr(scope, d.Message)
-		r.resolveExpr(scope, d.Target)
+		if d.IsVia {
+			if qn, ok := d.Target.(*ast.QualifiedName); ok {
+				r.resolveVia(scope, qn)
+			} else {
+				r.resolveExpr(scope, d.Target)
+			}
+		} else {
+			r.resolveExpr(scope, d.Target)
+		}
 		r.resolveExpr(scope, d.Receiver)
 		r.walkMembers(r.bodyScope(scope, d), d.Members)
 		return true

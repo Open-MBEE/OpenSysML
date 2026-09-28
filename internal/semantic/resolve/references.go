@@ -471,7 +471,15 @@ func (c *refCollector) behaviorDecl(scope *symbols.Scope, decl ast.Node) bool {
 		return true
 	case *ast.SendStatement:
 		c.expr(scope, d.Message)
-		c.expr(scope, d.Target)
+		if d.IsVia {
+			if qn, ok := d.Target.(*ast.QualifiedName); ok {
+				c.addVia(scope, qn)
+			} else {
+				c.expr(scope, d.Target)
+			}
+		} else {
+			c.expr(scope, d.Target)
+		}
 		c.expr(scope, d.Receiver)
 		c.walkMembers(c.bodyScope(scope, d), d.Members)
 		return true

@@ -468,6 +468,15 @@ func TestW8CFeatureReferenceViaBoundaries(t *testing.T) {
 				}
 			}
 		}`,
+		"send via with body in nested definition": `package P {
+			item def E;
+			part def Owner {
+				port pin;
+				action def A {
+					send new E() via pin { }
+				}
+			}
+		}`,
 	}
 	for name, src := range reject {
 		t.Run("reject "+name, func(t *testing.T) {

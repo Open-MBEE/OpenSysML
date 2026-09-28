@@ -101,6 +101,61 @@ func TestDefinitionViaContextRouteSegments(t *testing.T) {
 	}
 }
 
+func TestDefinitionSendWithBodyViaContextRouteSegments(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/def_send_via_context.sysml").Filename()
+	src := `package P {
+	item def Go;
+	part def Owner {
+		port p;
+		action def A {
+			in ref context : Owner;
+			action sendBody send new Go() via context.p { }
+		}
+	}
+}
+`
+	ws.Open(name, []byte(src), 1)
+
+	route := strings.Index(src, "via context.p") + len("via ")
+	doc := ws.Document(name)
+	ref := refAtOffset(collectRefs(doc.AST, doc.Scope), route)
+	if ref == nil || !ref.Via {
+		t.Fatal("send-with-body via route was not collected as a routed reference")
+	}
+	segments := ws.ResolveReferenceSegmentsInDoc(name, *ref)
+	if len(segments) != 2 || segments[0] == nil || segments[0].Name != "context" ||
+		segments[1] == nil || segments[1].Name != "p" {
+		t.Fatalf("via route segments = %v, want context and p; diagnostics = %v",
+			segments, ws.Diagnostics(name))
+	}
+
+	definitionLineAt := func(offset int) uint32 {
+		t.Helper()
+		locs, err := s.Definition(context.Background(), &protocol.DefinitionParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+				Position:     offsetToPosition([]byte(src), offset),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Definition err = %v", err)
+		}
+		if len(locs) != 1 {
+			t.Fatalf("locations at offset %d = %d, want 1", offset, len(locs))
+		}
+		return locs[0].Range.Start.Line
+	}
+
+	if got := definitionLineAt(route); got != 5 {
+		t.Errorf("context definition line = %d, want 5", got)
+	}
+	if got := definitionLineAt(route + len("context.")); got != 3 {
+		t.Errorf("p definition line = %d, want 3", got)
+	}
+}
+
 // Go-to-definition on a body-expression parameter must land on the parameter's
 // own identifier, not on the body's brace or the same-named outer feature; on
 // the declaration itself there is nothing to jump to.
