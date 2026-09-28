@@ -2457,6 +2457,81 @@ func TestClassifyChainGovernsAnAdoptedBoundMember(t *testing.T) {
 	})
 }
 
+// A classifier's valued chain still reaches below a bound member whose value
+// a write replaced: the written object stays `mid`'s value and the chain
+// refines below it, as a redefining body reaching the written object does.
+func TestClassifyChainReachesAWrittenPart(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def Sport :> Top { attribute :>> mid.leaf.value = 99.0; }
+		part top : Top;
+	}`)
+	top := instantiateQualified(t, ctx, idx, "test::top")
+	written := instantiateQualified(t, ctx, idx, "test::Mid")
+	if err := top.SetFeatureValue(ctx, "mid", Value{Kind: ValInstance, Instance: written.ID}); err != nil {
+		t.Fatalf("SetFeatureValue(mid): %v", err)
+	}
+	if err := ctx.classify(top, idx.LookupQualified("test::Sport")[0]); err != nil {
+		t.Fatalf("classify(top, Sport): %v", err)
+	}
+	mid := readInstance(t, ctx, top, "mid")
+	if mid != written {
+		t.Fatalf("top.mid lost the written object, want it kept")
+	}
+	leaf := readInstance(t, ctx, mid, "leaf")
+	fv, err := leaf.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 99.0 {
+		t.Fatalf("top.mid.leaf.value = %v, want the chain's 99.0", got)
+	}
+}
+
+// Two chains one classifier's body declares for the same path do what two
+// same-named redefining members do: the later wins, whether the leaf was
+// already materialized or materializes after.
+func TestClassifyDuplicateChainsInOneBody(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 0.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Base { part mid : Mid; }
+		part def Sport :> Base { attribute :>> mid.leaf.value = 1.0; attribute :>> mid.leaf.value = 2.0; }
+		part c : Base;
+	}`
+	check := func(t *testing.T, ctx *Context, idx *symbols.Index, readFirst bool) {
+		t.Helper()
+		c := instantiateQualified(t, ctx, idx, "test::c")
+		if readFirst {
+			readInstance(t, ctx, readInstance(t, ctx, c, "mid"), "leaf")
+		}
+		if err := ctx.classify(c, idx.LookupQualified("test::Sport")[0]); err != nil {
+			t.Fatalf("classify(c, Sport): %v", err)
+		}
+		leaf := readInstance(t, ctx, readInstance(t, ctx, c, "mid"), "leaf")
+		fv, err := leaf.GetFeatureValue(ctx, "value")
+		if err != nil {
+			t.Fatalf("GetFeatureValue(value): %v", err)
+		}
+		if got := realValue(t, fv.HeldValue()); got != 2.0 {
+			t.Fatalf("c.mid.leaf.value = %v, want the later chain's 2.0", got)
+		}
+	}
+	t.Run("materialized_before_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, true)
+	})
+	t.Run("materialized_after_classify", func(t *testing.T) {
+		ctx, idx := libraryShapeContext(t, model)
+		check(t, ctx, idx, false)
+	})
+}
+
 // TestWriteToRestatedCollectionClassifies pins that an object written into a
 // collection directly is classified by it even when a feature it lives under
 // reaches that collection only through subsetting implied by nesting: the

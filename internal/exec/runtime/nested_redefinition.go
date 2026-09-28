@@ -81,9 +81,10 @@ func (ctx *Context) applyNestedRedefinitions(sym *symbols.Symbol, features []Eff
 			continue
 		}
 		// A chain declared by a type specializing the earlier chain's context
-		// outranks it, as a nested redefining body in the subtype does; equal
-		// and unrelated contexts keep the first, the tails carried down first.
-		if ctx.chainOutranks(p.sym, taken) {
+		// outranks it, as a nested redefining body in the subtype does; in one
+		// body the later declaration wins, as two same-named members do;
+		// unrelated contexts keep the first, the tails carried down first.
+		if ctx.chainOutranks(p.sym, taken) || ctx.redefinitionContext(p.sym) == ctx.redefinitionContext(taken) {
 			overrides[p.rest[0]] = p.sym
 		}
 	}
@@ -174,7 +175,15 @@ func (ctx *Context) refineNestedBelow(inst *Instance, chain []string, sym *symbo
 		feat := *fv.Feature
 		feat.GovernedByChain = true
 		feat.DefaultValue = nil
-		return ctx.installFeatureValue(inst, fv, &feat)
+		if err := ctx.installFeatureValue(inst, fv, &feat); err != nil {
+			return err
+		}
+		// A written value survives the install; the chain still reaches the
+		// objects it holds. An unwritten one is re-initialized empty, so the
+		// walk below is a no-op for it.
+		if !fv.Written {
+			return nil
+		}
 	}
 	for _, el := range elementsOf(fv.HeldValue()) {
 		id, ok := el.Object()
@@ -208,9 +217,15 @@ func (ctx *Context) refineChildBelow(inst, child *Instance, rest []string, sym *
 		// specializing it wins over the chain, and a chain host installed by an
 		// unrelated classifier keeps its place, as the lazy path's first-wins
 		// rule keeps it; a plain feature is no redefinition and yields.
-		if hasRedefines(cfv.Feature.Symbol) && (ctx.blocksChain(cfv.Feature.Symbol, sym) ||
-			(isChainHost(cfv.Feature.Symbol) && !ctx.chainOutranks(sym, cfv.Feature.Symbol))) {
-			return nil
+		if hasRedefines(cfv.Feature.Symbol) {
+			if isChainHost(cfv.Feature.Symbol) {
+				if !ctx.chainOutranks(sym, cfv.Feature.Symbol) &&
+					ctx.redefinitionContext(sym) != ctx.redefinitionContext(cfv.Feature.Symbol) {
+					return nil
+				}
+			} else if ctx.blocksChain(cfv.Feature.Symbol, sym) {
+				return nil
+			}
 		}
 		feat := ctx.effectiveFeature(rest[0], sym, child.Type)
 		return ctx.installFeatureValue(child, cfv, &feat)
@@ -263,30 +278,17 @@ func clonePendingRedefinitions(pending []pendingRedefinition) []pendingRedefinit
 	return out
 }
 
-// redefinitionContext answers the type or usage whose body member's
-// redefinition is written in: the first definition up the owner chain, or the
-// topmost usage when no definition encloses it (a chain declared on
+// redefinitionContext answers the body a member's redefinition is written in:
+// the usage or definition owning it directly (a chain declared on
 // `part top : Derived { attribute :>> mid.leaf.value = 99.0; }` counts as
-// declared by top).
+// declared by top wherever top is nested). A redefining usage's members are
+// statements of that redefinition, so they rank from its own context.
 func (ctx *Context) redefinitionContext(member *symbols.Symbol) *symbols.Symbol {
 	owner := ctx.findOwnerType(member)
-	for owner != nil && !isDefinitionSymbol(owner) {
-		next := ctx.findOwnerType(owner)
-		if next == nil || (!isDefinitionSymbol(next) && !isUsageSymbol(next)) {
-			break
-		}
-		owner = next
+	for owner != nil && !isDefinitionSymbol(owner) && hasRedefines(owner) {
+		owner = ctx.findOwnerType(owner)
 	}
 	return owner
-}
-
-// isUsageSymbol reports whether sym is declared by a usage.
-func isUsageSymbol(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	_, ok := sym.Decl.(*ast.Usage)
-	return ok
 }
 
 // isChainHost reports whether member redefines a feature chain — it is the

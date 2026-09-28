@@ -164,6 +164,109 @@ func TestNestedRedefinitionOverridesAnAliasedLeaf(t *testing.T) {
 	})
 }
 
+// Two chains in one body do what two same-named redefining members of a
+// redefining body do: the later declaration wins. The nested-body form reads
+// the second value; the chain form reads the same.
+func TestNestedRedefinitionDuplicateChainsInOneBody(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 0.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Top { part mid : Mid; }
+		part chained : Top { attribute :>> mid.leaf.value = 1.0; attribute :>> mid.leaf.value = 2.0; }
+		part bodied : Top { part :>> mid { part :>> leaf { attribute :>> value = 1.0; attribute :>> value = 2.0; } } }
+	}`
+	for _, root := range []string{"chained", "bodied"} {
+		t.Run(root, func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			top := instantiateQualified(t, ctx, idx, "test::"+root)
+			leaf := readInstance(t, ctx, readInstance(t, ctx, top, "mid"), "leaf")
+			fv, err := leaf.GetFeatureValue(ctx, "value")
+			if err != nil {
+				t.Fatalf("GetFeatureValue(value): %v", err)
+			}
+			if got := realValue(t, fv.HeldValue()); got != 2.0 {
+				t.Fatalf("%s.mid.leaf.value = %v, want the later declaration's 2.0", root, got)
+			}
+		})
+	}
+}
+
+// A chain written in a usage nested inside a definition governs the inherited
+// binding from the usage's own body, as a redefining body written there does:
+// a fresh object materializes and the bound one keeps its value.
+func TestNestedRedefinitionChainInsideANestedUsage(t *testing.T) {
+	ctx, idx := libraryShapeContext(t, `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; }
+		part def Mid { part leaf : Leaf; }
+		part existing : Mid;
+		part def Top { part mid : Mid = existing; }
+		part def World {
+			part a : Top { attribute :>> mid.leaf.value = 9.0; }
+		}
+		part w : World;
+	}`)
+	w := instantiateQualified(t, ctx, idx, "test::w")
+	a := readInstance(t, ctx, w, "a")
+	mid := readInstance(t, ctx, a, "mid")
+	leaf := readInstance(t, ctx, mid, "leaf")
+	fv, err := leaf.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, fv.HeldValue()); got != 9.0 {
+		t.Fatalf("w.a.mid.leaf.value = %v, want the chain's 9.0", got)
+	}
+	existing := instantiateQualified(t, ctx, idx, "test::existing")
+	if mid == existing {
+		t.Fatalf("w.a.mid adopted the bound object, want a fresh one")
+	}
+	exLeaf := readInstance(t, ctx, existing, "leaf")
+	exFv, err := exLeaf.GetFeatureValue(ctx, "value")
+	if err != nil {
+		t.Fatalf("GetFeatureValue(value): %v", err)
+	}
+	if got := realValue(t, exFv.HeldValue()); got != 1.0 {
+		t.Fatalf("existing.leaf.value = %v, want its own 1.0", got)
+	}
+}
+
+// Two owners carrying different chain values give the derived features below
+// different answers: a derived shared default is the instance's own, not the
+// type's, whichever owner is read first.
+func TestNestedRedefinitionSharedDefaultsStayInstanceLocal(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::Real;
+		part def Leaf { attribute value : Real default = 1.0; attribute doubled = value * 2.0; }
+		part def Mid { part leaf : Leaf; }
+		part def Top { part mid : Mid; }
+		part a : Top { attribute :>> mid.leaf.value = 9.0; }
+		part b : Top { attribute :>> mid.leaf.value = 3.0; }
+	}`
+	for _, first := range []string{"a", "b"} {
+		t.Run(first+"_read_first", func(t *testing.T) {
+			ctx, idx := libraryShapeContext(t, model)
+			second := "a"
+			if first == "a" {
+				second = "b"
+			}
+			want := map[string]float64{"a": 18.0, "b": 6.0}
+			for _, name := range []string{first, second} {
+				top := instantiateQualified(t, ctx, idx, "test::"+name)
+				leaf := readInstance(t, ctx, readInstance(t, ctx, top, "mid"), "leaf")
+				fv, err := leaf.GetFeatureValue(ctx, "doubled")
+				if err != nil {
+					t.Fatalf("GetFeatureValue(doubled): %v", err)
+				}
+				if got := realValue(t, fv.HeldValue()); got != want[name] {
+					t.Fatalf("%s.mid.leaf.doubled = %v, want %v", name, got, want[name])
+				}
+			}
+		})
+	}
+}
+
 // A valued chain below a bound part governs the inherited binding under every
 // name the part's redefinition group gives it: whichever name is read first
 // materializes a fresh object the chain applies below, and the bound object

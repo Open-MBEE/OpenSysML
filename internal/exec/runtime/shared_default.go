@@ -55,6 +55,10 @@ type shapeNode struct {
 	feature    *symbols.Symbol
 	typ        *symbols.Symbol
 	classifier bool
+	// inst distinguishes an object whose shape a nested redefinition adjusted
+	// — overridden or carried chains are its own, so two objects of one type
+	// under different chain values share no derivation.
+	inst *Instance
 }
 
 // sharedKey names a derived default of a shape.
@@ -121,7 +125,19 @@ func (ctx *Context) shapeOf(inst *Instance) *shapeNode {
 		}
 		feature = held.Feature.Symbol
 	}
-	shape := ctx.internShape(shapeNode{feature: feature, typ: inst.Type})
+	// A chain-carried or chain-overridden shape is the instance's own: its
+	// declared values derive what its chains state, not the type's alone.
+	self := inst
+	if len(inst.nested) == 0 {
+		self = nil
+		for _, fv := range inst.FeatureValues {
+			if fv.Feature != nil && (fv.Feature.GovernedByChain || (fv.Feature.Symbol != nil && isChainHost(fv.Feature.Symbol))) {
+				self = inst
+				break
+			}
+		}
+	}
+	shape := ctx.internShape(shapeNode{feature: feature, typ: inst.Type, inst: self})
 	for _, classifier := range inst.classifiers {
 		shape = ctx.internShape(shapeNode{outer: shape, typ: classifier, classifier: true})
 	}
