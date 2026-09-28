@@ -1148,9 +1148,9 @@ a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
 `inputs` and `outputs` as lists of `(name, type)` string pairs.
 `add_perform_action` writes `perform action name : Type`, and
-`add_perform(owner, action)` writes `perform action;` — a perform usage named
+`add_perform(owner, action)` writes `perform <action>;` — a perform usage named
 by the action usage it references, for example
-`add_perform("Demo::Kitchen", "t.heat")`.
+`add_perform("Demo::Kitchen", "t.heat")` writes `perform t.heat;`.
 `add_connection(owner, kind, from_, to, name=None, type=None)` writes a
 `connection`, `interface`, `allocation`, `binding`, `flow`, `succession` or `transition` (KerML:
 `connector`, `binding`, `flow` or `succession`); its feature references resolve from the owner's

@@ -301,7 +301,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 	}
 	takenName := op.MemberName
 	if performName != "" {
-		takenName = symbolName(performName)
+		takenName = performName
 	}
 	if takenName != "" && ownerScope != nil && len(ownerScope.LookupLocalAll(symbolName(takenName))) > 0 {
 		return splice{}, &Error{

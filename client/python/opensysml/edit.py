@@ -666,8 +666,8 @@ class Editor:
         return self.add_member(owner, "perform action", name, type=type, **kwargs)
 
     def add_perform(self, owner, action):
-        """Add a ``perform action`` usage naming an existing action usage:
-        ``perform action``; the member is named by the action it references."""
+        """Add a ``perform <action>;`` usage naming an existing action usage;
+        the member is named by the action it references."""
         return self.add_member(owner, "perform", action)
 
     def add_state_def(self, owner, name, **kwargs):
