@@ -511,6 +511,14 @@ func TestAcceptPayloadNameAnchorsShadowedSignalPath(t *testing.T) {
 	}
 }
 
+func TestAcceptPayloadDoesNotShadowSignalPackagePath(t *testing.T) {
+	r := migrateFixtureFileOptions(t, "accept_payload_package_segment_shadow", migrate.Options{Strict: true})
+	wantLine(t, r.Notation, "accept Alarm : $::Alarm::Beep;")
+	if errs := errorsMode(t, "accept_payload_package_segment_shadow.sysml", r.Notation, diag.ConformanceStrict); len(errs) > 0 {
+		t.Errorf("strict accept signal migration has errors: %v\n%s", errs, r.Notation)
+	}
+}
+
 // widerChooser is a block whose decision weights are properties typed by the
 // wider numeric value types Complex and Number rather than Real.
 const widerChooser = `

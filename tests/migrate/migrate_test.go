@@ -346,6 +346,7 @@ var constructFixtures = []string{
 	"viewpoint_context",
 	"accept_payload_name",
 	"accept_payload_package_shadow",
+	"accept_payload_package_segment_shadow",
 	"exposed_action_usage",
 	"exposed",
 	"layout",
