@@ -1,0 +1,255 @@
+package solve
+
+import (
+	"context"
+	"math/big"
+	"strings"
+	"testing"
+)
+
+// realVars are named Real-sorted variables for building queries by hand.
+func realVars(names ...string) []*Var {
+	vars := make([]*Var, len(names))
+	for i, name := range names {
+		vars[i] = &Var{Name: name, Sort: Real}
+	}
+	return vars
+}
+
+// siteVars are the rounding-site variables a rounding-sound query declares, in
+// declaration order.
+func siteVars(q *Query) []*Var {
+	var out []*Var
+	for _, v := range q.Vars {
+		if strings.HasPrefix(v.Name, "rounded!") {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// axioms are a rounding-sound query's axioms, the assertions it adds in role
+// RoleDefined with condition "rounding".
+func axioms(q *Query) []Assertion {
+	var out []Assertion
+	for _, a := range q.Assertions {
+		if a.From.Role == RoleDefined && a.From.Condition == "rounding" {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// TestRoundingSoundRealOperationSites: each real-sorted arithmetic operation is
+// a site, replaced by a variable bounded by the doubles the exact value lies
+// between.
+func TestRoundingSoundRealOperationSites(t *testing.T) {
+	vars := realVars("x")
+	site := Binary(OpAdd, Real, VarTerm(vars[0]), RealTerm(big.NewRat(1, 1)))
+	q := &Query{Kind: "constraint", Element: "C", Vars: vars, Assertions: []Assertion{
+		{Term: Binary(OpGt, Bool, site, RealTerm(big.NewRat(2, 1))), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	if got := writeTerm(sound.Assertions[0].Term); got != "(> |rounded!!0| 2.0)" {
+		t.Fatalf("rewritten assertion is %s", got)
+	}
+	sites := siteVars(sound)
+	if len(sites) != 1 {
+		t.Fatalf("declared %d site variables, want 1: %+v", len(sites), sound.Vars)
+	}
+	// Z is {0, x, 1.0, 2.0}: two bounds per double, the site not bounding itself.
+	if got := axioms(sound); len(got) != 8 {
+		t.Fatalf("stated %d axioms, want 8:\n%s", len(got), Script(sound))
+	}
+	for _, a := range axioms(sound) {
+		if !strings.HasPrefix(writeTerm(a.Term), "(=> ") {
+			t.Errorf("axiom %s is not an implication", writeTerm(a.Term))
+		}
+	}
+}
+
+// TestRoundingSoundSharedSites: identical rewritten subterms share one site and
+// one variable, so an operation written twice rounds once.
+func TestRoundingSoundSharedSites(t *testing.T) {
+	vars := realVars("x")
+	site := Binary(OpAdd, Real, VarTerm(vars[0]), RealTerm(big.NewRat(1, 1)))
+	q := &Query{Kind: "constraint", Element: "C", Vars: vars, Assertions: []Assertion{
+		{Term: And(Binary(OpGt, Bool, site, RealTerm(new(big.Rat))), Binary(OpLt, Bool, site, RealTerm(big.NewRat(10, 1)))), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	if n := len(siteVars(sound)); n != 1 {
+		t.Fatalf("declared %d site variables for one shared subterm, want 1", n)
+	}
+	if got := writeTerm(sound.Assertions[0].Term); got != "(and (> |rounded!!0| 0.0) (< |rounded!!0| 10.0))" {
+		t.Errorf("rewritten assertion is %s", got)
+	}
+}
+
+// TestRoundingSoundRatioIsOneSite: a whole-number quotient is the exact ratio
+// rounded once, so its integer operands' widenings are not separate sites.
+func TestRoundingSoundRatioIsOneSite(t *testing.T) {
+	a := &Var{Name: "a", Sort: Int}
+	b := &Var{Name: "b", Sort: Int}
+	q := &Query{Kind: "constraint", Element: "C", Vars: []*Var{a, b}, Assertions: []Assertion{
+		{Term: Binary(OpGt, Bool, RatioDiv(VarTerm(a), VarTerm(b)), RealTerm(big.NewRat(1, 1))), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	if n := len(siteVars(sound)); n != 1 {
+		t.Fatalf("declared %d site variables, want the quotient's one: %v", n, sound.Vars)
+	}
+	if got := writeTerm(sound.Assertions[0].Term); got != "(> |rounded!!0| 1.0)" {
+		t.Errorf("rewritten assertion is %s", got)
+	}
+}
+
+// TestRoundingSoundNegationIsExact: negation is not a site — the float64
+// negation is exact — while a widened integer is one, rounding beyond 2^53.
+func TestRoundingSoundNegationIsExact(t *testing.T) {
+	vars := realVars("x")
+	i := &Var{Name: "i", Sort: Int}
+	q := &Query{Kind: "constraint", Element: "C", Vars: append(vars, i), Assertions: []Assertion{
+		{Term: Binary(OpGt, Bool, Unary(OpNeg, Real, VarTerm(vars[0])), ToReal(VarTerm(i))), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	sites := siteVars(sound)
+	if len(sites) != 1 {
+		t.Fatalf("declared %d site variables, want only the widened integer's", len(sites))
+	}
+	if got := writeTerm(sound.Assertions[0].Term); got != "(> (- x) |rounded!!0|)" {
+		t.Errorf("rewritten assertion is %s", got)
+	}
+}
+
+// TestRoundingSoundLiteralIsTheFloat64: a real literal is the exact rational of
+// the float64 the evaluator parses — 0.1 is not the real 1/10.
+func TestRoundingSoundLiteralIsTheFloat64(t *testing.T) {
+	vars := realVars("x")
+	tenth, _ := new(big.Rat).SetString("0.1")
+	q := &Query{Kind: "constraint", Element: "C", Vars: vars, Assertions: []Assertion{
+		{Term: Binary(OpGt, Bool, VarTerm(vars[0]), RealTerm(tenth)), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	comparison := sound.Assertions[0].Term
+	lit := comparison.Args[1]
+	if lit.Op != OpReal {
+		t.Fatalf("rewritten literal is %s", writeTerm(comparison))
+	}
+	f, _ := tenth.Float64()
+	exact := new(big.Rat).SetFloat64(f)
+	if lit.Real.Cmp(exact) != 0 {
+		t.Errorf("literal is %s, want the exact rational of the float64 %v", lit.Real, f)
+	}
+}
+
+// TestRoundingSoundEvaluationGuards: a site another site bounds is guarded by
+// the conditions under which the evaluator computes it — earlier conditions for
+// the assertion order, and the operands deciding an `and`, `or`, `implies` or
+// `ite` within a term.
+func TestRoundingSoundEvaluationGuards(t *testing.T) {
+	x := &Var{Name: "x", Sort: Real}
+	y := &Var{Name: "y", Sort: Real}
+	b := &Var{Name: "b", Sort: Bool}
+	site0 := Binary(OpAdd, Real, VarTerm(x), RealTerm(big.NewRat(1, 1)))
+	site1 := Binary(OpMul, Real, VarTerm(y), RealTerm(big.NewRat(2, 1)))
+	// b; (x + 1.0 > 0.0) and (b implies y * 2.0 > 0.0):
+	// site0 is computed when b holds, site1 when b ∧ x+1.0>0 ∧ b holds.
+	q := &Query{Kind: "constraint", Element: "C", Vars: []*Var{x, y, b}, Assertions: []Assertion{
+		{Term: VarTerm(b), From: Provenance{Role: RoleRequired, Condition: "b"}},
+		{Term: And(
+			Binary(OpGt, Bool, site0, RealTerm(new(big.Rat))),
+			Binary(OpImplies, Bool, VarTerm(b), Binary(OpGt, Bool, site1, RealTerm(new(big.Rat)))),
+		), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	if n := len(siteVars(sound)); n != 2 {
+		t.Fatalf("declared %d site variables, want 2", n)
+	}
+	// site1's evaluation guard is `b ∧ x+1.0>0 ∧ b`; an axiom of site0 bounding
+	// it is guarded by that, while an unconditional double needs no guard.
+	var guarded, unguarded bool
+	for _, a := range axioms(sound) {
+		text := writeTerm(a.Term)
+		if strings.Contains(text, "(=> (and (and (and b (> |rounded!!0| 0.0)) b) ") {
+			guarded = true
+		}
+		if strings.HasPrefix(text, "(=> (<= ") || strings.HasPrefix(text, "(=> (>= ") {
+			unguarded = true
+		}
+	}
+	if !guarded {
+		t.Error("no axiom guards a site by another site's evaluation condition:\n" + Script(sound))
+	}
+	if !unguarded {
+		t.Error("no axiom bounds a site by an unconditional double:\n" + Script(sound))
+	}
+}
+
+// TestRoundingSoundLemmaIsProved: the design's worked example — unsat over
+// exact reals, proved again over the evaluator's float64 arithmetic.
+func TestRoundingSoundLemmaIsProved(t *testing.T) {
+	solver := requireSolver(t)
+	ctx, idx := fixture(t, "<test>", `
+		package P {
+			private import ScalarValues::*;
+			part hg { attribute efficiency : Real; attribute power : Real; }
+			attribute d : Real;
+			assert constraint lemma {
+				(hg.efficiency >= 0.0 and hg.efficiency <= 1.0 and hg.power >= 0.0 and d >= 0.0)
+				implies (hg.power * d * hg.efficiency) <= hg.power * d
+			}
+		}
+	`)
+	q, err := ConstraintViolation(ctx, symbolNamed(t, idx, "P::lemma"), nil, nil)
+	if err != nil {
+		t.Fatalf("translate: %v", err)
+	}
+	result, err := solver.Solve(context.Background(), q)
+	if err != nil {
+		t.Fatalf("solve: %v", err)
+	}
+	if result.Status != StatusUnsat || !result.RoundingProved {
+		t.Fatalf("result is %s proved=%v, want unsat proved", result.Status, result.RoundingProved)
+	}
+}
+
+// TestRoundingSoundKeepsACounterexample: `x + 1.0 > x` holds over exact reals
+// but not over float64, so its violation's unsat must not be proved.
+func TestRoundingSoundKeepsACounterexample(t *testing.T) {
+	solver := requireSolver(t)
+	q := violationQuery(t, constraintSource(`
+		in x : Real;
+		assert constraint { x + 1.0 > x }
+	`), "test::C")
+	result, err := solver.Solve(context.Background(), q)
+	if err != nil {
+		t.Fatalf("solve: %v", err)
+	}
+	if result.Status != StatusUnsat {
+		t.Fatalf("violation is %s, want unsat over exact reals", result.Status)
+	}
+	if result.RoundingProved {
+		t.Error("`x + 1.0 > x` was proved, but float64 has counterexamples — an unsound proof")
+	}
+}
+
+// TestRoundingSoundDivergenceNotProved: associativity holds over exact reals
+// and diverges in float64, so its violation's unsat must not be proved either.
+func TestRoundingSoundDivergenceNotProved(t *testing.T) {
+	solver := requireSolver(t)
+	q := violationQuery(t, constraintSource(`
+		in a : Real;
+		in b : Real;
+		in c : Real;
+		assert constraint { (a + b) + c == a + (b + c) }
+	`), "test::C")
+	result, err := solver.Solve(context.Background(), q)
+	if err != nil {
+		t.Fatalf("solve: %v", err)
+	}
+	if result.Status != StatusUnsat {
+		t.Fatalf("violation is %s, want unsat over exact reals", result.Status)
+	}
+	if result.RoundingProved {
+		t.Error("float64 addition associativity was proved — an unsound proof")
+	}
+}

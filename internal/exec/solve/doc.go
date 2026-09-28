@@ -90,6 +90,33 @@
 // `require` versus `assume`, negation, and a body meaning the conjunction of
 // its conditions.
 //
+// # Violation queries, and floating point
+//
+// ConstraintViolation, RequirementViolation and SatisfactionViolation translate
+// the same conditions the other way: the query's models are the assignments
+// violating the element's claim — the conjunction of its required conditions,
+// or its denial for `assert not` — asserted as one negation in role
+// RoleViolated, its assumptions kept as hypotheses. Unsatisfiable then proves
+// the claim holds for every assignment of the free features, within their
+// declared sorts and domains and the values fixed as pins.
+//
+// A violation query hoists no definedness side condition: the evaluator stops
+// at the first failing required condition, so a guard hoisted from a later one
+// could exclude real counterexamples and yield a false proof. A computed
+// divisor therefore refuses translation in violation mode, as it does under a
+// branch or a negation.
+//
+// The evaluator computes real arithmetic in float64 while the encoding is
+// exact: an exact-real unsat does not by itself decide the evaluator's
+// arithmetic. Query.RoundingSound re-encodes the query so its models
+// over-approximate every float64 evaluation — one fresh Real variable per
+// rounding site, bounded by the doubles its exact value lies between, each
+// guarded by the conditions under which the evaluator computes it — and Solve
+// asks it as a recheck after an unsat over a rounded query. A second unsat sets
+// Result.RoundingProved: the evaluator's arithmetic satisfies the conditions
+// nowhere either. Over-approximating evaluation is the sound direction; the
+// recheck's own witness is never replayed.
+//
 // # Differential agreement gate
 //
 // The translation is evidence-backed rather than asserted: for an element whose

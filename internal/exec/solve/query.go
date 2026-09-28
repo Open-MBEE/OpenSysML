@@ -36,6 +36,9 @@ const (
 	// RoleTransition is one step of a behavior's execution as the interpreter
 	// takes it, asserted by a model-checking query over a run.
 	RoleTransition
+	// RoleViolated is the denial of an element's claim, asserted by a violation
+	// query: its models are the assignments violating the element.
+	RoleViolated
 )
 
 var roleNames = map[Role]string{
@@ -47,6 +50,7 @@ var roleNames = map[Role]string{
 	RolePinned:     "fixed value",
 	RoleExcluded:   "excluded assignment",
 	RoleTransition: "transition",
+	RoleViolated:   "violated conditions",
 }
 
 // String names the role as an assertion's comment reads it.
@@ -191,6 +195,11 @@ type Query struct {
 	// Negated is set for an element asserting that its conditions do not all
 	// hold (`assert not …`), which the query asserts as one denial.
 	Negated bool
+
+	// Violation is set for a query whose models are the assignments violating
+	// the element's claim: unsatisfiable means the claim holds for every
+	// assignment of the free features.
+	Violation bool
 
 	// Sorts are the datatype sorts the query declares, ordered by name.
 	Sorts []Sort
