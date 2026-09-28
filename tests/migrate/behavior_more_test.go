@@ -1067,6 +1067,83 @@ func TestStrictDeferralYieldsToTransitionOnGeneralSignal(t *testing.T) {
 	wantClean(t, "deferralSpecialContested", r)
 }
 
+// A state deferring a signal and a general of it, or the same signal twice,
+// keeps each occurrence once: the general's accept loop takes every occurrence
+// of the specialization, so the specialization gets no loop of its own, and a
+// second trigger on one signal folds into the first.
+func TestStrictOverlappingDeferralsKeepEachOccurrenceOnce(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_notif" name="Notification"/>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_alarm" name="Alarm">
+      <generalization xmi:type="uml:Generalization" xmi:id="_gAlarm" general="_notif"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Signal" xmi:id="_stop" name="Stop"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_notifEv2" signal="_notif"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_alarmEv" signal="_alarm"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_stopEv" signal="_stop"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_oven" name="Oven" classifierBehavior="_sm">
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_sm" name="Run">
+        <region xmi:type="uml:Region" xmi:id="_r0">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_init"/>
+          <subvertex xmi:type="uml:State" xmi:id="_busy" name="Busy">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dAlarm" event="_alarmEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif" event="_notifEv"/>
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_dNotif2" event="_notifEv2"/>
+          </subvertex>
+          <subvertex xmi:type="uml:State" xmi:id="_idle" name="Idle"/>
+          <subvertex xmi:type="uml:State" xmi:id="_once" name="Once"/>
+          <subvertex xmi:type="uml:State" xmi:id="_twice" name="Twice"/>
+          <transition xmi:type="uml:Transition" xmi:id="_t0" source="_init" target="_busy"/>
+          <transition xmi:type="uml:Transition" xmi:id="_tStop" source="_busy" target="_idle">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trStop" event="_stopEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tOnce" source="_idle" target="_once">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trOnce" event="_notifEv"/>
+          </transition>
+          <transition xmi:type="uml:Transition" xmi:id="_tTwice" source="_once" target="_twice">
+            <trigger xmi:type="uml:Trigger" xmi:id="_trTwice" event="_notifEv"/>
+          </transition>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	r := migrateDocumentOptions(t, machine, `<sysml:Block xmi:id="_b1" base_Class="_oven"/>`, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Alarm; }",
+		"@MigrationMetadata::DeferredEvent { ref :>> signal : Notification; }",
+		"item deferred : Notification[*] ordered;",
+		"action receive accept kept : Notification;",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantNoLine(t, r.Notation, "item deferredAlarm : Alarm[*] ordered;")
+	wantNoLine(t, r.Notation, "item deferredNotification : Notification[*] ordered;")
+	wantNote(t, r, "_dNotif", migrate.Approximated, "kept in the item deferred by the accept loop")
+	wantNote(t, r, "_dAlarm", migrate.Approximated, "kept by the accept loop of the deferral of Notification in the same state, which accepts every occurrence of the signal too; a loop of its own would keep each occurrence twice")
+	wantNote(t, r, "_dNotif2", migrate.Approximated, "kept by the accept loop of the deferral of Notification in the same state")
+	wantNote(t, r, "_alarmEv", migrate.Approximated, "deferred by 'Busy' through the deferral of Notification")
+	wantClean(t, "deferralOverlap", r)
+
+	s := session(t, r)
+	meta(t, s, "%instantiate Oven")
+	meta(t, s, "%state Oven::Run")
+	for i := 0; i < 4; i++ {
+		meta(t, s, "%step")
+	}
+	meta(t, s, "%send Alarm")
+	meta(t, s, "%step")
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Busy.deferred = [Instance") {
+		t.Fatalf("the Alarm sent while Busy was not kept:\n%s", out)
+	}
+	meta(t, s, "%send Stop")
+	for i := 0; i < 8; i++ {
+		meta(t, s, "%step")
+	}
+	if out := meta(t, s, "%current"); !strings.Contains(out, "Current state: Once") {
+		t.Errorf("the kept Alarm was not replayed exactly once after Busy exited:\n%s", out)
+	}
+}
+
 // The members the strict encoding adds must not hide what it refers to from
 // where it is written: a deferred signal named like one of them, or the
 // library package a member of an enclosing scope is named after.
