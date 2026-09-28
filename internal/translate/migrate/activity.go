@@ -67,6 +67,9 @@ type activity struct {
 	used  map[string]bool
 	// named marks the edges a member of this body is named for.
 	named map[*sysmlv1.Element]bool
+	// standIns marks the written names of the nodes this body makes up, which
+	// no v1 node and so no diagram symbol stands behind.
+	standIns map[string]bool
 	// next lists, for each node, the nodes its edges lead to, once each; succ the
 	// edges out of it that stand for a succession, in the order they are owned.
 	next map[*sysmlv1.Element][]*sysmlv1.Element
@@ -144,6 +147,7 @@ func (m *migration) newActivity(act, def *sysmlv1.Element) *activity {
 		names:       map[*sysmlv1.Element]string{},
 		used:        inheritedActionNames(),
 		named:       map[*sysmlv1.Element]bool{},
+		standIns:    map[string]bool{},
 		next:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		prev:        map[*sysmlv1.Element][]*sysmlv1.Element{},
 		succ:        map[*sysmlv1.Element][]*sysmlv1.Element{},
@@ -288,9 +292,12 @@ func (a *activity) edgeFresh(e *sysmlv1.Element, base string) string {
 	return ""
 }
 
-// madeUp records a made-up member name, written, for the body's SynthesizedName marker.
+// madeUp records a made-up member name, written, for the body's SynthesizedName
+// and StandIn markers; the member stands in for no v1 node.
 func (a *activity) madeUp(written string) {
+	a.standIns[written] = true
 	a.m.w.madeUp(written)
+	a.m.w.standIn(written)
 }
 
 // fresh returns base, or base with a number, not yet used in the body.
@@ -728,7 +735,7 @@ func (a *activity) succession(edges []*sysmlv1.Element, from, guard, to, tail st
 	a.m.w.line(line)
 	for _, e := range edges {
 		a.named[e] = a.named[e] || name != ""
-		a.m.wroteEdge(e, a.def, "succession", name)
+		a.m.wroteEdgeEnding(e, a.def, "succession", name, a.standIns[from] || a.standIns[to])
 	}
 }
 
@@ -1799,7 +1806,7 @@ func (a *activity) dataEdge(e, s, tgt *sysmlv1.Element, from, to string) {
 		a.m.madeUp(namer, writeName(name))
 	}
 	a.m.w.line(decl + ";")
-	a.m.wroteEdge(e, a.def, kw, name)
+	a.m.wroteEdgeAlso(e, a.def, kw, nil, name)
 }
 
 // namer is the edge naming the member written once for what s carries to tgt: a

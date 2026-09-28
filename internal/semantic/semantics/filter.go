@@ -310,15 +310,19 @@ func UnevaluableClassification(reason string, span source.Span) error {
 // Safety annotation.
 func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExpr) *symbols.FilterPredicate {
 	span := spanOf(e)
-	if e.Member == nil || len(e.Member.Parts) != 1 {
-		if e.Member != nil {
-			resultType, ok := m.resolver.ResolveTarget(scope, e)
-			if !ok || resultType == nil {
-				return unresolvedReference(span, "a feature chain does not resolve")
-			}
-			return evaluatorUnsupported(span, chainLimitation, resultType)
-		}
+	if e.Member == nil {
 		return unsupported(span, "a filter condition reads a single feature of an annotation")
+	}
+	if len(e.Member.Parts) != 1 {
+		switch r := chainRoot(e).(type) {
+		case *ast.CastExpr:
+			return unsupported(span, "a filter condition reads a single feature of an annotation")
+		case *ast.OperatorExpr:
+			if r.Operator == ast.OpAs {
+				return unsupported(span, "a filter condition reads a single feature of an annotation")
+			}
+		}
+		return m.compileChainRead(scope, e, span)
 	}
 	feature := e.Member.Parts[0].Text
 	switch operand := e.Operand.(type) {
@@ -353,58 +357,82 @@ func (m *Model) compileFeatureChain(scope *symbols.Scope, e *ast.FeatureChainExp
 				Span:       span,
 			}
 		}
-	case *ast.FeatureReference:
-		return m.compileFeatureChainRead(scope, operand, feature, span)
 	}
-	if root := chainRoot(e); root != nil {
-		if rootSym, ok := m.resolver.ResolveTarget(scope, root); ok {
-			if reason, notEvaluable := m.referenceNotEvaluable(rootSym); notEvaluable {
-				return unsupported(span, reason)
-			}
-		}
-	}
-	resultType, ok := m.resolver.ResolveTarget(scope, e)
-	if !ok || resultType == nil {
-		return unresolvedReference(span, "a feature chain does not resolve")
-	}
-	return evaluatorUnsupported(span, chainLimitation, resultType)
+	return m.compileChainRead(scope, e, span)
 }
 
-// chainLimitation is the reason a chain outside the evaluable subset reports.
-const chainLimitation = "a filter condition reads a feature through a chain of features, which OpenSysML does not evaluate (known limitation: the reference accepts chains rooted in a feature with no featuring type)"
+// chainRedirectLimitation is the reason a valued hop before the last reports:
+// the spec redirects the chain's evaluation through that feature's value.
+const chainRedirectLimitation = "a feature on the chain before the last one has a value, which OpenSysML does not follow when reading the chain"
 
-// compileFeatureChainRead compiles `p.n`: a chain rooted in a feature with no
-// featuring type is model-level evaluable when the feature it reads has a
-// constant value ([KerML, 7.4.9] isModelLevelEvaluable).
-func (m *Model) compileFeatureChainRead(scope *symbols.Scope, operand *ast.FeatureReference, feature string, span source.Span) *symbols.FilterPredicate {
-	if operand.Name == nil {
+// chainValueLimitation is the reason a read feature's unevaluable value reports.
+const chainValueLimitation = "the value of the feature the chain reads is not a number, boolean or arithmetic over them, which OpenSysML does not evaluate in a filter condition"
+
+// chainReflectiveLimitation is the reason a chain reading a metaclass feature
+// reports: the read is reflective, against the candidate element.
+const chainReflectiveLimitation = "a filter condition reads a feature of a metaclass through a chain, which OpenSysML does not evaluate (known limitation: the chain is read from the candidate element)"
+
+// chainUnvaluedLimitation is the reason a chain whose read feature has no
+// value reports: a value inherited through redefinition is not followed.
+const chainUnvaluedLimitation = "the feature the chain reads has no value of its own (a value inherited through redefinition is not followed), so OpenSysML does not evaluate it in a filter condition"
+
+// chainQualifiedLimitation is the reason a hop that is a qualified name, not a
+// member of the preceding feature, reports.
+const chainQualifiedLimitation = "the chain reads through a qualified name that does not name a member of the preceding feature, which OpenSysML does not evaluate in a filter condition"
+
+// compileChainRead compiles a chain rooted in a feature with no featuring
+// type, which is model-level evaluable whatever the hop count: the chain is an
+// operator over `'.'` [KerML, 8.3.4.8.4] and its value is the read feature's,
+// evaluated where that feature is written [KerML, 8.3.4.8.5].
+func (m *Model) compileChainRead(scope *symbols.Scope, e *ast.FeatureChainExpr, span source.Span) *symbols.FilterPredicate {
+	root, ok := chainRoot(e).(*ast.FeatureReference)
+	if !ok || root.Name == nil {
 		return unresolvedReference(span, "the chain operand names nothing")
 	}
-	root, ok := m.resolver.ResolveQualified(scope, operand.Name)
-	if !ok || root == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(operand.Name)))
+	rootSym, ok := m.resolver.ResolveQualified(scope, root.Name)
+	if !ok || rootSym == nil {
+		return unresolvedReference(span, fmt.Sprintf("%s does not resolve", qnText(root.Name)))
 	}
-	if reason, notEvaluable := m.referenceNotEvaluable(root); notEvaluable {
+	if reason, notEvaluable := m.referenceNotEvaluable(rootSym); notEvaluable {
 		return unsupported(span, reason)
 	}
-	read, ok := m.LookupMember(root, feature)
-	if !ok || read == nil {
-		return unresolvedReference(span, fmt.Sprintf("%s has no feature %s to read", qnText(operand.Name), feature))
+	if IsMetadataType(m.ownerOf(rootSym)) {
+		read := rootSym
+		if r, ok := m.resolver.ResolveTarget(scope, e); ok && r != nil {
+			read = r
+		}
+		return evaluatorUnsupported(span, chainReflectiveLimitation, read)
 	}
-	usage, isUsage := read.Decl.(*ast.Usage)
-	if !isUsage || usage.Value == nil {
-		return evaluatorUnsupported(span, chainLimitation, read)
+	hops := chainHops(e)
+	cur := rootSym
+	soFar := qnText(root.Name)
+	for i, hop := range hops {
+		next, ok := m.LookupMember(cur, hop)
+		if !ok || next == nil {
+			if resolved, resolvedOk := m.resolver.ResolveTarget(scope, e); resolvedOk && resolved != nil {
+				return evaluatorUnsupported(span, chainQualifiedLimitation, resolved)
+			}
+			return unresolvedReference(span, fmt.Sprintf("%s has no feature %s to read", soFar, hop))
+		}
+		if IsMetadataType(m.ownerOf(next)) {
+			return evaluatorUnsupported(span, chainReflectiveLimitation, next)
+		}
+		if i < len(hops)-1 {
+			if u, isUsage := next.Decl.(*ast.Usage); isUsage && u.Value != nil {
+				return evaluatorUnsupported(span, chainRedirectLimitation, next)
+			}
+		}
+		cur = next
+		soFar += "." + hop
 	}
-	v, ok := EvalConst(usage.Value)
-	if !ok {
-		return evaluatorUnsupported(span, chainLimitation, read)
+	read := cur
+	if u, isUsage := read.Decl.(*ast.Usage); isUsage && u.Value != nil {
+		if v, ok := m.EvalIn(scope, e); ok {
+			return &symbols.FilterPredicate{Op: symbols.FilterConst, Value: constValue(v), ResultType: read, Span: span}
+		}
+		return evaluatorUnsupported(span, chainValueLimitation, read)
 	}
-	return &symbols.FilterPredicate{
-		Op:         symbols.FilterConst,
-		Value:      constValue(v),
-		ResultType: read,
-		Span:       span,
-	}
+	return evaluatorUnsupported(span, chainUnvaluedLimitation, read)
 }
 
 // compileReference compiles a name a filter condition uses as a value: a feature
@@ -454,6 +482,27 @@ func (m *Model) filterMemberType(typeFQN, feature string) *symbols.Symbol {
 	}
 	member, _ := m.LookupMember(typ, feature)
 	return member
+}
+
+// chainHops is the member names a chain reads, root outward, so `a.b.c` and
+// `(a.b).c` are the same hop list.
+func chainHops(e *ast.FeatureChainExpr) []string {
+	var hops []string
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		chain, isChain := n.(*ast.FeatureChainExpr)
+		if !isChain {
+			return
+		}
+		walk(chain.Operand)
+		if chain.Member != nil {
+			for _, p := range chain.Member.Parts {
+				hops = append(hops, p.Text)
+			}
+		}
+	}
+	walk(e)
+	return hops
 }
 
 func chainRoot(n ast.Node) ast.Node {

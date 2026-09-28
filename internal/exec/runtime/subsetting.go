@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -339,8 +340,56 @@ func (ctx *Context) subsettedNames(sym, owner *symbols.Symbol) []string {
 	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
 		names = append(names, ctx.relatedFeatureNames(redefined, owner, ast.RelSubsets)...)
 	}
+	// A nested usage also subsets the feature of its owner its kind nests under
+	// (SysML v2 §8.3): a part in an item one of its `subparts`.
+	names = append(names, ctx.implicitSubsettingNames(sym, owner)...)
 	ctx.model.subsetted[key] = names
 	return names
+}
+
+// implicitSubsettingNames returns the names of the owner features sym and the
+// features it redefines implicitly subset by nesting (SysML v2 §8.3); only
+// model-declared usages contribute theirs.
+func (ctx *Context) implicitSubsettingNames(sym, owner *symbols.Symbol) []string {
+	var names []string
+	if ctx.libraryTier(sym) == symbols.TierNone {
+		for _, sub := range ctx.model.semantics.ImplicitSubsettings(sym) {
+			names = append(names, sub.Name)
+		}
+	}
+	for _, redefined := range ctx.redefinedFeatures(sym, owner) {
+		if ctx.libraryTier(redefined) != symbols.TierNone {
+			continue
+		}
+		for _, sub := range ctx.model.semantics.ImplicitSubsettings(redefined) {
+			names = append(names, sub.Name)
+		}
+	}
+	return names
+}
+
+// declaredSubsettedNames is subsettedNames without the implicit owner-context
+// subsettings, for readers that follow only declared edges.
+func (ctx *Context) declaredSubsettedNames(sym, owner *symbols.Symbol) []string {
+	names := ctx.subsettedNames(sym, owner)
+	implicit := ctx.implicitSubsettingNames(sym, owner)
+	if len(implicit) == 0 {
+		return names
+	}
+	skip := make(map[string]int, len(implicit))
+	for _, name := range implicit {
+		skip[name]++
+	}
+	// names is the memoized slice subsettedNames shares; copy, never write it.
+	out := make([]string, 0, len(names)-len(implicit))
+	for _, name := range names {
+		if skip[name] > 0 {
+			skip[name]--
+			continue
+		}
+		out = append(out, name)
+	}
+	return out
 }
 
 // SubsettingFeatures returns the features of typ subsetting the named feature under any
@@ -395,12 +444,13 @@ func (ctx *Context) subsettersOf(typ *symbols.Symbol, name string) []EffectiveFe
 // ErrCyclicFeatureValue rather than recursing until the step budget runs out.
 func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Value, error) {
 	var values []Value
+	seen := map[int64]bool{}
 	err := ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, err := inst.GetFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
-		values = append(values, elementsOf(sub.HeldValue())...)
+		values = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 		return nil
 	})
 	if err != nil {
@@ -415,13 +465,14 @@ func (ctx *Context) subsettingContributions(inst *Instance, name string) ([]Valu
 // openSubsettingContributions is subsettingContributions for a model-level read: an open
 // subsetter is not made up, contributing what it certainly holds and its fewest as atLeast.
 func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (values []Value, atLeast int64, err error) {
+	seen := map[int64]bool{}
 	err = ctx.eachSubsetterOf(inst, name, func(feat *EffectiveFeature) error {
 		sub, open, err := inst.openFeatureValue(ctx, feat.Name)
 		if err != nil {
 			return err
 		}
 		if !open.Stopped {
-			values = append(values, elementsOf(sub.HeldValue())...)
+			values = appendUniqueInstances(values, elementsOf(sub.HeldValue()), seen)
 			return nil
 		}
 		values = append(values, open.Contributed...)
@@ -435,6 +486,21 @@ func (ctx *Context) openSubsettingContributions(inst *Instance, name string) (va
 		return nil, 0, err
 	}
 	return values, atLeast, nil
+}
+
+// appendUniqueInstances appends els to out, dropping an object already seen:
+// a subsetted set holds each instance once, however many subsetting paths reach it.
+func appendUniqueInstances(out, els []Value, seen map[int64]bool) []Value {
+	for _, v := range els {
+		if v.Kind == ValInstance {
+			if seen[v.Instance] {
+				continue
+			}
+			seen[v.Instance] = true
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 // eachSubsetterOf reads each feature subsetting the named feature of inst through
@@ -453,6 +519,18 @@ func (ctx *Context) eachSubsetterOf(inst *Instance, name string, read func(feat 
 		}
 	}
 	return nil
+}
+
+// hasImpliedSubsetter reports whether a feature subsets the named feature of inst
+// only through subsetting implied by nesting: reading the collection would
+// materialize objects an eager fill has no business creating.
+func (ctx *Context) hasImpliedSubsetter(inst *Instance, name string) bool {
+	for _, feat := range ctx.subsettingFeaturesOf(inst, name) {
+		if !slices.Contains(ctx.declaredSubsettedNamesOf(inst, feat.Symbol), name) {
+			return true
+		}
+	}
+	return false
 }
 
 // fewestOf is the fewest values a feature of multiplicity mult holds.
@@ -483,11 +561,12 @@ func (ctx *Context) materializeSubsettedCollections(inst *Instance, fv *FeatureV
 	}
 	ctx.readingSubsetted[key] = true
 	defer delete(ctx.readingSubsetted, key)
-	for _, name := range ctx.subsettedNamesOf(inst, fv.Feature.Symbol) {
+	for _, name := range ctx.declaredSubsettedNamesOf(inst, fv.Feature.Symbol) {
 		sub, ok := inst.FeatureValues[name]
 		if !ok || sub.Materialized || sub.Feature.Scalar() ||
 			ctx.collectingSubsets[featureValueRef{instance: inst.ID, feature: name}] ||
-			ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: name}] {
+			ctx.readingSubsetted[featureValueRef{instance: inst.ID, feature: name}] ||
+			ctx.hasImpliedSubsetter(inst, name) {
 			continue
 		}
 		if _, err := inst.GetFeatureValue(ctx, name); err != nil {

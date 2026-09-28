@@ -77,5 +77,6 @@ part def Recorder {
         flow position.result to 'after'.x;
         flow concat.result to print.value;
         metadata MigrationMetadata::SynthesizedName about 'fork', fork2, 'join', join2, final;
+        metadata MigrationMetadata::StandIn about 'fork', fork2, 'join', join2;
     }
 }

@@ -233,3 +233,49 @@ func TestActionNestedFlowNotesOnce(t *testing.T) {
 		}
 	}
 }
+
+// A Note about several elements is one comment anchored to each; Notes stated
+// apart are drawn apart even when their text and box coincide.
+func TestDOTSharesANoteAmongItsAnchorsOnly(t *testing.T) {
+	rendering := render(t, "shared-notes.sysml", "SharedViews::rigView")
+	byText := map[string][]Note{}
+	for _, note := range rendering.Notes {
+		byText[note.Text] = append(byText[note.Text], note)
+	}
+	if shared := byText["calibrated"]; len(shared) != 2 || shared[0].Origin != shared[1].Origin || !shared[0].Origin.Located() {
+		t.Errorf("the note about two parts = %+v, want two anchors of one located origin", shared)
+	}
+	if apart := byText["on loan"]; len(apart) != 2 || apart[0].Origin == apart[1].Origin {
+		t.Errorf("the two notes stated apart = %+v, want two of different origins", apart)
+	}
+	dot, err := rendering.DOTWith(Options{Style: StyleCameo})
+	if err != nil {
+		t.Fatalf("DOTWith: %v", err)
+	}
+	checkDOTSyntax(t, dot)
+	requireDotAccepts(t, dot)
+	nodes := regexp.MustCompile(`(?m)^\s*"(note:\d+)" \[shape=note.*label=<(?:<font[^>]*>«comment»</font><br/>)?([^<>]*)`).FindAllStringSubmatch(dot, -1)
+	drawn := map[string][]string{}
+	for _, m := range nodes {
+		drawn[m[2]] = append(drawn[m[2]], m[1])
+	}
+	if len(drawn["calibrated"]) != 1 {
+		t.Errorf("notes drawn for %q = %v, want one:\n%s", "calibrated", drawn["calibrated"], dot)
+	}
+	if len(drawn["on loan"]) != 2 {
+		t.Errorf("notes drawn for %q = %v, want two:\n%s", "on loan", drawn["on loan"], dot)
+	}
+	anchors := regexp.MustCompile(`"(note:\d+)" -> "n\d+"`).FindAllStringSubmatch(dot, -1)
+	from := map[string]int{}
+	for _, m := range anchors {
+		from[m[1]]++
+	}
+	if len(drawn["calibrated"]) == 1 && from[drawn["calibrated"][0]] != 2 {
+		t.Errorf("the shared note anchors %d times, want twice:\n%s", from[drawn["calibrated"][0]], dot)
+	}
+	for _, id := range drawn["on loan"] {
+		if from[id] != 1 {
+			t.Errorf("note %s anchors %d times, want once:\n%s", id, from[id], dot)
+		}
+	}
+}

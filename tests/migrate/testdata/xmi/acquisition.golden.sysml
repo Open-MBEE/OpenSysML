@@ -163,5 +163,6 @@ part def Observatory {
         action final terminate;
         /* partition 'Telescope Control' represents Observatory::tcs: seed, first attempt, attempt, decide, guide star found, next attempt, abort */
         metadata MigrationMetadata::SynthesizedName about stamp9, stamp, stamp3, 'merge', wait, stamp5, stamp6, 'fork', stamp11, merge2, stamp12, merge3, 'decide', stamp4, stamp2, stamp7, stamp8, fork2, merge4, stamp10, final;
+        metadata MigrationMetadata::StandIn about stamp9, stamp, stamp3, wait, stamp5, stamp6, stamp11, merge2, stamp12, merge3, stamp4, stamp2, stamp7, stamp8, fork2, stamp10;
     }
 }

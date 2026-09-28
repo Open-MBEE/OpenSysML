@@ -298,6 +298,82 @@ func TestInheritedActionNodesKeepTheirGeometry(t *testing.T) {
 	}
 }
 
+// One action node inherited by several bodies is drawn once per body, each at
+// the Layout naming it as that body's; a body no Layout names it through falls
+// back to the one naming it as the declaring body's, never to another body's.
+func TestInheritedActionNodesArePositionedPerBody(t *testing.T) {
+	src := `package Flows {
+    private import DiagramLayout::*;
+    private import StandardViewDefinitions::*;
+    action def Base { action s; first start then s; }
+    action def A :> Base { action a; first s then a; }
+    action def B :> Base { action b; first s then b; }
+    action def C :> Base { action c; first s then c; }
+    view bodies : ActionFlowView {
+        expose A; expose B; expose C;
+        metadata Layout about A::s { x = 10; y = 10; }
+        metadata Layout about B::s { x = 20; y = 20; }
+        metadata Layout about Base::s { x = 1; y = 1; }
+    }
+}
+`
+	rendering, _, _ := renderModel(t, []string{"flows.sysml"}, []string{src}, "Flows::bodies", "Flows::A")
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+	for _, tc := range []struct {
+		body string
+		x    float64
+	}{{"Flows::A", 10}, {"Flows::B", 20}, {"Flows::C", 1}} {
+		body := findNode(t, rendering.Roots, tc.body)
+		var s *Node
+		for _, child := range body.Children {
+			if child.Name == "s" {
+				s = child
+			}
+		}
+		if s == nil {
+			t.Fatalf("%s draws no s; children %v", tc.body, slices.Sorted(maps.Keys(nodeNames(body.Children))))
+		}
+		if want := (&Geometry{X: tc.x, Y: tc.x}); !reflect.DeepEqual(s.Geometry, want) {
+			t.Errorf("%s::s geometry = %+v, want %+v", tc.body, s.Geometry, want)
+		}
+	}
+}
+
+// One state inherited by several machines is drawn once per machine, each at
+// the Layout naming it as that machine's, the rest at the definition's.
+func TestInheritedStatesArePositionedPerMachine(t *testing.T) {
+	src := `package Plant {
+    private import DiagramLayout::*;
+    private import StandardViewDefinitions::*;
+    state def Machine { entry; then off; state off; state on; transition off then on; }
+    state one : Machine;
+    state two : Machine;
+    view machines : StateTransitionView {
+        expose one; expose two;
+        metadata Layout about one::off { x = 10; y = 10; }
+        metadata Layout about Machine::off { x = 1; y = 1; }
+        metadata Layout about Machine::on { x = 2; y = 2; }
+    }
+}
+`
+	rendering, _, _ := renderModel(t, []string{"plant.sysml"}, []string{src}, "Plant::machines", "Plant::one")
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none", rendering.Notices)
+	}
+	for _, tc := range []struct {
+		machine, state string
+		x              float64
+	}{{"Plant::one", "off", 10}, {"Plant::one", "on", 2}, {"Plant::two", "off", 1}, {"Plant::two", "on", 2}} {
+		machine := findNode(t, rendering.Roots, tc.machine)
+		state := findNode(t, machine.Children, tc.state)
+		if want := (&Geometry{X: tc.x, Y: tc.x}); !reflect.DeepEqual(state.Geometry, want) {
+			t.Errorf("%s::%s geometry = %+v, want %+v", tc.machine, tc.state, state.Geometry, want)
+		}
+	}
+}
+
 // routeBetween is the route of the edge from one node to another, nil when
 // the rendering draws none.
 func routeBetween(rendering *Rendering, from, to string) []Point {
@@ -454,6 +530,21 @@ func TestViewLocalStyleOverridesTheInlineOne(t *testing.T) {
 	}
 }
 
+// statedNotes is notes without their Origins, each checked to locate the Note
+// annotation in doc.
+func statedNotes(t *testing.T, notes []Note, doc string) []Note {
+	t.Helper()
+	out := make([]Note, len(notes))
+	for i, note := range notes {
+		if !note.Origin.Located() || note.Origin.Doc != doc {
+			t.Errorf("note %q origin = %+v, want one located in %s", note.Text, note.Origin, doc)
+		}
+		note.Origin = Origin{}
+		out[i] = note
+	}
+	return out
+}
+
 // Notes reach the rendering anchored to the node they annotate, the inline one
 // with the view's own, a Note about a connection anchored to its edge by its
 // ends, and a Note about the view itself is free on the canvas.
@@ -467,8 +558,8 @@ func TestNotesReachTheRenderingWithTheirAnchors(t *testing.T) {
 		{Text: "check pressure", EdgeFrom: pump.ID, EdgeTo: tank.ID, X: 420, Y: 140},
 		{Text: "free", X: 0, Y: 700},
 	}
-	if !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if got := statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 	dot, err := rendering.DOT()
 	if err != nil {
@@ -492,8 +583,8 @@ func TestInlineStyleIsTheFallbackInAnotherView(t *testing.T) {
 	if want := (&Style{Fill: "#FFFFDC"}); !reflect.DeepEqual(pump.Style, want) {
 		t.Errorf("pump style = %+v, want the inline %+v", pump.Style, want)
 	}
-	if want := []Note{{Text: "always", Anchor: pump.ID, X: 10, Y: 90}}; !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if want, got := []Note{{Text: "always", Anchor: pump.ID, X: 10, Y: 90}}, statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 }
 
@@ -506,9 +597,9 @@ func TestStateStyleAndNoteReachTheStateRendering(t *testing.T) {
 		t.Errorf("on style = %+v, want %+v", on.Style, want)
 	}
 	off := findNode(t, rendering.Roots, "off")
-	if want := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100},
-		{Text: "on demand", EdgeFrom: off.ID, EdgeTo: on.ID, X: 70, Y: 40}}; !reflect.DeepEqual(rendering.Notes, want) {
-		t.Errorf("notes = %+v, want %+v", rendering.Notes, want)
+	if want, got := []Note{{Text: "resting", Anchor: on.ID, X: 100, Y: 100},
+		{Text: "on demand", EdgeFrom: off.ID, EdgeTo: on.ID, X: 70, Y: 40}}, statedNotes(t, rendering.Notes, "layout.sysml"); !reflect.DeepEqual(got, want) {
+		t.Errorf("notes = %+v, want %+v", got, want)
 	}
 	var styled []Edge
 	for _, edge := range rendering.Edges {

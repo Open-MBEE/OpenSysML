@@ -109,6 +109,34 @@ func TestGoldenDOTCameo(t *testing.T) {
 	}
 }
 
+// The root the Cameo frame's header names is not titled again in its cluster,
+// but keeps what the header does not show: its type and its detail lines.
+func TestDOTCameoFramedRootKeepsTypeAndDetail(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		root *Node
+		want string
+	}{
+		{"name only", &Node{ID: "n0", Kind: "state def", Name: "M"}, `label="";`},
+		{"typed", &Node{ID: "n0", Kind: "state", Name: "m", Type: "Machines::M"}, `label=<: M>;`},
+		{"detailed", &Node{ID: "n0", Kind: "state def", Name: "M", Detail: "already shown"}, `label=<already shown>;`},
+		{"typed and detailed", &Node{ID: "n0", Kind: "state", Name: "m", Type: "M", Detail: "already shown"},
+			`label=<: M<br/>already shown>;`},
+	} {
+		tc.root.Children = []*Node{{ID: "n1", Kind: "state", Name: "off"}}
+		rendering := &Rendering{View: "V", Kind: KindState, Roots: []*Node{tc.root}}
+		source, err := rendering.DOTWith(Options{Style: StyleCameo})
+		if err != nil {
+			t.Fatalf("%s: DOTWith: %v", tc.name, err)
+		}
+		cluster := source[strings.Index(source, `subgraph "cluster_n0"`):]
+		label := strings.TrimSpace(strings.SplitN(cluster, "\n", 3)[1])
+		if label != tc.want {
+			t.Errorf("%s: root cluster label = %s, want %s", tc.name, label, tc.want)
+		}
+	}
+}
+
 // The Cameo state and action looks: a state's `do` compartment under a rule, a
 // composite state as a rounded gradient container, the initial dot, the final
 // bullseye, fork and join bars, the decision diamond, and open arrowheads.
@@ -118,7 +146,7 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 		t.Fatalf("DOT: %v", err)
 	}
 	for _, want := range []string{
-		`"n5" [shape=point, fillcolor=black, label=""];`,
+		`"n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];`,
 		`label=<<b>off</b>>];`,
 		"style=\"rounded,filled\";\n      fillcolor=\"" + cameoStateFill + "\";",
 	} {
@@ -139,9 +167,11 @@ func TestDOTCameoPseudonodes(t *testing.T) {
 
 // A state's compartment names each behaviour, `do / initialize`, by the
 // behaviour's own name or else its type's, and by its kind alone when it has
-// neither, in both styles; the Cameo compartment sets each behaviour on its own
-// line and leaves the initial marker to the dot, in 11pt Arial; the Pilot's
-// 14pt Helvetica and keyword line are untouched.
+// neither, and names the triggers it defers, in both styles; the Cameo
+// compartment sets each behaviour on its own line, each deferred trigger as
+// UML's `Reset / defer` — a name quoting a comma one trigger still, bare —
+// and leaves the initial marker to the dot, in 11pt Arial; the Pilot's 14pt
+// Helvetica and keyword line are untouched.
 func TestDOTStateBehaviourNames(t *testing.T) {
 	rendering := render(t, "state-do.sysml", "InstrumentViews::peas")
 	cameo, err := rendering.DOTWith(Options{Style: StyleCameo})
@@ -153,7 +183,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		t.Fatalf("pilot DOT: %v", err)
 	}
 	for _, want := range []string{
-		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap", "do / InitializePEAS",
+		"initial, do / initialize", "entry / Warm, do, exit / cool", "do, exit / wrap, defers Reset, Halt, &#39;Stop, Now&#39;", "do / InitializePEAS",
 	} {
 		if !strings.Contains(pilot, want) {
 			t.Errorf("pilot DOT lacks %q:\n%s", want, pilot)
@@ -163,7 +193,7 @@ func TestDOTStateBehaviourNames(t *testing.T) {
 		`fontname="Arial", fontsize=11,`,
 		`<tr><td><b>Init</b></td></tr><hr/><tr><td align="left">do / initialize</td></tr>`,
 		`<hr/><tr><td align="left">entry / Warm<br/>do<br/>exit / cool</td></tr>`,
-		`<hr/><tr><td align="left">do<br/>exit / wrap</td></tr>`,
+		`<hr/><tr><td align="left">do<br/>exit / wrap<br/>Reset / defer<br/>Halt / defer<br/>Stop, Now / defer</td></tr>`,
 		`<tr><td><b>Booting</b></td></tr><hr/><tr><td align="left">do / InitializePEAS</td></tr>`,
 	} {
 		if !strings.Contains(cameo, want) {

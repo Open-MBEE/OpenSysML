@@ -564,7 +564,7 @@ func (m *migration) regions(owner *sysmlv1.Element, regions []*sysmlv1.Element, 
 	default:
 		name := m.parallel[regions[0]]
 		if without := regionsWithoutInitial(regions); len(without) == 0 {
-			m.w.line(entryThen(entered, writeName(name)))
+			m.w.line(entryThen(entered, "", writeName(name)))
 		} else {
 			m.w.lines(commentLines("no default entry: the " + pluralRegion(len(without)) + " " + strings.Join(without, ", ") +
 				" have no initial pseudostate, so only a fork or a transition naming a nested state enters the regions"))
@@ -641,8 +641,12 @@ func freshIn(used map[string]bool, base string) string {
 }
 
 // entryThen writes the succession into to from the body's entry action, an
-// empty one unless entered says the body wrote its own.
-func entryThen(entered bool, to string) string {
+// empty one unless entered says the body wrote its own; a named one is a
+// transition out of `start`, which a view can route.
+func entryThen(entered bool, name, to string) string {
+	if name != "" {
+		return "transition " + writeName(name) + " first start then " + to + ";"
+	}
 	if entered {
 		return "then " + to + ";"
 	}
@@ -747,7 +751,7 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 		}
 		return
 	}
-	s.m.wroteNoMember(t)
+	name := s.initialName(t, to)
 	note := ""
 	for _, tr := range t.Owned("trigger") {
 		note = "an initial transition takes no trigger; its triggers are dropped"
@@ -763,17 +767,32 @@ func (s *stateRegion) initial(vertices, transitions []*sysmlv1.Element, entered 
 	}
 	switch eff := s.m.behaviorIn(t, "effect"); {
 	case eff == nil:
-		s.m.w.line(entryThen(entered, to))
+		s.m.w.line(entryThen(entered, name, to))
 	case entered:
 		s.m.w.lines(commentLines("the effect " + describe(eff) + " of the initial transition is dropped: the state's entry behavior is its entry action"))
 		s.m.unmapped(eff, "the effect of an initial transition is the entry action of the body, which the state's entry behavior is")
-		s.m.w.line(entryThen(true, to))
+		s.m.w.line(entryThen(true, name, to))
 	default:
 		s.m.unbound(eff, "an initial transition accepts no signal")
-		s.m.w.line(entryThen(s.m.inlineBehavior("entry action", eff, t), to))
+		s.m.w.line(entryThen(s.m.inlineBehavior("entry action", eff, t), name, to))
 	}
 	s.m.add(init, Mapped, "", "written as the entry of the region")
-	s.m.add(t, verdictFor(note), "", note)
+	s.m.add(t, verdictFor(note), s.m.edgeTarget(t), note)
+}
+
+// initialName is the name the initial transition t is declared under when a
+// diagram draws it, so the view can route it: the v1 name, else `start then s`
+// made fresh; "" when it is written as the bare entry `entry; then s`.
+func (s *stateRegion) initialName(t *sysmlv1.Element, to string) string {
+	name := s.m.edgeName(t, spoken("start then "+to))
+	if name == "" {
+		s.m.wroteNoMember(t)
+		return ""
+	}
+	name = s.m.freshMember(s.owner, s.used, name)
+	s.m.wroteEdge(t, s.r, "transition", name)
+	s.m.madeUp(t, writeName(name))
+	return name
 }
 
 // vertex writes one vertex's declaration.

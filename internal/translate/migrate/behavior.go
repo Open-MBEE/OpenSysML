@@ -127,7 +127,7 @@ func (m *migration) behaviorBody(e *sysmlv1.Element, cat category) {
 		m.bodyWithContext(e, func() { m.opaqueBehaviorBody(e, e) })
 	}
 	m.stereotypeAnnotations(e)
-	m.w.markMadeUp(m.synthesizedNames)
+	m.w.markMadeUp()
 	m.scope = saved
 }
 
