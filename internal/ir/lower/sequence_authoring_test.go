@@ -69,34 +69,37 @@ func actionDefOf(t *testing.T, content, qname string) *ast.Definition {
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("edited text does not parse: %v", p.Diagnostics)
 	}
-	var found *ast.Definition
-	var membersOf func(member ast.Node) []ast.Node
-	membersOf = func(member ast.Node) []ast.Node {
-		switch n := sequenceMember(member).(type) {
-		case *ast.Package:
-			return n.Members
-		case *ast.Namespace:
-			return n.Members
-		default:
-			return ast.DeclMembers(n)
-		}
-	}
-	var walk func(members []ast.Node)
-	walk = func(members []ast.Node) {
-		for _, member := range members {
-			if def, ok := sequenceMember(member).(*ast.Definition); ok && def.Kind == ast.DefAction {
-				if def.Ident.Name == qname {
-					found = def
-				}
-			}
-			walk(membersOf(member))
-		}
-	}
-	walk(root.Members)
+	found := findActionDef(root.Members, qname)
 	if found == nil {
 		t.Fatalf("no action def named %q in edited text", qname)
 	}
 	return found
+}
+
+// memberChildren returns the members a member declares below itself.
+func memberChildren(member ast.Node) []ast.Node {
+	switch n := sequenceMember(member).(type) {
+	case *ast.Package:
+		return n.Members
+	case *ast.Namespace:
+		return n.Members
+	default:
+		return ast.DeclMembers(n)
+	}
+}
+
+// findActionDef returns the action definition qname names among members.
+func findActionDef(members []ast.Node, qname string) *ast.Definition {
+	for _, member := range members {
+		if def, ok := sequenceMember(member).(*ast.Definition); ok &&
+			def.Kind == ast.DefAction && def.Ident.Name == qname {
+			return def
+		}
+		if def := findActionDef(memberChildren(member), qname); def != nil {
+			return def
+		}
+	}
+	return nil
 }
 
 // nodeOrder returns each graph node's name, the implicit markers by kind.
