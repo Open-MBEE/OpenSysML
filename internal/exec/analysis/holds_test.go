@@ -133,22 +133,54 @@ func TestHoldsViolatedWitnesses(t *testing.T) {
 	}
 }
 
-// TestHoldsQuantitiesProve: a claim over an attribute typed by a quantity —
-// its feature resolves through the ISQ and SI library — proves like a scalar
-// one, every free assignment of the quantity holding it.
+// quantitySource is the model the quantity cases share: a power in watts.
+const quantitySource = `
+	package P {
+		private import ScalarValues::*;
+		private import ISQ::*;
+		private import SI::*;
+		part engine { attribute power : PowerValue; }
+		assert constraint nonneg { engine.power >= 0 [SI::W] implies engine.power * 2.0 >= engine.power }
+		assert constraint cap { engine.power <= 100 [SI::W] }
+	}
+`
+
+// TestHoldsQuantitiesProve: the implication proves — its antecedent supplies
+// the non-negativity its conclusion needs — over the quantity's free values.
 func TestHoldsQuantitiesProve(t *testing.T) {
 	requireSolver(t)
-	queries := holdsQueries(t, `
-		package P {
-			private import ScalarValues::*;
-			private import ISQ::*;
-			private import SI::*;
-			part engine { attribute power : PowerValue; assert constraint reflexive { power == power } }
-		}
-	`, "P::engine::reflexive")
-	plan := prove(t, queries)
+	plan := prove(t, holdsQueries(t, quantitySource, "P::nonneg"))
 	if plan.Result.Claim != ClaimHolds || plan.Result.Strength != Proved {
 		t.Fatalf("claim is %s %s, want proved: %s", plan.Result.Claim, plan.Result.Strength, plan.Result.Reason)
+	}
+}
+
+// TestHoldsQuantityViolatedWitnesses: the cap does not hold over every power,
+// and the witness is a magnitude reported in the quantity's base units whose
+// evaluation the runtime confirms as a violation.
+func TestHoldsQuantityViolatedWitnesses(t *testing.T) {
+	requireSolver(t)
+	queries := holdsQueries(t, quantitySource, "P::cap")
+	plan := prove(t, queries)
+	if plan.Result.Claim != ClaimViolated || plan.Result.Strength != Witnessed {
+		t.Fatalf("claim is %s %s, want a witnessed violation", plan.Result.Claim, plan.Result.Strength)
+	}
+	witness := satValue(t, plan)
+	var unit string
+	values := make(map[string]solve.ModelValue, len(witness.Model))
+	for _, a := range witness.Model {
+		value, err := solve.DecodeValue(a)
+		if err != nil {
+			t.Fatalf("decode %s: %v", a.Var.Name, err)
+		}
+		values[a.Var.Name] = value
+		unit = a.Var.Unit
+	}
+	if unit == "" {
+		t.Error("the witness variable reports no base units")
+	}
+	if ok, why := queries[0].Confirm(values); !ok {
+		t.Errorf("the evaluator does not confirm the witness as a violation: %s", why)
 	}
 }
 
@@ -169,6 +201,56 @@ func TestHoldsNonRealProves(t *testing.T) {
 	if plan.Result.Claim != ClaimHolds || plan.Result.Strength != Proved {
 		t.Fatalf("claim is %s %s, want proved: %s", plan.Result.Claim, plan.Result.Strength, plan.Result.Reason)
 	}
+}
+
+// TestHoldsEnumViolatedWitnesses: `b implies m == Mode::on` does not hold over
+// every assignment — b true with m off violates it — and the witness names the
+// enum literal.
+func TestHoldsEnumViolatedWitnesses(t *testing.T) {
+	requireSolver(t)
+	queries := holdsQueries(t, `
+		package P {
+			private import ScalarValues::*;
+			enum def Mode { enum on; enum off; }
+			part light { attribute m : Mode; attribute b : Boolean; }
+			assert constraint gate { light.b implies light.m == Mode::on }
+		}
+	`, "P::gate")
+	plan := prove(t, queries)
+	if plan.Result.Claim != ClaimViolated || plan.Result.Strength != Witnessed {
+		t.Fatalf("claim is %s %s, want a witnessed violation", plan.Result.Claim, plan.Result.Strength)
+	}
+	witness := satValue(t, plan)
+	values := make(map[string]solve.ModelValue, len(witness.Model))
+	for _, a := range witness.Model {
+		value, err := solve.DecodeValue(a)
+		if err != nil {
+			t.Fatalf("decode %s: %v", a.Var.Name, err)
+		}
+		values[a.Var.Name] = value
+	}
+	if b := values["P::light.b"]; b.Kind != solve.SortBool || !b.Bool {
+		t.Errorf("witness b is %+v, want true", b)
+	}
+	if m := values["P::light.m"]; m.Kind != solve.SortDatatype || !strings.HasSuffix(m.Text, "off") {
+		t.Errorf("witness m is %+v, want Mode::off", m)
+	}
+	if ok, why := queries[0].Confirm(values); !ok {
+		t.Errorf("the evaluator does not confirm the witness as a violation: %s", why)
+	}
+}
+
+// satValue is the witnessed assignment of the plan's sat answer, failing the
+// test when none answers sat.
+func satValue(t *testing.T, plan Plan) *solve.Result {
+	t.Helper()
+	for _, v := range plan.Result.Values {
+		if v.Solved != nil && v.Solved.Status == solve.StatusSat {
+			return v.Solved
+		}
+	}
+	t.Fatalf("no sat answer carried the witness: %+v", plan.Result.Values)
+	return nil
 }
 
 // TestHoldsExponentiationRefuses: exponentiation translates only under a

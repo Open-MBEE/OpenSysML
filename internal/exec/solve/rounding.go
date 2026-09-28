@@ -167,9 +167,23 @@ func (r *roundingRewrite) doubles(q *Query) []roundingDouble {
 		add(lit, nil, nil)
 	}
 	for _, site := range r.order {
-		add(VarTerm(site.variable), Or(site.evals...), site)
+		add(VarTerm(site.variable), site.guard(), site)
 	}
 	return out
+}
+
+// guard is the site's evaluation condition: nil — unconditional — when any
+// occurrence lies on the unconstrained path of the first condition, else the
+// disjunction of its occurrences' conditions.
+func (s *roundingSite) guard() *Term {
+	var evals []*Term
+	for _, e := range s.evals {
+		if e == nil {
+			return nil
+		}
+		evals = append(evals, e)
+	}
+	return Or(evals...)
 }
 
 // roundingRewrite rewrites a query's terms into the rounding-sound form,

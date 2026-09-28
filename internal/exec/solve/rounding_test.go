@@ -2,6 +2,7 @@ package solve
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -251,5 +252,72 @@ func TestRoundingSoundDivergenceNotProved(t *testing.T) {
 	}
 	if result.RoundingProved {
 		t.Error("float64 addition associativity was proved — an unsound proof")
+	}
+}
+
+// TestRoundingSoundSharedSiteOnTheOpenPath: a site occurring twice in the first
+// condition — once on the unconstrained path — is guarded by nothing: its
+// evaluation condition is unconditional, and no term in the rewritten query
+// carries a nil argument.
+func TestRoundingSoundSharedSiteOnTheOpenPath(t *testing.T) {
+	x := &Var{Name: "x", Sort: Real}
+	y := &Var{Name: "y", Sort: Real}
+	sum := Binary(OpAdd, Real, VarTerm(x), VarTerm(y))
+	rw := &roundingRewrite{sites: map[string]*roundingSite{}}
+	term := rw.rewrite(Or(
+		Binary(OpGe, Bool, sum, RealTerm(big.NewRat(1, 1))),
+		Binary(OpLt, Bool, sum, RealTerm(big.NewRat(1, 1))),
+	), nil)
+	if term.Op != OpOr || len(term.Args) != 2 {
+		t.Fatalf("rewritten term is %s, want the disjunction", writeTerm(term))
+	}
+	if n := len(rw.order); n != 1 {
+		t.Fatalf("the shared sum made %d sites, want 1", n)
+	}
+	if guard := rw.order[0].guard(); guard != nil {
+		t.Errorf("the shared site's guard is %s, want unconditional", writeTerm(guard))
+	}
+
+	// With another site present the unconditional guard must still build: the
+	// other site's axioms bound it and must contain no nil argument.
+	second := Binary(OpMul, Real, VarTerm(x), VarTerm(y))
+	q := &Query{Kind: "constraint", Element: "C", Vars: []*Var{x, y}, Assertions: []Assertion{
+		{Term: Or(
+			Binary(OpGe, Bool, sum, RealTerm(big.NewRat(1, 1))),
+			And(Binary(OpLt, Bool, sum, RealTerm(big.NewRat(1, 1))), Binary(OpGt, Bool, second, RealTerm(new(big.Rat)))),
+		), From: Provenance{Role: RoleRequired}},
+	}}
+	sound := q.RoundingSound()
+	var checkNil func(term *Term, path string)
+	checkNil = func(term *Term, path string) {
+		if term == nil {
+			t.Errorf("nil term at %s", path)
+			return
+		}
+		for i, arg := range term.Args {
+			checkNil(arg, path+"/"+string(rune('a'+i)))
+		}
+	}
+	for i, a := range sound.Assertions {
+		checkNil(a.Term, fmt.Sprintf("assertion %d", i))
+	}
+}
+
+// TestRoundingSoundSharedTautologyProves: `x + y >= 1.0 or x + y < 1.0` holds
+// over every assignment — the shared site makes it a tautology of the rounded
+// value, so the holds question proves it.
+func TestRoundingSoundSharedTautologyProves(t *testing.T) {
+	solver := requireSolver(t)
+	q := violationQuery(t, constraintSource(`
+		in x : Real;
+		in y : Real;
+		assert constraint c { x + y >= 1.0 or x + y < 1.0 }
+	`), "test::C")
+	result, err := solver.Solve(context.Background(), q)
+	if err != nil {
+		t.Fatalf("solve: %v", err)
+	}
+	if result.Status != StatusUnsat || !result.RoundingProved {
+		t.Fatalf("result is %s proved=%v, want unsat proved", result.Status, result.RoundingProved)
 	}
 }

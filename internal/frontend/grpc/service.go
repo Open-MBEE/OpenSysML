@@ -40,6 +40,11 @@ const CapabilityConvert = "convert"
 // answer.
 const CapabilityVerification = "verification"
 
+// CapabilityVerificationQuestions names the `question` field of the
+// verification requests — the solver questions "holds" and "satisfiable" —
+// and the `question`, `status` and `witness` fields of every Verdict.
+const CapabilityVerificationQuestions = "verification_questions"
+
 // CapabilityQuery names the capability of the Query RPC, which evaluates a
 // SysML v2 API & Services Query over a parsed model.
 const CapabilityQuery = "query"
@@ -216,6 +221,7 @@ var capabilities = []string{
 	CapabilityRequirementConstraintAuthoring,
 	CapabilityMemberModifiers,
 	CapabilityTransitionAuthoring,
+	CapabilityVerificationQuestions,
 }
 
 type capabilityAvailability struct {

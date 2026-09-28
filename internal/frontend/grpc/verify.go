@@ -244,6 +244,15 @@ func (v *verifyContext) verdict(kind string, sym *symbols.Symbol, element string
 		out.Error = err.Error()
 		out.FailureReason = failureReason(err)
 	}
+	out.Question = questionEvaluate
+	switch {
+	case out.Error != "":
+		out.Status = statusUndecided
+	case out.Holds:
+		out.Status = statusHolds
+	default:
+		out.Status = statusViolated
+	}
 	return out
 }
 
@@ -262,6 +271,10 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
+	question, err := s.verificationQuestion(req.Question)
+	if err != nil {
+		return nil, err
+	}
 	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
@@ -274,6 +287,9 @@ func (s *Service) VerifyConstraint(ctx context.Context, req *pb.VerifyConstraint
 	inst, err := v.subject(req.SubjectSymbolId)
 	if err != nil {
 		return &pb.VerifyConstraintResponse{Error: err.Error()}, nil
+	}
+	if question != questionEvaluate {
+		return v.proveConstraint(ctx, question, sym, inst)
 	}
 
 	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
@@ -295,6 +311,10 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
+	question, err := s.verificationQuestion(req.Question)
+	if err != nil {
+		return nil, err
+	}
 	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
@@ -307,6 +327,9 @@ func (s *Service) VerifyRequirement(ctx context.Context, req *pb.VerifyRequireme
 	inst, err := v.subject(req.SubjectSymbolId)
 	if err != nil {
 		return &pb.VerifyRequirementResponse{Error: err.Error()}, nil
+	}
+	if question != questionEvaluate {
+		return v.proveRequirement(ctx, question, sym, inst)
 	}
 
 	result, plan, evalErr := v.check(ctx, req.SymbolId, func(rt *runtime.Context) (runtime.CheckResult, error) {
@@ -332,6 +355,10 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	if err := s.requireCapability(CapabilityVerification); err != nil {
 		return nil, err
 	}
+	question, err := s.verificationQuestion(req.Question)
+	if err != nil {
+		return nil, err
+	}
 	v, err := s.newVerifyContext(ctx, req.ModelHash, req.Engine)
 	if err != nil {
 		return nil, err
@@ -347,6 +374,16 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 		}
 		// A named `satisfy requirement r by p` is itself one assertion.
 		if a, aerr := v.runtime.SatisfyAssertionOf(sym); aerr == nil {
+			if question != questionEvaluate {
+				verdict, instances, err := v.symbolicSatisfy(ctx, question, a)
+				if err != nil {
+					return nil, err
+				}
+				return &pb.VerifySatisfactionResponse{
+					Verdicts:  []*pb.Verdict{verdict},
+					Instances: instances,
+				}, nil
+			}
 			verdict, instances, err := v.satisfyVerdict(ctx, a)
 			if err != nil {
 				return nil, err
@@ -375,14 +412,23 @@ func (s *Service) VerifySatisfaction(ctx context.Context, req *pb.VerifySatisfac
 	verified := map[*symbols.Symbol]bool{}
 	for _, scope := range scopes {
 		for _, a := range v.runtime.SatisfyAssertionsIn(scope) {
-			verdict, instances, err := v.satisfyVerdict(ctx, a)
+			var verdict *pb.Verdict
+			var instances []*pb.Instance
+			var err error
+			if question != questionEvaluate {
+				verdict, instances, err = v.symbolicSatisfy(ctx, question, a)
+			} else {
+				verdict, instances, err = v.satisfyVerdict(ctx, a)
+			}
 			if err != nil {
 				return nil, err
 			}
 			resp.Verdicts = append(resp.Verdicts, verdict)
-			if req := a.AssertedRequirement(); req != nil && !verified[req] {
-				verified[req] = true
-				resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.assertionVerifications(a)...)
+			if question == questionEvaluate {
+				if req := a.AssertedRequirement(); req != nil && !verified[req] {
+					verified[req] = true
+					resp.VerificationVerdicts = append(resp.VerificationVerdicts, v.assertionVerifications(a)...)
+				}
 			}
 			// One graph per response, so two assertions about the same object do
 			// not report it twice.

@@ -346,10 +346,23 @@ func (t *translator) pinnedVar(p Pin) *Var {
 		return nil
 	}
 	v, ok := t.vars[t.fqn(p.Feature)]
-	if !ok || v.Symbol != p.Feature {
-		return nil
+	if ok && v.Symbol == p.Feature {
+		return v
 	}
-	return v
+	// A value fixed on a redefinition fixes what it redefines too, since both
+	// names read the one value — so it fixes the variable standing for the
+	// feature a redefining feature masks, wherever a chain names it.
+	for _, v := range t.vars {
+		if v.Symbol == nil {
+			continue
+		}
+		for _, redefined := range t.model.AllRedefinedFeatures(p.Feature) {
+			if v.Symbol == redefined {
+				return v
+			}
+		}
+	}
+	return nil
 }
 
 // Openings of the refusals that report what a pinned feature holds.

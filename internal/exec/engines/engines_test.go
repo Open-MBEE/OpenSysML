@@ -64,20 +64,24 @@ func TestSMTStatusIsTheSolvers(t *testing.T) {
 	}
 }
 
-// A holds question under auto reaches smt first, at proved, then check at bounded;
-// under all both land in the plan.
+// A holds question under auto reaches the proved engines first — smt, then
+// solve — before check at bounded; under all they land in the plan.
 func TestHoldsRanksSMTOverCheck(t *testing.T) {
 	q := analysis.Question{Kind: analysis.Holds, Free: analysis.FreeSchedule, Holds: &analysis.HoldsAsk{}}
 	plan, err := Default().Answer(context.Background(), &analysis.Model{}, q, analysis.Budget{})
 	if err != nil {
 		t.Fatalf("holds under auto: %v", err)
 	}
-	if len(plan.Steps) != 2 || plan.Steps[0].Engine != analysis.SMTEngineName || plan.Steps[1].Engine != analysis.CheckEngineName {
-		t.Fatalf("steps %+v, want smt refusing the malformed question, then check", plan.Steps)
+	if len(plan.Steps) != 3 || plan.Steps[0].Engine != analysis.SMTEngineName || plan.Steps[1].Engine != analysis.SolveEngineName || plan.Steps[2].Engine != analysis.CheckEngineName {
+		t.Fatalf("steps %+v, want smt and solve refusing the malformed question, then check", plan.Steps)
 	}
-	for _, step := range plan.Steps {
-		if !errors.Is(step.Refusal, analysis.ErrMalformedQuestion) {
-			t.Errorf("%s refused with %v, want the question malformed", step.Engine, step.Refusal)
+	for i, step := range plan.Steps {
+		want := analysis.ErrMalformedQuestion
+		if step.Engine == analysis.SolveEngineName {
+			want = analysis.ErrFreedom
+		}
+		if !errors.Is(step.Refusal, want) {
+			t.Errorf("step %d %s refused with %v, want %v", i, step.Engine, step.Refusal, want)
 		}
 	}
 	if plan.Result.Strength != analysis.NotCovered {
