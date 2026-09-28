@@ -16,4 +16,11 @@ standard library package MigrationMetadata {
              * the source name here and in its report. */
         attribute sourceName : ScalarValues::String;
     }
+
+    metadata def StandIn {
+        doc /* The annotated element stands for no element of the source: the
+             * migration made it up to write what the source left implicit,
+             * such as the join several edges into one node wait through. No
+             * diagram symbol stands at it. */
+    }
 }

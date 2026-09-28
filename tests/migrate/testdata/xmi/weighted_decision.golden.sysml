@@ -22,5 +22,6 @@ part def Sorter {
         first 'merge' then final;
         action final terminate;
         metadata MigrationMetadata::SynthesizedName about 'decide', 'merge', final;
+        metadata MigrationMetadata::StandIn about 'merge';
     }
 }

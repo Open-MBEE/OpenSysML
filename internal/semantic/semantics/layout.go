@@ -111,6 +111,9 @@ type LayoutSite struct {
 	// the site applies in that view alone; nil for an inline annotation and for
 	// one stated outside every view, which apply in every view.
 	View *symbols.Symbol
+	// Via is the namespace an `about` clause named the element through, when
+	// qualified: `about Acquire::start` positions the start Acquire inherits.
+	Via *symbols.Symbol
 	// Exactly one of Layout, Route, Canvas, Style, Note and Picture is set when
 	// the annotation reads; all are nil when a binding it needs has a Problem.
 	Layout  *Layout
@@ -179,7 +182,7 @@ func (m *Model) LayoutSitesOf(sym *symbols.Symbol) []*LayoutSite {
 		if !IsLayoutFQN(fqn) {
 			continue
 		}
-		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about}
+		site := &LayoutSite{TypeFQN: fqn, Node: a.node, Scope: a.scope, About: a.about, Via: a.via}
 		if a.about || fqn == NoteFQN {
 			site.View = enclosingView(a.scope)
 		}
@@ -244,6 +247,77 @@ func (m *Model) LayoutOf(view, elem *symbols.Symbol) (*LayoutSite, bool) {
 	return m.resolveSite(view, elem, LayoutFQN)
 }
 
+// MemberLayoutOf resolves the Layout of the member owner has under name, as
+// drawn in view. A member is one element for every namespace inheriting it —
+// the `start` and `done` every body has come from the library, the states a
+// usage has from its definition — so the sites resolve among those naming it as
+// owner's: `about Acquire::start`, or `about start` stated where Acquire is the
+// nearest namespace having a start. An inheriting owner falls back to the
+// declaring owner's sites: an inline Layout on the member, one qualified through
+// the declaring owner, or one stated unqualified where no other namespace has
+// the member. A site naming the member as another inheritor's is not owner's.
+func (m *Model) MemberLayoutOf(view, owner *symbols.Symbol, name string) (*LayoutSite, bool) {
+	member, ok := m.LookupMember(owner, name)
+	if !ok {
+		return nil, false
+	}
+	declares := sameElement(member.Owner(), owner)
+	var owners, inherited []*LayoutSite
+	for _, site := range m.LayoutSitesOf(member) {
+		if site.TypeFQN != LayoutFQN {
+			continue
+		}
+		switch via := m.memberSiteOwner(site, member, name); {
+		case sameElement(via, owner), via == nil && declares:
+			owners = append(owners, site)
+		case via == nil || sameElement(via, member.Owner()):
+			inherited = append(inherited, site)
+		}
+	}
+	return pickSite(view, append(owners, inherited...))
+}
+
+// MemberLayoutOwner is the namespace a Layout site positions member as a member
+// of, by the rule MemberLayoutOf resolves by: the namespace a qualified `about`
+// names it through, the referent of an unqualified one, else the declaring
+// owner. Nil for an inline Layout, which every inheriting owner may fall back to.
+func (m *Model) MemberLayoutOwner(site *LayoutSite, member *symbols.Symbol) *symbols.Symbol {
+	if m == nil || member == nil {
+		return nil
+	}
+	return m.memberSiteOwner(site, member, member.Name)
+}
+
+// memberSiteOwner is MemberLayoutOwner for member as owners have it under name.
+func (m *Model) memberSiteOwner(site *LayoutSite, member *symbols.Symbol, name string) *symbols.Symbol {
+	if site == nil || !site.About {
+		return nil
+	}
+	if site.Via != nil {
+		return site.Via
+	}
+	if via := m.memberReferent(site.Scope, member, name); via != nil {
+		return via
+	}
+	return member.Owner()
+}
+
+// memberReferent is the namespace an unqualified `about name` stated in scope
+// names member through: the nearest one enclosing scope that has member under
+// name, nil when none does.
+func (m *Model) memberReferent(scope *symbols.Scope, member *symbols.Symbol, name string) *symbols.Symbol {
+	for sc := scope; sc != nil; sc = sc.Parent() {
+		owner := sc.Owner()
+		if owner == nil {
+			continue
+		}
+		if found, ok := m.LookupMember(owner, name); ok && sameElement(found, member) {
+			return owner
+		}
+	}
+	return nil
+}
+
 // RouteOf resolves the Route of the element an edge is declared as — a
 // connector, flow, transition or succession — as drawn in view, as LayoutOf
 // resolves a Layout.
@@ -304,16 +378,27 @@ func (m *Model) CanvasOf(view *symbols.Symbol) (*LayoutSite, bool) {
 // resolveSite picks the site of one type that positions elem in view: a
 // view-local one first, then one applying in every view, each first-wins.
 func (m *Model) resolveSite(view, elem *symbols.Symbol, typeFQN string) (*LayoutSite, bool) {
-	sites := m.LayoutSitesOf(elem)
+	var sites []*LayoutSite
+	for _, site := range m.LayoutSitesOf(elem) {
+		if site.TypeFQN == typeFQN {
+			sites = append(sites, site)
+		}
+	}
+	return pickSite(view, sites)
+}
+
+// pickSite is the site among sites that applies in view: a view-local one
+// first, then one applying in every view, each first-wins.
+func pickSite(view *symbols.Symbol, sites []*LayoutSite) (*LayoutSite, bool) {
 	if view != nil {
 		for _, site := range sites {
-			if site.TypeFQN == typeFQN && site.View != nil && sameElement(site.View, view) {
+			if site.View != nil && sameElement(site.View, view) {
 				return site, true
 			}
 		}
 	}
 	for _, site := range sites {
-		if site.TypeFQN == typeFQN && site.View == nil {
+		if site.View == nil {
 			return site, true
 		}
 	}

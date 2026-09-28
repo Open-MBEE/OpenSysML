@@ -285,7 +285,7 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 		}
 		// A part of a type being expanded above, or deeper than the walk descends,
 		// is cut only where reading it would begin objects of its own.
-		if held := w.ctx.CompositeTypeOf(feat); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) && w.makesObjects(inst, of) {
+		if w.cuts(inst, of, depth, map[string]bool{}) {
 			w.bounded = true
 			continue
 		}
@@ -327,6 +327,29 @@ func (w *validationWalk) walk(obj *validatedObject, depth int) {
 			delete(w.onPath, reached.inst.Type)
 		}
 	}
+}
+
+// cuts reports whether reading of on inst would begin objects of a type being
+// expanded above, or deeper than the walk descends: through of itself, or through a
+// feature subsetting it, which a read of the collection reads in turn.
+func (w *validationWalk) cuts(inst *Instance, of ObjectFeature, depth int, seen map[string]bool) bool {
+	if seen[of.Name] {
+		return false
+	}
+	seen[of.Name] = true
+	if held := w.ctx.CompositeTypeOf(of.Feature); held != nil && (depth >= maxMaterializeDepth || w.onPath[held]) && w.makesObjects(inst, of) {
+		return true
+	}
+	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
+		return false
+	}
+	for _, feat := range w.ctx.subsettingFeaturesOf(inst, of.Name) {
+		sub := feat
+		if holdsObjects(&sub) && w.cuts(inst, ObjectFeature{Name: sub.Name, Feature: &sub}, depth, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // makesObjects reports whether reading a composite feature would materialize

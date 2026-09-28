@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "Vehicle::vehicle",
+  "libraries": true,
+  "slots": {
+    "partCount": {"type": "Integer", "value": 7},
+    "itemCount": {"type": "Integer", "value": 7}
+  }
+}

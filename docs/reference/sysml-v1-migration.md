@@ -392,9 +392,12 @@ the element is unchanged, and the report's target column now names the member.
 Edges with no v2 member of their own are not given one: a Generalization or InterfaceRealization
 is a `:>` clause or a port's conjugation, a Composition, Aggregation or Association between blocks
 is the `part`/`ref` end usage, a constraint or information flow edge nothing realizes is not
-written, and a decision's `else` branch or an initial transition is a clause of the node it leaves,
-not a member. Their placements on a diagram expose the ends as before; their routes are reported
-(below), not attached to a member that is not an edge.
+written, and a decision's `else` branch is a clause of the node it leaves, not a member. Their
+placements on a diagram expose the ends as before; their routes are reported (below), not
+attached to a member that is not an edge. A region's initial transition is the bare entry
+`entry; then s;` until a diagram draws it; then it is a member of its own, `transition 'start
+then s' first start then s;` (under its v1 name when it has one, else that made-up name), so the
+view can route it from the region's `start` symbol, and its row names the member.
 
 #### Layout from an MTIP export
 
@@ -443,7 +446,19 @@ from its own stream alone. A symbol the stream keeps but does not draw (`visible
 every symbol nested in it and every part, region or compartment row it lists, shows nothing: the
 view does not expose its element for it, it takes no position or style, and a hidden frame does
 not bound the diagram. A symbol's position and style go to the element it names itself, not to
-the last part or region listed under it.
+the last part or region listed under it. A route the export gives an edge the migration wrote
+as several members — a control flow written as a succession into a join the migrator made up,
+and from that join on — is pinned to the members whose both ends a diagram symbol stands at, so
+the route is drawn where Cameo drew it and not into a node no symbol stands for.
+
+A note the diagram shows is written as `metadata DiagramLayout::Note about <ref> { text; x; y;
+width; height; }` — a `Note` symbol whatever it names, a comment's symbol, or a free text box
+saying something of its own — with the comment's body when it stands for a comment and the
+symbol's own text otherwise, one `Note` `about` every element an anchor line joins it to, each
+named once, so the renderer draws one box with an anchor to each (a note the view anchors to
+nothing is a free `@Note`). A text symbol nested inside an element's symbol is
+the element's own label (its name, stereotype or multiplicity as the tool draws it), not a note,
+so it is neither written nor counted as one.
 
 #### Pictures pasted onto a diagram
 
@@ -858,7 +873,12 @@ tell them from names the source gave: the [graphical renderings](../project/view
 draw such an element as its source did, unnamed — a bare control-node symbol, an edge with no
 label — and every other name as it is. `MigrationMetadata` is a bundled OpenSysML library, not a
 standard one; a v1 name is never marked, however it was spelled, and a model whose bodies hold
-no made-up name gains no line.
+no made-up name gains no line. A member the migration made up that stands for no v1 element at
+all — the join several edges into one node wait through, the fork several edges leave one node
+by — is marked besides as `metadata MigrationMetadata::StandIn about wait;`, so a rendering can
+tell it from a v1 node the source merely left unnamed: no diagram symbol stands at a stand-in,
+and a positioned rendering draws the edges through it as one, where an unnamed v1 fork is drawn
+as its bar.
 
 A top-level declaration named like a standard library root package — `Requirements`, `Views`,
 `ScalarValues`, and the rest — is renamed, since a qualified name starting with that name would

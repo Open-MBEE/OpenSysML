@@ -636,6 +636,12 @@ type Feature struct {
 	Scope     *symbols.Scope
 }
 
+// Output reports whether the feature is written back rather than read: an `out`
+// or `return` parameter.
+func (f Feature) Output() bool {
+	return f.Direction == ast.DirOut || f.IsResult
+}
+
 // PinBinding is a binding connector with an end at pin Pin of Node — or, where Path
 // is set, of the node Path reaches under it through the flows each owns (`leg.inner.v`:
 // Node leg, Path [inner], Pin v). Other is the other end as written; OtherNode,

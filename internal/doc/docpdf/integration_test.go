@@ -455,13 +455,13 @@ func TestRenderCameoDiagramWithInstalledGraphviz(t *testing.T) {
 		"do / MonitorPEAS", "InitializePEAS",
 		"Runs once at power&#45;up.", `stroke-dasharray`,
 		`fill="#f2dcdb"`, `stroke="#9c0006"`,
-		"accept Start", "<polygon",
+		">Start<", "<polygon",
 	} {
 		if !strings.Contains(svg, want) {
 			t.Errorf("cameo SVG lacks %q", want)
 		}
 	}
-	if strings.Contains(svg, "Helvetica") || strings.Contains(svg, "«state»") {
+	if strings.Contains(svg, "Helvetica") || strings.Contains(svg, "«state»") || strings.Contains(svg, "accept Start") {
 		t.Errorf("cameo SVG carries the Pilot look")
 	}
 	if t.Failed() {

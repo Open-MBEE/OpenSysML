@@ -2084,3 +2084,32 @@ func TestEnumerationTypedFeatureAdmitsOnlyEnumeratedValues(t *testing.T) {
 		t.Errorf("error = %v, want the feature's type named", err)
 	}
 }
+
+// TestWriteToRestatedCollectionClassifies pins that an object written into a
+// collection directly is classified by it even when a feature it lives under
+// reaches that collection only through subsetting implied by nesting: the
+// implied edge defers classification on the contribution path alone, never on
+// a write that states the value.
+func TestWriteToRestatedCollectionClassifies(t *testing.T) {
+	model := `package test {
+		private import ScalarValues::*;
+		private import SequenceFunctions::*;
+		private import OccurrenceFunctions::*;
+		part def Wheel { attribute n : Integer; }
+		part vehicle {
+			part wheels : Wheel;
+			part :>> subparts : Wheel[0..*] { attribute tag : String = "tracked"; }
+			perform action build {
+				first start;
+				then action w { assign subparts := (wheels); }
+				then done;
+			}
+		}
+	}`
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, model))
+	vehicle := instantiateQualified(t, ctx, idx, "test::vehicle")
+	wheel := readInstance(t, ctx, vehicle, "wheels")
+	if fv := wheel.FeatureValues["tag"]; fv == nil {
+		t.Fatalf("the wheel written into subparts has no tag feature; it was not classified by the restated collection")
+	}
+}
