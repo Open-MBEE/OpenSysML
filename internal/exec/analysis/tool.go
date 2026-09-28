@@ -477,6 +477,10 @@ type wiredValue struct {
 func ToolRequestOf(call *runtime.ToolCall) ([]byte, error) {
 	request := toolRequest{ToolName: call.ToolName, URI: call.URI, Inputs: make(map[string]protocolValue, len(call.Inputs))}
 	for _, in := range call.Inputs {
+		if in.Value.Items != nil {
+			return nil, &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
+				Detail: fmt.Sprintf("%s (%s): a sequence; the tool protocol carries scalars and strings", in.Variable, in.Parameter)}
+		}
 		value, err := encodeValue(in.Value)
 		if err != nil {
 			return nil, &runtime.ToolError{Tool: call.ToolName, Kind: runtime.ToolUnsentInput,
@@ -487,8 +491,35 @@ func ToolRequestOf(call *runtime.ToolCall) ([]byte, error) {
 	return json.Marshal(request)
 }
 
-// encodeValue is one runtime value as JSON: an integer, a finite real, a truth, or a string.
+// canonicalRequestOf renders a call's inputs the way a runner deduplicates them:
+// ToolRequestOf's form, but a sequence encodes as a JSON array rather than being
+// refused — the refusal is the manifest protocol's, not the encoding's.
+func canonicalRequestOf(call *runtime.ToolCall) ([]byte, error) {
+	request := toolRequest{ToolName: call.ToolName, URI: call.URI, Inputs: make(map[string]protocolValue, len(call.Inputs))}
+	for _, in := range call.Inputs {
+		value, err := encodeValue(in.Value)
+		if err != nil {
+			return nil, err
+		}
+		request.Inputs[in.Variable] = protocolValue{Value: value, Unit: in.Value.Unit}
+	}
+	return json.Marshal(request)
+}
+
+// encodeValue is one runtime value as JSON: an integer, a finite real, a truth, a string,
+// or a sequence as a JSON array of each item's encoded value and unit.
 func encodeValue(v runtime.ToolValue) (json.RawMessage, error) {
+	if v.Items != nil {
+		items := make([]protocolValue, 0, len(v.Items))
+		for _, item := range v.Items {
+			value, err := encodeValue(item)
+			if err != nil {
+				return nil, err
+			}
+			items = append(items, protocolValue{Value: value, Unit: item.Unit})
+		}
+		return json.Marshal(items)
+	}
 	switch v.Value.Kind {
 	case semantics.ValInt:
 		return json.RawMessage(strconv.FormatInt(v.Value.Int, 10)), nil

@@ -322,3 +322,16 @@ func TestToolReplyIsOneObjectOfOutputsOrAnError(t *testing.T) {
 		})
 	}
 }
+
+// A sequence input has no wire form: the request refuses it as an unsent
+// input rather than write the empty string it used to.
+func TestToolRequestRefusesASequence(t *testing.T) {
+	call := &runtime.ToolCall{ToolName: "t", URI: "u",
+		Inputs: []runtime.ToolInput{{Variable: "xs", Parameter: "xs",
+			Value: runtime.ToolValue{Items: []runtime.ToolValue{{Value: semantics.Value{Kind: semantics.ValReal, Real: 1.0}}}}}}}
+	_, err := ToolRequestOf(call)
+	var fault *runtime.ToolError
+	if !errors.As(err, &fault) || fault.Kind != runtime.ToolUnsentInput {
+		t.Fatalf("ToolRequestOf = %v, want a ToolError of kind unsent input", err)
+	}
+}
