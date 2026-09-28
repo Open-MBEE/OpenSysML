@@ -1,4 +1,5 @@
 package Demo {
+    attribute x = 1;
     constraint def ConstraintType;
     action def Work;
     state def Machine {
