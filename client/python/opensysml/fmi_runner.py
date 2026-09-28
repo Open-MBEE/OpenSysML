@@ -26,10 +26,13 @@ def _error(message: str) -> dict[str, Any]:
     return {"protocol": PROTOCOL, "error": message}
 
 
-def _variable_types(fmpy: Any, fmu: str) -> dict[str, str]:
-    """The declared type of each model variable, to convert the result's scalars."""
+def _variable_types(fmpy: Any, fmu: str) -> dict[str, tuple[str, bool]]:
+    """Each model variable's declared type and whether it is an array variable."""
     description = fmpy.read_model_description(fmu)
-    return {v.name: v.type for v in description.modelVariables}
+    return {
+        v.name: (v.type, bool(getattr(v, "dimensions", None)))
+        for v in description.modelVariables
+    }
 
 
 def _convert(value: Any, fmi_type: str) -> Any:
@@ -92,7 +95,14 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         "outputs": {},
     }
     for name in outputs:
-        reply["outputs"][name] = _convert(last[name], types.get(name, ""))
+        fmi_type, is_array = types.get(name, ("", False))
+        column = last[name]
+        if is_array:
+            # fmpy answers an array variable as one structured column whose
+            # each entry is the element list, in declaration order.
+            reply["outputs"][name] = [_convert(v, fmi_type) for v in column]
+        else:
+            reply["outputs"][name] = _convert(column, fmi_type)
     return reply
 
 

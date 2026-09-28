@@ -7,11 +7,14 @@
 package fmi_test
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,8 +128,8 @@ func outputValue(t *testing.T, report, name string) float64 {
 	for _, line := range strings.Split(report, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, want) {
-			f, err := strconv.ParseFloat(strings.TrimPrefix(line, want), 64)
-			if err == nil {
+			// A measured value reports `2.0 [SI::m]`; the number is its first field.
+			if f, err := strconv.ParseFloat(strings.Fields(strings.TrimPrefix(line, want))[0], 64); err == nil {
 				return f
 			}
 		}
@@ -187,9 +190,14 @@ func TestReferenceFMUs(t *testing.T) {
 				t.Errorf("v = %v at stopTime, want finite\n%s", v, report)
 			}
 
-			// A stopTime of zero answers the start values: h is the initial height.
+			// A stopTime of zero answers the start values: h is the initial
+			// height; g is a measured literal where its unit typed it.
+			g := "-9.81"
+			if fmiVersion == "3.0" {
+				g = "-9.81 [m/s^2]"
+			}
 			report, status = run(t, binary, model, "-calc",
-				"BouncingBall::BouncingBall(-9.81, 0.7, 0.0, 0.0, 0.01)")
+				fmt.Sprintf("BouncingBall::BouncingBall(%s, 0.7, 0.0, 0.0, 0.01)", g))
 			if status != 0 {
 				t.Fatalf("-calc with stopTime 0: status %d\n%s", status, report)
 			}
@@ -197,5 +205,105 @@ func TestReferenceFMUs(t *testing.T) {
 				t.Errorf("h = %v at stopTime 0, want the initial height 1.0\n%s", h, report)
 			}
 		})
+	}
+}
+
+// fixedDimensionFMU rewrites every structural <Dimension valueReference=…> of
+// the FMU at src to the fixed start its structural parameter holds — 3 in the
+// reference StateSpace — so its one-dimensional arrays import; StateSpace is
+// the only pinned reference FMU declaring arrays, and all of its structural
+// parameters start at 3.
+func fixedDimensionFMU(t *testing.T, src string) string {
+	t.Helper()
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		t.Fatalf("open %s: %v", src, err)
+	}
+	defer r.Close()
+	dim := regexp.MustCompile(`<Dimension valueReference="\d+"\s*/>`)
+	out := filepath.Join(t.TempDir(), "StateSpace-fixed.fmu")
+	w, err := os.Create(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(w)
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		content, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Name == "modelDescription.xml" {
+			content = dim.ReplaceAll(content, []byte(`<Dimension start="3"/>`))
+		}
+		entry, err := zw.Create(f.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := entry.Write(content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// TestReferenceFMUArrays converts the fixed-dimension StateSpace and evaluates
+// it: the input vector u = (1, 2, 3) drives y = C·x + D·u, which the pinned FMU
+// answers at (2.717, 5.434, 8.151) at stopTime 1 within solver tolerance.
+func TestReferenceFMUArrays(t *testing.T) {
+	fmuPresent(t)
+	fmpyPresent(t)
+	binary := buildCLI(t)
+	t.Setenv("OPENSYSML_FMI_RUNNER", runnerScript(t))
+
+	src, err := filepath.Abs(filepath.Join(fmusDir, "3.0", "StateSpace.fmu"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmu := fixedDimensionFMU(t, src)
+	model := convert(t, binary, fmu, t.TempDir())
+	// The imported def's in order is x0, u, startTime, stopTime; stopTime binds
+	// positionally after the two array starts.
+	report, status := run(t, binary, model, "-calc",
+		"StateSpace::StateSpace((0.0, 0.0, 0.0), (1.0, 2.0, 3.0), 0.0, 1.0)")
+	if status != 0 {
+		t.Fatalf("-calc with arrays: status %d\n%s", status, report)
+	}
+	var yLine string
+	for _, line := range strings.Split(report, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "= [") {
+			yLine = line
+		}
+	}
+	if yLine == "" {
+		t.Fatalf("report has no = [...] line:\n%s", report)
+	}
+	field := regexp.MustCompile(`-?\d+(\.\d+)?([eE][+-]?\d+)?`)
+	var got []float64
+	for _, m := range field.FindAllString(yLine, -1) {
+		f, err := strconv.ParseFloat(m, 64)
+		if err != nil {
+			t.Fatalf("y element %q: %v", m, err)
+		}
+		got = append(got, f)
+	}
+	want := []float64{2.717, 5.434, 8.151}
+	if len(got) != len(want) {
+		t.Fatalf("y = %s, want %d elements", yLine, len(want))
+	}
+	for i, f := range got {
+		if math.Abs(f-want[i]) > 1e-3 {
+			t.Errorf("y[%d] = %v, want ≈%v\n%s", i, f, want[i], report)
+		}
 	}
 }
