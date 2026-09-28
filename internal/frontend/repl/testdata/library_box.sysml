@@ -1,7 +1,8 @@
 package Demo {
     private import ShapeItems::*;
     private import SI::*;
-    part box : Box {
+    part def DemoBox :> Box;
+    part box : DemoBox {
         :>> length = 2 [m];
         :>> width = 1 [m];
         :>> height = 1 [m];

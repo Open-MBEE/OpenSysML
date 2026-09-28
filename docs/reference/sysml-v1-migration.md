@@ -256,13 +256,14 @@ returned over the service yet.
 | Transition `effect` referring to a behavior owned elsewhere | `do action : Def` on the transition, the target following on the next line; the behavior's own `action def` is written once where it is owned | mapped |
 | `entry`, `doActivity`, `exit` behavior or transition `effect` referring to a behavior that is not written, or is written as something no state runs (a StateMachine, for one) | comment in the state's body or before the transition (a `/* */` comment is admitted only where a member may appear, not between the transition's clauses); the state or transition is written without it | approximated (the state or transition: "its … is not run"; a behavior not written: **unmapped**) |
 | Transition `effect` with `in` parameters | the accepted signal is named, `accept sig : Sig`, and each parameter typed by the signal (or a general of it), or the sole untyped one, is bound to it: `in p : Sig = sig;`; a parameter of another type takes no value | mapped (an unbound parameter: approximated) |
-| State `deferrableTrigger` on a SignalEvent | `defer Sig;` in the state's body — the OpenSysML `defer` extension (see [Behavior](../guide/06-behavior.md)), which the runtime executes and the validator reports as non-standard notation — and the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal; under `-strict`, the annotation and the standard encoding described under [Deferred signals under `-strict`](#deferred-signals-under--strict) instead of `defer` | approximated |
-| State `deferrableTrigger` on a SignalEvent a transition out of the state itself accepts without a guard, under `-strict` | the annotation alone by the routes the transition accepts by (all of them when its trigger names no port): in v1 the transition takes precedence over the deferral, so the signal is never kept there; a route the transition does not accept by, such as the object itself when the trigger names one port, keeps its accept loop. A transition on a general of the deferred signal accepts it too, as a v2 `accept` typed by the general does | approximated (the note names the transition) |
-| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts under a guard, or a transition out of a substate accepts, or a transition accepts a specialization of, under `-strict` | the standard encoding: the signal is kept while the guard is false or the substate inactive, or when the occurrence is not of the specialization, the transition taking it otherwise | approximated (the note names the transition) |
-| State `deferrableTrigger` on a SignalEvent the same state also defers a general of, or defers again by another trigger, under `-strict` | the annotation alone by the routes the other deferral's accept loop accepts by: that loop keeps every occurrence of the signal already, and a loop of its own would keep each occurrence twice, the exit action then sending it twice | approximated (the note names the deferral that keeps it) |
-| State `deferrableTrigger` on a SignalEvent, the state having an unguarded completion transition, under `-strict` | the annotation and a comment: the accept loop that would keep the signal never completes, so the completion transition would never fire | **unmapped** |
-| State `deferrableTrigger` on a SignalEvent, the state having an internal transition, under `-strict` | the standard encoding; the self transition the internal one becomes exits and re-enters the state, so the exit action sends the kept occurrences to self and the restarted accept loop keeps them again | approximated (the note names the transition) |
-| State `deferrableTrigger` on a SignalEvent, the state having only guarded completion transitions, under `-strict` | the standard encoding; the accept loop never completes, so the completion transition never fires and the state leaves by triggered transitions alone | approximated |
+| State `deferrableTrigger` on a SignalEvent | the annotation `@MigrationMetadata::DeferredEvent { ref :>> signal : Sig; }` naming the deferred signal, and the standard encoding described under [Deferred signals](#deferred-signals): an `item` buffer the state's do action fills from an accept loop while the state is active, substates included, which its exit action sends back to the object once the state is left; the same in both modes | approximated |
+| State `deferrableTrigger` on a SignalEvent a transition out of the state itself accepts without a guard | the annotation alone by the routes the transition accepts by (all of them when its trigger names no port): in v1 the transition takes precedence over the deferral, so the signal is never kept there; a route the transition does not accept by, such as the object itself when the trigger names one port, keeps its accept loop. A transition on a general of the deferred signal accepts it too, as a v2 `accept` typed by the general does | approximated (the note names the transition) |
+| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts under a guard, or a transition out of a substate accepts, or a transition accepts a specialization of | the standard encoding: the signal is kept while the guard is false or the substate inactive, or when the occurrence is not of the specialization, the transition taking it otherwise | approximated (the note names the transition) |
+| State `deferrableTrigger` on a SignalEvent the same state also defers a general of, or defers again by another trigger | the annotation alone by the routes the other deferral's accept loop accepts by: that loop keeps every occurrence of the signal already, and a loop of its own would keep each occurrence twice, the exit action then sending it twice | approximated (the note names the deferral that keeps it) |
+| State `deferrableTrigger` on a SignalEvent, the state having an unguarded completion transition | the annotation and a comment: the accept loop that would keep the signal never completes, so the completion transition would never fire | **unmapped** |
+| State `deferrableTrigger` on a SignalEvent, the state having an internal transition | the standard encoding; the self transition the internal one becomes exits and re-enters the state, so the exit action sends the kept occurrences to self and the restarted accept loop keeps them again | approximated (the note names the transition) |
+| State `deferrableTrigger` on a SignalEvent, the state having only guarded completion transitions | the standard encoding; the accept loop never completes, so the completion transition never fires and the state leaves by triggered transitions alone | approximated |
+| State `deferrableTrigger` on a SignalEvent a transition out of the state accepts without a guard, the transition leading into a `choice` or `junction` pseudostate, or into a vertex the migration refuses | only a transition the migration writes takes the signal: the default migration writes the pseudostate and the transition, so the transition wins as above; `-strict` refuses both, so the deferral keeps the route | approximated (the note names the transition where it wins) |
 | Internal transition (`kind = internal`) | a self transition of the state; faithful when the state has no entry, exit or do behavior and no substates (re-entry is not observable), otherwise the exit and entry run where v1 stayed in the state; one without a trigger is a comment, as a self transition would fire again on every re-entry | mapped / approximated / **unmapped** |
 | `deferrableTrigger` on any other event | comment | **unmapped** — no v2 form |
 | State `stateInvariant` | comment in the state's body quoting the constraint; the state is written with a body so the comment has a place | **unmapped** — no v2 form |
@@ -1773,23 +1774,24 @@ OpenSysML extension — a `choice`, `junction`, `shallowHistory` or `deepHistory
 or an entry or exit point of a composite state that would be written as a junction — is
 refused and reported **unmapped** with the note `… is an OpenSysML extension with no SysML v2
 production, which a strict migration does not write`, and a transition to or from it is refused
-rather than written to an undeclared name. A `deferrableTrigger`, whose default form is the
-`defer <event>;` extension, is written in standard notation instead (next section). The
-standard forms stay: `fork`, `join`, an entry point's default entry and a machine's connection
-points are written as before. The default migration is unchanged — it writes the extension
-notation, which the runtime executes and the validator reports as a warning.
+rather than written to an undeclared name. A `deferrableTrigger` is written in standard
+notation in both modes (next section); `-strict` changes only which transitions count as
+accepting the deferred signal, since a transition it refuses takes none. The standard forms
+stay: `fork`, `join`, an entry point's default entry and a machine's connection points are
+written as before. The default migration writes the pseudostate extensions, which the runtime
+executes and the validator reports as a warning.
 
 To check strict output against the pinned pilot implementation, validate it together with the
 whole OpenSysML library directory, `.kerml` files included (`RandomFunctions`, which migrated
 Monte Carlo analyses call, is KerML); see
 [Pilot differential](../project/pilot-differential.md#the-kerml-side-of-the-bridge).
 
-#### Deferred signals under `-strict`
+#### Deferred signals
 
 A v1 state that defers a signal keeps every occurrence arriving while it is active and
-dispatches them once the state machine leaves it. SysML v2 has no deferral notation, so
-`-strict` writes the same behavior with standard members of the state, each named through
-`MigrationMetadata::SynthesizedName` so it cannot collide with the state's own:
+dispatches them once the state machine leaves it. SysML v2 has no deferral notation, so the
+migration writes, in both modes, the same behavior with standard members of the state, each
+named through `MigrationMetadata::SynthesizedName` so it cannot collide with the state's own:
 
 ```sysml
 state Off {
@@ -1839,16 +1841,28 @@ deferral: in v1 the transition wins only while its guard holds or its substate i
 and the signal is deferred otherwise; the standard leaves open which of a transition and a do
 action's accept takes an occurrence both could, which the OpenSysML runtime settles for the
 transition whenever it fires — out of the deferring state or out of a substate within it — and
-for the accept loop otherwise; the note names the transition. A transition `-strict` does not write — into a pseudostate with no v2 form such as a
-choice, a final state of another region, a state of another machine, or one whose ends the
-migration refuses — takes no signal, so the deferral keeps every route it would have accepted
-by; nor does such a completion transition drop the deferral. An internal transition of the
+for the accept loop otherwise; the note names the transition. A transition out of a state
+enclosing the deferring one, or out of a state in a region beside its own, that accepts the
+signal is one v1's deferral takes precedence over while the deferring state is active; the
+standard encoding cannot hold a signal back from either, so the enclosing state's transition
+takes each occurrence it can fire on, and a transition of another region fires on an occurrence
+the loop keeps as well — the note names the transition, so the difference is on record. Only a
+transition the migration
+writes takes a signal, whatever it is written to — a transition into a terminate pseudostate,
+written to `done`, or into a submachine state through a connection point reference, written to
+the entry point's state, counts as any other: one it refuses — into a final state of another region, a state of
+another machine, a vertex whose ends it refuses, or, under `-strict`, a pseudostate with no v2
+form such as a choice — takes none, so the deferral keeps every route it would have accepted
+by; nor does such a completion transition drop the deferral. This is the one point where the
+modes differ: the default migration writes a `choice` and the transition into it, so that
+transition wins over the deferral as any other, while `-strict` refuses both and the state
+keeps the signal. An internal transition of the
 state is written as a self transition, which exits and re-enters the state where v1 stayed in
 it: the exit action sends the kept occurrences to self, and the accept loop, started again by
 the re-entry, keeps them again unless a transition then accepts them — so the buffer survives
 the internal transition, though its occurrences pass through dispatch once more (the note says
 so).
 
-The `@MigrationMetadata::DeferredEvent` annotation is written in both modes, so a consumer sees
-what the state deferred without reading the encoding; `MigrationMetadata` is a bundled
-OpenSysML library the migrated document imports.
+The `@MigrationMetadata::DeferredEvent` annotation is written for every signal the state
+declares deferrable, kept or not, so a consumer sees what the state deferred without reading
+the encoding; `MigrationMetadata` is a bundled OpenSysML library the migrated document imports.

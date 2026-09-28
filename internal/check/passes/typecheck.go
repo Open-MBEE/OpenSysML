@@ -1123,17 +1123,19 @@ func isOccurrenceDefKind(k symbols.SymbolKind) bool {
 // defKindParents is the definition metaclass taxonomy (SysML v2 §8.3): each kind
 // maps to the kinds it specializes.
 var defKindParents = map[symbols.SymbolKind][]symbols.SymbolKind{
-	symbols.SymbolItemDef:             {symbols.SymbolOccurrenceDef},
-	symbols.SymbolIndividualDef:       {symbols.SymbolOccurrenceDef},
-	symbols.SymbolPartDef:             {symbols.SymbolItemDef},
-	symbols.SymbolMetadataDef:         {symbols.SymbolItemDef},
-	symbols.SymbolConnectionDef:       {symbols.SymbolPartDef},
-	symbols.SymbolInterfaceDef:        {symbols.SymbolConnectionDef},
-	symbols.SymbolAllocationDef:       {symbols.SymbolConnectionDef},
-	symbols.SymbolViewDef:             {symbols.SymbolPartDef},
-	symbols.SymbolRenderingDef:        {symbols.SymbolPartDef},
-	symbols.SymbolActionDef:           {symbols.SymbolOccurrenceDef},
-	symbols.SymbolFlowDef:             {symbols.SymbolActionDef, symbols.SymbolConnectionDef},
+	symbols.SymbolItemDef:       {symbols.SymbolOccurrenceDef},
+	symbols.SymbolIndividualDef: {symbols.SymbolOccurrenceDef},
+	symbols.SymbolPartDef:       {symbols.SymbolItemDef},
+	symbols.SymbolMetadataDef:   {symbols.SymbolItemDef},
+	symbols.SymbolConnectionDef: {symbols.SymbolPartDef},
+	symbols.SymbolInterfaceDef:  {symbols.SymbolConnectionDef},
+	symbols.SymbolAllocationDef: {symbols.SymbolConnectionDef},
+	symbols.SymbolViewDef:       {symbols.SymbolPartDef},
+	symbols.SymbolRenderingDef:  {symbols.SymbolPartDef},
+	symbols.SymbolActionDef:     {symbols.SymbolOccurrenceDef},
+	// FlowDefinition specializes Interaction and ActionDefinition; Interaction
+	// has no definition SymbolKind, so the action parent carries the row.
+	symbols.SymbolFlowDef:             {symbols.SymbolActionDef},
 	symbols.SymbolStateDef:            {symbols.SymbolActionDef},
 	symbols.SymbolCalcDef:             {symbols.SymbolActionDef},
 	symbols.SymbolCaseDef:             {symbols.SymbolCalcDef},

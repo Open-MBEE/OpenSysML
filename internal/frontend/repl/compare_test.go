@@ -28,9 +28,9 @@ const compareModel = `package Cfg {
 		action steady { first start; then assign total := 4.0; then done; }
 	}
 	individual def probe :> Probe;
-	action def 'Group 0' { part target : probe; perform action run ::> target.shaky; }
-	action def 'Group 1' { part target : probe; perform action run ::> target.steady; }
-	action def 'Sub::Group' { part target : probe; perform action run ::> target.steady; }
+	action def 'Group 0' { part target : Probe; perform action run ::> target.shaky; }
+	action def 'Group 1' { part target : Probe; perform action run ::> target.steady; }
+	action def 'Sub::Group' { part target : Probe; perform action run ::> target.steady; }
 }`
 
 func compareSession(t *testing.T) *Session {

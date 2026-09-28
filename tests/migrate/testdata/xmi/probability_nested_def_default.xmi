@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.5.1" xmlns:xmi="http://www.omg.org/spec/XMI/20131001"
+         xmlns:uml="http://www.omg.org/spec/UML/20161101"
+         xmlns:sysml="http://www.omg.org/spec/SysML/20181001/SysML">
+  <uml:Model xmi:type="uml:Model" xmi:id="_m" name="Model">
+    <packagedElement xmi:type="uml:Class" xmi:id="_mission" name="Mission">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_pr" name="pr">
+        <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+        <defaultValue xmi:type="uml:LiteralReal" xmi:id="_prV" value="0.25"/>
+      </ownedAttribute>
+      <nestedClassifier xmi:type="uml:Class" xmi:id="_sub" name="Sub" classifierBehavior="_run">
+        
+        <ownedBehavior xmi:type="uml:Activity" xmi:id="_run" name="Run">
+          <node xmi:type="uml:InitialNode" xmi:id="_ri"/>
+          <node xmi:type="uml:CallBehaviorAction" xmi:id="_call" name="call" behavior="_inner"/>
+          <node xmi:type="uml:ActivityFinalNode" xmi:id="_rf"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_re0" source="_ri" target="_call"/>
+          <edge xmi:type="uml:ControlFlow" xmi:id="_re1" source="_call" target="_rf"/>
+          <ownedBehavior xmi:type="uml:Activity" xmi:id="_inner" name="Inner">
+            <node xmi:type="uml:InitialNode" xmi:id="_ii"/>
+            <node xmi:type="uml:DecisionNode" xmi:id="_decide"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_a" name="a"/>
+            <node xmi:type="uml:OpaqueAction" xmi:id="_b" name="b"/>
+            <node xmi:type="uml:ActivityFinalNode" xmi:id="_if"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ie0" source="_ii" target="_decide"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_ea" source="_decide" target="_a"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_eb" source="_decide" target="_b"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_fa" source="_a" target="_if"/>
+            <edge xmi:type="uml:ControlFlow" xmi:id="_fb" source="_b" target="_if"/>
+          </ownedBehavior>
+        </ownedBehavior>
+      </nestedClassifier>
+    </packagedElement>
+  </uml:Model>
+  <sysml:Block xmi:id="_s1" base_Class="_mission"/>
+  <sysml:Block xmi:id="_s2" base_Class="_sub"/>
+  <sysml:Probability xmi:id="_p1" base_ActivityEdge="_ea" probability="pr"/>
+</xmi:XMI>

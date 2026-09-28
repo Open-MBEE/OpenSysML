@@ -448,8 +448,37 @@ func (d *decoder) membershipUsageKind(el *element) (ast.UsageKind, bool) {
 		return ast.UsageViewRendering, true
 	case mFramedConcernMembership:
 		return ast.UsageFramedConcern, true
+	case mRequirementVerificationMembership:
+		// `verify r;`, which the notation spells as a satisfy usage.
+		return ast.UsageSatisfy, true
 	}
 	return 0, false
+}
+
+// verifiedRequirement reports whether el is the RequirementUsage of a `verify`
+// member: the one a RequirementVerificationMembership owns.
+func (d *decoder) verifiedRequirement(el *element) bool {
+	m, owned := d.owningMembership[el.iri]
+	return owned && d.metaclass(rdf.IRI(m.iri)) == mRequirementVerificationMembership
+}
+
+// verifiedReference reports whether el is a `verify` member written as a
+// reference: its subsetting is the OwnedReferenceSubsetting of
+// RequirementVerificationUsage, where a declaration's `:>` is a Subsetting.
+func (d *decoder) verifiedReference(el *element) bool {
+	if !d.verifiedRequirement(el) {
+		return false
+	}
+	// ownedReferenceSubsetting is derived: the toolkit's compact form states
+	// only the ownedRelationship it is one of.
+	for _, property := range []string{pOwnedReferenceSubsetting, pOwnedRelationship} {
+		for _, relationship := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
+			if d.metaclass(relationship) == mReferenceSubsetting {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // parameterMembershipKind is the kind of the parameter a subject, actor,

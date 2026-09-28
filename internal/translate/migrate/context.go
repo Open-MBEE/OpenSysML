@@ -61,12 +61,10 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if c, settled := m.contexts[b]; settled {
 		return c
 	}
-	// Under a usage's body the object's features resolve on this.
-	for cur := b; cur != nil; cur = cur.Parent {
-		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
-			m.contexts[b] = nil
-			return nil
-		}
+	if m.inUsageBody(b) {
+		// Under a usage's body the object's features resolve on this.
+		m.contexts[b] = nil
+		return nil
 	}
 	if b.Type != "Activity" {
 		c := m.ownerContext(b)
@@ -106,11 +104,9 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	if e == nil || !defScope(e) {
 		return nil
 	}
-	// Under a usage's body the object's features resolve on this.
-	for cur := e; cur != nil; cur = cur.Parent {
-		if m.asUsage[cur] {
-			return nil
-		}
+	if m.inUsageBody(e) {
+		// Inside a usage's body the object's features resolve on this.
+		return nil
 	}
 	owner := classifierOf(e)
 	if owner == nil {
@@ -153,6 +149,21 @@ func (m *migration) contextDeclaration(c *sysmlv1.Element) (declared *sysmlv1.El
 		return c, "", ""
 	}
 	return nil, "", ""
+}
+
+// inUsageBody reports whether e's body is written in a usage's body, where the
+// object's features resolve bare: e is the usage or inline in it. A def nested
+// in a usage is not: its `this` is its own occurrence, so it takes a context.
+func (m *migration) inUsageBody(e *sysmlv1.Element) bool {
+	for cur := e; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+			return true
+		}
+		if defScope(cur) {
+			return false
+		}
+	}
+	return false
 }
 
 // defScope reports whether e is written as a def whose `this` is its own
@@ -486,7 +497,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	}
 	owners = eligible
 	switch owner := classifierOf(b); {
-	case owner != nil && b.Parent != owner:
+	case owner != nil && b.Parent != owner && !defScope(b):
 		// A state's or transition's behavior runs on the machine's object.
 		return nil
 	case owner != nil:
@@ -494,6 +505,11 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 			return m.ownerContext(b)
 		}
 		if len(owners) == 0 || m.providesAny(owner, owners) || m.usesFeaturesOf(b, owner) {
+			if b.Parent != owner {
+				// A def nested in a behavior is settled with it, so it takes
+				// its owner here rather than once asked for on its own.
+				return m.ownerContext(b)
+			}
 			return nil
 		}
 	case len(owners) == 0:
@@ -920,7 +936,7 @@ func (a *activity) on(obj, member string) string {
 // reach; when there is none, an empty step stands where the call was.
 func (a *activity) performUsage(name string, b *sysmlv1.Element) string {
 	owner := b.Parent
-	obj, why := a.m.objectOf(owner, a.selfType(), a.self())
+	obj, _, why := a.m.objectOf(owner, a.selfType(), a.self())
 	if obj == "" {
 		a.m.w.line(actionKw + name + ";")
 		return a.m.nameOf(b) + " is an action of " + qualifiedName(owner) + ", performed on an object of it; " + why + ", so an empty step stands for the call"
@@ -1000,7 +1016,7 @@ func (a *activity) callContext(n *sysmlv1.Element, c *behaviorContext) (expr, no
 // one, else its one part that is.
 func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element, self string) (expr, note string) {
 	kind := qualifiedName(c.classifier)
-	expr, why := m.objectOf(c.objectType(), selfType, self)
+	expr, _, why := m.objectOf(c.objectType(), selfType, self)
 	if expr == "" {
 		return "", actsOn + kind + throughParam + c.name + ", which is left unbound: " + why
 	}
@@ -1008,21 +1024,22 @@ func (m *migration) contextBinding(c *behaviorContext, selfType *sysmlv1.Element
 }
 
 // objectOf finds, from an activity acting on self of selfType, the one object
-// of classifier c in reach: self itself, or self's one part that is a c. The
-// second result completes a sentence: how the object was found, or why none was.
-func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, why string) {
+// of classifier c in reach: self itself, or self's one part that is a c, which
+// part is then returned too. The last result completes a sentence: how the
+// object was found, or why none was.
+func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr string, part *sysmlv1.Element, why string) {
 	kind := qualifiedName(c)
 	switch {
 	case selfType == nil:
-		return "", "the caller acts on no object"
+		return "", nil, "the caller acts on no object"
 	case selfType == c || m.inherits(selfType, c):
-		return self, ""
+		return self, nil, ""
 	}
 	if c != nil {
 		cat, _ := m.classify(c)
 		if cat == catView || cat == catViewpoint {
 			if d := m.featuringDef(c); d != nil && (selfType == d || m.inherits(selfType, d)) {
-				return self + "." + m.usageChain(c, d), ""
+				return self + "." + m.usageChain(c, d), nil, ""
 			}
 		}
 	}
@@ -1036,11 +1053,11 @@ func (m *migration) objectOf(c, selfType *sysmlv1.Element, self string) (expr, w
 		}
 	}
 	if len(parts) == 1 {
-		return self + "." + writeName(m.nameFor(parts[0])), ", the caller's one part that is one"
+		return self + "." + writeName(m.nameFor(parts[0])), parts[0], ", the caller's one part that is one"
 	}
 	why = "has no part that is one"
 	if len(parts) > 1 {
 		why = "has " + strconv.Itoa(len(parts)) + " parts that are one, so no one of them is chosen"
 	}
-	return "", "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
+	return "", nil, "the caller is a " + qualifiedName(selfType) + ", which is no " + kind + " and " + why
 }

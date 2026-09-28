@@ -918,3 +918,103 @@ func TestActivityWithSendAcceptAndOperationCalls(t *testing.T) {
 		t.Errorf("the call did not point the telescope:\n%s", out)
 	}
 }
+
+// A «Probability» naming a property of an enclosing block, on an edge of a def
+// nested in a behavior of a block nested in it: the def takes its owner as its
+// context like any def acting on its owner, and reads the property through it
+// when the object holds the property, by inheritance or in one part; an object
+// holding it nowhere is weighted by the property's default, as under -strict.
+func TestNestedDefProbabilityReadsThroughContext(t *testing.T) {
+	run := func(t *testing.T, r *migrate.Result) {
+		t.Helper()
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+		s := session(t, r)
+		meta(t, s, "%seed 1")
+		meta(t, s, "%instantiate Mission::Sub")
+		meta(t, s, "%action Mission::Sub::run #1")
+		if out := meta(t, s, "%continue"); !strings.Contains(out, "Completed") {
+			t.Errorf("the nested def did not run to completion:\n%s", out)
+		}
+	}
+	t.Run("inherited by the object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_context")
+		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.pr; } }")
+		wantLine(t, r.Notation, "action call : Inner { in ref :>> context = Run::context; }")
+		wantLine(t, r.Notation, "perform action run : Run { in ref :>> context = this; }")
+		wantNote(t, r, "_inner", migrate.Mapped, "acts on its owner Mission::Sub, which it takes as its parameter context")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		wantNote(t, r, "_eb", migrate.Approximated, "it is weighted 1.0 - context.pr, its share of what the marked branches leave of 1, read when the decision is reached")
+		run(t, r)
+	})
+	t.Run("held by one part of the object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part")
+		wantLine(t, r.Notation, "part mission : Mission;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		run(t, r)
+	})
+	t.Run("held by a part that is several objects", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_plural")
+		wantLine(t, r.Notation, "part mission : Mission[2];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Sub::mission, holds 2 objects, so a read through it is a collection, not one number; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		run(t, r)
+	})
+	t.Run("held by one part of the object, the def uncalled", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_uncalled")
+		wantLine(t, r.Notation, "in ref context : Sub;")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = context.mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - context.mission.pr; } }")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+	})
+	t.Run("held by a part that may be no object", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_part_optional")
+		wantLine(t, r.Notation, "part mission : Mission[0..1];")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "whose one part that holds Mission::pr, Mission::Sub::mission, holds 0..1 objects, so a read through it may find no number; a run no longer reads the property")
+		run(t, r)
+	})
+	t.Run("held by a private part of a general", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_part_private")
+		wantLine(t, r.Notation, "private part mission : Mission;")
+		wantLine(t, r.Notation, "part def Sub :> Base {")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "context.mission.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, whose one part that holds Mission::pr, Mission::Base::mission, is a private feature of Mission::Base, which v2 does not inherit, so it cannot be named on the object; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		if errs := errors(t, "t.sysml", r.Notation); len(errs) > 0 {
+			t.Errorf("%v\n%s", errs, r.Notation)
+		}
+		run(t, r)
+	})
+	t.Run("held by a part a node of the body is named like", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_part_shadowed")
+		wantLine(t, r.Notation, "part mission : Mission;")
+		wantLine(t, r.Notation, "action mission {")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = Sub::mission.pr; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 1.0 - Sub::mission.pr; } }")
+		wantNote(t, r, "_ea", migrate.Mapped, "the probability reads the property pr of the object performing the action")
+		run(t, r)
+	})
+	t.Run("out of the object's reach", func(t *testing.T) {
+		r := migrateFixtureFile(t, "probability_nested_def_default")
+		wantLine(t, r.Notation, "first 'decide' then a { @Stochastic::Probability { p = 0.25; } }")
+		wantLine(t, r.Notation, "first 'decide' then b { @Stochastic::Probability { p = 0.75; } }")
+		wantNoLine(t, r.Notation, "p = pr;")
+		wantNoLine(t, r.Notation, "context.pr")
+		wantNote(t, r, "_ea", migrate.Approximated, "the probability is written as 0.25, the default of property Mission::pr, since the action acts on a Mission::Sub, which neither holds Mission::pr nor has one part that does; a run no longer reads the property, so an object whose value differs is still weighted by the default")
+		wantNote(t, r, "_eb", migrate.Approximated, "it is weighted 0.75, its share of what the marked branches leave of 1")
+		run(t, r)
+	})
+}
