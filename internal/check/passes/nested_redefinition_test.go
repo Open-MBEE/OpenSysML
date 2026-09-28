@@ -89,6 +89,40 @@ func TestNestedRedefinitionThroughAParameter(t *testing.T) {
 	}
 }
 
+// An implicitly redefined parameter keeps the redefined feature's type: restating
+// `in part input` in a subtype inherits DataRecord (a data type), so a chain
+// through it is clean, while one inheriting the object-typed output is still
+// flagged.
+func TestNestedRedefinitionThroughARestatedParameter(t *testing.T) {
+	src := `package P {
+		private import ScalarValues::Real;
+		attribute def DataRecord :> DataValue { attribute field : Real; }
+		part def Widget { attribute field : Real; }
+		action def A {
+			in part input : DataRecord;
+			out part output : Widget;
+		}
+		action def B :> A {
+			in part input;
+			out part output;
+		}
+		action run : B {
+			attribute :>> input.field = 9.0;
+			attribute :>> output.field = 9.0;
+		}
+	}`
+	got := nestedDiags(t, src, diag.ConformanceDefault)
+	if len(got) != 1 {
+		t.Fatalf("got %d diagnostics %+v, want one error", len(got), got)
+	}
+	if got[0].Code != CodeRedefinitionThroughReference {
+		t.Errorf("code = %q, want %q", got[0].Code, CodeRedefinitionThroughReference)
+	}
+	if !strings.Contains(got[0].Message, "through reference output") {
+		t.Errorf("message = %q, want it to name the output segment", got[0].Message)
+	}
+}
+
 // A chain crossing a data-typed parameter owns a value below it — an attribute
 // parameter keeps the bound data — so the pass reports nothing.
 func TestNestedRedefinitionThroughADataParameter(t *testing.T) {

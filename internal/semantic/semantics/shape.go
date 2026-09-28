@@ -421,7 +421,7 @@ func (m *Model) ReferentialParameter(sym *symbols.Symbol) bool {
 	}
 	result := !IsDataKind(sym)
 	if result {
-		for _, typ := range m.DeclaredTypes(sym) {
+		for _, typ := range m.FeatureTypes(sym) {
 			if m.IsDataType(typ) {
 				result = false
 				break
