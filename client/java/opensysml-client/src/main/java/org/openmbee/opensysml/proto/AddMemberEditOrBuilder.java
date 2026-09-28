@@ -251,4 +251,45 @@ public interface AddMemberEditOrBuilder extends
    */
   com.google.protobuf.ByteString
       getDirectionBytes();
+
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return A list containing the metadataPrefixes.
+   */
+  java.util.List<java.lang.String>
+      getMetadataPrefixesList();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @return The count of metadataPrefixes.
+   */
+  int getMetadataPrefixesCount();
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the element to return.
+   * @return The metadataPrefixes at the given index.
+   */
+  java.lang.String getMetadataPrefixes(int index);
+  /**
+   * <pre>
+   * Metadata types annotating the new member.
+   * </pre>
+   *
+   * <code>repeated string metadata_prefixes = 14 [json_name = "metadataPrefixes"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the metadataPrefixes at the given index.
+   */
+  com.google.protobuf.ByteString
+      getMetadataPrefixesBytes(int index);
 }

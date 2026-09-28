@@ -120,6 +120,41 @@ func TestNewAuthoringOperationsAreNotSentWithoutTheirCapabilities(t *testing.T) 
 			capabilities: []string{CapabilityApplyEdits, CapabilityTransitionAuthoring},
 			missing:      CapabilityAuthoring,
 		},
+		{
+			name:         "verify operation",
+			operation:    AddVerify{Owner: "Demo::Case", Requirement: "Demo::r"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityVerificationObjectiveAuthoring,
+		},
+		{
+			name: "anonymous objective",
+			operation: AddMember{
+				Owner: "Demo::Case", Kind: "objective",
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityVerificationObjectiveAuthoring,
+		},
+		{
+			name:         "metadata operation",
+			operation:    AddMetadata{Owner: "Demo", MetadataType: "Demo::M"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataAuthoring,
+		},
+		{
+			name: "metadata prefix",
+			operation: AddMember{
+				Owner: "Demo", Kind: "part def", Name: "P",
+				MetadataPrefixes: []string{"Demo::M"},
+			},
+			capabilities: []string{CapabilityApplyEdits, CapabilityAuthoring},
+			missing:      CapabilityMetadataAuthoring,
+		},
+		{
+			name:         "verify requires authoring",
+			operation:    AddVerify{Owner: "Demo::Case", Requirement: "Demo::r"},
+			capabilities: []string{CapabilityApplyEdits, CapabilityVerificationObjectiveAuthoring},
+			missing:      CapabilityAuthoring,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -139,6 +174,7 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	memberOperation, err := editToProto(AddMember{
 		Owner: "Demo", Kind: "attribute", Name: "x", IsAbstract: true,
 		Redefines: []string{"Demo::old"}, IsDefault: true, Direction: "in",
+		MetadataPrefixes: []string{"Demo::Safety"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +182,9 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	member := memberOperation.GetAddMember()
 	if member == nil || !member.GetIsAbstract() || !member.GetIsDefault() ||
 		member.GetDirection() != "in" || len(member.GetRedefines()) != 1 ||
-		member.GetRedefines()[0] != "Demo::old" {
+		member.GetRedefines()[0] != "Demo::old" ||
+		len(member.GetMetadataPrefixes()) != 1 ||
+		member.GetMetadataPrefixes()[0] != "Demo::Safety" {
 		t.Fatalf("AddMember mapping = %+v", member)
 	}
 
@@ -196,5 +234,34 @@ func TestNewAuthoringOperationsMapToProto(t *testing.T) {
 	if got := entryOperation.GetAddTransition(); got == nil ||
 		got.GetOwner() != "Demo::S" || got.GetTarget() != "idle" || !got.GetInitial() {
 		t.Fatalf("AddEntryTransition mapping = %+v", got)
+	}
+
+	verifyOperation, err := editToProto(AddVerify{
+		Owner: "Demo::Case", Requirement: "Demo::r",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := verifyOperation.GetAddVerify(); got == nil ||
+		got.GetOwner() != "Demo::Case" || got.GetRequirement() != "Demo::r" {
+		t.Fatalf("AddVerify mapping = %+v", got)
+	}
+
+	metadataOperation, err := editToProto(AddMetadata{
+		Owner: "Demo::Case", MetadataType: "Demo::M", Name: "m",
+		About:     []string{"Demo::x", "Demo::y"},
+		Values:    []MetadataValue{{Feature: "kind", Value: "Kind::test"}},
+		Shorthand: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := metadataOperation.GetAddMetadata(); got == nil ||
+		got.GetOwner() != "Demo::Case" || got.GetMetadataType() != "Demo::M" ||
+		got.GetName() != "m" || len(got.GetAbout()) != 2 ||
+		got.GetAbout()[0] != "Demo::x" || !got.GetShorthand() ||
+		len(got.GetValues()) != 1 || got.GetValues()[0].GetFeature() != "kind" ||
+		got.GetValues()[0].GetValue() != "Kind::test" {
+		t.Fatalf("AddMetadata mapping = %+v", got)
 	}
 }

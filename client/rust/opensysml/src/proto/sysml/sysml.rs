@@ -986,14 +986,14 @@ pub struct ApplyEditsRequest {
     pub accept_documents: bool,
 }
 /// EditOperation is one source-preserving change to make.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EditOperation {
-    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof="edit_operation::Operation", tags="1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13")]
     pub operation: ::core::option::Option<edit_operation::Operation>,
 }
 /// Nested message and enum types in `EditOperation`.
 pub mod edit_operation {
-    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Operation {
         #[prost(message, tag="1")]
         SetValue(super::SetValueEdit),
@@ -1013,6 +1013,10 @@ pub mod edit_operation {
         AddRequirementConstraint(super::AddRequirementConstraintEdit),
         #[prost(message, tag="9")]
         AddTransition(super::AddTransitionEdit),
+        #[prost(message, tag="12")]
+        AddVerify(super::AddVerifyEdit),
+        #[prost(message, tag="13")]
+        AddMetadata(super::AddMetadataEdit),
     }
 }
 /// AddMemberEdit inserts a declaration into a namespace or the document root.
@@ -1051,6 +1055,9 @@ pub struct AddMemberEdit {
     /// Optional usage direction: "in", "out" or "inout".
     #[prost(string, tag="11")]
     pub direction: ::prost::alloc::string::String,
+    /// Metadata types annotating the new member.
+    #[prost(string, repeated, tag="14")]
+    pub metadata_prefixes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -1114,6 +1121,48 @@ pub struct AddTransitionEdit {
     /// Write `entry; then <target>;` instead of a regular transition.
     #[prost(bool, tag="8")]
     pub initial: bool,
+}
+/// AddVerifyEdit inserts a requirement verification into a verification case.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AddVerifyEdit {
+    /// Verification case or objective receiving the verification.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Requirement feature reference.
+    #[prost(string, tag="2")]
+    pub requirement: ::prost::alloc::string::String,
+}
+/// MetadataFeatureValue binds one metadata feature to a value expression.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MetadataFeatureValue {
+    /// Feature reference to bind.
+    #[prost(string, tag="1")]
+    pub feature: ::prost::alloc::string::String,
+    /// Value expression, written as notation.
+    #[prost(string, tag="2")]
+    pub value: ::prost::alloc::string::String,
+}
+/// AddMetadataEdit inserts a metadata usage.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddMetadataEdit {
+    /// Namespace or body receiving the metadata usage.
+    #[prost(string, tag="1")]
+    pub owner: ::prost::alloc::string::String,
+    /// Metadata definition reference.
+    #[prost(string, tag="2")]
+    pub metadata_type: ::prost::alloc::string::String,
+    /// Optional declared name for the usage.
+    #[prost(string, tag="3")]
+    pub name: ::prost::alloc::string::String,
+    /// Optional references the metadata usage is about.
+    #[prost(string, repeated, tag="4")]
+    pub about: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Feature values in written order.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<MetadataFeatureValue>,
+    /// Write shorthand `@` notation instead of `metadata`.
+    #[prost(bool, tag="6")]
+    pub shorthand: bool,
 }
 /// AddConnectionEdit inserts a usage whose ends connect two features.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

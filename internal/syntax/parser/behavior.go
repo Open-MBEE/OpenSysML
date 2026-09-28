@@ -431,6 +431,7 @@ func (p *Parser) parseDirectionParameter() ast.Node {
 // parseActionMember parses one action member: node, edge, or nested declaration.
 func (p *Parser) parseActionMember() ast.Node {
 	start := p.peek().Span.Offset
+	prefixes := p.parsePrefixMetadata()
 
 	// A `return` reached in a statement position of a calculation body declares
 	// the result parameter, as one among its members does.
@@ -479,13 +480,13 @@ func (p *Parser) parseActionMember() ast.Node {
 		case "first":
 			return p.parseInitialNode(tok)
 		case "fork":
-			return p.parseForkNode(tok)
+			return p.prefixControlNode(p.parseForkNode(tok), prefixes, start)
 		case "join":
-			return p.parseJoinNode(tok)
+			return p.prefixControlNode(p.parseJoinNode(tok), prefixes, start)
 		case "merge":
-			return p.parseMergeNode(tok)
+			return p.prefixControlNode(p.parseMergeNode(tok), prefixes, start)
 		case "decide":
-			return p.parseDecisionNode(tok)
+			return p.prefixControlNode(p.parseDecisionNode(tok), prefixes, start)
 		case "action":
 			return p.parseActionExecutionNode(tok)
 		case "then":
@@ -923,6 +924,24 @@ func (p *Parser) expectStatementEnd(start int, what string) {
 	if !p.atEffectStatementEnd(start) {
 		p.expectSemicolon(what)
 	}
+}
+
+func (p *Parser) prefixControlNode(node ast.Node, prefixes []*ast.PrefixMetadata, start int) ast.Node {
+	switch n := node.(type) {
+	case *ast.ForkNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.JoinNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.MergeNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	case *ast.DecisionNode:
+		n.Prefixes = prefixes
+		n.NodeSpan = p.spanFrom(start)
+	}
+	return node
 }
 
 // atEffectStatementEnd reports whether the statement starting at start is ended

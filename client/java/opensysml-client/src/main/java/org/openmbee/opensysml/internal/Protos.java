@@ -1028,6 +1028,7 @@ public final class Protos {
       add.addAllRedefines(addMember.redefines());
       add.setIsDefault(addMember.isDefault());
       add.setDirection(addMember.direction());
+      add.addAllMetadataPrefixes(addMember.metadataPrefixes());
       builder.setAddMember(add);
     } else if (edit instanceof Edit.AddSatisfy addSatisfy) {
       org.openmbee.opensysml.proto.AddSatisfyEdit.Builder add =
@@ -1058,6 +1059,26 @@ public final class Protos {
       addTransition.guard().ifPresent(add::setGuard);
       addTransition.effect().ifPresent(add::setEffect);
       builder.setAddTransition(add);
+    } else if (edit instanceof Edit.AddVerify addVerify) {
+      builder.setAddVerify(
+          org.openmbee.opensysml.proto.AddVerifyEdit.newBuilder()
+              .setOwner(addVerify.owner())
+              .setRequirement(addVerify.requirement()));
+    } else if (edit instanceof Edit.AddMetadata addMetadata) {
+      org.openmbee.opensysml.proto.AddMetadataEdit.Builder add =
+          org.openmbee.opensysml.proto.AddMetadataEdit.newBuilder()
+              .setOwner(addMetadata.owner())
+              .setMetadataType(addMetadata.metadataType())
+              .setShorthand(addMetadata.shorthand())
+              .addAllAbout(addMetadata.about());
+      addMetadata.name().ifPresent(add::setName);
+      for (Edit.MetadataValue value : addMetadata.values()) {
+        add.addValues(
+            org.openmbee.opensysml.proto.MetadataFeatureValue.newBuilder()
+                .setFeature(value.feature())
+                .setValue(value.value()));
+      }
+      builder.setAddMetadata(add);
     } else if (edit instanceof Edit.AddConnection addConnection) {
       org.openmbee.opensysml.proto.AddConnectionEdit.Builder add =
           org.openmbee.opensysml.proto.AddConnectionEdit.newBuilder()

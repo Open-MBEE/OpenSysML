@@ -880,12 +880,16 @@ public final class Model {
     boolean requestsSatisfyAuthoring = false;
     boolean requestsRequirementConstraintAuthoring = false;
     boolean requestsTransitionAuthoring = false;
+    boolean requestsVerificationObjectiveAuthoring = false;
+    boolean requestsMetadataAuthoring = false;
     for (Edit edit : edits) {
       if (edit instanceof Edit.AddMember
           || edit instanceof Edit.AddConnection
           || edit instanceof Edit.AddSatisfy
           || edit instanceof Edit.AddRequirementConstraint
           || edit instanceof Edit.AddTransition
+          || edit instanceof Edit.AddVerify
+          || edit instanceof Edit.AddMetadata
           || edit instanceof Edit.Delete
           || edit instanceof Edit.Move) {
         requestsAuthoring = true;
@@ -911,6 +915,17 @@ public final class Model {
       if (edit instanceof Edit.AddTransition) {
         requestsTransitionAuthoring = true;
       }
+      if (edit instanceof Edit.AddVerify
+          || edit instanceof Edit.AddMember addMember
+              && addMember.kind().equals("objective")
+              && addMember.name().isEmpty()) {
+        requestsVerificationObjectiveAuthoring = true;
+      }
+      if (edit instanceof Edit.AddMetadata
+          || edit instanceof Edit.AddMember addMember
+              && !addMember.metadataPrefixes().isEmpty()) {
+        requestsMetadataAuthoring = true;
+      }
     }
     if (requestsAuthoring) {
       connection.capabilities().require(Capabilities.AUTHORING);
@@ -929,6 +944,12 @@ public final class Model {
     }
     if (requestsTransitionAuthoring) {
       connection.capabilities().require(Capabilities.TRANSITION_AUTHORING);
+    }
+    if (requestsVerificationObjectiveAuthoring) {
+      connection.capabilities().require(Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    }
+    if (requestsMetadataAuthoring) {
+      connection.capabilities().require(Capabilities.METADATA_AUTHORING);
     }
     options.document().ifPresent(document -> connection.capabilities().require(Capabilities.EDIT_DOCUMENTS));
     ApplyEditsRequest.Builder request =

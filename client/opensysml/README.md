@@ -235,7 +235,8 @@ elements, err := client.Query(ctx, model, opensysml.Query{
 ```
 
 Edits are typed the same way — `SetValue`, `Rename`, `AddMember`, `AddConnection`,
-`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `Delete`, `Move` — and either all apply, answering the edited source, or none do and the
+`AddSatisfy`, `AddRequirementConstraint`, `AddTransition`, `AddVerify`, `AddMetadata`,
+`Delete`, `Move` — and either all apply, answering the edited source, or none do and the
 refusal arrives as an `*EditError` naming its kind:
 
 ```go
@@ -268,6 +269,11 @@ The new member modifiers and `ref`/`return` kinds require `member_modifiers`;
 `requirement_constraint_authoring`, respectively, alongside `authoring`.
 `AddTransition` also requires `authoring` and `transition_authoring`; use
 `AddEntryTransition` to construct its entry-transition form.
+`AddVerify` writes `verify <requirement>;` in a verification case objective and
+requires `verification_objective_authoring`. `AddMetadata` writes a metadata usage
+with optional `About`, `Values` (`MetadataValue{Feature, Value}`) and shorthand
+`@` notation; it requires `metadata_authoring`. `AddMember.MetadataPrefixes`
+adds `#M` metadata to the new declaration and requires the same capability.
 
 The edited source is `result.Documents`, one `EditedDocument` per document the
 batch reached, under the name the model was parsed with; `result.Content` is the

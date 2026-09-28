@@ -55,6 +55,16 @@ func (s *Service) ApplyEdits(ctx context.Context, req *pb.ApplyEditsRequest) (*p
 			return nil, err
 		}
 	}
+	if requestsVerificationObjectiveAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityVerificationObjectiveAuthoring); err != nil {
+			return nil, err
+		}
+	}
+	if requestsMetadataAuthoring(req.Operations) {
+		if err := s.requireCapability(CapabilityMetadataAuthoring); err != nil {
+			return nil, err
+		}
+	}
 	if requestsMemberModifiers(req.Operations) {
 		if err := s.requireCapability(CapabilityMemberModifiers); err != nil {
 			return nil, err
@@ -206,7 +216,8 @@ func requestsAuthoring(operations []*pb.EditOperation) bool {
 		switch operation.GetOperation().(type) {
 		case *pb.EditOperation_AddMember, *pb.EditOperation_AddConnection,
 			*pb.EditOperation_AddSatisfy, *pb.EditOperation_AddRequirementConstraint,
-			*pb.EditOperation_AddTransition,
+			*pb.EditOperation_AddTransition, *pb.EditOperation_AddVerify,
+			*pb.EditOperation_AddMetadata,
 			*pb.EditOperation_Delete, *pb.EditOperation_Move:
 			return true
 		}
@@ -262,6 +273,31 @@ func requestsTransitionAuthoring(operations []*pb.EditOperation) bool {
 	return false
 }
 
+func requestsVerificationObjectiveAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddVerify); ok {
+			return true
+		}
+		add := operation.GetAddMember()
+		if add != nil && add.GetKind() == "objective" && add.GetName() == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func requestsMetadataAuthoring(operations []*pb.EditOperation) bool {
+	for _, operation := range operations {
+		if _, ok := operation.GetOperation().(*pb.EditOperation_AddMetadata); ok {
+			return true
+		}
+		if add := operation.GetAddMember(); add != nil && len(add.GetMetadataPrefixes()) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // editOperations reads the operations a request carries, rejecting a request
 // that names none of the forms: an unset operation is a client fault rather
 // than a refused edit.
@@ -284,6 +320,7 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 			member.Redefines = append([]string(nil), add.GetRedefines()...)
 			member.IsDefault = add.GetIsDefault()
 			member.Direction = add.GetDirection()
+			member.MetadataPrefixes = append([]string(nil), add.GetMetadataPrefixes()...)
 			ops = append(ops, member)
 		case *pb.EditOperation_AddConnection:
 			add := op.AddConnection
@@ -309,6 +346,16 @@ func editOperations(pbOps []*pb.EditOperation) ([]edit.Operation, error) {
 				add.GetOwner(), add.GetName(), add.GetSource(), add.GetTarget(),
 				add.GetTrigger(), add.GetGuard(), add.GetEffect(), add.GetInitial(),
 			))
+		case *pb.EditOperation_AddVerify:
+			ops = append(ops, edit.AddVerify(op.AddVerify.GetOwner(), op.AddVerify.GetRequirement()))
+		case *pb.EditOperation_AddMetadata:
+			add := op.AddMetadata
+			values := make([]edit.MetadataValue, 0, len(add.GetValues()))
+			for _, value := range add.GetValues() {
+				values = append(values, edit.MetadataValue{Feature: value.GetFeature(), Value: value.GetValue()})
+			}
+			ops = append(ops, edit.AddMetadata(add.GetOwner(), add.GetMetadataType(), add.GetName(),
+				append([]string(nil), add.GetAbout()...), values, add.GetShorthand()))
 		case *pb.EditOperation_Delete:
 			del := op.Delete
 			ops = append(ops, edit.Delete(del.GetTarget(), del.GetCascade()))

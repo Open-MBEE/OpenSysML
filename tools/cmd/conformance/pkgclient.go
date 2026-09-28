@@ -1374,17 +1374,18 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 		return opensysml.Rename{Target: kind.Rename.GetTarget(), NewName: kind.Rename.GetNewName()}, true
 	case *pb.EditOperation_AddMember:
 		return opensysml.AddMember{
-			Owner:        kind.AddMember.GetOwner(),
-			Kind:         kind.AddMember.GetKind(),
-			Name:         kind.AddMember.GetName(),
-			Type:         kind.AddMember.GetType(),
-			Multiplicity: kind.AddMember.GetMultiplicity(),
-			Value:        kind.AddMember.GetValue(),
-			Specializes:  kind.AddMember.GetSpecializes(),
-			IsAbstract:   kind.AddMember.GetIsAbstract(),
-			Redefines:    kind.AddMember.GetRedefines(),
-			IsDefault:    kind.AddMember.GetIsDefault(),
-			Direction:    kind.AddMember.GetDirection(),
+			Owner:            kind.AddMember.GetOwner(),
+			Kind:             kind.AddMember.GetKind(),
+			Name:             kind.AddMember.GetName(),
+			Type:             kind.AddMember.GetType(),
+			Multiplicity:     kind.AddMember.GetMultiplicity(),
+			Value:            kind.AddMember.GetValue(),
+			Specializes:      kind.AddMember.GetSpecializes(),
+			IsAbstract:       kind.AddMember.GetIsAbstract(),
+			Redefines:        kind.AddMember.GetRedefines(),
+			IsDefault:        kind.AddMember.GetIsDefault(),
+			Direction:        kind.AddMember.GetDirection(),
+			MetadataPrefixes: kind.AddMember.GetMetadataPrefixes(),
 		}, true
 	case *pb.EditOperation_AddConnection:
 		return opensysml.AddConnection{
@@ -1407,6 +1408,27 @@ func editFromProto(operation *pb.EditOperation) (opensysml.Edit, bool) {
 			Kind:       kind.AddRequirementConstraint.GetKind(),
 			Expression: kind.AddRequirementConstraint.GetExpression(),
 			Name:       kind.AddRequirementConstraint.GetName(),
+		}, true
+	case *pb.EditOperation_AddVerify:
+		return opensysml.AddVerify{
+			Owner:       kind.AddVerify.GetOwner(),
+			Requirement: kind.AddVerify.GetRequirement(),
+		}, true
+	case *pb.EditOperation_AddMetadata:
+		values := make([]opensysml.MetadataValue, 0, len(kind.AddMetadata.GetValues()))
+		for _, value := range kind.AddMetadata.GetValues() {
+			values = append(values, opensysml.MetadataValue{
+				Feature: value.GetFeature(),
+				Value:   value.GetValue(),
+			})
+		}
+		return opensysml.AddMetadata{
+			Owner:        kind.AddMetadata.GetOwner(),
+			MetadataType: kind.AddMetadata.GetMetadataType(),
+			Name:         kind.AddMetadata.GetName(),
+			About:        kind.AddMetadata.GetAbout(),
+			Values:       values,
+			Shorthand:    kind.AddMetadata.GetShorthand(),
 		}, true
 	case *pb.EditOperation_Delete:
 		return opensysml.Delete{Target: kind.Delete.GetTarget(), Cascade: kind.Delete.GetCascade()}, true

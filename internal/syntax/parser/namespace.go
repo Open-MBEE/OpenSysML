@@ -891,6 +891,19 @@ func (p *Parser) leadingPrefixIsDependency() bool {
 	return t.Kind == lexer.Keyword && t.KeywordID == "dependency"
 }
 
+func (p *Parser) leadingPrefixIsActionNode() bool {
+	t := p.peekN(p.prefixLookahead())
+	if t.Kind != lexer.Keyword {
+		return false
+	}
+	switch t.KeywordID {
+	case "fork", "join", "merge", "decide":
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *Parser) leadingPrefixIsDefUsage() bool {
 	i := p.prefixLookahead() // skip past all #QualifiedName prefixes
 	t := p.peekN(i)

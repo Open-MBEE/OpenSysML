@@ -731,6 +731,19 @@ class PublicTypesTest {
     assertEditCapability(
         Edit.AddTransition.of("Demo::S", "idle", "toasting"),
         Capabilities.TRANSITION_AUTHORING);
+    assertEditCapability(
+        Edit.AddVerify.of("Demo::Case", "Demo::r"),
+        Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo::Case", "objective", ""),
+        Capabilities.VERIFICATION_OBJECTIVE_AUTHORING);
+    assertEditCapability(
+        Edit.AddMetadata.of("Demo", "Demo::M"),
+        Capabilities.METADATA_AUTHORING);
+    assertEditCapability(
+        Edit.AddMember.of("Demo", "part def", "P")
+            .withMetadataPrefixes(List.of("Demo::M")),
+        Capabilities.METADATA_AUTHORING);
   }
 
   @Test

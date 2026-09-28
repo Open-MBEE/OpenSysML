@@ -8,13 +8,13 @@ outside an edited span come back unchanged, and it re-parses what it edited
 before returning it.
 
 Operations include setting a feature's value, renaming a declaration, adding a
-member, connection or transition, deleting a declaration, and moving one into
-another namespace.
+member, connection, transition, verification objective or metadata usage,
+deleting a declaration, and moving one into another namespace.
 Renaming rewrites the declaration's name token only and is refused for an
 element that is referenced — see :class:`~opensysml.errors.RenameReferencedError`.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import List
 
@@ -293,7 +293,7 @@ class Editor:
 
     def add_member(self, owner, kind, name, type=None, multiplicity=None,
                    value=None, specializes=None, abstract=False, redefines=None,
-                   default=False, direction=None):
+                   default=False, direction=None, metadata=None):
         """Add one declaration, using strings for all SysML/KerML notation."""
         if not isinstance(kind, str):
             raise TypeError(f"kind must be notation text, not {kind.__class__.__name__}")
@@ -309,6 +309,8 @@ class Editor:
         owner = owner if isinstance(owner, str) else _target_id(owner)
         specializes = _notation_references("specializes", specializes)
         redefines = _notation_references("redefines", redefines)
+        has_metadata = metadata is not None
+        metadata = _notation_references("metadata", metadata)
         if not isinstance(abstract, bool):
             raise TypeError("abstract must be bool")
         if not isinstance(default, bool):
@@ -317,10 +319,61 @@ class Editor:
             raise TypeError(f"direction must be notation text, not {direction.__class__.__name__}")
         base = ("add_member", owner, kind, name, type or "", multiplicity or "",
                 value or "", list(specializes))
-        if (abstract or redefines or default or direction is not None
+        if (abstract or redefines or default or direction is not None or has_metadata
                 or kind in ("ref", "return")):
             base += (abstract, list(redefines), default, direction or "")
+        if has_metadata:
+            base += (metadata,)
         self._add(base)
+        return self
+
+    def add_objective(self, owner, name=None, type=None):
+        """Add an ``objective`` member, unnamed when ``name`` is omitted."""
+        if name is not None and not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {name.__class__.__name__}")
+        if type is not None and not isinstance(type, str):
+            raise TypeError(f"type must be notation text, not {type.__class__.__name__}")
+        return self.add_member(owner, "objective", name or "", type=type)
+
+    def add_verify(self, owner, requirement):
+        """Add ``verify <requirement>;`` to a verification case or its objective."""
+        if not isinstance(requirement, str):
+            raise TypeError(
+                f"requirement must be notation text, not {type(requirement).__name__}"
+            )
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_verify", owner, requirement))
+        return self
+
+    def add_metadata(self, owner, metadata_type, values=None, name=None,
+                     about=None, shorthand=False):
+        """Add a ``metadata`` usage or ``@`` shorthand with optional values."""
+        if not isinstance(metadata_type, str):
+            raise TypeError(
+                f"metadata_type must be notation text, not {type(metadata_type).__name__}"
+            )
+        if name is not None and not isinstance(name, str):
+            raise TypeError(f"name must be notation text, not {type(name).__name__}")
+        if not isinstance(shorthand, bool):
+            raise TypeError("shorthand must be bool")
+        if values is None:
+            bindings = []
+        elif isinstance(values, Mapping):
+            bindings = list(values.items())
+        elif isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
+            bindings = list(values)
+        else:
+            raise TypeError("values must be a mapping or a sequence of (feature, value) pairs")
+        normalized = []
+        for index, pair in enumerate(bindings):
+            if not isinstance(pair, (tuple, list)) or len(pair) != 2:
+                raise TypeError(f"values[{index}] must be a pair of strings")
+            if not all(isinstance(text, str) for text in pair):
+                raise TypeError(f"values[{index}] feature and value must be strings")
+            normalized.append(pair)
+        about = _notation_references("about", about)
+        owner = owner if isinstance(owner, str) else _target_id(owner)
+        self._add(("add_metadata", owner, metadata_type, name or "", about, normalized, shorthand))
         return self
 
     def add_satisfy(self, owner, requirement, by=None, asserted=False, negated=False):

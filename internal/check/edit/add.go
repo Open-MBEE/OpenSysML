@@ -146,6 +146,17 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 		}
 	}
 	performName := ""
+	if op.MemberKind == "return" && len(op.MetadataPrefixes) > 0 {
+		return splice{}, &Error{
+			Failure: FailureIllegalKind, OperationIndex: i,
+			Message: "return parameters cannot carry prefix metadata",
+		}
+	}
+	for _, prefix := range op.MetadataPrefixes {
+		if err := checkQualifiedReference(i, "metadata prefix", prefix); err != nil {
+			return splice{}, err
+		}
+	}
 	if op.MemberName == "" {
 		switch {
 		case op.MemberKind == "return" && op.Type == "" && op.Multiplicity == "":
@@ -153,6 +164,7 @@ func (m Model) addMemberSplice(i int, op Operation) (splice, error) {
 				Failure: FailureIllegalKind, OperationIndex: i,
 				Message: "an unnamed return parameter needs a type or multiplicity",
 			}
+		case op.MemberKind == "objective":
 		case op.MemberKind != "return" && len(op.Redefines) == 0:
 			return splice{}, &Error{
 				Failure: FailureInvalidName, OperationIndex: i,
@@ -373,11 +385,30 @@ func writeMember(op Operation, kind memberKind) string {
 	if op.IsAbstract {
 		prefix = append(prefix, "abstract")
 	}
+	metadata := make([]string, len(op.MetadataPrefixes))
+	for i, name := range op.MetadataPrefixes {
+		metadata[i] = "#" + name
+	}
+	extensionKeyword := op.MemberKind == "ref" || op.MemberKind == "individual" ||
+		op.MemberKind == "individual def" || op.MemberKind == "subject" ||
+		op.MemberKind == "actor" || op.MemberKind == "stakeholder" ||
+		op.MemberKind == "objective"
+	if !extensionKeyword {
+		prefix = append(prefix, metadata...)
+	}
 	switch op.MemberKind {
 	case "return":
 		prefix = append(prefix, "return")
 	case "ref":
 		prefix = append(prefix, "ref")
+		prefix = append(prefix, metadata...)
+	case "individual", "subject", "actor", "stakeholder", "objective":
+		prefix = append(prefix, op.MemberKind)
+		prefix = append(prefix, metadata...)
+	case "individual def":
+		prefix = append(prefix, "individual")
+		prefix = append(prefix, metadata...)
+		prefix = append(prefix, "def")
 	default:
 		prefix = append(prefix, op.MemberKind)
 	}

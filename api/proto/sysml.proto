@@ -845,6 +845,8 @@ message EditOperation {
     AddSatisfyEdit add_satisfy = 7;
     AddRequirementConstraintEdit add_requirement_constraint = 8;
     AddTransitionEdit add_transition = 9;
+    AddVerifyEdit add_verify = 12;
+    AddMetadataEdit add_metadata = 13;
   }
 }
 
@@ -872,6 +874,8 @@ message AddMemberEdit {
   bool is_default = 10;
   // Optional usage direction: "in", "out" or "inout".
   string direction = 11;
+  // Metadata types annotating the new member.
+  repeated string metadata_prefixes = 14;
 }
 
 // AddSatisfyEdit inserts a satisfy usage into any package or body that admits behavior usages.
@@ -918,6 +922,38 @@ message AddTransitionEdit {
   string effect = 7;
   // Write `entry; then <target>;` instead of a regular transition.
   bool initial = 8;
+}
+
+// AddVerifyEdit inserts a requirement verification into a verification case.
+message AddVerifyEdit {
+  // Verification case or objective receiving the verification.
+  string owner = 1;
+  // Requirement feature reference.
+  string requirement = 2;
+}
+
+// MetadataFeatureValue binds one metadata feature to a value expression.
+message MetadataFeatureValue {
+  // Feature reference to bind.
+  string feature = 1;
+  // Value expression, written as notation.
+  string value = 2;
+}
+
+// AddMetadataEdit inserts a metadata usage.
+message AddMetadataEdit {
+  // Namespace or body receiving the metadata usage.
+  string owner = 1;
+  // Metadata definition reference.
+  string metadata_type = 2;
+  // Optional declared name for the usage.
+  string name = 3;
+  // Optional references the metadata usage is about.
+  repeated string about = 4;
+  // Feature values in written order.
+  repeated MetadataFeatureValue values = 5;
+  // Write shorthand `@` notation instead of `metadata`.
+  bool shorthand = 6;
 }
 
 // AddConnectionEdit inserts a usage whose ends connect two features.

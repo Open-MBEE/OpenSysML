@@ -1142,11 +1142,17 @@ result = model.edit().add_part_def("", "Vehicle").apply()
 ```
 
 `add_member(owner, kind, name, type=None, multiplicity=None, value=None, specializes=None,
-abstract=False, redefines=None, default=False, direction=None)` accepts notation strings for the
-declaration. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
+abstract=False, redefines=None, default=False, direction=None, metadata=None)` accepts notation
+strings for the declaration. `metadata` is a metadata type name or a sequence of names written as
+`#M` prefixes on the new member. Typed `add_*` helpers cover the common SysML and KerML kinds, including `ref` and
 `return` where admitted by the grammar. `add_satisfy`, `add_requirement_constraint`,
 `add_require_constraint` and `add_assume_constraint` write requirement statements.
 `add_transition` and `add_entry_transition` write regular and entry transitions in state bodies.
+`add_objective(owner, name=None, type=None)` creates a verification objective;
+`add_verify(owner, requirement)` adds `verify <requirement>;`, creating a case objective when
+needed. `add_metadata(owner, metadata_type, values=None, name=None, about=None, shorthand=False)`
+writes a metadata usage; values are a mapping or ordered sequence of `(feature, value)` pairs,
+and `about` accepts one reference or a sequence. `shorthand=True` writes `@M` notation.
 `add_calc_def` and `add_calc` accept `inputs`, `return_type` and `return_expression`;
 a return expression requires a return type and is bound to the result parameter,
 not written as `return <expr>;`. `add_action_def` and `add_action` accept
@@ -1247,6 +1253,8 @@ call is made. An `add_connection` edit also requires both `authoring` and
 require `member_modifiers`; satisfy edits require `satisfy_authoring`, and
 requirement-constraint edits require `requirement_constraint_authoring`.
 Transition edits require `transition_authoring` alongside `authoring`.
+Verification edits and unnamed objectives require `verification_objective_authoring`; metadata
+usages and metadata prefixes require `metadata_authoring`.
 
 ### Querying a model using the standard query model
 

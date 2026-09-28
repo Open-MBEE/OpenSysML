@@ -20,6 +20,8 @@ from opensysml.capabilities import (
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
     CAPABILITY_SATISFY_AUTHORING,
     CAPABILITY_TRANSITION_AUTHORING,
+    CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+    CAPABILITY_METADATA_AUTHORING,
     CAPABILITY_INLINE_LANGUAGE,
     CAPABILITY_STRICT_CONFORMANCE,
     CAPABILITY_COMPLEX_VALUES,
@@ -979,6 +981,8 @@ class Connection:
         requests_satisfy_authoring = False
         requests_requirement_constraint_authoring = False
         requests_transition_authoring = False
+        requests_verification_objective_authoring = False
+        requests_metadata_authoring = False
         for operation_data in operations:
             operation = request.operations.add()
             kind = operation_data[0]
@@ -991,9 +995,9 @@ class Connection:
                 operation.rename.target = target
                 operation.rename.new_name = text
             elif kind == 'add_member':
-                if len(operation_data) not in (8, 12):
+                if len(operation_data) not in (8, 12, 13):
                     raise ValueError(
-                        "malformed add_member operation: expected 8 or 12 fields"
+                        "malformed add_member operation: expected 8, 12 or 13 fields"
                     )
                 (
                     _, owner, member_kind, name, type_name, multiplicity, value,
@@ -1006,7 +1010,7 @@ class Connection:
                 add.type, add.multiplicity, add.value = type_name, multiplicity, value
                 add.specializes.extend(specializes)
                 if modifiers:
-                    abstract, redefines, default, direction = modifiers
+                    abstract, redefines, default, direction = modifiers[:4]
                     if not isinstance(abstract, bool) or not isinstance(default, bool):
                         raise ValueError(
                             "malformed add_member modifiers: abstract and default must be bool"
@@ -1027,6 +1031,29 @@ class Connection:
                         abstract or bool(redefines) or default or bool(direction)
                         or member_kind in ("ref", "return")
                     )
+                    if len(modifiers) == 5:
+                        metadata = modifiers[4]
+                        if isinstance(metadata, str) or not all(
+                            isinstance(value, str) for value in metadata
+                        ):
+                            raise ValueError(
+                                "malformed add_member metadata: expected a sequence of notation strings"
+                            )
+                        add.metadata_prefixes.extend(metadata)
+                        requests_metadata_authoring = requests_metadata_authoring or bool(metadata)
+                        if metadata:
+                            require(
+                                info,
+                                CAPABILITY_METADATA_AUTHORING,
+                                upgrade_remedy(CAPABILITY_METADATA_AUTHORING),
+                            )
+                if member_kind == "objective" and not name:
+                    require(
+                        info,
+                        CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+                        upgrade_remedy(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING),
+                    )
+                    requests_verification_objective_authoring = True
             elif kind == 'add_connection':
                 if len(operation_data) != 7:
                     raise ValueError(
@@ -1102,6 +1129,57 @@ class Connection:
                 add.owner, add.name, add.source, add.target = owner, name, source, target
                 add.trigger, add.guard, add.effect = trigger, guard, effect
                 add.initial = initial
+            elif kind == 'add_verify':
+                if len(operation_data) != 3:
+                    raise ValueError("malformed add_verify operation: expected 3 fields")
+                _, owner, requirement = operation_data
+                if not isinstance(owner, str) or not isinstance(requirement, str):
+                    raise ValueError("malformed add_verify operation: fields must be notation text")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING,
+                    upgrade_remedy(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING),
+                )
+                requests_authoring = True
+                requests_verification_objective_authoring = True
+                operation.add_verify.owner = owner
+                operation.add_verify.requirement = requirement
+            elif kind == 'add_metadata':
+                if len(operation_data) != 7:
+                    raise ValueError("malformed add_metadata operation: expected 7 fields")
+                _, owner, metadata_type, name, about, values, shorthand = operation_data
+                if not all(isinstance(text, str) for text in (owner, metadata_type, name)):
+                    raise ValueError("malformed add_metadata operation: text fields must be strings")
+                if not isinstance(shorthand, bool):
+                    raise ValueError("malformed add_metadata operation: shorthand must be bool")
+                if not isinstance(about, (list, tuple)) or not all(
+                    isinstance(text, str) for text in about
+                ):
+                    raise ValueError("malformed add_metadata operation: about must be notation strings")
+                if isinstance(values, str) or not isinstance(values, (list, tuple)):
+                    raise ValueError("malformed add_metadata operation: values must be feature-value pairs")
+                require(info, CAPABILITY_AUTHORING, upgrade_remedy(CAPABILITY_AUTHORING))
+                require(
+                    info,
+                    CAPABILITY_METADATA_AUTHORING,
+                    upgrade_remedy(CAPABILITY_METADATA_AUTHORING),
+                )
+                requests_authoring = True
+                requests_metadata_authoring = True
+                add = operation.add_metadata
+                add.owner, add.metadata_type, add.name = owner, metadata_type, name
+                add.about.extend(about)
+                add.shorthand = shorthand
+                for index, pair in enumerate(values):
+                    if not isinstance(pair, (tuple, list)) or len(pair) != 2 or not all(
+                        isinstance(text, str) for text in pair
+                    ):
+                        raise ValueError(
+                            f"malformed add_metadata operation: values[{index}] must be a pair of strings"
+                        )
+                    binding = add.values.add()
+                    binding.feature, binding.value = pair
             elif kind == 'delete':
                 if len(operation_data) != 3 or not isinstance(operation_data[2], bool):
                     raise ValueError(
@@ -1124,7 +1202,8 @@ class Connection:
                 raise ValueError(
                     f"unknown edit operation {kind!r}: expected set_value, rename, "
                     f"add_member, add_connection, add_satisfy, "
-                    f"add_requirement_constraint, add_transition, delete or move"
+                    f"add_requirement_constraint, add_transition, add_verify, "
+                    f"add_metadata, delete or move"
                 )
 
         requested_capabilities = [CAPABILITY_APPLY_EDITS]
@@ -1138,6 +1217,10 @@ class Connection:
             requested_capabilities.append(CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING)
         if requests_transition_authoring:
             requested_capabilities.append(CAPABILITY_TRANSITION_AUTHORING)
+        if requests_verification_objective_authoring:
+            requested_capabilities.append(CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING)
+        if requests_metadata_authoring:
+            requested_capabilities.append(CAPABILITY_METADATA_AUTHORING)
         if requests_member_modifiers:
             require(
                 info, CAPABILITY_MEMBER_MODIFIERS,

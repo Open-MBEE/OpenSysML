@@ -95,6 +95,13 @@ public final class Capabilities {
   /** {@code ApplyEdits} can add transitions to state bodies. */
   public static final String TRANSITION_AUTHORING = "transition_authoring";
 
+  /** {@code ApplyEdits} can add verify usages and anonymous objectives. */
+  public static final String VERIFICATION_OBJECTIVE_AUTHORING =
+      "verification_objective_authoring";
+
+  /** {@code ApplyEdits} can add metadata usages and metadata prefixes. */
+  public static final String METADATA_AUTHORING = "metadata_authoring";
+
   /** {@code ApplyEdits} edits a model of several documents as one batch, answering each edited document by name. */
   public static final String EDIT_DOCUMENTS = "edit_documents";
 

@@ -9,6 +9,7 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/edit"
+	"google.golang.org/protobuf/proto"
 )
 
 func addMemberOp(owner, kind, name string) *pb.EditOperation {
@@ -47,6 +48,21 @@ func addTransitionOp(owner, name, source, target, trigger, guard, effect string,
 		AddTransition: &pb.AddTransitionEdit{
 			Owner: owner, Name: name, Source: source, Target: target,
 			Trigger: trigger, Guard: guard, Effect: effect, Initial: initial,
+		},
+	}}
+}
+
+func addVerifyOp(owner, requirement string) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddVerify{
+		AddVerify: &pb.AddVerifyEdit{Owner: owner, Requirement: requirement},
+	}}
+}
+
+func addMetadataOp(owner, metadataType, name string, about []string, values []*pb.MetadataFeatureValue, shorthand bool) *pb.EditOperation {
+	return &pb.EditOperation{Operation: &pb.EditOperation_AddMetadata{
+		AddMetadata: &pb.AddMetadataEdit{
+			Owner: owner, MetadataType: metadataType, Name: name, About: about,
+			Values: values, Shorthand: shorthand,
 		},
 	}}
 }
@@ -293,6 +309,43 @@ func TestApplyEditsAddTransitionRequiresTransitionAuthoring(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAuthorsVerificationAndMetadata(t *testing.T) {
+	srv := mustNewService(t, 10)
+	source := `package ToasterDemo {
+    private import ISQ::*;
+    private import SI::*;
+    private import VerificationCases::*;
+    part def Toaster { attribute cycleTime : ISQ::DurationValue; }
+    requirement def TimelyToast {
+        subject toaster : Toaster;
+        require constraint { toaster.cycleTime <= 180.0 [SI::s] }
+    }
+    requirement timely : TimelyToast;
+    verification def TimelyToastTest {
+        subject toaster : Toaster;
+    }
+}
+`
+	hash := mustParsedModel(t, srv, source)
+	added, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash: hash,
+		Operations: []*pb.EditOperation{
+			addVerifyOp("ToasterDemo::TimelyToastTest", "timely"),
+			addMetadataOp("ToasterDemo::TimelyToastTest", "VerificationMethod", "", nil,
+				[]*pb.MetadataFeatureValue{{Feature: "kind", Value: "VerificationMethodKind::test"}}, false),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyEdits: %v", err)
+	}
+	want := strings.Replace(source,
+		"        subject toaster : Toaster;\n    }\n",
+		"        subject toaster : Toaster;\n        objective {\n            verify timely;\n        }\n        metadata VerificationMethod { kind = VerificationMethodKind::test; }\n    }\n", 1)
+	if added.Error != "" || added.Content != want {
+		t.Fatalf("ApplyEdits response = %+v\nwant:\n%s", added, want)
+	}
+}
+
 func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -327,6 +380,30 @@ func TestApplyEditsNewAuthoringOperationsRequireDedicatedCapabilities(t *testing
 			name:       "transition",
 			capability: CapabilityTransitionAuthoring,
 			operation:  addTransitionOp("Demo::S", "", "idle", "idle", "", "", "", false),
+		},
+		{
+			name:       "verification objective",
+			capability: CapabilityVerificationObjectiveAuthoring,
+			operation:  addVerifyOp("Demo::V", "Demo::r"),
+		},
+		{
+			name:       "anonymous objective",
+			capability: CapabilityVerificationObjectiveAuthoring,
+			operation:  addMemberOp("Demo::V", "objective", ""),
+		},
+		{
+			name:       "metadata usage",
+			capability: CapabilityMetadataAuthoring,
+			operation:  addMetadataOp("Demo", "Demo::Safety", "", nil, nil, false),
+		},
+		{
+			name:       "metadata prefix",
+			capability: CapabilityMetadataAuthoring,
+			operation: func() *pb.EditOperation {
+				op := addMemberOp("Demo", "part def", "X")
+				op.GetAddMember().MetadataPrefixes = []string{"Demo::Safety"}
+				return op
+			}(),
 		},
 	}
 	for _, tc := range tests {
@@ -384,6 +461,62 @@ func TestApplyEditsNewOperationsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestApplyEditsAuthoredVerificationMatchesParsedRuntimeVerdicts(t *testing.T) {
+	const source = `package Demo {
+    private import VerificationCases::*;
+    part def V { attribute m : ScalarValues::Integer = 0; }
+    part zero : V;
+    requirement def R;
+    requirement r : R;
+    verification def Case {
+        subject v : V;
+        VerificationCases::PassIf(v.m == 0)
+    }
+    verification passing : Case { subject v = zero; }
+}
+`
+	srv := mustNewService(t, 10)
+	hash := mustParsedModel(t, srv, source)
+	edited, err := srv.ApplyEdits(context.Background(), &pb.ApplyEditsRequest{
+		ModelHash:  hash,
+		Operations: []*pb.EditOperation{addVerifyOp("Demo::Case", "Demo::r")},
+	})
+	if err != nil || edited.Error != "" {
+		t.Fatalf("ApplyEdits = %+v, %v", edited, err)
+	}
+	authoredHash := mustParsedModel(t, srv, edited.Content)
+	direct := strings.Replace(source,
+		"        subject v : V;\n",
+		"        subject v : V;\n        objective { verify Demo::r; }\n", 1)
+	directHash := mustParsedModel(t, srv, direct)
+
+	authoredVerdict, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+		ModelHash: authoredHash, SymbolId: "Demo::r",
+	})
+	if err != nil || authoredVerdict.Error != "" {
+		t.Fatalf("VerifyRequirement(authored) = %+v, %v", authoredVerdict, err)
+	}
+	directVerdict, err := srv.VerifyRequirement(context.Background(), &pb.VerifyRequirementRequest{
+		ModelHash: directHash, SymbolId: "Demo::r",
+	})
+	if err != nil || directVerdict.Error != "" {
+		t.Fatalf("VerifyRequirement(direct) = %+v, %v", directVerdict, err)
+	}
+	if len(authoredVerdict.VerificationVerdicts) == 0 {
+		t.Fatalf("authored target reported no verification verdicts: %+v", authoredVerdict)
+	}
+	if len(authoredVerdict.VerificationVerdicts) != len(directVerdict.VerificationVerdicts) {
+		t.Fatalf("authored verdicts = %+v, direct = %+v",
+			authoredVerdict.VerificationVerdicts, directVerdict.VerificationVerdicts)
+	}
+	for i := range authoredVerdict.VerificationVerdicts {
+		if !proto.Equal(authoredVerdict.VerificationVerdicts[i], directVerdict.VerificationVerdicts[i]) {
+			t.Errorf("verification verdict %d differs: authored %+v, direct %+v",
+				i, authoredVerdict.VerificationVerdicts[i], directVerdict.VerificationVerdicts[i])
+		}
+	}
+}
+
 func TestApplyEditsNewFailureEnumsAreMapped(t *testing.T) {
 	tests := []struct {
 		failure edit.Failure
@@ -413,7 +546,9 @@ func TestGetServerInfoAuthoringCapabilities(t *testing.T) {
 	for _, capability := range []string{
 		CapabilityAuthoring, CapabilityConnectionAuthoring,
 		CapabilitySatisfyAuthoring, CapabilityRequirementConstraintAuthoring,
-		CapabilityMemberModifiers, CapabilityTransitionAuthoring, CapabilityInlineLanguage,
+		CapabilityMemberModifiers, CapabilityTransitionAuthoring,
+		CapabilityVerificationObjectiveAuthoring, CapabilityMetadataAuthoring,
+		CapabilityInlineLanguage,
 	} {
 		if !slices.Contains(info.Capabilities, capability) {
 			t.Errorf("capabilities = %v, want %q", info.Capabilities, capability)

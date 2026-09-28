@@ -765,6 +765,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.DeferMember:
 		e.base(&n.NodeBase)
 		e.nodes(n.Triggers)
@@ -837,6 +838,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.IfActionNode:
 		e.base(&n.NodeBase)
 		e.node(n.Condition)
@@ -881,6 +883,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.LiteralBool:
 		e.base(&n.NodeBase)
 		e.w.Bool(n.Value)
@@ -906,6 +909,7 @@ func (e *Encoder) encodeFields(node ast.Node) {
 		e.span(n.NameSpan)
 		e.nodes(n.Members)
 		e.w.Bool(n.HasBody)
+		e.prefixes(n.Prefixes)
 	case *ast.MetadataAccessExpr:
 		e.base(&n.NodeBase)
 		e.node(n.Ref)
@@ -1269,6 +1273,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.DeferMember:
 		d.base(&n.NodeBase)
 		n.Triggers = d.nodes()
@@ -1341,6 +1346,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.IfActionNode:
 		d.base(&n.NodeBase)
 		n.Condition = d.node()
@@ -1385,6 +1391,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.LiteralBool:
 		d.base(&n.NodeBase)
 		n.Value = d.r.Bool()
@@ -1410,6 +1417,7 @@ func (d *Decoder) decodeFields(node ast.Node) {
 		n.NameSpan = d.span()
 		n.Members = d.nodes()
 		n.HasBody = d.r.Bool()
+		n.Prefixes = d.prefixes()
 	case *ast.MetadataAccessExpr:
 		d.base(&n.NodeBase)
 		n.Ref = typed[*ast.QualifiedName](d)

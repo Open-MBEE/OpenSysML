@@ -46,14 +46,22 @@ model.edit().add_allocation("Demo::System", "a", "b", name="alloc1").apply()
 
 `Editor.add_connection(owner, kind, from_, to, name=None, type=None)` writes
 connection-like usages; `add_allocation` and `add_flow` are typed helpers.
-`Editor.add_member` also accepts `abstract`, `redefines`, `default` and `direction`
-options, and supports the SysML `ref` and `return` kinds where they are admitted.
+`Editor.add_member` also accepts `abstract`, `redefines`, `default`, `direction` and
+`metadata` options, and supports the SysML `ref` and `return` kinds where they are admitted.
+`metadata` writes `#M` prefixes on the new member.
 Use `add_satisfy`, `add_requirement_constraint`, `add_require_constraint`,
 `add_assume_constraint`, `add_transition` or `add_entry_transition` to author
 requirement statements and state transitions. These operations preflight their
 dedicated `member_modifiers`, `satisfy_authoring`,
 `requirement_constraint_authoring` or `transition_authoring` capability as
 applicable.
+`add_objective(owner, name=None, type=None)` adds a named or anonymous objective,
+and `add_verify(owner, requirement)` writes `verify <requirement>;` in a
+verification case objective. `add_metadata(owner, metadata_type, values=None,
+name=None, about=None, shorthand=False)` writes metadata usages with optional
+ordered feature values and `about` references; `shorthand=True` uses `@M`.
+Verification authoring requires `verification_objective_authoring`; metadata
+usages and prefixes require `metadata_authoring`.
 `add_calc_def` and `add_calc` accept input pairs, `return_type` and
 `return_expression`; a return expression requires a return type and is bound to
 the result parameter rather than written as `return <expr>;`. `add_action_def`

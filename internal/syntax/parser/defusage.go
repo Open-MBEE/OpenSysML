@@ -2858,6 +2858,9 @@ func (p *Parser) parseBodyMember() ast.Node {
 	// Check for `#MetadataType` prefix (user-defined keyword)
 	// Parse prefixes and then parse def/usage declaration
 	if p.at(lexer.Hash) {
+		if p.leadingPrefixIsActionNode() {
+			return p.parseActionMember()
+		}
 		// Delegate to parseDefUsage which handles prefixes; a prefixed
 		// dependency keeps its prefixes the way a namespace member does.
 		var inner ast.Node

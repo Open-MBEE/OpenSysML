@@ -83,7 +83,8 @@ public sealed interface Edit {
       boolean isAbstract,
       List<String> redefines,
       boolean isDefault,
-      String direction)
+      String direction,
+      List<String> metadataPrefixes)
       implements Edit {
 
     public AddMember(
@@ -95,6 +96,23 @@ public sealed interface Edit {
         Optional<String> value,
         List<String> specializes) {
       this(owner, kind, name, type, multiplicity, value, specializes, false, List.of(), false, "");
+    }
+
+    public AddMember(
+        String owner,
+        String kind,
+        String name,
+        Optional<String> type,
+        Optional<String> multiplicity,
+        Optional<String> value,
+        List<String> specializes,
+        boolean isAbstract,
+        List<String> redefines,
+        boolean isDefault,
+        String direction) {
+      this(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction, List.of());
     }
 
     /**
@@ -118,6 +136,7 @@ public sealed interface Edit {
       specializes = List.copyOf(specializes);
       redefines = List.copyOf(redefines);
       Objects.requireNonNull(direction, "direction");
+      metadataPrefixes = List.copyOf(metadataPrefixes);
     }
 
     /**
@@ -131,7 +150,7 @@ public sealed interface Edit {
     public static AddMember of(String owner, String kind, String name) {
       return new AddMember(
           owner, kind, name, Optional.empty(), Optional.empty(), Optional.empty(), List.of(),
-          false, List.of(), false, "");
+          false, List.of(), false, "", List.of());
     }
 
     /**
@@ -143,7 +162,7 @@ public sealed interface Edit {
     public AddMember withType(String type) {
       return new AddMember(
           owner, kind, name, Optional.of(type), multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /**
@@ -155,7 +174,7 @@ public sealed interface Edit {
     public AddMember withMultiplicity(String multiplicity) {
       return new AddMember(
           owner, kind, name, type, Optional.of(multiplicity), value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /**
@@ -167,7 +186,7 @@ public sealed interface Edit {
     public AddMember withValue(String value) {
       return new AddMember(
           owner, kind, name, type, multiplicity, Optional.of(value), specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /**
@@ -179,35 +198,42 @@ public sealed interface Edit {
     public AddMember withSpecializes(List<String> specializes) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /** The same member declared abstract. */
     public AddMember withAbstract(boolean isAbstract) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /** The same member declared with redefinition targets. */
     public AddMember withRedefines(List<String> redefines) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /** The same member's value declared with the {@code default} keyword. */
     public AddMember withDefault(boolean isDefault) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
 
     /** The same member declared with a usage direction. */
     public AddMember withDirection(String direction) {
       return new AddMember(
           owner, kind, name, type, multiplicity, value, specializes,
-          isAbstract, redefines, isDefault, direction);
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
+    }
+
+    /** The same member prefixed by metadata definitions. */
+    public AddMember withMetadataPrefixes(List<String> metadataPrefixes) {
+      return new AddMember(
+          owner, kind, name, type, multiplicity, value, specializes,
+          isAbstract, redefines, isDefault, direction, metadataPrefixes);
     }
   }
 
@@ -312,6 +338,67 @@ public sealed interface Edit {
 
     public AddTransition withEffect(String effect) {
       return new AddTransition(owner, name, source, target, trigger, guard, Optional.of(effect), initial);
+    }
+  }
+
+  /** Inserts a verify usage into a verification case objective. */
+  record AddVerify(String owner, String requirement) implements Edit {
+
+    public AddVerify {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(requirement, "requirement");
+    }
+
+    public static AddVerify of(String owner, String requirement) {
+      return new AddVerify(owner, requirement);
+    }
+  }
+
+  /** One feature binding in a metadata usage. */
+  record MetadataValue(String feature, String value) {
+
+    public MetadataValue {
+      Objects.requireNonNull(feature, "feature");
+      Objects.requireNonNull(value, "value");
+    }
+  }
+
+  /** Inserts a metadata usage, optionally written with {@code @}. */
+  record AddMetadata(
+      String owner,
+      String metadataType,
+      Optional<String> name,
+      List<String> about,
+      List<MetadataValue> values,
+      boolean shorthand)
+      implements Edit {
+
+    public AddMetadata {
+      Objects.requireNonNull(owner, "owner");
+      Objects.requireNonNull(metadataType, "metadataType");
+      Objects.requireNonNull(name, "name");
+      about = List.copyOf(about);
+      values = List.copyOf(values);
+    }
+
+    public static AddMetadata of(String owner, String metadataType) {
+      return new AddMetadata(owner, metadataType, Optional.empty(), List.of(), List.of(), false);
+    }
+
+    public AddMetadata withName(String name) {
+      return new AddMetadata(owner, metadataType, Optional.of(name), about, values, shorthand);
+    }
+
+    public AddMetadata withAbout(List<String> about) {
+      return new AddMetadata(owner, metadataType, name, about, values, shorthand);
+    }
+
+    public AddMetadata withValues(List<MetadataValue> values) {
+      return new AddMetadata(owner, metadataType, name, about, values, shorthand);
+    }
+
+    public AddMetadata withShorthand(boolean shorthand) {
+      return new AddMetadata(owner, metadataType, name, about, values, shorthand);
     }
   }
 

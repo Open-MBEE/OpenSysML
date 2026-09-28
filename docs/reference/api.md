@@ -96,6 +96,8 @@ the owner's scope, and the last segment is what the member-name-taken check refu
 of. `perform` takes the reference alone: a type, multiplicity, value, specializes, redefines,
 direction or abstract flag is refused. A return parameter is restricted to calculation, constraint, and case bodies; the edit layer
 refuses inadmissible placements even when analysis would only warn.
+`metadata_prefixes` writes metadata references such as `#Safety` on the new declaration, in the
+position required by its member kind; prefixes on `return` are refused.
 
 The `add_connection` operation takes `owner`, `kind`, `from_end`, `to_end`, and optional `name`
 and `type` fields:
@@ -106,14 +108,18 @@ and `type` fields:
 | `add_satisfy` | `owner`, `requirement`, `satisfying_feature?`, `is_asserted`, `is_negated` | A SysML `satisfy` usage in a package or body whose grammar admits behavior usages. Both targets are lexical feature references; analysis checks that the resolved requirement target is a requirement. |
 | `add_requirement_constraint` | `owner`, `kind`, `expression`, `name?` | A `require constraint` or `assume constraint` in a requirement-like body. The expression must parse and analyze; other kinds and placements are refused. |
 | `add_transition` | `owner`, `source`, `target`, `name?`, `trigger?`, `guard?`, `effect?`, `initial` | A state transition in a state definition or usage, including an exhibited or bodiless nested state. Each free-text clause must form exactly one grammar-admissible transition. With `initial`, an entry transition (`entry; then <target>;`) in a state body that has no existing entry action. |
+| `add_verify` | `owner`, `requirement` | A `verify <requirement>;` membership in a verification case's objective. When the case has no owned objective and no inherited user objective, the edit creates one; ambiguous or inherited-only objectives are refused. |
+| `add_metadata` | `owner`, `metadata_type`, `name?`, `about[]`, `values[]`, `shorthand` | A metadata usage in SysML or KerML, with optional `about` references and feature-value bindings. `shorthand` writes `@M` rather than `metadata M`; semantic type and value correctness is checked by re-analysis. |
 
 `type` is accepted only for connection kinds that permit a typing target.
 `add_connection` requires both the `authoring` and `connection_authoring` capabilities.
 `add_satisfy` requires `authoring` and `satisfy_authoring`; `add_requirement_constraint` requires
 `authoring` and `requirement_constraint_authoring`; transition edits require `authoring` and
-`transition_authoring`. An `add_member` edit with any new modifier or
-the `ref`/`return` kind also requires `member_modifiers`. Clients preflight these capabilities
-before sending the operation.
+`transition_authoring`. `add_verify` and an unnamed `objective` member require
+`verification_objective_authoring`; `add_metadata` and an `add_member` with `metadata_prefixes`
+require `metadata_authoring`. An `add_member` edit with any new modifier or the `ref`/`return`
+kind also requires `member_modifiers`. Clients preflight these capabilities before sending the
+operation.
 
 Regular transitions always write `first <source>` and may add at most one `accept <trigger>`, one
 `if <guard>` and one `do <effect>` clause, in that order. An entry transition has no name, source or

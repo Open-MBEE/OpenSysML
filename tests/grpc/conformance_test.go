@@ -101,34 +101,44 @@ type conformanceCase struct {
 }
 
 type conformanceEditOperation struct {
-	Kind              string   `json:"kind"`
-	Target            string   `json:"target,omitempty"`
-	Value             string   `json:"value,omitempty"`
-	NewName           string   `json:"new_name,omitempty"`
-	Owner             string   `json:"owner,omitempty"`
-	MemberKind        string   `json:"member_kind,omitempty"`
-	MemberName        string   `json:"member_name,omitempty"`
-	Name              string   `json:"name,omitempty"`
-	FromEnd           string   `json:"from_end,omitempty"`
-	ToEnd             string   `json:"to_end,omitempty"`
-	Type              string   `json:"type,omitempty"`
-	Multiplicity      string   `json:"multiplicity,omitempty"`
-	Specializes       []string `json:"specializes,omitempty"`
-	IsAbstract        bool     `json:"is_abstract,omitempty"`
-	Redefines         []string `json:"redefines,omitempty"`
-	IsDefault         bool     `json:"is_default,omitempty"`
-	Direction         string   `json:"direction,omitempty"`
-	Requirement       string   `json:"requirement,omitempty"`
-	SatisfyingFeature string   `json:"satisfying_feature,omitempty"`
-	TransitionSource  string   `json:"source,omitempty"`
-	Trigger           string   `json:"trigger,omitempty"`
-	Guard             string   `json:"guard,omitempty"`
-	Effect            string   `json:"effect,omitempty"`
-	Initial           bool     `json:"initial,omitempty"`
-	Asserted          bool     `json:"is_asserted,omitempty"`
-	Negated           bool     `json:"is_negated,omitempty"`
-	Expression        string   `json:"expression,omitempty"`
-	Cascade           bool     `json:"cascade,omitempty"`
+	Kind              string                     `json:"kind"`
+	Target            string                     `json:"target,omitempty"`
+	Value             string                     `json:"value,omitempty"`
+	NewName           string                     `json:"new_name,omitempty"`
+	Owner             string                     `json:"owner,omitempty"`
+	MemberKind        string                     `json:"member_kind,omitempty"`
+	MemberName        string                     `json:"member_name,omitempty"`
+	Name              string                     `json:"name,omitempty"`
+	FromEnd           string                     `json:"from_end,omitempty"`
+	ToEnd             string                     `json:"to_end,omitempty"`
+	Type              string                     `json:"type,omitempty"`
+	Multiplicity      string                     `json:"multiplicity,omitempty"`
+	Specializes       []string                   `json:"specializes,omitempty"`
+	IsAbstract        bool                       `json:"is_abstract,omitempty"`
+	Redefines         []string                   `json:"redefines,omitempty"`
+	MetadataPrefixes  []string                   `json:"metadata_prefixes,omitempty"`
+	IsDefault         bool                       `json:"is_default,omitempty"`
+	Direction         string                     `json:"direction,omitempty"`
+	Requirement       string                     `json:"requirement,omitempty"`
+	SatisfyingFeature string                     `json:"satisfying_feature,omitempty"`
+	TransitionSource  string                     `json:"source,omitempty"`
+	Trigger           string                     `json:"trigger,omitempty"`
+	Guard             string                     `json:"guard,omitempty"`
+	Effect            string                     `json:"effect,omitempty"`
+	Initial           bool                       `json:"initial,omitempty"`
+	Asserted          bool                       `json:"is_asserted,omitempty"`
+	Negated           bool                       `json:"is_negated,omitempty"`
+	Expression        string                     `json:"expression,omitempty"`
+	MetadataType      string                     `json:"metadata_type,omitempty"`
+	About             []string                   `json:"about,omitempty"`
+	MetadataValues    []conformanceMetadataValue `json:"metadata_values,omitempty"`
+	Shorthand         bool                       `json:"shorthand,omitempty"`
+	Cascade           bool                       `json:"cascade,omitempty"`
+}
+
+type conformanceMetadataValue struct {
+	Feature string `json:"feature"`
+	Value   string `json:"value"`
 }
 
 // TestGRPCConformance is the AGENTS.md §5.2 Layer 2 contract for the gRPC
@@ -236,6 +246,7 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Value: op.Value, Specializes: op.Specializes,
 					IsAbstract: op.IsAbstract, Redefines: op.Redefines,
 					IsDefault: op.IsDefault, Direction: op.Direction,
+					MetadataPrefixes: op.MetadataPrefixes,
 				}},
 			})
 		case "add_connection":
@@ -268,6 +279,25 @@ func runApplyEditsCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 					Owner: op.Owner, Name: op.Name, Source: op.TransitionSource,
 					Target: op.Target, Trigger: op.Trigger, Guard: op.Guard,
 					Effect: op.Effect, Initial: op.Initial,
+				}},
+			})
+		case "add_verify":
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddVerify{AddVerify: &pb.AddVerifyEdit{
+					Owner: op.Owner, Requirement: op.Requirement,
+				}},
+			})
+		case "add_metadata":
+			values := make([]*pb.MetadataFeatureValue, 0, len(op.MetadataValues))
+			for _, value := range op.MetadataValues {
+				values = append(values, &pb.MetadataFeatureValue{
+					Feature: value.Feature, Value: value.Value,
+				})
+			}
+			operations = append(operations, &pb.EditOperation{
+				Operation: &pb.EditOperation_AddMetadata{AddMetadata: &pb.AddMetadataEdit{
+					Owner: op.Owner, MetadataType: op.MetadataType, Name: op.Name,
+					About: op.About, Values: values, Shorthand: op.Shorthand,
 				}},
 			})
 		case "delete":

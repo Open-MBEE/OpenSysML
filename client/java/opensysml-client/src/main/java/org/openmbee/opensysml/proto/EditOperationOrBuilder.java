@@ -145,5 +145,35 @@ public interface EditOperationOrBuilder extends
    */
   org.openmbee.opensysml.proto.AddTransitionEditOrBuilder getAddTransitionOrBuilder();
 
+  /**
+   * <code>.sysml.AddVerifyEdit add_verify = 12 [json_name = "addVerify"];</code>
+   * @return Whether the addVerify field is set.
+   */
+  boolean hasAddVerify();
+  /**
+   * <code>.sysml.AddVerifyEdit add_verify = 12 [json_name = "addVerify"];</code>
+   * @return The addVerify.
+   */
+  org.openmbee.opensysml.proto.AddVerifyEdit getAddVerify();
+  /**
+   * <code>.sysml.AddVerifyEdit add_verify = 12 [json_name = "addVerify"];</code>
+   */
+  org.openmbee.opensysml.proto.AddVerifyEditOrBuilder getAddVerifyOrBuilder();
+
+  /**
+   * <code>.sysml.AddMetadataEdit add_metadata = 13 [json_name = "addMetadata"];</code>
+   * @return Whether the addMetadata field is set.
+   */
+  boolean hasAddMetadata();
+  /**
+   * <code>.sysml.AddMetadataEdit add_metadata = 13 [json_name = "addMetadata"];</code>
+   * @return The addMetadata.
+   */
+  org.openmbee.opensysml.proto.AddMetadataEdit getAddMetadata();
+  /**
+   * <code>.sysml.AddMetadataEdit add_metadata = 13 [json_name = "addMetadata"];</code>
+   */
+  org.openmbee.opensysml.proto.AddMetadataEditOrBuilder getAddMetadataOrBuilder();
+
   org.openmbee.opensysml.proto.EditOperation.OperationCase getOperationCase();
 }

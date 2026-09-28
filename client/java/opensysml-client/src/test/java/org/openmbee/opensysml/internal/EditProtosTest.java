@@ -72,7 +72,8 @@ class EditProtosTest {
                 .withAbstract(true)
                 .withRedefines(List.of("Demo::A::old"))
                 .withDefault(true)
-                .withDirection("in"));
+                .withDirection("in")
+                .withMetadataPrefixes(List.of("Demo::Safety")));
     assertEquals("Real", full.getAddMember().getType());
     assertEquals("0..1", full.getAddMember().getMultiplicity());
     assertEquals("1.0", full.getAddMember().getValue());
@@ -81,6 +82,7 @@ class EditProtosTest {
     assertEquals(List.of("Demo::A::old"), full.getAddMember().getRedefinesList());
     assertTrue(full.getAddMember().getIsDefault());
     assertEquals("in", full.getAddMember().getDirection());
+    assertEquals(List.of("Demo::Safety"), full.getAddMember().getMetadataPrefixesList());
   }
 
   @Test
@@ -131,6 +133,28 @@ class EditProtosTest {
     var entry = Protos.proto(Edit.AddTransition.entry("Demo::S", "idle"));
     assertEquals("idle", entry.getAddTransition().getTarget());
     assertTrue(entry.getAddTransition().getInitial());
+  }
+
+  @Test
+  void verificationAndMetadataEditsCarryTheirFields() {
+    var verify = Protos.proto(Edit.AddVerify.of("Demo::Case", "Demo::r"));
+    assertEquals("Demo::Case", verify.getAddVerify().getOwner());
+    assertEquals("Demo::r", verify.getAddVerify().getRequirement());
+
+    var metadata =
+        Protos.proto(
+            Edit.AddMetadata.of("Demo::Case", "Demo::M")
+                .withName("m")
+                .withAbout(List.of("Demo::x", "Demo::y"))
+                .withValues(List.of(new Edit.MetadataValue("kind", "Kind::test")))
+                .withShorthand(true));
+    assertEquals("Demo::Case", metadata.getAddMetadata().getOwner());
+    assertEquals("Demo::M", metadata.getAddMetadata().getMetadataType());
+    assertEquals("m", metadata.getAddMetadata().getName());
+    assertEquals(List.of("Demo::x", "Demo::y"), metadata.getAddMetadata().getAboutList());
+    assertEquals("kind", metadata.getAddMetadata().getValues(0).getFeature());
+    assertEquals("Kind::test", metadata.getAddMetadata().getValues(0).getValue());
+    assertTrue(metadata.getAddMetadata().getShorthand());
   }
 
   @Test

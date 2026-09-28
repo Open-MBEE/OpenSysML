@@ -739,19 +739,19 @@ func dumpBehavior(b *strings.Builder, n Node, depth int) bool {
 		return true
 	case *ForkNode:
 		fmt.Fprintf(b, `(ForkNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *JoinNode:
 		fmt.Fprintf(b, `(JoinNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *MergeNode:
 		fmt.Fprintf(b, `(MergeNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *DecisionNode:
 		fmt.Fprintf(b, `(DecisionNode name=%q`, v.Name)
-		writeChildren(b, depth, v.Members)
+		writeChildren(b, depth, prefixesAnd(v.Prefixes, v.Members))
 		return true
 	case *TerminateStatement:
 		b.WriteString(`(TerminateStatement`)

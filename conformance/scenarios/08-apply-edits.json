@@ -641,6 +641,68 @@
         ]
       },
       "description": "An empty batch is refused in-band, with neither content nor documents, exactly as before documents existed."
+    },
+    {
+      "id": "apply_edits/a_verification_objective_and_metadata_are_authored",
+      "description": "A verification case can gain an objective containing a verify membership and metadata usages, including metadata prefixes on a new definition.",
+      "rpc": "ApplyEdits",
+      "requires_capabilities": [
+        "apply_edits",
+        "authoring",
+        "verification_objective_authoring",
+        "metadata_authoring"
+      ],
+      "model": {
+        "fixture": "verification_metadata_authoring.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "operations": [
+          {
+            "add_verify": {
+              "owner": "ToasterDemo::TimelyToastTest",
+              "requirement": "timely"
+            }
+          },
+          {
+            "add_metadata": {
+              "owner": "ToasterDemo::TimelyToastTest",
+              "metadata_type": "VerificationMethod",
+              "values": [
+                {
+                  "feature": "kind",
+                  "value": "VerificationMethodKind::test"
+                }
+              ]
+            }
+          },
+          {
+            "add_member": {
+              "owner": "ToasterDemo",
+              "kind": "part def",
+              "name": "Heater",
+              "metadata_prefixes": [
+                "ToasterDemo::Safety"
+              ]
+            }
+          }
+        ]
+      },
+      "expect": {
+        "contains_all": {
+          "content": [
+            "verify timely;",
+            "metadata VerificationMethod { kind = VerificationMethodKind::test; }",
+            "#ToasterDemo::Safety part def Heater;"
+          ]
+        },
+        "absent": [
+          "error"
+        ],
+        "counts": {
+          "applied": 3
+        }
+      }
     }
   ]
 }

@@ -88,6 +88,10 @@ CAPABILITY_SATISFY_AUTHORING = "satisfy_authoring"
 CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING = "requirement_constraint_authoring"
 #: The ``ApplyEdits`` ``add_transition`` operation.
 CAPABILITY_TRANSITION_AUTHORING = "transition_authoring"
+#: The ``ApplyEdits`` ``add_verify`` operation and anonymous objectives.
+CAPABILITY_VERIFICATION_OBJECTIVE_AUTHORING = "verification_objective_authoring"
+#: The ``ApplyEdits`` ``add_metadata`` operation and metadata prefixes.
+CAPABILITY_METADATA_AUTHORING = "metadata_authoring"
 #: The additional ``AddMemberEdit`` modifiers and ``ref``/``return`` kinds.
 CAPABILITY_MEMBER_MODIFIERS = "member_modifiers"
 #: ``ApplyEdits`` edits a model of several documents as one batch and answers

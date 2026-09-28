@@ -740,6 +740,9 @@ final class Api {
         if (!add.getDirection().isEmpty()) {
           member = member.withDirection(add.getDirection());
         }
+        if (add.getMetadataPrefixesCount() > 0) {
+          member = member.withMetadataPrefixes(add.getMetadataPrefixesList());
+        }
         yield member;
       }
       case ADD_CONNECTION -> {
@@ -797,6 +800,30 @@ final class Api {
           transition = transition.withEffect(add.getEffect());
         }
         yield transition;
+      }
+      case ADD_VERIFY -> {
+        org.openmbee.opensysml.proto.AddVerifyEdit add = operation.getAddVerify();
+        yield Edit.AddVerify.of(add.getOwner(), add.getRequirement());
+      }
+      case ADD_METADATA -> {
+        org.openmbee.opensysml.proto.AddMetadataEdit add = operation.getAddMetadata();
+        Edit.AddMetadata metadata = Edit.AddMetadata.of(add.getOwner(), add.getMetadataType());
+        if (!add.getName().isEmpty()) {
+          metadata = metadata.withName(add.getName());
+        }
+        if (add.getAboutCount() > 0) {
+          metadata = metadata.withAbout(add.getAboutList());
+        }
+        if (add.getValuesCount() > 0) {
+          metadata = metadata.withValues(
+              add.getValuesList().stream()
+                  .map(value -> new Edit.MetadataValue(value.getFeature(), value.getValue()))
+                  .toList());
+        }
+        if (add.getShorthand()) {
+          metadata = metadata.withShorthand(true);
+        }
+        yield metadata;
       }
       case DELETE ->
           new Edit.Delete(operation.getDelete().getTarget(), operation.getDelete().getCascade());
