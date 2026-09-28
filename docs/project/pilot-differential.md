@@ -2942,6 +2942,18 @@ the Xpect baseline is left alone; a sweep of `examples/`, `testdata/` and the bu
 with both binaries produces identical diagnostics. The 8 only-ours rejection cases are the
 control-node successions the pilot leaves as `TODO`s; the three new cases are both-reject.
 
+### Nested-redefinition chain evaluation
+
+A chain redefinition written as a member of a type or usage — `attribute :>> mid.leaf.value = 99.0;`
+— is spec semantics, not an extension: the chain parses to a feature hosting the chain
+(`semantics/nested_redefinition.go` `NestedRedefinitionsOf`,
+`runtime/nested_redefinition.go`), and the host is redefinable, so the redefinition applies
+below every composite feature the chain walks, exactly as the nested-body form does. The pinned
+pilot accepts the notation but reads the original value — a pilot-evaluator gap, not a
+divergence to report — so the pass reports nothing for a plain chain, and only a chain crossing
+a `ref`, port or subject is an error (`redefinition-through-reference`). The differential
+baseline did not move.
+
 ## Current branch movement and adjudications
 
 The settled control is a clean run of `466de743cbd46eaa6983fd8cf0cffc4097a2137f`,

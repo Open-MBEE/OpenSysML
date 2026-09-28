@@ -121,6 +121,17 @@ func (ctx *Context) shapeOf(inst *Instance) *shapeNode {
 		}
 		feature = held.Feature.Symbol
 	}
+	// A chain-carried or chain-overridden shape is the instance's own: its
+	// declared values derive what its chains state, not the type's alone, so
+	// it takes no share and records none.
+	if len(inst.nested) > 0 {
+		return nil
+	}
+	for _, fv := range inst.FeatureValues {
+		if fv.Feature != nil && (fv.Feature.GovernedByChain || (fv.Feature.Symbol != nil && isChainHost(fv.Feature.Symbol))) {
+			return nil
+		}
+	}
 	shape := ctx.internShape(shapeNode{feature: feature, typ: inst.Type})
 	for _, classifier := range inst.classifiers {
 		shape = ctx.internShape(shapeNode{outer: shape, typ: classifier, classifier: true})
