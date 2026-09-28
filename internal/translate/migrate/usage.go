@@ -207,7 +207,7 @@ func (m *migration) readsOwner(b *sysmlv1.Element) bool {
 	m.walkActions(body, func(e *sysmlv1.Element) {
 		switch e.Type {
 		case "ControlFlow":
-			if p := m.probabilityProperty(body, e); p != nil && m.hasFeature(owner, p) {
+			if p := m.probabilityProperty(body, e); p != nil && m.propertyHolder(p, owner, "this") != "" {
 				reads = true
 			}
 		case "CallOperationAction":
@@ -248,6 +248,17 @@ func (m *migration) probabilityProperty(body, e *sysmlv1.Element) *sysmlv1.Eleme
 		return nil
 	}
 	return p
+}
+
+// propertyHolder spells the object holding the property p in reach of a body
+// acting on self, an object of selfType: self itself when p is its feature,
+// else its one part that holds one; "" when no object in reach holds p.
+func (m *migration) propertyHolder(p, selfType *sysmlv1.Element, self string) string {
+	if p.Parent == nil || selfType == nil {
+		return ""
+	}
+	expr, _ := m.objectOf(p.Parent, selfType, self)
+	return expr
 }
 
 // lifelinesOn reports whether a lifeline of the interaction b stands for a part

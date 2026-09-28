@@ -61,12 +61,10 @@ func (m *migration) contextOf(b *sysmlv1.Element) *behaviorContext {
 	if c, settled := m.contexts[b]; settled {
 		return c
 	}
-	for cur := b; cur != nil; cur = cur.Parent {
-		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
-			// Under a usage's body the object's features resolve on this.
-			m.contexts[b] = nil
-			return nil
-		}
+	if m.inUsageBody(b) {
+		// Under a usage's body the object's features resolve on this.
+		m.contexts[b] = nil
+		return nil
 	}
 	if b.Type != "Activity" {
 		c := m.ownerContext(b)
@@ -98,11 +96,9 @@ func (m *migration) ownerContext(e *sysmlv1.Element) *behaviorContext {
 	if e == nil || !defScope(e) {
 		return nil
 	}
-	for cur := e; cur != nil; cur = cur.Parent {
-		if m.asUsage[cur] {
-			// Inside a usage's body the object's features resolve on this.
-			return nil
-		}
+	if m.inUsageBody(e) {
+		// Inside a usage's body the object's features resolve on this.
+		return nil
 	}
 	owner := classifierOf(e)
 	if owner == nil {
@@ -145,6 +141,21 @@ func (m *migration) contextDeclaration(c *sysmlv1.Element) (declared *sysmlv1.El
 		return c, "", ""
 	}
 	return nil, "", ""
+}
+
+// inUsageBody reports whether e's body is written in a usage's body, where the
+// object's features resolve bare: e is the usage or inline in it. A def nested
+// in a usage is not: its `this` is its own occurrence, so it takes a context.
+func (m *migration) inUsageBody(e *sysmlv1.Element) bool {
+	for cur := e; cur != nil; cur = cur.Parent {
+		if m.asUsage[cur] || m.asUsage[m.methodOf[cur]] {
+			return true
+		}
+		if defScope(cur) {
+			return false
+		}
+	}
+	return false
 }
 
 // defScope reports whether e is written as a def whose `this` is its own
@@ -472,7 +483,7 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 	}
 	owners = eligible
 	switch owner := classifierOf(b); {
-	case owner != nil && b.Parent != owner:
+	case owner != nil && b.Parent != owner && !defScope(b):
 		// A state's or transition's behavior runs on the machine's object.
 		return nil
 	case owner != nil:
@@ -480,6 +491,11 @@ func (m *migration) decideContext(b *sysmlv1.Element, owners []*sysmlv1.Element)
 			return m.ownerContext(b)
 		}
 		if len(owners) == 0 || m.providesAny(owner, owners) || m.usesFeaturesOf(b, owner) {
+			if b.Parent != owner {
+				// A def nested in a behavior is settled with it, so it takes
+				// its owner here rather than once asked for on its own.
+				return m.ownerContext(b)
+			}
 			return nil
 		}
 	case len(owners) == 0:
