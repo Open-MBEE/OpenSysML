@@ -50,3 +50,77 @@ func TestPackagesImportingEachOtherInACycleAnalysePromptly(t *testing.T) {
 		})
 	}
 }
+
+// A filter clause's own names resolve while the import carrying it is being
+// searched: a nested lookup of the same name over the same import edge must
+// not be cut short by the visit set of the enclosing search (KerML 8.2.4).
+func TestFilteredImportOverMembershipImportsRejectsUnmarked(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "filter names another member",
+			src: `package S {
+	metadata def Marker;
+	#Marker part def Good;
+	part def Bad;
+}
+package R {
+	public import S::Marker;
+	public import S::Good;
+	public import S::Bad;
+}
+package Q {
+	public import R::*[@Marker];
+}
+package P {
+	public import Q::*;
+	part g : Good;
+	part b : Bad;
+}
+`,
+		},
+		{
+			name: "filter names the resolved name",
+			src: `package M { metadata def Good; }
+package S {
+	#M::Good part def Good;
+	part def Bad;
+}
+package R {
+	public import S::*;
+}
+package Q {
+	public import R::*[@Good];
+	public import M::*;
+}
+package P {
+	public import Q::*;
+	part g : Good;
+	part b : Bad;
+}
+`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			done := make(chan []diag.Diagnostic, 1)
+			go func() {
+				ws := model.NewWorkspace()
+				ws.Open("filter.sysml", []byte(tc.src), 1)
+				done <- ws.Diagnostics("filter.sysml")
+			}()
+			select {
+			case diags := <-done:
+				if len(diags) != 1 {
+					t.Fatalf("only `Bad` is unresolved; got %d diagnostics: %v", len(diags), diags)
+				}
+				if !strings.Contains(diags[0].Message, "Bad") {
+					t.Fatalf("the one diagnostic should name `Bad`; got %q", diags[0].Message)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("analysing a filtered import over membership imports did not finish in 5s")
+			}
+		})
+	}
+}

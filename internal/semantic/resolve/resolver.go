@@ -125,6 +125,8 @@ type Resolver struct {
 	// namespaces importing one another in a cycle are searched once per
 	// lookup, not once per path through the cycle, as the excluded set of
 	// Namespace::visibleMemberships intends (KerML 8.2.3.5; issue #633).
+	// A lookup made aside or for a filter condition starts with a set of its
+	// own (see freshImportVisits).
 	importVisits map[importVisit]bool
 	importDepth  int
 	Diagnostics  []Diagnostic
@@ -653,6 +655,19 @@ func (r *Resolver) analyzing() string {
 func (r *Resolver) aside(f func()) {
 	r.quiet++
 	defer func() { r.quiet-- }()
+	r.freshImportVisits(f)
+}
+
+// freshImportVisits runs f as a lookup of its own: the import edges the
+// enclosing imported-member search has already visited must not cut it short.
+func (r *Resolver) freshImportVisits(f func()) {
+	if r.importDepth == 0 {
+		f()
+		return
+	}
+	visits, depth := r.importVisits, r.importDepth
+	r.importVisits, r.importDepth = map[importVisit]bool{}, 0
+	defer func() { r.importVisits, r.importDepth = visits, depth }()
 	f()
 }
 
@@ -776,7 +791,7 @@ func (r *Resolver) memoizeFeatureChain(scope *symbols.Scope, fc *ast.FeatureChai
 func (r *Resolver) InCondition(f func()) {
 	r.inCondition++
 	defer func() { r.inCondition-- }()
-	f()
+	r.freshImportVisits(f)
 }
 
 func spanOf(n ast.Node) source.Span {
