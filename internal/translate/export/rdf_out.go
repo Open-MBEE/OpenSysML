@@ -309,22 +309,23 @@ func newEncoder(file *source.SourceFile, root *ast.RootNamespace, library string
 		return nil, err
 	}
 	e := &encoder{
-		file:           file,
-		graph:          rdf.NewGraph(),
-		res:            res,
-		declared:       map[string]bool{},
-		metadataBodies: map[string]bool{},
-		performed:      map[ast.Node]bool{},
-		effects:        map[ast.Node]bool{},
-		fqn:            map[ast.Node]string{},
-		links:          map[*ast.QualifiedName]*symbols.Symbol{},
-		preceding:      map[ast.Node]ast.Node{},
-		introduced:     map[ast.Node]ast.Node{},
-		ids:            ids,
-		subjects:       map[string]string{},
-		regions:        map[rdf.Term]region{},
-		bodies:         map[rdf.Term]region{},
-		offsets:        map[string]int{},
+		file:               file,
+		graph:              rdf.NewGraph(),
+		res:                res,
+		declared:           map[string]bool{},
+		metadataBodies:     map[string]bool{},
+		performed:          map[ast.Node]bool{},
+		effects:            map[ast.Node]bool{},
+		fqn:                map[ast.Node]string{},
+		links:              map[*ast.QualifiedName]*symbols.Symbol{},
+		preceding:          map[ast.Node]ast.Node{},
+		introduced:         map[ast.Node]ast.Node{},
+		ids:                ids,
+		subjects:           map[string]string{},
+		regions:            map[rdf.Term]region{},
+		verifiedReferences: map[rdf.Term]bool{},
+		bodies:             map[rdf.Term]region{},
+		offsets:            map[string]int{},
 	}
 	for _, ref := range resolve.References(root, res.Index().DocumentRoot(file.Name())) {
 		if sym, ok := res.ProbeReference(ref); ok && sym != nil {
@@ -380,6 +381,11 @@ type encoder struct {
 	bodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
+	// verifiedReferences holds the `verify` members written as a reference
+	// (`verify r;`, `verify r :>> req;`), whose subsetting is the
+	// OwnedReferenceSubsetting of RequirementVerificationUsage, as against a
+	// declaration (`verify requirement :> r;`), whose `:>` is a Subsetting.
+	verifiedReferences map[rdf.Term]bool
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -957,6 +963,21 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 					e.graph.Add(membership, e.sysml(pKind), rdf.String(kind))
 					e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 				}
+			}
+		}
+		if n.IsVerifiedRequirement() {
+			// A requirement body's `verify r;` is the RequirementUsage its
+			// RequirementVerificationMembership owns, not a satisfy
+			// (SysML-textual-bnf RequirementVerificationMember).
+			metaclass = usageMetaclass[ast.UsageRequirement]
+			h.membershipClass = mRequirementVerificationMembership
+			h.membershipExtra = func(membership rdf.Term) {
+				e.graph.Add(membership, e.sysml(pKind), rdf.String("requirement"))
+				e.graph.Add(membership, e.sysml(pOwnedRequirement), subject)
+				e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
+			}
+			if !n.DeclaresRequirement {
+				e.verifiedReferences[subject] = true
 			}
 		}
 		head(rdf.SysMLTerm(metaclass))

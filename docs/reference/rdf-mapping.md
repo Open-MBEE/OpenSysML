@@ -616,6 +616,7 @@ sees the same relationships SysML.xtext produces.
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
 | `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
+| `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
 | `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
 | `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
 | an expression's `referent`/`targetFeature` link | a `sysml:Membership` minted beside it (`<S>_referent`, `_preferent`, `_targetFeature`) restating the referent edge as `memberElement`/`owner`, the shape interchange readers navigate (KerML 1.0 § 8.3.4.8.5 `FeatureReferenceExpression::referent` is derived from that membership). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
@@ -1545,8 +1546,11 @@ named one writes `from` as its `sysx:endVerb`. The forms and what each writes:
 
 A head whose own keyword is the noun form writes a verb ahead of its ends, and
 that verb is `sysx:endVerb` (`connection c connect a to b`). Where the keyword
-is a synonym for the kind (`verify` for a satisfy, `allocate` for an
-allocation) it is carried as `sysx:declaredKeyword`, as elsewhere.
+is a synonym for the kind (`allocate` for an allocation) it is carried as
+`sysx:declaredKeyword`, as elsewhere. `verify R` in a requirement body keeps the
+`satisfy` end form and the `verify` keyword, but is no satisfy: it is the
+`sysml:RequirementUsage` a `sysml:RequirementVerificationMembership` owns, with
+`sysml:kind "requirement"` (SysML-textual-bnf RequirementVerificationMember).
 
 An anonymous connector's own multiplicity (`sysml:lowerBound`/`sysml:upperBound`
 on the connector, as against on an end node) is its declaration, and is written
