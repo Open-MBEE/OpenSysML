@@ -32,5 +32,6 @@ part def Plant {
         bind result = rate.result;
         flow two.result to rate.factor;
         metadata MigrationMetadata::SynthesizedName about 'fork', 'join', final;
+        metadata MigrationMetadata::StandIn about 'fork', 'join';
     }
 }
