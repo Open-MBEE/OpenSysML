@@ -386,18 +386,20 @@ func (c *featureReferenceChecker) walkExpr(site refSite, scope *symbols.Scope, n
 
 // walkAssignmentTarget checks the prefixes of a chained assignment target.
 func (c *featureReferenceChecker) walkAssignmentTarget(site refSite, scope *symbols.Scope, target ast.Node) {
-	switch target.(type) {
+	switch target := target.(type) {
 	case *ast.FeatureChainExpr:
+		var current ast.Node = target
 		for {
-			chain, ok := target.(*ast.FeatureChainExpr)
-			if !ok {
-				break
+			switch chain := current.(type) {
+			case *ast.FeatureChainExpr:
+				current = chain.Operand
+			default:
+				c.walkExpr(site, scope, current)
+				return
 			}
-			target = chain.Operand
 		}
-		c.walkExpr(site, scope, target)
 	case *ast.QualifiedName:
-		name := target.(*ast.QualifiedName)
+		name := target
 		for i := 1; i < len(name.Parts); i++ {
 			if !name.Parts[i].Chained {
 				continue
