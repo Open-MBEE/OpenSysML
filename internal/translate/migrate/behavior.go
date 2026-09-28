@@ -149,14 +149,14 @@ func (m *migration) classifierBehavior(c *sysmlv1.Element) {
 	case catStateDef:
 		head := "exhibit state " + writeName(name) + " : " + m.ref(b, c)
 		if ins != "" {
-			m.w.line(head + " { " + ins + "; }")
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
 		} else {
 			m.w.line(head + ";")
 		}
 	case catActionDef:
 		head := "perform action " + writeName(name) + " : " + m.ref(b, c)
 		if ins != "" {
-			m.w.line(head + " { " + ins + "; }")
+			m.w.line(head + " { " + strings.Join(m.contextBody(b, ins), "; ") + "; }")
 		} else {
 			m.w.line(head + ";")
 		}

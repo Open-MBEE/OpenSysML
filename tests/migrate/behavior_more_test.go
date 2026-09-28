@@ -564,6 +564,37 @@ func TestStrictDeferredPortRouteDeclaresAndBindsContext(t *testing.T) {
 	wantClean(t, "deferredPortContext", r)
 }
 
+func TestClassifierBehaviorContextFollowsInputParameter(t *testing.T) {
+	const machine = `
+    <packagedElement xmi:type="uml:Signal" xmi:id="_event" name="Event"/>
+    <packagedElement xmi:type="uml:SignalEvent" xmi:id="_eventEv" signal="_event"/>
+    <packagedElement xmi:type="uml:Class" xmi:id="_receiver" name="Receiver" classifierBehavior="_life">
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_p" name="p" aggregation="composite"/>
+      <ownedBehavior xmi:type="uml:StateMachine" xmi:id="_life" name="Life">
+        <ownedParameter xmi:type="uml:Parameter" xmi:id="_x" name="x" direction="in">
+          <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Integer"/>
+        </ownedParameter>
+        <region xmi:type="uml:Region" xmi:id="_region">
+          <subvertex xmi:type="uml:Pseudostate" xmi:id="_initial"/>
+          <subvertex xmi:type="uml:State" xmi:id="_waiting" name="Waiting">
+            <deferrableTrigger xmi:type="uml:Trigger" xmi:id="_deferred" event="_eventEv" port="_p"/>
+          </subvertex>
+          <transition xmi:type="uml:Transition" xmi:id="_initialTransition" source="_initial" target="_waiting"/>
+        </region>
+      </ownedBehavior>
+    </packagedElement>`
+	const applications = `<sysml:Block xmi:id="_receiverBlock" base_Class="_receiver"/>`
+	r := migrateDocumentOptions(t, machine, applications, migrate.Options{Strict: true})
+	for _, line := range []string{
+		"in x : ScalarValues::Integer;",
+		"in ref context : Receiver;",
+		"exhibit state life : Life { in x; in ref :>> context = this; }",
+	} {
+		wantLine(t, r.Notation, line)
+	}
+	wantClean(t, "classifierBehaviorParameterContext", r)
+}
+
 func TestStrictAcceptViaContextPortFixture(t *testing.T) {
 	r := migrateFixtureFileOptions(t, "accept_via_context_port", migrate.Options{Strict: true})
 	for _, line := range []string{
