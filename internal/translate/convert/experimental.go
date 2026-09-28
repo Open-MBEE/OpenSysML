@@ -20,7 +20,7 @@ const MigrationNotice = "SysML v1 migration is experimental: the mapping covers 
 // through the RDF mapping or the SysML v1 migration. Notation to notation does not.
 func IsExperimental(from, to Format) bool {
 	return from == FormatTurtle || to == FormatTurtle ||
-		from == FormatAPIJSON || to == FormatAPIJSON || from == FormatXMI
+		from == FormatAPIJSON || to == FormatAPIJSON || from == FormatXMI || from == FormatFMU
 }
 
 // Notices lists the experimental notices a conversion between these formats
@@ -30,7 +30,7 @@ func Notices(from, to Format) []string {
 	if from == FormatXMI {
 		notices = append(notices, MigrationNotice)
 	}
-	if from == FormatTurtle || to == FormatTurtle || from == FormatAPIJSON || to == FormatAPIJSON {
+	if from == FormatTurtle || to == FormatTurtle || from == FormatAPIJSON || to == FormatAPIJSON || from == FormatFMU {
 		notices = append(notices, ExperimentalNotice)
 	}
 	return notices
